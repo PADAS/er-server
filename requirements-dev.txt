@@ -1,0 +1,4 @@
+#To run spatialite, requires GEOS, GDAL, PROJ.4
+# see here for setting up windows GeoDjango environment
+# https://docs.djangoproject.com/en/1.8/ref/contrib/gis/install/
+# single windows installer https://trac.osgeo.org/osgeo4w/
