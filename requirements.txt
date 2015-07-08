@@ -10,7 +10,7 @@ Django==1.8.2
 #Shapely==1.5.9
 
 #http://djangonauts.github.io/django-pgjson/
-#django-pgjson==0.3.0
+django-pgjson==0.3.0
 #djangorestframework-gis
 
 #GDAL==2.0.0
