@@ -10,12 +10,20 @@ from .settings import *
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
 # we use postgis, create the db from the spatial db template
-# createdb -T template_postgis geodjango ENCODING 'utf8';
+# CREATE DATABASE dasdb ENCODING 'utf8';
+# \c dasdb;
+# CREATE EXTENSION postgis;
+# CREATE EXTENSION postgis_topology;
+#
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': 'dasdb',
         'USER': 'postgres',
-        'HOST': 'at-db.cuts0lhpybwu.us-west-2.rds.amazonaws.com',
+        'HOST': 'localhost',
     }
 }
+
+
+# On Windows, install Shapely, then set the geos library path appropriately
+#GEOS_LIBRARY_PATH = 'C:\python34\Lib\site-packages\shapely\DLLs\geos_c.dll'

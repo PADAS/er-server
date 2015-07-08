@@ -25,7 +25,7 @@ class Device(models.Model):
 class DeviceType(models.Model):
     """Device characteristics"""
     id = models.AutoField(primary_key=True)
-    name = models.CharField()
+    name = models.CharField(max_length=100)
     extra = JsonBField()
 
 class Observation(models.Model):
@@ -35,9 +35,7 @@ class Observation(models.Model):
 
     """
     id = models.AutoField(primary_key=True)
-    location = models.GeometryField()
-    lat = models.FloatField()
-    lon = models.FloatField()
+    location = models.PointField()
     recorded_at = models.DateTimeField() #point in time of object at lat lon
     created_at = models.DateTimeField(auto_now_add=True) #date/time this row created
     device = models.ForeignKey('Device')
@@ -49,17 +47,17 @@ class Observation(models.Model):
         return self.name
 
 
-class ThingDevice(models.Model):
-    """A Thing is associated with a Device for a specific time period
+class SubjectDevice(models.Model):
+    """A Subject is associated with a Device for a specific time period
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
     """
     start_at =  models.DateTimeField()
     end_at = models.DateTimeField()
     device = models.ForeignKey('Device')
-    thing = models.ForeignKey('Thing')
+    thing = models.ForeignKey('Subject')
     extra = JsonBField()
 
-class Thing(models.Model):
+class Subject(models.Model):
     """Person, Animal, Vehicle, etc"""
     extra = JsonBField()
 
@@ -67,4 +65,4 @@ class CollectionHistory(models.Model):
     """Input Transformer log"""
     created_at = models.DateTimeField(auto_now_add=True) #date/time this row created
     device = models.ForeignKey('Device')
-    outcome = models.CharField()
+    outcome = models.CharField(max_length=50)

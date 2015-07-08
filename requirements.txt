@@ -5,12 +5,7 @@ psycopg2==2.6
 simplejson==3.7.3
 Django==1.8.2
 
-#requires GEOS, which is the engine used by PostGIS
-#on windows, go here: http://www.lfd.uci.edu/~gohlke/pythonlibs/#shapely
-#Shapely==1.5.9
-
 #http://djangonauts.github.io/django-pgjson/
 django-pgjson==0.3.0
 #djangorestframework-gis
 
-#GDAL==2.0.0
