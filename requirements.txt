@@ -3,9 +3,13 @@
 #
 psycopg2==2.6
 simplejson==3.7.3
+pytz==2015.4
+python-dateutil==2.4.2
 Django==1.8.2
 
 #http://djangonauts.github.io/django-pgjson/
 django-pgjson==0.3.0
+django-geojson==2.8.1
+django-model-utils==2.2
 #djangorestframework-gis
 

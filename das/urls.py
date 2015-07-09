@@ -18,4 +18,5 @@ from django.contrib import admin
 
 urlpatterns = [
     url(r'^api/', include('api.urls')),
+    url(r'^tracker/', include('tracker.urls')),
 ]

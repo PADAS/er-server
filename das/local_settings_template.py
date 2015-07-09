@@ -7,6 +7,9 @@ call your project be overriding the settings file
 
 from .settings import *
 
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True
+
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
 # we use postgis, create the db from the spatial db template

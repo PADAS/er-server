@@ -5,9 +5,18 @@ Project DAS - Domain Awareness System
 Developer Setup
 =================================================================
 Requirements
+-----------------------------------------------------------------
 
 * Python 3.4 (pip and virtualenv)
 * Postgres 9.4
+
+Coding Conventions
+-----------------------------------------------------------------
+We use Pep8 of course
+4 space indents
+'' single quotes around strings as much as possible
+
+
 
 Steps
 -----------------------------------------------------------------
