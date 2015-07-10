@@ -7,8 +7,10 @@ call your project be overriding the settings file
 
 from .settings import *
 
+SECRET_KEY = ''
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+TEMPLATE_DEBUG = True
 
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases

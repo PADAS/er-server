@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
+import logging
+import sys
+from logging.handlers import SysLogHandler
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -39,6 +42,7 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'django.contrib.gis',
     'das.sensors',
+    'das.api'
 )
 
 MIDDLEWARE_CLASSES = (
@@ -85,6 +89,65 @@ DATABASES = {
     }
 }
 
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'syslog': {
+            'format': 'mw %(levelname)s %(processName)s %(thread)d %(name)s %(message)s'
+        },
+        'simple': {
+            'format': '%(asctime)s mw %(levelname)s %(processName)s %(thread)d %(name)s %(message)s'
+        },
+    },
+    'handlers': {
+        # 'syslog': {
+        #     'level': 'INFO',
+        #     'class': 'logging.handlers.SysLogHandler',
+        #     'address': '/dev/log',
+        #     'facility': SysLogHandler.LOG_USER,
+        #     'formatter': 'syslog'
+        # },
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': '/tmp/das.log',
+            'formatter': 'simple'
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'stream': sys.stdout,
+            'formatter': 'simple'
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'propagate': True,
+            'level': 'INFO',
+        },
+        'sensors': {
+            'handlers': ['file'],
+            'level': 'INFO',
+        },
+        'api': {
+            'handlers': ['file'],
+            'level': 'INFO',
+        },
+    }
+}
+
+# django-secure
+# SECURE_FRAME_DENY = True
+# SECURE_CONTENT_TYPE_NOSNIFF = True
+# SECURE_BROWSER_XSS_FILTER = True
+# SECURE_SSL_REDIRECT = True
+# SESSION_COOKIE_SECURE = True
+# SESSION_COOKIE_HTTPONLY = True
+# SECURE_HSTS_SECONDS = 3600
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
