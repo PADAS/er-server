@@ -1,4 +1,16 @@
-"""Migrate some data from the AnimalTracking db to the DasDB"""
+"""Migrate some data from the AnimalTracking db to the DasDB
+
+To your local_settings add this DATABASES configuration for the AT db
+
+'animaltracking': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'AnimalTracking',
+        'USER': 'postgres',
+        'HOST': 'at-db.cuts0lhpybwu.us-west-2.rds.amazonaws.com',
+        'PASSWORD': '',
+    },
+
+"""
 import os
 import sys
 DAS_ROOT = '../das'
@@ -77,6 +89,17 @@ def import_animal(chronofile):
                                  extra=extra)
 
         obs.save()
+
+
+def import_all():
+    at_conn = connections['animaltracking']
+    with at_conn.cursor() as at_cursor:
+        sql = 'SELECT chronofile from trackingmaster'
+        at_cursor.execute(sql)
+        rows = dictfetchall(at_cursor)
+    for animal in rows:
+        import_animal(animal['chronofile'])
+
 
 def main():
     import_animal(558)
