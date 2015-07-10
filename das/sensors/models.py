@@ -14,19 +14,24 @@ GIS
 
 from django.contrib.gis.db import models
 from django_pgjson.fields import JsonBField
-
+from django.utils import timezone
+import pytz
 
 class Device(models.Model):
     """Collar, MotoTrbo, sensor, etc"""
     id = models.AutoField(primary_key=True)
     device_type = models.ForeignKey('DeviceType')
+    manufacturer_id = models.CharField('device manufacturer id', max_length=100,
+                                       null=True)
     extra = JsonBField()
+
 
 class DeviceType(models.Model):
     """Device characteristics"""
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
     extra = JsonBField()
+
 
 class Observation(models.Model):
     """observation point
@@ -51,18 +56,39 @@ class SubjectDevice(models.Model):
     """A Subject is associated with a Device for a specific time period
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
     """
-    start_at =  models.DateTimeField()
-    end_at = models.DateTimeField()
+    start_at = models.DateTimeField()
+    end_at = models.DateTimeField(default=timezone.datetime.max.replace(tzinfo=pytz.UTC))
     device = models.ForeignKey('Device')
-    thing = models.ForeignKey('Subject')
+    subject = models.ForeignKey('Subject')
     extra = JsonBField()
+
 
 class Subject(models.Model):
     """Person, Animal, Vehicle, etc"""
+    name = models.CharField(max_length=100)
     extra = JsonBField()
 
-class CollectionHistory(models.Model):
-    """Input Transformer log"""
-    created_at = models.DateTimeField(auto_now_add=True) #date/time this row created
-    device = models.ForeignKey('Device')
-    outcome = models.CharField(max_length=50)
+# TODO: should go in Import/Transformer django app
+# class CollectionHistory(models.Model):
+#     """Input Transformer log"""
+#     created_at = models.DateTimeField(auto_now_add=True) #date/time this row created
+#     device = models.ForeignKey('Device')
+#     outcome = models.CharField(max_length=50)
+
+MARKER_ICONS = {
+    'elephant-male': 'http://107.21.94.89/Images/AnimalIcons/Elephant_Male.png',
+    'elephant-female': 'http://107.21.94.89/Images/AnimalIcons/Elephant_Female.png',
+    'lion-male': '',
+    'vehicle': 'http://maps.google.com/mapfiles/kml/shapes/truck.png',
+    'cow': '',
+    'cheetah': '',
+    'expedition': 'http://maps.google.com/mapfiles/kml/shapes/triangle.png',
+    'zebra': 'http://107.21.94.89/Images/AnimalIcons/GrevysZebra_Female.png',
+    'forest elephant': '',
+    'goat': '',
+    'sable': '',
+    'white rhino': '',
+    'black rhino': '',
+}
+def googlemarkericon(subject_type):
+    return MARKER_ICONS.get(subject_type, 'http://maps.google.com/mapfiles/kml/shapes/truck.png')

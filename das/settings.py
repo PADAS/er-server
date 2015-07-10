@@ -38,7 +38,7 @@ INSTALLED_APPS = (
 #    'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
-    'das.tracker',
+    'das.sensors',
 )
 
 MIDDLEWARE_CLASSES = (
