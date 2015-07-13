@@ -2,10 +2,9 @@
 from __future__ import unicode_literals
 
 from django.db import models, migrations
-import django.contrib.gis.db.models.fields
-import datetime
-from django.utils.timezone import utc
 import django_pgjson.fields
+import django.contrib.gis.db.models.fields
+import django.contrib.postgres.fields.ranges
 
 
 class Migration(migrations.Migration):
@@ -18,7 +17,7 @@ class Migration(migrations.Migration):
             name='Device',
             fields=[
                 ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('manufacturer_id', models.CharField(max_length=100, null=True, verbose_name='device manufacturer id')),
+                ('manufacturer_id', models.CharField(null=True, verbose_name='device manufacturer id', max_length=100)),
                 ('extra', django_pgjson.fields.JsonBField()),
             ],
         ),
@@ -44,7 +43,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Subject',
             fields=[
-                ('id', models.AutoField(primary_key=True, verbose_name='ID', serialize=False, auto_created=True)),
+                ('id', models.AutoField(verbose_name='ID', primary_key=True, serialize=False, auto_created=True)),
                 ('name', models.CharField(max_length=100)),
                 ('extra', django_pgjson.fields.JsonBField()),
             ],
@@ -52,9 +51,8 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='SubjectDevice',
             fields=[
-                ('id', models.AutoField(primary_key=True, verbose_name='ID', serialize=False, auto_created=True)),
-                ('start_at', models.DateTimeField()),
-                ('end_at', models.DateTimeField(default=datetime.datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=utc))),
+                ('id', models.AutoField(verbose_name='ID', primary_key=True, serialize=False, auto_created=True)),
+                ('assigned_range', django.contrib.postgres.fields.ranges.DateTimeRangeField()),
                 ('extra', django_pgjson.fields.JsonBField()),
                 ('device', models.ForeignKey(to='sensors.Device')),
                 ('subject', models.ForeignKey(to='sensors.Subject')),

@@ -13,6 +13,8 @@ To your local_settings add this DATABASES configuration for the AT db
 """
 import os
 import sys
+import logging
+import datetime
 DAS_ROOT = '../das'
 sys.path.append(os.path.join(os.path.dirname(__file__), DAS_ROOT))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das.local_settings")
@@ -22,6 +24,19 @@ from das.sensors import models
 from django.contrib.gis.geos import Point
 import pytz
 import django
+import psycopg2.extras
+
+logger = logging.getLogger(__name__)
+
+def log_stdout(level=logging.DEBUG):
+    soh = logging.StreamHandler(sys.stdout)
+    soh.setLevel(level)
+    logger = logging.getLogger()
+    logger.addHandler(soh)
+    logger.setLevel(level)
+
+log_stdout(level=logging.INFO)
+
 
 def dictfetchall(cursor):
     "Returns all rows from a cursor as a dict"
@@ -37,12 +52,17 @@ TRACKING_MASTER_DEVICE_FIELDS = ('active', 'frequency', 'predicted_expiry',)
 ARCHIVE_LOC_FIELDS = ('dloadtime',)
 
 def import_animal(chronofile):
+    logger.info('Importing TrackingMaster %s', chronofile)
     at_conn = connections['animaltracking']
     with at_conn.cursor() as at_cursor:
         sql = 'SELECT * from trackingmaster WHERE chronofile=%(chronofile)s'
         at_cursor.execute(sql, dict(chronofile=chronofile))
         rows = dictfetchall(at_cursor)
     animal = rows[0]
+
+    if animal['date_off_or_removed'] == 'Undeployed' or not animal['data_starts']:
+        logger.info('TrackingMaster for %s, Undeployed', chronofile)
+        return
 
     extra = {key: animal[key] for key in TRACKING_MASTER_ANIMAL_FIELDS if key in animal }
     subject = models.Subject(name=animal['name'], extra=extra)
@@ -69,10 +89,14 @@ def import_animal(chronofile):
                                )
         device.save()
 
-    subject_device = models.SubjectDevice(subject=subject, device=device,
-                                          start_at=animal['data_starts'].replace(tzinfo=pytz.UTC))
+    subject_device = models.SubjectDevice(subject=subject, device=device)
     if animal['data_stops']:
-        subject_device.end_at = animal['data_stops'].replace(tzinfo=pytz.UTC)
+        end_at = animal['data_stops'].replace(tzinfo=pytz.UTC)
+    else:
+        end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
+
+    subject_device.assigned_range = psycopg2.extras.DateTimeTZRange(animal['data_starts'].replace(tzinfo=pytz.UTC), end_at)
+    subject_device.save()
 
 
     with at_conn.cursor() as at_cursor:
@@ -98,11 +122,21 @@ def import_all():
         at_cursor.execute(sql)
         rows = dictfetchall(at_cursor)
     for animal in rows:
-        import_animal(animal['chronofile'])
+        try:
+            import_animal(animal['chronofile'])
+        except:
+            logging.exception('Failed to import TrackingMaster %s', animal['chronofile'])
+
 
 
 def main():
+    import_all()
+    return
+
     import_animal(558)
+    import_animal(557)
+    import_animal(546)
+    import_animal(533)
 
 
 if __name__ == '__main__':

@@ -14,6 +14,7 @@ GIS
 
 from django.contrib.gis.db import models
 from django_pgjson.fields import JsonBField
+from django.contrib.postgres.fields import DateTimeRangeField
 from django.utils import timezone
 import pytz
 
@@ -56,8 +57,7 @@ class SubjectDevice(models.Model):
     """A Subject is associated with a Device for a specific time period
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
     """
-    start_at = models.DateTimeField()
-    end_at = models.DateTimeField(default=timezone.datetime.max.replace(tzinfo=pytz.UTC))
+    assigned_range = DateTimeRangeField()
     device = models.ForeignKey('Device')
     subject = models.ForeignKey('Subject')
     extra = JsonBField()
