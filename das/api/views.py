@@ -3,46 +3,47 @@ import logging
 import simplejson
 from django.views.generic import View, CreateView
 from django.http import Http404, HttpResponse, HttpResponseBadRequest
-from sensors.models import Subject, Observation
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 import djgeojson
+
+from sensors.models import Subject, Observation, SubjectDevice
+from .serializers import SubjectSerializer, ObservationSerializer
+import utils
+
 logger = logging.getLogger(__name__)
 
 
-def empty_geojson_featurecollection():
-    return {
-        "type": "FeatureCollection",
-        "crs": {
-            "type": "name",
-            "properties": {
-                "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
-            }
-        },
-        "features": []
-        }
+class AnimalsView(APIView):
+    def get(self, request, format=None):
+        animals = Subject.objects.all()
+        serializer = SubjectSerializer(animals, many=True)
+        return Response(serializer.data)
 
+class AnimalTrackView(APIView):
+    def get_object(self, id):
+        try:
+            return SubjectDevice.objects.get(id=id)
+        except SubjectDevice.DoesNotExist:
+            raise Http404
 
-def empty_geojson_feature():
-    return {
-        "type": "Feature",
-        "crs": {
-            "type": "name",
-            "properties": {
-                "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
-            }
-        },
-        "geometry": {}
-        }
+    def get(self, request, id, format=None):
+        subjectdevice = self.get_object(id)
+        serializer = ObservationSerializer(subjectdevice)
+        return Response(serializer.data)
+
 
 
 class SubjectTrackGeoJsonView(View):
     def get(self, request):
         subject_id = self.request.GET['subject_id']
         subject = Subject.objects.filert(subject_id=subject_id)
-        color = subject.extra.get('rgb', None)
+        color = subject.additional.get('rgb', None)
         if color:
             color = "#" + "".join(color.split(','))
 
-        result = empty_geojson_featurecollection()
+        result = utils.empty_geojson_featurecollection()
         points = Observation.objects.filter()
         for point in points:
             coordinates = []

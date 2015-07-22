@@ -50,6 +50,7 @@ TRACKING_MASTER_ANIMAL_FIELDS = ('animal_id', 'comments', 'chronofile' 'species'
 TRACKING_MASTER_VEHICLE_FIELDS = ('animal_id', 'comments', 'chronofile' 'species', 'rgb', 'gmt',)
 TRACKING_MASTER_DEVICE_FIELDS = ('active', 'frequency', 'predicted_expiry',)
 ARCHIVE_LOC_FIELDS = ('dloadtime',)
+TRACKING_COLLAR_DEVICE_CATEGORY = 'gps'
 
 def import_animal(chronofile):
     logger.info('Importing TrackingMaster %s', chronofile)
@@ -64,8 +65,8 @@ def import_animal(chronofile):
         logger.info('TrackingMaster for %s, Undeployed', chronofile)
         return
 
-    extra = {key: animal[key] for key in TRACKING_MASTER_ANIMAL_FIELDS if key in animal }
-    subject = models.Subject(name=animal['name'], extra=extra)
+    additional = {key: animal[key] for key in TRACKING_MASTER_ANIMAL_FIELDS if key in animal }
+    subject = models.Subject(name=animal['name'], additional=additional)
     subject.save()
 
     q_types = models.DeviceType.objects.filter(name=animal['collar_type'])
@@ -73,7 +74,8 @@ def import_animal(chronofile):
     for row in q_types:
         device_type = row
     if not device_type:
-        device_type = models.DeviceType(name=animal['collar_type'])
+        device_type = models.DeviceType(name=animal['collar_type'],
+                                        categories=[TRACKING_COLLAR_DEVICE_CATEGORY,])
         device_type.save()
 
     device = None
@@ -82,20 +84,23 @@ def import_animal(chronofile):
     for row in q_devices:
         device = row
     if not device:
-        extra = {key: animal[key] for key in TRACKING_MASTER_DEVICE_FIELDS if key in animal }
+        additional = {key: animal[key] for key in TRACKING_MASTER_DEVICE_FIELDS if key in animal }
         device = models.Device(device_type=device_type,
                                manufacturer_id=animal['collar_id'],
-                               extra=extra
+                               additional=additional
                                )
         device.save()
 
     subject_device = models.SubjectDevice(subject=subject, device=device)
+    start_at = animal['data_starts'].replace(tzinfo=pytz.UTC)
+    end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
     if animal['data_stops']:
         end_at = animal['data_stops'].replace(tzinfo=pytz.UTC)
-    else:
+
+    if end_at < start_at:
         end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
 
-    subject_device.assigned_range = psycopg2.extras.DateTimeTZRange(animal['data_starts'].replace(tzinfo=pytz.UTC), end_at)
+    subject_device.assigned_range = psycopg2.extras.DateTimeTZRange(start_at, end_at)
     subject_device.save()
 
 
@@ -106,11 +111,11 @@ def import_animal(chronofile):
 
     observations = rows
     for row in observations:
-        extra = {key: row[key] for key in ARCHIVE_LOC_FIELDS}
+        additional = {key: row[key] for key in ARCHIVE_LOC_FIELDS}
         obs = models.Observation(device=device,
                                  location=Point(row['lat'], row['lon']),
                                  recorded_at=row['fixtime'].replace(tzinfo=pytz.UTC),
-                                 extra=extra)
+                                 additional=additional)
 
         obs.save()
 

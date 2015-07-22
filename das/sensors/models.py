@@ -14,7 +14,7 @@ GIS
 
 from django.contrib.gis.db import models
 from django_pgjson.fields import JsonBField
-from django.contrib.postgres.fields import DateTimeRangeField
+from django.contrib.postgres.fields import DateTimeRangeField, ArrayField
 from django.utils import timezone
 import pytz
 
@@ -24,14 +24,15 @@ class Device(models.Model):
     device_type = models.ForeignKey('DeviceType')
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
-    extra = JsonBField()
+    additional = JsonBField()
 
 
 class DeviceType(models.Model):
     """Device characteristics"""
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
-    extra = JsonBField()
+    categories = ArrayField(models.CharField(max_length=50, blank=True))
+    additional = JsonBField()
 
 
 class Observation(models.Model):
@@ -45,7 +46,7 @@ class Observation(models.Model):
     recorded_at = models.DateTimeField() #point in time of object at lat lon
     created_at = models.DateTimeField(auto_now_add=True) #date/time this row created
     device = models.ForeignKey('Device')
-    extra = JsonBField()
+    additional = JsonBField()
 
     objects = models.GeoManager()
 
@@ -53,20 +54,25 @@ class Observation(models.Model):
         return self.name
 
 
+
 class SubjectDevice(models.Model):
     """A Subject is associated with a Device for a specific time period
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
     """
+    id = models.AutoField(primary_key=True)
     assigned_range = DateTimeRangeField()
     device = models.ForeignKey('Device')
     subject = models.ForeignKey('Subject')
-    extra = JsonBField()
+    additional = JsonBField()
+    """EXCLUDE USING gist (device_id WITH =, assigned_range WITH &&)"""
 
 
 class Subject(models.Model):
     """Person, Animal, Vehicle, etc"""
+    id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
-    extra = JsonBField()
+    additional = JsonBField()
+
 
 # TODO: should go in Import/Transformer django app
 # class CollectionHistory(models.Model):
