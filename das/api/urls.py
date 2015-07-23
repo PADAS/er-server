@@ -20,7 +20,7 @@ from . import views
 
 urlpatterns = [
     url(r'^animals/$', views.AnimalsView.as_view()),
-    url(r'^$animal/(?P<id>[0-9]+)/track/$', views.AnimalTrackView.as_view()),
+    url(r'^animal/(?P<id>[0-9]+)/track/$', views.AnimalTrackView.as_view()),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

@@ -43,8 +43,8 @@ INSTALLED_APPS = (
     'django.contrib.gis',
     'rest_framework',
     'djgeojson',
-    'das.sensors',
-    'das.api'
+    'sensors',
+    'api'
 )
 
 MIDDLEWARE_CLASSES = (

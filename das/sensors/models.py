@@ -15,6 +15,7 @@ GIS
 from django.contrib.gis.db import models
 from django_pgjson.fields import JsonBField
 from django.contrib.postgres.fields import DateTimeRangeField, ArrayField
+from django.db.models import Q
 from django.utils import timezone
 import pytz
 
@@ -35,6 +36,25 @@ class DeviceType(models.Model):
     additional = JsonBField()
 
 
+class ObservationManager(models.GeoManager):
+    def get_device_range_observations(self, sds):
+        """get observations for a set of devices and date ranges.
+        An animal may switch devices based on a date range.
+        """
+        sds = sorted(sds, key=lambda sd: sd.assigned_range.lower, reverse=True)
+        sql = '''SELECT * FROM sensors_observations so WHERE so.device_id = %(device_id)s so.recorded_at in %(range)s'''
+
+        qs = None
+        for sd in sds:
+            q = Q(device_id=sd.device_id) & Q(recorded_at__range=[sd.assigned_range.lower, sd.assigned_range.upper])
+            qs = qs | q if qs else q
+
+
+        result = Observation.objects.filter(qs)
+        result = result.order_by('-recorded_at')
+        return result
+
+
 class Observation(models.Model):
     """observation point
 
@@ -48,11 +68,18 @@ class Observation(models.Model):
     device = models.ForeignKey('Device')
     additional = JsonBField()
 
-    objects = models.GeoManager()
+    objects = ObservationManager()
 
     def __str__(self):
         return self.name
 
+    class Meta:
+        index_together = (
+            ['device', 'recorded_at']
+        )
+
+class SubjectDeviceManager(models.GeoManager):
+    pass
 
 
 class SubjectDevice(models.Model):
@@ -65,6 +92,7 @@ class SubjectDevice(models.Model):
     subject = models.ForeignKey('Subject')
     additional = JsonBField()
     """EXCLUDE USING gist (device_id WITH =, assigned_range WITH &&)"""
+    objects = SubjectDeviceManager()
 
 
 class Subject(models.Model):

@@ -9,6 +9,9 @@ class SubjectSerializer(serializers.ModelSerializer):
         fields = ('id', 'name')
 
 
-class ObservationSerializer(gis_serializers.ModelSerializer):
+class ObservationSerializer(gis_serializers.GeoFeatureModelSerializer):
     class Meta:
         model = Observation
+        fields = ('id', 'recorded_at', 'additional', 'device')
+        id_field = False
+        geo_field = 'location'
