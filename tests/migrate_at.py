@@ -17,10 +17,9 @@ import logging
 import datetime
 DAS_ROOT = '../das'
 sys.path.append(os.path.join(os.path.dirname(__file__), DAS_ROOT))
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das.local_settings")
-from django.conf import settings
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das_server.local_settings")
 from django.db import connections
-from das.sensors import models
+from sensors import models
 from django.contrib.gis.geos import Point
 import pytz
 import django

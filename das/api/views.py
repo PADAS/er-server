@@ -1,16 +1,13 @@
 import logging
 
-import simplejson
-from django.views.generic import View, CreateView
-from django.http import Http404, HttpResponse, HttpResponseBadRequest
+from django.views.generic import View
+from django.http import Http404, HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-import djgeojson
 
 from sensors.models import Subject, Observation, SubjectDevice
 from .serializers import SubjectSerializer, ObservationSerializer
-import utils
+from das_server import utils
 
 logger = logging.getLogger(__name__)
 
