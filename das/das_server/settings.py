@@ -44,7 +44,9 @@ INSTALLED_APPS = (
     'rest_framework',
     'djgeojson',
     'sensors',
-    'api'
+    'api',
+    'data_input',
+    'mapping',
 )
 
 MIDDLEWARE_CLASSES = (
