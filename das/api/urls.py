@@ -15,12 +15,9 @@ Including another URLconf
 """
 from django.conf.urls import include, url
 from django.contrib import admin
-from rest_framework.urlpatterns import format_suffix_patterns
 from . import views
 
 urlpatterns = [
     url(r'^animals/$', views.AnimalsView.as_view()),
-    url(r'^animal/(?P<id>[0-9]+)/track/$', views.AnimalTrackView.as_view()),
+    url(r'^animal/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/track/$', views.AnimalTrackView.as_view()),
 ]
-
-urlpatterns = format_suffix_patterns(urlpatterns)
