@@ -19,7 +19,7 @@ DAS_ROOT = '../das'
 sys.path.append(os.path.join(os.path.dirname(__file__), DAS_ROOT))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das_server.local_settings")
 from django.db import connections
-from sensors import models
+from observations import models
 from django.contrib.gis.geos import Point
 import pytz
 import django
@@ -49,7 +49,7 @@ TRACKING_MASTER_ANIMAL_FIELDS = ('animal_id', 'comments', 'chronofile' 'species'
 TRACKING_MASTER_VEHICLE_FIELDS = ('animal_id', 'comments', 'chronofile' 'species', 'rgb', 'gmt',)
 TRACKING_MASTER_DEVICE_FIELDS = ('active', 'frequency', 'predicted_expiry',)
 ARCHIVE_LOC_FIELDS = ('dloadtime',)
-TRACKING_COLLAR_DEVICE_CATEGORY = 'gps'
+TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
 
 def import_animal(chronofile):
     logger.info('Importing TrackingMaster %s', chronofile)
@@ -68,29 +68,21 @@ def import_animal(chronofile):
     subject = models.Subject(name=animal['name'], additional=additional)
     subject.save()
 
-    q_types = models.DeviceType.objects.filter(name=animal['collar_type'])
-    device_type = None
-    for row in q_types:
-        device_type = row
-    if not device_type:
-        device_type = models.DeviceType(name=animal['collar_type'],
-                                        categories=[TRACKING_COLLAR_DEVICE_CATEGORY,])
-        device_type.save()
-
-    device = None
-    q_devices = models.Device.objects.filter(device_type=device_type)
-    q_devices = q_devices.filter(manufacturer_id=animal['collar_id'])
-    for row in q_devices:
-        device = row
-    if not device:
-        additional = {key: animal[key] for key in TRACKING_MASTER_DEVICE_FIELDS if key in animal }
-        device = models.Device(device_type=device_type,
+    source = None
+    q_sources = models.Source.objects.filter(source_type=TRACKING_COLLAR_SOURCE_TYPE)
+    q_sources = q_sources.filter(manufacturer_id=animal['collar_id'])
+    for row in q_sources:
+        source = row
+    if not source:
+        additional = {key: animal[key] for key in TRACKING_MASTER_DEVICE_FIELDS if key in animal}
+        source = models.Source(source_type=TRACKING_COLLAR_SOURCE_TYPE,
                                manufacturer_id=animal['collar_id'],
+                               model_name=animal['collar_type'],
                                additional=additional
                                )
-        device.save()
+        source.save()
 
-    subject_device = models.SubjectDevice(subject=subject, device=device)
+    subject_source = models.SubjectSource(subject=subject, source=source)
     start_at = animal['data_starts'].replace(tzinfo=pytz.UTC)
     end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
     if animal['data_stops']:
@@ -99,9 +91,8 @@ def import_animal(chronofile):
     if end_at < start_at:
         end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
 
-    subject_device.assigned_range = psycopg2.extras.DateTimeTZRange(start_at, end_at)
-    subject_device.save()
-
+    subject_source.assigned_range = psycopg2.extras.DateTimeTZRange(start_at, end_at)
+    subject_source.save()
 
     with at_conn.cursor() as at_cursor:
         sql = 'SELECT * from archive_loc WHERE chronofile=%(chronofile)s'
@@ -111,7 +102,7 @@ def import_animal(chronofile):
     observations = rows
     for row in observations:
         additional = {key: row[key] for key in ARCHIVE_LOC_FIELDS}
-        obs = models.Observation(device=device,
+        obs = models.Observation(source=source,
                                  location=Point(row['lat'], row['lon']),
                                  recorded_at=row['fixtime'].replace(tzinfo=pytz.UTC),
                                  additional=additional)

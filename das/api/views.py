@@ -5,7 +5,7 @@ from django.http import Http404, HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from sensors.models import Subject, Observation, SubjectDevice
+from observations.models import Subject, Observation, SubjectSource
 from .serializers import SubjectSerializer, ObservationSerializer
 from das_server import utils
 
@@ -20,11 +20,11 @@ class AnimalsView(APIView):
 
 class AnimalTrackView(APIView):
     def get_notright(self, request, id, format=None):
-        sds = SubjectDevice.objects.filter(subject_id=id)
+        sds = SubjectSource.objects.filter(subject_id=id)
         if not sds:
             raise Http404
 
-        observations = Observation.objects.get_device_range_observations(sds)
+        observations = Observation.objects.get_source_range_observations(sds)
         serializer = ObservationSerializer(observations, many=True)
         return Response(serializer.data)
 
@@ -38,10 +38,10 @@ class AnimalTrackView(APIView):
         if color:
             color = "#" + "".join(color.split(','))
 
-        sds = SubjectDevice.objects.filter(subject_id=id)
+        sds = SubjectSource.objects.filter(subject_id=id)
         if not sds:
             raise Http404
-        observations = Observation.objects.get_device_range_observations(sds)
+        observations = Observation.objects.get_source_range_observations(sds)
         coordinates = []
         times = []
         for ob in observations:

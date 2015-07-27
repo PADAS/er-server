@@ -1,4 +1,4 @@
-from sensors.models import Subject, Observation
+from observations.models import Subject, Observation
 from rest_framework import serializers
 import rest_framework_gis.serializers as gis_serializers
 

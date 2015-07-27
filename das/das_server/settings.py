@@ -43,7 +43,7 @@ INSTALLED_APPS = (
     'django.contrib.gis',
     'rest_framework',
     'djgeojson',
-    'sensors',
+    'observations',
     'api',
     'data_input',
     'mapping',
@@ -132,7 +132,7 @@ LOGGING = {
             'propagate': True,
             'level': 'INFO',
         },
-        'sensors': {
+        'observations': {
             'handlers': ['file'],
             'level': 'INFO',
         },
