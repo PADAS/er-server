@@ -3,7 +3,7 @@
 import xml.etree.ElementTree as etree
 import requests
 
-from  data_input.transformers.utils import dictify
+from  data_input.plugins.utils import dictify
 
 
 class SkygisticsLoginError(Exception):

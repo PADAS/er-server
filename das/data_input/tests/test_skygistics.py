@@ -1,6 +1,6 @@
 import unittest
 
-from data_input.transformers.skygistics import SkygisticsSatelliteClient, SkygisticsLoginError
+from data_input.plugins.skygistics import SkygisticsSatelliteClient, SkygisticsLoginError
 
 
 class TestSkygisticsFetch(unittest.TestCase):
