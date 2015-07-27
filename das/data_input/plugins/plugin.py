@@ -1,4 +1,16 @@
-class Plugin:
+class DasPuginFetchError(Exception):
+    pass
+
+
+class DasPuginTransformationError(Exception):
+    pass
+
+
+class DasPuginInsertError(Exception):
+    pass
+
+
+class DasPlugin:
     """
     the basic skeleton for a data input plugin:
         the scheduler will create the instance, optionally passing
@@ -12,12 +24,6 @@ class Plugin:
         """
         self.config = config
         self.target = target
-
-    def execute(self):
-        # self._fetch()
-        # self._transform()
-        # self._insert()
-        pass
 
     def _fetch(self):
         """
@@ -36,5 +42,15 @@ class Plugin:
         pass the transformed data set to the insert target
         """
         pass
+
+    def execute(self):
+        # self._fetch()
+        # self._transform()
+        # self._insert()
+
+        # Exceptions for failures at each stage?
+        # return some indication of success?
+        pass
+
 
 
