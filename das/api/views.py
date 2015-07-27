@@ -1,34 +1,26 @@
 import logging
 
 from django.views.generic import View
-from django.http import Http404, HttpResponse
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from django.http import Http404, JsonResponse
 
 from observations.models import Subject, Observation, SubjectSource
-from .serializers import SubjectSerializer, ObservationSerializer
 from das_server import utils
 
 logger = logging.getLogger(__name__)
 
 
-class AnimalsView(APIView):
-    def get(self, request, format=None):
+class AnimalsView(View):
+    fields = ('id', 'name')
+    def get(self, request):
         animals = Subject.objects.all()
-        serializer = SubjectSerializer(animals, many=True)
-        return Response(serializer.data)
+        result = []
+        for animal in animals:
+            result.append({k: getattr(animal, k) for k in self.fields})
+        return JsonResponse(result, encoder=utils.ExtendedJSONEncoder, safe=False)
 
-class AnimalTrackView(APIView):
-    def get_notright(self, request, id, format=None):
-        sds = SubjectSource.objects.filter(subject_id=id)
-        if not sds:
-            raise Http404
 
-        observations = Observation.objects.get_source_range_observations(sds)
-        serializer = ObservationSerializer(observations, many=True)
-        return Response(serializer.data)
-
-    def get(self, request, id, format=None):
+class AnimalTrackView(View):
+    def get(self, request, id):
         try:
             subject = Subject.objects.get(id=id)
         except Subject.DoesNotExist:
@@ -70,42 +62,6 @@ class AnimalTrackView(APIView):
 
         result = utils.empty_geojson_featurecollection()
         result['features'].append(feature)
-        return HttpResponse(utils.json_string(result), content_type='application/json')
+        return JsonResponse(result, encoder=utils.ExtendedJSONEncoder)
 
 
-class SubjectTrackGeoJsonView(View):
-    def get(self, request):
-        subject_id = self.request.GET['subject_id']
-        subject = Subject.objects.filert(subject_id=subject_id)
-        color = subject.additional.get('rgb', None)
-        if color:
-            color = "#" + "".join(color.split(','))
-
-        result = utils.empty_geojson_featurecollection()
-        points = Observation.objects.filter()
-        for point in points:
-            coordinates = []
-            times = []
-
-        feature = {
-            "geometry": {
-                "type": "LineString",
-                "coordinates": coordinates
-            },
-            "type": "Feature",
-            "properties": {
-                "name": subject.name,
-            },
-
-        }
-        if color:
-            feature['style'] = {
-                "color": color,
-                "iconUrl": "http://107.21.94.89/Images/AnimalIcons/Elephant_Male.png",
-                "opacity": 1
-            }
-        #see https://github.com/mapbox/geojson-coordinate-properties
-        feature['properties']['coordinateProperties'] = {'times': times}
-
-        result['features'].append(feature)
-        return HttpResponse(utils.json_string(result), content_type='application/json')
