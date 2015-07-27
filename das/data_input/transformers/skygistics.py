@@ -16,6 +16,7 @@ class SkygisticsSatelliteClient:
         #   but a session_id for success and session_ids may contain hyphens so the session_id must
         #   be a "string"
         self.session_id = '0'
+        # todo:  relocate?
         self.host = 'http://skyq1.skygistics.com'
         self.api = '/SkygisticsAPI/SkygisticsAPI.asmx'
 
@@ -90,8 +91,9 @@ class SkygisticsSatelliteClient:
         :param imei:
         :param start_date:
         :param end_date:
-        :return:
+        :return: replay_data
         """
+        replay_data_list = []
         if self.session_id == '0':
             raise SkygisticsLoginError('Client does not have a valid session_id.')
         try:
@@ -112,8 +114,24 @@ class SkygisticsSatelliteClient:
 
             # parse response content for session_id
             replay_data = etree.fromstring(response.text)
+
             # note:  Jake's been wondering if the fix time is local rather than UTC ...
+            # todo:  we can probably forgo this or extend dictify to take a key mapping that we pass in
             replay_data_dict = dictify(replay_data)
+
+            for unit_info in replay_data_dict['{http://www.skygistics.com/SkygisticsAPI}ArrayOfUnitInfo'][
+                    '{http://www.skygistics.com/SkygisticsAPI}UnitInfo']:
+                # todo: key map? ...
+                replay_data_list.append(
+                    {
+                        'imei': unit_info['{http://www.skygistics.com/SkygisticsAPI}IMEI'][0]['_text'],
+                        'lat': unit_info['{http://www.skygistics.com/SkygisticsAPI}Latitude'][0]['_text'],
+                        'long': unit_info['{http://www.skygistics.com/SkygisticsAPI}Longitude'][0]['_text'],
+                        'voltage': unit_info['{http://www.skygistics.com/SkygisticsAPI}Voltage'][0]['_text'],
+                        'fix_time': unit_info['{http://www.skygistics.com/SkygisticsAPI}Time'][0]['_text'],
+                        'received_time': unit_info['{http://www.skygistics.com/SkygisticsAPI}ReceivedTime'][0]['_text'],
+                    })
+
         except requests.ConnectionError as e:
             # todo:  handle connection error, etc.
             pass
@@ -121,4 +139,4 @@ class SkygisticsSatelliteClient:
             # todo:  handle timeout
             pass
         # todo:  finish this return
-        return False
+        return replay_data_list

@@ -20,7 +20,7 @@ class TestSkygisticsFetch(unittest.TestCase):
 
     def test_login_with_good_user_succeeds(self):
         try:
-            import das.local_settings as settings
+            import das_server.test_settings as settings
             username = settings.SKYGISTICS_TEST['username']
             password = settings.SKYGISTICS_TEST['password']
             self.assertTrue(self.client.login(username, password))
@@ -29,7 +29,7 @@ class TestSkygisticsFetch(unittest.TestCase):
 
     def test_attempting_to_get_replay_count_with_bad_imei_fails(self):
         try:
-            import das.local_settings as settings
+            import das_server.test_settings as settings
             username = settings.SKYGISTICS_TEST['username']
             password = settings.SKYGISTICS_TEST['password']
             self.assertTrue(self.client.login(username, password))
@@ -44,7 +44,7 @@ class TestSkygisticsFetch(unittest.TestCase):
 
     def test_attempting_to_get_replay_count_with_good_imei(self):
         try:
-            import das.local_settings as settings
+            import das_server.test_settings as settings
             username = settings.SKYGISTICS_TEST['username']
             password = settings.SKYGISTICS_TEST['password']
             self.assertTrue(self.client.login(username, password))
@@ -58,7 +58,7 @@ class TestSkygisticsFetch(unittest.TestCase):
 
     def test_attempting_to_get_replay_with_good_imei(self):
         try:
-            import das.local_settings as settings
+            import das_server.test_settings as settings
             username = settings.SKYGISTICS_TEST['username']
             password = settings.SKYGISTICS_TEST['password']
             self.assertTrue(self.client.login(username, password))
@@ -66,6 +66,6 @@ class TestSkygisticsFetch(unittest.TestCase):
             imei = settings.SKYGISTICS_TEST['imei']
             start_datetime = settings.SKYGISTICS_TEST['start_datetime']
             end_datetime = settings.SKYGISTICS_TEST['end_datetime']
-            self.client.get_replay_data(imei, start_datetime, end_datetime, skip=0, limit=100)
+            replay_data = self.client.get_replay_data(imei, start_datetime, end_datetime, skip=0, limit=100)
         except ImportError:
             self.skipTest('Settings unavailable.')
