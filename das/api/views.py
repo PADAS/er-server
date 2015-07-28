@@ -2,7 +2,7 @@ import logging
 
 from django.views.generic import View
 from django.http import Http404, JsonResponse
-
+import dateutil.parser
 from observations.models import Subject, Observation, SubjectSource
 from das_server import utils
 
@@ -26,6 +26,10 @@ class AnimalTrackView(View):
         except Subject.DoesNotExist:
             return Http404
 
+        since = request.GET.get('since', None)
+        if since:
+            since = dateutil.parser.parse(since)
+
         color = subject.additional.get('rgb', None)
         if color:
             color = "#" + "".join(color.split(','))
@@ -33,7 +37,7 @@ class AnimalTrackView(View):
         sds = SubjectSource.objects.filter(subject_id=id)
         if not sds:
             raise Http404
-        observations = Observation.objects.get_source_range_observations(sds)
+        observations = Observation.objects.get_source_range_observations(sds, since)
         coordinates = []
         times = []
         for ob in observations:

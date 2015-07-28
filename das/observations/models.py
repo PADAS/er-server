@@ -19,7 +19,6 @@ from django.db.models import Q
 from django.utils import timezone
 import pytz
 
-
 SOURCE_TYPES = (
     ('tracking-device', 'Tracking Device'),
     ('trap', 'Trap'),
@@ -55,7 +54,7 @@ class Source(models.Model):
 
 
 class ObservationManager(models.GeoManager):
-    def get_source_range_observations(self, subject_sources):
+    def get_source_range_observations(self, subject_sources, since=None):
         """get observations for a set of sources and date ranges.
         An animal may switch source devices based on a date range.
         """
@@ -68,7 +67,10 @@ class ObservationManager(models.GeoManager):
             qs = qs | q if qs else q
 
         result = Observation.objects.filter(qs)
+        if since:
+            result = result.filter(Q(recorded_at__gt=since))
         result = result.order_by('-recorded_at')
+
         return result
 
 

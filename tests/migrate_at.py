@@ -103,7 +103,7 @@ def import_animal(chronofile):
     for row in observations:
         additional = {key: row[key] for key in ARCHIVE_LOC_FIELDS}
         obs = models.Observation(source=source,
-                                 location=Point(row['lat'], row['lon']),
+                                 location=Point(row['lon'], row['lat']),
                                  recorded_at=row['fixtime'].replace(tzinfo=pytz.UTC),
                                  additional=additional)
 
