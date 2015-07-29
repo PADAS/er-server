@@ -3,10 +3,12 @@
 """
 
 import http.client
-# import time, datetime
 from functools import namedtuple
 
-from dateutil.parser import parse
+from dateutil.parser import parse as parse_date
+from datetime import tzinfo
+import pytz
+
 Fix = namedtuple('Fix', ['collar_id', 'lon', 'lat', 'ts', 'speed', 'heading', 'temperature', 'height'])
 
 class SavannahException(Exception):
@@ -55,7 +57,7 @@ class SavannahClient(object):
     @classmethod
     def parse_line(cls, s):
         dt = Fix._make(s.split(','))
-        dt = dt._replace(ts=parse(dt.ts))
+        dt = dt._replace(ts=parse_date(dt.ts).replace(tzinfo=pytz.utc))
         return dt
 
 

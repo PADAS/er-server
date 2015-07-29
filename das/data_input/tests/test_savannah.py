@@ -35,7 +35,9 @@ class TestSavannahProvider(unittest.TestCase):
 
             from itertools import islice
             for obs in islice(obs_data, 50):
-                print(self.transformer.transform(obs))
+                tobs = self.transformer.transform(obs)
+                print(tobs.ts.isoformat())
+                print(tobs)
 
         except SavannahException as se:
             raise se

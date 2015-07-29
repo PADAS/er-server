@@ -56,6 +56,18 @@ class ObservationManager(models.GeoManager):
         result = result.order_by('-recorded_at')
         return result
 
+    def store_observation(self, observation_data):
+        '''
+        Validate an observation and store it.
+        :param obs:
+        :return:
+        '''
+
+        obs = Observation(**observation_data)
+        obs.save()
+
+
+
 
 class Observation(models.Model):
     """observation point
