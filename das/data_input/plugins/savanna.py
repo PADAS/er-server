@@ -3,18 +3,21 @@
 """
 
 import http.client
-# import time, datetime
 from functools import namedtuple
+from observations.models import Observation, Source
+from django.contrib.gis.geos import Point
 
-from dateutil.parser import parse
+from dateutil.parser import parse as parse_date
+import pytz
+
 Fix = namedtuple('Fix', ['collar_id', 'lon', 'lat', 'ts', 'speed', 'heading', 'temperature', 'height'])
 
-class SavannahException(Exception):
+class SavannaException(Exception):
     pass
 
 import copy
 
-class SavannahClient(object):
+class SavannaClient(object):
 
     def __init__(self):
 
@@ -55,14 +58,29 @@ class SavannahClient(object):
     @classmethod
     def parse_line(cls, s):
         dt = Fix._make(s.split(','))
-        dt = dt._replace(ts=parse(dt.ts))
+        dt = dt._replace(ts=parse_date(dt.ts).replace(tzinfo=pytz.utc))
         return dt
 
+    @classmethod
+    def test_fix(cls, sample):
+        return cls.parse_line(sample)
 
-class SavannahTransformer(object):
+
+SOURCE_MODEL_NAME = 'SavannaTrackingRF'
+
+class SavannaTransformer(object):
 
     def __init__(self):
         pass
 
     def transform(self, observation):
+        source = Source.objects.get(model_name=SOURCE_MODEL_NAME, manufacturer_id=observation.collar_id)
+        obs = observation._asdict()
+        loc = Point(float(obs.pop('lat')), float(obs.pop('lon')))
+        ts = obs.pop('ts')
+
+
+        # TODO: move this save outside of transformer.
+        obs = Observation(source=source, location=loc, recorded_at=ts, additional=obs)
+        obs.save()
         return observation

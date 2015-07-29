@@ -28,7 +28,21 @@ SOURCE_TYPES = (
     ('gps-radio', 'gps radio')
 )
 
+
+class SourceManager(models.Manager):
+
+    def find_by_model_name(self, model_name, mid):
+
+        print(id(self))
+
+        s = Source.objects.get(model_name=model_name, manufacturer_id=mid)
+
+        return s
+
 class Source(models.Model):
+
+    objects = SourceManager()
+
     """Collar, MotoTrbo, sensor, etc"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     source_type = models.CharField('type of data expected', max_length=100,
@@ -37,6 +51,7 @@ class Source(models.Model):
                                        null=True)
     model_name = models.CharField('device model name', max_length=100, null=True)
     additional = JsonBField()
+
 
 
 class ObservationManager(models.GeoManager):
