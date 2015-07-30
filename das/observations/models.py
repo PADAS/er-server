@@ -54,7 +54,7 @@ class Source(models.Model):
 
 
 class ObservationManager(models.GeoManager):
-    def get_source_range_observations(self, subject_sources, since=None):
+    def get_source_range_observations(self, subject_sources, since=None, until=None):
         """get observations for a set of sources and date ranges.
         An animal may switch source devices based on a date range.
         """
@@ -69,6 +69,8 @@ class ObservationManager(models.GeoManager):
         result = Observation.objects.filter(qs)
         if since:
             result = result.filter(Q(recorded_at__gt=since))
+        if until:
+            result = result.filter(Q(recorded_at__lte=until))
         result = result.order_by('-recorded_at')
 
         return result
@@ -100,6 +102,13 @@ class SubjectSourceManager(models.GeoManager):
     pass
 
 
+SUBJECT_TYPES = (
+    ('wildlife', 'Wildlife'),
+    ('vehicle', 'Vehicle'),
+    ('stationary-object', 'Stationary Object'),
+)
+
+
 class SubjectSource(models.Model):
     """A Subject is associated with a Source device for a specific time period
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
@@ -117,6 +126,7 @@ class Subject(models.Model):
     """Person, Animal, Vehicle, etc"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
+    subject_type = models.CharField(max_length=100, choices=SUBJECT_TYPES, default='wildlife')
     additional = JsonBField()
 
 
