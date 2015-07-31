@@ -19,7 +19,7 @@ import copy
 
 class SavannaClient(object):
 
-    def __init__(self):
+    def __init__(self, config=None):
 
         # TODO: Move this to provider_settings.
         self.credentials = {
@@ -84,3 +84,27 @@ class SavannaTransformer(object):
         obs = Observation(source=source, location=loc, recorded_at=ts, additional=obs)
         obs.save()
         return observation
+
+from .plugin import DasPlugin
+
+class SavannaPlugin(DasPlugin):
+
+    def __init__(self):
+        self.source = SavannaClient()
+        self.transformer = SavannaTransformer()
+
+    def _fetch(self, sources, start_time):
+
+        for source in sources:
+            yield from self.source.fetch_observations(source.manufacturer_id, start_time=start_time)
+
+
+    def _insert(self):
+        super()._insert()
+
+    def _transform(self, obj):
+        return self.transformer.transform(obj)
+
+    def execute(self):
+        super().execute()
+

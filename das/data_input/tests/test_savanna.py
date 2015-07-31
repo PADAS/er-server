@@ -1,6 +1,6 @@
 import unittest
 from django.test import TestCase, TransactionTestCase
-from data_input.plugins.savanna import SavannaClient, SavannaTransformer, SavannaException
+from data_input.plugins.savanna import SavannaClient, SavannaTransformer, SavannaException, SavannaPlugin
 from django.db import transaction
 from observations.models import Source
 import datetime, time, pytz
@@ -14,6 +14,8 @@ class TestSavannaProvider(TransactionTestCase):
 
         self.client = SavannaClient()
         self.transformer = SavannaTransformer()
+
+
 
     def test_source(self):
 
@@ -49,18 +51,26 @@ class TestSavannaProvider(TransactionTestCase):
         except SavannaException as se:
             raise se
 
-    def test_fetch_data_for_invalid_device_id(self):
+    def test_savanna_plugin(self):
+
+
+        sources = Source.objects.filter(model_name=MODEL_NAME)
+        for source in sources:
+            print(source.id, source.model_name, source.manufacturer_id)
+
+
         try:
-            start_time = int(time.mktime(datetime.datetime(2015, 6, 1).timetuple()))
+            start_time = int(time.mktime(datetime.datetime(2015, 7, 28).timetuple()))
 
-            collar_id = 'ST2010-12345'
-            obs_data = self.client.fetch_observations(collar_id, start_time)
+            sp = SavannaPlugin()
 
-            for obs in obs_data:
+            for x in sp._fetch(sources, start_time):
+                obs = sp._transform(x)
                 print(obs)
 
         except SavannaException as se:
             raise se
+
 
 
 SAMPLE_LINE='ST2010-1352,37.54771,0.5735083,6/26/2015 5:30:18 AM,0.47,0,,873'
