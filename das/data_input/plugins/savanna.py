@@ -6,11 +6,21 @@ import http.client
 from functools import namedtuple
 from observations.models import Observation, Source
 from django.contrib.gis.geos import Point
+from django.conf import settings
 
 from dateutil.parser import parse as parse_date
 import pytz
 
 Fix = namedtuple('Fix', ['collar_id', 'lon', 'lat', 'ts', 'speed', 'heading', 'temperature', 'height'])
+
+from redis import StrictRedis
+
+__redis_client = None
+def redis():
+    global __redis_client
+    if not __redis_client:
+        __redis_client = StrictRedis(**settings.CACHE_REDIS)
+    return __redis_client
 
 class SavannaException(Exception):
     pass
@@ -70,7 +80,7 @@ SOURCE_MODEL_NAME = 'SavannaTrackingRF'
 
 class SavannaTransformer(object):
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         pass
 
     def transform(self, observation):
@@ -79,24 +89,28 @@ class SavannaTransformer(object):
         loc = Point(float(obs.pop('lat')), float(obs.pop('lon')))
         ts = obs.pop('ts')
 
-
-        # TODO: move this save outside of transformer.
-        obs = Observation(source=source, location=loc, recorded_at=ts, additional=obs)
-        obs.save()
+        # # TODO: move this save outside of transformer.
+        # obs = Observation(source=source, location=loc, recorded_at=ts, additional=obs)
+        # obs.save()
         return observation
 
 from .plugin import DasPlugin
 
 class SavannaPlugin(DasPlugin):
 
-    def __init__(self):
-        self.source = SavannaClient()
+    def __init__(self, *args, **kwargs):
+        super.__init__(self, args, kwargs)
+        self.client = SavannaClient()
         self.transformer = SavannaTransformer()
 
-    def _fetch(self, sources, start_time):
+    def generate_input(self, sources):
+        pass
 
-        for source in sources:
-            yield from self.source.fetch_observations(source.manufacturer_id, start_time=start_time)
+
+    def _fetch(self):
+        pass
+        # for source in sources:
+        #     yield from self.client.fetch_observations(source.manufacturer_id, start_time=start_time)
 
 
     def _insert(self):
@@ -106,5 +120,5 @@ class SavannaPlugin(DasPlugin):
         return self.transformer.transform(obj)
 
     def execute(self):
-        super().execute()
+        pass
 

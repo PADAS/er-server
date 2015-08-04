@@ -1,6 +1,7 @@
 import unittest
 from django.test import TestCase, TransactionTestCase
-from data_input.plugins.savanna import SavannaClient, SavannaTransformer, SavannaException, SavannaPlugin
+from data_input.plugins.savanna import SavannaClient, SavannaTransformer, SavannaException, SavannaPlugin, redis
+from data_input.plugins.plugin import PluginTarget
 from django.db import transaction
 from observations.models import Source
 import datetime, time, pytz
@@ -15,9 +16,22 @@ class TestSavannaProvider(TransactionTestCase):
         self.client = SavannaClient()
         self.transformer = SavannaTransformer()
 
+    def xtest_source(self):
+        sm = Source.objects
 
+        s = sm.find(manufacturer_id='ST2010-1352')
+        print(s)
 
-    def test_source(self):
+    def test_target(self):
+        with PluginTarget() as consumer:
+            for x in range(0, 10):
+                consumer.send(x)
+
+            # raise ValueError('something is wrong.')
+
+        x = input()
+
+    def xtest_source(self):
 
         source = Source.objects.find_by_model_name(MODEL_NAME, 'ST2010-1352')
         if source:
@@ -34,7 +48,7 @@ class TestSavannaProvider(TransactionTestCase):
             print(new_observation)
 
 
-    def test_fetch_data_for_valid_device_id(self):
+    def xtest_fetch_data_for_valid_device_id(self):
         try:
             start_time = int(time.mktime(datetime.datetime(2015, 6, 1).timetuple()))
 
@@ -51,7 +65,7 @@ class TestSavannaProvider(TransactionTestCase):
         except SavannaException as se:
             raise se
 
-    def test_savanna_plugin(self):
+    def xtest_savanna_plugin(self):
 
 
         sources = Source.objects.filter(model_name=MODEL_NAME)
