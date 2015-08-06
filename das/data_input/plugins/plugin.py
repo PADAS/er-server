@@ -54,7 +54,6 @@ class DasPlugin(object):
             self._insert(t)
 
 
-
 class PluginTarget(object):
 
     def __init__(self, config=None):
@@ -66,7 +65,7 @@ class PluginTarget(object):
         :param item:
         :return:
         '''
-        print(item)
+        raise NotImplementedError('Subclasses must implement _handle_item')
 
     def _start(self):
         '''
@@ -96,7 +95,9 @@ class PluginTarget(object):
         return True
 
 
-
+class MockTarget(PluginTarget):
+    def _handle_item(self, item):
+        print(item)
 
 
 

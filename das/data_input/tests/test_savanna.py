@@ -1,9 +1,5 @@
-import unittest
 from django.test import TestCase, TransactionTestCase
-from data_input.plugins.savanna import SavannaClient, SavannaTransformer, SavannaException, SavannaPlugin, redis
-from data_input.plugins.plugin import PluginTarget
-from django.db import transaction
-from observations.models import Source
+from data_input.plugins.savanna import SavannaClient, SavannaTransformer, SavannaPlugin, SavannaTarget
 import datetime, time, pytz
 
 MODEL_NAME = 'SavannaTrackingRF'
@@ -16,76 +12,19 @@ class TestSavannaProvider(TransactionTestCase):
         self.client = SavannaClient()
         self.transformer = SavannaTransformer()
 
-    def xtest_source(self):
-        sm = Source.objects
 
-        s = sm.find(manufacturer_id='ST2010-1352')
-        print(s)
+    def test_plugin_with_target(self):
+        '''
+        Test savanna plugin with a mock target.
+        :return:
+        '''
+        with SavannaTarget() as consumer:
+            sp = SavannaPlugin(target=consumer)
+            sp.execute()
 
-    def test_target(self):
-        with PluginTarget() as consumer:
-            for x in range(0, 10):
-                consumer.send(x)
-
-            # raise ValueError('something is wrong.')
-
-        x = input()
-
-    def xtest_source(self):
-
-        source = Source.objects.find_by_model_name(MODEL_NAME, 'ST2010-1352')
-        if source:
-            print(source.id, source.model_name, source.manufacturer_id)
-
-        fix = self.client.test_fix(SAMPLE_LINE)
-
-        _ = datetime.datetime(2015, 6, 1, tzinfo=pytz.utc)
-        _ = int(time.mktime(_.timetuple()))
-        _ = self.client.fetch_observations(source.manufacturer_id, start_time=_)
-
-        for fix in _:
-            new_observation = self.transformer.transform(fix)
-            print(new_observation)
-
-
-    def xtest_fetch_data_for_valid_device_id(self):
-        try:
-            start_time = int(time.mktime(datetime.datetime(2015, 6, 1).timetuple()))
-
-            collar_id = SAMPLE_COLLARS[0]['collar_id']
-            collar_id = 'STRF50'
-            obs_data = self.client.fetch_observations(collar_id, start_time)
-
-            from itertools import islice
-            for obs in islice(obs_data, 50):
-                tobs = self.transformer.transform(obs)
-                print(tobs.ts.isoformat())
-                print(tobs)
-
-        except SavannaException as se:
-            raise se
-
-    def xtest_savanna_plugin(self):
-
-
-        sources = Source.objects.filter(model_name=MODEL_NAME)
-        for source in sources:
-            print(source.id, source.model_name, source.manufacturer_id)
-
-
-        try:
-            start_time = int(time.mktime(datetime.datetime(2015, 7, 28).timetuple()))
-
-            sp = SavannaPlugin()
-
-            for x in sp._fetch(sources, start_time):
-                obs = sp._transform(x)
-                print(obs)
-
-        except SavannaException as se:
-            raise se
-
-
+def _ts(timetuple):
+    _ = datetime.datetime(*timetuple)
+    return int(time.mktime(_.timetuple()))
 
 SAMPLE_LINE='ST2010-1352,37.54771,0.5735083,6/26/2015 5:30:18 AM,0.47,0,,873'
 

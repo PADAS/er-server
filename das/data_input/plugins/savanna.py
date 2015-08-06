@@ -5,15 +5,18 @@
 import http.client
 from functools import namedtuple
 from observations.models import Observation, Source
-from django.contrib.gis.geos import Point
+
 from django.conf import settings
 
 from dateutil.parser import parse as parse_date
 import pytz
+from redis import StrictRedis
+
+def str2date(d):
+    return parse_date(d).replace(tzinfo=pytz.utc)
 
 Fix = namedtuple('Fix', ['collar_id', 'lon', 'lat', 'ts', 'speed', 'heading', 'temperature', 'height'])
-
-from redis import StrictRedis
+field_transform = (str, float, float, str2date, float, float, str, int)
 
 __redis_client = None
 def redis():
@@ -85,40 +88,48 @@ class SavannaTransformer(object):
 
     def transform(self, observation):
         source = Source.objects.get(model_name=SOURCE_MODEL_NAME, manufacturer_id=observation.collar_id)
-        obs = observation._asdict()
-        loc = Point(float(obs.pop('lat')), float(obs.pop('lon')))
-        ts = obs.pop('ts')
+        return (source, observation._asdict())
 
-        # # TODO: move this save outside of transformer.
-        # obs = Observation(source=source, location=loc, recorded_at=ts, additional=obs)
-        # obs.save()
-        return observation
 
-from .plugin import DasPlugin
-
+from .plugin import DasPlugin, PluginTarget
+import datetime, time
 class SavannaPlugin(DasPlugin):
 
     def __init__(self, *args, **kwargs):
-        super.__init__(self, args, kwargs)
-        self.client = SavannaClient()
-        self.transformer = SavannaTransformer()
+        super().__init__(self, *args, **kwargs)
+        self._config = kwargs.get('config', {})
+        self.client = SavannaClient(self._config)
+        self.transformer = SavannaTransformer(self._config)
 
     def generate_input(self, sources):
         pass
 
+    def __get_start_time(self, manufacturer_id=None):
+        st = self._config.get('start_time', None)
+
+        _ = datetime.datetime(2015, 8, 1, tzinfo=pytz.utc)
+        _ = int(time.mktime(_.timetuple()))
+        return _
+
 
     def _fetch(self):
-        pass
-        # for source in sources:
-        #     yield from self.client.fetch_observations(source.manufacturer_id, start_time=start_time)
-
-
-    def _insert(self):
-        super()._insert()
+        sources = Source.objects.filter(model_name=SOURCE_MODEL_NAME)
+        for source in sources:
+            yield from self.client.fetch_observations(source.manufacturer_id, start_time=self.__get_start_time())
 
     def _transform(self, obj):
         return self.transformer.transform(obj)
 
     def execute(self):
-        pass
+        super().execute()
+
+
+class SavannaTarget(PluginTarget):
+
+    def _handle_item(self, item):
+        (source, obs) = item
+        Observation.objects.add_observation(source, obs)
+        print(item)
+
+
 
