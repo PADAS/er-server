@@ -1,44 +1,42 @@
 """
  Fetch and transform Savannah data into DAS input format
 """
+import copy
 
 import http.client
 from functools import namedtuple
 from observations.models import Observation, Source
-
-from django.conf import settings
+from .plugin import DasPlugin, PluginTarget
+import datetime, time
+from data_input.models import PluginConf, PluginConfSource
 
 from dateutil.parser import parse as parse_date
 import pytz
-from redis import StrictRedis
 
-def str2date(d):
+
+def __str2date(d):
+    '''Helper function to parse a naive date and assume it's UTC.'''
     return parse_date(d).replace(tzinfo=pytz.utc)
 
-Fix = namedtuple('Fix', ['collar_id', 'lon', 'lat', 'ts', 'speed', 'heading', 'temperature', 'height'])
-field_transform = (str, float, float, str2date, float, float, str, int)
 
-__redis_client = None
-def redis():
-    global __redis_client
-    if not __redis_client:
-        __redis_client = StrictRedis(**settings.CACHE_REDIS)
-    return __redis_client
+# Helpers for parsing lines from Savanna datasource.
+Fix = namedtuple('Fix', ['collar_id', 'lon', 'lat', 'ts', 'speed', 'heading', 'temperature', 'height'])
+field_transform = (str, float, float, __str2date, float, float, str, int)
+
 
 class SavannaException(Exception):
     pass
 
-import copy
-
 class SavannaClient(object):
 
     def __init__(self, config=None):
+        '''
+        Configuration is given by the plugin. Probably saved in PluginConf record.
+        :param config: must include 'credentials' and 'host'
+        '''
+        self.credentials = config.get('credentials', {})
+        self.host = config.get('host', '')
 
-        # TODO: Move this to provider_settings.
-        self.credentials = {
-            'uid': 'ste', 'pwd': 'ndovu4'
-        }
-        self.host = "41.207.72.20"
 
     def fetch_observations(self, collar_id, start_time, end_time=None):
         '''
@@ -70,13 +68,15 @@ class SavannaClient(object):
 
     @classmethod
     def parse_line(cls, s):
-        dt = Fix._make(s.split(','))
-        dt = dt._replace(ts=parse_date(dt.ts).replace(tzinfo=pytz.utc))
+        '''
+        takes a record from savanna data source and creates a Fix from it, performing necessary data-type
+        conversions along the way.
+        :param s:
+        :return:
+        '''
+        dt = (c(i) for c, i in zip(field_transform, s.split(',')))
+        dt = Fix._make(dt)
         return dt
-
-    @classmethod
-    def test_fix(cls, sample):
-        return cls.parse_line(sample)
 
 
 SOURCE_MODEL_NAME = 'SavannaTrackingRF'
@@ -91,31 +91,44 @@ class SavannaTransformer(object):
         return (source, observation._asdict())
 
 
-from .plugin import DasPlugin, PluginTarget
-import datetime, time
+def unixtimestamp(d):
+    return int(time.mktime(d.timetuple()))
+
+DEFAULT_START_TIME = datetime.datetime(2015, 8, 1, tzinfo=pytz.utc).isoformat()
+
 class SavannaPlugin(DasPlugin):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, plugin_conf, target=None, *args, **kwargs):
         super().__init__(self, *args, **kwargs)
-        self._config = kwargs.get('config', {})
-        self.client = SavannaClient(self._config)
-        self.transformer = SavannaTransformer(self._config)
+        self._config = plugin_conf
+        self.client = SavannaClient(config=self._config.configuration)
+        self.transformer = SavannaTransformer(config=self._config)
 
-    def generate_input(self, sources):
-        pass
 
-    def __get_start_time(self, manufacturer_id=None):
-        st = self._config.get('start_time', None)
+    def __get_start_time(self):
 
         _ = datetime.datetime(2015, 8, 1, tzinfo=pytz.utc)
-        _ = int(time.mktime(_.timetuple()))
+        _ = unixtimestamp(_)
         return _
 
-
     def _fetch(self):
+        # _starttime = self._config.configuration.get('_starttime', self.__get_start_time())
+
         sources = Source.objects.filter(model_name=SOURCE_MODEL_NAME)
         for source in sources:
-            yield from self.client.fetch_observations(source.manufacturer_id, start_time=self.__get_start_time())
+
+            try:
+                pcs = PluginConfSource.objects.get(source=source, plugin_conf=self._config)
+            except PluginConfSource.DoesNotExist:
+                pcs = PluginConfSource(source=source, plugin_conf=self._config, additional=dict(start_time=DEFAULT_START_TIME))
+                pcs.save()
+
+            st = parse_date(pcs.additional['start_time'])
+            st = unixtimestamp(st)
+            print("Fetching data for collar_id %s" % (source.manufacturer_id,))
+            # yield from self.client.fetch_observations(source.manufacturer_id, start_time=self.__get_start_time(source.manufacturer_id))
+            yield from self.client.fetch_observations(source.manufacturer_id, start_time=st)
+
 
     def _transform(self, obj):
         return self.transformer.transform(obj)
