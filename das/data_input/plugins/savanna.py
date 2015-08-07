@@ -102,20 +102,21 @@ class SavannaPlugin(DasPlugin):
             try:
                 pcs = PluginConfSource.objects.get(source=source, plugin_conf=self._config)
             except PluginConfSource.DoesNotExist:
-                pcs = PluginConfSource(source=source, plugin_conf=self._config, additional=dict(start_time=DEFAULT_START_TIME))
+                pcs = PluginConfSource(source=source, plugin_conf=self._config, additional=dict(latest_timestamp=DEFAULT_START_TIME))
                 pcs.save()
 
 
-            latest_time = Observation.objects.get_max_recorded_at(source=source)
-
-            st = parse_date(pcs.additional['start_time'])
+            st = Observation.objects.get_max_recorded_at(source=source) or parse_date(pcs.additional['latest_timestamp'])
+            lt = st
             st = unixtimestamp(st)
+            st+=1
+
             print("Fetching data for collar_id %s" % (source.manufacturer_id,))
             for observation in self.client.fetch_observations(source.manufacturer_id, start_time=st):
                 lt = observation.ts
                 yield (source, observation)
 
-            pcs.additional['start_time'] = lt
+            pcs.additional['latest_timestamp'] = lt
             pcs.save()
 
     def _transform(self, so_tuple):

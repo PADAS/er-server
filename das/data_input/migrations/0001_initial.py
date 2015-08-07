@@ -18,6 +18,7 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, serialize=False, primary_key=True)),
                 ('plugin_name', models.CharField(max_length=100, null=True, verbose_name='Plugin Name')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Created At')),
+                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='Updated At')),
                 ('configuration', django_pgjson.fields.JsonBField()),
             ],
         ),
@@ -30,9 +31,11 @@ class Migration(migrations.Migration):
                 ('source', models.ForeignKey(to='observations.Source')),
                 ('additional', django_pgjson.fields.JsonBField()),
             ],
-
-
         ),
 
+        migrations.AlterUniqueTogether(
+            name='pluginconfsource',
+            unique_together=set([('plugin_conf', 'source')]),
+        ),
 
     ]
