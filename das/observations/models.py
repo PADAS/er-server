@@ -18,6 +18,7 @@ from django.contrib.postgres.fields import DateTimeRangeField, ArrayField
 from django.db.models import Q
 from django.utils import timezone
 import pytz
+from django.contrib.gis.geos import Point
 
 SOURCE_TYPES = (
     ('tracking-device', 'Tracking Device'),
@@ -29,14 +30,7 @@ SOURCE_TYPES = (
 
 
 class SourceManager(models.Manager):
-
-    def find_by_model_name(self, model_name, mid):
-
-        print(id(self))
-
-        s = Source.objects.get(model_name=model_name, manufacturer_id=mid)
-
-        return s
+    pass
 
 class Source(models.Model):
 
@@ -74,6 +68,13 @@ class ObservationManager(models.GeoManager):
         result = result.order_by('-recorded_at')
 
         return result
+
+    def add_observation(self, source, observation):
+        loc = Point(float(observation.pop('lat')), float(observation.pop('lon')))
+        ts = observation.pop('ts')
+
+        Observation(source_id=source.id, location=loc, recorded_at=ts, additional=observation).save()
+
 
 
 class Observation(models.Model):

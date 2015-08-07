@@ -1,70 +1,36 @@
-import unittest
 from django.test import TestCase, TransactionTestCase
-from data_input.plugins.savanna import SavannaClient, SavannaTransformer, SavannaException
-from django.db import transaction
-from observations.models import Source
+from data_input.plugins.savanna import SavannaClient, SavannaTransformer, SavannaPlugin, SavannaTarget
+from data_input.models import PluginConf
 import datetime, time, pytz
 
-MODEL_NAME = 'SavannaTrackingRF'
+
 class TestSavannaProvider(TransactionTestCase):
 
-    fixtures = ['observations_source.json', ]
+    fixtures = ['observations_source.json', 'pluginconf.json',]
 
     def setUp(self):
+        pass
 
-        self.client = SavannaClient()
-        self.transformer = SavannaTransformer()
+    def test_plugin_with_target(self):
+        '''
+        Test savanna plugin with a mock target.
+        :return:
+        '''
 
-    def test_source(self):
+        pc = PluginConf.objects.get(plugin_name='savanna')
+        print(pc)
 
-        source = Source.objects.find_by_model_name(MODEL_NAME, 'ST2010-1352')
-        if source:
-            print(source.id, source.model_name, source.manufacturer_id)
-
-        fix = self.client.test_fix(SAMPLE_LINE)
-
-        _ = datetime.datetime(2015, 6, 1, tzinfo=pytz.utc)
-        _ = int(time.mktime(_.timetuple()))
-        _ = self.client.fetch_observations(source.manufacturer_id, start_time=_)
-
-        for fix in _:
-            new_observation = self.transformer.transform(fix)
-            print(new_observation)
+        with SavannaTarget() as consumer:
+            sp = SavannaPlugin(pc, target=consumer)
+            sp.execute()
 
 
-    def test_fetch_data_for_valid_device_id(self):
-        try:
-            start_time = int(time.mktime(datetime.datetime(2015, 6, 1).timetuple()))
+def _ts(timetuple):
+    _ = datetime.datetime(*timetuple)
+    return int(time.mktime(_.timetuple()))
 
-            collar_id = SAMPLE_COLLARS[0]['collar_id']
-            collar_id = 'STRF50'
-            obs_data = self.client.fetch_observations(collar_id, start_time)
-
-            from itertools import islice
-            for obs in islice(obs_data, 50):
-                tobs = self.transformer.transform(obs)
-                print(tobs.ts.isoformat())
-                print(tobs)
-
-        except SavannaException as se:
-            raise se
-
-    def test_fetch_data_for_invalid_device_id(self):
-        try:
-            start_time = int(time.mktime(datetime.datetime(2015, 6, 1).timetuple()))
-
-            collar_id = 'ST2010-12345'
-            obs_data = self.client.fetch_observations(collar_id, start_time)
-
-            for obs in obs_data:
-                print(obs)
-
-        except SavannaException as se:
-            raise se
-
-
+MODEL_NAME = 'SavannaTrackingRF'
 SAMPLE_LINE='ST2010-1352,37.54771,0.5735083,6/26/2015 5:30:18 AM,0.47,0,,873'
-
 SAMPLE_COLLARS = [
     {"collar_id": "ST2010-1352", "name": "Nutmeg"},
     {"collar_id": "ST2010-1234", "name": "Habiba"},

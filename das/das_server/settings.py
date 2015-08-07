@@ -30,6 +30,11 @@ DEBUG = False
 
 ALLOWED_HOSTS = []
 
+CACHE_REDIS = {
+    'host': 'redis.host',
+    'port': 6379,
+    'db': 11,
+}
 
 # Application definition
 
