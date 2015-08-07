@@ -16,9 +16,10 @@ from django.contrib.gis.db import models
 from django_pgjson.fields import JsonBField
 from django.contrib.postgres.fields import DateTimeRangeField, ArrayField
 from django.db.models import Q
+from django.db.models import Max
 from django.utils import timezone
 import pytz
-
+from django.contrib.gis.geos import Point
 
 SOURCE_TYPES = (
     ('tracking-device', 'Tracking Device'),
@@ -30,14 +31,7 @@ SOURCE_TYPES = (
 
 
 class SourceManager(models.Manager):
-
-    def find_by_model_name(self, model_name, mid):
-
-        print(id(self))
-
-        s = Source.objects.get(model_name=model_name, manufacturer_id=mid)
-
-        return s
+    pass
 
 class Source(models.Model):
 
@@ -55,7 +49,7 @@ class Source(models.Model):
 
 
 class ObservationManager(models.GeoManager):
-    def get_source_range_observations(self, subject_sources):
+    def get_source_range_observations(self, subject_sources, since=None, until=None):
         """get observations for a set of sources and date ranges.
         An animal may switch source devices based on a date range.
         """
@@ -68,20 +62,32 @@ class ObservationManager(models.GeoManager):
             qs = qs | q if qs else q
 
         result = Observation.objects.filter(qs)
+        if since:
+            result = result.filter(Q(recorded_at__gt=since))
+        if until:
+            result = result.filter(Q(recorded_at__lte=until))
         result = result.order_by('-recorded_at')
+
         return result
 
-    def store_observation(self, observation_data):
+    def add_observation(self, source, observation):
         '''
-        Validate an observation and store it.
-        :param obs:
-        :return:
+        Add an observation for the given source.
+        :param source:
+        :param observation: a dict containing observation data. Anything other than lat, lon and timestamp (ts) will
+        be saved in additional (as jsonb).
+        :return: None
         '''
+        loc = Point(float(observation.pop('lat')), float(observation.pop('lon')))
+        ts = observation.pop('ts')
 
-        obs = Observation(**observation_data)
-        obs.save()
+        Observation(source_id=source.id, location=loc, recorded_at=ts, additional=observation).save()
 
 
+    def get_max_recorded_at(self, source):
+        '''Get the latest recorded timestamp for the source.'''
+        r = Observation.objects.filter(source=source).aggregate(Max('recorded_at'))
+        return r.get('recorded_at__max')
 
 
 class Observation(models.Model):
@@ -97,8 +103,8 @@ class Observation(models.Model):
 
     objects = ObservationManager()
 
-    def __str__(self):
-        return self.name
+    # def __str__(self):
+    #     return self.name
 
     class Meta:
         index_together = (
@@ -108,6 +114,13 @@ class Observation(models.Model):
 
 class SubjectSourceManager(models.GeoManager):
     pass
+
+
+SUBJECT_TYPES = (
+    ('wildlife', 'Wildlife'),
+    ('vehicle', 'Vehicle'),
+    ('stationary-object', 'Stationary Object'),
+)
 
 
 class SubjectSource(models.Model):
@@ -127,6 +140,7 @@ class Subject(models.Model):
     """Person, Animal, Vehicle, etc"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
+    subject_type = models.CharField(max_length=100, choices=SUBJECT_TYPES, default='wildlife')
     additional = JsonBField()
 
 
