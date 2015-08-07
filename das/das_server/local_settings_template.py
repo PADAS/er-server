@@ -32,3 +32,12 @@ DATABASES = {
 
 # On Windows, install Shapely, then set the geos library path appropriately
 #GEOS_LIBRARY_PATH = 'C:\python34\Lib\site-packages\shapely\DLLs\geos_c.dll'
+
+"""
+We put test fixtures in a non-conventional place, so build a list of directories here to let Django
+know where to find them.
+Our convention is to include fixtures in <app_name>/tests/fixtures/
+"""
+_ = ('%s/tests/fixtures' % x for x in ('observations', 'data_input'))
+FIXTURE_DIRS = list(os.path.join(BASE_DIR, x) for x in _)
+print(FIXTURE_DIRS)
