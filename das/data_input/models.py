@@ -1,27 +1,18 @@
+import uuid
 from django.db import models
 from django_pgjson.fields import JsonBField
-import uuid
+from core.models import TimestampedModel
 
-class PluginConfManager(models.Manager):
-    pass
 
-class PluginConf(models.Model):
-
-    objects = PluginConfManager()
-
+class PluginConf(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    plugin_name = models.CharField('plugin name', max_length=100, null=True)
-    created_at = models.DateTimeField('created at', null=True)
+    plugin_name = models.CharField('plugin name', max_length=100)
     configuration = JsonBField()
 
 
-class PluginConfSourceManager(models.Manager):
-    pass
-
 class PluginConfSource(models.Model):
-    objects = PluginConfSourceManager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    plugin_conf = models.ForeignKey('data_input.PluginConf', null=True)
+    plugin_conf = models.ForeignKey('PluginConf')
     source = models.ForeignKey('observations.Source')
     additional = JsonBField()
 
