@@ -14,9 +14,9 @@ from dateutil.parser import parse as parse_date
 import pytz
 
 
-def __str2date(d):
-    '''Helper function to parse a naive date and assume it's UTC.'''
-    return parse_date(d).replace(tzinfo=pytz.utc)
+def __str2date(d, replace_tzinfo=pytz.utc):
+    '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
+    return parse_date(d).replace(tzinfo=replace_tzinfo)
 
 
 # Helpers for parsing lines from Savanna datasource.
@@ -24,8 +24,8 @@ Fix = namedtuple('Fix', ['collar_id', 'lon', 'lat', 'ts', 'speed', 'heading', 't
 field_transform = (str, float, float, __str2date, float, float, str, int)
 
 
-class SavannaException(Exception):
-    pass
+# class SavannaException(Exception):
+#     pass
 
 class SavannaClient(object):
 
@@ -81,15 +81,6 @@ class SavannaClient(object):
 
 SOURCE_MODEL_NAME = 'SavannaTrackingRF'
 
-class SavannaTransformer(object):
-
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def transform(self, observation):
-        source = Source.objects.get(model_name=SOURCE_MODEL_NAME, manufacturer_id=observation.collar_id)
-        return (source, observation._asdict())
-
 
 def unixtimestamp(d):
     return int(time.mktime(d.timetuple()))
@@ -98,21 +89,12 @@ DEFAULT_START_TIME = datetime.datetime(2015, 8, 1, tzinfo=pytz.utc).isoformat()
 
 class SavannaPlugin(DasPlugin):
 
-    def __init__(self, plugin_conf, target=None, *args, **kwargs):
+    def __init__(self, plugin_conf, *args, **kwargs):
         super().__init__(self, *args, **kwargs)
         self._config = plugin_conf
         self.client = SavannaClient(config=self._config.configuration)
-        self.transformer = SavannaTransformer(config=self._config)
-
-
-    def __get_start_time(self):
-
-        _ = datetime.datetime(2015, 8, 1, tzinfo=pytz.utc)
-        _ = unixtimestamp(_)
-        return _
 
     def _fetch(self):
-        # _starttime = self._config.configuration.get('_starttime', self.__get_start_time())
 
         sources = Source.objects.filter(model_name=SOURCE_MODEL_NAME)
         for source in sources:
@@ -123,15 +105,22 @@ class SavannaPlugin(DasPlugin):
                 pcs = PluginConfSource(source=source, plugin_conf=self._config, additional=dict(start_time=DEFAULT_START_TIME))
                 pcs.save()
 
+
+            latest_time = Observation.objects.get_max_recorded_at(source=source)
+
             st = parse_date(pcs.additional['start_time'])
             st = unixtimestamp(st)
             print("Fetching data for collar_id %s" % (source.manufacturer_id,))
-            # yield from self.client.fetch_observations(source.manufacturer_id, start_time=self.__get_start_time(source.manufacturer_id))
-            yield from self.client.fetch_observations(source.manufacturer_id, start_time=st)
+            for observation in self.client.fetch_observations(source.manufacturer_id, start_time=st):
+                lt = observation.ts
+                yield (source, observation)
 
+            pcs.additional['start_time'] = lt
+            pcs.save()
 
-    def _transform(self, obj):
-        return self.transformer.transform(obj)
+    def _transform(self, so_tuple):
+        source, observation = so_tuple
+        return (source, observation._asdict())
 
     def execute(self):
         super().execute()
@@ -142,7 +131,6 @@ class SavannaTarget(PluginTarget):
     def _handle_item(self, item):
         (source, obs) = item
         Observation.objects.add_observation(source, obs)
-        print(item)
-
+        print(obs)
 
 

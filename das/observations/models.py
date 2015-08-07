@@ -16,6 +16,7 @@ from django.contrib.gis.db import models
 from django_pgjson.fields import JsonBField
 from django.contrib.postgres.fields import DateTimeRangeField, ArrayField
 from django.db.models import Q
+from django.db.models import Max
 from django.utils import timezone
 import pytz
 from django.contrib.gis.geos import Point
@@ -70,11 +71,23 @@ class ObservationManager(models.GeoManager):
         return result
 
     def add_observation(self, source, observation):
+        '''
+        Add an observation for the given source.
+        :param source:
+        :param observation: a dict containing observation data. Anything other than lat, lon and timestamp (ts) will
+        be saved in additional (as jsonb).
+        :return: None
+        '''
         loc = Point(float(observation.pop('lat')), float(observation.pop('lon')))
         ts = observation.pop('ts')
 
         Observation(source_id=source.id, location=loc, recorded_at=ts, additional=observation).save()
 
+
+    def get_max_recorded_at(self, source):
+        '''Get the latest recorded timestamp for the source.'''
+        r = Observation.objects.filter(source=source).aggregate(Max('recorded_at'))
+        return r.get('recorded_at__max')
 
 
 class Observation(models.Model):
@@ -90,8 +103,8 @@ class Observation(models.Model):
 
     objects = ObservationManager()
 
-    def __str__(self):
-        return self.name
+    # def __str__(self):
+    #     return self.name
 
     class Meta:
         index_together = (
