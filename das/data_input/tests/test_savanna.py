@@ -1,5 +1,5 @@
 from django.test import TestCase, TransactionTestCase
-from data_input.plugins.savanna import SavannaClient, SavannaTransformer, SavannaPlugin, SavannaTarget
+from data_input.plugins.savanna import SavannaClient, SavannaPlugin, SavannaTarget
 from data_input.models import PluginConf
 import datetime, time, pytz
 
