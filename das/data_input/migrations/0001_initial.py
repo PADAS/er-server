@@ -27,7 +27,7 @@ class Migration(migrations.Migration):
             name='PluginConfSource',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, serialize=False, primary_key=True)),
-                ('plugin_conf', models.ForeignKey(to='data_input.PLuginConf')),
+                ('plugin_conf', models.ForeignKey(to='data_input.PluginConf')),
                 ('source', models.ForeignKey(to='observations.Source')),
                 ('additional', django_pgjson.fields.JsonBField()),
             ],
