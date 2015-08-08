@@ -30,15 +30,20 @@ DEBUG = False
 
 ALLOWED_HOSTS = []
 
+CACHE_REDIS = {
+    'host': 'redis.host',
+    'port': 6379,
+    'db': 11,
+}
 
 # Application definition
 
 INSTALLED_APPS = (
-#    'django.contrib.admin',
-#    'django.contrib.auth',
+   'django.contrib.admin',
+   'django.contrib.auth',
     'django.contrib.contenttypes',
-#    'django.contrib.sessions',
-#    'django.contrib.messages',
+   'django.contrib.sessions',
+   'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
     'djgeojson',
@@ -46,15 +51,16 @@ INSTALLED_APPS = (
     'api',
     'data_input',
     'mapping',
+    'django_rq',
 )
 
 MIDDLEWARE_CLASSES = (
-#    'django.contrib.sessions.middleware.SessionMiddleware',
+   'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-#    'django.contrib.auth.middleware.AuthenticationMiddleware',
-#    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
-#    'django.contrib.messages.middleware.MessageMiddleware',
+   'django.contrib.auth.middleware.AuthenticationMiddleware',
+   'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
+   'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
 )
@@ -170,3 +176,14 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
 
 STATIC_URL = '/static/'
+
+RQ_QUEUES = {
+    'default': {
+        'HOST': 'soa.here',
+        'URL': 'redis://soa.here:6379',
+        'PORT': 6379,
+        'DB': 11,
+        # 'PASSWORD': 'some-password',
+        'DEFAULT_TIMEOUT': 360,
+    },
+}
