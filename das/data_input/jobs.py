@@ -16,13 +16,3 @@ def run_savanna():
         sp = SavannaPlugin(pc, target=consumer)
         sp.execute()
 
-
-
-if __name__ == '__main__':
-    import django_rq
-    from data_input import jobs
-    import django
-    django.setup()
-
-    queue = django_rq.get_queue('default')
-    queue.enqueue(jobs.run_savanna)

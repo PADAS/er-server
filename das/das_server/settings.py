@@ -187,3 +187,16 @@ RQ_QUEUES = {
         'DEFAULT_TIMEOUT': 360,
     },
 }
+
+# SCHEDULER = {
+#     'db_url': 'postgres://postgres:postgres@localhost:5432/dasdb',
+#     'executors': {
+#         'default': {'type': 'threadpool', 'max_workers': 20},
+#         'processpool': {'type': 'processpool', 'max_workers': 4},
+#     },
+#     'job_defaults': {
+#         'coalesce': False,
+#         'max_instances': 3
+#     }
+#
+# }
