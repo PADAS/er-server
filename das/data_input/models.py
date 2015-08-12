@@ -9,6 +9,9 @@ class PluginConf(TimestampedModel):
     plugin_name = models.CharField('plugin name', max_length=100)
     configuration = JsonBField()
 
+    class Meta:
+        app_label = 'data_input'
+
 
 class PluginConfSource(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -17,6 +20,7 @@ class PluginConfSource(models.Model):
     additional = JsonBField()
 
     class Meta:
+        app_label = 'data_input'
         unique_together = (
             ('plugin_conf', 'source')
         )
