@@ -1,3 +1,7 @@
+class DasPluginConfigurationError(Exception):
+    pass
+
+
 class DasPluginFetchError(Exception):
     pass
 

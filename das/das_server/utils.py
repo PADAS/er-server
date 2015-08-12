@@ -4,6 +4,12 @@ from itertools import islice, chain
 from types import GeneratorType
 import simplejson as json
 try:
+    import psycopg2.extras
+    psycopg2_imported = True
+except ImportError:
+    psycopg2_imported = False
+
+try:
     from bson import ObjectId
     bson_imported = True
 except ImportError:
@@ -33,6 +39,8 @@ class ExtendedJSONEncoder(json.JSONEncoder):
         elif bson_imported and isinstance(o, ObjectId):
             # needed for supporting the MongoDB ObjectId
             return """{u'$oid': u'%s'}""" % str(o)
+        elif isinstance(o, (psycopg2.extras.DateTimeTZRange,)):
+            return [o.lower, o.upper]
         elif isinstance(o, uuid.UUID):
             return str(o)
         elif isinstance(o, (GeneratorType, chain)):

@@ -33,6 +33,7 @@ SOURCE_TYPES = (
 class SourceManager(models.Manager):
     pass
 
+
 class Source(models.Model):
 
     objects = SourceManager()
@@ -45,7 +46,6 @@ class Source(models.Model):
                                        null=True)
     model_name = models.CharField('device model name', max_length=100, null=True)
     additional = JsonBField()
-
 
 
 class ObservationManager(models.GeoManager):
@@ -113,7 +113,13 @@ class Observation(models.Model):
 
 
 class SubjectSourceManager(models.GeoManager):
-    pass
+    def get_subject_sources(self, subject):
+        sds = SubjectSource.objects.filter(subject_id=subject.id)
+        return sds
+
+    def get_subject_source(self, subject, source_id):
+        sds = SubjectSource.objects.filter(subject_id=subject.id, source_id=source_id)
+        return sds
 
 
 SUBJECT_TYPES = (
@@ -136,28 +142,76 @@ class SubjectSource(models.Model):
     objects = SubjectSourceManager()
 
 
+class SubjectManager(models.Manager):
+    pass
+
+
 class Subject(models.Model):
     """Person, Animal, Vehicle, etc"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     subject_type = models.CharField(max_length=100, choices=SUBJECT_TYPES, default='wildlife')
     additional = JsonBField()
+    objects = SubjectManager()
+
+    @property
+    def color(self):
+        color = self.additional.get('rgb', None)
+        if color:
+            color = "#" + "".join(color.split(','))
+        return color
+
+    @property
+    def image_url(self):
+        key = self.subject_type
+        species = self.additional.get('species', None)
+        if species:
+            species = species.lower()
+            sex = self.additional.get('sex', None)
+            if sex:
+                key = '-'.join((species, sex.lower()))
+            else:
+                key = species
+        return googlemarkericon(key)
+
+
+class WildlifeSubjectManager(models.Manager):
+    def get_queryset(self):
+        return super(WildlifeSubjectManager, self).get_queryset().filter(
+            subject_type='wildlife')
+
+    def create(self, **kwargs):
+        kwargs.update({'subject_type': 'wildlife'})
+        return super(WildlifeSubjectManager, self).create(**kwargs)
+
+
+class WildlifeSubject(Subject):
+    objects = WildlifeSubjectManager()
+
+    class Meta:
+        proxy = True
 
 
 MARKER_ICONS = {
     'elephant-male': 'http://107.21.94.89/Images/AnimalIcons/Elephant_Male.png',
     'elephant-female': 'http://107.21.94.89/Images/AnimalIcons/Elephant_Female.png',
-    'lion-male': '',
+    'lion-male': 'http://107.21.94.89/Images/AnimalIcons/Lion_Male.png',
+    'lion-female': 'http://107.21.94.89/Images/AnimalIcons/Lion_Female.png',
     'vehicle': 'http://maps.google.com/mapfiles/kml/shapes/truck.png',
     'cow': '',
     'cheetah': '',
     'expedition': 'http://maps.google.com/mapfiles/kml/shapes/triangle.png',
-    'zebra': 'http://107.21.94.89/Images/AnimalIcons/GrevysZebra_Female.png',
+    'zebra-male': 'http://107.21.94.89/Images/AnimalIcons/GrevysZebra_Male.png',
+    'zebra-female': 'http://107.21.94.89/Images/AnimalIcons/GrevysZebra_Female.png',
     'forest elephant': '',
     'goat': '',
-    'sable': '',
+    'sable-male': 'http://107.21.94.89/Images/AnimalIcons/SableAntelopeGraphicMale.png',
+    'sable-female': 'http://107.21.94.89/Images/AnimalIcons/SableAntelopeGraphicFemale.png',
+    'rhino-male': 'http://107.21.94.89/Images/AnimalIcons/Rhino_Male.png',
+    'rhino-female': 'http://107.21.94.89/Images/AnimalIcons/Rhino_Female.png',
     'white rhino': '',
     'black rhino': '',
 }
+
 def googlemarkericon(subject_type):
     return MARKER_ICONS.get(subject_type, 'http://maps.google.com/mapfiles/kml/shapes/truck.png')
