@@ -22,4 +22,7 @@ GDAL==1.11.2
 
 #rq==0.5.4
 #django-rq==0.8.0
+
+# APScheduler requires SQLAlchemy if we hold schedule information in Postgres.
 APScheduler==3.0.3
+SQLAlchemy==1.0.8
