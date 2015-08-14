@@ -1,4 +1,7 @@
 class DasPluginConfigurationError(Exception):
+    """
+    
+    """
     pass
 
 

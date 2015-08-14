@@ -8,6 +8,8 @@ from .plugin import DasPlugin, PluginTarget, \
     DasPluginInsertError, DasPluginTransformationError
 from .utils import dictify
 
+SKYGISTICS_DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
+
 SKYGISTICS_API_XMLNS = '{http://www.skygistics.com/SkygisticsAPI}'
 SKYGISTICS_API_ENDPOINT = '/SkygisticsAPI/SkygisticsAPI.asmx'
 
@@ -89,8 +91,8 @@ class SkygisticsSatelliteClient(object):
             '{0}{1}/GetReplayDataCount'.format(self.config['host'], SKYGISTICS_API_ENDPOINT),
             {
                 'imei': imei,
-                'startdate': start_date.strftime('%Y-%m-%d %H:%M:%S'),
-                'enddate': end_date.strftime('%Y-%m-%d %H:%M:%S'),
+                'startdate': start_date.strftime(SKYGISTICS_DATETIME_FORMAT),
+                'enddate': end_date.strftime(SKYGISTICS_DATETIME_FORMAT),
                 'sessionid': self.session_id,
             })
         # parse response content for session_id
@@ -115,8 +117,8 @@ class SkygisticsSatelliteClient(object):
             '{0}{1}/GetReplayData'.format(self.config['host'], SKYGISTICS_API_ENDPOINT),
             {
                 'imei': imei,
-                'startdate': start_date.strftime('%Y-%m-%d %H:%M:%S'),
-                'enddate': end_date.strftime('%Y-%m-%d %H:%M:%S'),
+                'startdate': start_date.strftime(SKYGISTICS_DATETIME_FORMAT),
+                'enddate': end_date.strftime(SKYGISTICS_DATETIME_FORMAT),
                 'sessionid': self.session_id,
                 'skip': skip,
                 'limit': limit,
