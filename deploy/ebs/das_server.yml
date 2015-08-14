@@ -37,7 +37,7 @@ app:
               IamInstanceProfile: "arn:aws:iam::074677080781:instance-profile/das_server-dev"
               EC2KeyName: "das-dev"
               SecurityGroups: "sg-e0cf3284,sg-304ee854"
-              #ImageId: ""
+              ImageId: "ami-e11b0ed1"
 
             'aws:elasticbeanstalk:environment':
               EnvironmentType: "SingleInstance"
