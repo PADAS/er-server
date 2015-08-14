@@ -17,6 +17,23 @@ class TestSkygisticsInit(TestCase):
         with self.assertRaises(DasPluginConfigurationError):
             SkygisticsSatellitePlugin(config, target)
 
+    def test_plugin_init_with_no_target(self):
+        config = PluginConf.objects.create(plugin_name='test config')
+        target = None
+        with self.assertRaises(DasPluginConfigurationError):
+            SkygisticsSatellitePlugin(config, target)
+
+    def test_plugin_init_with_no_config(self):
+        config = None
+        target = None
+        with self.assertRaises(DasPluginConfigurationError):
+            SkygisticsSatellitePlugin(config, target)
+
+    def test_plugin_init_with_config_and_target(self):
+        config = PluginConf.objects.create(plugin_name='test config')
+        target = None
+        SkygisticsSatellitePlugin(config, target)
+
 
 class TestSkygisticsFetch(TestCase):
     def setUp(self):
