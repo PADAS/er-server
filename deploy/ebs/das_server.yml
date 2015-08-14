@@ -1,0 +1,108 @@
+# See ebs-deploy https://github.com/briandilley/ebs-deploy
+# aws account config
+aws:
+    # override environment variables here
+    region: 'us-west-2'
+    bucket: 'das-builds'
+    bucket_path: 'das_server'
+
+# application configuration
+app:
+    versions_to_keep: 10 # the number of unused application versions to keep around
+    app_name: 'DAS Server' # the name of your application
+    description: 'Domain Awareness System' # description of your app
+
+    all_environments:
+        solution_stack_name: '64bit Amazon Linux 2015.03 v2.0.0 running Python 3.4'
+
+        # optional information on the tier type
+        # check the boto documentation for create_environment
+        # for an explanation on the default values.  Most
+        # configurations don't need to specify these values
+        # at all.
+        # Boto: http://docs.pythonboto.org/en/latest/ref/beanstalk.html
+        tier_name: 'WebServer'
+        tier_type: 'Standard'
+        tier_version: '1.0'
+
+        # option_settings contain namespaced key\value pairs that are
+        # supported by Beanstalk, follows is an example of some of
+        # the values that you might want to set for a python application
+        option_settings:
+            'aws:elasticbeanstalk:container:python:staticfiles':
+                "/static/": "/opt/python/current/app/das/das_server/static"
+
+            'aws:autoscaling:launchconfiguration':
+              InstanceType: "t1.micro"
+              IamInstanceProfile: "arn:aws:iam::074677080781:instance-profile/das_server-dev"
+              EC2KeyName: "das-dev"
+              SecurityGroups: "sg-e0cf3284,sg-304ee854"
+              #ImageId: ""
+
+            'aws:elasticbeanstalk:environment':
+              EnvironmentType: "SingleInstance"
+
+            'aws:elasticbeanstalk:application:environment':
+              DJANGO_SETTINGS_MODULE: "das_server.local_settings"
+              PYTHONPATH: "/opt/python/current/app/das:$PYTHONPATH"
+
+            'aws:elasticbeanstalk:container:python':
+                WSGIPath: 'das/das_server/wsgi.py'
+                NumProcesses: 1
+                NumThreads: 15
+
+            'aws:ec2:vpc':
+              VPCId: "vpc-e774e482"
+              Subnets: "subnet-11bf3166,subnet-6910780c,subnet-0074d659"
+              AssociatePublicIpAddress: "true"
+
+        # instructions on how to build the application archive
+        archive:
+            includes: # files to include, a list of regex
+              - '^das\\.*'
+              #- '^wheelhouse\\.*'
+              - '^requirements\.txt$'
+            excludes: # files to exclude, a list of regex
+                - '^.gitignore$'
+                - '^\.git*'
+                - '.*\.egg-info$'
+                - '^tests.*'
+                - '.*\.zip$'
+                - '^venv.*'
+                - '.*\.pyc$'
+            files:
+              - .ebextensions/01-install_dependencies.config:
+                    # permissions of the file
+                    permissions: 0777
+                    # the yaml node is important here
+                    yaml:
+                        packages:
+                            yum:
+                                postgresql93-devel: []
+                                gcc: []
+                                make: []
+                                gcc-c++: []
+                                libtool: []
+                                libxml2-devel: []
+
+              - .ebextensions/02-commands.config:
+                    # permissions of the file
+                    permissions: 0666
+                    # the yaml node is important here
+                    yaml:
+                        commands:
+                          01-GDAL:
+                            command: "cd /tmp; if [ ! -d gdal-1.11.2 ]; then wget http://download.osgeo.org/gdal/1.11.2/gdal-1.11.2.tar.gz; tar -xzvf gdal-1.11.2.tar.gz; cd gdal-1.11.2; ./configure --prefix=/usr; make; make install; fi"
+                          02-GEOS:
+                            command: "cd /tmp; if [ ! -d geos-3.3.9 ]; then wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
+
+
+    # Under the environments node is each environment and their config.
+    # Environment specific configuration is determined by first processing
+    # the all_environments config and then "overlaying" the environment
+    # specific configuration onto it.  Any number of environments can be
+    # specified
+    environments:
+        # the dev version of the app
+        'das-server-dev':
+            cname_prefix: 'das-server-dev'
