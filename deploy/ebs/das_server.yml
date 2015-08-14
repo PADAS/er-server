@@ -59,8 +59,8 @@ app:
         # instructions on how to build the application archive
         archive:
             includes: # files to include, a list of regex
-              - '^das\\.*'
-              #- '^wheelhouse\\.*'
+              - '^das\/.*'
+              #- '^wheelhouse\/.*'
               - '^requirements\.txt$'
             excludes: # files to exclude, a list of regex
                 - '^.gitignore$'
