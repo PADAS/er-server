@@ -14,7 +14,7 @@ from django.core.wsgi import get_wsgi_application
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das_server.settings")
 
 # Run background jobs
-from .startup import run
+from das_server.startup import run
 run()
 
 application = get_wsgi_application()
