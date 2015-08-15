@@ -18,6 +18,13 @@ def default_since():
     return datetime.datetime.now(pytz.utc) - datetime.timedelta(days=30)
 
 
+def dateparse(date_str, default_tz=pytz.utc):
+    dt = dateutil.parser.parse(date_str)
+    if not dt.tzinfo:
+        dt = dt.replace(tzinfo=default_tz)
+    return dt
+
+
 class ApiJsonResponse(HttpResponse):
     """
     Custom data payload for the API
@@ -100,11 +107,11 @@ class SubjectSourceTrackView(SubjectBaseView):
 
         since = request.GET.get('since', default_since())
         if isinstance(since, str):
-            since = dateutil.parser.parse(since)
+            since = dateparse(since)
 
         until = request.GET.get('until', None)
         if until:
-            until = dateutil.parser.parse(until)
+            until = dateparse(until)
 
         color = self.subject.additional.get('rgb', None)
         if color:
@@ -151,11 +158,11 @@ class SubjectTracksView(SubjectBaseView):
 
         since = request.GET.get('since', default_since())
         if isinstance(since, str):
-            since = dateutil.parser.parse(since)
+            since = dateparse(since)
 
         until = request.GET.get('until', None)
         if until:
-            until = dateutil.parser.parse(until)
+            until = dateparse(until)
 
         sds = SubjectSource.objects.filter(subject_id=subject_id)
         if not sds:
