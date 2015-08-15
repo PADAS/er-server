@@ -1,5 +1,6 @@
 """ fetch and transform Skygistics (AWT) data into DAS input format
 """
+from datetime import datetime
 import xml.etree.ElementTree as etree
 import requests
 from data_input.models import PluginConf
@@ -18,7 +19,11 @@ class SkygisticsLoginError(Exception):
     pass
 
 
-class SkygisticsSatelliteClient(object):
+class SkygisticsClient(object):
+    pass
+
+
+class SkygisticsSatelliteClient(SkygisticsClient):
     def __init__(self, config):
         self.config = config
         # this is mildly ugly:  skygistics returns '0' for a failed login
@@ -123,8 +128,7 @@ class SkygisticsSatelliteClient(object):
                 'skip': skip,
                 'limit': limit,
             })
-        # parse response content for session_id
-        self.fetch_data = etree.fromstring(response_text)
+        return etree.fromstring(response_text)
 
     def begin_session(self):
         self._login()
@@ -138,15 +142,13 @@ class SkygisticsSatelliteClient(object):
         :return: generator, yielding individual records.
         """
 
-        self._get_replay_data(
+        replay_data_dict = dictify(self._get_replay_data(
             imei,
             start_time,
             end_time,  # todo: get latest
             skip=0,
             limit=100  # todo: batch based on _get_replay_data_count
-        )
-        # todo:  perhaps we can forgo this or extend dictify to accept a key mapping?
-        replay_data_dict = dictify(self.fetch_data)
+        ))
         for unit_info in \
                 replay_data_dict[('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))][
                     ('{0}UnitInfo'.format(SKYGISTICS_API_XMLNS))]:
@@ -177,7 +179,7 @@ class SkygisticsSatelliteTransformer(object):
 class SkygisticsSatellitePlugin(DasPlugin):
     def __init__(self, config, target):
         # config should be a PluginConf object with a jsonb configuration attribute
-        if isinstance(config, PluginConf):
+        if isinstance(config, PluginConf) and isinstance(target, PluginTarget):
             self.config = config
 
             # todo:  sanity check config.configuration and extract relevant bits
