@@ -51,7 +51,6 @@ INSTALLED_APPS = (
     'api',
     'data_input',
     'mapping',
-    'django_rq',
 )
 
 MIDDLEWARE_CLASSES = (
