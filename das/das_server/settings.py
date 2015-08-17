@@ -30,12 +30,6 @@ DEBUG = False
 
 ALLOWED_HOSTS = []
 
-CACHE_REDIS = {
-    'host': 'redis.host',
-    'port': 6379,
-    'db': 11,
-}
-
 # Application definition
 
 INSTALLED_APPS = (
@@ -175,17 +169,6 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
 
 STATIC_URL = '/static/'
-
-RQ_QUEUES = {
-    'default': {
-        'HOST': 'soa.here',
-        'URL': 'redis://soa.here:6379',
-        'PORT': 6379,
-        'DB': 11,
-        # 'PASSWORD': 'some-password',
-        'DEFAULT_TIMEOUT': 360,
-    },
-}
 
 # SCHEDULER = {
 #     'db_url': 'postgres://postgres:postgres@localhost:5432/dasdb',
