@@ -3,15 +3,14 @@ __author__ = 'chris'
 from observations.models import Observation, Source
 from django.contrib.gis.geos import Point
 
+
 class PluginTarget(object):
     pass
 
 
 class DasPluginTarget(PluginTarget):
-
     def __init__(self, config=None):
         self.__config = config
-
 
     def __call__(self, *args, **kwargs):
 
@@ -26,7 +25,6 @@ class DasPluginTarget(PluginTarget):
             except GeneratorExit:
                 print("You sent %d messages" % (cnt,))
 
-
     def insert(self, observation):
         '''
         Expect observation to be a dict mapping to observation model
@@ -40,4 +38,3 @@ class DasPluginTarget(PluginTarget):
 
         obs = Observation(source=source, location=loc, recorded_at=ts, additional=observation)
         obs.save()
-

@@ -1,9 +1,14 @@
 """ fetch and transform Skygistics (AWT) data into DAS input format
 """
-from datetime import datetime
-import xml.etree.ElementTree as etree
 import requests
+import xml.etree.ElementTree as etree
+from datetime import datetime
+
+from django.contrib.gis.geos import Point
+
+from observations.models import Observation, Source
 from data_input.models import PluginConf
+
 from .plugin import DasPlugin, PluginTarget, \
     DasPluginConfigurationError, DasPluginFetchError, \
     DasPluginInsertError, DasPluginTransformationError
@@ -110,10 +115,10 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             sessionid=string&imei=string&startdate=string&enddate=string&skip=int&limit=int
 
         :param imei:
-        :param start_date:
-        :param end_date:
-        :param skip:
-        :param limit:
+        :param start_date:  datetime.date
+        :param end_date:  datetime.date
+        :param skip:  default=0
+        :param limit:  default=100
         :return: replay_data
         """
         if not self.session_id or self.session_id == '0':
@@ -191,14 +196,27 @@ class SkygisticsSatellitePlugin(DasPlugin):
         else:
             raise DasPluginConfigurationError()
 
-    def _fetch(self, *args, **kwargs):
+    def _fetch(self):
+        start_time = datetime.now().date()
 
         self.client.begin_session()
         for source in self.config.config_sources:
             yield from self.client.fetch_observations(source.manufacturer_id, start_time=start_time)
 
+    def _transform(self, skygistics_dict):
+        """
+        transform a Skygistics data dictionary into a DAS observation
+        :param skygistics_dict:
+        :return: Observation
+        """
+        return Observation(
+            recorded_at=skygistics_dict['fix_time'],
+            location=Point(x=skygistics_dict['long'], y=skygistics_dict['lat'])
+        )
+
     def _insert(self, item, *args, **kwargs):
         super()._insert(item)
 
     def execute(self):
-        pass
+        self._insert(item=None)
+        self._fetch()

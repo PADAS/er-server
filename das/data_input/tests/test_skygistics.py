@@ -1,14 +1,57 @@
-import mock
 from datetime import date, datetime, timedelta
 from xml.etree.ElementTree import Element
+
 from django.test import TestCase
 from django.utils import timezone
 
-from data_input.plugins.plugin import DasPluginFetchError, MockTarget
-from observations.models import Source
-from data_input.models import PluginConf, PluginConfSource
+from data_input.plugins.plugin import DasPluginFetchError
 from data_input.plugins.skygistics import SkygisticsSatellitePlugin, SkygisticsClient, \
     SkygisticsLoginError, DasPluginConfigurationError
+from data_input.tests.mocks import MockTarget, MockConfig
+from data_input.models import PluginConf
+
+
+class SkygisticsMockClient(SkygisticsClient):
+    def begin_session(self):
+        pass
+
+    def fetch_observations(self, imei, start_time, end_time=None):
+        mock_replay_data_dict = [
+            {
+                'imei': '01086046SKY4213',
+                'lat': 0.0,
+                'long': 0.0,
+                'voltage': 1.123,
+                'fix_time': (datetime.now() - timedelta(2)).isoformat(),
+                'received_time': datetime.now().isoformat()
+            },
+            {
+                'imei': '01086046SKY4213',
+                'lat': 0.0,
+                'long': 0.0,
+                'voltage': 1.123,
+                'fix_time': (datetime.now() - timedelta(1)).isoformat(),
+                'received_time': datetime.now().isoformat()
+            },
+            {
+                'imei': '01086046SKY4213',
+                'lat': 0.0,
+                'long': 0.0,
+                'voltage': 1.123,
+                'fix_time': datetime.now().isoformat(),
+                'received_time': datetime.now().isoformat()
+            },
+        ]
+        for unit_info in mock_replay_data_dict:
+            yield {
+                'imei': unit_info['imei'],
+                'lat': unit_info['lat'],
+                'long': unit_info['long'],
+                'voltage': unit_info['voltage'],
+                'fix_time': unit_info['fix_time'],
+                'received_time': unit_info['received_time'],
+            }
+
 
 
 class TestSkygisticsInit(TestCase):
@@ -123,66 +166,34 @@ class TestSkygisticsFetch(TestCase):
         self.assertIsInstance(replay_data, Element)
 
 
-class SkygisticsMockClient(SkygisticsClient):
-    def begin_session(self):
-        pass
 
-    def fetch_observations(self, imei, start_time, end_time=None):
-        mock_replay_data_dict = [
-            {
-                'imei': '01086046SKY4213',
-                'lat': 0.0,
-                'long': 0.0,
-                'voltage': 1.123,
-                'fix_time': (datetime.now() - timedelta(2)).isoformat(),
-                'received_time': datetime.now().isoformat()
-            },
-            {
-                'imei': '01086046SKY4213',
-                'lat': 0.0,
-                'long': 0.0,
-                'voltage': 1.123,
-                'fix_time': (datetime.now() - timedelta(1)).isoformat(),
-                'received_time': datetime.now().isoformat()
-            },
-            {
-                'imei': '01086046SKY4213',
-                'lat': 0.0,
-                'long': 0.0,
-                'voltage': 1.123,
-                'fix_time': datetime.now().isoformat(),
-                'received_time': datetime.now().isoformat()
-            },
-        ]
-        for unit_info in mock_replay_data_dict:
-            yield {
-                'imei': unit_info['imei'],
-                'lat': unit_info['lat'],
-                'long': unit_info['long'],
-                'voltage': unit_info['voltage'],
-                'fix_time': unit_info['fix_time'],
-                'received_time': unit_info['received_time'],
-            }
-
-
-class TestSkygisticsTransform(TestCase):
+class TestSkygisticsPlugin(TestCase):
     def setUp(self):
-        target = MockTarget
-        config = PluginConf.objects.create(plugin_name='test good plugin',
-                                           configuration={
-                                               'credentials': {
-                                                   'username': 'awtian',
-                                                   'password': 'kenya'
-                                               },
-                                               'host': 'http://skyq1.skygistics.com',
-                                           })
-        source_1 = Source.objects.create(manufacturer_id='01086046SKY4213')
-        PluginConfSource.objects.create(source=source_1,
-                                        plugin_conf=config)
-        source_2 = Source.objects.create(manufacturer_id='01086046SKY0000')
-        PluginConfSource.objects.create(source=source_2,
-                                        plugin_conf=config)
+        target = MockTarget()
+        config = MockConfig()
+        # config = PluginConf.objects.create(plugin_name='test good plugin',
+        #                                    configuration={
+        #                                        'credentials': {
+        #                                            'username': 'awtian',
+        #                                            'password': 'kenya'
+        #                                        },
+        #                                        'host': 'http://skyq1.skygistics.com',
+        #                                    })
+        # source_1 = Source.objects.create(manufacturer_id='01086046SKY4213')
+        # PluginConfSource.objects.create(source=source_1,
+        #                                 plugin_conf=config)
+        # source_2 = Source.objects.create(manufacturer_id='01086046SKY0000')
+        # PluginConfSource.objects.create(source=source_2,
+        #                                 plugin_conf=config)
         self.plugin = SkygisticsSatellitePlugin(config, target)
+        self.plugin.client = SkygisticsMockClient()
 
-    def test_basic_transformation(self):
-        pass
+    def test_fetch_returns_dicts(self):
+        for result in self.plugin._fetch():
+            print(result)
+            self.assertIsNotNone(result)
+
+    def test_transform_returns_observations(self):
+        for result in self.plugin._fetch():
+            print(result)
+            self.assertIsNotNone(result)
