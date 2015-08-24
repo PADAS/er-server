@@ -7,7 +7,7 @@ from datetime import datetime
 from django.contrib.gis.geos import Point
 
 from observations.models import Observation, Source
-from data_input.models import PluginConf
+from data_input.models import PluginConf, PluginConfSource
 
 from .plugin import DasPlugin, PluginTarget, \
     DasPluginConfigurationError, DasPluginFetchError, \
@@ -173,50 +173,45 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             }
 
 
-class SkygisticsSatelliteTransformer(object):
-    def __init__(self):
-        pass
-
-    def _transform(self):
-        pass
-
-
 class SkygisticsSatellitePlugin(DasPlugin):
     def __init__(self, config, target):
         # config should be a PluginConf object with a jsonb configuration attribute
-        if isinstance(config, PluginConf) and isinstance(target, PluginTarget):
-            self.config = config
+        # if isinstance(config, PluginConf) and isinstance(target, PluginTarget):
+        self.config = config
 
-            # todo:  sanity check config.configuration and extract relevant bits
-            client_configuration = self.config.configuration
-            self.client = SkygisticsSatelliteClient(client_configuration)
-
-            self.transformer = SkygisticsSatelliteTransformer()
-            super().__init__(self.config, target)
-        else:
-            raise DasPluginConfigurationError()
+        # todo:  sanity check config.configuration and extract relevant bits
+        client_configuration = self.config.configuration
+        self.client = SkygisticsSatelliteClient(client_configuration)
+        super().__init__(self.config, target)
+        # else:
+        #     raise DasPluginConfigurationError()
 
     def _fetch(self):
         start_time = datetime.now().date()
-
         self.client.begin_session()
-        for source in self.config.config_sources:
-            yield from self.client.fetch_observations(source.manufacturer_id, start_time=start_time)
+        conf_sources = PluginConfSource.objects.filter(source=self.config)
+        for conf_source in conf_sources:
+            for observation_dict in self.client.fetch_observations(conf_source.source.manufacturer_id,
+                                                                   start_time=start_time):
+                yield (conf_source.source, observation_dict)
 
-    def _transform(self, skygistics_dict):
+    def _transform(self, item):
         """
         transform a Skygistics data dictionary into a DAS observation
-        :param skygistics_dict:
+        :param: item:  a tuple of a Source object and dictionary of Skygistics data
         :return: Observation
         """
+        source, observation_dict = item
         return Observation(
-            recorded_at=skygistics_dict['fix_time'],
-            location=Point(x=skygistics_dict['long'], y=skygistics_dict['lat'])
+            source=source,
+            recorded_at=observation_dict.pop('fix_time'),
+            location=Point(x=observation_dict.pop('long'),
+                           y=observation_dict.pop('lat')),
+            additional=observation_dict
         )
 
     def _insert(self, item, *args, **kwargs):
         super()._insert(item)
 
     def execute(self):
-        self._insert(item=None)
-        self._fetch()
+        super().execute()
