@@ -106,3 +106,7 @@ app:
         # the dev version of the app
         'das-server-dev':
             cname_prefix: 'das-server-dev'
+
+        # the production version of the app
+        'das-server-prod':
+            cname_prefix: 'das-server-prod'
