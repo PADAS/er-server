@@ -95,9 +95,9 @@ app:
                     yaml:
                         commands:
                           01-GDAL:
-                            command: "cd /tmp; if [ ! -d gdal-1.11.2 ]; then wget http://download.osgeo.org/gdal/1.11.2/gdal-1.11.2.tar.gz; tar -xzvf gdal-1.11.2.tar.gz; cd gdal-1.11.2; ./configure --prefix=/usr; make; make install; fi"
+                            command: "if [ ! -e /usr/lib/libgdal.so ]; then cd /opt; wget http://download.osgeo.org/gdal/1.11.2/gdal-1.11.2.tar.gz; tar -xzvf gdal-1.11.2.tar.gz; cd gdal-1.11.2; ./configure --prefix=/usr; make; make install; fi"
                           02-GEOS:
-                            command: "cd /tmp; if [ ! -d geos-3.3.9 ]; then wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
+                            command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
 
 
     # Under the environments node is each environment and their config.
