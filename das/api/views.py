@@ -53,6 +53,11 @@ class ApiError(HttpResponse):
         self.content = json.dumps(result, cls=encoder)
 
 
+class StatusView(View):
+    def get(self, request):
+        result = {'version': '1.0'}
+        return ApiJsonResponse(result)
+
 class SourceBaseView(View):
     fields = ('id', 'source_type', 'manufacturer_id', 'model_name')
 
