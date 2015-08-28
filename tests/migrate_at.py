@@ -67,6 +67,13 @@ def import_trackingmaster(chronofile):
         logger.info('TrackingMaster for %s, Undeployed', chronofile)
         return
 
+    with at_conn.cursor() as at_cursor:
+        sql = 'SELECT * from regions WHERE chronofile=%(chronofile)s'
+        at_cursor.execute(sql, dict(chronofile=chronofile))
+        rows = dictfetchall(at_cursor)
+
+    region = next(iter(rows), None)
+
     subject = None
     q_subject = models.Subject.objects.filter(name=trackingmaster['name'])
     for row in q_subject:
@@ -74,6 +81,9 @@ def import_trackingmaster(chronofile):
         subject = row
     if not subject:
         additional = {key: trackingmaster[key] for key in TRACKING_MASTER_COMMON_FIELDS if key in trackingmaster}
+        if region:
+            additional['region'] = region['region']
+            additional['country'] = region['country']
         additional['external_id'] = trackingmaster['animal_id']
         subject_type = 'wildlife'
         if trackingmaster['species'].lower() == 'vehicle':

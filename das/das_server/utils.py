@@ -15,6 +15,12 @@ try:
 except ImportError:
     bson_imported = False
 
+try:
+    from django.contrib.gis.geos import Point
+    geos_imported = True
+except ImportError:
+    geos_imported = False
+
 class JsonEncodedString(object):
     """A python class that contains a string that is json encoded.
     This class is recognized in our ExtendedJSONEncode"""
@@ -47,6 +53,8 @@ class ExtendedJSONEncoder(json.JSONEncoder):
             return [item for item in o]
         elif isinstance(o, JsonEncodedString):
             return o.data
+        elif geos_imported and isinstance(o, Point):
+            return o.tuple
         return json.JSONEncoder.default(self, o)
 
 
