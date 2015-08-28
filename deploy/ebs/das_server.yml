@@ -43,7 +43,7 @@ app:
               EnvironmentType: "SingleInstance"
 
             'aws:elasticbeanstalk:application':
-                Application Healthcheck URL: '/api/v1.0/subjects'
+                Application Healthcheck URL: '/api/v1.0/status'
 
             'aws:elasticbeanstalk:application:environment':
               DJANGO_SETTINGS_MODULE: "das_server.local_settings"
