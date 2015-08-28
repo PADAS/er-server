@@ -20,7 +20,7 @@ from django.db.models import Max
 from django.utils import timezone
 import pytz
 from django.contrib.gis.geos import Point
-
+import datetime
 SOURCE_TYPES = (
     ('tracking-device', 'Tracking Device'),
     ('trap', 'Trap'),
@@ -29,6 +29,9 @@ SOURCE_TYPES = (
     ('gps-radio', 'gps radio')
 )
 
+
+def to_rgb(color):
+    return "#{0:X}{1:X}{2:X}".format(*[int(val) for val in color.split(',')])
 
 class SourceManager(models.Manager):
     pass
@@ -53,12 +56,15 @@ class ObservationManager(models.GeoManager):
         """get observations for a set of sources and date ranges.
         An animal may switch source devices based on a date range.
         """
-        subject_sources = sorted(subject_sources, key=lambda ss: ss.assigned_range.lower, reverse=True)
+        subject_sources = sorted(subject_sources,
+                                 key=lambda ss: ss.assigned_range.lower,
+                                 reverse=True)
         sql = '''SELECT * FROM observations_oberservation o WHERE o.source_id = %(source_id)s o.recorded_at in %(range)s'''
 
         qs = None
         for ss in subject_sources:
-            q = Q(source_id=ss.source_id) & Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
+            q = Q(source_id=ss.source_id) &\
+                Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
             qs = qs | q if qs else q
 
         result = Observation.objects.filter(qs)
@@ -69,6 +75,30 @@ class ObservationManager(models.GeoManager):
         result = result.order_by('-recorded_at')
 
         return result
+
+    def get_source_range_observations_last(self, subject_sources, last_days):
+        """get the last days worth of observations starting from the last known
+         position for a set of sources.
+        An animal may switch source devices based on a date range.
+        """
+        subject_sources = sorted(subject_sources,
+                                 key=lambda ss: ss.assigned_range.lower,
+                                 reverse=True)
+        sql = '''SELECT * FROM observations_oberservation o WHERE o.source_id = %(source_id)s o.recorded_at in %(range)s'''
+
+        qs = None
+        for ss in subject_sources:
+            q = Q(source_id=ss.source_id) &\
+                Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
+            qs = qs | q if qs else q
+
+        result = Observation.objects.filter(qs)
+        result = result.order_by('-recorded_at')
+        last_observation = result[:1]
+        if last_observation:
+            last_observation = last_observation[0]
+            gt = last_observation.recorded_at - last_days
+            return result.filter(recorded_at__gt=gt)
 
     def add_observation(self, source, observation):
         '''
@@ -83,12 +113,35 @@ class ObservationManager(models.GeoManager):
 
         Observation(source_id=source.id, location=loc, recorded_at=ts, additional=observation).save()
 
-
     def get_max_recorded_at(self, source):
         '''Get the latest recorded timestamp for the source.'''
         r = Observation.objects.filter(source=source).aggregate(Max('recorded_at'))
         return r.get('recorded_at__max')
 
+    def get_last_observation(self, subject):
+        """get the last recorded observation of the subject
+        :returns Observation
+        """
+        return self._get_observation(subject, first=False)
+
+    def get_first_observation(self, subject):
+        """get the first recorded observation of the subject
+        :returns Observation
+        """
+        return self._get_observation(subject, first=True)
+
+    def _get_observation(self, subject, first=False):
+        field = '-recorded_at'
+        if first:
+            field = 'recorded_at'
+        sources = SubjectSource.objects.get_subject_sources(subject)
+        sources = [s.source for s in sources]
+        if not sources:
+            return
+        r = Observation.objects.filter(source__in=sources)
+        r = r.order_by(field)[:1]
+        if r:
+            return r[0]
 
 class Observation(models.Model):
     """observation point
@@ -158,7 +211,7 @@ class Subject(models.Model):
     def color(self):
         color = self.additional.get('rgb', None)
         if color:
-            color = "#" + "".join(color.split(','))
+            color = to_rgb(color)
         return color
 
     @property
