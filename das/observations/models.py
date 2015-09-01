@@ -31,7 +31,7 @@ SOURCE_TYPES = (
 
 
 def to_rgb(color):
-    return "#{0:X}{1:X}{2:X}".format(*[int(val) for val in color.split(',')])
+    return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(',')])
 
 class SourceManager(models.Manager):
     pass
