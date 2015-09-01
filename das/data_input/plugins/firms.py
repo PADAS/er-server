@@ -41,24 +41,6 @@ class FirmsClient(object):
         self.password = config.get('password', '[Rhubarb91$]')
 
 
-    # def http_fetch_observations(self, region_id, start_time=None, end_time=None):
-    #     '''
-    #     Fetch observations from Savannah data-source for a particular collar.
-    #     :param collar_id: collar_id from trackingmaster record.
-    #     :param start_time: unix timestamp for earliest data to fetch.
-    #     :param end_time: <not used>
-    #     :return: generator, yielding individual records.
-    #     '''
-    #
-    #     conn = http.client.HTTPSConnection(self.host)
-    #     conn.request("GET", "/active_fire/text/%s_24h.csv" % (region_id,))
-    #     res = conn.getresponse()
-    #     if res.status == http.client.OK:
-    #         line = res.readline()
-    #         for line in res:
-    #             yield self.parse_line(line.decode('utf8').strip())
-
-
     def fetch_observations(self, region_id, **kwargs):
 
         '''
@@ -127,7 +109,7 @@ class FirmsPlugin(DasPlugin):
     def __init__(self, plugin_conf, *args, **kwargs):
         super().__init__(self, *args, **kwargs)
         self._config = plugin_conf
-        self.client = FirmsClient() #config=self._config.configuration)
+        self.client = FirmsClient(config=self._config.configuration)
 
     def _fetch(self):
 
