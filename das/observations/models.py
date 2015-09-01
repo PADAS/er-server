@@ -50,6 +50,7 @@ class Source(models.Model):
     model_name = models.CharField('device model name', max_length=100, null=True)
     additional = JsonBField()
 
+EMPTY_POINT = Point(0,0)
 
 class ObservationManager(models.GeoManager):
     def get_source_range_observations(self, subject_sources, since=None, until=None):
@@ -73,6 +74,7 @@ class ObservationManager(models.GeoManager):
         if until:
             result = result.filter(Q(recorded_at__lte=until))
         result = result.order_by('-recorded_at')
+        result = result.exclude(location=EMPTY_POINT)
 
         return result
 
@@ -94,6 +96,7 @@ class ObservationManager(models.GeoManager):
 
         result = Observation.objects.filter(qs)
         result = result.order_by('-recorded_at')
+        result = result.exclude(location=EMPTY_POINT)
         last_observation = result[:1]
         if last_observation:
             last_observation = last_observation[0]
@@ -139,6 +142,7 @@ class ObservationManager(models.GeoManager):
         if not sources:
             return
         r = Observation.objects.filter(source__in=sources)
+        r = r.exclude(location=EMPTY_POINT)
         r = r.order_by(field)[:1]
         if r:
             return r[0]

@@ -74,19 +74,20 @@ class SubjectBaseView(View):
     _subject = None
 
     @staticmethod
-    def filter_result(subject):
+    def filter_result(subject, detail_type='list'):
         result = {k: getattr(subject, k) for k in SubjectBaseView.fields if hasattr(subject, k)}
         additional = subject.additional
         result.update({k: additional[k] for k in SubjectBaseView.fields if k in additional})
 
-        last_position = Observation.objects.get_last_observation(subject)
-        result['tracks_available'] = bool(last_position)
-        if last_position:
-            first_position = Observation.objects.get_first_observation(subject)
-            result['last_position'] = make_feature(last_position.location, subject,
-                                                   time=last_position.recorded_at)
-            result['tracks_range'] = (first_position.recorded_at,
-                                      last_position.recorded_at)
+        if detail_type == 'detail':
+            last_position = Observation.objects.get_last_observation(subject)
+            result['tracks_available'] = bool(last_position)
+            if last_position:
+                first_position = Observation.objects.get_first_observation(subject)
+                result['last_position'] = make_feature(last_position.location, subject,
+                                                       time=last_position.recorded_at)
+                result['tracks_range'] = (first_position.recorded_at,
+                                          last_position.recorded_at)
         return result
 
     @property
@@ -104,14 +105,14 @@ class SubjectsView(View):
         subjects = Subject.objects.all()
         result = []
         for subject in subjects:
-            result.append(SubjectBaseView.filter_result(subject))
+            result.append(SubjectBaseView.filter_result(subject, detail_type='list'))
         return ApiJsonResponse(result)
 
 
 class SubjectView(SubjectBaseView):
     def get(self, request, subject_id):
         self.subject_id = subject_id
-        result = self.filter_result(self.subject)
+        result = self.filter_result(self.subject, detail_type='detail')
         return ApiJsonResponse(result)
 
 
