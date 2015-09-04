@@ -1488,5 +1488,15 @@
       "manufacturer_id": "Southern_Africa",
       "additional": "{\"schedule\": \"\"}"
     }
+  },
+  {
+    "pk": "8f3f3f26-c99c-438a-b293-ef14d0f014da",
+    "model": "observations.source",
+    "fields": {
+      "model_name": "Delorme InReach SE",
+      "source_type": "inreach",
+      "manufacturer_id": "300434060291470",
+      "additional": "{}"
+    }
   }
 ]
