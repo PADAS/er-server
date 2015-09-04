@@ -88,7 +88,7 @@ class PluginTarget(object):
                     self._handle_item(item)
                     cnt += 1
             except GeneratorExit:
-                print("You sent %d messages" % (cnt,))
+                print("Target received %d messages" % (cnt,))
 
         r = _()
         next(r)
