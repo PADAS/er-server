@@ -23,13 +23,14 @@ from . import views
 urlpatterns = [
     url(r'^api/v1.0/', include('api.urls')),
     url(r'^admin/', include(admin.site.urls)),
+    url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
 ]
 
-if settings.DEBUG:
+if False: #settings.DEBUG:
     urlpatterns += patterns(
     'django.contrib.staticfiles.views',
     url(r'^(?:index.html)?$', 'serve', kwargs={'path': 'index.html'}),
     url(r'^(?P<path>.*)$', 'serve'),
     )
 else:
-    urlpatterns += url(r'^$', views.index)
+    urlpatterns += (url(r'^$', views.index),)

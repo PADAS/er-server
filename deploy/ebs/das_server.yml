@@ -99,7 +99,6 @@ app:
                           02-GEOS:
                             command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
 
-
     # Under the environments node is each environment and their config.
     # Environment specific configuration is determined by first processing
     # the all_environments config and then "overlaying" the environment
@@ -109,7 +108,13 @@ app:
         # the dev version of the app
         'das-server-dev':
             cname_prefix: 'das-server-dev'
+            option_settings:
+              'aws:elasticbeanstalk:application:environment':
+                DAS_ENV_NAME: 'dev'
 
         # the production version of the app
         'das-server-prod':
             cname_prefix: 'das-server-prod'
+            option_settings:
+              'aws:elasticbeanstalk:application:environment':
+                DAS_ENV_NAME: 'prod'
