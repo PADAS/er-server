@@ -25,26 +25,50 @@ def __str2date(d, replace_tzinfo=pytz.utc):
 field_names = ('lat', 'lon', 'brightness', 'scan', 'track', 'acq_date', 'acq_time', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
 field_transform = (float, float, float, float, float, str, str, str, int, str, float, float)
 
+class BasicAuthClient(object):
 
-# class SavannaException(Exception):
-#     pass
+    def auth_header(self):
+        auth = '%s:%s' % (self.username, self.password)
+        auth = base64.b64encode(bytes(auth, 'utf8'))
+        return 'Basic {}'.format(auth.decode('utf8'))
 
-class InreachClient(object):
 
-    def __init__(self, config={}):
+class InreachAccountClient(BasicAuthClient):
+
+    def __init__(self, config=None):
+        self._config = config or {}
+        self.host = self._config.get('host', 'account-api.delorme.com')
+        self.username = self._config.get('username', 'teds@vulcan.com')
+        self.password = self._config.get('password', 'IfG36lgW')
+
+    def fetch_users(self):
+
+        conn = http.client.HTTPSConnection(self.host)
+
+        headers = {'authorization': super(InreachAccountClient, self).auth_header()}
+
+        conn.request("GET", "/V1/Users", headers=headers)
+
+        res = conn.getresponse()
+        data = res.read()
+
+        if res and res.status == http.client.OK:
+            res = json.loads(data.decode("utf-8"))
+            yield from res['Users']
+
+
+class InreachClient(BasicAuthClient):
+
+    def __init__(self, config=None):
         '''
         Configuration is given by the plugin. Probably saved in PluginConf record.
         :param config: must include 'credentials' and 'host'
         '''
-        self.host = config.get('host', 'explore.delorme.com')
-        self.username = config.get('username', 'vulcan_das')
-        self.password = config.get('password', '5oBt1F27Pw9S')
+        self._config = config or {}
 
-
-    def __auth_header(self):
-        auth = '%s:%s' % (self.username, self.password)
-        auth = base64.b64encode(bytes(auth, 'utf8'))
-        return 'Basic {}'.format(auth.decode('utf8'))
+        self.host = self._config.get('host', 'explore.delorme.com')
+        self.username = self._config.get('username', 'vulcan_das')
+        self.password = self._config.get('password', '5oBt1F27Pw9S')
 
     def fetch_observations(self, imei=None, **kwargs):
 
@@ -68,7 +92,7 @@ class InreachClient(object):
 
         headers = { 'accept': "*/*",
                     'content-type': 'application/json',
-                    'Authorization': self.__auth_header()
+                    'Authorization': super(InreachClient, self).auth_header()
                     }
 
         path = '/ipcinbound/V1/Location.svc/History?{}'.format(qs)
@@ -111,7 +135,10 @@ def unixtimestamp(d):
 
 
 class InreachPlugin(DasPlugin):
-
+    '''
+    Inreach plugin fetches data from explorer.delorme.com for radios we've set up in DAS. Data read from Delorme's
+    service is entered in DAS as observations.
+    '''
     def __init__(self, plugin_conf, *args, **kwargs):
         super().__init__(self, *args, **kwargs)
         self._config = plugin_conf
@@ -158,6 +185,38 @@ class InreachTarget(PluginTarget):
     def _handle_item(self, item):
         (source, obs) = item
         Observation.objects.add_observation(source, obs)
+        print(obs)
+
+
+class InreachAccountPlugin(DasPlugin):
+
+
+    def __init__(self, plugin_conf, *args, **kwargs):
+        super().__init__(self, *args, **kwargs)
+        self._config = plugin_conf
+        self.client = InreachAccountClient()
+
+    def _fetch(self):
+
+        source = None
+        print("Fetching data for Inreach account...")
+        for observation in self.client.fetch_users():
+            yield (source, observation)
+
+
+
+    def _transform(self, so_tuple):
+        source, observation = so_tuple
+        return (source, observation)
+
+    def execute(self):
+        super().execute()
+
+
+class InreachAccountTarget(PluginTarget):
+
+    def _handle_item(self, item):
+        (source, obs) = item
         print(obs)
 
 
