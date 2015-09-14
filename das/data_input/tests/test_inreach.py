@@ -1,5 +1,5 @@
 from django.test import TestCase, TransactionTestCase
-from data_input.plugins.inreach import InreachPlugin, InreachTarget
+from data_input.plugins.inreach import InreachPlugin, InreachTarget, InreachAccountTarget, InreachAccountPlugin
 from data_input.models import PluginConf
 
 class TestInreachProvider(TransactionTestCase):
@@ -22,8 +22,24 @@ class TestInreachProvider(TransactionTestCase):
             sp = InreachPlugin(pc, target=consumer)
             sp.execute()
 
-
         # x = input('Go on?')
 
+    # def test_account_plugin_with_target(self):
+    #     '''
+    #     Test savanna plugin with a mock target.
+    #     :return:
+    #     '''
+    #
+    #     try:
+    #         pc = PluginConf.objects.get(plugin_name='inreach-account')
+    #     except:
+    #         pc = None
+    #
+    #     with InreachAccountTarget() as consumer:
+    #         sp = InreachAccountPlugin(pc, target=consumer)
+    #         sp.execute()
+    #
+    #
+    #     x = input('Go on?')
 
 

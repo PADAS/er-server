@@ -2,16 +2,16 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 import pytz
-from data_input.jobs import run_savanna
+from data_input.jobs import *
 from django.conf import settings
 
 def add_scheduled_jobs(scheduler):
     '''
     Add jobs to schedule.
     '''
-    job = scheduler.add_job(run_savanna, 'interval', minutes=15, id='savanna_import', replace_existing=True)
-    print('Added savanna_import job %s' % job)
-
+    scheduler.add_job(run_savanna, id='savanna_import', trigger='cron', minute='*/15', replace_existing=True)
+    scheduler.add_job(run_firms, id='firms_import', trigger='cron', minute='*/99', replace_existing=True)
+    scheduler.add_job(run_inreach, id='inreach_import', trigger='cron', minute='*/19', replace_existing=True)
 
 def start_scheduler():
     '''
