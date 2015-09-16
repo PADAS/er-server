@@ -2,8 +2,11 @@
 """
 import requests
 import xml.etree.ElementTree as etree
+from decimal import Decimal
 from datetime import datetime
 
+
+from django.utils import timezone
 from django.contrib.gis.geos import Point
 
 from observations.models import Observation, Source
@@ -15,6 +18,7 @@ from .plugin import DasPlugin, PluginTarget, \
 from .utils import dictify
 
 SKYGISTICS_DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
+SKYGISTICS_PLUGIN_DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 
 SKYGISTICS_API_XMLNS = '{http://www.skygistics.com/SkygisticsAPI}'
 SKYGISTICS_API_ENDPOINT = '/SkygisticsAPI/SkygisticsAPI.asmx'
@@ -147,71 +151,90 @@ class SkygisticsSatelliteClient(SkygisticsClient):
         :return: generator, yielding individual records.
         """
 
+        # todo: batch calls based on _get_replay_data_count?
+        skip = 0
+        # todo:  if not batching, get total available
+        limit = 10000
+
+        end_date = timezone.now()
+
         replay_data_dict = dictify(self._get_replay_data(
             imei,
             start_time,
-            end_time,  # todo: get latest
-            skip=0,
-            limit=100  # todo: batch based on _get_replay_data_count
+            end_date=end_date,
+            skip=skip,
+            limit=limit
         ))
-        for unit_info in \
-                replay_data_dict[('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))][
-                    ('{0}UnitInfo'.format(SKYGISTICS_API_XMLNS))]:
-            yield {
-                'imei': unit_info[('{0}IMEI'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
-                'lat': unit_info[('{0}Latitude'.format(SKYGISTICS_API_XMLNS))][0][
-                    '_text'],
-                'long': unit_info[('{0}Longitude'.format(SKYGISTICS_API_XMLNS))][0][
-                    '_text'],
-                'voltage': unit_info[('{0}Voltage'.format(SKYGISTICS_API_XMLNS))][0][
-                    '_text'],
-                'fix_time': unit_info[('{0}Time'.format(SKYGISTICS_API_XMLNS))][0][
-                    '_text'],
-                'received_time':
-                    unit_info[('{0}ReceivedTime'.format(SKYGISTICS_API_XMLNS))][0][
-                        '_text'],
-            }
+        # if the array is empty (e.g., bad imei) then '{http://www.skygistics.com/SkygisticsAPI}ArrayOfUnitInfo'
+        #     will be a dict with a key-value pair '{http://www.w3.org/2001/XMLSchema-instance}nil': 'true'
+        if ('{http://www.w3.org/2001/XMLSchema-instance}nil' in replay_data_dict[
+                ('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))]
+                    and replay_data_dict[('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))][
+                        '{http://www.w3.org/2001/XMLSchema-instance}nil'] == 'true'):
+            pass # todo:  no results!
+        else:
+            for unit_info in \
+                    replay_data_dict[('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))][
+                        ('{0}UnitInfo'.format(SKYGISTICS_API_XMLNS))]:
+                yield unit_info
 
 
 class SkygisticsSatellitePlugin(DasPlugin):
     def __init__(self, config, target):
         # config should be a PluginConf object with a jsonb configuration attribute
-        # if isinstance(config, PluginConf) and isinstance(target, PluginTarget):
-        self.config = config
+        if hasattr(config, 'configuration'): # todo:  can't check plugin instance if generator ... # and isinstance(target, PluginTarget):
+            self.config = config
 
-        # todo:  sanity check config.configuration and extract relevant bits
-        client_configuration = self.config.configuration
-        self.client = SkygisticsSatelliteClient(client_configuration)
-        super().__init__(self.config, target)
-        # else:
-        #     raise DasPluginConfigurationError()
+            # todo:  sanity check config.configuration and extract relevant bits
+            client_configuration = self.config.configuration
+            self.client = SkygisticsSatelliteClient(client_configuration)
+            super().__init__(self.config, target)
+        else:
+            raise DasPluginConfigurationError()
 
     def _fetch(self):
-        start_time = datetime.now().date()
         self.client.begin_session()
-        conf_sources = PluginConfSource.objects.filter(source=self.config)
+        conf_sources = PluginConfSource.objects.filter(plugin_conf=self.config)
         for conf_source in conf_sources:
-            for observation_dict in self.client.fetch_observations(conf_source.source.manufacturer_id,
+            if 'last_update' in conf_source.additional:
+                start_time = datetime.strptime(conf_source.additional['last_update'], SKYGISTICS_PLUGIN_DATETIME_FORMAT)
+            else:
+                start_time = timezone.now()
+            for unit_info in self.client.fetch_observations(conf_source.source.manufacturer_id,
                                                                    start_time=start_time):
-                yield (conf_source.source, observation_dict)
+                yield (conf_source.source, unit_info)
+            conf_source.additional['last_update'] = timezone.now().strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT)
+            conf_source.save()
 
     def _transform(self, item):
         """
-        transform a Skygistics data dictionary into a DAS observation
+        transform a Skygistics (xml) data dictionary into a DAS usable dictionary
         :param: item:  a tuple of a Source object and dictionary of Skygistics data
         :return: Observation
         """
-        source, observation_dict = item
-        return Observation(
-            source=source,
-            recorded_at=observation_dict.pop('fix_time'),
-            location=Point(x=observation_dict.pop('long'),
-                           y=observation_dict.pop('lat')),
-            additional=observation_dict
-        )
-
-    def _insert(self, item, *args, **kwargs):
-        super()._insert(item)
+        source, unit_info = item
+        observation = {
+            'imei': unit_info[('{0}IMEI'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
+            'lat': unit_info[('{0}Latitude'.format(SKYGISTICS_API_XMLNS))][0][
+                '_text'],
+            'lon': unit_info[('{0}Longitude'.format(SKYGISTICS_API_XMLNS))][0][
+                '_text'],
+            'voltage': unit_info[('{0}Voltage'.format(SKYGISTICS_API_XMLNS))][0][
+                '_text'],
+            'ts': unit_info[('{0}Time'.format(SKYGISTICS_API_XMLNS))][0][
+                '_text'],
+            'received_time':
+                unit_info[('{0}ReceivedTime'.format(SKYGISTICS_API_XMLNS))][0][
+                    '_text'],
+        }
+        return source, observation
 
     def execute(self):
         super().execute()
+
+
+class SkygisticsTarget(PluginTarget):
+
+    def _handle_item(self, item):
+        (source, observation) = item
+        Observation.objects.add_observation(source, observation)
