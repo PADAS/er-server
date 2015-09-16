@@ -4,10 +4,22 @@ from itertools import islice, chain
 from types import GeneratorType
 import simplejson as json
 try:
+    import psycopg2.extras
+    psycopg2_imported = True
+except ImportError:
+    psycopg2_imported = False
+
+try:
     from bson import ObjectId
     bson_imported = True
 except ImportError:
     bson_imported = False
+
+try:
+    from django.contrib.gis.geos import Point
+    geos_imported = True
+except ImportError:
+    geos_imported = False
 
 class JsonEncodedString(object):
     """A python class that contains a string that is json encoded.
@@ -33,12 +45,16 @@ class ExtendedJSONEncoder(json.JSONEncoder):
         elif bson_imported and isinstance(o, ObjectId):
             # needed for supporting the MongoDB ObjectId
             return """{u'$oid': u'%s'}""" % str(o)
+        elif isinstance(o, (psycopg2.extras.DateTimeTZRange,)):
+            return [o.lower, o.upper]
         elif isinstance(o, uuid.UUID):
             return str(o)
         elif isinstance(o, (GeneratorType, chain)):
             return [item for item in o]
         elif isinstance(o, JsonEncodedString):
             return o.data
+        elif geos_imported and isinstance(o, Point):
+            return o.tuple
         return json.JSONEncoder.default(self, o)
 
 

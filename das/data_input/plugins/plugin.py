@@ -1,4 +1,7 @@
 class DasPluginConfigurationError(Exception):
+    """
+    
+    """
     pass
 
 
@@ -20,6 +23,7 @@ class DasPlugin(object):
         the scheduler will create the instance, optionally passing
         configuration (connection) data and an insert target
     """
+
     def __init__(self, config=None, target=None):
         """
         :param config:  plugin configuration
@@ -59,7 +63,6 @@ class DasPlugin(object):
 
 
 class PluginTarget(object):
-
     def __init__(self, config=None):
         self.__config = config
 
@@ -76,6 +79,7 @@ class PluginTarget(object):
         Subclass may implement _start.
         :return: coroutine with wraps _handle_item.
         '''
+
         def _():
             cnt = 0
             try:
@@ -84,7 +88,8 @@ class PluginTarget(object):
                     self._handle_item(item)
                     cnt += 1
             except GeneratorExit:
-                print("You sent %d messages" % (cnt,))
+                print("Target received %d messages" % (cnt,))
+
         r = _()
         next(r)
         self._r = r
@@ -97,11 +102,5 @@ class PluginTarget(object):
         print("Exiting. %s %s %s" % (ex_type, exc_value, traceback))
         self._r.close()
         return True
-
-
-class MockTarget(PluginTarget):
-    def _handle_item(self, item):
-        print(item)
-
 
 

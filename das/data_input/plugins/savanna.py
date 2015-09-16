@@ -62,9 +62,12 @@ class SavannaClient(object):
         conn.request("POST", "/savannah/get_data.asp", payload, headers)
 
         res = conn.getresponse()
+        saveline = None
         if res.status == http.client.OK:
             for line in res:
-                yield self.parse_line(line.decode('utf-8').strip())
+                if line != saveline: # We occassionally see duplicate records in results.
+                    yield self.parse_line(line.decode('utf-8').strip())
+                saveline = line
 
     @classmethod
     def parse_line(cls, s):

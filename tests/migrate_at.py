@@ -15,6 +15,7 @@ import os
 import sys
 import logging
 import datetime
+import uuid
 DAS_ROOT = '../das'
 sys.path.append(os.path.join(os.path.dirname(__file__), DAS_ROOT))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das_server.local_settings")
@@ -60,21 +61,39 @@ def import_trackingmaster(chronofile):
         rows = dictfetchall(at_cursor)
     trackingmaster = rows[0]
 
-    if trackingmaster['date_off_or_removed'] == 'Undeployed' or not trackingmaster['data_starts']:
+    if (trackingmaster['date_off_or_removed'] == 'Undeployed' or
+        not trackingmaster['data_starts'] or
+        trackingmaster['species'].lower() == 'undeployed'):
         logger.info('TrackingMaster for %s, Undeployed', chronofile)
         return
 
-    additional = {key: trackingmaster[key] for key in TRACKING_MASTER_COMMON_FIELDS if key in trackingmaster}
-    additional['external_id'] = trackingmaster['animal_id']
-    subject_type = 'wildlife'
-    if trackingmaster['species'].lower() == 'vehicle':
-        subject_type = 'vehicle'
-    else:
-        additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_ANIMAL_FIELDS if key in trackingmaster})
-    subject = models.Subject(name=trackingmaster['name'],
-                             subject_type=subject_type,
-                             additional=additional)
-    subject.save()
+    with at_conn.cursor() as at_cursor:
+        sql = 'SELECT * from regions WHERE chronofile=%(chronofile)s'
+        at_cursor.execute(sql, dict(chronofile=chronofile))
+        rows = dictfetchall(at_cursor)
+
+    region = next(iter(rows), None)
+
+    subject = None
+    q_subject = models.Subject.objects.filter(name=trackingmaster['name'])
+    for row in q_subject:
+        logger.info('Found existing subject %s by name', trackingmaster['name'])
+        subject = row
+    if not subject:
+        additional = {key: trackingmaster[key] for key in TRACKING_MASTER_COMMON_FIELDS if key in trackingmaster}
+        if region:
+            additional['region'] = region['region']
+            additional['country'] = region['country']
+        additional['external_id'] = trackingmaster['animal_id']
+        subject_type = 'wildlife'
+        if trackingmaster['species'].lower() == 'vehicle':
+            subject_type = 'vehicle'
+        else:
+            additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_ANIMAL_FIELDS if key in trackingmaster})
+        subject = models.Subject(name=trackingmaster['name'],
+                                 subject_type=subject_type,
+                                 additional=additional)
+        subject.save()
 
     source = None
     q_sources = models.Source.objects.filter(source_type=TRACKING_COLLAR_SOURCE_TYPE)
@@ -107,16 +126,17 @@ def import_trackingmaster(chronofile):
         at_cursor.execute(sql, dict(chronofile=chronofile))
         rows = dictfetchall(at_cursor)
 
-    archive_locs = rows
-    for row in archive_locs:
-        additional = {key: row[key] for key in ARCHIVE_LOC_FIELDS}
-        obs = models.Observation(source=source,
-                                 location=Point(row['lon'], row['lat']),
-                                 recorded_at=row['fixtime'].replace(tzinfo=pytz.UTC),
-                                 additional=additional)
+    archive_locs = []
+    for row in rows:
+        archive_locs.append(models.Observation(
+            source=source,
+            additional={key: row[key] for key in ARCHIVE_LOC_FIELDS},
+            location=Point(row['lon'], row['lat']),
+            recorded_at=row['fixtime'].replace(tzinfo=pytz.UTC)
+        ))
 
-        obs.save()
-
+    if archive_locs:
+        models.Observation.objects.bulk_create(archive_locs, batch_size=200)
 
 def import_all():
     at_conn = connections['animaltracking']
@@ -131,15 +151,16 @@ def import_all():
             logging.exception('Failed to import TrackingMaster %s', animal['chronofile'])
 
 
+CHRONO_SAMPLES = []
+
 
 def main():
     import_all()
     return
 
-    import_trackingmaster(558)
-    import_trackingmaster(557)
-    import_trackingmaster(546)
-    import_trackingmaster(533)
+    for chronofile in CHRONO_SAMPLES:
+        import_trackingmaster(chronofile)
+
 
 
 if __name__ == '__main__':

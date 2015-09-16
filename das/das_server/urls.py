@@ -13,9 +13,23 @@ Including another URLconf
     1. Add an import:  from blog import urls as blog_urls
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
-from django.conf.urls import include, url
+from django.conf.urls import include, url, patterns
 from django.contrib import admin
+from django.conf import settings
+from . import views
+
+# admin.autodiscover()
 
 urlpatterns = [
     url(r'^api/v1.0/', include('api.urls')),
+    url(r'^admin/', include(admin.site.urls)),
 ]
+
+if settings.DEBUG:
+    urlpatterns += patterns(
+    'django.contrib.staticfiles.views',
+    url(r'^(?:index.html)?$', 'serve', kwargs={'path': 'index.html'}),
+    url(r'^(?P<path>.*)$', 'serve'),
+    )
+else:
+    urlpatterns += url(r'^$', views.index)

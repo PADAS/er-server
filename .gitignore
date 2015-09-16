@@ -123,3 +123,4 @@ pip-selfcheck.json
 
 
 das/das_server/local_settings.py
+das/export.json

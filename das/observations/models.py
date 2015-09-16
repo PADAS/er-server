@@ -20,7 +20,7 @@ from django.db.models import Max
 from django.utils import timezone
 import pytz
 from django.contrib.gis.geos import Point
-
+import datetime
 SOURCE_TYPES = (
     ('tracking-device', 'Tracking Device'),
     ('trap', 'Trap'),
@@ -30,8 +30,12 @@ SOURCE_TYPES = (
 )
 
 
+def to_rgb(color):
+    return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(',')])
+
 class SourceManager(models.Manager):
     pass
+
 
 class Source(models.Model):
 
@@ -46,19 +50,22 @@ class Source(models.Model):
     model_name = models.CharField('device model name', max_length=100, null=True)
     additional = JsonBField()
 
-
+EMPTY_POINT = Point(0,0)
 
 class ObservationManager(models.GeoManager):
     def get_source_range_observations(self, subject_sources, since=None, until=None):
         """get observations for a set of sources and date ranges.
         An animal may switch source devices based on a date range.
         """
-        subject_sources = sorted(subject_sources, key=lambda ss: ss.assigned_range.lower, reverse=True)
+        subject_sources = sorted(subject_sources,
+                                 key=lambda ss: ss.assigned_range.lower,
+                                 reverse=True)
         sql = '''SELECT * FROM observations_oberservation o WHERE o.source_id = %(source_id)s o.recorded_at in %(range)s'''
 
         qs = None
         for ss in subject_sources:
-            q = Q(source_id=ss.source_id) & Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
+            q = Q(source_id=ss.source_id) &\
+                Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
             qs = qs | q if qs else q
 
         result = Observation.objects.filter(qs)
@@ -67,8 +74,34 @@ class ObservationManager(models.GeoManager):
         if until:
             result = result.filter(Q(recorded_at__lte=until))
         result = result.order_by('-recorded_at')
+        result = result.exclude(location=EMPTY_POINT)
 
         return result
+
+    def get_source_range_observations_last(self, subject_sources, last_days):
+        """get the last days worth of observations starting from the last known
+         position for a set of sources.
+        An animal may switch source devices based on a date range.
+        """
+        subject_sources = sorted(subject_sources,
+                                 key=lambda ss: ss.assigned_range.lower,
+                                 reverse=True)
+        sql = '''SELECT * FROM observations_oberservation o WHERE o.source_id = %(source_id)s o.recorded_at in %(range)s'''
+
+        qs = None
+        for ss in subject_sources:
+            q = Q(source_id=ss.source_id) &\
+                Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
+            qs = qs | q if qs else q
+
+        result = Observation.objects.filter(qs)
+        result = result.order_by('-recorded_at')
+        result = result.exclude(location=EMPTY_POINT)
+        last_observation = result[:1]
+        if last_observation:
+            last_observation = last_observation[0]
+            gt = last_observation.recorded_at - last_days
+            return result.filter(recorded_at__gt=gt)
 
     def add_observation(self, source, observation):
         '''
@@ -83,12 +116,36 @@ class ObservationManager(models.GeoManager):
 
         Observation(source_id=source.id, location=loc, recorded_at=ts, additional=observation).save()
 
-
     def get_max_recorded_at(self, source):
         '''Get the latest recorded timestamp for the source.'''
         r = Observation.objects.filter(source=source).aggregate(Max('recorded_at'))
         return r.get('recorded_at__max')
 
+    def get_last_observation(self, subject):
+        """get the last recorded observation of the subject
+        :returns Observation
+        """
+        return self._get_observation(subject, first=False)
+
+    def get_first_observation(self, subject):
+        """get the first recorded observation of the subject
+        :returns Observation
+        """
+        return self._get_observation(subject, first=True)
+
+    def _get_observation(self, subject, first=False):
+        field = '-recorded_at'
+        if first:
+            field = 'recorded_at'
+        sources = SubjectSource.objects.get_subject_sources(subject)
+        sources = [s.source for s in sources]
+        if not sources:
+            return
+        r = Observation.objects.filter(source__in=sources)
+        r = r.exclude(location=EMPTY_POINT)
+        r = r.order_by(field)[:1]
+        if r:
+            return r[0]
 
 class Observation(models.Model):
     """observation point
@@ -113,7 +170,13 @@ class Observation(models.Model):
 
 
 class SubjectSourceManager(models.GeoManager):
-    pass
+    def get_subject_sources(self, subject):
+        sds = SubjectSource.objects.filter(subject_id=subject.id)
+        return sds
+
+    def get_subject_source(self, subject, source_id):
+        sds = SubjectSource.objects.filter(subject_id=subject.id, source_id=source_id)
+        return sds
 
 
 SUBJECT_TYPES = (
@@ -136,28 +199,76 @@ class SubjectSource(models.Model):
     objects = SubjectSourceManager()
 
 
+class SubjectManager(models.Manager):
+    pass
+
+
 class Subject(models.Model):
     """Person, Animal, Vehicle, etc"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     subject_type = models.CharField(max_length=100, choices=SUBJECT_TYPES, default='wildlife')
     additional = JsonBField()
+    objects = SubjectManager()
+
+    @property
+    def color(self):
+        color = self.additional.get('rgb', None)
+        if color:
+            color = to_rgb(color)
+        return color
+
+    @property
+    def image_url(self):
+        key = self.subject_type
+        species = self.additional.get('species', None)
+        if species:
+            species = species.lower()
+            sex = self.additional.get('sex', None)
+            if sex:
+                key = '-'.join((species, sex.lower()))
+            else:
+                key = species
+        return googlemarkericon(key)
+
+
+class WildlifeSubjectManager(models.Manager):
+    def get_queryset(self):
+        return super(WildlifeSubjectManager, self).get_queryset().filter(
+            subject_type='wildlife')
+
+    def create(self, **kwargs):
+        kwargs.update({'subject_type': 'wildlife'})
+        return super(WildlifeSubjectManager, self).create(**kwargs)
+
+
+class WildlifeSubject(Subject):
+    objects = WildlifeSubjectManager()
+
+    class Meta:
+        proxy = True
 
 
 MARKER_ICONS = {
     'elephant-male': 'http://107.21.94.89/Images/AnimalIcons/Elephant_Male.png',
     'elephant-female': 'http://107.21.94.89/Images/AnimalIcons/Elephant_Female.png',
-    'lion-male': '',
+    'lion-male': 'http://107.21.94.89/Images/AnimalIcons/Lion_Male.png',
+    'lion-female': 'http://107.21.94.89/Images/AnimalIcons/Lion_Female.png',
     'vehicle': 'http://maps.google.com/mapfiles/kml/shapes/truck.png',
     'cow': '',
     'cheetah': '',
     'expedition': 'http://maps.google.com/mapfiles/kml/shapes/triangle.png',
-    'zebra': 'http://107.21.94.89/Images/AnimalIcons/GrevysZebra_Female.png',
+    'zebra-male': 'http://107.21.94.89/Images/AnimalIcons/GrevysZebra_Male.png',
+    'zebra-female': 'http://107.21.94.89/Images/AnimalIcons/GrevysZebra_Female.png',
     'forest elephant': '',
     'goat': '',
-    'sable': '',
+    'sable-male': 'http://107.21.94.89/Images/AnimalIcons/SableAntelopeGraphicMale.png',
+    'sable-female': 'http://107.21.94.89/Images/AnimalIcons/SableAntelopeGraphicFemale.png',
+    'rhino-male': 'http://107.21.94.89/Images/AnimalIcons/Rhino_Male.png',
+    'rhino-female': 'http://107.21.94.89/Images/AnimalIcons/Rhino_Female.png',
     'white rhino': '',
     'black rhino': '',
 }
+
 def googlemarkericon(subject_type):
     return MARKER_ICONS.get(subject_type, 'http://maps.google.com/mapfiles/kml/shapes/truck.png')

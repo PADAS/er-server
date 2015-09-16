@@ -2,20 +2,30 @@
 # pip install -r requirements.txt --find-links wheelhouse
 #
 psycopg2==2.6
-simplejson==3.7.3
+simplejson==3.8.0
 pytz==2015.4
 python-dateutil==2.4.2
 requests==2.7.0
-Django==1.8.2
+Django==1.8.3
 
 #http://djangonauts.github.io/django-pgjson/
-django-pgjson==0.3.0
+django-pgjson==0.3.1
 #https://github.com/mypebble/django-pgviews
 django-pgviews==0.0.4
 django-geojson==2.8.1
-django-model-utils==2.2
+django-model-utils==2.3.1
+#see https://github.com/ottoyiu/django-cors-headers
+django-cors-headers==1.1.0
+#django-raster==0.1.6
 GDAL==1.11.2
 # Under windows add appropriate path'ed Environment Variables
 #GDAL_DATA=C:\projects\das\dasvir\Lib\site-packages\osgeo\data\gdal
 #GDAL_DRIVER_PATH=C:\projects\das\dasvir\Lib\site-packages\osgeo\gdalplugins
 #PATH=C:\projects\das\dasvir\Lib\site-packages\osgeo
+
+#rq==0.5.4
+#django-rq==0.8.0
+
+# APScheduler requires SQLAlchemy if we hold schedule information in Postgres.
+APScheduler==3.0.3
+SQLAlchemy==1.0.8
