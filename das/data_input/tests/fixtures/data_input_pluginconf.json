@@ -21,7 +21,7 @@
   },
   {
     "fields": {
-      "configuration": "{\"username\": \"\",\"password\": \"\"}",
+      "configuration": "{\"credentials\": {\"username\": \"awtian\", \"password\": \"kenya\"}, \"host\": \"http://skyq1.skygistics.com\"}",
       "updated_at": "2015-08-27T23:22:21.589Z",
       "created_at": "2015-08-27T23:22:21.589Z",
       "plugin_name": "skygistics"
