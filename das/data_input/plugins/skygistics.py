@@ -196,21 +196,22 @@ class SkygisticsSatellitePlugin(DasPlugin):
         self.client.begin_session()
         conf_sources = PluginConfSource.objects.filter(plugin_conf=self.config)
         for conf_source in conf_sources:
-            if 'last_update' in conf_source.additional:
+            if 'last_fetch' in conf_source.additional:
                 start_time = datetime.strptime(conf_source.additional['last_update'], SKYGISTICS_PLUGIN_DATETIME_FORMAT)
             else:
                 start_time = timezone.now()
             for unit_info in self.client.fetch_observations(conf_source.source.manufacturer_id,
                                                                    start_time=start_time):
                 yield (conf_source.source, unit_info)
-            conf_source.additional['last_update'] = timezone.now().strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT)
+            # update the conf_source so the time this data was fetched becomes the start for the next batch
+            conf_source.additional['last_fetch'] = timezone.now().strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT)
             conf_source.save()
 
     def _transform(self, item):
         """
-        transform a Skygistics (xml) data dictionary into a DAS usable dictionary
+        transform a Skygistics (their xml that hase been dictify'd) data dictionary into a DAS usable dictionary
         :param: item:  a tuple of a Source object and dictionary of Skygistics data
-        :return: Observation
+        :return: Source, Observation tuple (similar to param item)
         """
         source, unit_info = item
         observation = {
