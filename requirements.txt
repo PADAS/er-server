@@ -6,12 +6,13 @@ simplejson==3.8.0
 pytz==2015.4
 python-dateutil==2.4.2
 requests==2.7.0
-Django==1.8.3
+Django==1.8.4
 
+djangorestframework==3.2.3
 #http://djangonauts.github.io/django-pgjson/
 django-pgjson==0.3.1
 #https://github.com/mypebble/django-pgviews
-django-pgviews==0.0.4
+django-pgviews==0.0.5
 django-geojson==2.8.1
 django-model-utils==2.3.1
 #see https://github.com/ottoyiu/django-cors-headers

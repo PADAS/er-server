@@ -5,6 +5,7 @@ from django.views.generic import View
 from django.http import HttpResponse
 import dateutil.parser
 import pytz
+from oauth2_provider.views import ProtectedResourceView
 from observations.models import Subject, Observation, SubjectSource, Source
 from das_server import utils
 from django.contrib.gis.geos import Point
@@ -58,7 +59,7 @@ class StatusView(View):
         result = {'version': '1.0'}
         return ApiJsonResponse(result)
 
-class SourceBaseView(View):
+class SourceBaseView(ProtectedResourceView):
     fields = ('id', 'source_type', 'manufacturer_id', 'model_name')
 
     @staticmethod
@@ -68,7 +69,7 @@ class SourceBaseView(View):
         return result
 
 
-class SubjectBaseView(View):
+class SubjectBaseView(ProtectedResourceView):
     fields = ('id', 'name', 'region', 'country', 'subject_type', 'sex', 'species')
     subject_id = None
     _subject = None
@@ -100,7 +101,7 @@ class SubjectBaseView(View):
         return _subject
 
 
-class SubjectsView(View):
+class SubjectsView(ProtectedResourceView):
     def get(self, request):
         subjects = Subject.objects.all()
         result = []
