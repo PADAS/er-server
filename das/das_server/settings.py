@@ -42,6 +42,7 @@ INSTALLED_APPS = (
     'django.contrib.gis',
     'corsheaders',
     'oauth2_provider',
+    'rest_framework',
     'djgeojson',
     # 'raster',
     'observations',
@@ -85,6 +86,9 @@ TEMPLATES = [
 WSGI_APPLICATION = 'das_server.wsgi.application'
 
 REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+    ],
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'oauth2_provider.ext.rest_framework.OAuth2Authentication',
     ),
