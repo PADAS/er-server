@@ -1135,7 +1135,7 @@
     "fields": {
       "model_name": "AWT Satellite",
       "source_type": "tracking-device",
-      "manufacturer_id": "01081034SKY902F",
+      "manufacturer_id": "01086046SKY4213",
       "additional": "{\"frequency\": 148.9, \"predicted_expiry\": null, \"active\": 1}"
     }
   },

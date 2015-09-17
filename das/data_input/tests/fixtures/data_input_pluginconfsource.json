@@ -1,0 +1,23 @@
+[
+  {
+    "app_label": "data_input",
+    "fields": {
+      "plugin_conf": "52d2d62a-1673-487e-929c-fa0bb1f6c883",
+      "source": "4f5448f7-c80a-43a2-99af-0256d6e4147b",
+      "additional":  "{\"last_fetch\": \"2015-08-27T23:22:21.589Z\"}"
+    },
+    "model": "data_input.pluginconfsource",
+    "pk": "84966553-b35b-46c2-be7e-404dc0895163"
+  },
+  {
+    "app_label": "data_input",
+    "fields": {
+      "plugin_conf": "52d2d62a-1673-487e-929c-fa0bb1f6c883",
+      "source": "ca7f1ab7-430b-4bee-a182-033c26471384",
+      "additional":  "{\"last_fetch\": \"2015-08-27T23:22:21.589Z\"}"
+    },
+    "model": "data_input.pluginconfsource",
+    "pk": "58c428b5-62f8-4c04-8ac3-3c085e81e8d9"
+  }
+]
+

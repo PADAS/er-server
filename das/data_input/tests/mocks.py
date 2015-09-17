@@ -1,8 +1,7 @@
 from data_input.plugins.plugin import PluginTarget
-from data_input.models import PluginConf
 
 
-class MockConfig(PluginConf):
+class MockConfig(object):
     class Source(object):
         manufacturer_id = None
 
