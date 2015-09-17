@@ -5,7 +5,6 @@ import xml.etree.ElementTree as etree
 from decimal import Decimal
 from datetime import datetime
 
-
 from django.utils import timezone
 from django.contrib.gis.geos import Point
 
@@ -109,9 +108,11 @@ class SkygisticsSatelliteClient(SkygisticsClient):
                 'enddate': end_date.strftime(SKYGISTICS_DATETIME_FORMAT),
                 'sessionid': self.session_id,
             })
-        # parse response content for session_id
-        replay_data_count = etree.fromstring(response_text).text
-        return False
+        try:
+            replay_data_count = int(etree.fromstring(response_text).text)
+        except TypeError:
+            replay_data_count = 0
+        return replay_data_count
 
     def _get_replay_data(self, imei, start_date, end_date, skip, limit):
         """
@@ -142,25 +143,28 @@ class SkygisticsSatelliteClient(SkygisticsClient):
     def begin_session(self):
         self._login()
 
-    def fetch_observations(self, imei, start_time, end_time=None):
+    def fetch_observations(self, imei, start_date, end_date=None):
         """
         Fetch observations from Skygistics for a particular collar based on imei.
         :param imei:
-        :param start_time:
-        :param end_time:
+        :param start_date:
+        :param end_date:  ignored for now, always current datetime
         :return: generator, yielding individual records.
         """
 
+        end_date = timezone.now()
         # todo: batch calls based on _get_replay_data_count?
         skip = 0
-        # todo:  if not batching, get total available
-        limit = 10000
-
-        end_date = timezone.now()
+        # if not batching, get total available
+        limit = self._get_replay_data_count(
+            imei,
+            start_date,
+            end_date=end_date,
+        )
 
         replay_data_dict = dictify(self._get_replay_data(
             imei,
-            start_time,
+            start_date,
             end_date=end_date,
             skip=skip,
             limit=limit
@@ -168,10 +172,10 @@ class SkygisticsSatelliteClient(SkygisticsClient):
         # if the array is empty (e.g., bad imei) then '{http://www.skygistics.com/SkygisticsAPI}ArrayOfUnitInfo'
         #     will be a dict with a key-value pair '{http://www.w3.org/2001/XMLSchema-instance}nil': 'true'
         if ('{http://www.w3.org/2001/XMLSchema-instance}nil' in replay_data_dict[
-                ('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))]
-                    and replay_data_dict[('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))][
-                        '{http://www.w3.org/2001/XMLSchema-instance}nil'] == 'true'):
-            pass # todo:  no results!
+            ('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))]
+            and replay_data_dict[('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))][
+                '{http://www.w3.org/2001/XMLSchema-instance}nil'] == 'true'):
+            pass  # todo:  no results!
         else:
             for unit_info in \
                     replay_data_dict[('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))][
@@ -182,7 +186,7 @@ class SkygisticsSatelliteClient(SkygisticsClient):
 class SkygisticsSatellitePlugin(DasPlugin):
     def __init__(self, config, target):
         # config should be a PluginConf object with a jsonb configuration attribute
-        if hasattr(config, 'configuration'): # todo:  can't check plugin instance if generator ... # and isinstance(target, PluginTarget):
+        if hasattr(config, 'configuration'):
             self.config = config
 
             # todo:  sanity check config.configuration and extract relevant bits
@@ -197,13 +201,14 @@ class SkygisticsSatellitePlugin(DasPlugin):
         conf_sources = PluginConfSource.objects.filter(plugin_conf=self.config)
         for conf_source in conf_sources:
             if 'last_fetch' in conf_source.additional:
-                start_time = datetime.strptime(conf_source.additional['last_update'], SKYGISTICS_PLUGIN_DATETIME_FORMAT)
+                start_date = datetime.strptime(conf_source.additional['last_fetch'], SKYGISTICS_PLUGIN_DATETIME_FORMAT)
             else:
-                start_time = timezone.now()
-            for unit_info in self.client.fetch_observations(conf_source.source.manufacturer_id,
-                                                                   start_time=start_time):
+                start_date = timezone.now()
+            for unit_info in self.client.fetch_observations(imei=conf_source.source.manufacturer_id,
+                                                            start_date=start_date):
                 yield (conf_source.source, unit_info)
             # update the conf_source so the time this data was fetched becomes the start for the next batch
+            # todo:  this could be set too far in the future ...
             conf_source.additional['last_fetch'] = timezone.now().strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT)
             conf_source.save()
 
@@ -222,11 +227,12 @@ class SkygisticsSatellitePlugin(DasPlugin):
                 '_text'],
             'voltage': unit_info[('{0}Voltage'.format(SKYGISTICS_API_XMLNS))][0][
                 '_text'],
-            'ts': unit_info[('{0}Time'.format(SKYGISTICS_API_XMLNS))][0][
-                '_text'],
+            'ts': timezone.make_aware(datetime.strptime(unit_info[('{0}Time'.format(SKYGISTICS_API_XMLNS))][0][
+                '_text'], SKYGISTICS_DATETIME_FORMAT), timezone.utc),
+            # add T and Z to string timestamp so UTC is obvious.
             'received_time':
-                unit_info[('{0}ReceivedTime'.format(SKYGISTICS_API_XMLNS))][0][
-                    '_text'],
+                timezone.make_aware(datetime.strptime(unit_info[('{0}ReceivedTime'.format(SKYGISTICS_API_XMLNS))][0][
+                    '_text'], SKYGISTICS_DATETIME_FORMAT), timezone.utc).strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT),
         }
         return source, observation
 
@@ -235,7 +241,7 @@ class SkygisticsSatellitePlugin(DasPlugin):
 
 
 class SkygisticsTarget(PluginTarget):
-
     def _handle_item(self, item):
         (source, observation) = item
+        # todo:  reconcile dupes??
         Observation.objects.add_observation(source, observation)

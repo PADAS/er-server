@@ -4,46 +4,54 @@ from unittest import skip
 
 from django.test import TestCase
 from django.utils import timezone
+from django.conf import settings
 
 from data_input.plugins.plugin import DasPluginFetchError
 from data_input.plugins.skygistics import SkygisticsSatellitePlugin, SkygisticsClient, SkygisticsTarget, \
     SkygisticsLoginError, DasPluginConfigurationError
-from data_input.tests.mocks import MockTarget, MockConfig
+from data_input.tests.mocks import MockTarget
 from data_input.models import PluginConf
-from observations.models import Observation
+from observations.models import Observation, Source
 
 
 class SkygisticsMockClient(SkygisticsClient):
     SKYGISTICS_API_XMLNS = '{http://www.skygistics.com/SkygisticsAPI}'
+    SKYGISTICS_DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 
     def begin_session(self):
         pass
 
-    def fetch_observations(self, imei, start_time, end_time=None):
+    def fetch_observations(self, imei, start_date, end_date=None):
         mock_replay_data_dict = [
             {
                 'imei': '01086046SKY4213',
                 'lat': 0.0,
                 'lon': 0.0,
                 'voltage': 1.123,
-                'fix_time': (datetime.now() - timedelta(2)).isoformat(),
-                'received_time': datetime.now().isoformat()
+                'fix_time': (datetime.now() - timedelta(2)).strftime(
+                    self.SKYGISTICS_DATETIME_FORMAT),
+                'received_time': datetime.now().strftime(
+                    self.SKYGISTICS_DATETIME_FORMAT),
             },
             {
                 'imei': '01086046SKY4213',
                 'lat': 0.0,
                 'lon': 0.0,
                 'voltage': 1.123,
-                'fix_time': (datetime.now() - timedelta(1)).isoformat(),
-                'received_time': datetime.now().isoformat()
+                'fix_time': (datetime.now() - timedelta(1)).strftime(
+                    self.SKYGISTICS_DATETIME_FORMAT),
+                'received_time': datetime.now().strftime(
+                    self.SKYGISTICS_DATETIME_FORMAT),
             },
             {
                 'imei': '01086046SKY4213',
                 'lat': 0.0,
                 'lon': 0.0,
                 'voltage': 1.123,
-                'fix_time': datetime.now().isoformat(),
-                'received_time': datetime.now().isoformat()
+                'fix_time': datetime.now().strftime(
+                    self.SKYGISTICS_DATETIME_FORMAT),
+                'received_time': datetime.now().strftime(
+                    self.SKYGISTICS_DATETIME_FORMAT),
             },
         ]
         for unit_info in mock_replay_data_dict:
@@ -83,12 +91,6 @@ class TestSkygisticsInit(TestCase):
         with self.assertRaises(DasPluginConfigurationError):
             SkygisticsSatellitePlugin(config, target)
 
-    def test_plugin_init_with_no_target(self):
-        config = PluginConf.objects.create(plugin_name='test config')
-        target = None
-        with self.assertRaises(DasPluginConfigurationError):
-            SkygisticsSatellitePlugin(config, target)
-
     def test_plugin_init_with_no_config(self):
         config = None
         target = MockTarget()
@@ -117,11 +119,14 @@ class TestSkygisticsFetch(TestCase):
         config = PluginConf.objects.create(plugin_name='test good sky login',
                                            configuration={
                                                'credentials': {
-                                                   'username': 'awtian',
-                                                   'password': 'kenya'
+                                                   'username': 'test',
+                                                   'password': 'test'
                                                },
                                                'host': 'http://skyq1.skygistics.com',
                                            })
+        if settings.SKYGISTICS_TEST:
+            config.configuration['credentials']['username'] = settings.SKYGISTICS_TEST['username']
+            config.configuration['credentials']['password'] = settings.SKYGISTICS_TEST['password']
         self.plugin = SkygisticsSatellitePlugin(config, target)
 
     def test_attempting_to_get_replay_count_with_no_login_fails(self):
@@ -132,15 +137,12 @@ class TestSkygisticsFetch(TestCase):
         with self.assertRaises(SkygisticsLoginError):
             self.plugin.client._get_replay_data(None, None, None, None, None)
 
-    @skip("skip:  no network for now")
     def test_login_with_bad_user_fails(self):
         self.assertFalse(self.bad_plugin.client._login())
 
-    @skip("skip:  no network for now")
     def test_login_with_good_user_succeeds(self):
         self.assertTrue(self.plugin.client._login())
 
-    @skip("skip:  no network for now")
     def test_attempting_to_get_replay_count_with_bad_imei_fails(self):
         self.assertTrue(self.plugin.client._login(), 'login failed: no testing.')
         imei = '0000'
@@ -149,38 +151,38 @@ class TestSkygisticsFetch(TestCase):
         with self.assertRaises(DasPluginFetchError):
             self.plugin.client._get_replay_data_count(imei, start_datetime, end_datetime)
 
-    @skip("skip:  no network for now")
     def test_attempting_to_get_replay_count_with_good_imei_and_old_date(self):
         self.assertTrue(self.plugin.client._login(), 'login failed: no testing.')
 
         imei = '01086046SKY4213'
         start_datetime = date(1900, 1, 1)
         end_datetime = date(1900, 1, 1)
-        self.plugin.client._get_replay_data_count(imei, start_datetime, end_datetime)
+        replay_data_count = self.plugin.client._get_replay_data_count(imei, start_datetime, end_datetime)
+        self.assertEquals(replay_data_count, 0)
 
-    @skip("skip:  no network for now")
     def test_attempting_to_get_replay_with_good_imei_and_old_date(self):
         self.assertTrue(self.plugin.client._login(), 'login failed: no testing.')
 
         imei = '01086046SKY4213'
         start_datetime = date(1900, 1, 1)
         end_datetime = date(1900, 1, 1)
-        self.plugin.client._get_replay_data(imei,
+        replay_data = self.plugin.client._get_replay_data(imei,
                                             start_datetime,
                                             end_datetime,
                                             skip=0,
                                             limit=10)
+        self.assertIsInstance(replay_data, Element)
 
-    @skip("skip:  no network for now")
     def test_attempting_to_get_replay_count_with_good_imei_and_current_date(self):
         self.assertTrue(self.plugin.client._login(), 'login failed: no testing.')
 
         imei = '01086046SKY4213'
         start_datetime = date(1900, 1, 1)
         end_datetime = timezone.now()
-        self.plugin.client._get_replay_data_count(imei, start_datetime, end_datetime)
+        replay_data_count = self.plugin.client._get_replay_data_count(imei, start_datetime, end_datetime)
+        self.assertGreater(replay_data_count, 0)
 
-    @skip("skip:  no network for now")
+
     def test_attempting_to_get_replay_with_good_imei_and_current_date(self):
         self.assertTrue(self.plugin.client._login(), 'login failed: no testing.')
 
@@ -208,22 +210,18 @@ class TestSkygisticsPluginWithMockTarget(TestCase):
         self.plugin = SkygisticsSatellitePlugin(config, target)
         self.plugin.client = SkygisticsMockClient()
 
-    def test_fetch_returns_dicts(self):
+    def test_fetch_returns_source_and_unit_info(self):
         for result in self.plugin._fetch():
             print(result)
-            self.assertIsNotNone(result)
+            source, unit_info = result
+            self.assertIsInstance(source, Source)
+            self.assertIsNotNone(unit_info)
 
-    @skip('skip:  still working on this')
-    def test_transform_returns_observations(self):
+    def test_transform_returns_observation_dict(self):
         for result in self.plugin._fetch():
-            observation = self.plugin._transform(result)
-            self.assertIsInstance(observation, Observation)
-
-    @skip('skip:  still working on this')
-    def test_insert(self):
-        for result in self.plugin._fetch():
-            observation = self.plugin._transform(result)
-            self.assertIsInstance(observation, Observation)
+            source, observation = self.plugin._transform(result)
+            self.assertIsInstance(source, Source)
+            self.assertIn('imei', observation)
 
 
 class TestSkygisticsPluginWithSkygisticsTarget(TestCase):
@@ -235,6 +233,9 @@ class TestSkygisticsPluginWithSkygisticsTarget(TestCase):
 
     def test_target(self):
         config = PluginConf.objects.get(plugin_name='skygistics')
+        if settings.SKYGISTICS_TEST:
+            config.configuration['credentials']['username'] = settings.SKYGISTICS_TEST['username']
+            config.configuration['credentials']['password'] = settings.SKYGISTICS_TEST['password']
         with SkygisticsTarget() as target:
             plugin = SkygisticsSatellitePlugin(config, target)
             # todo:  need an assert here ... hmmm.
