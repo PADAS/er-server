@@ -15,7 +15,10 @@ Including another URLconf
 """
 from django.conf.urls import include, url
 from django.contrib import admin
+from rest_framework.urlpatterns import format_suffix_patterns
 from . import views
+
+
 
 urlpatterns = [
     url(r'^status/?$', views.StatusView.as_view()),
@@ -25,3 +28,5 @@ urlpatterns = [
     url(r'^subject/(?P<subject_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/sources/?$', views.SubjectSourcesView.as_view()),
     url(r'^subject/(?P<subject_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/source/(?P<source_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.SubjectSourceTrackView.as_view()),
 ]
+
+urlpatterns = format_suffix_patterns(urlpatterns)

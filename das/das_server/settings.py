@@ -43,12 +43,14 @@ INSTALLED_APPS = (
     'corsheaders',
     'oauth2_provider',
     'rest_framework',
+    'rest_framework_swagger',
     'djgeojson',
     # 'raster',
     'observations',
     'api',
     'data_input',
     'mapping',
+
 )
 
 MIDDLEWARE_CLASSES = (
@@ -86,12 +88,14 @@ TEMPLATES = [
 WSGI_APPLICATION = 'das_server.wsgi.application'
 
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
-    ],
+    'DEFAULT_PERMISSION_CLASSES': (
+        #'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
+        'rest_framework.permissions.IsAuthenticated',
+    ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'oauth2_provider.ext.rest_framework.OAuth2Authentication',
     ),
+    'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
 }
 
 AUTHENTICATION_BACKENDS = (
