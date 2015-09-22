@@ -6,7 +6,7 @@ import copy
 import http.client
 from functools import namedtuple
 from observations.models import Observation, Source
-from .plugin import DasPlugin, PluginTarget
+from .plugin import DasPlugin, PluginTarget, DasPluginConfigurationError
 import datetime, time
 from data_input.models import PluginConf, PluginConfSource
 
@@ -24,9 +24,6 @@ Fix = namedtuple('Fix', ['collar_id', 'lon', 'lat', 'ts', 'speed', 'heading', 't
 field_transform = (str, float, float, __str2date, float, float, str, int)
 
 
-# class SavannaException(Exception):
-#     pass
-
 class SavannaClient(object):
 
     def __init__(self, config=None):
@@ -34,8 +31,14 @@ class SavannaClient(object):
         Configuration is given by the plugin. Probably saved in PluginConf record.
         :param config: must include 'credentials' and 'host'
         '''
-        self.credentials = config.get('credentials', {})
-        self.host = config.get('host', '')
+
+        self._config = config or {}
+
+        if not all(x in self._config for x in ('host', 'credentials')):
+            raise DasPluginConfigurationError('Not enough configuration provided to continue.')
+
+        self.credentials = self._config.get('credentials')
+        self.host = self._config.get('host')
 
 
     def fetch_observations(self, collar_id, start_time, end_time=None):

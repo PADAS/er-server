@@ -1,7 +1,7 @@
 [
   {
     "fields": {
-      "configuration": "{\"credentials\": {\"pwd\": \"ndovu4\", \"uid\": \"ste\"}, \"host\": \"41.207.72.20\"}",
+      "configuration": "{\"credentials\": {\"pwd\": \"{{ savanna.pwd }}\", \"uid\": \"{{ savanna.uid }}\"}, \"host\": \"{{ savanna.host }}\"}",
       "updated_at": "2015-08-07T00:22:29.009Z",
       "created_at": "2015-08-07T00:22:29.009Z",
       "plugin_name": "savanna"
@@ -11,7 +11,7 @@
   },
   {
     "fields": {
-      "configuration": "{\"hosts\": [\"nrt1.modaps.eosdis.nasa.gov\", \"nrt2.modaps.eosdis.nasa.gov\"], \"username\": \"chrisdoehring\", \"password\": \"[Rhubarb91$]\", \"directory\": \"FIRMS\" }",
+      "configuration": "{\"hosts\": [\"nrt1.modaps.eosdis.nasa.gov\", \"nrt2.modaps.eosdis.nasa.gov\"], \"username\": \"{{ firms.username }}\", \"password\": \"{{ firms.password }}\", \"directory\": \"FIRMS\" }",
       "updated_at": "2015-08-27T23:22:21.589Z",
       "created_at": "2015-08-27T23:22:21.589Z",
       "plugin_name": "firms"
@@ -21,7 +21,7 @@
   },
   {
     "fields": {
-      "configuration": "{\"credentials\": {\"username\": \"test\", \"password\": \"test\"}, \"host\": \"http://skyq1.skygistics.com\"}",
+      "configuration": "{\"credentials\": {\"username\": \"{{ skygistics.username }}\", \"password\": \"{{ skygistics.password }}\"}, \"host\": \"http://skyq1.skygistics.com\"}",
       "updated_at": "2015-08-27T23:22:21.589Z",
       "created_at": "2015-08-27T23:22:21.589Z",
       "plugin_name": "skygistics"
@@ -31,7 +31,7 @@
   },
   {
     "fields": {
-      "configuration": "{\"host\": \"explore.delorme.com\", \"username\": \"vulcan_das\", \"password\": \"5oBt1F27Pw9S\" }",
+      "configuration": "{\"host\": \"explore.delorme.com\", \"username\": \"{{ inreach.username }}\", \"password\": \"{{ inreach.password }}\" }",
       "updated_at": "2015-08-27T23:22:21.589Z",
       "created_at": "2015-08-27T23:22:21.589Z",
       "plugin_name": "inreach"

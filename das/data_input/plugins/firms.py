@@ -7,7 +7,7 @@ import http.client
 import ssl
 from functools import namedtuple
 from observations.models import Observation, Source
-from .plugin import DasPlugin, PluginTarget
+from .plugin import DasPlugin, PluginTarget, DasPluginConfigurationError
 import datetime, time
 from data_input.models import PluginConf, PluginConfSource
 from ftplib import FTP
@@ -21,7 +21,7 @@ def __str2date(d, replace_tzinfo=pytz.utc):
     return parse_date(d).replace(tzinfo=replace_tzinfo)
 
 
-# Helpers for parsing lines from Savanna datasource.
+# Helpers for parsing lines from FIRMS datasource.
 field_names = ('lat', 'lon', 'brightness', 'scan', 'track', 'acq_date', 'acq_time', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
 field_transform = (float, float, float, float, float, str, str, str, int, str, float, float)
 
@@ -31,14 +31,19 @@ field_transform = (float, float, float, float, float, str, str, str, int, str, f
 
 class FirmsClient(object):
 
-    def __init__(self, config={}):
+    def __init__(self, config=None):
         '''
         Configuration is given by the plugin. Probably saved in PluginConf record.
         :param config: must include 'credentials' and 'host'
         '''
-        self.host = config.get('host', 'nrt1.modaps.eosdis.nasa.gov')
-        self.username = config.get('username', 'chrisdoehring')
-        self.password = config.get('password', '[Rhubarb91$]')
+
+        self._config = config or {}
+        if not all(x in config for x in ('hosts', 'username', 'password')):
+            raise DasPluginConfigurationError('Not enough configuration provided.')
+
+        self.hosts = config.get('hosts')
+        self.username = config.get('username')
+        self.password = config.get('password')
 
 
     def fetch_observations(self, region_id, **kwargs):
@@ -49,7 +54,7 @@ class FirmsClient(object):
         :param kwargs:
         :return:
         '''
-        ftp = FTP(self.host, self.username, self.password)
+        ftp = FTP(self.hosts[0], self.username, self.password)
 
         ftp.cwd('FIRMS/{}'.format(region_id))
 

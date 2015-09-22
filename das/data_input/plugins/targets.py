@@ -25,16 +25,16 @@ class DasPluginTarget(PluginTarget):
             except GeneratorExit:
                 print("You sent %d messages" % (cnt,))
 
-    def insert(self, observation):
-        '''
-        Expect observation to be a dict mapping to observation model
-        :param observation:
-        :return:
-        '''
-        source = Source.objects.get(model_name=observation.source_model_name, manufacturer_id=observation.collar_id)
-
-        loc = Point(float(observation.pop('lat')), float(observation.pop('lon')))
-        ts = observation.pop('ts')
-
-        obs = Observation(source=source, location=loc, recorded_at=ts, additional=observation)
-        obs.save()
+    # def insert(self, observation):
+    #     '''
+    #     Expect observation to be a dict mapping to observation model
+    #     :param observation:
+    #     :return:
+    #     '''
+    #     source = Source.objects.get(model_name=observation.source_model_name, manufacturer_id=observation.collar_id)
+    #
+    #     loc = Point(float(observation.pop('lat')), float(observation.pop('lon')))
+    #     ts = observation.pop('ts')
+    #
+    #     obs = Observation(source=source, location=loc, recorded_at=ts, additional=observation)
+    #     obs.save()
