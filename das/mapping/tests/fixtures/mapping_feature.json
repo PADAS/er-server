@@ -1,0 +1,35 @@
+[
+    {
+        "fields": {
+            "feature_geometry": "MULTIPOLYGON(((1 1,5 1,5 5,1 5,1 1),(2 2, 3 2, 3 3, 2 3,2 2)),((3 3,6 2,6 4,3 3)))",
+            "presentation": "{\"style\": {\"color\": \"red\", \"style\": \"solid\", \"width\": \"1\"}}",
+            "updated_at": "2015-08-07T00:22:29.009Z",
+            "created_at": "2015-08-07T00:22:29.009Z",
+            "name": "Park Boundary", "type": "Administrative", "description": "The boundaries of the park sections."
+        },
+        "pk": "f79520c6-973e-4025-8f78-043ea57af3ea",
+        "model": "mapping.polygonfeature"
+    },
+    {
+        "fields": {
+            "feature_geometry": "MULTILINESTRING((3 4,10 50,20 25),(-5 -8,-10 -8,-15 -4))",
+            "presentation": "{\"style\": {\"color\": \"green\", \"style\": \"solid\", \"width\": \"1\"}}",
+            "updated_at": "2015-08-07T00:22:29.009Z",
+            "created_at": "2015-08-07T00:22:29.009Z",
+            "name": "River", "type": "Natural"
+        },
+        "pk": "498c2de9-e9b4-4aee-aa24-593c160213bc",
+        "model": "mapping.linefeature"
+    },
+    {
+        "fields": {
+            "feature_geometry": "MULTIPOINT(3.5 5.6, 4.8 10.5)",
+            "presentation": "{\"style\": {\"icon\": \"an-url-to-an-icon\"}}",
+            "updated_at": "2015-08-07T00:22:29.009Z",
+            "created_at": "2015-08-07T00:22:29.009Z",
+            "name": "Park HQ", "type": "Administrative"
+        },
+        "pk": "9fad6c83-516f-4460-9c8f-77de5a4a8091",
+        "model": "mapping.pointfeature"
+    }
+]

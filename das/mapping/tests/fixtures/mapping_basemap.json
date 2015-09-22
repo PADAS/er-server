@@ -1,0 +1,22 @@
+[
+    {
+        "fields": {
+            "raster_file": "pa_landcover.tif",
+            "updated_at": "2015-08-07T00:22:29.009Z",
+            "created_at": "2015-08-07T00:22:29.009Z",
+            "name": "Land Cover", "description": "Landsat colored by landcover"
+        },
+        "pk": "2092f18c-947b-4c15-92e3-f8aac49612e9",
+        "model": "mapping.basemap"
+    },
+    {
+        "fields": {
+            "raster_file": "pa_operations.tif",
+            "updated_at": "2015-08-07T00:22:29.009Z",
+            "created_at": "2015-08-07T00:22:29.009Z",
+            "name": "Operational", "description": ""
+        },
+        "pk": "cf134d96-a877-4c5c-9d9d-4d3d76fa3e9a",
+        "model": "mapping.basemap"
+    }
+]
