@@ -1,0 +1,38 @@
+<html>
+<head>
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.5/leaflet.css"/>
+    <script src="http://cdn.leafletjs.com/leaflet-0.7.5/leaflet.js"></script>
+</head>
+<body>
+<div id="map" style="width: 100%; height: 100%"></div>
+<script>
+    var map = L.map('map').setView([0.0, 20.6], 4);
+
+    var osm = L.tileLayer('http://b.tile.openstreetmap.com/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
+            '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a> ',
+        id: 'examples.map-20v6611k'
+    });
+    map.addLayer(osm);
+
+    var feature = new L.GeoJSON.AJAX(
+        "{% url 'mapping-coverage-geojson' %}",
+        {
+            style: style,
+            onEachFeature: onEachFeature
+        }).addTo(map);
+
+    var baseLayers = {
+        "OpenStreetMap": osm
+    };
+
+    var overlays = {
+    };
+
+    L.control.layers(baseLayers, overlays).addTo(map);
+
+
+</script>
+</body>
+</html>
