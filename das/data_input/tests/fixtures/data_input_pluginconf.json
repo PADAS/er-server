@@ -11,7 +11,7 @@
   },
   {
     "fields": {
-      "configuration": "{\"hosts\": [\"nrt1.modaps.eosdis.nasa.gov\", \"nrt2.modaps.eosdis.nasa.gov\"], \"username\": \"{{ firms.username }}\", \"password\": \"{{ firms.password }}\", \"directory\": \"FIRMS\" }",
+      "configuration": "{\"hosts\": [\"nrt1.modaps.eosdis.nasa.gov\", \"nrt2.modaps.eosdis.nasa.gov\"], \"username\": \"{{ firms.username }}\", \"password\": \"{{ firms.password }}\", \"directory\": \"FIRMS\", \"polygons\": [[[0.136532, 37.377201], [0.293318, 37.374892], [0.269454, 37.525264], [0.130117, 37.457520], [0.136532, 37.377201] ]] }",
       "updated_at": "2015-08-27T23:22:21.589Z",
       "created_at": "2015-08-27T23:22:21.589Z",
       "plugin_name": "firms"

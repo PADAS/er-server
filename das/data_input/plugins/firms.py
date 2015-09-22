@@ -11,6 +11,7 @@ from .plugin import DasPlugin, PluginTarget, DasPluginConfigurationError
 import datetime, time
 from data_input.models import PluginConf, PluginConfSource
 from ftplib import FTP
+from django.contrib.gis.geos import Polygon, Point, MultiPolygon
 
 from dateutil.parser import parse as parse_date
 import pytz
@@ -116,6 +117,15 @@ class FirmsPlugin(DasPlugin):
         self._config = plugin_conf
         self.client = FirmsClient(config=self._config.configuration)
 
+        polygons = self._config.configuration.get('polygons', None)
+
+        if polygons:
+            polygons = list((Polygon(p) for p in polygons))
+            _ = MultiPolygon(polygons) if len(polygons) > 1 else polygons[0]
+            self._geo_filter = _.prepared
+        else:
+            self._geo_filter = None
+
     def _fetch(self):
 
         sources = Source.objects.filter(source_type='firms')
@@ -131,13 +141,18 @@ class FirmsPlugin(DasPlugin):
             hi_sequence = pcs.additional['highest_sequence']
             for observation in self.client.fetch_observations(region_id=source.manufacturer_id, after_offset=hi_sequence):
                 hi_sequence = observation['offset']
-                yield (source, observation)
+
+                if self.pass_filter(observation):
+                    yield (source, observation)
 
             pcs.additional['highest_sequence'] = hi_sequence
             pcs.save()
 
-        x = input('Go on?')
-
+    def pass_filter(self, observation):
+        if self._geo_filter:
+            p  = Point(observation['lat'], observation['lon'])
+            return self._geo_filter.contains(p)
+        return True
 
     def _transform(self, so_tuple):
         source, observation = so_tuple
@@ -152,6 +167,4 @@ class FirmsTarget(PluginTarget):
     def _handle_item(self, item):
         (source, obs) = item
         Observation.objects.add_observation(source, obs)
-        print(obs)
-
-
+        # print(obs)
