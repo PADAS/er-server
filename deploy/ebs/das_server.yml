@@ -133,12 +133,11 @@ app:
                     permissions: 0666
                     yaml:
                         commands:
-                          01-collectstatic:
-                            command: "source /opt/python/run/venv/bin/activate && python /opt/python/current/app/das/manage.py collectstatic --noinput --settings=das_server.local_settings"
-                          02-timezone:
+                          01-timezone:
                             command: "ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime"
-
                         container_commands:
+                          02-collectstatic:
+                            command: "source /opt/python/run/venv/bin/activate && python das/manage.py collectstatic --noinput --settings=das_server.local_settings"
                           03-deflate:
                             command: "cp deflate.conf /etc/httpd/conf.d/"
 
