@@ -30,7 +30,7 @@ app:
         # the values that you might want to set for a python application
         option_settings:
             'aws:elasticbeanstalk:container:python:staticfiles':
-                "/static/": "/opt/python/current/app/das/das_server/static"
+                "/static/": "/opt/python/current/app/das/www/static"
 
             'aws:autoscaling:launchconfiguration':
               InstanceType: "t1.micro"
@@ -74,6 +74,36 @@ app:
                 - '^venv.*'
                 - '.*\.pyc$'
             files:
+              - deflate.conf:
+                    # permissions of the file
+                    permissions: 0644
+                    # the content node is important here
+                    content: |
+                        # mod_deflate configuration
+                        <IfModule mod_deflate.c>
+                          # Restrict compression to these MIME types
+                          AddOutputFilterByType DEFLATE text/plain
+                          AddOutputFilterByType DEFLATE text/html
+                          AddOutputFilterByType DEFLATE application/xhtml+xml
+                          AddOutputFilterByType DEFLATE text/xml
+                          AddOutputFilterByType DEFLATE application/xml
+                          AddOutputFilterByType DEFLATE application/xml+rss
+                          AddOutputFilterByType DEFLATE application/x-javascript
+                          AddOutputFilterByType DEFLATE text/javascript
+                          AddOutputFilterByType DEFLATE text/css
+                          # Level of compression (Highest 9 - Lowest 1)
+                          DeflateCompressionLevel 9
+                          # Netscape 4.x has some problems.
+                          BrowserMatch ^Mozilla/4 gzip-only-text/html
+                          # Netscape 4.06-4.08 have some more problems
+                          BrowserMatch ^Mozilla/4\.0[678] no-gzip
+                          # MSIE masquerades as Netscape, but it is fine
+                          BrowserMatch \bMSI[E] !no-gzip !gzip-only-text/html
+                        <IfModule mod_headers.c>
+                          # Make sure proxies don't deliver the wrong content
+                          Header append Vary User-Agent env=!dont-vary
+                        </IfModule>
+                        </IfModule>
               - .ebextensions/01-install_dependencies.config:
                     # permissions of the file
                     permissions: 0777
@@ -98,6 +128,19 @@ app:
                             command: "if [ ! -e /usr/lib/libgdal.so ]; then cd /opt; wget http://download.osgeo.org/gdal/1.11.2/gdal-1.11.2.tar.gz; tar -xzvf gdal-1.11.2.tar.gz; cd gdal-1.11.2; ./configure --prefix=/usr; make; make install; fi"
                           02-GEOS:
                             command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
+              - .ebextensions/02-commands.config:
+                    # permissions of the file
+                    permissions: 0666
+                    yaml:
+                        commands:
+                          01-collectstatic:
+                            command: "source /opt/python/run/venv/bin/activate && python das/manage.py collectstatic --noinput"
+                          02-timezone:
+                            command: "ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime"
+
+                        container_commands:
+                          03-deflate:
+                            command: "cp deflate.conf /etc/httpd/conf.d/"
 
     # Under the environments node is each environment and their config.
     # Environment specific configuration is determined by first processing
