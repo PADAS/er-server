@@ -128,7 +128,7 @@ app:
                             command: "if [ ! -e /usr/lib/libgdal.so ]; then cd /opt; wget http://download.osgeo.org/gdal/1.11.2/gdal-1.11.2.tar.gz; tar -xzvf gdal-1.11.2.tar.gz; cd gdal-1.11.2; ./configure --prefix=/usr; make; make install; fi"
                           02-GEOS:
                             command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
-              - .ebextensions/02-commands.config:
+              - .ebextensions/03-commands.config:
                     # permissions of the file
                     permissions: 0666
                     yaml:
