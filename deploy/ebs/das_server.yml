@@ -30,7 +30,7 @@ app:
         # the values that you might want to set for a python application
         option_settings:
             'aws:elasticbeanstalk:container:python:staticfiles':
-                "/static/": "/opt/python/current/app/das/www/static"
+                "/static": "/opt/python/current/app/das/www/static"
 
             'aws:autoscaling:launchconfiguration':
               InstanceType: "t1.micro"
