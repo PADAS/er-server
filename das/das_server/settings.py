@@ -95,7 +95,12 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'oauth2_provider.ext.rest_framework.OAuth2Authentication',
     ),
-    'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
+    #'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
+    'DEFAULT_RENDERER_CLASSES': (
+        'das_server.utils.ExtendedJSONRenderer',
+        'das_server.utils.ExtendedBrowsableAPIRenderer',
+    ),
+    'EXCEPTION_HANDLER': 'das.api.views.api_exception_handler',
 }
 
 AUTHENTICATION_BACKENDS = (
@@ -207,3 +212,27 @@ CORS_URLS_REGEX = r'^/api/.*$'
 #     }
 #
 # }
+
+SWAGGER_SETTINGS = {
+    'api_version': 'v1.0',
+    'api_path': '/',
+    'enabled_methods': [
+        'get',
+        'post',
+        'put',
+        'patch',
+        'delete'
+    ],
+    'doc_expansion': 'None',
+    'exclude_namespaces': [],
+    #'is_authenticated': True,
+    #'is_superuser': True,
+    'info': {
+        'contact': 'guest@test.com',
+        'description': 'DAS Server',
+        'license': '',
+        'licenseUrl': '',
+        'termsOfServiceUrl': '',
+        'title': 'DAS Server API',
+    }
+}

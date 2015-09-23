@@ -1,22 +1,26 @@
 import logging
 import datetime
+
 import simplejson as json
 import dateutil.parser
 import pytz
-from django.views.generic import View
-from django.http import HttpResponse
-from django.contrib.gis.geos import Point
-from rest_framework.views import APIView
+from django.http import Http404
+from rest_framework import generics
+from rest_framework.views import APIView, exception_handler
 from rest_framework.response import Response
+from rest_framework.metadata import SimpleMetadata
+from rest_framework.permissions import AllowAny
 from oauth2_provider.views import ProtectedResourceView
 
 from observations.models import Subject, Observation, SubjectSource, Source
 from das_server import utils
-from .serializers import SubjectSerializer
+import api.serializers as serializers
+
 
 logger = logging.getLogger(__name__)
 
 LAST_DAYS = datetime.timedelta(days=16)
+
 
 def default_since():
     """default value for since
@@ -32,49 +36,55 @@ def dateparse(date_str, default_tz=pytz.utc):
     return dt
 
 
-class ApiJsonResponse(HttpResponse):
-    """
-    Custom data payload for the API
-    returns error, data
-    """
-
-    def __init__(self, data, encoder=utils.ExtendedJSONEncoder, **kwargs):
-        kwargs.setdefault('content_type', 'application/json')
-        result = {'data': data, 'status': {'code': 200, 'message': 'OK'}}
-        result = json.dumps(result, cls=encoder)
-        super(ApiJsonResponse, self).__init__(content=result, **kwargs)
-
-
-class ApiError(HttpResponse):
+def api_exception_handler(exc, context):
     """
     Our custom error, that returns payload as JSON
     """
-
-    def __init__(self, status_code, encoder=utils.ExtendedJSONEncoder, **kwargs):
-        kwargs.setdefault('content_type', 'application/json')
-        self.status_code = status_code
-        super(ApiError, self).__init__(**kwargs)
-        result = {'status': {'code': self.status_code, 'message': self.reason_phrase}}
-        self.content = json.dumps(result, cls=encoder)
-
-
-class StatusView(View):
-    def get(self, request):
-        result = {'version': '1.0'}
-        return ApiJsonResponse(result)
-
-class SourceBaseView(ProtectedResourceView):
-    fields = ('id', 'source_type', 'manufacturer_id', 'model_name')
-
-    @staticmethod
-    def filter_result(source):
-        result = {k: getattr(source, k) for k in SourceBaseView.fields if hasattr(source, k)}
-        result.update(source.additional)
-        return result
+    response = exception_handler(exc, context)
+    if response is not None:
+        detail = response.data.pop('detail', None)
+        status = {'code': response.status_code,
+                  'message': response.status_text,
+                  }
+        if detail:
+            status['detail'] = detail
+        response.data['status'] = status
+    return response
 
 
-class SubjectBaseView(ProtectedResourceView):
-    fields = ('id', 'name', 'region', 'country', 'subject_type', 'sex', 'species')
+class StatusView(generics.RetrieveAPIView):
+    permission_classes = (AllowAny,)
+    serializer_class = serializers.VersionSerializer
+
+    def get_object(self):
+        return {'version': 'v1.0'} #request.version}
+
+
+class SubjectsView(generics.ListAPIView):
+    queryset = Subject.objects.all()
+    serializer_class = serializers.SubjectSerializer
+
+
+class SubjectView(generics.RetrieveAPIView):
+    serializer_class = serializers.SubjectSerializer
+    queryset = Subject.objects.all()
+
+    def get_serializer_context(self):
+        context = {}
+        subject = self.get_object()
+        last_position = Observation.objects.get_last_observation(subject)
+        if last_position:
+            first_position = Observation.objects.get_first_observation(subject)
+            context = dict(first_position=first_position,
+                           last_position=last_position,
+                           request=self.request,
+                           tracks_available=True)
+        else:
+            context['tracks_available'] = False
+        return context
+
+
+class SubjectBaseView(generics.RetrieveAPIView):
     subject_id = None
     _subject = None
 
@@ -98,61 +108,62 @@ class SubjectBaseView(ProtectedResourceView):
     @property
     def subject(self):
         if not self._subject:
-            try:
-                _subject = Subject.objects.get(id=self.subject_id)
-            except Subject.DoesNotExist:
-                return ApiError(404)
+            _subject = Subject.objects.get(id=self.subject_id)
         return _subject
 
 
-class SubjectsView(ProtectedResourceView):
-    def get(self, request):
-        subjects = Subject.objects.all()
-        result = []
-        for subject in subjects:
-            result.append(SubjectBaseView.filter_result(subject, detail_type='list'))
-        return ApiJsonResponse(result)
+class SubjectSourcesView(generics.ListAPIView):
+    serializer_class = serializers.SourceSerializer
+
+    def get_queryset(self):
+        subject = generics.get_object_or_404(Subject.objects.all(), pk=self.kwargs['pk'])
+        self.check_object_permissions(self.request, subject)
+
+        self.subject_sources = SubjectSource.objects.get_subject_sources(subject)
+        sources = Source.objects.filter(pk__in=self.subject_sources.values('source'))
+        return sources
 
 
-class SubjectView(SubjectBaseView):
-    def get(self, request, subject_id):
-        self.subject_id = subject_id
-        result = self.filter_result(self.subject, detail_type='detail')
-        return ApiJsonResponse(result)
+class SubjectSourceView(generics.RetrieveAPIView):
+    serializer_class = serializers.SourceSerializer
+
+    def get_queryset(self):
+        subject = generics.get_object_or_404(Subject.objects.all(), pk=self.kwargs['pk'])
+        self.check_object_permissions(self.request, subject)
+
+        self.subject_sources = SubjectSource.objects.get_subject_sources(subject)
+        sources = Source.objects.all()
+        return sources
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        filters = {'id': self.kwargs['source_id']}
+
+        obj = generics.get_object_or_404(queryset, **filters)
+        self.check_object_permissions(self.request, obj)
+        return obj
 
 
-class SubjectSourcesView(SubjectBaseView):
-    def get(self, request, subject_id):
-        self.subject_id = subject_id
+class SubjectSourceTrackView(generics.RetrieveAPIView):
+    serializer_class = serializers.TrackSerializer
+    queryset = Subject.objects.all()
 
-        result = []
-        s_sources = SubjectSource.objects.get_subject_sources(self.subject)
-        for subject_source in s_sources:
-            source = Source.objects.get(id=subject_source.source_id)
-            source = SourceBaseView.filter_result(source)
-            source['assigned_range'] = subject_source.assigned_range
-            result.append(source)
+    def get_serializer_context(self):
+        context = {}
+        subject = self.get_object()
+        source_id = self.kwargs['source_id']
 
-        return ApiJsonResponse(result)
-
-
-class SubjectSourceTrackView(SubjectBaseView):
-    def get(self, request, subject_id, source_id):
-        self.subject_id = subject_id
-
-        since = request.GET.get('since', None)
+        since = self.request.query_params.get('since', None)
         if isinstance(since, str):
             since = dateparse(since)
 
-        until = request.GET.get('until', None)
+        until = self.request.query_params.get('until', None)
         if until:
             until = dateparse(until)
 
-        color = self.subject.color
-
-        sds = SubjectSource.objects.get_subject_source(self.subject, source_id)
+        sds = SubjectSource.objects.get_subject_source(subject, source_id)
         if not sds:
-            return ApiError(404)
+            raise Http404
 
         if since or until:
             observations = Observation.objects.get_source_range_observations(sds, since, until)
@@ -165,62 +176,29 @@ class SubjectSourceTrackView(SubjectBaseView):
             coordinates.append(ob.location.coords)
             times.append(ob.recorded_at)
 
-        feature = make_feature(coordinates, self.subject, times)
-
-        result = utils.empty_geojson_featurecollection()
-        result['features'].append(feature)
-        return ApiJsonResponse(result)
+        context['times'] = times
+        context['coordinates'] = coordinates
+        return context
 
 
-def make_feature(coordinates, subject, coordinate_times=None, time=None):
-    is_point = isinstance(coordinates, Point)
-    feature = {
-        'geometry': {
-            'type': 'LineString' if not is_point else 'Point',
-            'coordinates': coordinates if not is_point else coordinates.tuple
-        },
-        'type': 'Feature',
-        'properties': {
-            'title': subject.name,
-        },
-    }
-    properties = feature['properties']
-    if hasattr(subject, 'color'):
-        feature['style'] = {
-            "color": subject.color,
-            "iconUrl": subject.image_url,
-            "opacity": 1,
-            "deprecating": "use https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0"
-        }
-        #see https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0
-        properties['stroke'] = subject.color
-        properties['stroke-opacity'] = 1.0
-        properties['stroke-width'] = 2
-        properties['image'] = subject.image_url
+class SubjectTracksView(generics.RetrieveAPIView):
+    serializer_class = serializers.TrackSerializer
+    queryset = Subject.objects.all()
 
-    #see https://github.com/mapbox/geojson-coordinate-properties
-    if coordinate_times:
-        properties['coordinateProperties'] = {'times': coordinate_times}
-    if time:
-        properties['DateTime'] = time
-    return feature
-
-
-class SubjectTracksView(SubjectBaseView):
-    def get(self, request, subject_id):
-        self.subject_id = subject_id
-
-        since = request.GET.get('since', None)
+    def get_serializer_context(self):
+        context = {}
+        subject = self.get_object()
+        since = self.request.query_params.get('since', None)
         if isinstance(since, str):
             since = dateparse(since)
 
-        until = request.GET.get('until', None)
+        until = self.request.query_params.get('until', None)
         if until:
             until = dateparse(until)
 
-        sds = SubjectSource.objects.filter(subject_id=subject_id)
+        sds = SubjectSource.objects.filter(subject=subject)
         if not sds:
-            return ApiError(404)
+            raise Http404
 
         if since or until:
             observations = Observation.objects.get_source_range_observations(sds, since, until)
@@ -233,9 +211,6 @@ class SubjectTracksView(SubjectBaseView):
             coordinates.append(ob.location.coords)
             times.append(ob.recorded_at)
 
-        feature = make_feature(coordinates, self.subject, times)
-
-        result = utils.empty_geojson_featurecollection()
-        result['features'].append(feature)
-
-        return ApiJsonResponse(result)
+        context['times'] = times
+        context['coordinates'] = coordinates
+        return context

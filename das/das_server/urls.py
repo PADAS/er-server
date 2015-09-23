@@ -22,6 +22,7 @@ from . import views
 
 urlpatterns = [
     url(r'^api/v1.0/', include('api.urls')),
+    url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^api/docs/', include('rest_framework_swagger.urls')),
