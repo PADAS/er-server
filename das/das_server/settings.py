@@ -41,24 +41,30 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'django.contrib.gis',
     'corsheaders',
+    'oauth2_provider',
+    'rest_framework',
+    'rest_framework_swagger',
     'djgeojson',
     # 'raster',
     'observations',
     'api',
     'data_input',
     'mapping',
+
 )
 
 MIDDLEWARE_CLASSES = (
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'oauth2_provider.middleware.OAuth2TokenMiddleware',
 )
 
 ROOT_URLCONF = 'das_server.urls'
@@ -81,6 +87,28 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'das_server.wsgi.application'
 
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': (
+        #'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'oauth2_provider.ext.rest_framework.OAuth2Authentication',
+    ),
+    #'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
+    'DEFAULT_RENDERER_CLASSES': (
+        'das_server.utils.ExtendedJSONRenderer',
+        'das_server.utils.ExtendedBrowsableAPIRenderer',
+    ),
+    'EXCEPTION_HANDLER': 'das.api.views.api_exception_handler',
+}
+
+AUTHENTICATION_BACKENDS = (
+    'oauth2_provider.backends.OAuth2Backend',
+    # Uncomment following if you want to access the admin
+    'django.contrib.auth.backends.ModelBackend',
+
+)
 
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
@@ -158,13 +186,11 @@ LOGGING = {
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_L10N = True
 
 USE_TZ = True
+TIME_ZONE = 'UTC'
 
 
 # Static files (CSS, JavaScript, Images)
@@ -186,3 +212,27 @@ CORS_URLS_REGEX = r'^/api/.*$'
 #     }
 #
 # }
+
+SWAGGER_SETTINGS = {
+    'api_version': 'v1.0',
+    'api_path': '/',
+    'enabled_methods': [
+        'get',
+        'post',
+        'put',
+        'patch',
+        'delete'
+    ],
+    'doc_expansion': 'None',
+    'exclude_namespaces': [],
+    #'is_authenticated': True,
+    #'is_superuser': True,
+    'info': {
+        'contact': 'guest@test.com',
+        'description': 'DAS Server',
+        'license': '',
+        'licenseUrl': '',
+        'termsOfServiceUrl': '',
+        'title': 'DAS Server API',
+    }
+}

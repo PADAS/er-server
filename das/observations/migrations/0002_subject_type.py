@@ -16,4 +16,13 @@ class Migration(migrations.Migration):
             name='subject_type',
             field=models.CharField(choices=[('wildlife', 'Wildlife'), ('vehicle', 'Vehicle'), ('stationary-object', 'Stationary Object')], default='wildlife', max_length=100),
         ),
+        migrations.CreateModel(
+            name='WildlifeSubject',
+            fields=[
+            ],
+            options={
+                'proxy': True,
+            },
+            bases=('observations.subject',),
+        ),
     ]
