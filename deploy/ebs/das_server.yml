@@ -134,7 +134,7 @@ app:
                     yaml:
                         commands:
                           01-collectstatic:
-                            command: "source /opt/python/run/venv/bin/activate && python das/manage.py collectstatic --noinput"
+                            command: "source /opt/python/run/venv/bin/activate && python /opt/python/current/app/das/manage.py collectstatic --noinput"
                           02-timezone:
                             command: "ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime"
 
