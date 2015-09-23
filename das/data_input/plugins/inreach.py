@@ -6,7 +6,7 @@ import re
 import http.client
 import urllib.parse
 from observations.models import Observation, Source
-from .plugin import DasPlugin, PluginTarget
+from .plugin import DasPlugin, PluginTarget, DasPluginConfigurationError
 import datetime, time
 from datetime import timedelta
 from data_input.models import PluginConf, PluginConfSource
@@ -20,11 +20,6 @@ def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
     return parse_date(d).replace(tzinfo=replace_tzinfo)
 
-
-# Helpers for parsing lines from Savanna datasource.
-field_names = ('lat', 'lon', 'brightness', 'scan', 'track', 'acq_date', 'acq_time', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
-field_transform = (float, float, float, float, float, str, str, str, int, str, float, float)
-
 class BasicAuthClient(object):
 
     def auth_header(self):
@@ -37,9 +32,14 @@ class InreachAccountClient(BasicAuthClient):
 
     def __init__(self, config=None):
         self._config = config or {}
-        self.host = self._config.get('host', 'account-api.delorme.com')
-        self.username = self._config.get('username', 'teds@vulcan.com')
-        self.password = self._config.get('password', 'IfG36lgW')
+
+        self._config = config or {}
+        if not all(x in self._config for x in ('host', 'username', 'password')):
+            raise DasPluginConfigurationError('Not enough configuration provided.')
+
+        self.host = self._config.get('host')
+        self.username = self._config.get('username')
+        self.password = self._config.get('password')
 
     def fetch_users(self):
 
@@ -65,10 +65,13 @@ class InreachClient(BasicAuthClient):
         :param config: must include 'credentials' and 'host'
         '''
         self._config = config or {}
+        if not all(x in self._config for x in ('host', 'username', 'password')):
+            raise DasPluginConfigurationError('Not enough configuration provided.')
 
-        self.host = self._config.get('host', 'explore.delorme.com')
-        self.username = self._config.get('username', 'vulcan_das')
-        self.password = self._config.get('password', '5oBt1F27Pw9S')
+
+        self.host = self._config.get('host')
+        self.username = self._config.get('username')
+        self.password = self._config.get('password')
 
     def fetch_observations(self, imei=None, **kwargs):
 
