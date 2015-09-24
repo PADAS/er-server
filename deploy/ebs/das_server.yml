@@ -105,7 +105,7 @@ app:
                         </IfModule>
                         </IfModule>
 
-              - apscheduler.conf
+              - apscheduler.conf:
                     permissions: 0644
                     content: |
                         [program:apscheduler]
@@ -126,7 +126,7 @@ app:
                         ; taking care of its children as well.
                         killasgroup=true
 
-              - 99_supervisord_apscheduler.sh
+              - 99_supervisord_apscheduler.sh:
                     permissions: 0755
                     content: |
                         #!/usr/bin/env bash
@@ -148,9 +148,7 @@ app:
                         supervisorctl -c /opt/python/etc/supervisord.conf restart apscheduler
 
               - .ebextensions/01-install_dependencies.config:
-                    # permissions of the file
                     permissions: 0777
-                    # the yaml node is important here
                     yaml:
                         packages:
                             yum:
@@ -162,9 +160,7 @@ app:
                                 libxml2-devel: []
 
               - .ebextensions/02-commands.config:
-                    # permissions of the file
                     permissions: 0666
-                    # the yaml node is important here
                     yaml:
                         commands:
                           01-GDAL:
@@ -173,7 +169,6 @@ app:
                             command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
 
               - .ebextensions/03-commands.config:
-                    # permissions of the file
                     permissions: 0666
                     yaml:
                         commands:
