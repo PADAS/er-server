@@ -1,3 +1,4 @@
+import os
 from django.conf import settings
 from importlib import import_module
 from django.utils.module_loading import module_has_submodule
@@ -34,3 +35,7 @@ def run():
     :return:
     '''
     autoload(["startup"])
+
+if __name__ == '__main__':
+    run()
+    input("Press Enter to exit")

@@ -104,6 +104,49 @@ app:
                           Header append Vary User-Agent env=!dont-vary
                         </IfModule>
                         </IfModule>
+
+              - apscheduler.conf
+                    permissions: 0644
+                    content: |
+                        [program:apscheduler]
+                        command=/opt/python/current/app/scripts/python startup.py
+                        directory=/opt/python/current/app/das/das_server
+                        environment=DJANGO_SETTINGS_MODULE='das_server.local_settings'
+                        user=wsgi
+                        numprocs=1
+                        stdout_logfile=/opt/python/log/apscheduler.log
+                        stderr_logfile=/opt/python/log/apscheduler.log
+                        autostart=true
+                        autorestart=true
+                        startsecs=10
+                        stopwaitsecs = 60
+
+                        ; When resorting to send SIGKILL to the program to terminate it
+                        ; send SIGKILL to its whole process group instead,
+                        ; taking care of its children as well.
+                        killasgroup=true
+
+              - 99_supervisord_apscheduler.sh
+                    permissions: 0755
+                    content: |
+                        #!/usr/bin/env bash
+                        set -e
+                        # Add configuration script to supervisord conf (if not there already)
+                        if ! grep -Fxq "[include]" /opt/python/etc/supervisord.conf
+                            then
+                            echo "[include]" | tee -a /opt/python/etc/supervisord.conf
+                            echo "files: apscheduler.conf" | tee -a /opt/python/etc/supervisord.conf
+                        fi
+
+                        # Reread the supervisord config
+                        supervisorctl -c /opt/python/etc/supervisord.conf reread
+
+                        # Update supervisord in cache without restarting all services
+                        supervisorctl -c /opt/python/etc/supervisord.conf update
+
+                        # Start/Restart celeryd through supervisord
+                        supervisorctl -c /opt/python/etc/supervisord.conf restart apscheduler
+
               - .ebextensions/01-install_dependencies.config:
                     # permissions of the file
                     permissions: 0777
@@ -128,6 +171,7 @@ app:
                             command: "if [ ! -e /usr/lib/libgdal.so ]; then cd /opt; wget http://download.osgeo.org/gdal/1.11.2/gdal-1.11.2.tar.gz; tar -xzvf gdal-1.11.2.tar.gz; cd gdal-1.11.2; ./configure --prefix=/usr; make; make install; fi"
                           02-GEOS:
                             command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
+
               - .ebextensions/03-commands.config:
                     # permissions of the file
                     permissions: 0666
@@ -140,6 +184,12 @@ app:
                             command: "source /opt/python/run/venv/bin/activate && python das/manage.py collectstatic --noinput --settings=das_server.local_settings"
                           03-deflate:
                             command: "cp deflate.conf /etc/httpd/conf.d/"
+                          04-apscheduler:
+                            command: "cp appscheduler.conf /opt/python/etc/"
+                          05-installappscheduler:
+                            command: "cp 99_supervisord_apscheduler.sh /opt/elasticbeanstalk/hooks/appdeploy/post/"
+                          06-installappscheduler:
+                            command: "cp 99_supervisord_apscheduler.sh /opt/elasticbeanstalk/hooks/configdeploy/post/"
 
     # Under the environments node is each environment and their config.
     # Environment specific configuration is determined by first processing
