@@ -6,14 +6,10 @@ import dateutil.parser
 import pytz
 from django.http import Http404
 from rest_framework import generics
-from rest_framework.views import APIView, exception_handler
-from rest_framework.response import Response
-from rest_framework.metadata import SimpleMetadata
+from rest_framework.views import exception_handler
 from rest_framework.permissions import AllowAny
-from oauth2_provider.views import ProtectedResourceView
 
 from observations.models import Subject, Observation, SubjectSource, Source
-from das_server import utils
 import api.serializers as serializers
 
 

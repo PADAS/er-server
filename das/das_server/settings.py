@@ -97,8 +97,8 @@ REST_FRAMEWORK = {
     ),
     #'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
     'DEFAULT_RENDERER_CLASSES': (
-        'das_server.utils.ExtendedJSONRenderer',
-        'das_server.utils.ExtendedBrowsableAPIRenderer',
+        'das_utils.json.ExtendedJSONRenderer',
+        'das_utils.json.ExtendedBrowsableAPIRenderer',
     ),
     'EXCEPTION_HANDLER': 'das.api.views.api_exception_handler',
 }

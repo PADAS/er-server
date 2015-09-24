@@ -2,7 +2,7 @@ from django.contrib.gis.geos import Point
 import rest_framework.serializers
 
 from observations import models
-from das_server import utils
+import das_utils.json
 
 class VersionSerializer(rest_framework.serializers.Serializer):
     version = rest_framework.serializers.CharField(read_only=True)
@@ -62,7 +62,7 @@ class TrackSerializer(rest_framework.serializers.Serializer):
 
         feature = make_feature(self.context['coordinates'], instance,
                                self.context['times'])
-        rep = utils.empty_geojson_featurecollection()
+        rep = das_utils.json.empty_geojson_featurecollection()
         rep['features'].append(feature)
         return rep
 

@@ -120,3 +120,4 @@ def empty_geojson_feature():
         },
         "geometry": {}
         }
+
