@@ -112,12 +112,13 @@ app:
                         command=/opt/python/current/app/scripts/python startup.py
                         directory=/opt/python/current/app/das/das_server
                         environment=DJANGO_SETTINGS_MODULE='das_server.local_settings'
-                        user=wsgi
+                        ;user=wsgi
                         numprocs=1
                         stdout_logfile=/opt/python/log/apscheduler.log
                         stderr_logfile=/opt/python/log/apscheduler.log
                         autostart=true
-                        autorestart=true
+                        autorestart=unexpected
+                        startretries=3
                         startsecs=10
                         stopwaitsecs = 60
 
@@ -180,7 +181,7 @@ app:
                           03-deflate:
                             command: "cp deflate.conf /etc/httpd/conf.d/"
                           04-apscheduler:
-                            command: "cp appscheduler.conf /opt/python/etc/"
+                            command: "cp apscheduler.conf /opt/python/etc/"
                           05-installappscheduler:
                             command: "cp 99_supervisord_apscheduler.sh /opt/elasticbeanstalk/hooks/appdeploy/post/"
                           06-installappscheduler:
