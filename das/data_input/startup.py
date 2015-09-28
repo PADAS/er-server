@@ -5,13 +5,17 @@ import pytz
 from data_input.jobs import *
 from django.conf import settings
 
+def heartbeat():
+    print("beat")
+
 def add_scheduled_jobs(scheduler):
     '''
     Add jobs to schedule.
     '''
-    scheduler.add_job(run_savanna, id='savanna_import', trigger='cron', minute='*/15', replace_existing=True)
+    scheduler.add_job(run_savanna, id='savanna_import', trigger='cron', minute='*/5', replace_existing=True)
     scheduler.add_job(run_firms, id='firms_import', trigger='cron', minute='*/99', replace_existing=True)
-    scheduler.add_job(run_inreach, id='inreach_import', trigger='cron', minute='*/19', replace_existing=True)
+    scheduler.add_job(run_inreach, id='inreach_import', trigger='cron', minute='*/7', replace_existing=True)
+    scheduler.add_job(heartbeat, id='heartbeat', trigger='cron', minute='*', replace_existing=True)
 
 def start_scheduler():
     '''
@@ -42,4 +46,4 @@ def start_scheduler():
 
     add_scheduled_jobs(scheduler)
 
-start_scheduler()
+# start_scheduler()
