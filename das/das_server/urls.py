@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from . import views
-
+import oauth2_provider.views as oauth2_views
 
 urlpatterns = [
     url(r'^api/v1.0/', include('api.urls')),
@@ -26,6 +26,7 @@ urlpatterns = [
     url(r'^api/docs/', include('rest_framework_swagger.urls')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
+    url(r'^oauth2/token$', oauth2_views.TokenView.as_view(), name="token"),
     #url(r'^$', views.index),
 ]
 

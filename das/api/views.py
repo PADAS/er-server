@@ -5,6 +5,7 @@ import simplejson as json
 import dateutil.parser
 import pytz
 from django.http import Http404
+from django.contrib.auth import get_user_model
 from rest_framework import generics
 from rest_framework.views import exception_handler
 from rest_framework.permissions import AllowAny
@@ -60,6 +61,9 @@ class StatusView(generics.RetrieveAPIView):
     def get_object(self):
         return {'version': 'v1.0'} #request.version}
 
+class UsersView(generics.ListAPIView):
+    queryset = get_user_model().objects.all()
+    serializer_class = serializers.UserSerializer
 
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
@@ -92,6 +96,7 @@ class RegionViewSubjects(generics.ListAPIView):
 class SubjectView(generics.RetrieveAPIView):
     serializer_class = serializers.SubjectSerializer
     queryset = models.Subject.objects.all()
+    lookup_field = 'id'
 
     def get_serializer_context(self):
         context = {}
@@ -112,7 +117,7 @@ class SubjectSourcesView(generics.ListAPIView):
     serializer_class = serializers.SourceSerializer
 
     def get_queryset(self):
-        subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['pk'])
+        subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
         self.check_object_permissions(self.request, subject)
 
         self.subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
@@ -124,7 +129,7 @@ class SubjectSourceView(generics.RetrieveAPIView):
     serializer_class = serializers.SourceSerializer
 
     def get_queryset(self):
-        subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['pk'])
+        subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
         self.check_object_permissions(self.request, subject)
 
         self.subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
@@ -141,6 +146,7 @@ class SubjectSourceView(generics.RetrieveAPIView):
 
 
 class SubjectSourceTrackView(generics.RetrieveAPIView):
+    lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()
 
@@ -178,6 +184,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
 
 class SubjectTracksView(generics.RetrieveAPIView):
+    lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()
 

@@ -13,11 +13,11 @@ class VersionSerializer(rest_framework.serializers.Serializer):
         return rep
 
 
-# Serializers define the API representation.
-#class UserSerializer(serializers.HyperlinkedModelSerializer):
-#    class Meta:
-#        model = get_user_model()
-#        fields = ('url', 'username', 'email', 'is_staff')
+
+class UserSerializer(rest_framework.serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ('url', 'username', 'email', 'is_staff')
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
@@ -45,7 +45,8 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
                 last_position = self.context['last_position']
                 first_position = self.context['first_position']
                 rep['last_position_date'] = last_position.recorded_at
-                rep['last_position'] = make_feature(last_position.location,
+                rep['last_position'] = make_feature(self.context['request'],
+                                                    last_position.location,
                                                     instance,
                                                     time=last_position.recorded_at)
                 rep['tracks_range'] = (first_position.recorded_at,
@@ -77,7 +78,8 @@ class TrackSerializer(rest_framework.serializers.Serializer):
 
     def to_representation(self, instance):
 
-        feature = make_feature(self.context['coordinates'], instance,
+        feature = make_feature(self.context['request'],
+                               self.context['coordinates'], instance,
                                self.context['times'])
         rep = das_utils.json.empty_geojson_featurecollection()
         rep['features'].append(feature)
@@ -91,9 +93,14 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
         id_field = False
         geo_field = 'location'
 
+def add_base_url(request, url):
+    if url and not url.startswith('http'):
+        url = request.build_absolute_uri(url)
+    return url
 
-def make_feature(coordinates, subject, coordinate_times=None, time=None):
+def make_feature(request, coordinates, subject, coordinate_times=None, time=None):
     is_point = isinstance(coordinates, Point)
+    image_url = add_base_url(request, subject.image_url)
     feature = {
         'geometry': {
             'type': 'LineString' if not is_point else 'Point',
@@ -108,7 +115,7 @@ def make_feature(coordinates, subject, coordinate_times=None, time=None):
     if hasattr(subject, 'color'):
         feature['style'] = {
             "color": subject.color,
-            "iconUrl": subject.image_url,
+            "iconUrl": image_url,
             "opacity": 1,
             "deprecating": "use https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0"
         }
@@ -116,7 +123,7 @@ def make_feature(coordinates, subject, coordinate_times=None, time=None):
         properties['stroke'] = subject.color
         properties['stroke-opacity'] = 1.0
         properties['stroke-width'] = 2
-        properties['image'] = subject.image_url
+        properties['image'] = image_url
 
     #see https://github.com/mapbox/geojson-coordinate-properties
     if coordinate_times:
