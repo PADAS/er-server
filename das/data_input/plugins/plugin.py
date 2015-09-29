@@ -1,3 +1,5 @@
+import logging
+
 class DasPluginConfigurationError(Exception):
     """
     
@@ -65,6 +67,7 @@ class DasPlugin(object):
 class PluginTarget(object):
     def __init__(self, config=None):
         self.__config = config
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def _handle_item(self, item):
         '''
@@ -88,7 +91,7 @@ class PluginTarget(object):
                     self._handle_item(item)
                     cnt += 1
             except GeneratorExit:
-                print("Target received %d messages" % (cnt,))
+                self.logger.info("Target received %d messages", cnt)
 
         r = _()
         next(r)
@@ -99,7 +102,7 @@ class PluginTarget(object):
         return self._start()
 
     def __exit__(self, ex_type, exc_value, traceback):
-        print("Exiting. %s %s %s" % (ex_type, exc_value, traceback))
+        self.logger.debug("Exiting. %s %s %s", ex_type, exc_value, traceback)
         self._r.close()
         return True
 

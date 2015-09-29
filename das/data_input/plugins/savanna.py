@@ -13,6 +13,8 @@ from data_input.models import PluginConf, PluginConfSource
 from dateutil.parser import parse as parse_date
 import pytz
 
+import logging
+
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
@@ -33,6 +35,8 @@ class SavannaClient(object):
         '''
 
         self._config = config or {}
+
+        self.logger = logging.getLogger(self.__class__.__name__)
 
         if not all(x in self._config for x in ('host', 'credentials')):
             raise DasPluginConfigurationError('Not enough configuration provided to continue.')
@@ -117,7 +121,7 @@ class SavannaPlugin(DasPlugin):
             st = unixtimestamp(st)
             st+=1
 
-            print("Fetching data for collar_id %s" % (source.manufacturer_id,))
+            self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
             for observation in self.client.fetch_observations(source.manufacturer_id, start_time=st):
                 lt = observation.ts
                 yield (source, observation)
@@ -138,6 +142,5 @@ class SavannaTarget(PluginTarget):
     def _handle_item(self, item):
         (source, obs) = item
         Observation.objects.add_observation(source, obs)
-        print(obs)
 
 

@@ -13,6 +13,8 @@ from data_input.models import PluginConf, PluginConfSource
 from ftplib import FTP
 from django.contrib.gis.geos import Polygon, Point, MultiPolygon
 
+import logging
+
 from dateutil.parser import parse as parse_date
 import pytz
 
@@ -46,6 +48,7 @@ class FirmsClient(object):
         self.username = config.get('username')
         self.password = config.get('password')
 
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def fetch_observations(self, region_id, **kwargs):
 
@@ -114,6 +117,8 @@ class FirmsPlugin(DasPlugin):
 
     def __init__(self, plugin_conf, *args, **kwargs):
         super().__init__(self, *args, **kwargs)
+        self.logger = logging.getLogger(self.__class__.__name__)
+
         self._config = plugin_conf
         self.client = FirmsClient(config=self._config.configuration)
 
@@ -137,7 +142,7 @@ class FirmsPlugin(DasPlugin):
                 pcs = PluginConfSource(source=source, plugin_conf=self._config, additional=dict(highest_sequence=-1))
                 pcs.save()
 
-            print("Fetching data for manufacturer_id %s" % (source.manufacturer_id,))
+            self.logger.info("Fetching data for manufacturer_id %s" % (source.manufacturer_id,))
             hi_sequence = pcs.additional['highest_sequence']
             for observation in self.client.fetch_observations(region_id=source.manufacturer_id, after_offset=hi_sequence):
                 hi_sequence = observation['offset']
@@ -167,4 +172,3 @@ class FirmsTarget(PluginTarget):
     def _handle_item(self, item):
         (source, obs) = item
         Observation.objects.add_observation(source, obs)
-        # print(obs)

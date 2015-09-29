@@ -15,6 +15,7 @@ from dateutil.parser import parse as parse_date
 import pytz
 import json
 import base64
+import logging
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
@@ -27,6 +28,8 @@ class BasicAuthClient(object):
         auth = base64.b64encode(bytes(auth, 'utf8'))
         return 'Basic {}'.format(auth.decode('utf8'))
 
+class InreachException(Exception):
+    pass
 
 class InreachAccountClient(BasicAuthClient):
 
@@ -36,6 +39,8 @@ class InreachAccountClient(BasicAuthClient):
         self._config = config or {}
         if not all(x in self._config for x in ('host', 'username', 'password')):
             raise DasPluginConfigurationError('Not enough configuration provided.')
+
+        self.logger = logging.getLogger(self.__class__.__name__)
 
         self.host = self._config.get('host')
         self.username = self._config.get('username')
@@ -110,8 +115,7 @@ class InreachClient(BasicAuthClient):
                 yield self.__class__.parse_line(h)
 
         else:
-            print(res.status, res.reason)
-            print(res)
+            self.logger.debug('Failed to get good response from Inreach API. [%s %s]', res.status, res.reason)
 
     @classmethod
     def parse_line(cls, s, **kwargs):
@@ -146,6 +150,7 @@ class InreachPlugin(DasPlugin):
         super().__init__(self, *args, **kwargs)
         self._config = plugin_conf
         self.client = InreachClient(config=self._config.configuration)
+        self.logger = logging.getLogger(InreachPlugin.__name__)
 
     def _fetch(self):
 
@@ -166,7 +171,7 @@ class InreachPlugin(DasPlugin):
                 pcs = PluginConfSource(source=source, plugin_conf=self._config, additional=dict(latest_timestamp=default_timestamp))
                 pcs.save()
 
-            print("Fetching data for manufacturer_id %s after %s" % (source.manufacturer_id,latest_ts))
+            self.logger.debug("Fetching data for manufacturer_id %s after %s" % (source.manufacturer_id,latest_ts))
             for observation in self.client.fetch_observations(imei=source.manufacturer_id, after=latest_ts):
                 latest_ts = max(latest_ts, observation['ts'])
                 yield (source, observation)
@@ -188,7 +193,6 @@ class InreachTarget(PluginTarget):
     def _handle_item(self, item):
         (source, obs) = item
         Observation.objects.add_observation(source, obs)
-        print(obs)
 
 
 class InreachAccountPlugin(DasPlugin):
@@ -198,11 +202,12 @@ class InreachAccountPlugin(DasPlugin):
         super().__init__(self, *args, **kwargs)
         self._config = plugin_conf
         self.client = InreachAccountClient()
+        self.logger = logging.getLogger(InreachAccountPlugin.__name__)
 
     def _fetch(self):
 
         source = None
-        print("Fetching data for Inreach account...")
+        self.logger.debug("Fetching data for Inreach account...")
         for observation in self.client.fetch_users():
             yield (source, observation)
 
@@ -220,6 +225,5 @@ class InreachAccountTarget(PluginTarget):
 
     def _handle_item(self, item):
         (source, obs) = item
-        print(obs)
 
 

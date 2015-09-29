@@ -15,6 +15,7 @@ from .plugin import DasPlugin, PluginTarget, \
     DasPluginConfigurationError, DasPluginFetchError, \
     DasPluginInsertError, DasPluginTransformationError
 from .utils import dictify
+import logging
 
 SKYGISTICS_DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 SKYGISTICS_PLUGIN_DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
@@ -43,6 +44,7 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             'start_date': None,
             'end_date': None,
         }
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def _get_text(self, url, query):
         response_text = None
@@ -55,10 +57,10 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             response_text = response.text
         except requests.ConnectionError as e:
             # todo:  handle connection error, etc.
-            pass
+            self.logger.exception('Failed connecting to skygistics API.')
         except requests.Timeout as e:
             # todo:  handle timeout
-            pass
+            self.logger.exception('Time-out connecting to skygistics API.')
         return response_text
 
     def _login(self):
@@ -80,10 +82,10 @@ class SkygisticsSatelliteClient(SkygisticsClient):
                     'password': self.config['credentials']['password'],
                 })).text
         except requests.ConnectionError as e:
-            # todo:  handle connection error, etc.
+            self.logger.exception('Failed connecting, logging in to skygistics API.')
             pass
         except requests.Timeout as e:
-            # todo:  handle timeout
+            self.logger.exception('Timed-out logging in to skygistics API.')
             pass
         return self.session_id != '0'
 
