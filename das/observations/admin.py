@@ -1,9 +1,16 @@
 from django.contrib import admin
-from observations.models import Source, WildlifeSubject
+import observations.models as models
 
 # Register your models here.
 
-@admin.register(WildlifeSubject)
-class WildlifeSubjectAdmin(admin.ModelAdmin):
+@admin.register(models.Subject)
+class SubjectAdmin(admin.ModelAdmin):
     pass
+
+
+@admin.register(models.Region)
+class RegionAdmin(admin.ModelAdmin):
+    fields = ['id', 'region', 'country', 'slug']
+
+
 

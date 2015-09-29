@@ -17,7 +17,7 @@ from django_pgjson.fields import JsonBField
 from django.contrib.postgres.fields import DateTimeRangeField, ArrayField
 from django.db.models import Q
 from django.db.models import Max
-from django.utils import timezone
+from django.utils.text import slugify
 import pytz
 from django.contrib.gis.geos import Point
 import datetime
@@ -147,6 +147,7 @@ class ObservationManager(models.GeoManager):
         if r:
             return r[0]
 
+
 class Observation(models.Model):
     """observation point
     similar to archive_loc
@@ -200,7 +201,11 @@ class SubjectSource(models.Model):
 
 
 class SubjectManager(models.Manager):
-    pass
+    def by_region(self, region, **kwargs):
+            subjects =  self.filter(additional__at_region=region.region)
+            subjects.filter(additional__at_country=region.country, **kwargs)
+            return subjects
+
 
 
 class Subject(models.Model):
@@ -209,6 +214,7 @@ class Subject(models.Model):
     name = models.CharField(max_length=100)
     subject_type = models.CharField(max_length=100, choices=SUBJECT_TYPES, default='wildlife')
     additional = JsonBField()
+
     objects = SubjectManager()
 
     @property
@@ -217,6 +223,12 @@ class Subject(models.Model):
         if color:
             color = to_rgb(color)
         return color
+
+    @property
+    def last_observation_date(self):
+        last_observation = Observation.objects.get_last_observation(self)
+        if last_observation:
+            return last_observation.recorded_at
 
     @property
     def image_url(self):
@@ -232,43 +244,39 @@ class Subject(models.Model):
         return googlemarkericon(key)
 
 
-class WildlifeSubjectManager(models.Manager):
-    def get_queryset(self):
-        return super(WildlifeSubjectManager, self).get_queryset().filter(
-            subject_type='wildlife')
+class Region(models.Model):
+    """Region of Africa a subject is in"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    slug = models.SlugField(max_length=100, unique=True)
+    region = models.CharField(max_length=100)
+    country = models.CharField(max_length=100)
 
-    def create(self, **kwargs):
-        kwargs.update({'subject_type': 'wildlife'})
-        return super(WildlifeSubjectManager, self).create(**kwargs)
-
-
-class WildlifeSubject(Subject):
-    objects = WildlifeSubjectManager()
-
-    class Meta:
-        proxy = True
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.region + ' ' + self.country)
+        super(Region, self).save(*args, **kwargs)
 
 
 MARKER_ICONS = {
-    'elephant-male': 'http://107.21.94.89/Images/AnimalIcons/Elephant_Male.png',
-    'elephant-female': 'http://107.21.94.89/Images/AnimalIcons/Elephant_Female.png',
-    'lion-male': 'http://107.21.94.89/Images/AnimalIcons/Lion_Male.png',
-    'lion-female': 'http://107.21.94.89/Images/AnimalIcons/Lion_Female.png',
+    'elephant-male': '//static/Elephant_Male.png',
+    'elephant-female': '//static/Elephant_Female.png',
+    'lion-male': '//static/Lion_Male.png',
+    'lion-female': '//static/Lion_Female.png',
     'vehicle': 'http://maps.google.com/mapfiles/kml/shapes/truck.png',
     'cow': '',
     'cheetah': '',
     'expedition': 'http://maps.google.com/mapfiles/kml/shapes/triangle.png',
-    'zebra-male': 'http://107.21.94.89/Images/AnimalIcons/GrevysZebra_Male.png',
-    'zebra-female': 'http://107.21.94.89/Images/AnimalIcons/GrevysZebra_Female.png',
+    'zebra-male': '//static/GrevysZebra_Male.png',
+    'zebra-female': '//static/GrevysZebra_Female.png',
     'forest elephant': '',
     'goat': '',
-    'sable-male': 'http://107.21.94.89/Images/AnimalIcons/SableAntelopeGraphicMale.png',
-    'sable-female': 'http://107.21.94.89/Images/AnimalIcons/SableAntelopeGraphicFemale.png',
-    'rhino-male': 'http://107.21.94.89/Images/AnimalIcons/Rhino_Male.png',
-    'rhino-female': 'http://107.21.94.89/Images/AnimalIcons/Rhino_Female.png',
+    'sable-male': '//static/SableAntelopeGraphicMale.png',
+    'sable-female': '//static/SableAntelopeGraphicFemale.png',
+    'rhino-male': '//static/Rhino_Male.png',
+    'rhino-female': '//static/Rhino_Female.png',
     'white rhino': '',
     'black rhino': '',
 }
 
 def googlemarkericon(subject_type):
-    return MARKER_ICONS.get(subject_type, 'http://maps.google.com/mapfiles/kml/shapes/truck.png')
+    url = MARKER_ICONS.get(subject_type, 'http://maps.google.com/mapfiles/kml/shapes/truck.png')
+    return url

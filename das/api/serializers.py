@@ -12,6 +12,12 @@ class VersionSerializer(rest_framework.serializers.Serializer):
         return rep
 
 
+class RegionSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = models.Region
+        fields = ('slug', 'region', 'country')
+
+
 class SubjectSerializer(rest_framework.serializers.ModelSerializer):
     additional_fields = ('region', 'country', 'sex',
                          'species',)
@@ -30,11 +36,14 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
             if 'last_position' in self.context:
                 last_position = self.context['last_position']
                 first_position = self.context['first_position']
+                rep['last_position_date'] = last_position.recorded_at
                 rep['last_position'] = make_feature(last_position.location,
                                                     instance,
                                                     time=last_position.recorded_at)
                 rep['tracks_range'] = (first_position.recorded_at,
                                        last_position.recorded_at)
+        else:
+            rep['last_position_date'] = instance.last_observation_date
         return rep
 
 

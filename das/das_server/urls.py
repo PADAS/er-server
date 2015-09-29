@@ -16,23 +16,16 @@ Including another URLconf
 from django.conf.urls import include, url, patterns
 from django.contrib import admin
 from django.conf import settings
+from django.conf.urls.static import static
 from . import views
 
-# admin.autodiscover()
 
 urlpatterns = [
     url(r'^api/v1.0/', include('api.urls')),
-    url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    url(r'^api/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    url(r'^api/docs/', include('rest_framework_swagger.urls')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
-    url(r'^api/docs/', include('rest_framework_swagger.urls')),
+    #url(r'^$', views.index),
 ]
 
-if False: #settings.DEBUG:
-    urlpatterns += patterns(
-    'django.contrib.staticfiles.views',
-    url(r'^(?:index.html)?$', 'serve', kwargs={'path': 'index.html'}),
-    url(r'^(?P<path>.*)$', 'serve'),
-    )
-else:
-    urlpatterns += (url(r'^$', views.index),)
