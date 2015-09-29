@@ -1,4 +1,5 @@
 from django.contrib.gis.geos import Point
+from django.contrib.auth import get_user_model
 import rest_framework.serializers
 
 from observations import models
@@ -10,6 +11,13 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     def to_representationsdfs(self, instance):
         rep = {'version': instance['version']}
         return rep
+
+
+# Serializers define the API representation.
+#class UserSerializer(serializers.HyperlinkedModelSerializer):
+#    class Meta:
+#        model = get_user_model()
+#        fields = ('url', 'username', 'email', 'is_staff')
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):

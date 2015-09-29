@@ -184,6 +184,7 @@ SUBJECT_TYPES = (
     ('wildlife', 'Wildlife'),
     ('vehicle', 'Vehicle'),
     ('stationary-object', 'Stationary Object'),
+    ('person', 'Person')
 )
 
 
