@@ -51,6 +51,9 @@ class Source(models.Model):
     model_name = models.CharField('device model name', max_length=100, null=True)
     additional = JsonBField()
 
+    def __str__(self):
+        return '%s:%s' % (self.manufacturer_id, self.model_name)
+
 EMPTY_POINT = Point(0,0)
 
 class ObservationManager(models.GeoManager):

@@ -9,6 +9,9 @@ class PluginConf(TimestampedModel):
     plugin_name = models.CharField('plugin name', max_length=100)
     configuration = JsonBField()
 
+    def __str__(self):
+        return self.plugin_name
+
     class Meta:
         app_label = 'data_input'
 

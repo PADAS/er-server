@@ -11,7 +11,7 @@ class SubjectAdmin(admin.ModelAdmin):
 
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['id', 'source_type', 'manufacturer_id', 'model_name', 'additional']
 
 
 @admin.register(models.SubjectSource)
