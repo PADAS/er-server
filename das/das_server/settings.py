@@ -154,6 +154,12 @@ LOGGING = {
             'stream': sys.stdout,
             'formatter': 'simple'
         },
+        'data_input_file':{
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': '/tmp/das-data_input.log',
+            'formatter': 'simple'
+        }
     },
     'loggers': {
         'django': {
@@ -169,6 +175,14 @@ LOGGING = {
             'handlers': ['file'],
             'level': 'INFO',
         },
+        'data_input': {
+            'handlers': ['data_input_file'],
+            'level': 'DEBUG'
+        },
+        'apscheduler': {
+            'handlers': ['data_input_file', 'console'],
+            'level': 'INFO'
+        }
     }
 }
 
