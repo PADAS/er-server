@@ -201,7 +201,7 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "www", "static")
 STATICFILES_DIRS = (os.path.join(BASE_DIR, 'api', 'static'),)
 
-CORS_URLS_REGEX = r'^/api/.*$'
+#CORS_URLS_REGEX = r'^/api/.*$'
 
 # SCHEDULER = {
 #     'db_url': 'postgres://postgres:postgres@localhost:5432/dasdb',
