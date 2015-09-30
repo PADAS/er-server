@@ -85,6 +85,7 @@ TEMPLATES = [
     },
 ]
 
+#AUTH_USER_MODEL = 'django.contrib.auth.models.User'
 WSGI_APPLICATION = 'das_server.wsgi.application'
 
 REST_FRAMEWORK = {

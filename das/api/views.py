@@ -72,6 +72,12 @@ class UserView(generics.RetrieveAPIView):
     queryset = get_user_model().objects.all()
     serializer_class = serializers.UserSerializer
 
+    def get_object(self):
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        if self.kwargs[lookup_url_kwarg] == 'me':
+            self.kwargs[lookup_url_kwarg] = self.request.user.id
+        return super(UserView, self).get_object()
+
 
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
