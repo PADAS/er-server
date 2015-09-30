@@ -154,27 +154,19 @@ class InreachPlugin(DasPlugin):
 
     def _fetch(self):
 
-        sources = Source.objects.filter(source_type='inreach')
-        for source in sources:
+        pcslist = PluginConfSource.objects.filter(plugin_conf=self._config)
 
-            default_timestamp = datetime.datetime.now(tz=pytz.utc) - timedelta(days=31)
-            latest_ts = default_timestamp
+        for pcs in pcslist:
             try:
-                pcs = PluginConfSource.objects.get(source=source, plugin_conf=self._config)
                 _ = pcs.additional.get('latest_timestamp', None)
-                try:
-                    latest_ts = parse_date(_)
-                except:
-                    latest_ts = default_timestamp
+                latest_ts = parse_date(_)
+            except AttributeError:
+                latest_ts = datetime.datetime.now(tz=pytz.utc) - timedelta(days=31)
 
-            except PluginConfSource.DoesNotExist:
-                pcs = PluginConfSource(source=source, plugin_conf=self._config, additional=dict(latest_timestamp=default_timestamp))
-                pcs.save()
-
-            self.logger.debug("Fetching data for manufacturer_id %s after %s" % (source.manufacturer_id,latest_ts))
-            for observation in self.client.fetch_observations(imei=source.manufacturer_id, after=latest_ts):
+            self.logger.debug("Fetching data for manufacturer_id %s after %s" % (pcs.source.manufacturer_id, latest_ts))
+            for observation in self.client.fetch_observations(imei=pcs.source.manufacturer_id, after=latest_ts):
                 latest_ts = max(latest_ts, observation['ts'])
-                yield (source, observation)
+                yield (pcs.source, observation)
 
             pcs.additional['latest_timestamp'] = latest_ts
             pcs.save()
