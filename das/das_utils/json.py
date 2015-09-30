@@ -21,6 +21,12 @@ try:
 except ImportError:
     geos_imported = False
 
+try:
+    import django.utils.functional as d_proxy
+    d_proxy_imported = True
+except ImportError:
+    d_proxy_imported = False
+
 from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
 
 
@@ -59,6 +65,8 @@ class ExtendedJSONEncoder(json.JSONEncoder):
             return o.data
         elif geos_imported and isinstance(o, Point):
             return o.tuple
+        elif d_proxy_imported and isinstance(o, d_proxy.Promise):
+            return str(o)
         return json.JSONEncoder.default(self, o)
 
 

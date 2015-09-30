@@ -6,7 +6,7 @@ OAuth 2
 DAS API Authorization. All API calls must be authorized using app authorization or user authorization.
 Use the client_id query parameter on all API calls if not calling in the context of a User with an Authorization Token.
 
-.. http:get:: /oauth2/authorize
+.. http:get:: /oauth2/authorize/
 
    Get an authorization code for the currently authorized user.
 
@@ -21,7 +21,7 @@ Use the client_id query parameter on all API calls if not calling in the context
 
    .. sourcecode:: http
 
-      GET /oauth2/authorize HTTP/1.1
+      GET /oauth2/authorize/ HTTP/1.1
       Host: das-server
 
       response_type=code&client_id=1&redirect_uri=http://tempuri.org/callback?foo=bar
@@ -36,7 +36,7 @@ Use the client_id query parameter on all API calls if not calling in the context
 
 
 
-.. http:POST:: /oauth2/token
+.. http:POST:: /oauth2/token/
 
    Log in using username and password.
 
@@ -50,7 +50,7 @@ Use the client_id query parameter on all API calls if not calling in the context
 
    .. sourcecode:: http
 
-      POST /oauth2/token HTTP/1.1
+      POST /oauth2/token/ HTTP/1.1
       Host: das-server
       Content-Type: application/x-www-form-urlencoded
       Accept: application/json
@@ -73,7 +73,7 @@ Use the client_id query parameter on all API calls if not calling in the context
       }
 
 
-.. http:POST:: /oauth2/token
+.. http:POST:: /oauth2/token/
 
    Get a new access_token using a saved "refresh_token".
 
@@ -87,7 +87,7 @@ Use the client_id query parameter on all API calls if not calling in the context
 
    .. sourcecode:: http
 
-      POST /oauth2/token HTTP/1.1
+      POST /oauth2/token/ HTTP/1.1
       Host: das-server
       Content-Type: application/x-www-form-urlencoded
       Accept: application/json
@@ -110,7 +110,7 @@ Use the client_id query parameter on all API calls if not calling in the context
       }
 
 
-.. http:POST:: /oauth2/revoke_token
+.. http:POST:: /oauth2/revoke_token/
 
     Revoke an existing token
 
@@ -123,7 +123,7 @@ Use the client_id query parameter on all API calls if not calling in the context
 
    .. sourcecode:: http
 
-      POST /oauth2/revoke_token HTTP/1.1
+      POST /oauth2/revoke_token/ HTTP/1.1
       Host: das-server
       Content-Type: application/x-www-form-urlencoded
       Accept: application/json

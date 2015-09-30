@@ -14,10 +14,13 @@ class VersionSerializer(rest_framework.serializers.Serializer):
 
 
 
-class UserSerializer(rest_framework.serializers.HyperlinkedModelSerializer):
+class UserSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
-        fields = ('url', 'username', 'email', 'is_staff')
+        read_only_fields = ('is_staff', 'is_superuser',
+                            'date_joined', 'id', 'is_active')
+        fields = ('username', 'email', 'first_name',
+                  'last_name') + read_only_fields
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):

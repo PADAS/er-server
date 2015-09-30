@@ -61,9 +61,17 @@ class StatusView(generics.RetrieveAPIView):
     def get_object(self):
         return {'version': 'v1.0'} #request.version}
 
+
 class UsersView(generics.ListAPIView):
     queryset = get_user_model().objects.all()
     serializer_class = serializers.UserSerializer
+
+
+class UserView(generics.RetrieveAPIView):
+    lookup_field = 'id'
+    queryset = get_user_model().objects.all()
+    serializer_class = serializers.UserSerializer
+
 
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
