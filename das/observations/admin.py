@@ -6,7 +6,7 @@ import observations.models as models
 
 @admin.register(models.Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['id', 'name', 'subject_type', 'additional']
 
 
 @admin.register(models.Source)

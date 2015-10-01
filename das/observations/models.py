@@ -48,7 +48,7 @@ class Source(models.Model):
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
     model_name = models.CharField('device model name', max_length=100, null=True)
-    additional = JSONField()
+    additional = JSONField('additional data')
 
     def __str__(self):
         return '%s:%s' % (self.manufacturer_id, self.model_name)
@@ -156,9 +156,9 @@ class Observation(models.Model):
     similar to archive_loc
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    location = models.PointField()
-    recorded_at = models.DateTimeField() #point in time of object at lat lon
-    created_at = models.DateTimeField(auto_now_add=True) #date/time this row created
+    location = models.PointField('point location')
+    recorded_at = models.DateTimeField('recorded at') #point in time of object at lat lon
+    created_at = models.DateTimeField('row created at', auto_now_add=True) #date/time this row created
     source = models.ForeignKey('Source')
     additional = JSONField()
 
@@ -196,12 +196,16 @@ class SubjectSource(models.Model):
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    assigned_range = DateTimeRangeField()
+    assigned_range = DateTimeRangeField('time assigned to subject')
     source = models.ForeignKey('Source')
     subject = models.ForeignKey('Subject')
-    additional = JSONField()
+    additional = JSONField('additional')
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     objects = SubjectSourceManager()
+
+    def __str__(self):
+        return '%s, %s %s-%s' % (self.subject.name, self.source.model_name,
+                             self.assigned_range.lower, self.assigned_range.upper)
 
 
 class SubjectManager(models.Manager):
@@ -215,9 +219,9 @@ class SubjectManager(models.Manager):
 class Subject(models.Model):
     """Person, Animal, Vehicle, etc"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    subject_type = models.CharField(max_length=100, choices=SUBJECT_TYPES, default='wildlife')
-    additional = JSONField()
+    name = models.CharField('name', max_length=100)
+    subject_type = models.CharField('subject type', max_length=100, choices=SUBJECT_TYPES, default='wildlife')
+    additional = JSONField('additional data')
 
     objects = SubjectManager()
 
@@ -247,17 +251,28 @@ class Subject(models.Model):
                 key = species
         return googlemarkericon(key)
 
+    def __str__(self):
+        return '%s, %s' % (self.name,self.subject_type)
+
+class RegionManager(models.Manager):
+    pass
+
 
 class Region(models.Model):
     """Region of Africa a subject is in"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    slug = models.SlugField(max_length=100, unique=True)
-    region = models.CharField(max_length=100)
-    country = models.CharField(max_length=100)
+    slug = models.SlugField('unique id', max_length=100, unique=True)
+    region = models.CharField('region or pa', max_length=100)
+    country = models.CharField('country mostly containing region', max_length=100)
 
     def save(self, *args, **kwargs):
         self.slug = slugify(self.region + ' ' + self.country)
         super(Region, self).save(*args, **kwargs)
+
+    objects = RegionManager()
+
+    def _____str__(self):
+        return '%s, %s' % (self.region, self.country)
 
 
 MARKER_ICONS = {
