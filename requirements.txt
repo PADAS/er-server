@@ -12,7 +12,8 @@ djangorestframework==3.2.3
 #https://github.com/mypebble/django-pgviews
 django-pgviews==0.0.5
 #see https://github.com/vkirkl/django-geojson
-django-geojson==2.8.2.dev0
+#django-geojson==2.8.2.dev0
+git+https://github.com/vkirkl/django-geojson.git@master
 django-model-utils==2.3.1
 #django-extensions==1.5.7
 #see https://github.com/ottoyiu/django-cors-headers
