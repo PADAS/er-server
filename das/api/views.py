@@ -125,7 +125,7 @@ class SubjectView(generics.RetrieveAPIView):
     lookup_field = 'id'
 
     def get_serializer_context(self):
-        context = {}
+        context = {'request': self.request}
         subject = self.get_object()
         last_position = models.Observation.objects.get_last_observation(subject)
         if last_position:
@@ -206,6 +206,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
         context['times'] = times
         context['coordinates'] = coordinates
+        context['request'] = self.request
         return context
 
 
@@ -242,4 +243,5 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         context['times'] = times
         context['coordinates'] = coordinates
+        context['request'] = self.request
         return context
