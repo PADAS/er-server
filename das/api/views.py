@@ -4,11 +4,15 @@ import datetime
 import simplejson as json
 import dateutil.parser
 import pytz
+from django.utils.translation import ugettext_lazy as _
 from django.http import Http404
 from django.contrib.auth import get_user_model
 from rest_framework import generics
 from rest_framework.views import exception_handler
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.compat import set_rollback
+import rest_framework.status
 
 from observations import models
 import api.serializers as serializers
@@ -35,10 +39,18 @@ def dateparse(date_str, default_tz=pytz.utc):
 
 def api_exception_handler(exc, context):
     """
-    Our custom error, that returns payload as JSON
+    Our custom error handler, that returns payload as JSON
     """
     response = exception_handler(exc, context)
-    if response is not None:
+    if not response:
+        message = str(_('Internal Server Error'))
+        detail = str(exc)
+        data = {'detail': detail} if detail else {}
+        set_rollback()
+        response = Response(data,
+                            status=rest_framework.status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    if response:
         detail = response.data.pop('detail', None)
         status = {'code': response.status_code,
                   'message': response.status_text,
