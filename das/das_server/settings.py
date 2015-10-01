@@ -44,7 +44,7 @@ INSTALLED_APPS = (
     'oauth2_provider',
     'rest_framework',
     'rest_framework_swagger',
-    'djgeojson',
+    #'djgeojson',
     # 'raster',
     'observations',
     'api',

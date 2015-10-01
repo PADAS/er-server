@@ -13,8 +13,7 @@ GIS
 """
 import uuid
 from django.contrib.gis.db import models
-from django_pgjson.fields import JsonBField
-from django.contrib.postgres.fields import DateTimeRangeField, ArrayField
+from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.db.models import Q
 from django.db.models import Max
 from django.utils.text import slugify
@@ -49,7 +48,7 @@ class Source(models.Model):
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
     model_name = models.CharField('device model name', max_length=100, null=True)
-    additional = JsonBField()
+    additional = JSONField()
 
     def __str__(self):
         return '%s:%s' % (self.manufacturer_id, self.model_name)
@@ -161,7 +160,7 @@ class Observation(models.Model):
     recorded_at = models.DateTimeField() #point in time of object at lat lon
     created_at = models.DateTimeField(auto_now_add=True) #date/time this row created
     source = models.ForeignKey('Source')
-    additional = JsonBField()
+    additional = JSONField()
 
     objects = ObservationManager()
 
@@ -200,7 +199,7 @@ class SubjectSource(models.Model):
     assigned_range = DateTimeRangeField()
     source = models.ForeignKey('Source')
     subject = models.ForeignKey('Subject')
-    additional = JsonBField()
+    additional = JSONField()
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     objects = SubjectSourceManager()
 
@@ -218,7 +217,7 @@ class Subject(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     subject_type = models.CharField(max_length=100, choices=SUBJECT_TYPES, default='wildlife')
-    additional = JsonBField()
+    additional = JSONField()
 
     objects = SubjectManager()
 

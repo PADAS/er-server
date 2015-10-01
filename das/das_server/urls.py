@@ -13,11 +13,9 @@ Including another URLconf
     1. Add an import:  from blog import urls as blog_urls
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
-from django.conf.urls import include, url, patterns
+from django.conf.urls import include, url
+import django.conf.urls
 from django.contrib import admin
-from django.conf import settings
-from django.conf.urls.static import static
-from . import views
 import oauth2_provider.views as oauth2_views
 
 urlpatterns = [
@@ -27,6 +25,7 @@ urlpatterns = [
     url(r'^admin/', include(admin.site.urls)),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^oauth2/token$', oauth2_views.TokenView.as_view(), name="token"),
-    #url(r'^$', views.index),
 ]
 
+# give the api a chance to override and return json
+django.conf.urls.handler404 = 'api.views.error404View'

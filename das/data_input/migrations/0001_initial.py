@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 from django.db import models, migrations
 import uuid
-import django_pgjson.fields
+import django.contrib.postgres.fields
 
 class Migration(migrations.Migration):
 
@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
                 ('plugin_name', models.CharField(max_length=100, null=True, verbose_name='Plugin Name')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Created At')),
                 ('updated_at', models.DateTimeField(auto_now=True, verbose_name='Updated At')),
-                ('configuration', django_pgjson.fields.JsonBField()),
+                ('configuration', django.contrib.postgres.fields.JSONField()),
             ],
         ),
 
@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, serialize=False, primary_key=True)),
                 ('plugin_conf', models.ForeignKey(to='data_input.PluginConf')),
                 ('source', models.ForeignKey(to='observations.Source')),
-                ('additional', django_pgjson.fields.JsonBField()),
+                ('additional', django.contrib.postgres.fields.JSONField()),
             ],
         ),
 
