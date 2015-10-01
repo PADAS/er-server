@@ -166,6 +166,7 @@ app:
                                 gcc-c++: []
                                 libtool: []
                                 libxml2-devel: []
+                                git: []
 
               - .ebextensions/02-commands.config:
                     permissions: 0666
