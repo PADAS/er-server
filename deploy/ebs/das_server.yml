@@ -194,7 +194,7 @@ app:
                           06-installappscheduler:
                             command: "cp 99_supervisord_apscheduler.sh /opt/elasticbeanstalk/hooks/configdeploy/post/"
                           07-fix-wsgi-oauth:
-                            command: sed -i.bak '/WSGIScriptAlias/ aWSGIPassAuthorization On' config.py
+                            command: "if [ ! grep -q WSGIPassAuthorization config.py ]; then sed -i.bak '/WSGIScriptAlias/ aWSGIPassAuthorization On' config.py; fi"
                             cwd: /opt/elasticbeanstalk/hooks
 
     # Under the environments node is each environment and their config.
