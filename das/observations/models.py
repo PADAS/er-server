@@ -114,7 +114,7 @@ class ObservationManager(models.GeoManager):
         be saved in additional (as jsonb).
         :return: None
         '''
-        loc = Point(float(observation.pop('lat')), float(observation.pop('lon')))
+        loc = Point(float(observation.pop('lon')), float(observation.pop('lat')))
         ts = observation.pop('ts')
 
         Observation(source_id=source.id, location=loc, recorded_at=ts, additional=observation).save()

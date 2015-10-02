@@ -23,5 +23,8 @@ class SubjectSourceAdmin(admin.ModelAdmin):
 class RegionAdmin(admin.ModelAdmin):
     fields = ['id', 'region', 'country', 'slug']
 
+    def __str__(self):
+        return self.slug
+
 
 
