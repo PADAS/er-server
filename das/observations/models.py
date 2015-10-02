@@ -53,7 +53,9 @@ class Source(models.Model):
     def __str__(self):
         return '%s:%s' % (self.manufacturer_id, self.model_name)
 
+
 EMPTY_POINT = Point(0,0)
+
 
 class ObservationManager(models.GeoManager):
     def get_source_range_observations(self, subject_sources, since=None, until=None):
@@ -215,7 +217,6 @@ class SubjectManager(models.Manager):
             return subjects
 
 
-
 class Subject(models.Model):
     """Person, Animal, Vehicle, etc"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -254,6 +255,7 @@ class Subject(models.Model):
     def __str__(self):
         return '%s, %s' % (self.name,self.subject_type)
 
+
 class RegionManager(models.Manager):
     pass
 
@@ -276,25 +278,26 @@ class Region(models.Model):
 
 
 MARKER_ICONS = {
-    'elephant-male': '//static/Elephant_Male.png',
-    'elephant-female': '//static/Elephant_Female.png',
-    'lion-male': '//static/Lion_Male.png',
-    'lion-female': '//static/Lion_Female.png',
+    'elephant-male': '/static/Elephant_Male.png',
+    'elephant-female': '/static/Elephant_Female.png',
+    'lion-male': '/static/Lion_Male.png',
+    'lion-female': '/static/Lion_Female.png',
     'vehicle': 'http://maps.google.com/mapfiles/kml/shapes/truck.png',
     'cow': '',
     'cheetah': '',
     'expedition': 'http://maps.google.com/mapfiles/kml/shapes/triangle.png',
-    'zebra-male': '//static/GrevysZebra_Male.png',
-    'zebra-female': '//static/GrevysZebra_Female.png',
+    'zebra-male': '/static/GrevysZebra_Male.png',
+    'zebra-female': '/static/GrevysZebra_Female.png',
     'forest elephant': '',
     'goat': '',
-    'sable-male': '//static/SableAntelopeGraphicMale.png',
-    'sable-female': '//static/SableAntelopeGraphicFemale.png',
-    'rhino-male': '//static/Rhino_Male.png',
-    'rhino-female': '//static/Rhino_Female.png',
+    'sable-male': '/static/SableAntelopeGraphicMale.png',
+    'sable-female': '/static/SableAntelopeGraphicFemale.png',
+    'rhino-male': '/static/Rhino_Male.png',
+    'rhino-female': '/static/Rhino_Female.png',
     'white rhino': '',
     'black rhino': '',
 }
+
 
 def googlemarkericon(subject_type):
     url = MARKER_ICONS.get(subject_type, 'http://maps.google.com/mapfiles/kml/shapes/truck.png')

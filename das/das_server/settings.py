@@ -40,6 +40,7 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
+    #'django.contrib.sites',
     'corsheaders',
     'oauth2_provider',
     'rest_framework',
@@ -65,6 +66,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
+    #'django.contrib.sites.middleware.CurrentSiteMiddleware',
 )
 
 ROOT_URLCONF = 'das_server.urls'
@@ -214,6 +216,8 @@ TIME_ZONE = 'UTC'
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "www", "static")
 STATICFILES_DIRS = (os.path.join(BASE_DIR, 'api', 'static'),)
+
+SITE_ID = 1
 
 #CORS_URLS_REGEX = r'^/api/.*$'
 

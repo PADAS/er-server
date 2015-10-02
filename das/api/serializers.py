@@ -96,10 +96,16 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
         id_field = False
         geo_field = 'location'
 
+
 def add_base_url(request, url):
     if url and not url.startswith('http'):
-        url = request.build_absolute_uri(url)
+        if not url.startswith('/'):
+            url = '/' + url
+        url = request._request.build_absolute_uri(url)
+        # if we have trouble with base domains, migrate to using contrib.site
+        #url2 = 'http://{0}{1}'.format(request._request.site, url)
     return url
+
 
 def make_feature(request, coordinates, subject, coordinate_times=None, time=None):
     is_point = isinstance(coordinates, Point)

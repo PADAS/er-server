@@ -126,7 +126,7 @@ class SubjectsView(generics.ListAPIView):
     serializer_class = serializers.SubjectSerializer
 
 
-class RegionViewSubjects(generics.ListAPIView):
+class RegionSubjectsView(generics.ListAPIView):
     lookup_field = 'slug'
     serializer_class = serializers.SubjectSerializer
     def get_queryset(self):
