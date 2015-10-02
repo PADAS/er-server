@@ -158,18 +158,25 @@ class InreachPlugin(DasPlugin):
 
         for pcs in pcslist:
             try:
+                default_starttime = datetime.datetime.now(tz=pytz.utc) - timedelta(days=31)
                 _ = pcs.additional.get('latest_timestamp', None)
                 latest_ts = parse_date(_)
+
+                latest_ts = max(default_starttime, latest_ts)
+
             except AttributeError:
-                latest_ts = datetime.datetime.now(tz=pytz.utc) - timedelta(days=31)
+                latest_ts = default_starttime
 
             self.logger.debug("Fetching data for manufacturer_id %s after %s" % (pcs.source.manufacturer_id, latest_ts))
+
             for observation in self.client.fetch_observations(imei=pcs.source.manufacturer_id, after=latest_ts):
                 latest_ts = max(latest_ts, observation['ts'])
                 yield (pcs.source, observation)
 
-            pcs.additional['latest_timestamp'] = latest_ts
+            self.logger.debug("Saving latest timestamp for source %s at %s", pcs.source.manufacturer_id, latest_ts)
+            pcs.additional['latest_timestamp'] = latest_ts.isoformat()
             pcs.save()
+
 
 
     def _transform(self, so_tuple):

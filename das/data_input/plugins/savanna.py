@@ -126,7 +126,7 @@ class SavannaPlugin(DasPlugin):
                 lt = observation.ts
                 yield (source, observation)
 
-            pcs.additional['latest_timestamp'] = lt
+            pcs.additional['latest_timestamp'] = lt.isoformat()
             pcs.save()
 
     def _transform(self, so_tuple):
