@@ -210,8 +210,8 @@ class SubjectSource(models.Model):
 
 class SubjectManager(models.Manager):
     def by_region(self, region, **kwargs):
-            subjects =  self.filter(additional__at_region=region.region)
-            subjects.filter(additional__at_country=region.country, **kwargs)
+            subjects =  self.filter(additional__region=region.region)
+            subjects.filter(additional__country=region.country, **kwargs)
             return subjects
 
 
