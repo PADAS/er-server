@@ -136,6 +136,11 @@ class RegionSubjectsView(generics.ListAPIView):
         subjects = models.Subject.objects.by_region(region)
         return subjects
 
+    def get_serializer_context(self):
+        context = {'request': self.request}
+        context['show_last_position_date'] = True
+        return context
+
 
 class SubjectView(generics.RetrieveAPIView):
     serializer_class = serializers.SubjectSerializer
