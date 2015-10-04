@@ -1,4 +1,4 @@
-from django.conf.urls import patterns, url
+from django.conf.urls import patterns, url, include
 from django.contrib.auth.decorators import login_required
 from mapping.views import *
 from mapping.sample_views import *
@@ -15,8 +15,7 @@ urlpatterns = patterns(
 
     url(r'^base-maps/?$', BaseMapListJsonView.as_view()),
     url(r'^base-maps/json/?$', BaseMapListJsonView.as_view()),
-    url(r'^tile/(?P<basemap_file>.*)/?$',
-        FeatureGeoJsonView.as_view(), name='mapping-tile-sample'),
+    url(r'^tiles/', include('raster.urls')),
 
     url(r'^sample-maps/picker.html?$', SampleMapPicker.as_view()),
     )
