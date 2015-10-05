@@ -91,7 +91,12 @@ class ObservationManager(models.GeoManager):
         subject_sources = sorted(subject_sources,
                                  key=lambda ss: ss.assigned_range.lower,
                                  reverse=True)
-        sql = '''SELECT * FROM observations_oberservation o WHERE o.source_id = %(source_id)s o.recorded_at in %(range)s'''
+
+        last_observation = self._get_observation(first=False,
+                                                 subject_sources=subject_sources)
+
+        if not last_observation:
+            return []
 
         qs = None
         for ss in subject_sources:
@@ -102,11 +107,8 @@ class ObservationManager(models.GeoManager):
         result = Observation.objects.filter(qs)
         result = result.order_by('-recorded_at')
         result = result.exclude(location=EMPTY_POINT)
-        last_observation = result[:1]
-        if last_observation:
-            last_observation = last_observation[0]
-            gt = last_observation.recorded_at - last_days
-            return result.filter(recorded_at__gt=gt)
+        gt = last_observation.recorded_at - last_days
+        return result.filter(recorded_at__gt=gt)
 
     def add_observation(self, source, observation):
         '''
@@ -142,12 +144,18 @@ class ObservationManager(models.GeoManager):
         """
         return self._get_observation(subject, first=True)
 
-    def _get_observation(self, subject, first=False):
+    def _get_observation(self, subject=None, first=False, subject_sources=None):
         field = '-recorded_at'
         if first:
             field = 'recorded_at'
-        ssources = SubjectSource.objects.get_subject_sources(subject)
-        sorted_sources = sorted([s for s in ssources],
+
+        if not subject and not subject_sources:
+            raise AttributeError('subject or subject_sources must not be None')
+
+        if not subject_sources:
+            subject_sources = SubjectSource.objects.get_subject_sources(subject)
+
+        sorted_sources = sorted([s for s in subject_sources],
                                 key=lambda s: s.assigned_range.upper,
                                 reverse=not first)
 
