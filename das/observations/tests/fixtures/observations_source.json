@@ -6,7 +6,7 @@
       "model_name": "AWT Satellite",
       "source_type": "tracking-device",
       "manufacturer_id": "00582121VTI7BCA",
-      "additional": "{\"frequency\": 149.21, \"predicted_expiry\": \"2015-07-01T12:00:00\", \"active\": 1}"
+      "additional": {"frequency": 149.21, "predicted_expiry": "2015-07-01T12:00:00", "active": 1}
     }
   },
   {
@@ -16,7 +16,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1537",
-      "additional": "{\"frequency\": 173.97, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 173.97, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -26,7 +26,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "52",
-      "additional": "{\"frequency\": 148.24, \"predicted_expiry\": \"2004-04-03T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.24, "predicted_expiry": "2004-04-03T00:00:00", "active": 0}
     }
   },
   {
@@ -36,7 +36,7 @@
       "model_name": "TVP SIMPLEX",
       "source_type": "tracking-device",
       "manufacturer_id": "148.64",
-      "additional": "{\"frequency\": 148.64, \"predicted_expiry\": \"2006-09-06T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.64, "predicted_expiry": "2006-09-06T00:00:00", "active": 0}
     }
   },
   {
@@ -46,7 +46,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "D8",
-      "additional": "{\"frequency\": 148.22, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.22, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -56,7 +56,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A63",
-      "additional": "{\"frequency\": 150.17, \"predicted_expiry\": \"2006-05-20T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 150.17, "predicted_expiry": "2006-05-20T00:00:00", "active": 0}
     }
   },
   {
@@ -66,7 +66,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "2",
-      "additional": "{\"frequency\": 148.02, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.02, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -76,7 +76,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A73",
-      "additional": "{\"frequency\": 149.12, \"predicted_expiry\": \"2007-09-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.12, "predicted_expiry": "2007-09-01T00:00:00", "active": 0}
     }
   },
   {
@@ -86,7 +86,7 @@
       "model_name": "TVP SAT2",
       "source_type": "tracking-device",
       "manufacturer_id": "T10HS-1811",
-      "additional": "{\"frequency\": 148.43, \"predicted_expiry\": \"2010-05-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.43, "predicted_expiry": "2010-05-01T00:00:00", "active": 0}
     }
   },
   {
@@ -96,7 +96,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "63/06",
-      "additional": "{\"frequency\": 148.28, \"predicted_expiry\": \"2004-06-04T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.28, "predicted_expiry": "2004-06-04T00:00:00", "active": 0}
     }
   },
   {
@@ -106,7 +106,7 @@
       "model_name": "Vectronics",
       "source_type": "tracking-device",
       "manufacturer_id": "C03738",
-      "additional": "{\"frequency\": 151.303, \"predicted_expiry\": null, \"active\": 1}"
+      "additional": {"frequency": 151.303, "predicted_expiry": null, "active": 1}
     }
   },
   {
@@ -116,7 +116,7 @@
       "model_name": "Vectronics",
       "source_type": "tracking-device",
       "manufacturer_id": "C02857",
-      "additional": "{\"frequency\": 150.2, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 150.2, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -126,7 +126,7 @@
       "model_name": "AWT Satellite Gen1",
       "source_type": "tracking-device",
       "manufacturer_id": "S4",
-      "additional": "{\"frequency\": 148.51, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.51, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -136,7 +136,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-5034",
-      "additional": "{\"frequency\": 148.62, \"predicted_expiry\": \"2008-05-15T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.62, "predicted_expiry": "2008-05-15T00:00:00", "active": 0}
     }
   },
   {
@@ -146,7 +146,7 @@
       "model_name": "Argos",
       "source_type": "tracking-device",
       "manufacturer_id": "39062",
-      "additional": "{\"frequency\": 148.3, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.3, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -156,7 +156,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1534",
-      "additional": "{\"frequency\": 173.91, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 173.91, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -166,7 +166,7 @@
       "model_name": "AWT Satellite Gen1",
       "source_type": "tracking-device",
       "manufacturer_id": "Sam 6",
-      "additional": "{\"frequency\": 148.97, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.97, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -176,7 +176,7 @@
       "model_name": "Vectronics",
       "source_type": "tracking-device",
       "manufacturer_id": "C08569",
-      "additional": "{\"frequency\": 148.4, \"predicted_expiry\": null, \"active\": 1}"
+      "additional": {"frequency": 148.4, "predicted_expiry": null, "active": 1}
     }
   },
   {
@@ -186,7 +186,7 @@
       "model_name": "AWT Satellite Gen1",
       "source_type": "tracking-device",
       "manufacturer_id": "Sam 3",
-      "additional": "{\"frequency\": 148.61, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.61, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -196,7 +196,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "9A",
-      "additional": "{\"frequency\": 0.0, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 0.0, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -206,7 +206,7 @@
       "model_name": "AWT GSM2",
       "source_type": "tracking-device",
       "manufacturer_id": "AM42",
-      "additional": "{\"frequency\": 148.79, \"predicted_expiry\": \"2008-09-09T12:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.79, "predicted_expiry": "2008-09-09T12:00:00", "active": 0}
     }
   },
   {
@@ -216,7 +216,7 @@
       "model_name": "AWT GSM2",
       "source_type": "tracking-device",
       "manufacturer_id": "AM238",
-      "additional": "{\"frequency\": 150.5, \"predicted_expiry\": \"2010-09-01T12:00:00\", \"active\": 0}"
+      "additional": {"frequency": 150.5, "predicted_expiry": "2010-09-01T12:00:00", "active": 0}
     }
   },
   {
@@ -226,7 +226,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A55",
-      "additional": "{\"frequency\": 149.32, \"predicted_expiry\": \"2006-03-30T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.32, "predicted_expiry": "2006-03-30T00:00:00", "active": 0}
     }
   },
   {
@@ -236,7 +236,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A61",
-      "additional": "{\"frequency\": 149.39, \"predicted_expiry\": \"2006-04-13T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.39, "predicted_expiry": "2006-04-13T00:00:00", "active": 0}
     }
   },
   {
@@ -246,7 +246,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A201",
-      "additional": "{\"frequency\": 148.02, \"predicted_expiry\": \"2005-08-12T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.02, "predicted_expiry": "2005-08-12T00:00:00", "active": 0}
     }
   },
   {
@@ -256,7 +256,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A78",
-      "additional": "{\"frequency\": 149.74, \"predicted_expiry\": \"2006-09-13T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.74, "predicted_expiry": "2006-09-13T00:00:00", "active": 0}
     }
   },
   {
@@ -266,7 +266,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "5",
-      "additional": "{\"frequency\": 148.05, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.05, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -276,7 +276,7 @@
       "model_name": "Vectronics",
       "source_type": "tracking-device",
       "manufacturer_id": "C02851",
-      "additional": "{\"frequency\": 150.25, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 150.25, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -286,7 +286,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A76",
-      "additional": "{\"frequency\": 148.33, \"predicted_expiry\": \"2006-08-20T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.33, "predicted_expiry": "2006-08-20T00:00:00", "active": 0}
     }
   },
   {
@@ -296,7 +296,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1431",
-      "additional": "{\"frequency\": 173.77, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 173.77, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -306,7 +306,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "BC",
-      "additional": "{\"frequency\": 0.0, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 0.0, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -316,7 +316,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A200",
-      "additional": "{\"frequency\": 148.1, \"predicted_expiry\": \"2006-02-02T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.1, "predicted_expiry": "2006-02-02T00:00:00", "active": 0}
     }
   },
   {
@@ -326,7 +326,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A71",
-      "additional": "{\"frequency\": 150.14, \"predicted_expiry\": \"2007-05-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 150.14, "predicted_expiry": "2007-05-01T00:00:00", "active": 0}
     }
   },
   {
@@ -336,7 +336,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A65",
-      "additional": "{\"frequency\": 148.35, \"predicted_expiry\": \"2006-11-04T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.35, "predicted_expiry": "2006-11-04T00:00:00", "active": 0}
     }
   },
   {
@@ -346,7 +346,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1530",
-      "additional": "{\"frequency\": 173.83, \"predicted_expiry\": \"2007-12-12T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 173.83, "predicted_expiry": "2007-12-12T00:00:00", "active": 0}
     }
   },
   {
@@ -356,7 +356,7 @@
       "model_name": "TVP SIMPLEX",
       "source_type": "tracking-device",
       "manufacturer_id": "148.68",
-      "additional": "{\"frequency\": 148.681, \"predicted_expiry\": \"2006-10-06T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.681, "predicted_expiry": "2006-10-06T00:00:00", "active": 0}
     }
   },
   {
@@ -366,7 +366,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A59",
-      "additional": "{\"frequency\": 148.34, \"predicted_expiry\": \"2006-11-04T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.34, "predicted_expiry": "2006-11-04T00:00:00", "active": 0}
     }
   },
   {
@@ -376,7 +376,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-5032",
-      "additional": "{\"frequency\": 148.58, \"predicted_expiry\": \"2008-09-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.58, "predicted_expiry": "2008-09-01T00:00:00", "active": 0}
     }
   },
   {
@@ -386,7 +386,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A57",
-      "additional": "{\"frequency\": 149.47, \"predicted_expiry\": \"2006-03-30T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.47, "predicted_expiry": "2006-03-30T00:00:00", "active": 0}
     }
   },
   {
@@ -396,7 +396,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1539",
-      "additional": "{\"frequency\": 148.8, \"predicted_expiry\": \"2009-01-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.8, "predicted_expiry": "2009-01-01T00:00:00", "active": 0}
     }
   },
   {
@@ -406,7 +406,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A64",
-      "additional": "{\"frequency\": 150.15, \"predicted_expiry\": \"2006-02-10T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 150.15, "predicted_expiry": "2006-02-10T00:00:00", "active": 0}
     }
   },
   {
@@ -416,7 +416,7 @@
       "model_name": "SavannaTrackingRF",
       "source_type": "tracking-device",
       "manufacturer_id": "STRF50",
-      "additional": "{\"frequency\": 148.333, \"predicted_expiry\": \"2015-02-01T12:00:00\", \"active\": 1}"
+      "additional": {"frequency": 148.333, "predicted_expiry": "2015-02-01T12:00:00", "active": 1}
     }
   },
   {
@@ -426,7 +426,7 @@
       "model_name": "TVP SIMPLEX",
       "source_type": "tracking-device",
       "manufacturer_id": "148.7",
-      "additional": "{\"frequency\": 148.699, \"predicted_expiry\": \"2006-09-06T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.699, "predicted_expiry": "2006-09-06T00:00:00", "active": 0}
     }
   },
   {
@@ -436,7 +436,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-5035",
-      "additional": "{\"frequency\": 148.64, \"predicted_expiry\": \"2012-09-10T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.64, "predicted_expiry": "2012-09-10T00:00:00", "active": 0}
     }
   },
   {
@@ -446,7 +446,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1541",
-      "additional": "{\"frequency\": 148.82, \"predicted_expiry\": \"2009-04-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.82, "predicted_expiry": "2009-04-01T00:00:00", "active": 0}
     }
   },
   {
@@ -456,7 +456,7 @@
       "model_name": "AWT Satellite",
       "source_type": "tracking-device",
       "manufacturer_id": "00580314VTI9C7F",
-      "additional": "{\"frequency\": 148.28, \"predicted_expiry\": \"2018-05-30T12:00:00\", \"active\": 1}"
+      "additional": {"frequency": 148.28, "predicted_expiry": "2018-05-30T12:00:00", "active": 1}
     }
   },
   {
@@ -466,7 +466,7 @@
       "model_name": "AWT Satellite",
       "source_type": "tracking-device",
       "manufacturer_id": "00580144VTIF12D",
-      "additional": "{\"frequency\": 148.38, \"predicted_expiry\": \"2018-04-30T12:00:00\", \"active\": 1}"
+      "additional": {"frequency": 148.38, "predicted_expiry": "2018-04-30T12:00:00", "active": 1}
     }
   },
   {
@@ -476,7 +476,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "212",
-      "additional": "{\"frequency\": 148.36, \"predicted_expiry\": \"2003-05-20T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.36, "predicted_expiry": "2003-05-20T00:00:00", "active": 0}
     }
   },
   {
@@ -486,7 +486,7 @@
       "model_name": "HenrikGSM",
       "source_type": "tracking-device",
       "manufacturer_id": "000016",
-      "additional": "{\"frequency\": 148.745, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.745, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -496,7 +496,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "0E/62",
-      "additional": "{\"frequency\": 148.16, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.16, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -506,7 +506,7 @@
       "model_name": "AWT Satellite",
       "source_type": "tracking-device",
       "manufacturer_id": "00580307VTI005C",
-      "additional": "{\"frequency\": 150.67, \"predicted_expiry\": \"2018-06-15T12:00:00\", \"active\": 1}"
+      "additional": {"frequency": 150.67, "predicted_expiry": "2018-06-15T12:00:00", "active": 1}
     }
   },
   {
@@ -516,7 +516,7 @@
       "model_name": "TVP SAT2",
       "source_type": "tracking-device",
       "manufacturer_id": "T10HS-1812",
-      "additional": "{\"frequency\": 148.44, \"predicted_expiry\": \"2010-05-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.44, "predicted_expiry": "2010-05-01T00:00:00", "active": 0}
     }
   },
   {
@@ -526,7 +526,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1538",
-      "additional": "{\"frequency\": 173.99, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 173.99, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -536,7 +536,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A56",
-      "additional": "{\"frequency\": 149.25, \"predicted_expiry\": \"2006-03-30T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.25, "predicted_expiry": "2006-03-30T00:00:00", "active": 0}
     }
   },
   {
@@ -546,7 +546,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1429",
-      "additional": "{\"frequency\": 173.73, \"predicted_expiry\": \"2007-12-12T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 173.73, "predicted_expiry": "2007-12-12T00:00:00", "active": 0}
     }
   },
   {
@@ -556,7 +556,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "227",
-      "additional": "{\"frequency\": 148.41, \"predicted_expiry\": \"2003-12-06T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.41, "predicted_expiry": "2003-12-06T00:00:00", "active": 0}
     }
   },
   {
@@ -566,7 +566,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-6050",
-      "additional": "{\"frequency\": 148.72, \"predicted_expiry\": \"2012-05-01T12:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.72, "predicted_expiry": "2012-05-01T12:00:00", "active": 0}
     }
   },
   {
@@ -576,7 +576,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "00134",
-      "additional": "{\"frequency\": 0.0, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 0.0, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -586,7 +586,7 @@
       "model_name": "Vectronics",
       "source_type": "tracking-device",
       "manufacturer_id": "C01918",
-      "additional": "{\"frequency\": 150.498, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 150.498, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -596,7 +596,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-5031",
-      "additional": "{\"frequency\": 148.56, \"predicted_expiry\": \"2012-08-10T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.56, "predicted_expiry": "2012-08-10T00:00:00", "active": 0}
     }
   },
   {
@@ -606,7 +606,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1428",
-      "additional": "{\"frequency\": 173.71, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 173.71, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -616,7 +616,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "D9",
-      "additional": "{\"frequency\": 148.23, \"predicted_expiry\": \"2003-04-24T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.23, "predicted_expiry": "2003-04-24T00:00:00", "active": 0}
     }
   },
   {
@@ -626,7 +626,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "231",
-      "additional": "{\"frequency\": 148.45, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.45, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -636,7 +636,7 @@
       "model_name": "Vectronics",
       "source_type": "tracking-device",
       "manufacturer_id": "C08268",
-      "additional": "{\"frequency\": 151.3592, \"predicted_expiry\": null, \"active\": 1}"
+      "additional": {"frequency": 151.3592, "predicted_expiry": null, "active": 1}
     }
   },
   {
@@ -646,7 +646,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "214",
-      "additional": "{\"frequency\": 148.38, \"predicted_expiry\": \"2003-03-02T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.38, "predicted_expiry": "2003-03-02T00:00:00", "active": 0}
     }
   },
   {
@@ -656,7 +656,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1540",
-      "additional": "{\"frequency\": 148.81, \"predicted_expiry\": \"2011-02-04T12:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.81, "predicted_expiry": "2011-02-04T12:00:00", "active": 0}
     }
   },
   {
@@ -666,7 +666,7 @@
       "model_name": "HenrikGSM",
       "source_type": "tracking-device",
       "manufacturer_id": "000014",
-      "additional": "{\"frequency\": 148.035, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.035, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -676,7 +676,7 @@
       "model_name": "AWT Satellite Gen1",
       "source_type": "tracking-device",
       "manufacturer_id": "Sam 2",
-      "additional": "{\"frequency\": 148.11, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.11, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -686,7 +686,7 @@
       "model_name": "TVP SIMPLEX",
       "source_type": "tracking-device",
       "manufacturer_id": "148.56",
-      "additional": "{\"frequency\": 148.561, \"predicted_expiry\": \"2006-06-13T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.561, "predicted_expiry": "2006-06-13T00:00:00", "active": 0}
     }
   },
   {
@@ -696,7 +696,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "0D",
-      "additional": "{\"frequency\": 148.13, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.13, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -706,7 +706,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1532",
-      "additional": "{\"frequency\": 173.87, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 173.87, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -716,7 +716,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "213",
-      "additional": "{\"frequency\": 148.37, \"predicted_expiry\": \"2003-05-19T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.37, "predicted_expiry": "2003-05-19T00:00:00", "active": 0}
     }
   },
   {
@@ -726,7 +726,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1536",
-      "additional": "{\"frequency\": 173.95, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 173.95, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -736,7 +736,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "229",
-      "additional": "{\"frequency\": 148.43, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.43, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -746,7 +746,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "230",
-      "additional": "{\"frequency\": 148.44, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.44, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -756,7 +756,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "211",
-      "additional": "{\"frequency\": 148.35, \"predicted_expiry\": \"2004-01-15T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.35, "predicted_expiry": "2004-01-15T00:00:00", "active": 0}
     }
   },
   {
@@ -766,7 +766,7 @@
       "model_name": "HenrikGSM",
       "source_type": "tracking-device",
       "manufacturer_id": "000025",
-      "additional": "{\"frequency\": 148.404, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.404, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -776,7 +776,7 @@
       "model_name": "Vectronics",
       "source_type": "tracking-device",
       "manufacturer_id": "C08267",
-      "additional": "{\"frequency\": 150.1096, \"predicted_expiry\": null, \"active\": 1}"
+      "additional": {"frequency": 150.1096, "predicted_expiry": null, "active": 1}
     }
   },
   {
@@ -786,7 +786,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "00131",
-      "additional": "{\"frequency\": 0.0, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 0.0, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -796,7 +796,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-5029",
-      "additional": "{\"frequency\": 148.52, \"predicted_expiry\": \"2012-10-10T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.52, "predicted_expiry": "2012-10-10T00:00:00", "active": 0}
     }
   },
   {
@@ -806,7 +806,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-5030",
-      "additional": "{\"frequency\": 148.54, \"predicted_expiry\": \"2012-11-10T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.54, "predicted_expiry": "2012-11-10T00:00:00", "active": 0}
     }
   },
   {
@@ -816,7 +816,7 @@
       "model_name": "SavannaTrackingRF",
       "source_type": "tracking-device",
       "manufacturer_id": "STRF1143",
-      "additional": "{\"frequency\": 148.803, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.803, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -826,7 +826,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "3&7",
-      "additional": "{\"frequency\": 148.07, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.07, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -836,7 +836,7 @@
       "model_name": "Vectronics GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "11495",
-      "additional": "{\"frequency\": 0.0, \"predicted_expiry\": \"2015-01-01T12:00:00\", \"active\": 1}"
+      "additional": {"frequency": 0.0, "predicted_expiry": "2015-01-01T12:00:00", "active": 1}
     }
   },
   {
@@ -846,7 +846,7 @@
       "model_name": "AWT Satellite Gen1",
       "source_type": "tracking-device",
       "manufacturer_id": "S3",
-      "additional": "{\"frequency\": 148.64, \"predicted_expiry\": \"2007-12-12T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.64, "predicted_expiry": "2007-12-12T00:00:00", "active": 0}
     }
   },
   {
@@ -856,7 +856,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "00133",
-      "additional": "{\"frequency\": 0.0, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 0.0, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -866,7 +866,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1542",
-      "additional": "{\"frequency\": 148.83, \"predicted_expiry\": \"2010-11-01T12:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.83, "predicted_expiry": "2010-11-01T12:00:00", "active": 0}
     }
   },
   {
@@ -876,7 +876,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1529",
-      "additional": "{\"frequency\": 173.81, \"predicted_expiry\": \"2007-12-12T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 173.81, "predicted_expiry": "2007-12-12T00:00:00", "active": 0}
     }
   },
   {
@@ -886,7 +886,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A77",
-      "additional": "{\"frequency\": 149.42, \"predicted_expiry\": \"2007-05-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.42, "predicted_expiry": "2007-05-01T00:00:00", "active": 0}
     }
   },
   {
@@ -896,7 +896,7 @@
       "model_name": "Vectronics",
       "source_type": "tracking-device",
       "manufacturer_id": "C02858",
-      "additional": "{\"frequency\": 150.17, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 150.17, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -906,7 +906,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-6049",
-      "additional": "{\"frequency\": 148.7, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.7, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -916,7 +916,7 @@
       "model_name": "TVP SIMPLEX",
       "source_type": "tracking-device",
       "manufacturer_id": "148.66",
-      "additional": "{\"frequency\": 148.66, \"predicted_expiry\": \"2006-09-06T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.66, "predicted_expiry": "2006-09-06T00:00:00", "active": 0}
     }
   },
   {
@@ -926,7 +926,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1531",
-      "additional": "{\"frequency\": 173.85, \"predicted_expiry\": \"2007-12-12T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 173.85, "predicted_expiry": "2007-12-12T00:00:00", "active": 0}
     }
   },
   {
@@ -936,7 +936,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "10061298",
-      "additional": "{\"frequency\": 0.0, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 0.0, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -946,7 +946,7 @@
       "model_name": "AWT Satellite Gen1",
       "source_type": "tracking-device",
       "manufacturer_id": "Sam 4",
-      "additional": "{\"frequency\": 148.98, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.98, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -956,7 +956,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A79",
-      "additional": "{\"frequency\": 148.32, \"predicted_expiry\": \"2006-10-07T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.32, "predicted_expiry": "2006-10-07T00:00:00", "active": 0}
     }
   },
   {
@@ -966,7 +966,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-5036",
-      "additional": "{\"frequency\": 148.66, \"predicted_expiry\": \"2012-10-10T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.66, "predicted_expiry": "2012-10-10T00:00:00", "active": 0}
     }
   },
   {
@@ -976,7 +976,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "9D",
-      "additional": "{\"frequency\": 0.0, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 0.0, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -986,7 +986,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-5028",
-      "additional": "{\"frequency\": 148.5, \"predicted_expiry\": \"2008-08-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.5, "predicted_expiry": "2008-08-01T00:00:00", "active": 0}
     }
   },
   {
@@ -996,7 +996,7 @@
       "model_name": "TVP SIMPLEX",
       "source_type": "tracking-device",
       "manufacturer_id": "148.54",
-      "additional": "{\"frequency\": 148.541, \"predicted_expiry\": \"2006-08-06T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.541, "predicted_expiry": "2006-08-06T00:00:00", "active": 0}
     }
   },
   {
@@ -1006,7 +1006,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "0A",
-      "additional": "{\"frequency\": 148.1, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.1, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1016,7 +1016,7 @@
       "model_name": "Argos",
       "source_type": "tracking-device",
       "manufacturer_id": "40013",
-      "additional": "{\"frequency\": 0.0, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 0.0, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1026,7 +1026,7 @@
       "model_name": "TVP SAT2",
       "source_type": "tracking-device",
       "manufacturer_id": "T10HS-1809",
-      "additional": "{\"frequency\": 148.41, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.41, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1036,7 +1036,7 @@
       "model_name": "AWT Iridium Satellite",
       "source_type": "tracking-device",
       "manufacturer_id": "SAT1127",
-      "additional": "{\"frequency\": null, \"predicted_expiry\": \"2015-11-22T12:00:00\", \"active\": 1}"
+      "additional": {"frequency": null, "predicted_expiry": "2015-11-22T12:00:00", "active": 1}
     }
   },
   {
@@ -1046,7 +1046,7 @@
       "model_name": "AWT GSM2",
       "source_type": "tracking-device",
       "manufacturer_id": "AM43",
-      "additional": "{\"frequency\": 150.27, \"predicted_expiry\": \"2008-10-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 150.27, "predicted_expiry": "2008-10-01T00:00:00", "active": 0}
     }
   },
   {
@@ -1056,7 +1056,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "232",
-      "additional": "{\"frequency\": 148.46, \"predicted_expiry\": \"2003-05-22T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.46, "predicted_expiry": "2003-05-22T00:00:00", "active": 0}
     }
   },
   {
@@ -1066,7 +1066,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1535",
-      "additional": "{\"frequency\": 173.93, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 173.93, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1076,7 +1076,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1543",
-      "additional": "{\"frequency\": 148.84, \"predicted_expiry\": \"2008-12-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.84, "predicted_expiry": "2008-12-01T00:00:00", "active": 0}
     }
   },
   {
@@ -1086,7 +1086,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "0E",
-      "additional": "{\"frequency\": 148.16, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.16, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1096,7 +1096,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A72",
-      "additional": "{\"frequency\": 149.39, \"predicted_expiry\": \"2006-05-22T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.39, "predicted_expiry": "2006-05-22T00:00:00", "active": 0}
     }
   },
   {
@@ -1106,7 +1106,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-5037",
-      "additional": "{\"frequency\": 148.68, \"predicted_expiry\": \"2012-12-10T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.68, "predicted_expiry": "2012-12-10T00:00:00", "active": 0}
     }
   },
   {
@@ -1116,7 +1116,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A68",
-      "additional": "{\"frequency\": 150.12, \"predicted_expiry\": \"2007-05-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 150.12, "predicted_expiry": "2007-05-01T00:00:00", "active": 0}
     }
   },
   {
@@ -1126,7 +1126,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A69",
-      "additional": "{\"frequency\": 149.45, \"predicted_expiry\": \"2007-05-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.45, "predicted_expiry": "2007-05-01T00:00:00", "active": 0}
     }
   },
   {
@@ -1136,7 +1136,7 @@
       "model_name": "AWT Satellite",
       "source_type": "tracking-device",
       "manufacturer_id": "01086046SKY4213",
-      "additional": "{\"frequency\": 148.9, \"predicted_expiry\": null, \"active\": 1}"
+      "additional": {"frequency": 148.9, "predicted_expiry": null, "active": 1}
     }
   },
   {
@@ -1146,7 +1146,7 @@
       "model_name": "AWT GSM3",
       "source_type": "tracking-device",
       "manufacturer_id": "AG523",
-      "additional": "{\"frequency\": 149.31, \"predicted_expiry\": \"2017-02-16T12:00:00\", \"active\": 1}"
+      "additional": {"frequency": 149.31, "predicted_expiry": "2017-02-16T12:00:00", "active": 1}
     }
   },
   {
@@ -1156,7 +1156,7 @@
       "model_name": "TVP SAT2",
       "source_type": "tracking-device",
       "manufacturer_id": "T10HS-1810",
-      "additional": "{\"frequency\": 148.42, \"predicted_expiry\": \"2010-05-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.42, "predicted_expiry": "2010-05-01T00:00:00", "active": 0}
     }
   },
   {
@@ -1166,7 +1166,7 @@
       "model_name": "Argos",
       "source_type": "tracking-device",
       "manufacturer_id": "40012",
-      "additional": "{\"frequency\": 148.28, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.28, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1176,7 +1176,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A80",
-      "additional": "{\"frequency\": 148.3, \"predicted_expiry\": \"2006-05-21T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.3, "predicted_expiry": "2006-05-21T00:00:00", "active": 0}
     }
   },
   {
@@ -1186,7 +1186,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "228",
-      "additional": "{\"frequency\": 148.42, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.42, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1196,7 +1196,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "6",
-      "additional": "{\"frequency\": 148.06, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.06, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1206,7 +1206,7 @@
       "model_name": "Vectronics",
       "source_type": "tracking-device",
       "manufacturer_id": "C02977",
-      "additional": "{\"frequency\": 150.3268, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 150.3268, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1216,7 +1216,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1427",
-      "additional": "{\"frequency\": 173.69, \"predicted_expiry\": \"2007-12-12T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 173.69, "predicted_expiry": "2007-12-12T00:00:00", "active": 0}
     }
   },
   {
@@ -1226,7 +1226,7 @@
       "model_name": "SavannaTrackingRF",
       "source_type": "tracking-device",
       "manufacturer_id": "ST2010-1352",
-      "additional": "{\"frequency\": 149.499, \"active\": 1}"
+      "additional": {"frequency": 149.499, "active": 1}
     }
   },
   {
@@ -1236,7 +1236,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "0B",
-      "additional": "{\"frequency\": 148.11, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.11, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1246,7 +1246,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A103",
-      "additional": "{\"frequency\": 149.87, \"predicted_expiry\": \"2008-10-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.87, "predicted_expiry": "2008-10-01T00:00:00", "active": 0}
     }
   },
   {
@@ -1256,7 +1256,7 @@
       "model_name": "AWT GSM3",
       "source_type": "tracking-device",
       "manufacturer_id": "AG359",
-      "additional": "{\"frequency\": 149.33, \"predicted_expiry\": \"2014-03-01T12:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.33, "predicted_expiry": "2014-03-01T12:00:00", "active": 0}
     }
   },
   {
@@ -1266,7 +1266,7 @@
       "model_name": "Vectronics",
       "source_type": "tracking-device",
       "manufacturer_id": "C02853",
-      "additional": "{\"frequency\": 150.1298, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 150.1298, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1276,7 +1276,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1528",
-      "additional": "{\"frequency\": 173.79, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 173.79, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1286,7 +1286,7 @@
       "model_name": "TVP SAT2",
       "source_type": "tracking-device",
       "manufacturer_id": "T5HS-1975",
-      "additional": "{\"frequency\": 148.85, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.85, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1296,7 +1296,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1533",
-      "additional": "{\"frequency\": 173.89, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 173.89, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1306,7 +1306,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A70",
-      "additional": "{\"frequency\": 148.01, \"predicted_expiry\": \"2006-04-14T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.01, "predicted_expiry": "2006-04-14T00:00:00", "active": 0}
     }
   },
   {
@@ -1316,7 +1316,7 @@
       "model_name": "AWT Satellite Gen1",
       "source_type": "tracking-device",
       "manufacturer_id": "Sam 5",
-      "additional": "{\"frequency\": 148.99, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.99, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1326,7 +1326,7 @@
       "model_name": "Lotek 2200",
       "source_type": "tracking-device",
       "manufacturer_id": "729",
-      "additional": "{\"frequency\": 148.47, \"predicted_expiry\": \"2005-09-17T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.47, "predicted_expiry": "2005-09-17T00:00:00", "active": 0}
     }
   },
   {
@@ -1336,7 +1336,7 @@
       "model_name": "AWT GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "A75",
-      "additional": "{\"frequency\": 149.18, \"predicted_expiry\": \"2006-08-18T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 149.18, "predicted_expiry": "2006-08-18T00:00:00", "active": 0}
     }
   },
   {
@@ -1346,7 +1346,7 @@
       "model_name": "AWT GSM2",
       "source_type": "tracking-device",
       "manufacturer_id": "AM223",
-      "additional": "{\"frequency\": 148.36, \"predicted_expiry\": \"2010-12-12T12:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.36, "predicted_expiry": "2010-12-12T12:00:00", "active": 0}
     }
   },
   {
@@ -1356,7 +1356,7 @@
       "model_name": "TVP GSM",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1430",
-      "additional": "{\"frequency\": 173.75, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 173.75, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1366,7 +1366,7 @@
       "model_name": "AWT Satellite",
       "source_type": "tracking-device",
       "manufacturer_id": "00583162VTI541F",
-      "additional": "{\"frequency\": 151.46, \"predicted_expiry\": \"2015-12-01T12:00:00\", \"active\": 1}"
+      "additional": {"frequency": 151.46, "predicted_expiry": "2015-12-01T12:00:00", "active": 1}
     }
   },
   {
@@ -1376,7 +1376,7 @@
       "model_name": "AWT Satellite Gen1",
       "source_type": "tracking-device",
       "manufacturer_id": "Sam 1",
-      "additional": "{\"frequency\": 148.77, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.77, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1386,7 +1386,7 @@
       "model_name": "Lotek 2000 series",
       "source_type": "tracking-device",
       "manufacturer_id": "00130",
-      "additional": "{\"frequency\": 0.0, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 0.0, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1396,7 +1396,7 @@
       "model_name": "TVP SIMPLEX",
       "source_type": "tracking-device",
       "manufacturer_id": "148.62",
-      "additional": "{\"frequency\": 148.62, \"predicted_expiry\": \"2006-11-06T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.62, "predicted_expiry": "2006-11-06T00:00:00", "active": 0}
     }
   },
   {
@@ -1406,7 +1406,7 @@
       "model_name": "TVP SAT",
       "source_type": "tracking-device",
       "manufacturer_id": "GSL01-5033",
-      "additional": "{\"frequency\": 148.6, \"predicted_expiry\": \"2008-12-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.6, "predicted_expiry": "2008-12-01T00:00:00", "active": 0}
     }
   },
   {
@@ -1416,7 +1416,7 @@
       "model_name": "TVP SIMPLEX",
       "source_type": "tracking-device",
       "manufacturer_id": "148.581",
-      "additional": "{\"frequency\": 148.581, \"predicted_expiry\": \"2006-06-15T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.581, "predicted_expiry": "2006-06-15T00:00:00", "active": 0}
     }
   },
   {
@@ -1426,7 +1426,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "8",
-      "additional": "{\"frequency\": 148.08, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.08, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1436,7 +1436,7 @@
       "model_name": "TVP SAT2",
       "source_type": "tracking-device",
       "manufacturer_id": "T5HS-1979",
-      "additional": "{\"frequency\": 148.94, \"predicted_expiry\": \"2010-11-01T12:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.94, "predicted_expiry": "2010-11-01T12:00:00", "active": 0}
     }
   },
   {
@@ -1446,7 +1446,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "63",
-      "additional": "{\"frequency\": 148.28, \"predicted_expiry\": null, \"active\": 0}"
+      "additional": {"frequency": 148.28, "predicted_expiry": null, "active": 0}
     }
   },
   {
@@ -1456,7 +1456,7 @@
       "model_name": "TVP SAT2",
       "source_type": "tracking-device",
       "manufacturer_id": "T5H-1808",
-      "additional": "{\"frequency\": 148.4, \"predicted_expiry\": \"2010-05-01T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.4, "predicted_expiry": "2010-05-01T00:00:00", "active": 0}
     }
   },
   {
@@ -1466,7 +1466,7 @@
       "model_name": "Lotek 1000",
       "source_type": "tracking-device",
       "manufacturer_id": "62",
-      "additional": "{\"frequency\": 148.27, \"predicted_expiry\": \"2003-05-02T00:00:00\", \"active\": 0}"
+      "additional": {"frequency": 148.27, "predicted_expiry": "2003-05-02T00:00:00", "active": 0}
     }
   },
   {
@@ -1476,7 +1476,7 @@
       "model_name": "MCD14DL",
       "source_type": "firms",
       "manufacturer_id": "Northern_and_Central_Africa",
-      "additional": "{\"schedule\": \"\"}"
+      "additional": {"schedule": ""}
     }
   },
   {
@@ -1486,7 +1486,7 @@
       "model_name": "MCD14DL",
       "source_type": "firms",
       "manufacturer_id": "Southern_Africa",
-      "additional": "{\"schedule\": \"\"}"
+      "additional": {"schedule": ""}
     }
   },
   {
@@ -1496,7 +1496,7 @@
       "model_name": "Delorme InReach SE",
       "source_type": "inreach",
       "manufacturer_id": "300434060291470",
-      "additional": "{}"
+      "additional": {}
     }
   }
 ]
