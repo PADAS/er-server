@@ -142,16 +142,19 @@ class ObservationManager(models.GeoManager):
         field = '-recorded_at'
         if first:
             field = 'recorded_at'
-        sources = SubjectSource.objects.get_subject_sources(subject)
-        sources = [s.source for s in sources]
-        if not sources:
-            return
-        r = Observation.objects.filter(source__in=sources)
-        r = r.exclude(location=EMPTY_POINT)
-        r = r.order_by(field)[:1]
-        if r:
-            return r[0]
+        ssources = SubjectSource.objects.get_subject_sources(subject)
+        sorted_sources = sorted([s for s in ssources],
+                                key=lambda s: s.assigned_range.upper,
+                                reverse=not first)
 
+        for ssource in sorted_sources:
+            r = Observation.objects.filter(source=ssource.source)
+            r = r.exclude(location=EMPTY_POINT)
+            r = r.filter(recorded_at__gt=ssource.assigned_range.lower)
+            r = r.filter(recorded_at__lt=ssource.assigned_range.upper)
+            r = r.order_by(field)[:1]
+            if r:
+                return r[0]
 
 class Observation(models.Model):
     """observation point
@@ -234,10 +237,8 @@ class Subject(models.Model):
         return color
 
     @property
-    def last_observation_date(self):
-        last_observation = Observation.objects.get_last_observation(self)
-        if last_observation:
-            return last_observation.recorded_at
+    def last_observation(self):
+        return Observation.objects.get_last_observation(self)
 
     @property
     def image_url(self):
