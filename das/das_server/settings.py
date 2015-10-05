@@ -265,6 +265,7 @@ CACHES = {
         'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
         'LOCATION': '/tmp/django_cache',
     }
+}
 
 '''
 Associate a plugin name with a plugin-configuration dict that will override the plugin's configuration in the database.
