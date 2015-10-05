@@ -51,7 +51,6 @@ INSTALLED_APPS = (
     'api',
     'data_input',
     'mapping',
-
 )
 
 MIDDLEWARE_CLASSES = (
@@ -255,5 +254,12 @@ SWAGGER_SETTINGS = {
         'licenseUrl': '',
         'termsOfServiceUrl': '',
         'title': 'DAS Server API',
+    }
+}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': '/tmp/django_cache',
     }
 }
