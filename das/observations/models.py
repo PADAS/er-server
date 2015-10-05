@@ -13,11 +13,10 @@ GIS
 """
 import uuid
 from django.contrib.gis.db import models
-from django_pgjson.fields import JsonBField
-from django.contrib.postgres.fields import DateTimeRangeField, ArrayField
+from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.db.models import Q
 from django.db.models import Max
-from django.utils import timezone
+from django.utils.text import slugify
 import pytz
 from django.contrib.gis.geos import Point
 import datetime
@@ -32,6 +31,7 @@ SOURCE_TYPES = (
 
 def to_rgb(color):
     return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(',')])
+
 
 class SourceManager(models.Manager):
     pass
@@ -48,9 +48,14 @@ class Source(models.Model):
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
     model_name = models.CharField('device model name', max_length=100, null=True)
-    additional = JsonBField()
+    additional = JSONField('additional data')
+
+    def __str__(self):
+        return '%s:%s' % (self.manufacturer_id, self.model_name)
+
 
 EMPTY_POINT = Point(0,0)
+
 
 class ObservationManager(models.GeoManager):
     def get_source_range_observations(self, subject_sources, since=None, until=None):
@@ -111,7 +116,7 @@ class ObservationManager(models.GeoManager):
         be saved in additional (as jsonb).
         :return: None
         '''
-        loc = Point(float(observation.pop('lat')), float(observation.pop('lon')))
+        loc = Point(float(observation.pop('lon')), float(observation.pop('lat')))
         ts = observation.pop('ts')
 
         Observation(source_id=source.id, location=loc, recorded_at=ts, additional=observation).save()
@@ -147,16 +152,17 @@ class ObservationManager(models.GeoManager):
         if r:
             return r[0]
 
+
 class Observation(models.Model):
     """observation point
     similar to archive_loc
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    location = models.PointField()
-    recorded_at = models.DateTimeField() #point in time of object at lat lon
-    created_at = models.DateTimeField(auto_now_add=True) #date/time this row created
+    location = models.PointField('point location')
+    recorded_at = models.DateTimeField('recorded at') #point in time of object at lat lon
+    created_at = models.DateTimeField('row created at', auto_now_add=True) #date/time this row created
     source = models.ForeignKey('Source')
-    additional = JsonBField()
+    additional = JSONField()
 
     objects = ObservationManager()
 
@@ -183,6 +189,7 @@ SUBJECT_TYPES = (
     ('wildlife', 'Wildlife'),
     ('vehicle', 'Vehicle'),
     ('stationary-object', 'Stationary Object'),
+    ('person', 'Person')
 )
 
 
@@ -191,24 +198,32 @@ class SubjectSource(models.Model):
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    assigned_range = DateTimeRangeField()
+    assigned_range = DateTimeRangeField('time assigned to subject')
     source = models.ForeignKey('Source')
     subject = models.ForeignKey('Subject')
-    additional = JsonBField()
+    additional = JSONField('additional')
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     objects = SubjectSourceManager()
 
+    def __str__(self):
+        return '%s, %s %s-%s' % (self.subject.name, self.source.model_name,
+                             self.assigned_range.lower, self.assigned_range.upper)
+
 
 class SubjectManager(models.Manager):
-    pass
+    def by_region(self, region, **kwargs):
+            subjects =  self.filter(additional__region=region.region)
+            subjects.filter(additional__country=region.country, **kwargs)
+            return subjects
 
 
 class Subject(models.Model):
     """Person, Animal, Vehicle, etc"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    subject_type = models.CharField(max_length=100, choices=SUBJECT_TYPES, default='wildlife')
-    additional = JsonBField()
+    name = models.CharField('name', max_length=100)
+    subject_type = models.CharField('subject type', max_length=100, choices=SUBJECT_TYPES, default='wildlife')
+    additional = JSONField('additional data')
+
     objects = SubjectManager()
 
     @property
@@ -217,6 +232,12 @@ class Subject(models.Model):
         if color:
             color = to_rgb(color)
         return color
+
+    @property
+    def last_observation_date(self):
+        last_observation = Observation.objects.get_last_observation(self)
+        if last_observation:
+            return last_observation.recorded_at
 
     @property
     def image_url(self):
@@ -231,44 +252,53 @@ class Subject(models.Model):
                 key = species
         return googlemarkericon(key)
 
-
-class WildlifeSubjectManager(models.Manager):
-    def get_queryset(self):
-        return super(WildlifeSubjectManager, self).get_queryset().filter(
-            subject_type='wildlife')
-
-    def create(self, **kwargs):
-        kwargs.update({'subject_type': 'wildlife'})
-        return super(WildlifeSubjectManager, self).create(**kwargs)
+    def __str__(self):
+        return '%s, %s' % (self.name,self.subject_type)
 
 
-class WildlifeSubject(Subject):
-    objects = WildlifeSubjectManager()
+class RegionManager(models.Manager):
+    pass
 
-    class Meta:
-        proxy = True
+
+class Region(models.Model):
+    """Region of Africa a subject is in"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    slug = models.SlugField('unique id', max_length=100, unique=True)
+    region = models.CharField('region or pa', max_length=100)
+    country = models.CharField('country mostly containing region', max_length=100)
+
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.region + ' ' + self.country)
+        super(Region, self).save(*args, **kwargs)
+
+    objects = RegionManager()
+
+    def _____str__(self):
+        return '%s, %s' % (self.region, self.country)
 
 
 MARKER_ICONS = {
-    'elephant-male': 'http://107.21.94.89/Images/AnimalIcons/Elephant_Male.png',
-    'elephant-female': 'http://107.21.94.89/Images/AnimalIcons/Elephant_Female.png',
-    'lion-male': 'http://107.21.94.89/Images/AnimalIcons/Lion_Male.png',
-    'lion-female': 'http://107.21.94.89/Images/AnimalIcons/Lion_Female.png',
+    'elephant-male': '/static/Elephant_Male.png',
+    'elephant-female': '/static/Elephant_Female.png',
+    'lion-male': '/static/Lion_Male.png',
+    'lion-female': '/static/Lion_Female.png',
     'vehicle': 'http://maps.google.com/mapfiles/kml/shapes/truck.png',
     'cow': '',
     'cheetah': '',
     'expedition': 'http://maps.google.com/mapfiles/kml/shapes/triangle.png',
-    'zebra-male': 'http://107.21.94.89/Images/AnimalIcons/GrevysZebra_Male.png',
-    'zebra-female': 'http://107.21.94.89/Images/AnimalIcons/GrevysZebra_Female.png',
+    'zebra-male': '/static/GrevysZebra_Male.png',
+    'zebra-female': '/static/GrevysZebra_Female.png',
     'forest elephant': '',
     'goat': '',
-    'sable-male': 'http://107.21.94.89/Images/AnimalIcons/SableAntelopeGraphicMale.png',
-    'sable-female': 'http://107.21.94.89/Images/AnimalIcons/SableAntelopeGraphicFemale.png',
-    'rhino-male': 'http://107.21.94.89/Images/AnimalIcons/Rhino_Male.png',
-    'rhino-female': 'http://107.21.94.89/Images/AnimalIcons/Rhino_Female.png',
+    'sable-male': '/static/SableAntelopeGraphicMale.png',
+    'sable-female': '/static/SableAntelopeGraphicFemale.png',
+    'rhino-male': '/static/Rhino_Male.png',
+    'rhino-female': '/static/Rhino_Female.png',
     'white rhino': '',
     'black rhino': '',
 }
 
+
 def googlemarkericon(subject_type):
-    return MARKER_ICONS.get(subject_type, 'http://maps.google.com/mapfiles/kml/shapes/truck.png')
+    url = MARKER_ICONS.get(subject_type, 'http://maps.google.com/mapfiles/kml/shapes/truck.png')
+    return url

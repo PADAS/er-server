@@ -30,7 +30,14 @@ app:
         # the values that you might want to set for a python application
         option_settings:
             'aws:elasticbeanstalk:container:python:staticfiles':
-                "/static/": "/opt/python/current/app/das/das_server/static"
+                "/static": "/opt/python/current/app/das/www/static"
+                "/app": "/opt/python/current/app/das/www/app"
+                "/bower_components": "/opt/python/current/app/das/www/bower_components"
+                "/index.html": "/opt/python/current/app/das/www/index.html"
+                "/robots.txt": "/opt/python/current/app/das/www/robots.txt"
+                "/favicon.ico": "/opt/python/current/app/das/www/favicon.ico"
+                "/docs": "/opt/python/current/app/das/docs"
+
 
             'aws:autoscaling:launchconfiguration':
               InstanceType: "t1.micro"
@@ -74,10 +81,82 @@ app:
                 - '^venv.*'
                 - '.*\.pyc$'
             files:
-              - .ebextensions/01-install_dependencies.config:
+              - deflate.conf:
                     # permissions of the file
+                    permissions: 0644
+                    # the content node is important here
+                    content: |
+                        # mod_deflate configuration
+                        <IfModule mod_deflate.c>
+                          # Restrict compression to these MIME types
+                          AddOutputFilterByType DEFLATE text/plain
+                          AddOutputFilterByType DEFLATE text/html
+                          AddOutputFilterByType DEFLATE application/xhtml+xml
+                          AddOutputFilterByType DEFLATE text/xml
+                          AddOutputFilterByType DEFLATE application/xml
+                          AddOutputFilterByType DEFLATE application/xml+rss
+                          AddOutputFilterByType DEFLATE application/x-javascript
+                          AddOutputFilterByType DEFLATE text/javascript
+                          AddOutputFilterByType DEFLATE text/css
+                          # Level of compression (Highest 9 - Lowest 1)
+                          DeflateCompressionLevel 9
+                          # Netscape 4.x has some problems.
+                          BrowserMatch ^Mozilla/4 gzip-only-text/html
+                          # Netscape 4.06-4.08 have some more problems
+                          BrowserMatch ^Mozilla/4\.0[678] no-gzip
+                          # MSIE masquerades as Netscape, but it is fine
+                          BrowserMatch \bMSI[E] !no-gzip !gzip-only-text/html
+                        <IfModule mod_headers.c>
+                          # Make sure proxies don't deliver the wrong content
+                          Header append Vary User-Agent env=!dont-vary
+                        </IfModule>
+                        </IfModule>
+
+              - apscheduler.conf:
+                    permissions: 0644
+                    content: |
+                        [program:apscheduler]
+                        command=/opt/python/run/venv/bin/python manage.py schedule_datainput
+                        directory=/opt/python/current/app/das
+                        environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
+                        user=wsgi
+                        numprocs=1
+                        stdout_logfile=/opt/python/log/apscheduler.log
+                        stderr_logfile=/opt/python/log/apscheduler.log
+                        autostart=true
+                        autorestart=unexpected
+                        startretries=3
+                        startsecs=10
+                        stopwaitsecs = 60
+
+                        ; When resorting to send SIGKILL to the program to terminate it
+                        ; send SIGKILL to its whole process group instead,
+                        ; taking care of its children as well.
+                        killasgroup=true
+
+              - 99_supervisord_apscheduler.sh:
+                    permissions: 0755
+                    content: |
+                        #!/usr/bin/env bash
+                        set -e
+                        # Add configuration script to supervisord conf (if not there already)
+                        if ! grep -Fxq "[include]" /opt/python/etc/supervisord.conf
+                            then
+                            echo "[include]" | tee -a /opt/python/etc/supervisord.conf
+                            echo "files: apscheduler.conf" | tee -a /opt/python/etc/supervisord.conf
+                        fi
+
+                        # Reread the supervisord config
+                        supervisorctl -c /opt/python/etc/supervisord.conf reread
+
+                        # Update supervisord in cache without restarting all services
+                        supervisorctl -c /opt/python/etc/supervisord.conf update
+
+                        # Start/Restart celeryd through supervisord
+                        supervisorctl -c /opt/python/etc/supervisord.conf restart apscheduler
+
+              - .ebextensions/01-install_dependencies.config:
                     permissions: 0777
-                    # the yaml node is important here
                     yaml:
                         packages:
                             yum:
@@ -87,11 +166,10 @@ app:
                                 gcc-c++: []
                                 libtool: []
                                 libxml2-devel: []
+                                git: []
 
               - .ebextensions/02-commands.config:
-                    # permissions of the file
                     permissions: 0666
-                    # the yaml node is important here
                     yaml:
                         commands:
                           01-GDAL:
@@ -99,6 +177,26 @@ app:
                           02-GEOS:
                             command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
 
+              - .ebextensions/03-commands.config:
+                    permissions: 0666
+                    yaml:
+                        commands:
+                          01-timezone:
+                            command: "ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime"
+                        container_commands:
+                          02-collectstatic:
+                            command: "source /opt/python/run/venv/bin/activate && python das/manage.py collectstatic --noinput --settings=das_server.local_settings"
+                          03-deflate:
+                            command: "cp deflate.conf /etc/httpd/conf.d/"
+                          04-apscheduler:
+                            command: "cp apscheduler.conf /opt/python/etc/"
+                          05-installappscheduler:
+                            command: "cp 99_supervisord_apscheduler.sh /opt/elasticbeanstalk/hooks/appdeploy/post/"
+                          06-installappscheduler:
+                            command: "cp 99_supervisord_apscheduler.sh /opt/elasticbeanstalk/hooks/configdeploy/post/"
+                          07-fix-wsgi-oauth:
+                            command: "if [ ! grep -q WSGIPassAuthorization config.py ]; then sed -i.bak '/WSGIScriptAlias/ aWSGIPassAuthorization On' config.py; fi"
+                            cwd: /opt/elasticbeanstalk/hooks
 
     # Under the environments node is each environment and their config.
     # Environment specific configuration is determined by first processing
@@ -109,7 +207,13 @@ app:
         # the dev version of the app
         'das-server-dev':
             cname_prefix: 'das-server-dev'
+            option_settings:
+              'aws:elasticbeanstalk:application:environment':
+                DAS_ENV_NAME: 'dev'
 
         # the production version of the app
         'das-server-prod':
             cname_prefix: 'das-server-prod'
+            option_settings:
+              'aws:elasticbeanstalk:application:environment':
+                DAS_ENV_NAME: 'prod'

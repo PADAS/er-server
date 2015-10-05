@@ -7,10 +7,13 @@ import http.client
 import ssl
 from functools import namedtuple
 from observations.models import Observation, Source
-from .plugin import DasPlugin, PluginTarget
+from .plugin import DasPlugin, PluginTarget, DasPluginConfigurationError
 import datetime, time
 from data_input.models import PluginConf, PluginConfSource
 from ftplib import FTP
+from django.contrib.gis.geos import Polygon, Point, MultiPolygon
+
+import logging
 
 from dateutil.parser import parse as parse_date
 import pytz
@@ -21,7 +24,7 @@ def __str2date(d, replace_tzinfo=pytz.utc):
     return parse_date(d).replace(tzinfo=replace_tzinfo)
 
 
-# Helpers for parsing lines from Savanna datasource.
+# Helpers for parsing lines from FIRMS datasource.
 field_names = ('lat', 'lon', 'brightness', 'scan', 'track', 'acq_date', 'acq_time', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
 field_transform = (float, float, float, float, float, str, str, str, int, str, float, float)
 
@@ -31,15 +34,21 @@ field_transform = (float, float, float, float, float, str, str, str, int, str, f
 
 class FirmsClient(object):
 
-    def __init__(self, config={}):
+    def __init__(self, config=None):
         '''
         Configuration is given by the plugin. Probably saved in PluginConf record.
         :param config: must include 'credentials' and 'host'
         '''
-        self.host = config.get('host', 'nrt1.modaps.eosdis.nasa.gov')
-        self.username = config.get('username', 'chrisdoehring')
-        self.password = config.get('password', '[Rhubarb91$]')
 
+        self._config = config or {}
+        if not all(x in config for x in ('hosts', 'username', 'password')):
+            raise DasPluginConfigurationError('Not enough configuration provided.')
+
+        self.hosts = config.get('hosts')
+        self.username = config.get('username')
+        self.password = config.get('password')
+
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def fetch_observations(self, region_id, **kwargs):
 
@@ -49,7 +58,7 @@ class FirmsClient(object):
         :param kwargs:
         :return:
         '''
-        ftp = FTP(self.host, self.username, self.password)
+        ftp = FTP(self.hosts[0], self.username, self.password)
 
         ftp.cwd('FIRMS/{}'.format(region_id))
 
@@ -108,8 +117,19 @@ class FirmsPlugin(DasPlugin):
 
     def __init__(self, plugin_conf, *args, **kwargs):
         super().__init__(self, *args, **kwargs)
+        self.logger = logging.getLogger(self.__class__.__name__)
+
         self._config = plugin_conf
         self.client = FirmsClient(config=self._config.configuration)
+
+        polygons = self._config.configuration.get('polygons', None)
+
+        if polygons:
+            polygons = list((Polygon(p) for p in polygons))
+            _ = MultiPolygon(polygons) if len(polygons) > 1 else polygons[0]
+            self._geo_filter = _.prepared
+        else:
+            self._geo_filter = None
 
     def _fetch(self):
 
@@ -122,17 +142,22 @@ class FirmsPlugin(DasPlugin):
                 pcs = PluginConfSource(source=source, plugin_conf=self._config, additional=dict(highest_sequence=-1))
                 pcs.save()
 
-            print("Fetching data for manufacturer_id %s" % (source.manufacturer_id,))
+            self.logger.info("Fetching data for manufacturer_id %s" % (source.manufacturer_id,))
             hi_sequence = pcs.additional['highest_sequence']
             for observation in self.client.fetch_observations(region_id=source.manufacturer_id, after_offset=hi_sequence):
                 hi_sequence = observation['offset']
-                yield (source, observation)
+
+                if self.pass_filter(observation):
+                    yield (source, observation)
 
             pcs.additional['highest_sequence'] = hi_sequence
             pcs.save()
 
-        x = input('Go on?')
-
+    def pass_filter(self, observation):
+        if self._geo_filter:
+            p  = Point(observation['lat'], observation['lon'])
+            return self._geo_filter.contains(p)
+        return True
 
     def _transform(self, so_tuple):
         source, observation = so_tuple
@@ -147,6 +172,3 @@ class FirmsTarget(PluginTarget):
     def _handle_item(self, item):
         (source, obs) = item
         Observation.objects.add_observation(source, obs)
-        print(obs)
-
-

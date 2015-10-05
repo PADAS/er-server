@@ -6,12 +6,14 @@ import copy
 import http.client
 from functools import namedtuple
 from observations.models import Observation, Source
-from .plugin import DasPlugin, PluginTarget
+from .plugin import DasPlugin, PluginTarget, DasPluginConfigurationError
 import datetime, time
 from data_input.models import PluginConf, PluginConfSource
 
 from dateutil.parser import parse as parse_date
 import pytz
+
+import logging
 
 
 def __str2date(d, replace_tzinfo=pytz.utc):
@@ -24,9 +26,6 @@ Fix = namedtuple('Fix', ['collar_id', 'lon', 'lat', 'ts', 'speed', 'heading', 't
 field_transform = (str, float, float, __str2date, float, float, str, int)
 
 
-# class SavannaException(Exception):
-#     pass
-
 class SavannaClient(object):
 
     def __init__(self, config=None):
@@ -34,8 +33,16 @@ class SavannaClient(object):
         Configuration is given by the plugin. Probably saved in PluginConf record.
         :param config: must include 'credentials' and 'host'
         '''
-        self.credentials = config.get('credentials', {})
-        self.host = config.get('host', '')
+
+        self._config = config or {}
+
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        if not all(x in self._config for x in ('host', 'credentials')):
+            raise DasPluginConfigurationError('Not enough configuration provided to continue.')
+
+        self.credentials = self._config.get('credentials')
+        self.host = self._config.get('host')
 
 
     def fetch_observations(self, collar_id, start_time, end_time=None):
@@ -114,12 +121,12 @@ class SavannaPlugin(DasPlugin):
             st = unixtimestamp(st)
             st+=1
 
-            print("Fetching data for collar_id %s" % (source.manufacturer_id,))
+            self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
             for observation in self.client.fetch_observations(source.manufacturer_id, start_time=st):
                 lt = observation.ts
                 yield (source, observation)
 
-            pcs.additional['latest_timestamp'] = lt
+            pcs.additional['latest_timestamp'] = lt.isoformat()
             pcs.save()
 
     def _transform(self, so_tuple):
@@ -135,6 +142,5 @@ class SavannaTarget(PluginTarget):
     def _handle_item(self, item):
         (source, obs) = item
         Observation.objects.add_observation(source, obs)
-        print(obs)
 
 

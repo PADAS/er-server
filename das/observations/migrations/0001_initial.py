@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 from django.db import models, migrations
 import uuid
-import django_pgjson.fields
+import django.contrib.postgres.fields
 import django.contrib.gis.db.models.fields
 import django.contrib.postgres.fields.ranges
 
@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
                 ('location', django.contrib.gis.db.models.fields.PointField(srid=4326)),
                 ('recorded_at', models.DateTimeField()),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('additional', django_pgjson.fields.JsonBField()),
+                ('additional', django.contrib.postgres.fields.JSONField()),
             ],
         ),
         migrations.CreateModel(
@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
                 ('source_type', models.CharField(max_length=100, choices=[('tracking-device', 'Tracking Device'), ('trap', 'Trap'), ('seismic', 'Seismic sensor'), ('firms', 'FIRMS data'), ('gps-radio', 'gps radio')], null=True, verbose_name='type of data expected')),
                 ('manufacturer_id', models.CharField(max_length=100, null=True, verbose_name='device manufacturer id')),
                 ('model_name', models.CharField(max_length=100, null=True, verbose_name='device model name')),
-                ('additional', django_pgjson.fields.JsonBField()),
+                ('additional', django.contrib.postgres.fields.JSONField()),
             ],
         ),
         migrations.CreateModel(
@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, serialize=False, primary_key=True)),
                 ('name', models.CharField(max_length=100)),
-                ('additional', django_pgjson.fields.JsonBField()),
+                ('additional', django.contrib.postgres.fields.JSONField()),
             ],
         ),
         migrations.CreateModel(
@@ -47,7 +47,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, serialize=False, primary_key=True)),
                 ('assigned_range', django.contrib.postgres.fields.ranges.DateTimeRangeField()),
-                ('additional', django_pgjson.fields.JsonBField()),
+                ('additional', django.contrib.postgres.fields.JSONField()),
                 ('source', models.ForeignKey(to='observations.Source')),
                 ('subject', models.ForeignKey(to='observations.Subject')),
             ],

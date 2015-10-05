@@ -18,6 +18,16 @@
     },
     "model": "data_input.pluginconfsource",
     "pk": "58c428b5-62f8-4c04-8ac3-3c085e81e8d9"
+  },
+  {
+    "app_label": "data_input",
+    "fields": {
+      "plugin_conf": "f70f01d4-043c-43a7-be0c-2c441a0f2998",
+      "source": "8f3f3f26-c99c-438a-b293-ef14d0f014da",
+      "additional":  { "foo" : "bar" }
+    },
+    "model": "data_input.pluginconfsource",
+    "pk": "ecce7704-dff0-488f-94a9-5a1bea03ba53"
   }
 ]
 

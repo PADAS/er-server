@@ -21,11 +21,21 @@ try:
 except ImportError:
     geos_imported = False
 
+try:
+    import django.utils.functional as d_proxy
+    d_proxy_imported = True
+except ImportError:
+    d_proxy_imported = False
+
+from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
+
+
 class JsonEncodedString(object):
     """A python class that contains a string that is json encoded.
     This class is recognized in our ExtendedJSONEncode"""
     def __init__(self, data):
         self.data = data
+
 
 class ExtendedJSONEncoder(json.JSONEncoder):
     def _iterencode_default(self, o, markers=None):
@@ -55,7 +65,31 @@ class ExtendedJSONEncoder(json.JSONEncoder):
             return o.data
         elif geos_imported and isinstance(o, Point):
             return o.tuple
+        elif d_proxy_imported and isinstance(o, d_proxy.Promise):
+            return str(o)
         return json.JSONEncoder.default(self, o)
+
+
+class ExtendedJSONRenderer(JSONRenderer):
+    encoder_class = ExtendedJSONEncoder
+
+    def render(self, data, *args, **kwargs):
+        response = args[1]['response']
+        if 'swaggerVersion' not in data and 'status' not in data:
+            data = {'data': data,
+                    'status': {'code': response.status_code,
+                               'message': response.status_text}}
+        return super(ExtendedJSONRenderer, self).render(data, *args, **kwargs)
+
+
+class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
+    def render(self, data, *args, **kwargs):
+        response = args[1]['response']
+        if 'status' not in data:
+            data = {'data': data,
+                    'status': {'code': response.status_code,
+                               'message': response.status_text}}
+        return super(ExtendedBrowsableAPIRenderer, self).render(data, *args, **kwargs)
 
 
 def json_string(objects, pretty_output=False):
@@ -94,3 +128,4 @@ def empty_geojson_feature():
         },
         "geometry": {}
         }
+

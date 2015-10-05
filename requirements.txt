@@ -6,17 +6,22 @@ simplejson==3.8.0
 pytz==2015.4
 python-dateutil==2.4.2
 requests==2.7.0
-Django==1.8.3
+Django==1.9a1
 
-#http://djangonauts.github.io/django-pgjson/
-django-pgjson==0.3.1
+djangorestframework==3.2.3
 #https://github.com/mypebble/django-pgviews
-django-pgviews==0.0.4
-django-geojson==2.8.1
+django-pgviews==0.0.5
+#see https://github.com/PADAS/django-geojson
+#django-geojson==2.8.2.dev0
+git+https://github.com/PADAS/django-geojson.git@master
 django-model-utils==2.3.1
+#django-extensions==1.5.7
 #see https://github.com/ottoyiu/django-cors-headers
 django-cors-headers==1.1.0
-#django-raster==0.1.6
+django-oauth-toolkit==0.9.0
+django-rest-swagger==0.3.4
+#django-raster==0.1.7
+git+https://github.com/PADAS/django-raster.git@master
 GDAL==1.11.2
 # Under windows add appropriate path'ed Environment Variables
 #GDAL_DATA=C:\projects\das\dasvir\Lib\site-packages\osgeo\data\gdal

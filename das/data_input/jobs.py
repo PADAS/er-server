@@ -3,14 +3,17 @@ from data_input.plugins.savanna import SavannaPlugin, SavannaTarget
 from data_input.plugins.firms import FirmsPlugin, FirmsTarget
 from data_input.plugins.inreach import InreachPlugin, InreachTarget
 from data_input.plugins.skygistics import SkygisticsSatellitePlugin, SkygisticsTarget
+import logging
 
+logger = logging.getLogger(__name__)
 
 def run_savanna():
     '''
     run Savanna plugin to ingest collar data.
     :return:
     '''
-    print('Running savanna job')
+
+    logger.info('Running savanna job.')
     try:
         pc = PluginConf.objects.get(plugin_name='savanna')
     except Exception:
@@ -22,7 +25,7 @@ def run_savanna():
 
 
 def run_firms():
-    print('Running firms job')
+    logger.info('Running firms job.')
     try:
         pc = PluginConf.objects.get(plugin_name='firms')
     except Exception:
@@ -34,7 +37,7 @@ def run_firms():
 
 
 def run_inreach():
-    print('Running inreach job')
+    logger.info('Running inreach job.')
     try:
         pc = PluginConf.objects.get(plugin_name='inreach')
     except Exception:
@@ -46,7 +49,7 @@ def run_inreach():
 
 
 def run_skygistics():
-    print('Running skygistics satellite job')
+    logger.info('Running skygistics satellite job.')
     try:
         pc = PluginConf.objects.get(plugin_name='skygistics')
     except Exception:

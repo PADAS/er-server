@@ -6,7 +6,7 @@ import re
 import http.client
 import urllib.parse
 from observations.models import Observation, Source
-from .plugin import DasPlugin, PluginTarget
+from .plugin import DasPlugin, PluginTarget, DasPluginConfigurationError
 import datetime, time
 from datetime import timedelta
 from data_input.models import PluginConf, PluginConfSource
@@ -15,15 +15,11 @@ from dateutil.parser import parse as parse_date
 import pytz
 import json
 import base64
+import logging
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
     return parse_date(d).replace(tzinfo=replace_tzinfo)
-
-
-# Helpers for parsing lines from Savanna datasource.
-field_names = ('lat', 'lon', 'brightness', 'scan', 'track', 'acq_date', 'acq_time', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
-field_transform = (float, float, float, float, float, str, str, str, int, str, float, float)
 
 class BasicAuthClient(object):
 
@@ -32,14 +28,23 @@ class BasicAuthClient(object):
         auth = base64.b64encode(bytes(auth, 'utf8'))
         return 'Basic {}'.format(auth.decode('utf8'))
 
+class InreachException(Exception):
+    pass
 
 class InreachAccountClient(BasicAuthClient):
 
     def __init__(self, config=None):
         self._config = config or {}
-        self.host = self._config.get('host', 'account-api.delorme.com')
-        self.username = self._config.get('username', 'teds@vulcan.com')
-        self.password = self._config.get('password', 'IfG36lgW')
+
+        self._config = config or {}
+        if not all(x in self._config for x in ('host', 'username', 'password')):
+            raise DasPluginConfigurationError('Not enough configuration provided.')
+
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        self.host = self._config.get('host')
+        self.username = self._config.get('username')
+        self.password = self._config.get('password')
 
     def fetch_users(self):
 
@@ -65,10 +70,13 @@ class InreachClient(BasicAuthClient):
         :param config: must include 'credentials' and 'host'
         '''
         self._config = config or {}
+        if not all(x in self._config for x in ('host', 'username', 'password')):
+            raise DasPluginConfigurationError('Not enough configuration provided.')
 
-        self.host = self._config.get('host', 'explore.delorme.com')
-        self.username = self._config.get('username', 'vulcan_das')
-        self.password = self._config.get('password', '5oBt1F27Pw9S')
+
+        self.host = self._config.get('host')
+        self.username = self._config.get('username')
+        self.password = self._config.get('password')
 
     def fetch_observations(self, imei=None, **kwargs):
 
@@ -107,8 +115,7 @@ class InreachClient(BasicAuthClient):
                 yield self.__class__.parse_line(h)
 
         else:
-            print(res.status, res.reason)
-            print(res)
+            self.logger.debug('Failed to get good response from Inreach API. [%s %s]', res.status, res.reason)
 
     @classmethod
     def parse_line(cls, s, **kwargs):
@@ -143,33 +150,33 @@ class InreachPlugin(DasPlugin):
         super().__init__(self, *args, **kwargs)
         self._config = plugin_conf
         self.client = InreachClient(config=self._config.configuration)
+        self.logger = logging.getLogger(InreachPlugin.__name__)
 
     def _fetch(self):
 
-        sources = Source.objects.filter(source_type='inreach')
-        for source in sources:
+        pcslist = PluginConfSource.objects.filter(plugin_conf=self._config)
 
-            default_timestamp = datetime.datetime.now(tz=pytz.utc) - timedelta(days=31)
-            latest_ts = default_timestamp
+        for pcs in pcslist:
             try:
-                pcs = PluginConfSource.objects.get(source=source, plugin_conf=self._config)
+                default_starttime = datetime.datetime.now(tz=pytz.utc) - timedelta(days=31)
                 _ = pcs.additional.get('latest_timestamp', None)
-                try:
-                    latest_ts = parse_date(_)
-                except:
-                    latest_ts = default_timestamp
+                latest_ts = parse_date(_)
 
-            except PluginConfSource.DoesNotExist:
-                pcs = PluginConfSource(source=source, plugin_conf=self._config, additional=dict(latest_timestamp=default_timestamp))
-                pcs.save()
+                latest_ts = max(default_starttime, latest_ts)
 
-            print("Fetching data for manufacturer_id %s after %s" % (source.manufacturer_id,latest_ts))
-            for observation in self.client.fetch_observations(imei=source.manufacturer_id, after=latest_ts):
+            except AttributeError:
+                latest_ts = default_starttime
+
+            self.logger.debug("Fetching data for manufacturer_id %s after %s" % (pcs.source.manufacturer_id, latest_ts))
+
+            for observation in self.client.fetch_observations(imei=pcs.source.manufacturer_id, after=latest_ts):
                 latest_ts = max(latest_ts, observation['ts'])
-                yield (source, observation)
+                yield (pcs.source, observation)
 
-            pcs.additional['latest_timestamp'] = latest_ts
+            self.logger.debug("Saving latest timestamp for source %s at %s", pcs.source.manufacturer_id, latest_ts)
+            pcs.additional['latest_timestamp'] = latest_ts.isoformat()
             pcs.save()
+
 
 
     def _transform(self, so_tuple):
@@ -185,7 +192,6 @@ class InreachTarget(PluginTarget):
     def _handle_item(self, item):
         (source, obs) = item
         Observation.objects.add_observation(source, obs)
-        print(obs)
 
 
 class InreachAccountPlugin(DasPlugin):
@@ -195,11 +201,12 @@ class InreachAccountPlugin(DasPlugin):
         super().__init__(self, *args, **kwargs)
         self._config = plugin_conf
         self.client = InreachAccountClient()
+        self.logger = logging.getLogger(InreachAccountPlugin.__name__)
 
     def _fetch(self):
 
         source = None
-        print("Fetching data for Inreach account...")
+        self.logger.debug("Fetching data for Inreach account...")
         for observation in self.client.fetch_users():
             yield (source, observation)
 
@@ -217,6 +224,5 @@ class InreachAccountTarget(PluginTarget):
 
     def _handle_item(self, item):
         (source, obs) = item
-        print(obs)
 
 

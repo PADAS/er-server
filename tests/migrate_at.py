@@ -39,7 +39,7 @@ log_stdout(level=logging.INFO)
 
 
 def dictfetchall(cursor):
-    "Returns all rows from a cursor as a dict"
+    """Returns all rows from a cursor as a dict"""
     desc = cursor.description
     return [
         dict(zip([col[0] for col in desc], row))
@@ -51,6 +51,13 @@ TRACKING_MASTER_ANIMAL_FIELDS = ('species', 'sex')
 TRACKING_MASTER_DEVICE_FIELDS = ('active', 'frequency', 'predicted_expiry',)
 ARCHIVE_LOC_FIELDS = ('dloadtime',)
 TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
+
+
+def add_region(region, country):
+    region_qs = models.Region.objects.all().filter(region=region, country=country)
+    if not region_qs:
+        models.Region(region=region, country=country).save()
+
 
 def import_trackingmaster(chronofile):
     logger.info('Importing TrackingMaster %s', chronofile)
@@ -82,6 +89,7 @@ def import_trackingmaster(chronofile):
     if not subject:
         additional = {key: trackingmaster[key] for key in TRACKING_MASTER_COMMON_FIELDS if key in trackingmaster}
         if region:
+            add_region(region['region'], region['country'])
             additional['region'] = region['region']
             additional['country'] = region['country']
         additional['external_id'] = trackingmaster['animal_id']
