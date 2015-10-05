@@ -199,7 +199,7 @@ app:
                             command: "if [ ! grep -q WSGIPassAuthorization config.py ]; then sed -i.bak '/WSGIScriptAlias/ aWSGIPassAuthorization On' config.py; fi"
                             cwd: /opt/elasticbeanstalk/hooks
                           08-make-tmp-cache-dir:
-                            command: "mkdir -s /tmp/django_cache; chown wsgi /tmp/django_cache"
+                            command: "mkdir -p /tmp/django_cache; chown wsgi /tmp/django_cache"
 
     # Under the environments node is each environment and their config.
     # Environment specific configuration is determined by first processing
