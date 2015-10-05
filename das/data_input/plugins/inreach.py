@@ -111,7 +111,7 @@ class InreachClient(BasicAuthClient):
             data = res.read()
             data = json.loads(data.decode())
 
-            for h in data['HistoryItems']:
+            for h in reversed(data['HistoryItems']):
                 yield self.__class__.parse_line(h)
 
         else:
@@ -133,6 +133,9 @@ class InreachClient(BasicAuthClient):
         if coordinate:
             s['lat'] = coordinate['Latitude']
             s['lon'] = coordinate['Longitude']
+
+        s['elevation'] = s.pop('Altitude', None)
+
         return s
 
 
