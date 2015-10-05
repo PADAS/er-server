@@ -167,8 +167,7 @@ app:
                                 libtool: []
                                 libxml2-devel: []
                                 git: []
-                                libjpeg: []
-                                libjpeg-devel: []
+                                libjpeg-turbo-devel: []
 
               - .ebextensions/02-commands.config:
                     permissions: 0666
