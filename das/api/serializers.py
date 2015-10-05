@@ -57,6 +57,7 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
         elif self.context and self.context.get('show_last_position_date', None):
             last_position = instance.last_observation
             if last_position:
+                rep['tracks_available'] = True
                 rep['last_position_date'] = last_position.recorded_at
                 rep['last_position'] = make_feature(self.context['request'],
                                                         last_position.location,
