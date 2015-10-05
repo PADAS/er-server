@@ -1,7 +1,7 @@
 [
   {
     "fields": {
-      "configuration": "{\"credentials\": {\"pwd\": \"ndovu4\", \"uid\": \"ste\"}, \"host\": \"41.207.72.20\"}",
+      "configuration": {},
       "updated_at": "2015-08-07T00:22:29.009Z",
       "created_at": "2015-08-07T00:22:29.009Z",
       "plugin_name": "savanna"
@@ -11,7 +11,7 @@
   },
   {
     "fields": {
-      "configuration": "{\"hosts\": [\"nrt1.modaps.eosdis.nasa.gov\", \"nrt2.modaps.eosdis.nasa.gov\"], \"username\": \"chrisdoehring\", \"password\": \"[Rhubarb91$]\", \"directory\": \"FIRMS\", \"polygons\": [[[0.136532, 37.377201], [0.293318, 37.374892], [0.269454, 37.525264], [0.130117, 37.457520], [0.136532, 37.377201] ]] }",
+      "configuration": {},
       "updated_at": "2015-08-27T23:22:21.589Z",
       "created_at": "2015-08-27T23:22:21.589Z",
       "plugin_name": "firms"
@@ -21,7 +21,7 @@
   },
   {
     "fields": {
-      "configuration": "{\"credentials\": {\"username\": \"awtian\", \"password\": \"kenya\"}, \"host\": \"http://skyq1.skygistics.com\"}",
+      "configuration": {},
       "updated_at": "2015-08-27T23:22:21.589Z",
       "created_at": "2015-08-27T23:22:21.589Z",
       "plugin_name": "skygistics"
@@ -31,7 +31,7 @@
   },
   {
     "fields": {
-      "configuration": "{\"host\": \"explore.delorme.com\", \"username\": \"vulcan_das\", \"password\": \"5oBt1F27Pw9S\" }",
+      "configuration": {},
       "updated_at": "2015-08-27T23:22:21.589Z",
       "created_at": "2015-08-27T23:22:21.589Z",
       "plugin_name": "inreach"
