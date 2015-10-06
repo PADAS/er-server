@@ -127,3 +127,5 @@ das/das_server/local_settings.py
 das/export.json
 
 das/das_server/aws_dev_settings.py
+
+das/das_server/test_settings.py

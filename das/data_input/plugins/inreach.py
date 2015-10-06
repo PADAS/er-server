@@ -149,15 +149,15 @@ class InreachPlugin(DasPlugin):
     Inreach plugin fetches data from explorer.delorme.com for radios we've set up in DAS. Data read from Delorme's
     service is entered in DAS as observations.
     '''
-    def __init__(self, plugin_conf, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
-        self._config = plugin_conf
-        self.client = InreachClient(config=self._config.configuration)
+    def __init__(self, config=None, target=None):
+        super().__init__(config=config, target=target)
+
+        self.client = InreachClient(config=self.config.configuration)
         self.logger = logging.getLogger(InreachPlugin.__name__)
 
     def _fetch(self):
 
-        pcslist = PluginConfSource.objects.filter(plugin_conf=self._config)
+        pcslist = PluginConfSource.objects.filter(plugin_conf=self.config)
 
         for pcs in pcslist:
             try:
@@ -200,9 +200,8 @@ class InreachTarget(PluginTarget):
 class InreachAccountPlugin(DasPlugin):
 
 
-    def __init__(self, plugin_conf, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
-        self._config = plugin_conf
+    def __init__(self, config=None, target=None):
+        super().__init__(self, config=config, target=target)
         self.client = InreachAccountClient()
         self.logger = logging.getLogger(InreachAccountPlugin.__name__)
 
