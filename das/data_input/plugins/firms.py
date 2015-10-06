@@ -115,14 +115,13 @@ DEFAULT_START_TIME = datetime.datetime(2015, 8, 1, tzinfo=pytz.utc).isoformat()
 
 class FirmsPlugin(DasPlugin):
 
-    def __init__(self, plugin_conf, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
+
+    def __init__(self, config=None, target=None):
+        super().__init__(config=config, target=target)
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.client = FirmsClient(config=self.config.configuration)
 
-        self._config = plugin_conf
-        self.client = FirmsClient(config=self._config.configuration)
-
-        polygons = self._config.configuration.get('polygons', None)
+        polygons = self.config.configuration.get('polygons', None)
 
         if polygons:
             polygons = list((Polygon(p) for p in polygons))
@@ -137,9 +136,9 @@ class FirmsPlugin(DasPlugin):
         for source in sources:
 
             try:
-                pcs = PluginConfSource.objects.get(source=source, plugin_conf=self._config)
+                pcs = PluginConfSource.objects.get(source=source, plugin_conf=self.config)
             except PluginConfSource.DoesNotExist:
-                pcs = PluginConfSource(source=source, plugin_conf=self._config, additional=dict(highest_sequence=-1))
+                pcs = PluginConfSource(source=source, plugin_conf=self.config, additional=dict(highest_sequence=-1))
                 pcs.save()
 
             self.logger.info("Fetching data for manufacturer_id %s" % (source.manufacturer_id,))

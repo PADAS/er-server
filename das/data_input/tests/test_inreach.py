@@ -19,7 +19,7 @@ class TestInreachProvider(TransactionTestCase):
         print(pc)
 
         with InreachTarget() as consumer:
-            sp = InreachPlugin(pc, target=consumer)
+            sp = InreachPlugin(config=pc, target=consumer)
             sp.execute()
 
     # def test_account_plugin_with_target(self):

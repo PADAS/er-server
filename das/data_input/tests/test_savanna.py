@@ -19,6 +19,6 @@ class TestSavannaProvider(TransactionTestCase):
         print(pc)
 
         with SavannaTarget() as consumer:
-            sp = SavannaPlugin(pc, target=consumer)
+            sp = SavannaPlugin(config=pc, target=consumer)
             sp.execute()
 
