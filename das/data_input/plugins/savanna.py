@@ -99,10 +99,12 @@ DEFAULT_START_TIME = datetime.datetime(2015, 8, 1, tzinfo=pytz.utc).isoformat()
 
 class SavannaPlugin(DasPlugin):
 
-    def __init__(self, plugin_conf, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
-        self._config = plugin_conf
-        self.client = SavannaClient(config=self._config.configuration)
+
+    def __init__(self, config=None, target=None):
+        super().__init__(config=config, target=target)
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        self.client = SavannaClient(config=self.config.configuration)
 
     def _fetch(self):
 
@@ -110,9 +112,9 @@ class SavannaPlugin(DasPlugin):
         for source in sources:
 
             try:
-                pcs = PluginConfSource.objects.get(source=source, plugin_conf=self._config)
+                pcs = PluginConfSource.objects.get(source=source, plugin_conf=self.config)
             except PluginConfSource.DoesNotExist:
-                pcs = PluginConfSource(source=source, plugin_conf=self._config, additional=dict(latest_timestamp=DEFAULT_START_TIME))
+                pcs = PluginConfSource(source=source, plugin_conf=self.config, additional=dict(latest_timestamp=DEFAULT_START_TIME))
                 pcs.save()
 
 

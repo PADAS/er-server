@@ -186,10 +186,15 @@ class SkygisticsSatelliteClient(SkygisticsClient):
 
 
 class SkygisticsSatellitePlugin(DasPlugin):
-    def __init__(self, config, target):
+
+    def __init__(self, config=None, target=None):
+
+        self.logger = logging.getLogger(self.__class__.__name__)
+
         # config should be a PluginConf object with a jsonb configuration attribute
         if hasattr(config, 'configuration'):
-            self.config = config
+
+            super().__init__(config=config, target=target)
 
             # todo:  sanity check config.configuration and extract relevant bits
             client_configuration = self.config.configuration
