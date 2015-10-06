@@ -4,7 +4,7 @@ from data_input.models import PluginConf
 
 class TestInreachProvider(TransactionTestCase):
 
-    fixtures = ['observations_source.json', 'data_input_pluginconf.json',]
+    fixtures = ['observations_source.json', 'data_input_pluginconf.json', 'data_input_pluginconfsource.json']
 
     def setUp(self):
         pass
@@ -21,8 +21,6 @@ class TestInreachProvider(TransactionTestCase):
         with InreachTarget() as consumer:
             sp = InreachPlugin(pc, target=consumer)
             sp.execute()
-
-        # x = input('Go on?')
 
     # def test_account_plugin_with_target(self):
     #     '''
