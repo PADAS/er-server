@@ -34,9 +34,9 @@
       "configuration": {},
       "updated_at": "2015-08-27T23:22:21.589Z",
       "created_at": "2015-08-27T23:22:21.589Z",
-      "plugin_name": "inreach"
+      "plugin_name": "ap-garamba-inreach"
     },
-    "pk": "f70f01d4-043c-43a7-be0c-2c441a0f2998",
+    "pk": "791d0a6a-2f38-466d-842b-8c5e9409134f",
     "model": "data_input.pluginconf"
   }
 ]

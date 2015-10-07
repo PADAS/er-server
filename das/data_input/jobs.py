@@ -37,24 +37,28 @@ def run_firms():
 
 
 def run_inreach():
-    logger.info('Running inreach job.')
-    try:
-        pc = PluginConf.objects.get(plugin_name='inreach')
-    except Exception:
-        raise Exception("Looks like data hasn't been loaded for plugin_conf.")
 
-    with InreachTarget() as consumer:
-        sp = InreachPlugin(pc, target=consumer)
-        sp.execute()
+    for pn in ('inreach', 'ap-garamba-inreach'):
+        logger.info('Running %s job.', pn)
+        try:
+            pc = PluginConf.objects.get(plugin_name=pn)
+        except Exception:
+            logger.error("No PluginConf data for job %s", pn)
+
+        with InreachTarget() as consumer:
+            sp = InreachPlugin(pc, target=consumer)
+            sp.execute()
 
 
 def run_skygistics():
-    logger.info('Running skygistics satellite job.')
-    try:
-        pc = PluginConf.objects.get(plugin_name='skygistics')
-    except Exception:
-        raise Exception("Looks like data hasn't been loaded for plugin_conf.")
+    for pn in ('test-skygistics', 'ap-skygistics'):
+        logger.info('Running %s satellite job.', pn)
+        try:
+            pc = PluginConf.objects.get(plugin_name=pn)
+        except Exception:
+            logger.error("No PluginConf data for job %s", pn)
 
-    with SkygisticsTarget() as consumer:
-        sp = SkygisticsSatellitePlugin(pc, target=consumer)
-        sp.execute()
+        with SkygisticsTarget() as consumer:
+            sp = SkygisticsSatellitePlugin(pc, target=consumer)
+            sp.execute()
+

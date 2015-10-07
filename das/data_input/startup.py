@@ -18,6 +18,7 @@ def add_scheduled_jobs(scheduler):
     scheduler.add_job(run_savanna, id='savanna_import', trigger='cron', minute='*/17', replace_existing=True)
     scheduler.add_job(run_firms, id='firms_import', trigger='cron', minute='*/99', replace_existing=True)
     scheduler.add_job(run_inreach, id='inreach_import', trigger='cron', minute='*/13', replace_existing=True)
+    scheduler.add_job(run_skygistics, id='skygistics_import', trigger='cron', minute='*/11', replace_existing=True)
     scheduler.add_job(heartbeat, id='heartbeat', trigger='cron', minute='*/10', replace_existing=True)
 
 def start_scheduler():
