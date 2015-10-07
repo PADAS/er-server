@@ -1498,5 +1498,15 @@
       "manufacturer_id": "300434060291470",
       "additional": {}
     }
+  },
+  {
+    "pk": "3ccbbbba-1501-41e8-8c31-12815dbb81f9",
+    "model": "observations.source",
+    "fields": {
+      "model_name": "Delorme InReach SE",
+      "source_type": "inreach",
+      "manufacturer_id": "300434060945130",
+      "additional": {"note": "In Garamba, listed under darrenp@african-parks.org"}
+    }
   }
 ]

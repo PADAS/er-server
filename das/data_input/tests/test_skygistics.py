@@ -124,7 +124,7 @@ class TestSkygisticsFetch(TestCase):
                                                },
                                                'host': 'http://skyq1.skygistics.com',
                                            })
-        if settings.SKYGISTICS_TEST:
+        if hasattr(settings, 'SKYGISTICS_TEST'):
             config.configuration['credentials']['username'] = settings.SKYGISTICS_TEST['username']
             config.configuration['credentials']['password'] = settings.SKYGISTICS_TEST['password']
         self.plugin = SkygisticsSatellitePlugin(config, target)
@@ -233,7 +233,7 @@ class TestSkygisticsPluginWithSkygisticsTarget(TestCase):
 
     def test_target(self):
         config = PluginConf.objects.get(plugin_name='skygistics')
-        if settings.SKYGISTICS_TEST:
+        if hasattr(settings, 'SKYGISTICS_TEST'):
             config.configuration['credentials']['username'] = settings.SKYGISTICS_TEST['username']
             config.configuration['credentials']['password'] = settings.SKYGISTICS_TEST['password']
         with SkygisticsTarget() as target:
