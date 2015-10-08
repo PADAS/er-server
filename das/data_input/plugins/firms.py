@@ -154,7 +154,7 @@ class FirmsPlugin(DasPlugin):
 
     def pass_filter(self, observation):
         if self._geo_filter:
-            p  = Point(observation['lat'], observation['lon'])
+            p  = Point(observation['lon'], observation['lat'])
             return self._geo_filter.contains(p)
         return True
 

@@ -12,14 +12,14 @@ GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
 import uuid
+
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.db.models import Q
 from django.db.models import Max
 from django.utils.text import slugify
-import pytz
 from django.contrib.gis.geos import Point
-import datetime
+
 SOURCE_TYPES = (
     ('tracking-device', 'Tracking Device'),
     ('trap', 'Trap'),
@@ -65,7 +65,6 @@ class ObservationManager(models.GeoManager):
         subject_sources = sorted(subject_sources,
                                  key=lambda ss: ss.assigned_range.lower,
                                  reverse=True)
-        sql = '''SELECT * FROM observations_oberservation o WHERE o.source_id = %(source_id)s o.recorded_at in %(range)s'''
 
         qs = None
         for ss in subject_sources:
@@ -108,7 +107,8 @@ class ObservationManager(models.GeoManager):
         result = result.order_by('-recorded_at')
         result = result.exclude(location=EMPTY_POINT)
         gt = last_observation.recorded_at - last_days
-        return result.filter(recorded_at__gt=gt)
+        result = result.filter(recorded_at__gt=gt)
+        return result
 
     def add_observation(self, source, observation):
         '''

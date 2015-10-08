@@ -257,6 +257,8 @@ SWAGGER_SETTINGS = {
     }
 }
 
+OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600*48}
+
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
