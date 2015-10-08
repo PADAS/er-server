@@ -1,37 +1,61 @@
+{% load staticfiles %}
 <html>
 <head>
-    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.5/leaflet.css"/>
-    <script src="http://cdn.leafletjs.com/leaflet-0.7.5/leaflet.js"></script>
+    <link rel="stylesheet" href="{% static 'css/leaflet-0.7.5/leaflet.css' %}"/>
+    <script src="{% static 'js/leaflet-0.7.5/leaflet.js' %}"></script>
+    <script src="{% static 'js/leaflet-0.7.5/leaflet.ajax.min.js' %}"></script>
 </head>
 <body>
 <div id="map" style="width: 100%; height: 100%"></div>
 <script>
-    var map = L.map('map').setView([0.0, 20.6], 4);
 
+    {# base maps #}
+    {# todo:  add the Odzala base map as a baseLayer option  #}
     var osm = L.tileLayer('http://b.tile.openstreetmap.com/{z}/{x}/{y}.png', {
         maxZoom: 18,
         attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
             '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a> ',
         id: 'examples.map-20v6611k'
     });
-    map.addLayer(osm);
 
-    var feature = new L.GeoJSON.AJAX(
-        "{% url 'mapping-coverage-geojson' %}",
+    var map = L.map('map', {
+        center:  [0.85, 15.00],
+        zoom: 9,
+        layers: [osm]
+    });
+
+    {# vector layers for overlays ... depend on sample data in test fixtures #}
+    boundaries = new L.GeoJSON.AJAX(
+        "{% url 'mapping-feature-geojson' '498c2de9e9b44aeeaa24593c160213bc'%}",
         {
-            style: style,
-            onEachFeature: onEachFeature
+            {# todo: should use the presentation in the feature to control color, width, etc. #}
+            style: {
+                weight: 2,
+                color: 'red'
+            }
         }).addTo(map);
+    function onEachFeature(feature, layer) {
+        if (feature.properties && feature.properties.name) {
+            layer.bindPopup(feature.properties.name);
+        }
+    }
+    camps = new L.GeoJSON.AJAX(
+        "{% url 'mapping-featureset-geojson' 'c79d3696c770473ab554b731bbd46ee3'%}",
+        {
+            onEachFeature: onEachFeature
+            {# todo: should use the presentation in the feature to control icon, etc. #}
+        }
+    ).addTo(map);
 
+    {# layers control #}
     var baseLayers = {
-        "OpenStreetMap": osm
+        "Open Street Map": osm
     };
-
     var overlays = {
+        "Park boundary": boundaries,
+        "Camps": camps
     };
-
     L.control.layers(baseLayers, overlays).addTo(map);
-
 
 </script>
 </body>
