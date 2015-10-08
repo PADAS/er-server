@@ -1,7 +1,7 @@
 import uuid
 
 from django.contrib.gis.db import models
-from django_pgjson.fields import JsonBField
+from django.contrib.postgres.fields import JSONField
 
 from core.models import TimestampedModel
 
@@ -45,7 +45,7 @@ class Feature(TimestampedModel):
     description = models.TextField(null=True, blank=True)
 
     # attributes for presentation
-    presentation = JsonBField()
+    presentation = JSONField()
 
     # the feature set with which this feature is being grouped.
     # todo:  evaluate whether many-to-many might be a better approach or stick with this simple approach

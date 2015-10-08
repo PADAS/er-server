@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 import django.contrib.gis.db.models.fields
 from django.db import migrations, models
 import django.db.models.deletion
-import django_pgjson.fields
+import django.contrib.postgres.fields
 import uuid
 
 
@@ -50,7 +50,7 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
                 ('name', models.CharField(max_length=80, unique=True)),
                 ('description', models.TextField(blank=True, null=True)),
-                ('presentation', django_pgjson.fields.JsonBField()),
+                ('presentation', django.contrib.postgres.fields.JSONField()),
                 ('feature_geometry', django.contrib.gis.db.models.fields.MultiLineStringField(srid=4326)),
                 ('featureset', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='mapping.FeatureSet')),
                 ('type', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='mapping.FeatureType')),
@@ -67,7 +67,7 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
                 ('name', models.CharField(max_length=80, unique=True)),
                 ('description', models.TextField(blank=True, null=True)),
-                ('presentation', django_pgjson.fields.JsonBField()),
+                ('presentation', django.contrib.postgres.fields.JSONField()),
                 ('feature_geometry', django.contrib.gis.db.models.fields.MultiPointField(srid=4326)),
                 ('featureset', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='mapping.FeatureSet')),
                 ('type', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='mapping.FeatureType')),
@@ -84,7 +84,7 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
                 ('name', models.CharField(max_length=80, unique=True)),
                 ('description', models.TextField(blank=True, null=True)),
-                ('presentation', django_pgjson.fields.JsonBField()),
+                ('presentation', django.contrib.postgres.fields.JSONField()),
                 ('feature_geometry', django.contrib.gis.db.models.fields.MultiPolygonField(srid=4326)),
                 ('featureset', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='mapping.FeatureSet')),
                 ('type', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='mapping.FeatureType')),

@@ -31,7 +31,8 @@ urlpatterns = [
     url(r'^subject/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/sources/?$', views.SubjectSourcesView.as_view()),
     url(r'^subject/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/source/(?P<source_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.SubjectSourceView.as_view()),
     url(r'^subject/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/source/(?P<source_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/tracks/?$', views.SubjectSourceTrackView.as_view()),
-    url(r'^mapping/', include('mapping.urls')),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
+
+urlpatterns += url(r'^mapping/', include('mapping.urls')),
