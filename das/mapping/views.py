@@ -6,7 +6,8 @@ from django.core.urlresolvers import reverse
 from django.http import HttpResponse
 from django.views.generic import View
 
-from mapping.models import PolygonFeature, LineFeature, PointFeature, BaseMap
+from raster.models import RasterLayer
+from mapping.models import PolygonFeature, LineFeature, PointFeature, FeatureSet
 
 
 class FeatureListJsonView(View):
@@ -21,7 +22,7 @@ class FeatureListJsonView(View):
         for feature in features:
             response_data['features'].append({
                 'name': feature.name,
-                'type': feature.type,
+                'type': feature.type.name,
                 'description': feature.description if feature.description else '',
                 'geojson_url': reverse('mapping-feature-geojson', args=[feature.id.hex]),
             })
@@ -34,7 +35,39 @@ class FeatureGeoJsonView(View):
                             list(chain(PolygonFeature.objects.filter(id=feature_id),
                                        LineFeature.objects.filter(id=feature_id),
                                        PointFeature.objects.filter(id=feature_id))),
-                            fields='name, type, presentation, description, feature_geometry,'
+                            fields='name, presentation, feature_geometry,'
+                            )
+        return HttpResponse(feature, content_type='application/json')
+
+
+class FeatureSetListJsonView(View):
+    """
+    A simple list of featuresets available to the clients
+    """
+
+    def get(self, request):
+        # todo:  add api docs
+        response_data = {'das_api_stuff': 'goes_here', 'features': []}
+        featuresets = FeatureSet.objects.all()
+        for featureset in featuresets:
+            response_data['features'].append({
+                'name': featureset.name,
+                'type': featureset.type.name,
+                'description': featureset.description if featureset.description else '',
+                'geojson_url': reverse('mapping-featureset-geojson', args=[featureset.id.hex]),
+            })
+        return HttpResponse(simplejson.dumps(response_data), content_type='application/json')
+
+
+class FeatureSetGeoJsonView(View):
+    def get(self, request, featureset_id):
+        # todo:  better 404 handling, what to do with empty featureset
+        featureset = FeatureSet.objects.get(id=featureset_id)
+        feature = serialize('geojson',
+                            list(chain(PolygonFeature.objects.filter(featureset=featureset),
+                                       LineFeature.objects.filter(featureset=featureset),
+                                       PointFeature.objects.filter(featureset=featureset))),
+                            fields='name, presentation, feature_geometry,'
                             )
         return HttpResponse(feature, content_type='application/json')
 
@@ -48,14 +81,14 @@ class BaseMapListJsonView(View):
         # todo:  add api docs
         # todo:  should draw its list from the raster tables.
         response_data = {'das_api_stuff': 'goes_here', 'base_maps': []}
-        base_maps = BaseMap.objects.all()
+        base_maps = RasterLayer.objects.all()
         for base_map in base_maps:
             response_data['base_maps'].append({
                 'name': base_map.name,
                 'description': base_map.description if base_map.description else '',
-                'raster_file': base_map.raster_file,
+                'rasterfile': base_map.rasterfile.name,
                 # todo:  this is nonsense right now ... it should point to the raster tiles url for the tif
-                'tms_url': '{0}/{{z}}/{{x}}/{{y}}.png'.format(
-                    reverse('mapping-tile-sample', args=[base_map.raster_file])),
+                #    need the rasterfile name and tms url
+                'tms_url': '{{}}/{{z}}/{{x}}/{{y}}.png'
             })
         return HttpResponse(simplejson.dumps(response_data), content_type='application/json')
