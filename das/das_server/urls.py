@@ -26,6 +26,8 @@ urlpatterns = [
     url(r'^admin/', include(admin.site.urls)),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^oauth2/token$', oauth2_views.TokenView.as_view(), name="token"),
+    # raster tiles
+    url(r'^tms/', include('raster.urls')),
     url(r'^$', views.index),
 ]
 
