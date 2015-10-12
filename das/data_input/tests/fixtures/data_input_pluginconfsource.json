@@ -28,6 +28,16 @@
     },
     "model": "data_input.pluginconfsource",
     "pk": "2cf98931-bdb8-4c0b-9a6d-79a82dbe97f9"
+  },
+  {
+    "app_label": "data_input",
+    "fields": {
+      "plugin_conf": "264ef5ef-92ee-4090-85df-90a330ec33b8",
+      "source": "e6da7acb-21cc-4dd9-b937-16e45ce15e50",
+      "additional":  {"last_fetch": "2015-08-27T23:22:21.589Z"}
+    },
+    "model": "data_input.pluginconfsource",
+    "pk": "28336bf2-0764-467e-85fb-42833c346d3a"
   }
 ]
 

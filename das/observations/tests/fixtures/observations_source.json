@@ -1508,5 +1508,15 @@
       "manufacturer_id": "300434060945130",
       "additional": {"note": "In Garamba, listed under darrenp@african-parks.org"}
     }
+  },
+  {
+    "pk": "e6da7acb-21cc-4dd9-b937-16e45ce15e50",
+    "model": "observations.source",
+    "fields": {
+      "model_name": "Delorme InReach SE",
+      "source_type": "inreach",
+      "manufacturer_id": "300434060661240",
+      "additional": {"note": "In Odzala, under Erik M's account. Getting info via KML feed."}
+    }
   }
 ]

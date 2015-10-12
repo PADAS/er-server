@@ -70,6 +70,39 @@ class DasPlugin(object):
             self._insert(t)
 
 
+class DasPlugin2(object):
+    """
+    the basic skeleton for a data input plugin:
+        the scheduler will create the instance, optionally passing
+        configuration (connection) data and an insert target
+    """
+
+    def __init__(self, config=None, target=None):
+        """
+        :param config:  plugin configuration
+        :param target:  insert target
+        :return:  no
+        """
+        self.config = config
+        if hasattr(settings, 'DATA_INPUT_PLUGINS'):
+            local_config = settings.DATA_INPUT_PLUGINS.get(self.config.plugin_name)
+            self.config.configuration = self.config.configuration or {}
+            if local_config:
+                self.config.configuration.update(local_config)
+
+        self.cursor_pointer = None
+
+    def cursor(self, *args, **kwargs):
+        """
+        Return a generator giving data
+        """
+        raise NotImplementedError('Subclass must implement cursor')
+
+    def get_savepoint(self):
+        return self.cursor_pointer
+
+
+
 class PluginTarget(object):
     def __init__(self, config=None):
         self.__config = config
