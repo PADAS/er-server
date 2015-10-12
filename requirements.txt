@@ -30,6 +30,8 @@ GDAL==1.11.2
 #GDAL_DRIVER_PATH=C:\projects\das\dasvir\Lib\site-packages\osgeo\gdalplugins
 #PATH=C:\projects\das\dasvir\Lib\site-packages\osgeo
 
+fastkml==0.11
+
 #rq==0.5.4
 #django-rq==0.8.0
 
