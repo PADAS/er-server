@@ -2,6 +2,7 @@ from data_input.models import PluginConf
 from data_input.plugins.savanna import SavannaPlugin, SavannaTarget
 from data_input.plugins.firms import FirmsPlugin, FirmsTarget
 from data_input.plugins.inreach import InreachPlugin, InreachTarget
+from data_input.plugins.inreachkml import InreachKMLPlugin
 from data_input.plugins.skygistics import SkygisticsSatellitePlugin, SkygisticsTarget
 import logging
 
@@ -47,6 +48,20 @@ def run_inreach():
 
         with InreachTarget() as consumer:
             sp = InreachPlugin(pc, target=consumer)
+            sp.execute()
+
+
+def run_inreachkml():
+
+    for pn in ('ap-odzala-inreachkml',):
+        logger.info('Running %s job.', pn)
+        try:
+            pc = PluginConf.objects.get(plugin_name=pn)
+        except Exception:
+            logger.error("No PluginConf data for job %s", pn)
+
+        with InreachTarget() as consumer:
+            sp = InreachKMLPlugin(pc, target=consumer)
             sp.execute()
 
 
