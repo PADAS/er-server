@@ -118,7 +118,7 @@ def tile(request, name, z, x, y, catalog=None):
     except MissingTileError as e:
         logger.warning(_("Tile %s not available in %s") % ((z, x, y), name))
         if not app_settings.MBTILES['missing_tile_404']:
-            return HttpResponse(mimetype="image/png")
+            return HttpResponse(content_type="image/png")
     raise Http404
 
 
