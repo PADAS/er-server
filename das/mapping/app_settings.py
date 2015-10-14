@@ -4,7 +4,7 @@ from django.conf import settings
 
 MBTILES_ID_PATTERN = r'[\.\-_0-9a-zA-Z]+'
 MBTILES_CATALOG_PATTERN = MBTILES_ID_PATTERN
-MBTILES_DEFAULT = {'root': os.path.join(settings.MEDIA_ROOT, 'data'),
+MBTILES_DEFAULT = {'root': os.path.join(settings.MEDIA_ROOT, 'mbtiles'),
                    'tile_size': 256,
                    'ext': 'mbtiles',
                    'missing_tile_404': False}

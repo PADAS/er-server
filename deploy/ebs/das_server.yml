@@ -201,7 +201,7 @@ app:
                           08-make-tmp-cache-dir:
                             command: "mkdir -p /tmp/django_cache; chown wsgi /tmp/django_cache"
                           09-make-media-dir:
-                            command: "mkdir -p /var/media; chown wsgi /var/media"
+                            command: "mkdir -p /var/media/mbtiles; chown wsgi /var/media; chown wsgi /var/media/mbtiles"
 
     # Under the environments node is each environment and their config.
     # Environment specific configuration is determined by first processing
