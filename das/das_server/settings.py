@@ -50,7 +50,7 @@ INSTALLED_APPS = (
     'observations',
     'api',
     'data_input',
-    'mapping',
+    'mapping.apps.MappingConfig',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -124,6 +124,7 @@ DATABASES = {
         'USER': 'postgres',
     }
 }
+
 
 LOGGING = {
     'version': 1,
@@ -266,6 +267,8 @@ CACHES = {
         'LOCATION': '/tmp/django_cache',
     }
 }
+
+RASTER_WORKDIR = '/tmp/raster'
 
 '''
 Associate a plugin name with a plugin-configuration dict that will override the plugin's configuration in the database.

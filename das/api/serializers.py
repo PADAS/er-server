@@ -8,11 +8,6 @@ import das_utils.json
 class VersionSerializer(rest_framework.serializers.Serializer):
     version = rest_framework.serializers.CharField(read_only=True)
 
-    def to_representationsdfs(self, instance):
-        rep = {'version': instance['version']}
-        return rep
-
-
 
 class UserSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:

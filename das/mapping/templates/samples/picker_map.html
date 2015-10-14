@@ -3,13 +3,17 @@
 <head>
     <link rel="stylesheet" href="{% static 'css/leaflet-0.7.5/leaflet.css' %}"/>
     <script src="{% static 'js/leaflet-0.7.5/leaflet.js' %}"></script>
+    <script src='https://api.mapbox.com/mapbox.js/v2.2.2/mapbox.js'></script>
+    <link href='https://api.mapbox.com/mapbox.js/v2.2.2/mapbox.css' rel='stylesheet' />
     <script src="{% static 'js/leaflet-0.7.5/leaflet.ajax.min.js' %}"></script>
+
 </head>
 <body>
 <div id="map" style="width: 100%; height: 100%"></div>
 <script>
 
     {# base maps #}
+
     {# todo:  add the Odzala base map as a baseLayer option  #}
     var osm = L.tileLayer('http://b.tile.openstreetmap.com/{z}/{x}/{y}.png', {
         maxZoom: 18,
@@ -18,10 +22,12 @@
         id: 'examples.map-20v6611k'
     });
 
+    var mbtiles = L.mapbox.tileLayer("{% url 'tilejson' 'Odzala_LS8__13'%}");
+
     var map = L.map('map', {
         center:  [0.85, 15.00],
         zoom: 9,
-        layers: [osm]
+        layers: [osm, mbtiles]
     });
 
     {# vector layers for overlays ... depend on sample data in test fixtures #}
@@ -34,11 +40,13 @@
                 color: 'red'
             }
         }).addTo(map);
+
     function onEachFeature(feature, layer) {
         if (feature.properties && feature.properties.name) {
             layer.bindPopup(feature.properties.name);
         }
     }
+
     camps = new L.GeoJSON.AJAX(
         "{% url 'mapping-featureset-geojson' 'c79d3696c770473ab554b731bbd46ee3'%}",
         {
@@ -49,7 +57,8 @@
 
     {# layers control #}
     var baseLayers = {
-        "Open Street Map": osm
+        "Open Street Map": osm,
+        "Odzala MBTiles": mbtiles
     };
     var overlays = {
         "Park boundary": boundaries,

@@ -36,3 +36,5 @@ urlpatterns = [
 urlpatterns = format_suffix_patterns(urlpatterns)
 
 urlpatterns += url(r'^mapping/', include('mapping.urls')),
+# raster tiles
+urlpatterns += url(r'^tms/', include('raster.urls')),

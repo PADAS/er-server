@@ -9,6 +9,9 @@ requests==2.7.0
 Django==1.9a1
 
 djangorestframework==3.2.3
+#djangorestframework-gis==0.9.4
+#drf geojson serializers
+#django-spillway==0.5.1
 #https://github.com/mypebble/django-pgviews
 django-pgviews==0.0.5
 #see https://github.com/PADAS/django-geojson
