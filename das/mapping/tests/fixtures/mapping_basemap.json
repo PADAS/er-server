@@ -1,0 +1,185 @@
+[
+  {
+    "model": "raster.legendsemantics",
+    "pk": 2,
+    "fields": {
+      "name": "Forest above 600m",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 3,
+    "fields": {
+      "name": "Forest below 600m",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 4,
+    "fields": {
+      "name": "Forest Light",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 5,
+    "fields": {
+      "name": "Forest Riverine",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 6,
+    "fields": {
+      "name": "Riparian Zone",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 7,
+    "fields": {
+      "name": "Bais",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 8,
+    "fields": {
+      "name": "Forest Lowland",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 9,
+    "fields": {
+      "name": "Savanna",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 10,
+    "fields": {
+      "name": "Water",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 2,
+    "fields": {
+      "semantics": 2,
+      "expression": "x = 30",
+      "color": "#00ff00"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 3,
+    "fields": {
+      "semantics": 3,
+      "expression": "x = 31",
+      "color": "#00ff00"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 4,
+    "fields": {
+      "semantics": 4,
+      "expression": "x = 32",
+      "color": "#00ff00"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 5,
+    "fields": {
+      "semantics": 5,
+      "expression": "x = 40",
+      "color": "#00ff00"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 6,
+    "fields": {
+      "semantics": 6,
+      "expression": "x = 41",
+      "color": "#86fc03"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 7,
+    "fields": {
+      "semantics": 7,
+      "expression": "x = 42",
+      "color": "#55aaa2"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 8,
+    "fields": {
+      "semantics": 8,
+      "expression": "x = 43",
+      "color": "#00ff00"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 9,
+    "fields": {
+      "semantics": 9,
+      "expression": "x = 50",
+      "color": "#fef801"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 10,
+    "fields": {
+      "semantics": 10,
+      "expression": "x = 51",
+      "color": "#0013ff"
+    }
+  },
+  {
+    "model": "raster.legend",
+    "pk": 2,
+    "fields": {
+      "title": "Odzala Landcover",
+      "description": "",
+      "json": "[{\"color\": \"#00ff00\", \"name\": \"Forest above 600m\", \"expression\": \"x = 30\"}, {\"color\": \"#00ff00\", \"name\": \"Forest below 600m\", \"expression\": \"x = 31\"}, {\"color\": \"#00ff00\", \"name\": \"Forest Light\", \"expression\": \"x = 32\"}, {\"color\": \"#00ff00\", \"name\": \"Forest Riverine\", \"expression\": \"x = 40\"}, {\"color\": \"#00ff00\", \"name\": \"Forest Lowland\", \"expression\": \"x = 43\"}, {\"color\": \"#0013ff\", \"name\": \"Water\", \"expression\": \"x = 51\"}, {\"color\": \"#fef801\", \"name\": \"Savanna\", \"expression\": \"x = 50\"}, {\"color\": \"#55aaa2\", \"name\": \"Bais\", \"expression\": \"x = 42\"}, {\"color\": \"#86fc03\", \"name\": \"Riparian Zone\", \"expression\": \"x = 41\"}]",
+      "modified": "2015-10-08T15:19:05.089Z",
+      "entries": [
+        2,
+        3,
+        4,
+        5,
+        8,
+        10,
+        9,
+        7,
+        6
+      ]
+    }
+  }
+]

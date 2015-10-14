@@ -45,12 +45,12 @@ INSTALLED_APPS = (
     'oauth2_provider',
     'rest_framework',
     'rest_framework_swagger',
-    #'djgeojson',
-    # 'raster',
+    'djgeojson',
+    'raster',
     'observations',
     'api',
     'data_input',
-    'mapping',
+    'mapping.apps.MappingConfig',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -124,6 +124,7 @@ DATABASES = {
         'USER': 'postgres',
     }
 }
+
 
 LOGGING = {
     'version': 1,
@@ -214,7 +215,10 @@ TIME_ZONE = 'UTC'
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "www", "static")
-STATICFILES_DIRS = (os.path.join(BASE_DIR, 'api', 'static'),)
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, 'api', 'static'),
+    os.path.join(BASE_DIR, 'mapping', 'static')
+)
 
 SITE_ID = 1
 
@@ -265,6 +269,8 @@ CACHES = {
         'LOCATION': '/tmp/django_cache',
     }
 }
+
+RASTER_WORKDIR = '/tmp/raster'
 
 '''
 Associate a plugin name with a plugin-configuration dict that will override the plugin's configuration in the database.

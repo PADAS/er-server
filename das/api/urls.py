@@ -13,7 +13,7 @@ Including another URLconf
     1. Add an import:  from blog import urls as blog_urls
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
-from django.conf.urls import url
+from django.conf.urls import url, include
 from rest_framework.urlpatterns import format_suffix_patterns
 from api import views
 
@@ -34,3 +34,7 @@ urlpatterns = [
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
+
+urlpatterns += url(r'^mapping/', include('mapping.urls')),
+# raster tiles
+urlpatterns += url(r'^tms/', include('raster.urls')),
