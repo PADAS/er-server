@@ -34,10 +34,11 @@ class DasPlugin(object):
         :return:  no
         """
         self.config = config
-        local_config = settings.DATA_INPUT_PLUGINS.get(self.config.plugin_name)
-        self.config.configuration = self.config.configuration or {}
-        if local_config:
-            self.config.configuration.update(local_config)
+        if hasattr(settings, 'DATA_INPUT_PLUGINS'):
+            local_config = settings.DATA_INPUT_PLUGINS.get(self.config.plugin_name)
+            self.config.configuration = self.config.configuration or {}
+            if local_config:
+                self.config.configuration.update(local_config)
         self.target = target
 
     def _fetch(self, *args, **kwargs):

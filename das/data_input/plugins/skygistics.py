@@ -199,7 +199,6 @@ class SkygisticsSatellitePlugin(DasPlugin):
             # todo:  sanity check config.configuration and extract relevant bits
             client_configuration = self.config.configuration
             self.client = SkygisticsSatelliteClient(client_configuration)
-            super().__init__(self.config, target)
         else:
             raise DasPluginConfigurationError()
 

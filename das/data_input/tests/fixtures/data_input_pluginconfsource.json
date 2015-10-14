@@ -22,12 +22,12 @@
   {
     "app_label": "data_input",
     "fields": {
-      "plugin_conf": "f70f01d4-043c-43a7-be0c-2c441a0f2998",
-      "source": "8f3f3f26-c99c-438a-b293-ef14d0f014da",
-      "additional":  {  }
+      "plugin_conf": "791d0a6a-2f38-466d-842b-8c5e9409134f",
+      "source": "3ccbbbba-1501-41e8-8c31-12815dbb81f9",
+      "additional":  {"last_fetch": "2015-08-27T23:22:21.589Z"}
     },
     "model": "data_input.pluginconfsource",
-    "pk": "ecce7704-dff0-488f-94a9-5a1bea03ba53"
+    "pk": "2cf98931-bdb8-4c0b-9a6d-79a82dbe97f9"
   }
 ]
 
