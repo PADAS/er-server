@@ -84,7 +84,8 @@ class FeatureSetGeoJsonView(View):
         return HttpResponse(feature, content_type='application/json')
 
 
-OSM_GEOJSON = {'tiles': ['http://b.tile.openstreetmap.com/{z}/{x}/{y}.png',],
+OSM_GEOJSON = {'name': 'OpenStreetMap',
+               'tiles': ['http://b.tile.openstreetmap.com/{z}/{x}/{y}.png',],
                'maxZoom': 18,
                'attribution': 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, '
                               '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a> ',
