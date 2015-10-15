@@ -232,11 +232,11 @@ app:
                 EnvironmentType: "SingleInstance"
 
         # the production version of the app
-        'das-server-prod':
-            cname_prefix: 'das-server-prod'
-            option_settings:
-              'aws:elasticbeanstalk:application:environment':
-                DAS_ENV_NAME: 'prod'
+        #'das-server-prod':
+        #    cname_prefix: 'das-server-prod'
+        #    option_settings:
+        #      'aws:elasticbeanstalk:application:environment':
+        #        DAS_ENV_NAME: 'prod'
 
         # the odzala version of the app
         'das-server-odzala':
