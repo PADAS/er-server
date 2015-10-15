@@ -46,8 +46,12 @@ app:
               SecurityGroups: "sg-e0cf3284,sg-304ee854"
               ImageId: "ami-e11b0ed1"
 
+            'aws:autoscaling:asg':
+                MinSize: 1
+                MaxSize: 1
+
             'aws:elasticbeanstalk:environment':
-              EnvironmentType: "SingleInstance"
+              EnvironmentType: "LoadBalanced"
 
             'aws:elasticbeanstalk:application':
                 Application Healthcheck URL: '/api/v1.0/status'
@@ -65,6 +69,14 @@ app:
               VPCId: "vpc-e774e482"
               Subnets: "subnet-11bf3166,subnet-6910780c,subnet-0074d659"
               AssociatePublicIpAddress: "true"
+
+            'aws:elb:loadbalancer':
+                SSLCertificateId: 'arn:aws:iam::074677080781:server-certificate/wildcard-pamdas-org-2015'
+                LoadBalancerHTTPSPort: 443
+
+            'aws:elb:policies':
+                Stickiness Policy: true
+
 
         # instructions on how to build the application archive
         archive:
@@ -177,6 +189,8 @@ app:
                             command: "if [ ! -e /usr/lib/libgdal.so ]; then cd /opt; wget http://download.osgeo.org/gdal/1.11.2/gdal-1.11.2.tar.gz; tar -xzvf gdal-1.11.2.tar.gz; cd gdal-1.11.2; ./configure --prefix=/usr; make; make install; fi"
                           02-GEOS:
                             command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
+                          03-make-media-dir:
+                            command: "mkdir -p /var/media/mbtiles; chown wsgi /var/media; chown wsgi /var/media/mbtiles"
 
               - .ebextensions/03-commands.config:
                     permissions: 0666
@@ -200,8 +214,7 @@ app:
                             cwd: /opt/elasticbeanstalk/hooks
                           08-make-tmp-cache-dir:
                             command: "mkdir -p /tmp/django_cache; chown wsgi /tmp/django_cache"
-                          09-make-media-dir:
-                            command: "mkdir -p /var/media/mbtiles; chown wsgi /var/media; chown wsgi /var/media/mbtiles"
+
 
     # Under the environments node is each environment and their config.
     # Environment specific configuration is determined by first processing
@@ -215,6 +228,8 @@ app:
             option_settings:
               'aws:elasticbeanstalk:application:environment':
                 DAS_ENV_NAME: 'dev'
+              'aws:elasticbeanstalk:environment':
+                EnvironmentType: "SingleInstance"
 
         # the production version of the app
         'das-server-prod':
@@ -222,3 +237,10 @@ app:
             option_settings:
               'aws:elasticbeanstalk:application:environment':
                 DAS_ENV_NAME: 'prod'
+
+        # the odzala version of the app
+        'das-server-odzala':
+            cname_prefix: 'das-server-odzala'
+            option_settings:
+              'aws:elasticbeanstalk:application:environment':
+                DAS_ENV_NAME: 'odzala'
