@@ -25,7 +25,7 @@ class RasterLayerSerializer(serializers.ModelSerializer):
                          instance.metadata.uperlefty]
 
         request = self.context['request']
-        url = '{0}/tms/{1}'.format(os.path.dirname(os.path.dirname(request._request.path)), str(instance.id))
+        url = '{0}/tms/tiles/{1}'.format(os.path.dirname(os.path.dirname(request._request.path)), str(instance.id))
         url = request._request.build_absolute_uri(url)
         url = '{0}/{{z}}/{{x}}/{{y}}.png'.format(url)
         rep['tiles'] = [url, ]
