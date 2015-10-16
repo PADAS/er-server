@@ -180,16 +180,19 @@ app:
                                 libxml2-devel: []
                                 git: []
                                 libjpeg-turbo-devel: []
+                                libtiff-devel: []
 
               - .ebextensions/02-commands.config:
                     permissions: 0666
                     yaml:
                         commands:
-                          01-GDAL:
+                          01-PROJ:
+                            command: "if [ ! -e /usr/lib/libproj.so ]; then cd /opt; wget http://download.osgeo.org/proj/proj-4.9.2.tar.gz; tar -xzvf proj-4.9.2.tar.gz; cd proj-4.9.2; ./configure --prefix=/usr; make; make install; fi"
+                          02-GDAL:
                             command: "if [ ! -e /usr/lib/libgdal.so ]; then cd /opt; wget http://download.osgeo.org/gdal/1.11.2/gdal-1.11.2.tar.gz; tar -xzvf gdal-1.11.2.tar.gz; cd gdal-1.11.2; ./configure --prefix=/usr; make; make install; fi"
-                          02-GEOS:
+                          03-GEOS:
                             command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
-                          03-make-media-dir:
+                          04-make-media-dir:
                             command: "mkdir -p /var/media/mbtiles; chown wsgi /var/media; chown wsgi /var/media/mbtiles"
 
               - .ebextensions/03-commands.config:
@@ -214,6 +217,8 @@ app:
                             cwd: /opt/elasticbeanstalk/hooks
                           08-make-tmp-cache-dir:
                             command: "mkdir -p /tmp/django_cache; chown wsgi /tmp/django_cache"
+                          09-make-tmp-raster-dir:
+                            command: "mkdir -p /tmp/raster; chown wsgi /tmp/raster"
 
 
     # Under the environments node is each environment and their config.

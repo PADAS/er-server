@@ -1,14 +1,14 @@
 # to install requirements using pip
 # pip install -r requirements.txt --find-links wheelhouse
 #
-psycopg2==2.6
+psycopg2==2.6.1
 simplejson==3.8.0
-pytz==2015.4
+pytz==2015.6
 python-dateutil==2.4.2
-requests==2.7.0
+requests==2.8.1
 Django==1.9a1
 
-djangorestframework==3.2.3
+djangorestframework==3.2.4
 #djangorestframework-gis==0.9.4
 #drf geojson serializers
 #django-spillway==0.5.1
@@ -24,10 +24,10 @@ django-cors-headers==1.1.0
 django-oauth-toolkit==0.9.0
 django-rest-swagger==0.3.4
 #numpy 1.9.3, required by django-raster
-numpy==1.9.3
+numpy==1.10.1
 #django-raster==0.1.7
 git+https://github.com/PADAS/django-raster.git@master
-GDAL==1.11.2
+GDAL==1.11.3
 # Under windows add appropriate path'ed Environment Variables
 #GDAL_DATA=C:\projects\das\dasvir\Lib\site-packages\osgeo\data\gdal
 #GDAL_DRIVER_PATH=C:\projects\das\dasvir\Lib\site-packages\osgeo\gdalplugins
@@ -39,5 +39,6 @@ fastkml==0.11
 #django-rq==0.8.0
 
 # APScheduler requires SQLAlchemy if we hold schedule information in Postgres.
-APScheduler==3.0.3
+APScheduler==3.0.4
 SQLAlchemy==1.0.8
+six==1.10.0
