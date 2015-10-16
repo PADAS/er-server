@@ -13,7 +13,7 @@ app:
     description: 'Domain Awareness System' # description of your app
 
     all_environments:
-        solution_stack_name: '64bit Amazon Linux 2015.03 v2.0.0 running Python 3.4'
+        solution_stack_name: '64bit Amazon Linux 2015.03 v2.0.1 running Python 3.4'
 
         # optional information on the tier type
         # check the boto documentation for create_environment
@@ -40,11 +40,13 @@ app:
 
 
             'aws:autoscaling:launchconfiguration':
-              InstanceType: "t1.micro"
+              #InstanceType: "t1.micro"
+              InstanceType: "m4.large"
               IamInstanceProfile: "arn:aws:iam::074677080781:instance-profile/das_server-dev"
               EC2KeyName: "das-dev"
               SecurityGroups: "sg-e0cf3284,sg-304ee854"
-              ImageId: "ami-e11b0ed1"
+              ImageId: "ami-78bb5b4b"
+              #ImageId: "ami-21637d11" - amazon eb
 
             'aws:autoscaling:asg':
                 MinSize: 1
@@ -189,9 +191,9 @@ app:
                           01-PROJ:
                             command: "if [ ! -e /usr/lib/libproj.so ]; then cd /opt; wget http://download.osgeo.org/proj/proj-4.9.2.tar.gz; tar -xzvf proj-4.9.2.tar.gz; cd proj-4.9.2; ./configure --prefix=/usr; make; make install; fi"
                           02-GDAL:
-                            command: "if [ ! -e /usr/lib/libgdal.so ]; then cd /opt; wget http://download.osgeo.org/gdal/1.11.2/gdal-1.11.2.tar.gz; tar -xzvf gdal-1.11.2.tar.gz; cd gdal-1.11.2; ./configure --prefix=/usr; make; make install; fi"
+                            command: "if [ ! -e /usr/lib/libgdal.so ]; then cd /opt; wget http://download.osgeo.org/gdal/1.11.3/gdal-1.11.3.tar.gz; tar -xzvf gdal-1.11.3.tar.gz; cd gdal-1.11.3; ./configure --prefix=/usr; make; make install; fi"
                           03-GEOS:
-                            command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.3.9.tar.bz2; tar -xjf geos-3.3.9.tar.bz2; cd geos-3.3.9; ./configure; make; make install; fi"
+                            command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.4.2.tar.bz2; tar -xjf geos-3.4.2.tar.bz2; cd geos-3.4.2; ./configure; make; make install; fi"
                           04-make-media-dir:
                             command: "mkdir -p /var/media/mbtiles; chown wsgi /var/media; chown wsgi /var/media/mbtiles"
 
@@ -244,8 +246,8 @@ app:
         #        DAS_ENV_NAME: 'prod'
 
         # the odzala version of the app
-        'das-server-odzala':
-            cname_prefix: 'das-server-odzala'
-            option_settings:
-              'aws:elasticbeanstalk:application:environment':
-                DAS_ENV_NAME: 'odzala'
+        #'das-server-odzala':
+        #    cname_prefix: 'das-server-odzala'
+        #    option_settings:
+        #      'aws:elasticbeanstalk:application:environment':
+        #        DAS_ENV_NAME: 'odzala'
