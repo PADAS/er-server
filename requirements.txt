@@ -27,7 +27,7 @@ django-rest-swagger==0.3.4
 numpy==1.10.1
 #django-raster==0.1.7
 git+https://github.com/PADAS/django-raster.git@master
-GDAL==1.11.3
+GDAL==1.11.2
 # Under windows add appropriate path'ed Environment Variables
 #GDAL_DATA=C:\projects\das\dasvir\Lib\site-packages\osgeo\data\gdal
 #GDAL_DRIVER_PATH=C:\projects\das\dasvir\Lib\site-packages\osgeo\gdalplugins
