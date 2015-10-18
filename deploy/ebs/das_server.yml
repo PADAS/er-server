@@ -40,8 +40,8 @@ app:
 
 
             'aws:autoscaling:launchconfiguration':
-              #InstanceType: "t1.micro"
-              InstanceType: "m4.large"
+              InstanceType: "t2.micro"
+              #InstanceType: "m4.large"
               IamInstanceProfile: "arn:aws:iam::074677080781:instance-profile/das_server-dev"
               EC2KeyName: "das-dev"
               SecurityGroups: "sg-e0cf3284,sg-304ee854"
@@ -196,6 +196,10 @@ app:
                             command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.4.2.tar.bz2; tar -xjf geos-3.4.2.tar.bz2; cd geos-3.4.2; ./configure; make; make install; fi"
                           04-make-media-dir:
                             command: "mkdir -p /var/media/mbtiles; chown wsgi /var/media; chown wsgi /var/media/mbtiles"
+                          05-make-tmp-cache-dir:
+                            command: "mkdir -p /tmp/django_cache; chown wsgi /tmp/django_cache"
+                          06-make-tmp-raster-dir:
+                            command: "mkdir -p /tmp/raster; chown wsgi /tmp/raster"
 
               - .ebextensions/03-commands.config:
                     permissions: 0666
@@ -217,10 +221,7 @@ app:
                           07-fix-wsgi-oauth:
                             command: "if [ ! grep -q WSGIPassAuthorization config.py ]; then sed -i.bak '/WSGIScriptAlias/ aWSGIPassAuthorization On' config.py; fi"
                             cwd: /opt/elasticbeanstalk/hooks
-                          08-make-tmp-cache-dir:
-                            command: "mkdir -p /tmp/django_cache; chown wsgi /tmp/django_cache"
-                          09-make-tmp-raster-dir:
-                            command: "mkdir -p /tmp/raster; chown wsgi /tmp/raster"
+
 
 
     # Under the environments node is each environment and their config.
