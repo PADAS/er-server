@@ -210,17 +210,20 @@ app:
                         container_commands:
                           02-collectstatic:
                             command: "source /opt/python/run/venv/bin/activate && python das/manage.py collectstatic --noinput --settings=das_server.local_settings"
-                          03-deflate:
+                          03-fix-file-perms:
+                            command: "chown wsgi /tmp/das.log; chown wsgi /tmp/das-data_input.log"
+                          04-deflate:
                             command: "cp deflate.conf /etc/httpd/conf.d/"
-                          04-apscheduler:
+                          05-apscheduler:
                             command: "cp apscheduler.conf /opt/python/etc/"
-                          05-installappscheduler:
-                            command: "cp 99_supervisord_apscheduler.sh /opt/elasticbeanstalk/hooks/appdeploy/post/"
                           06-installappscheduler:
+                            command: "cp 99_supervisord_apscheduler.sh /opt/elasticbeanstalk/hooks/appdeploy/post/"
+                          07-installappscheduler:
                             command: "cp 99_supervisord_apscheduler.sh /opt/elasticbeanstalk/hooks/configdeploy/post/"
-                          07-fix-wsgi-oauth:
-                            command: "if [ ! grep -q WSGIPassAuthorization config.py ]; then sed -i.bak '/WSGIScriptAlias/ aWSGIPassAuthorization On' config.py; fi"
+                          08-fix-wsgi-oauth:
+                            command: "if ! grep -q WSGIPassAuthorization config.py; then sed -i.bak '/WSGIScriptAlias/ aWSGIPassAuthorization On' config.py; fi"
                             cwd: /opt/elasticbeanstalk/hooks
+
 
 
 
