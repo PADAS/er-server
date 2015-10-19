@@ -32,6 +32,7 @@ SOURCE_TYPES = (
 def to_rgb(color):
     return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(',')])
 
+DEFAULT_COLOR = '255,255,0'
 
 class SourceManager(models.Manager):
     pass
@@ -243,7 +244,7 @@ class Subject(models.Model):
 
     @property
     def color(self):
-        color = self.additional.get('rgb', None)
+        color = self.additional.get('rgb', DEFAULT_COLOR)
         if color:
             color = to_rgb(color)
         return color
@@ -295,7 +296,7 @@ MARKER_ICONS = {
     'elephant-female': '/static/Elephant_Female.png',
     'lion-male': '/static/Lion_Male.png',
     'lion-female': '/static/Lion_Female.png',
-    'vehicle': 'http://maps.google.com/mapfiles/kml/shapes/truck.png',
+    'vehicle': '/static/truck.png',
     'cow': '',
     'cheetah': '',
     'expedition': 'http://maps.google.com/mapfiles/kml/shapes/triangle.png',
