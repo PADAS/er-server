@@ -31,6 +31,7 @@ app:
         option_settings:
             'aws:elasticbeanstalk:container:python:staticfiles':
                 "/static": "/opt/python/current/app/das/www/static"
+                "/assets": "/opt/python/current/app/das/www/assets"
                 "/app": "/opt/python/current/app/das/www/app"
                 "/bower_components": "/opt/python/current/app/das/www/bower_components"
                 "/index.html": "/opt/python/current/app/das/www/index.html"
