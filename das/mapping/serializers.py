@@ -13,6 +13,7 @@ class RasterLayerSerializer(serializers.ModelSerializer):
 
         rep.update(dict(tilejson='2.1.0',
                         version='1.0.0',
+                        autoscale=False,
                         ))
 
         #rep['scheme'] = 'tms'

@@ -20,7 +20,7 @@ import oauth2_provider.views as oauth2_views
 from das_server import views
 
 urlpatterns = [
-    url(r'^api/v1.0/', include('api.urls')),
+    url(r'^api/v1.0/', include('api.urls', namespace='v1.0')),
     url(r'^api/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     url(r'^api/docs/', include('rest_framework_swagger.urls')),
     url(r'^admin/', include(admin.site.urls)),

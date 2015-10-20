@@ -104,6 +104,8 @@ REST_FRAMEWORK = {
         'das_utils.json.ExtendedBrowsableAPIRenderer',
     ),
     'EXCEPTION_HANDLER': 'das.api.views.api_exception_handler',
+    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
+    'DEFAULT_VERSION': 'v1.0',
 }
 
 AUTHENTICATION_BACKENDS = (
@@ -277,3 +279,6 @@ Associate a plugin name with a plugin-configuration dict that will override the 
 '''
 DATA_INPUT_PLUGINS = {
 }
+
+#would want to set this to where you might have some MBTiles maps
+MAPPING = {'MBTILES': {'root': '\tmp',}}

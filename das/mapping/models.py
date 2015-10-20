@@ -262,14 +262,15 @@ class MBTiles(object):
             "center": self.center,
             "minzoom": self.minzoom,
             "maxzoom": self.maxzoom,
+            "autoscale": False,
         })
         # Additionnal info
         try:
             kwargs = dict(name=self.id, x='{x}',y='{y}',z='{z}')
             if self.catalog:
                 kwargs['catalog'] = self.catalog
-            tilepattern = reverse("mbtilesmap:tile", kwargs=kwargs)
-            gridpattern = reverse("mbtilesmap:grid", kwargs=kwargs)
+            tilepattern = reverse("v1.0:tile", kwargs=kwargs)
+            gridpattern = reverse("v1.0:grid", kwargs=kwargs)
         except NoReverseMatch:
             # In case django-mbtiles was not registered in namespace mbtilesmap
             tilepattern = reverse("tile", kwargs=dict(name=self.id, x='{x}',y='{y}',z='{z}'))

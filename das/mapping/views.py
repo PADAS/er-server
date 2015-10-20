@@ -9,6 +9,7 @@ from django.http import HttpResponse, Http404
 from django.views.generic import View
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import generics
+from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -22,7 +23,7 @@ from mapping import app_settings
 logger = logging.getLogger(__name__)
 
 
-class FeatureListJsonView(View):
+class FeatureListJsonView(APIView):
     """
     A simple list of vector layers available to the clients
     """
@@ -36,12 +37,12 @@ class FeatureListJsonView(View):
                 'name': feature.name,
                 'type': feature.type.name,
                 'description': feature.description if feature.description else '',
-                'geojson_url': reverse('mapping-feature-geojson', args=[feature.id.hex]),
+                'geojson_url': reverse('v1.0:mapping-feature-geojson', args=[feature.id.hex]),
             })
         return HttpResponse(json.dumps(response_data), content_type='application/json')
 
 
-class FeatureGeoJsonView(View):
+class FeatureGeoJsonView(APIView):
     def get(self, request, feature_id):
         feature = serialize('geojson',
                             list(chain(PolygonFeature.objects.filter(id=feature_id),
@@ -52,7 +53,7 @@ class FeatureGeoJsonView(View):
         return HttpResponse(feature, content_type='application/json')
 
 
-class FeatureSetListJsonView(View):
+class FeatureSetListJsonView(APIView):
     """
     A simple list of featuresets available to the clients
     """
@@ -66,12 +67,12 @@ class FeatureSetListJsonView(View):
                 'name': featureset.name,
                 'type': featureset.type.name,
                 'description': featureset.description if featureset.description else '',
-                'geojson_url': reverse('mapping-featureset-geojson', args=[featureset.id.hex]),
+                'geojson_url': reverse('v1.0:mapping-featureset-geojson', args=[featureset.id.hex]),
             })
         return HttpResponse(json.dumps(response_data), content_type='application/json')
 
 
-class FeatureSetGeoJsonView(View):
+class FeatureSetGeoJsonView(APIView):
     def get(self, request, featureset_id):
         # todo:  better 404 handling, what to do with empty featureset
         featureset = FeatureSet.objects.get(id=featureset_id)
@@ -106,6 +107,7 @@ class MapListJsonView(APIView):
         return Response(list(itertools.chain(rasters_s.data, mbtiles_s, [OSM_GEOJSON,])))
 
 
+@api_view(['GET',])
 def tile(request, name, z, x, y, catalog=None):
     """ Serve a single image tile """
     try:
@@ -122,7 +124,7 @@ def tile(request, name, z, x, y, catalog=None):
             return HttpResponse(content_type="image/png")
     raise Http404
 
-
+@api_view(['GET',])
 def preview(request, name, catalog=None):
     try:
         mbtiles = MBTiles(name, catalog)
@@ -133,6 +135,7 @@ def preview(request, name, catalog=None):
     raise Http404
 
 
+@api_view(['GET',])
 def grid(request, name, z, x, y, catalog=None):
     """ Serve a single UTF-Grid tile """
     callback = request.GET.get('callback', None)
@@ -148,6 +151,8 @@ def grid(request, name, z, x, y, catalog=None):
         logger.warning(_("Grid tile %s not available in %s") % ((z, x, y), name))
     raise Http404
 
+
+@api_view(['GET',])
 def tilejson(request, name, catalog=None):
     """ Serve the map configuration as TileJSON """
     callback = request.GET.get('callback', None)
