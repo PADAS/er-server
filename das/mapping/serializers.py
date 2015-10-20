@@ -15,7 +15,7 @@ class RasterLayerSerializer(serializers.ModelSerializer):
                         version='1.0.0',
                         ))
 
-        rep['scheme'] = 'tms'
+        #rep['scheme'] = 'tms'
         rep['legend'] = instance.legend.json
         #rep['maxzoom'] = instance.metadata.max_zoom
         #rep['minzoom'] = 0
