@@ -249,5 +249,8 @@ class SkygisticsSatellitePlugin(DasPlugin):
 class SkygisticsTarget(PluginTarget):
     def _handle_item(self, item):
         (source, observation) = item
-        # todo:  reconcile dupes??
-        Observation.objects.add_observation(source, observation)
+        if self._pass_filter(observation):
+            Observation.objects.add_observation(source, observation)
+
+    def _pass_filter(self, observation):
+        return not (int(observation['lon']) == 180 and int(observation['lat']) == 90)
