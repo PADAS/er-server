@@ -9,7 +9,7 @@ from django.http import HttpResponse, Http404
 from django.views.generic import View
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import generics
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -107,7 +107,12 @@ class MapListJsonView(APIView):
         return Response(list(itertools.chain(rasters_s.data, mbtiles_s, [OSM_GEOJSON,])))
 
 
+#
+#Don't secure the following until we can have Leaflet use auth tokens
+#with this api for tiles
+#
 @api_view(['GET',])
+@permission_classes([])
 def tile(request, name, z, x, y, catalog=None):
     """ Serve a single image tile """
     try:
@@ -124,7 +129,9 @@ def tile(request, name, z, x, y, catalog=None):
             return HttpResponse(content_type="image/png")
     raise Http404
 
+
 @api_view(['GET',])
+@permission_classes([])
 def preview(request, name, catalog=None):
     try:
         mbtiles = MBTiles(name, catalog)
@@ -136,6 +143,7 @@ def preview(request, name, catalog=None):
 
 
 @api_view(['GET',])
+@permission_classes([])
 def grid(request, name, z, x, y, catalog=None):
     """ Serve a single UTF-Grid tile """
     callback = request.GET.get('callback', None)
@@ -153,6 +161,7 @@ def grid(request, name, z, x, y, catalog=None):
 
 
 @api_view(['GET',])
+@permission_classes([])
 def tilejson(request, name, catalog=None):
     """ Serve the map configuration as TileJSON """
     callback = request.GET.get('callback', None)
