@@ -94,7 +94,7 @@ class TrackSerializer(rest_framework.serializers.Serializer):
 class ObservationSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = models.Observation
-        fields = ('id', 'recorded_at', 'additional', 'device')
+        fields = ('id', 'recorded_at', 'additional', 'source')
         id_field = False
         geo_field = 'location'
 

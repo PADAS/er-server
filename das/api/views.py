@@ -268,3 +268,10 @@ class SubjectTracksView(generics.RetrieveAPIView):
         context['coordinates'] = coordinates
         context['request'] = self.request
         return context
+
+
+class ObservationView(generics.mixins.CreateModelMixin,
+                      generics.RetrieveAPIView):
+    lookup_field = 'id'
+    queryset = models.Observation.objects.all()
+    serializer_class = serializers.ObservationSerializer
