@@ -269,8 +269,8 @@ class MBTiles(object):
             kwargs = dict(name=self.id, x='{x}',y='{y}',z='{z}')
             if self.catalog:
                 kwargs['catalog'] = self.catalog
-            tilepattern = reverse("v1.0:tile", kwargs=kwargs)
-            gridpattern = reverse("v1.0:grid", kwargs=kwargs)
+            tilepattern = reverse("mapping:tile", kwargs=kwargs)
+            gridpattern = reverse("mapping:grid", kwargs=kwargs)
         except NoReverseMatch:
             # In case django-mbtiles was not registered in namespace mbtilesmap
             tilepattern = reverse("tile", kwargs=dict(name=self.id, x='{x}',y='{y}',z='{z}'))

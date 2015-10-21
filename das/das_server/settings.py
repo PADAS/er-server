@@ -104,8 +104,8 @@ REST_FRAMEWORK = {
         'das_utils.json.ExtendedBrowsableAPIRenderer',
     ),
     'EXCEPTION_HANDLER': 'das.api.views.api_exception_handler',
-    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
-    'DEFAULT_VERSION': 'v1.0',
+    #'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
+    #'DEFAULT_VERSION': 'v1.0',
 }
 
 AUTHENTICATION_BACKENDS = (
@@ -264,6 +264,10 @@ SWAGGER_SETTINGS = {
 }
 
 OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600*48}
+
+#override these if your libraries are in a different place
+GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'
+GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
 
 CACHES = {
     'default': {
