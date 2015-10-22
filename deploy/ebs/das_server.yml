@@ -240,8 +240,6 @@ app:
             option_settings:
               'aws:elasticbeanstalk:application:environment':
                 DAS_ENV_NAME: 'dev'
-              'aws:elasticbeanstalk:environment':
-                EnvironmentType: "SingleInstance"
 
         # the production version of the app
         #'das-server-prod':
