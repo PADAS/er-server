@@ -3,7 +3,7 @@
 import requests
 import xml.etree.ElementTree as etree
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.utils import timezone
 from django.contrib.gis.geos import Point
@@ -22,7 +22,7 @@ SKYGISTICS_PLUGIN_DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 
 SKYGISTICS_API_XMLNS = '{http://www.skygistics.com/SkygisticsAPI}'
 SKYGISTICS_API_ENDPOINT = '/SkygisticsAPI/SkygisticsAPI.asmx'
-
+DEFAULT_START_OFFSET = timedelta(days=14)
 
 class SkygisticsLoginError(Exception):
     pass
@@ -209,7 +209,7 @@ class SkygisticsSatellitePlugin(DasPlugin):
             if 'last_fetch' in conf_source.additional:
                 start_date = datetime.strptime(conf_source.additional['last_fetch'], SKYGISTICS_PLUGIN_DATETIME_FORMAT)
             else:
-                start_date = timezone.now()
+                start_date = datetime.datetime.utcnow() - DEFAULT_START_OFFSET
             for unit_info in self.client.fetch_observations(imei=conf_source.source.manufacturer_id,
                                                             start_date=start_date):
                 yield (conf_source.source, unit_info)
