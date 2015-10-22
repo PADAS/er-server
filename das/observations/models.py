@@ -314,5 +314,5 @@ MARKER_ICONS = {
 
 
 def googlemarkericon(subject_type):
-    url = MARKER_ICONS.get(subject_type, 'http://maps.google.com/mapfiles/kml/shapes/truck.png')
+    url = MARKER_ICONS.get(subject_type, '/static/truck.png')
     return url
