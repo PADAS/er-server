@@ -6,6 +6,7 @@ call your project be overriding the settings file
 """
 
 from .settings import *
+from .local_settings import *
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -21,7 +22,7 @@ DEBUG = True
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'chrisj_dasdb',
+        'NAME': 'dev_dasdb',
         'USER': 'postgres',
         'PASSWORD': 'V68a2oRNYtMj',
         'HOST': 'at-db.cuts0lhpybwu.us-west-2.rds.amazonaws.com',

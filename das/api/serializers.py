@@ -65,7 +65,7 @@ class SourceSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = models.Source
-        fields = ('id', 'source_type', 'manufacturer_id', 'model_name')
+        fields = ('id', 'source_type', 'manufacturer_id', 'model_name', 'additional')
 
     def to_representation(self, instance):
         rep = super(SourceSerializer, self).to_representation(instance)
@@ -142,3 +142,30 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
     if time:
         properties['DateTime'] = time
     return feature
+
+
+class ObservationSerializer(rest_framework.serializers.ModelSerializer):
+
+    class Meta:
+        model = models.Observation
+        fields = ('id', 'location', 'recorded_at', 'created_at', 'source', 'additional')
+
+    def create(self, validated_data):
+        '''
+        create and return a new 'Observation' instance, given validated data.
+        :param validated_data:
+        :return:
+        '''
+        return models.Observation.objects.create(**validated_data)
+
+    # def update(self, instance, validated_data):
+    #     '''
+    #     Update and return an existing 'Observation' instance, given validated data.
+    #     :param instance:
+    #     :param validated_data:
+    #     :return:
+    #     '''
+    #     # TODO: update attributes of instance.
+    #     instance.location = validated_data.get('location', instance.location)
+    #     instance.additional = validated_data.get('additional', instance.additional)
+    #     return instance

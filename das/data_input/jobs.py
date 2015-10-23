@@ -19,10 +19,10 @@ def run_savanna():
         pc = PluginConf.objects.get(plugin_name='savanna')
     except Exception:
         raise Exception("Looks like data hasn't been loaded for plugin_conf.")
-
-    with SavannaTarget() as consumer:
-        sp = SavannaPlugin(pc, target=consumer)
-        sp.execute()
+    else:
+        with SavannaTarget() as consumer:
+            sp = SavannaPlugin(pc, target=consumer)
+            sp.execute()
 
 
 def run_firms():
@@ -31,10 +31,10 @@ def run_firms():
         pc = PluginConf.objects.get(plugin_name='firms')
     except Exception:
         raise Exception("Looks like data hasn't been loaded for plugin_conf.")
-
-    with FirmsTarget() as consumer:
-        sp = FirmsPlugin(pc, target=consumer)
-        sp.execute()
+    else:
+        with FirmsTarget() as consumer:
+            sp = FirmsPlugin(pc, target=consumer)
+            sp.execute()
 
 
 def run_inreach():
@@ -45,10 +45,10 @@ def run_inreach():
             pc = PluginConf.objects.get(plugin_name=pn)
         except Exception:
             logger.error("No PluginConf data for job %s", pn)
-
-        with InreachTarget() as consumer:
-            sp = InreachPlugin(pc, target=consumer)
-            sp.execute()
+        else:
+            with InreachTarget() as consumer:
+                sp = InreachPlugin(pc, target=consumer)
+                sp.execute()
 
 
 def run_inreachkml():
@@ -59,10 +59,10 @@ def run_inreachkml():
             pc = PluginConf.objects.get(plugin_name=pn)
         except Exception:
             logger.error("No PluginConf data for job %s", pn)
-
-        with InreachTarget() as consumer:
-            sp = InreachKMLPlugin(pc, target=consumer)
-            sp.execute()
+        else:
+            with InreachTarget() as consumer:
+                sp = InreachKMLPlugin(pc, target=consumer)
+                sp.execute()
 
 
 def run_skygistics():
@@ -72,8 +72,8 @@ def run_skygistics():
             pc = PluginConf.objects.get(plugin_name=pn)
         except Exception:
             logger.error("No PluginConf data for job %s", pn)
-
-        with SkygisticsTarget() as consumer:
-            sp = SkygisticsSatellitePlugin(pc, target=consumer)
-            sp.execute()
+        else:
+            with SkygisticsTarget() as consumer:
+                sp = SkygisticsSatellitePlugin(pc, target=consumer)
+                sp.execute()
 

@@ -270,8 +270,37 @@ class SubjectTracksView(generics.RetrieveAPIView):
         return context
 
 
-class ObservationView(generics.mixins.CreateModelMixin,
-                      generics.RetrieveAPIView):
+class ObservationView(generics.RetrieveUpdateDestroyAPIView):
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
     lookup_field = 'id'
     queryset = models.Observation.objects.all()
     serializer_class = serializers.ObservationSerializer
+
+
+class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
+    lookup_field = 'id'
+    queryset = models.Source.objects.all()
+    serializer_class = serializers.SourceSerializer
+
+
+class SourceObservationsView(generics.ListAPIView):
+    lookup_field = 'id'
+    # queryset = models.Source.objects.all()
+    serializer_class = serializers.ObservationSerializer
+
+    def get_queryset(self):
+        source = generics.get_object_or_404(models.Source.objects.all(),
+                                            id=self.kwargs['id'])
+        self.check_object_permissions(self.request, source)
+        observations = models.Observation.objects.filter(source=source)
+        return observations
+
+    # def get_serializer_context(self):
+    #     context = {'request': self.request}
+    #     context['show_last_position_date'] = True
+    #     return context
+
+
+
