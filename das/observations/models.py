@@ -292,10 +292,12 @@ class Region(models.Model):
 
 
 MARKER_ICONS = {
+    'elephant': '/static/Elephant_Male.png',
     'elephant-male': '/static/Elephant_Male.png',
     'elephant-female': '/static/Elephant_Female.png',
     'lion-male': '/static/Lion_Male.png',
     'lion-female': '/static/Lion_Female.png',
+    'ranger': '/static/Lion_Male.png',
     'vehicle': '/static/truck.png',
     'cow': '',
     'cheetah': '',
