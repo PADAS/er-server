@@ -12,6 +12,7 @@ GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
 import uuid
+import datetime
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
@@ -84,8 +85,7 @@ class ObservationManager(models.GeoManager):
         return result
 
     def get_source_range_observations_last(self, subject_sources, last_days):
-        """get the last days worth of observations starting from the last known
-         position for a set of sources.
+        """get the last days worth of observations starting from now.
         An animal may switch source devices based on a date range.
         """
         subject_sources = sorted(subject_sources,
@@ -107,7 +107,7 @@ class ObservationManager(models.GeoManager):
         result = Observation.objects.filter(qs)
         result = result.order_by('-recorded_at')
         result = result.exclude(location=EMPTY_POINT)
-        gt = last_observation.recorded_at - last_days
+        gt = datetime.datetime.utcnow() - last_days
         result = result.filter(recorded_at__gt=gt)
         return result
 

@@ -27,9 +27,9 @@ LAST_DAYS = datetime.timedelta(days=16)
 
 def default_since():
     """default value for since
-    last 30 days is the default
+    last 16 days is the default
     """
-    return datetime.datetime.now(pytz.utc) - datetime.timedelta(days=30)
+    return datetime.datetime.now(pytz.utc) - datetime.timedelta(days=16)
 
 
 def dateparse(date_str, default_tz=pytz.utc):
