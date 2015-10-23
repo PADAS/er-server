@@ -206,10 +206,17 @@ class SkygisticsSatellitePlugin(DasPlugin):
         self.client.begin_session()
         conf_sources = PluginConfSource.objects.filter(plugin_conf=self.config)
         for conf_source in conf_sources:
-            if 'last_fetch' in conf_source.additional:
-                start_date = datetime.strptime(conf_source.additional['last_fetch'], SKYGISTICS_PLUGIN_DATETIME_FORMAT)
-            else:
-                start_date = datetime.datetime.utcnow() - DEFAULT_START_OFFSET
+
+            try:
+                if 'last_fetch' in conf_source.additional:
+                    start_date = datetime.strptime(conf_source.additional['last_fetch'], SKYGISTICS_PLUGIN_DATETIME_FORMAT)
+                else:
+
+                    start_date = datetime.utcnow() - DEFAULT_START_OFFSET
+
+            except Exception as e:
+                self.logger.exception('Failure when getting cursor data for source', conf_source.source_id)
+
             for unit_info in self.client.fetch_observations(imei=conf_source.source.manufacturer_id,
                                                             start_date=start_date):
                 yield (conf_source.source, unit_info)
@@ -253,4 +260,10 @@ class SkygisticsTarget(PluginTarget):
             Observation.objects.add_observation(source, observation)
 
     def _pass_filter(self, observation):
-        return not (int(observation['lon']) == 180 and int(observation['lat']) == 90)
+
+        try:
+            return not (int(float(observation['lon'])) == 180 and int(float(observation['lat'])) == 90)
+        except Exception as e:
+            self.logger.warn('Failure when filtering skygistics fix.')
+
+        return True # Assume we want to see it

@@ -66,11 +66,12 @@ class InreachKMLClient(object):
 
         featureFolders = [x for x in features[0].features()]
 
-        f = featureFolders[0]
+        if len(featureFolders) > 0:
+            f = featureFolders[0]
 
-        for pm in f.features():
-            if hasattr(pm.extended_data, 'elements'):
-                yield dict(safe_map(p1.name, p1.value) for p1 in pm.extended_data.elements)
+            for pm in f.features():
+                if hasattr(pm.extended_data, 'elements'):
+                    yield dict(safe_map(p1.name, p1.value) for p1 in pm.extended_data.elements)
 
 
 def __str2date(d, replace_tzinfo=pytz.utc):
