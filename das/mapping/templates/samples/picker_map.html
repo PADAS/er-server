@@ -22,12 +22,16 @@
         id: 'examples.map-20v6611k'
     });
 
+    var rsm = L.tileLayer("/api/v1.0/tms/tiles/19/{z}/{x}/{y}.png", {
+        id: 'tms map'
+    });
+
     var mbtiles = L.mapbox.tileLayer("{% url 'tilejson' 'Odzala_LS8__13'%}");
 
     var map = L.map('map', {
         center:  [0.85, 15.00],
         zoom: 9,
-        layers: [osm, mbtiles]
+        layers: [osm, rsm]
     });
 
     {# vector layers for overlays ... depend on sample data in test fixtures #}
@@ -58,7 +62,8 @@
     {# layers control #}
     var baseLayers = {
         "Open Street Map": osm,
-        "Odzala MBTiles": mbtiles
+        "Odzala MBTiles": mbtiles,
+        "TMS map": rsm
     };
     var overlays = {
         "Park boundary": boundaries,

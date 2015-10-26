@@ -13,7 +13,7 @@ class RasterLayerSerializer(serializers.ModelSerializer):
         rep = super(RasterLayerSerializer, self).to_representation(instance)
 
         rep.update(dict(tilejson='2.1.0',
-                        version='1.0.1',
+                        version='1.1.0',
                         autoscale=False,
                         ))
 
