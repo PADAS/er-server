@@ -67,10 +67,10 @@ def api_exception_handler(exc, context):
     return fixup_api_response(response)
 
 
-def error404View(request, template_name='404.html'):
+def error404View(request, exception, template_name='404.html'):
     """Handle 404 in our api"""
     if not request.path.startswith('/api/v1.0/'):
-        return django.views.defaults.page_not_found(request, template_name=template_name)
+        return django.views.defaults.page_not_found(request, exception, template_name=template_name)
     response = Response({},
                         status=rest_framework.status.HTTP_404_NOT_FOUND,
                         )
