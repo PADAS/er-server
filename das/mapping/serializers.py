@@ -1,4 +1,5 @@
 import os
+import simplejson as json
 import rest_framework.serializers as serializers
 from raster.models import RasterLayer
 
@@ -18,6 +19,10 @@ class RasterLayerSerializer(serializers.ModelSerializer):
 
         #rep['scheme'] = 'tms'
         rep['legend'] = instance.legend.json
+        try:
+            rep['legend_json'] = json.loads(instance.legend.json)
+        except json.JSONDecodeError:
+            pass
         #rep['maxzoom'] = instance.metadata.max_zoom
         #rep['minzoom'] = 0
         #left, bottom, right, top
