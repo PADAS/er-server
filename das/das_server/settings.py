@@ -172,6 +172,14 @@ LOGGING = {
             'propagate': True,
             'level': 'INFO',
         },
+        'das_server': {
+            'handlers': ['file'],
+            'level': 'INFO',
+        },
+        'das_utils': {
+            'handlers': ['file'],
+            'level': 'INFO',
+        },
         'observations': {
             'handlers': ['file'],
             'level': 'INFO',
@@ -183,6 +191,10 @@ LOGGING = {
         'data_input': {
             'handlers': ['data_input_file'],
             'level': 'DEBUG'
+        },
+        'mapping': {
+            'handlers': ['file'],
+            'level': 'INFO',
         },
         'apscheduler': {
             'handlers': ['data_input_file', 'console'],
