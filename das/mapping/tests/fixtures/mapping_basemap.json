@@ -81,12 +81,57 @@
     }
   },
   {
+    "model": "raster.legendsemantics",
+    "pk": 28,
+    "fields": {
+      "name": "Cloud Shadows",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 29,
+    "fields": {
+      "name": "Clouds",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 30,
+    "fields": {
+      "name": "Forest High Slope >25%",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 31,
+    "fields": {
+      "name": "Agriculture",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
+    "model": "raster.legendsemantics",
+    "pk": 32,
+    "fields": {
+      "name": "Village",
+      "description": "",
+      "keyword": ""
+    }
+  },
+  {
     "model": "raster.legendentry",
     "pk": 2,
     "fields": {
       "semantics": 2,
       "expression": "x = 30",
-      "color": "#00ff00"
+      "color": "#267300"
     }
   },
   {
@@ -95,7 +140,7 @@
     "fields": {
       "semantics": 3,
       "expression": "x = 31",
-      "color": "#00ff00"
+      "color": "#38a800"
     }
   },
   {
@@ -104,7 +149,7 @@
     "fields": {
       "semantics": 4,
       "expression": "x = 32",
-      "color": "#00ff00"
+      "color": "#cdf57a"
     }
   },
   {
@@ -113,7 +158,7 @@
     "fields": {
       "semantics": 5,
       "expression": "x = 40",
-      "color": "#00ff00"
+      "color": "#6699cd"
     }
   },
   {
@@ -122,7 +167,7 @@
     "fields": {
       "semantics": 6,
       "expression": "x = 41",
-      "color": "#86fc03"
+      "color": "#73b2ff"
     }
   },
   {
@@ -131,7 +176,7 @@
     "fields": {
       "semantics": 7,
       "expression": "x = 42",
-      "color": "#55aaa2"
+      "color": "#ff00c5"
     }
   },
   {
@@ -140,7 +185,7 @@
     "fields": {
       "semantics": 8,
       "expression": "x = 43",
-      "color": "#00ff00"
+      "color": "#a8a800"
     }
   },
   {
@@ -149,7 +194,7 @@
     "fields": {
       "semantics": 9,
       "expression": "x = 50",
-      "color": "#fef801"
+      "color": "#ffaa00"
     }
   },
   {
@@ -158,7 +203,52 @@
     "fields": {
       "semantics": 10,
       "expression": "x = 51",
-      "color": "#0013ff"
+      "color": "#0070ff"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 28,
+    "fields": {
+      "semantics": 28,
+      "expression": "x = 1",
+      "color": "#343434"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 29,
+    "fields": {
+      "semantics": 29,
+      "expression": "x = 2",
+      "color": "#343434"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 30,
+    "fields": {
+      "semantics": 30,
+      "expression": "x = 55",
+      "color": "#a87000"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 31,
+    "fields": {
+      "semantics": 31,
+      "expression": "x = 56",
+      "color": "#ff0000"
+    }
+  },
+  {
+    "model": "raster.legendentry",
+    "pk": 32,
+    "fields": {
+      "semantics": 32,
+      "expression": "x = 60",
+      "color": "#6b4a09"
     }
   },
   {
@@ -167,18 +257,23 @@
     "fields": {
       "title": "Odzala Landcover",
       "description": "",
-      "json": "[{\"color\": \"#00ff00\", \"name\": \"Forest above 600m\", \"expression\": \"x = 30\"}, {\"color\": \"#00ff00\", \"name\": \"Forest below 600m\", \"expression\": \"x = 31\"}, {\"color\": \"#00ff00\", \"name\": \"Forest Light\", \"expression\": \"x = 32\"}, {\"color\": \"#00ff00\", \"name\": \"Forest Riverine\", \"expression\": \"x = 40\"}, {\"color\": \"#00ff00\", \"name\": \"Forest Lowland\", \"expression\": \"x = 43\"}, {\"color\": \"#0013ff\", \"name\": \"Water\", \"expression\": \"x = 51\"}, {\"color\": \"#fef801\", \"name\": \"Savanna\", \"expression\": \"x = 50\"}, {\"color\": \"#55aaa2\", \"name\": \"Bais\", \"expression\": \"x = 42\"}, {\"color\": \"#86fc03\", \"name\": \"Riparian Zone\", \"expression\": \"x = 41\"}]",
-      "modified": "2015-10-08T15:19:05.089Z",
+      "json": "[{\"color\": \"#267300\", \"name\": \"Forest above 600m\", \"expression\": \"x = 30\"}, {\"color\": \"#343434\", \"name\": \"Cloud Shadows\", \"expression\": \"x = 1\"}, {\"color\": \"#343434\", \"name\": \"Clouds\", \"expression\": \"x = 2\"}, {\"color\": \"#38a800\", \"name\": \"Forest below 600m\", \"expression\": \"x = 31\"}, {\"color\": \"#cdf57a\", \"name\": \"Forest Light\", \"expression\": \"x = 32\"}, {\"color\": \"#6699cd\", \"name\": \"Forest Riverine\", \"expression\": \"x = 40\"}, {\"color\": \"#73b2ff\", \"name\": \"Riparian Zone\", \"expression\": \"x = 41\"}, {\"color\": \"#ff00c5\", \"name\": \"Bais\", \"expression\": \"x = 42\"}, {\"color\": \"#a8a800\", \"name\": \"Forest Lowland\", \"expression\": \"x = 43\"}, {\"color\": \"#ffaa00\", \"name\": \"Savanna\", \"expression\": \"x = 50\"}, {\"color\": \"#0070ff\", \"name\": \"Water\", \"expression\": \"x = 51\"}]",
+      "modified": "2015-10-26T17:36:12.931Z",
       "entries": [
         2,
+        28,
+        29,
         3,
         4,
         5,
-        8,
-        10,
-        9,
+        6,
         7,
-        6
+        8,
+        9,
+        10,
+        30,
+        31,
+        32
       ]
     }
   }
