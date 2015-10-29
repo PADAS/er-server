@@ -2,6 +2,7 @@ from django.contrib.gis.geos import Point
 from django.contrib.auth import get_user_model
 import rest_framework.serializers
 
+
 from observations import models
 import das_utils.json
 
@@ -94,7 +95,7 @@ class TrackSerializer(rest_framework.serializers.Serializer):
 class ObservationSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = models.Observation
-        fields = ('id', 'recorded_at', 'additional', 'source')
+        fields = ('id', 'location', 'created_at', 'recorded_at', 'additional', 'source')
         id_field = False
         geo_field = 'location'
 
@@ -143,29 +144,21 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         properties['DateTime'] = time
     return feature
 
+class ReadOnlyJSONField(rest_framework.serializers.ReadOnlyField):
+    def to_native(self, obj):
+        return obj
 
-class ObservationSerializer(rest_framework.serializers.ModelSerializer):
+class PointField(rest_framework.serializers.ReadOnlyField):
+    def to_native(self, obj):
+        return obj
+    def to_representation(self, value):
+        return dict(lon=value.x, lat=value.y)
 
-    class Meta:
-        model = models.Observation
-        fields = ('id', 'location', 'recorded_at', 'created_at', 'source', 'additional')
+import uuid
+class SourceObservationSerializer(rest_framework.serializers.ModelSerializer):
 
-    def create(self, validated_data):
-        '''
-        create and return a new 'Observation' instance, given validated data.
-        :param validated_data:
-        :return:
-        '''
-        return models.Observation.objects.create(**validated_data)
-
-    # def update(self, instance, validated_data):
-    #     '''
-    #     Update and return an existing 'Observation' instance, given validated data.
-    #     :param instance:
-    #     :param validated_data:
-    #     :return:
-    #     '''
-    #     # TODO: update attributes of instance.
-    #     instance.location = validated_data.get('location', instance.location)
-    #     instance.additional = validated_data.get('additional', instance.additional)
-    #     return instance
+    id = rest_framework.serializers.UUIDField()
+    recorded_at = rest_framework.serializers.DateTimeField(label='recorded at') # fix time
+    created_at = rest_framework.serializers.DateTimeField(label='created at')
+    location = PointField(label='location')
+    additional = rest_framework.serializers.DictField(label='additional')

@@ -123,10 +123,32 @@ class ObservationManager(models.GeoManager):
         # todo: consider changing the Geometry type in the db to accept z-value.
         # loc = Point(x=float(observation.pop('lon')), y=float(observation.pop('lat')),
         #             z=float(observation.get('elevation')))
-        loc = Point(x=float(observation.pop('lon')), y=float(observation.pop('lat')))
-        ts = observation.pop('ts')
 
-        Observation(source_id=source.id, location=loc, recorded_at=ts, additional=observation).save()
+        try:
+            location = observation.pop('location')
+            lat = location['lat']
+            lon = location['lon']
+        except KeyError as ke:
+            lat = observation.pop('lat')
+            lon = observation.pop('lon')
+        else:
+            pass
+        finally:
+            location = Point(x=lon, y=lat)
+
+        try:
+            ts = observation.pop('ts', None) or observation.pop('recorded_at')
+            observation.pop('recorded_at', None)
+        except Exception as e:
+            print(e)
+            raise
+
+        # obs = Observation(source_id=source.id, location=location, recorded_at=ts, additional=observation).save()
+
+        obs = Observation.objects.create(source_id=source.id, location=location, recorded_at=ts, additional=observation)
+
+        return Observation.objects.get(id=obs.id)
+        # return obs
 
     def get_max_recorded_at(self, source):
         '''Get the latest recorded timestamp for the source.'''
