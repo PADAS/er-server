@@ -4,9 +4,7 @@ from mapping.sample_views import *
 from mapping.app_settings import MBTILES_ID_PATTERN
 
 
-urlpatterns = patterns(
-    'mapping.views',
-
+urlpatterns = (
     # a list of available features
     url(r'^features/?$', FeatureListJsonView.as_view()),
     # todo:  add caching

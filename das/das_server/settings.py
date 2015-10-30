@@ -48,7 +48,6 @@ INSTALLED_APPS = (
     'djgeojson',
     'raster',
     'observations',
-    'api',
     'data_input',
     'mapping.apps.MappingConfig',
 )
@@ -95,7 +94,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'api.auth.SuperUserSessionAuthentication',
+        'das_utils.drf.SuperUserSessionAuthentication',
         'oauth2_provider.ext.rest_framework.OAuth2Authentication',
     ),
     #'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
@@ -103,7 +102,7 @@ REST_FRAMEWORK = {
         'das_utils.json.ExtendedJSONRenderer',
         'das_utils.json.ExtendedBrowsableAPIRenderer',
     ),
-    'EXCEPTION_HANDLER': 'das.api.views.api_exception_handler',
+    'EXCEPTION_HANDLER': 'das_utils.drf.api_exception_handler',
     #'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
     #'DEFAULT_VERSION': 'v1.0',
 }

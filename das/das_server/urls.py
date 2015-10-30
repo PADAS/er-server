@@ -19,15 +19,19 @@ from django.contrib import admin
 import oauth2_provider.views as oauth2_views
 from das_server import views
 
+
 urlpatterns = [
-    url(r'^api/v1.0/', include('api.urls')),
-    url(r'^api/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    url(r'^api/docs/', include('rest_framework_swagger.urls')),
+    url(r'^api/v1.0/', include('observations.urls')),
+    url(r'^api/v1.0/mapping/', include('mapping.urls')),
+    url(r'^api/v1.0/tms/', include('raster.urls')),
+    url(r'^api/v1.0/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    url(r'^api/v1.0/docs/', include('rest_framework_swagger.urls')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^oauth2/token$', oauth2_views.TokenView.as_view(), name="token"),
     url(r'^$', views.index),
 ]
 
+
 # give the api a chance to override and return json
-django.conf.urls.handler404 = 'api.views.error404View'
+django.conf.urls.handler404 = 'das_utils.drf.error404View'
