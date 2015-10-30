@@ -16,9 +16,10 @@ Including another URLconf
 from django.conf.urls import include, url
 import django.conf.urls
 from django.contrib import admin
+from django.conf import settings
 import oauth2_provider.views as oauth2_views
 from das_server import views
-
+import django.contrib.staticfiles.views
 
 urlpatterns = [
     url(r'^api/v1.0/', include('observations.urls')),
@@ -29,9 +30,17 @@ urlpatterns = [
     url(r'^admin/', include(admin.site.urls)),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^oauth2/token$', oauth2_views.TokenView.as_view(), name="token"),
-    url(r'^$', views.index),
 ]
 
 
 # give the api a chance to override and return json
 django.conf.urls.handler404 = 'das_utils.drf.error404View'
+
+if settings.DEV:
+    urlpatterns += [
+        url(r'^(?:index.html)?$', django.contrib.staticfiles.views.serve,
+            kwargs={'path': 'index.html'}),
+        url(r'^(?P<path>.*)$', django.contrib.staticfiles.views.serve),
+                ]
+else:
+    urlpatterns += [url(r'^$', views.index),]
