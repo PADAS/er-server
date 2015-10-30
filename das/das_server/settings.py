@@ -183,10 +183,6 @@ LOGGING = {
             'handlers': ['file'],
             'level': 'INFO',
         },
-        'api': {
-            'handlers': ['file'],
-            'level': 'INFO',
-        },
         'data_input': {
             'handlers': ['data_input_file'],
             'level': 'DEBUG'
@@ -229,7 +225,7 @@ TIME_ZONE = 'UTC'
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "www", "static")
 STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'api', 'static'),
+    os.path.join(BASE_DIR, 'observations', 'static'),
     os.path.join(BASE_DIR, 'mapping', 'static')
 )
 
