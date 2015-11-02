@@ -240,40 +240,6 @@ class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     serializer_class = serializers.SourceSerializer
 
 
-class SourceObservationsView(generics.ListCreateAPIView):
-    lookup_field = 'id'
-    serializer_class = serializers.ObservationSerializer
-
-    def get_queryset(self):
-        source = generics.get_object_or_404(models.Source.objects.all(),
-                                            id=self.kwargs['id'])
-        self.check_object_permissions(self.request, source)
-        observations = models.Observation.objects.filter(source=source)
-        return observations
-
-    # def get_serializer_context(self):
-    #     context = {'request': self.request}
-    #     context['show_last_position_date'] = True
-    #     return context
-
-
-    def create(self, request, *args, **kwargs):
-
-        source = generics.get_object_or_404(models.Source.objects.all(),
-                                            id=self.kwargs['id'])
-        self.check_object_permissions(self.request, source)
-
-        data = request.data
-        location = data.pop('location')
-        data['ts'] = data.pop('recorded_at')
-
-        data.update(location)
-        observation = models.Observation.objects.add_observation(source, data)
-
-        # response = JsonResponse(data=dict(message='helo'))
-        sd = serializers.ObservationSerializer(observation).data
-        return JsonResponse(data=sd)
-
 
 
 

@@ -25,6 +25,7 @@ urlpatterns = [
     url(r'^api/v1.0/', include('observations.urls')),
     url(r'^api/v1.0/mapping/', include('mapping.urls')),
     url(r'^api/v1.0/tms/', include('raster.urls')),
+    url(r'^api/v1.0/tracking/', include('tracking.urls')),
     url(r'^api/v1.0/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     url(r'^api/v1.0/docs/', include('rest_framework_swagger.urls')),
     url(r'^admin/', include(admin.site.urls)),
