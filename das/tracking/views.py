@@ -56,3 +56,11 @@ class SourceObservationsView(generics.ListCreateAPIView):
         sd = observations.serializers.ObservationSerializer(observation).data
         return JsonResponse(data=sd)
 
+
+class SourceList(generics.ListAPIView):
+    serializer_class = observations.serializers.SourceSerializer
+    lookup_field = 'manufacturer_id'
+
+    def get_queryset(self):
+        mid = self.kwargs['manufacturer_id']
+        return observations.models.Source.objects.filter(manufacturer_id=mid)
