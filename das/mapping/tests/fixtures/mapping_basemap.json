@@ -130,7 +130,7 @@
     "pk": 2,
     "fields": {
       "semantics": 2,
-      "expression": "x = 30",
+      "expression": "x == 30",
       "color": "#267300"
     }
   },
@@ -139,7 +139,7 @@
     "pk": 3,
     "fields": {
       "semantics": 3,
-      "expression": "x = 31",
+      "expression": "x == 31",
       "color": "#38a800"
     }
   },
@@ -148,7 +148,7 @@
     "pk": 4,
     "fields": {
       "semantics": 4,
-      "expression": "x = 32",
+      "expression": "x == 32",
       "color": "#cdf57a"
     }
   },
@@ -157,7 +157,7 @@
     "pk": 5,
     "fields": {
       "semantics": 5,
-      "expression": "x = 40",
+      "expression": "x == 40",
       "color": "#6699cd"
     }
   },
@@ -166,7 +166,7 @@
     "pk": 6,
     "fields": {
       "semantics": 6,
-      "expression": "x = 41",
+      "expression": "x == 41",
       "color": "#73b2ff"
     }
   },
@@ -175,7 +175,7 @@
     "pk": 7,
     "fields": {
       "semantics": 7,
-      "expression": "x = 42",
+      "expression": "x == 42",
       "color": "#ff00c5"
     }
   },
@@ -184,7 +184,7 @@
     "pk": 8,
     "fields": {
       "semantics": 8,
-      "expression": "x = 43",
+      "expression": "x == 43",
       "color": "#a8a800"
     }
   },
@@ -193,7 +193,7 @@
     "pk": 9,
     "fields": {
       "semantics": 9,
-      "expression": "x = 50",
+      "expression": "x == 50",
       "color": "#ffaa00"
     }
   },
@@ -202,7 +202,7 @@
     "pk": 10,
     "fields": {
       "semantics": 10,
-      "expression": "x = 51",
+      "expression": "x == 51",
       "color": "#0070ff"
     }
   },
@@ -211,7 +211,7 @@
     "pk": 28,
     "fields": {
       "semantics": 28,
-      "expression": "x = 1",
+      "expression": "x == 1",
       "color": "#343434"
     }
   },
@@ -220,7 +220,7 @@
     "pk": 29,
     "fields": {
       "semantics": 29,
-      "expression": "x = 2",
+      "expression": "x == 2",
       "color": "#343434"
     }
   },
@@ -229,7 +229,7 @@
     "pk": 30,
     "fields": {
       "semantics": 30,
-      "expression": "x = 55",
+      "expression": "x == 55",
       "color": "#a87000"
     }
   },
@@ -238,7 +238,7 @@
     "pk": 31,
     "fields": {
       "semantics": 31,
-      "expression": "x = 56",
+      "expression": "x == 56",
       "color": "#ff0000"
     }
   },
@@ -247,7 +247,7 @@
     "pk": 32,
     "fields": {
       "semantics": 32,
-      "expression": "x = 60",
+      "expression": "x == 60",
       "color": "#6b4a09"
     }
   },
@@ -257,7 +257,7 @@
     "fields": {
       "title": "Odzala Landcover",
       "description": "",
-      "json": "[{\"color\": \"#267300\", \"name\": \"Forest above 600m\", \"expression\": \"x = 30\"}, {\"color\": \"#343434\", \"name\": \"Cloud Shadows\", \"expression\": \"x = 1\"}, {\"color\": \"#343434\", \"name\": \"Clouds\", \"expression\": \"x = 2\"}, {\"color\": \"#38a800\", \"name\": \"Forest below 600m\", \"expression\": \"x = 31\"}, {\"color\": \"#cdf57a\", \"name\": \"Forest Light\", \"expression\": \"x = 32\"}, {\"color\": \"#6699cd\", \"name\": \"Forest Riverine\", \"expression\": \"x = 40\"}, {\"color\": \"#73b2ff\", \"name\": \"Riparian Zone\", \"expression\": \"x = 41\"}, {\"color\": \"#ff00c5\", \"name\": \"Bais\", \"expression\": \"x = 42\"}, {\"color\": \"#a8a800\", \"name\": \"Forest Lowland\", \"expression\": \"x = 43\"}, {\"color\": \"#ffaa00\", \"name\": \"Savanna\", \"expression\": \"x = 50\"}, {\"color\": \"#0070ff\", \"name\": \"Water\", \"expression\": \"x = 51\"}]",
+      "json": "[{\"color\": \"#267300\", \"name\": \"Forest above 600m\", \"expression\": \"x == 30\"}, {\"color\": \"#343434\", \"name\": \"Cloud Shadows\", \"expression\": \"x == 1\"}, {\"color\": \"#343434\", \"name\": \"Clouds\", \"expression\": \"x == 2\"}, {\"color\": \"#38a800\", \"name\": \"Forest below 600m\", \"expression\": \"x == 31\"}, {\"color\": \"#cdf57a\", \"name\": \"Forest Light\", \"expression\": \"x == 32\"}, {\"color\": \"#6699cd\", \"name\": \"Forest Riverine\", \"expression\": \"x == 40\"}, {\"color\": \"#73b2ff\", \"name\": \"Riparian Zone\", \"expression\": \"x == 41\"}, {\"color\": \"#ff00c5\", \"name\": \"Bais\", \"expression\": \"x == 42\"}, {\"color\": \"#a8a800\", \"name\": \"Forest Lowland\", \"expression\": \"x == 43\"}, {\"color\": \"#ffaa00\", \"name\": \"Savanna\", \"expression\": \"x == 50\"}, {\"color\": \"#0070ff\", \"name\": \"Water\", \"expression\": \"x == 51\"}]",
       "modified": "2015-10-26T17:36:12.931Z",
       "entries": [
         2,
