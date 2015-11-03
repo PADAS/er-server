@@ -2,11 +2,11 @@
 # pip install -r requirements.txt --find-links wheelhouse
 #
 psycopg2==2.6.1
-simplejson==3.8.0
-pytz==2015.6
+simplejson==3.8.1
+pytz==2015.7
 python-dateutil==2.4.2
 requests==2.8.1
-Django==1.9a1
+Django==1.9b1
 
 djangorestframework==3.3.0
 #djangorestframework-gis==0.9.4
@@ -40,5 +40,5 @@ fastkml==0.11
 
 # APScheduler requires SQLAlchemy if we hold schedule information in Postgres.
 APScheduler==3.0.4
-SQLAlchemy==1.0.8
+SQLAlchemy==1.0.9
 six==1.10.0
