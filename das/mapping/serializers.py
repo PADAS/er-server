@@ -74,8 +74,7 @@ class ExternalTileSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         rep = super(ExternalTileSerializer, self).to_representation(instance)
         request = self.context['request']
-        additional = instance.attributes
-        rep.update(additional)
+        rep.update(instance.attributes)
         return rep
 
 
@@ -103,6 +102,7 @@ class MapSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super(MapSerializer, self).to_representation(instance)
+        rep.update(instance.attributes)
         rep['center'] = instance.center.tuple
         request = self.context['request']
         tile_layers = TileLayerSerializer(
