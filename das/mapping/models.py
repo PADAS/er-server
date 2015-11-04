@@ -17,6 +17,44 @@ from mapping.mbtiles import InvalidFormatError
 
 logger = logging.getLogger(__name__)
 
+
+class Map(TimestampedModel):
+    """
+    A Map is a viewport, zoom level and tile layers.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=80, unique=True)
+    attributes = JSONField()
+    center = models.PointField(srid=4326)
+    zoom = models.IntegerField()
+
+    def __str__(self):
+        return self.name
+
+
+TILE_TYPES = (
+    ('raster', 'Local Raster'),
+    ('mbtiles', 'Local MBTiles'),
+    ('external', 'External Tile Server'),
+)
+
+
+class TileLayer(TimestampedModel):
+    """
+    External or MBTiles
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=80, unique=True)
+    attributes = JSONField()
+    version = models.CharField(max_length=80, default='1.0.0')
+    tile_type = models.CharField(max_length=20,
+                                 choices=TILE_TYPES, default='raster')
+    maps = models.ManyToManyField(Map)
+
+    def __str__(self):
+        return self.name
+
+
 class FeatureType(TimestampedModel):
     """
     If the clients wish to group layers in a control or for ease of administration
@@ -80,7 +118,6 @@ class LineFeature(Feature):
 
 class PointFeature(Feature):
     feature_geometry = models.MultiPointField(srid=4326)
-
 
 
 class MissingTileError(Exception):
@@ -280,7 +317,7 @@ class MBTiles(object):
         tilepattern = tilepattern.replace('%7B', '{').replace('%7D', '}')
         gridpattern = gridpattern.replace('%7B', '{').replace('%7D', '}')
         jsonp.update(**{
-            "tilejson": "2.0.1",
+            "tilejson": "2.1.0",
             "id": self.id,
             "name": self.name,
             "scheme": "xyz",

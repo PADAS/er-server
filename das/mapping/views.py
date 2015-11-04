@@ -16,7 +16,7 @@ from rest_framework.response import Response
 
 from raster.models import RasterLayer
 from mapping.models import PolygonFeature, LineFeature, PointFeature, FeatureSet
-from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError
+from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError, Map
 import mapping.serializers as serializers
 from mapping import app_settings
 
@@ -85,37 +85,17 @@ class FeatureSetGeoJsonView(APIView):
         return HttpResponse(feature, content_type='application/json')
 
 
-OSM_GEOJSON = {'name': 'Open Street Map',
-               'tiles': ['http://b.tile.openstreetmap.com/{z}/{x}/{y}.png',],
-               'maxZoom': 18,
-               'attribution': 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, '
-                              '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a> ',
-               'id': 'examples.map-20v6611k'}
-
-MOSM_GEOJSON = {'name': 'Mapbox Streets Open Street Map',
-                'tiles': ['http://a.tiles.mapbox.com/v4/mapbox.streets/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoiamFzb25iIiwiYSI6ImNpZnJhdDYydjd5ZXlzM2txbmF1YXRha2kifQ.aPy_2GpKESLXxXNwOduwLQ',
-                          'http://b.tiles.mapbox.com/v4/mapbox.streets/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoiamFzb25iIiwiYSI6ImNpZnJhdDYydjd5ZXlzM2txbmF1YXRha2kifQ.aPy_2GpKESLXxXNwOduwLQ'
-                          ],
-                'attribution': '<a href=\"https://www.mapbox.com/about/maps/\" target=\"_blank\">&copy; Mapbox &copy; OpenStreetMap</a> <a class=\"mapbox-improve-map\" href=\"https://www.mapbox.com/map-feedback/\" target=\"_blank\">Improve this map</a>',
-                'id': 'mapbox.streets',
-                'source':'mapbox:///mapbox.mapbox-terrain-v2,mapbox.mapbox-streets-v5'
-                }
-
-
-class MapListJsonView(APIView):
+class MapListJsonView(generics.ListAPIView):
     """
-    A simple list of raster and mbtile layers available to the clients
+    List of available maps. A map describes a bounding box, zoom level and
+    list of tile layers.
     """
-    def get(self, request, *args, **kwargs):
-        rasters = RasterLayer.objects.all()
-        rasters_s = serializers.RasterLayerSerializer(rasters, many=True,
-                                            context={'request': request})
+    queryset = Map.objects.all()
+    serializer_class = serializers.MapSerializer
 
-        mbtiles = MBTiles.objects.all()
-        mbtiles_s = list(m.tilejson(request._request) for m in mbtiles)
-
-        return Response(list(itertools.chain(rasters_s.data, mbtiles_s, [OSM_GEOJSON, MOSM_GEOJSON])))
-
+    def get_serializer_context(self):
+        context = {'request': self.request}
+        return context
 
 #
 #Don't secure the following until we can have Leaflet use auth tokens

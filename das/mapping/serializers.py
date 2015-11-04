@@ -2,6 +2,7 @@ import os
 import simplejson as json
 import rest_framework.serializers as serializers
 from raster.models import RasterLayer
+import mapping.models as models
 
 
 class RasterLayerSerializer(serializers.ModelSerializer):
@@ -37,4 +38,72 @@ class RasterLayerSerializer(serializers.ModelSerializer):
         url = '{0}/{{z}}/{{x}}/{{y}}.png'.format(url)
         rep['tiles'] = [url, ]
 
+        return rep
+
+
+class RedirectRasterLayerSerializer(serializers.Serializer):
+    class Meta:
+        model = models.TileLayer
+        fields = ('id', 'name', 'version')
+
+    def to_representation(self, instance):
+        request = self.context['request']
+        raster_layer = RasterLayer.objects.get(id=instance.attributes['rasterlayer_id'])
+        rep = RasterLayerSerializer(raster_layer, context={'request': request}).data
+        rep['version'] = instance.version
+        return rep
+
+
+class MBTilesSerializer(serializers.Serializer):
+    def to_representation(self, instance):
+        rep = {}
+        mbtiles_name = instance.attributes['mbtiles_name']
+        mbtiles = models.MBTiles(mbtiles_name)
+        request = self.context['request']
+        return mbtiles.tilejson(request)
+
+
+class ExternalTileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.TileLayer
+        fields = ('id', 'name', 'version')
+
+    def to_representation(self, instance):
+        rep = super(ExternalTileSerializer, self).to_representation(instance)
+        request = self.context['request']
+        additional = instance.attributes
+        rep.update(additional)
+        return rep
+
+
+TILELAYER_SERIALIZERS = {
+    'raster': RedirectRasterLayerSerializer,
+    'mbtiles': MBTilesSerializer,
+    'external': ExternalTileSerializer
+}
+
+
+class TileLayerSerializer(serializers.Serializer):
+    def to_representation(self, instance):
+        request = self.context['request']
+
+        rep = TILELAYER_SERIALIZERS[instance.tile_type](
+            instance, context={'request': request}
+        )
+        return rep
+
+
+class MapSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.Map
+        fields = ('id', 'name', 'zoom')
+
+    def to_representation(self, instance):
+        rep = super(MapSerializer, self).to_representation(instance)
+        rep['center'] = instance.center.tuple
+        request = self.context['request']
+        tile_layers = TileLayerSerializer(
+            instance.tilelayer_set.all(), many=True, context={'request': request})
+
+        rep['layers'] = [t.data for t in tile_layers.data]
         return rep

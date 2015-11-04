@@ -23,7 +23,7 @@ import django.contrib.staticfiles.views
 
 urlpatterns = [
     url(r'^api/v1.0/', include('observations.urls')),
-    url(r'^api/v1.0/mapping/', include('mapping.urls')),
+    url(r'^api/v1.0/', include('mapping.urls')),
     url(r'^api/v1.0/tms/', include('raster.urls')),
     url(r'^api/v1.0/tracking/', include('tracking.urls')),
     url(r'^api/v1.0/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
