@@ -87,8 +87,8 @@ class FeatureSetGeoJsonView(APIView):
 
 class MapListJsonView(generics.ListAPIView):
     """
-    List of available maps. A map describes a bounding box, zoom level and
-    list of tile layers.
+    List of available maps. A Map defines the center location, zoom level and
+    tile layers.
     """
     queryset = Map.objects.all()
     serializer_class = serializers.MapSerializer

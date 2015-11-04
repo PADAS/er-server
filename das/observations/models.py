@@ -19,7 +19,7 @@ from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.db.models import Q
 from django.db.models import Max
 from django.utils.text import slugify
-from django.contrib.gis.geos import Point
+from django.contrib.gis.geos import Point, Polygon
 
 SOURCE_TYPES = (
     ('tracking-device', 'Tracking Device'),
@@ -250,9 +250,19 @@ class SubjectSource(models.Model):
 
 class SubjectManager(models.Manager):
     def by_region(self, region, **kwargs):
-            subjects =  self.filter(additional__region=region.region)
-            subjects.filter(additional__country=region.country, **kwargs)
-            return subjects
+        subjects =  self.filter(additional__region=region.region)
+        subjects.filter(additional__country=region.country, **kwargs)
+        return subjects
+
+    def by_bbox(self, bbox):
+        geom = Polygon.from_bbox(bbox)
+        sources = Observation.objects.filter(location__within=geom)
+        sources = sources.values('source').annotate(models.Count('source')).values('source')
+        subject_sources = SubjectSource.objects.filter(source__in=sources)
+        subjects = subject_sources.values('subject')
+        subjects = Subject.objects.filter(pk__in=subjects)
+        return subjects
+
 
 
 class Subject(models.Model):

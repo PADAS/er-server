@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class Map(TimestampedModel):
     """
-    A Map is a viewport, zoom level and tile layers.
+    A Map defines the center location, zoom level and tile layers.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)

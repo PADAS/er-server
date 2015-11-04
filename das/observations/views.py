@@ -77,8 +77,25 @@ class RegionView(generics.RetrieveAPIView):
 
 
 class SubjectsView(generics.ListAPIView):
-    queryset = models.Subject.objects.all()
+    """
+    Returns all subjects in the system.
+    Optional qparam of:
+    bbox, where bbox is the (west, south, east, north) lon,lat pairs.
+        example: bbox=14.24, .41, 15.45, 1.66
+    """
     serializer_class = serializers.SubjectSerializer
+
+    def get_queryset(self):
+        queryset = models.Subject.objects.all()
+        bbox = self.request.query_params.get('bbox', None)
+        if bbox:
+            bbox = bbox.split(',')
+            bbox = [float(v) for v in bbox]
+            if len(bbox) != 4:
+                raise ValueError("invalid bbox param")
+            queryset = models.Subject.objects.by_bbox(bbox)
+        return queryset
+
 
 
 class RegionSubjectsView(generics.ListAPIView):
