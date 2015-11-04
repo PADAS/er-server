@@ -126,11 +126,11 @@ class ObservationManager(models.GeoManager):
 
         try:
             location = observation.pop('location')
-            lat = location['lat']
-            lon = location['lon']
+            lat = float(location['lat'])
+            lon = float(location['lon'])
         except KeyError as ke:
-            lat = observation.pop('lat')
-            lon = observation.pop('lon')
+            lat = float(observation.pop('lat'))
+            lon = float(observation.pop('lon'))
         else:
             pass
         finally:

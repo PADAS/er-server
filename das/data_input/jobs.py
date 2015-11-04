@@ -66,7 +66,7 @@ def run_inreachkml():
 
 
 def run_skygistics():
-    for pn in ('test-skygistics', 'ap-skygistics'):
+    for pn in ('lewa-skygistics', 'ap-skygistics'):
         logger.info('Running %s satellite job.', pn)
         try:
             pc = PluginConf.objects.get(plugin_name=pn)
