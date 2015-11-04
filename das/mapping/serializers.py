@@ -1,6 +1,8 @@
 import os
 import logging
 import simplejson as json
+
+from django.core.urlresolvers import reverse, NoReverseMatch
 import rest_framework.serializers as serializers
 from raster.models import RasterLayer
 import mapping.models as models
@@ -36,9 +38,14 @@ class RasterLayerSerializer(serializers.ModelSerializer):
         #                 instance.metadata.uperlefty]
 
         request = self.context['request']
-        url = '{0}/tms/tiles/{1}'.format(os.path.dirname(os.path.dirname(request._request.path)), str(instance.id))
+        url = '{0}/tms/tiles/{1}'.format(os.path.dirname(request._request.path), str(instance.id))
         url = request._request.build_absolute_uri(url)
         url = '{0}/{{z}}/{{x}}/{{y}}.png'.format(url)
+
+        #does not currently work with the url spec.
+        #tilepattern = reverse("tms", kwargs=dict(layer=instance.id, format='.png', x='{x}',y='{y}',z='{z}'))
+        #tilepattern = request.build_absolute_uri(tilepattern)
+        #tilepattern = tilepattern.replace('%7B', '{').replace('%7D', '}')
         rep['tiles'] = [url, ]
 
         return rep
