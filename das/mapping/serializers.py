@@ -1,9 +1,12 @@
 import os
+import logging
 import simplejson as json
 import rest_framework.serializers as serializers
 from raster.models import RasterLayer
 import mapping.models as models
 
+
+logger = logging.getLogger(__name__)
 
 class RasterLayerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -105,5 +108,12 @@ class MapSerializer(serializers.ModelSerializer):
         tile_layers = TileLayerSerializer(
             instance.tilelayer_set.all(), many=True, context={'request': request})
 
-        rep['layers'] = [t.data for t in tile_layers.data]
+        layers = []
+        for t in tile_layers.data:
+            try:
+                layers.append(t.data)
+            except:
+                logger.exception("Failed to serialize map")
+
+        rep['layers'] = layers
         return rep
