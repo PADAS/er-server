@@ -8,6 +8,7 @@ from functools import namedtuple
 from observations.models import Observation, Source
 from .plugin import DasPlugin, PluginTarget, DasPluginConfigurationError
 import datetime, time
+from datetime import timedelta
 from data_input.models import PluginConf, PluginConfSource
 
 from dateutil.parser import parse as parse_date
@@ -89,13 +90,10 @@ class SavannaClient(object):
         return dt
 
 
-SOURCE_MODEL_NAME = 'SavannaTrackingRF'
-
-
 def unixtimestamp(d):
     return int(time.mktime(d.timetuple()))
 
-DEFAULT_START_TIME = datetime.datetime(2015, 8, 1, tzinfo=pytz.utc).isoformat()
+DEFAULT_START_OFFSET = timedelta(days=14)
 
 class SavannaPlugin(DasPlugin):
 
@@ -108,28 +106,29 @@ class SavannaPlugin(DasPlugin):
 
     def _fetch(self):
 
-        sources = Source.objects.filter(model_name=SOURCE_MODEL_NAME)
-        for source in sources:
+        conf_sources = PluginConfSource.objects.filter(plugin_conf=self.config)
+        for conf_source in conf_sources:
 
             try:
-                pcs = PluginConfSource.objects.get(source=source, plugin_conf=self.config)
-            except PluginConfSource.DoesNotExist:
-                pcs = PluginConfSource(source=source, plugin_conf=self.config, additional=dict(latest_timestamp=DEFAULT_START_TIME))
-                pcs.save()
+                st = parse_date(conf_source.additional['latest_timestamp'])
+            except Exception as e:
+                st = datetime.datetime.utcnow() - DEFAULT_START_OFFSET
 
+            try:
+                lt = st
+                st = unixtimestamp(st)
+                st+=1
 
-            st = Observation.objects.get_max_recorded_at(source=source) or parse_date(pcs.additional['latest_timestamp'])
-            lt = st
-            st = unixtimestamp(st)
-            st+=1
+                source = conf_source.source
+                self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
+                for observation in self.client.fetch_observations(source.manufacturer_id, start_time=st):
+                    lt = observation.ts
+                    yield (source, observation)
 
-            self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
-            for observation in self.client.fetch_observations(source.manufacturer_id, start_time=st):
-                lt = observation.ts
-                yield (source, observation)
-
-            pcs.additional['latest_timestamp'] = lt.isoformat()
-            pcs.save()
+                conf_source.additional['latest_timestamp'] = lt.isoformat()
+                conf_source.save()
+            except Exception as e:
+                self.logger.exception("Error fetching savanna collar data")
 
     def _transform(self, so_tuple):
         source, observation = so_tuple
