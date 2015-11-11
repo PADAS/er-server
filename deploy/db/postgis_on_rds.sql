@@ -5,7 +5,7 @@ create extension IF NOT EXISTS postgis;
 create extension IF NOT EXISTS fuzzystrmatch;
 create extension IF NOT EXISTS postgis_tiger_geocoder;
 create extension IF NOT EXISTS postgis_topology;
-alter schema tiger owner to rds_superuser;
+-- alter schema tiger owner to rds_superuser;
 alter schema topology owner to rds_superuser;
 CREATE OR REPLACE FUNCTION exec(text) returns text language plpgsql volatile AS $f$ BEGIN EXECUTE $1; RETURN $1; END; $f$;
 SELECT exec('ALTER TABLE ' || quote_ident(s.nspname) || '.' || quote_ident(s.relname) || ' OWNER TO rds_superuser')
