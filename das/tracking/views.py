@@ -1,66 +1,72 @@
-import logging
-import datetime
-
-import simplejson as json
-import dateutil.parser
-import pytz
-from django.utils.translation import ugettext_lazy as _
-from django.http import Http404, JsonResponse
-from django.contrib.auth import get_user_model
-
-import django.views.defaults
-from rest_framework import generics
-from rest_framework.views import exception_handler
-from rest_framework.permissions import AllowAny
+from rest_framework import status
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
-from rest_framework.compat import set_rollback
-import rest_framework.status
+from observations.models import Observation, Source
+from observations.serializers import ObservationSerializer
+from oauth2_provider.ext.rest_framework import OAuth2Authentication
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import IsAuthenticated
+from django.contrib.gis.geos import Point
 
-from observations import models
-import tracking.serializers
-import observations.serializers
-import copy
+@api_view(['POST', 'GET'])
+@authentication_classes((OAuth2Authentication, SessionAuthentication))
+@permission_classes((IsAuthenticated,))
+def observation_list(request):
+    """
+    For a manufacturer_id:
+        list some observations, or create a new observation.
+    """
+    if request.method == 'POST':
 
-class SourceObservationsView(generics.ListCreateAPIView):
-    lookup_field = 'id'
-    serializer_class = observations.serializers.ObservationSerializer
+        try:
+            lat = request.data.get('lat', None)
+            lon = request.data.get('lon', None)
 
-    def get_queryset(self):
-        source = generics.get_object_or_404(models.Source.objects.all(),
-                                            id=self.kwargs['id'])
-        self.check_object_permissions(self.request, source)
-        observations = models.Observation.objects.filter(source=source)
-        return observations
+            location = Point(x=float(lon), y=float(lat))
+        except:
+            location = None
 
-    # def get_serializer_context(self):
-    #     context = {'request': self.request}
-    #     context['show_last_position_date'] = True
-    #     return context
+        manufacturer_id = request.data.get('manufacturer_id', None)
+        source_type = request.data.get('source_type', None)
 
+        if not manufacturer_id or not source_type:
+            return Response(data="Missing parameters. Please provide both 'manufacturer_id' and 'source_type'.",
+                            status=status.HTTP_400_BAD_REQUEST)
 
-    def create(self, request, *args, **kwargs):
+        src, created = Source.objects.get_or_create(source_type=source_type,
+                                           manufacturer_id=manufacturer_id,
+                                           defaults={'model_name':'auto-created',
+                                                     'additional': {'note':'automatically created during observation post.'}})
 
-        source = generics.get_object_or_404(models.Source.objects.all(),
-                                            id=self.kwargs['id'])
-        self.check_object_permissions(self.request, source)
+        recorded_at = request.data.get('recorded_at')
+        # if recorded_at:
+        #     recorded_at = parser.parse(recorded_at)
 
-        _ = copy.copy(request.data)
-
-        location = _.pop('location')
-        _['ts'] = _.pop('recorded_at')
-
-        _.update(location)
-        observation = models.Observation.objects.add_observation(source, _)
-
-        # response = JsonResponse(data=dict(message='helo'))
-        sd = observations.serializers.ObservationSerializer(observation).data
-        return JsonResponse(data=sd)
+        observation_data = {
+            'location': location,
+            'recorded_at': recorded_at,
+            'source': src.id,
+            'additional': request.data.get('additional', {"note":"default"}),
+        }
 
 
-class SourceList(generics.ListAPIView):
-    serializer_class = observations.serializers.SourceSerializer
-    lookup_field = 'manufacturer_id'
+        serializer = ObservationSerializer(data=observation_data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def get_queryset(self):
-        mid = self.kwargs['manufacturer_id']
-        return observations.models.Source.objects.filter(manufacturer_id=mid)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'GET':
+
+        manufacturer_id = request.query_params.get('manufacturer_id')
+        if manufacturer_id:
+            src = Source.objects.filter(source_type='gps-radio', manufacturer_id=manufacturer_id).first()
+
+            if src:
+
+                o = Observation.objects.filter(source=src)[:5]
+                serializer = ObservationSerializer(o, many=True)
+                return Response(serializer.data)
+
+        return Response(status=status.HTTP_404_NOT_FOUND)
