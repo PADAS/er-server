@@ -19,8 +19,9 @@ def observation_list(request):
     if request.method == 'POST':
 
         try:
-            lat = request.data.get('lat', None)
-            lon = request.data.get('lon', None)
+            location = request.data.get('location')
+            lat = location.get('lat', None)
+            lon = location.get('lon', None)
 
             location = Point(x=float(lon), y=float(lat))
         except:
