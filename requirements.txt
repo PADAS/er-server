@@ -8,7 +8,7 @@ python-dateutil==2.4.2
 requests==2.8.1
 Django==1.9b1
 
-djangorestframework==3.3.0
+djangorestframework==3.3.1
 #djangorestframework-gis==0.9.4
 #drf geojson serializers
 #django-spillway==0.5.1
@@ -26,7 +26,7 @@ django-rest-swagger==0.3.4
 #numpy 1.9.3, required by django-raster
 numpy==1.10.1
 #django-raster==0.1.7
-git+https://github.com/PADAS/django-raster.git@74ca4bc024cb71f0e07730ab44112c085646f055
+git+https://github.com/PADAS/django-raster.git@69308b23338e978200dd384211b1282fdbc63d2c
 GDAL==1.11.2
 # Under windows add appropriate path'ed Environment Variables
 #GDAL_DATA=C:\projects\das\dasvir\Lib\site-packages\osgeo\data\gdal
