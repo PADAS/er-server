@@ -61,8 +61,9 @@ def observation_list(request):
     elif request.method == 'GET':
 
         manufacturer_id = request.query_params.get('manufacturer_id')
+        source_type = request.query_params.get('source_type', 'gps-radio')
         if manufacturer_id:
-            src = Source.objects.filter(source_type='gps-radio', manufacturer_id=manufacturer_id).first()
+            src = Source.objects.filter(source_type=source_type, manufacturer_id=manufacturer_id).first()
 
             if src:
 
