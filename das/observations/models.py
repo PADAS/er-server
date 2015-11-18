@@ -111,44 +111,26 @@ class ObservationManager(models.GeoManager):
         result = result.filter(recorded_at__gt=gt)
         return result
 
-    def add_observation(self, source, observation):
+    def add_observation(self, observation):
         '''
         Add an observation for the given source.
         :param source:
-        :param observation: a dict containing observation data. Anything other than lat, lon and timestamp (ts) will
-        be saved in additional (as jsonb).
-        :return: None
+        :param observation: An object with attributes: source, latitude, longitude, recorded_at, additional
+        :return: The new Observation
         '''
 
         # todo: consider changing the Geometry type in the db to accept z-value.
         # loc = Point(x=float(observation.pop('lon')), y=float(observation.pop('lat')),
         #             z=float(observation.get('elevation')))
 
-        try:
-            location = observation.pop('location')
-            lat = float(location['lat'])
-            lon = float(location['lon'])
-        except KeyError as ke:
-            lat = float(observation.pop('lat'))
-            lon = float(observation.pop('lon'))
-        else:
-            pass
-        finally:
-            location = Point(x=lon, y=lat)
+        location = Point(x=observation.longitude, y=observation.latitude)
 
-        try:
-            ts = observation.pop('ts', None) or observation.pop('recorded_at')
-            observation.pop('recorded_at', None)
-        except Exception as e:
-            print(e)
-            raise
-
-        # obs = Observation(source_id=source.id, location=location, recorded_at=ts, additional=observation).save()
-
-        obs = Observation.objects.create(source_id=source.id, location=location, recorded_at=ts, additional=observation)
+        additional = observation.additional or {}
+        obs = Observation.objects.create(source_id=observation.source.id, location=location,
+                                         recorded_at=observation.recorded_at,
+                                         additional=additional)
 
         return Observation.objects.get(id=obs.id)
-        # return obs
 
     def get_max_recorded_at(self, source):
         '''Get the latest recorded timestamp for the source.'''

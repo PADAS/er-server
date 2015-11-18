@@ -131,6 +131,8 @@ class PluginTarget(object):
                     cnt += 1
             except GeneratorExit:
                 self.logger.info("Target received %d messages", cnt)
+            except Exception as e:
+                self.logger.exception("Exception in plugin handler.")
 
         r = _()
         next(r)

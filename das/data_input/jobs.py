@@ -4,6 +4,7 @@ from data_input.plugins.firms import FirmsPlugin, FirmsTarget
 from data_input.plugins.inreach import InreachPlugin, InreachTarget
 from data_input.plugins.inreachkml import InreachKMLPlugin
 from data_input.plugins.skygistics import SkygisticsSatellitePlugin, SkygisticsTarget
+from data_input.plugins.trackgenerator import DemoPlugin, DemoTarget
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,17 @@ def run_savanna():
             sp = SavannaPlugin(pc, target=consumer)
             sp.execute()
 
+
+def run_trackgenerator():
+    logger.info('Running trackgenerator job.')
+    try:
+        pc = PluginConf.objects.get(plugin_name='demo-wildlife')
+    except Exception:
+        raise Exception("Looks like data hasn't been loaded for plugin_conf.")
+    else:
+        with DemoTarget() as consumer:
+            sp = DemoPlugin(pc, target=consumer)
+            sp.execute()
 
 def run_firms():
     logger.info('Running firms job.')
