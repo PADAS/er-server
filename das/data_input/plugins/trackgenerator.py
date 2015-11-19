@@ -4,9 +4,9 @@ import random
 
 import geopy
 import geopy.distance
-from observations.models import Observation, Source
+
 from data_input.models import PluginConfSource
-from data_input.plugins.plugin import PluginTarget, DasPlugin
+from data_input.plugins.plugin import DasPlugin, Obs
 
 import logging
 import datetime
@@ -75,8 +75,6 @@ class RandomMover(object):
             return self._geo_filter.contains(p)
         return True
 
-
-Obs = namedtuple('Obs', ('source', 'latitude', 'longitude', 'recorded_at', 'additional'))
 
 class DemoPlugin(DasPlugin):
 
@@ -148,56 +146,4 @@ class DemoPlugin(DasPlugin):
         super().execute()
 
 
-class DemoTarget(PluginTarget):
-
-    def _handle_item(self, item):
-        Observation.objects.add_observation(item)
-
-
-
-
-# test_boundaries = {
-#     "polygons": [
-#         ((25.029, 19.447), (25.017, 22.652), (26.242, 22.632), (26.963, 20.628), (26.971, 19.431), (25.029, 19.447))
-#     ],
-# }
-#
-# test_config = Config(name='Russel', manufacturer_id='demo-collar-1', boundaries=test_boundaries)
-
-# if __name__ == "__main__":
-#
-#     import datetime
-#     from datetime import timedelta
-#     import pytz
-#
-#     russel = RandomMover(test_config)
-#
-#     print(russel)
-#
-#     src, created = Source.objects.get_or_create(source_type='tracking-device',
-#                                        manufacturer_id=test_config.manufacturer_id,
-#                                        defaults={'model_name':'Demo-Collar',
-#                                                  'additional': test_config._asdict()
-#                                                  }
-#                                                 )
-#
-#     print(src)
-#     now = datetime.datetime.now(tz=pytz.utc)
-#
-#     Observation.objects.get_last_observation()
-#     history_hours = 24
-#     for x in range(0, history_hours):
-#         _ = russel.next_point()
-#         print(_.latitude, _.longitude)
-#
-#         recorded_at = now - timedelta(hours=history_hours-x)
-#
-#         obs = {
-#             'location': {'lat': _.latitude, 'lon': _.longitude},
-#             'recorded_at': recorded_at,
-#
-#         }
-#         print(obs)
-#         Observation.objects.add_observation(src, obs)
-#
 

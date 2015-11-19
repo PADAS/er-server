@@ -5,11 +5,12 @@ import copy
 
 import http.client
 from functools import namedtuple
-from observations.models import Observation, Source
-from .plugin import DasPlugin, PluginTarget, DasPluginConfigurationError
+
+from .plugin import DasPlugin, Obs, DasPluginConfigurationError
 import datetime, time
 from datetime import timedelta
-from data_input.models import PluginConf, PluginConfSource
+from data_input.models import PluginConfSource
+
 
 from dateutil.parser import parse as parse_date
 import pytz
@@ -23,7 +24,7 @@ def __str2date(d, replace_tzinfo=pytz.utc):
 
 
 # Helpers for parsing lines from Savanna datasource.
-Fix = namedtuple('Fix', ['collar_id', 'lon', 'lat', 'ts', 'speed', 'heading', 'temperature', 'height'])
+Fix = namedtuple('Fix', ['collar_id', 'longitude', 'latitude', 'recorded_at', 'speed', 'heading', 'temperature', 'height'])
 field_transform = (str, float, float, __str2date, float, float, str, int)
 
 
@@ -121,27 +122,25 @@ class SavannaPlugin(DasPlugin):
 
                 source = conf_source.source
                 self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
-                for observation in self.client.fetch_observations(source.manufacturer_id, start_time=st):
-                    lt = observation.ts
-                    yield (source, observation)
+                for fix in self.client.fetch_observations(source.manufacturer_id, start_time=st):
+                    lt = fix.recorded_at
+                    yield (source, fix)
 
                 conf_source.additional['latest_timestamp'] = lt.isoformat()
                 conf_source.save()
             except Exception as e:
                 self.logger.exception("Error fetching savanna collar data")
 
-    def _transform(self, so_tuple):
-        source, observation = so_tuple
-        return (source, observation._asdict())
+    def _transform(self, item):
+        source, o = item
+
+        side_data = dict((k, o.__getattribute__(k)) for k in ('speed', 'heading', 'temperature', 'height'))
+        return Obs(source=source, recorded_at=o.recorded_at, latitude=o.latitude, longitude=o.longitude,
+                   additional=side_data)
 
     def execute(self):
         super().execute()
 
 
-class SavannaTarget(PluginTarget):
-
-    def _handle_item(self, item):
-        (source, obs) = item
-        Observation.objects.add_observation(source, obs)
 
 

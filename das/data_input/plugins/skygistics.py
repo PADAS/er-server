@@ -8,12 +8,12 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from django.contrib.gis.geos import Point
 
-from observations.models import Observation, Source
+import observations
 from data_input.models import PluginConf, PluginConfSource
 
 from .plugin import DasPlugin, PluginTarget, \
     DasPluginConfigurationError, DasPluginFetchError, \
-    DasPluginInsertError, DasPluginTransformationError
+    DasDefaultTarget, Obs
 from .utils import dictify
 import logging
 
@@ -219,8 +219,8 @@ class SkygisticsSatellitePlugin(DasPlugin):
 
             for unit_info in self.client.fetch_observations(imei=conf_source.source.manufacturer_id,
                                                             start_date=start_date):
+                            # update the conf_source so the time this data was fetched becomes the start for the next batch
                 yield (conf_source.source, unit_info)
-            # update the conf_source so the time this data was fetched becomes the start for the next batch
             # todo:  this could be set too far in the future ...
             conf_source.additional['last_fetch'] = timezone.now().strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT)
             conf_source.save()
@@ -234,35 +234,37 @@ class SkygisticsSatellitePlugin(DasPlugin):
         source, unit_info = item
         observation = {
             'imei': unit_info[('{0}IMEI'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
-            'lat': unit_info[('{0}Latitude'.format(SKYGISTICS_API_XMLNS))][0][
+            'latitude': unit_info[('{0}Latitude'.format(SKYGISTICS_API_XMLNS))][0][
                 '_text'],
-            'lon': unit_info[('{0}Longitude'.format(SKYGISTICS_API_XMLNS))][0][
+            'longitude': unit_info[('{0}Longitude'.format(SKYGISTICS_API_XMLNS))][0][
                 '_text'],
             'voltage': unit_info[('{0}Voltage'.format(SKYGISTICS_API_XMLNS))][0][
                 '_text'],
-            'ts': timezone.make_aware(datetime.strptime(unit_info[('{0}Time'.format(SKYGISTICS_API_XMLNS))][0][
+            'recorded_at': timezone.make_aware(datetime.strptime(unit_info[('{0}Time'.format(SKYGISTICS_API_XMLNS))][0][
                 '_text'], SKYGISTICS_DATETIME_FORMAT), timezone.utc),
             # add T and Z to string timestamp so UTC is obvious.
             'received_time':
                 timezone.make_aware(datetime.strptime(unit_info[('{0}ReceivedTime'.format(SKYGISTICS_API_XMLNS))][0][
                     '_text'], SKYGISTICS_DATETIME_FORMAT), timezone.utc).strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT),
         }
-        return source, observation
+
+        return Obs(source=source, recorded_at=observation['recorded_at'],
+                                  longitude=float(observation['longitude']), latitude=float(observation['latitude']),
+                                  additional=dict((k,observation.get(k)) for k in ('imei', 'voltage', 'received_at',)))
 
     def execute(self):
         super().execute()
 
 
-class SkygisticsTarget(PluginTarget):
-    def _handle_item(self, item):
-        (source, observation) = item
+class SkygisticsTarget(DasDefaultTarget):
+    def _handle_item(self, observation):
         if self._pass_filter(observation):
-            Observation.objects.add_observation(source, observation)
+            super(SkygisticsTarget, self)._handle_item(observation)
 
     def _pass_filter(self, observation):
 
         try:
-            return not (int(float(observation['lon'])) == 180 and int(float(observation['lat'])) == 90)
+            return not (int(observation.longitude) == 180 and int(observation.latitude) == 90)
         except Exception as e:
             self.logger.warn('Failure when filtering skygistics fix.')
 

@@ -1,10 +1,11 @@
 from data_input.models import PluginConf
-from data_input.plugins.savanna import SavannaPlugin, SavannaTarget
-from data_input.plugins.firms import FirmsPlugin, FirmsTarget
-from data_input.plugins.inreach import InreachPlugin, InreachTarget
+from data_input.plugins.savanna import SavannaPlugin
+from data_input.plugins.firms import FirmsPlugin
+from data_input.plugins.inreach import InreachPlugin
 from data_input.plugins.inreachkml import InreachKMLPlugin
 from data_input.plugins.skygistics import SkygisticsSatellitePlugin, SkygisticsTarget
-from data_input.plugins.trackgenerator import DemoPlugin, DemoTarget
+from data_input.plugins.trackgenerator import DemoPlugin
+from data_input.plugins.plugin import DasDefaultTarget
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ def run_savanna():
     except Exception:
         raise Exception("Looks like data hasn't been loaded for plugin_conf.")
     else:
-        with SavannaTarget() as consumer:
+        with DasDefaultTarget() as consumer:
             sp = SavannaPlugin(pc, target=consumer)
             sp.execute()
 
@@ -33,7 +34,7 @@ def run_trackgenerator():
     except Exception:
         raise Exception("Looks like data hasn't been loaded for plugin_conf.")
     else:
-        with DemoTarget() as consumer:
+        with DasDefaultTarget() as consumer:
             sp = DemoPlugin(pc, target=consumer)
             sp.execute()
 
@@ -44,7 +45,7 @@ def run_firms():
     except Exception:
         raise Exception("Looks like data hasn't been loaded for plugin_conf.")
     else:
-        with FirmsTarget() as consumer:
+        with DasDefaultTarget() as consumer:
             sp = FirmsPlugin(pc, target=consumer)
             sp.execute()
 
@@ -58,7 +59,7 @@ def run_inreach():
         except Exception:
             logger.error("No PluginConf data for job %s", pn)
         else:
-            with InreachTarget() as consumer:
+            with DasDefaultTarget() as consumer:
                 sp = InreachPlugin(pc, target=consumer)
                 sp.execute()
 
@@ -72,7 +73,7 @@ def run_inreachkml():
         except Exception:
             logger.error("No PluginConf data for job %s", pn)
         else:
-            with InreachTarget() as consumer:
+            with DasDefaultTarget() as consumer:
                 sp = InreachKMLPlugin(pc, target=consumer)
                 sp.execute()
 

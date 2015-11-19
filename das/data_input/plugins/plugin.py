@@ -1,5 +1,7 @@
 import logging
 from django.conf import settings
+import observations
+from functools import namedtuple
 
 class DasPluginConfigurationError(Exception):
     """
@@ -146,5 +148,18 @@ class PluginTarget(object):
         self.logger.debug("Exiting. %s %s %s", ex_type, exc_value, traceback)
         self._r.close()
         return True
+
+'''
+Default Classes
+'''
+class DasDefaultTarget(PluginTarget):
+
+    def _handle_item(self, item):
+        observations.models.Observation.objects.add_observation(item)
+
+'''
+Observation Football
+'''
+Obs = namedtuple('Obs', ('source', 'latitude', 'longitude', 'recorded_at', 'additional'))
 
 

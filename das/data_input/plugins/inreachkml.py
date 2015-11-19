@@ -8,9 +8,8 @@ from datetime import timedelta
 from dateutil.parser import parse as parse_date
 import pytz
 import re
-from data_input.plugins.plugin import DasPlugin2, DasPlugin, PluginTarget
-from data_input.models import PluginConf, PluginConfSource
-from observations.models import Observation
+from data_input.plugins.plugin import DasPlugin, Obs
+from data_input.models import PluginConfSource
 
 
 from fastkml import kml
@@ -105,10 +104,10 @@ def __str2velocity(v):
 
 
 field_map = {
-    'Time UTC': ('ts', __str2date),
+    'Time UTC': ('recorded_at', __str2date),
     'Name': ('name', str),
-    'Latitude': ('lat', float),
-    'Longitude': ('lon', float),
+    'Latitude': ('latitude', float),
+    'Longitude': ('longitude', float),
     'IMEI': ('imei', str),
     'Elevation': ('elevation', __str2elevation),
     'Velocity': ('velocity', __str2velocity),
@@ -161,7 +160,7 @@ class InreachKMLPlugin(DasPlugin):
             dat = client.get_data(pcs.source.manufacturer_id, d1=latest_ts)
 
             for observation in client.gen_placemarks(dat):
-                latest_ts = max(latest_ts, observation['ts'])
+                latest_ts = max(latest_ts, observation['recorded_at'])
 
                 if observation['inreach_id'] > latest_inreach_id:
                     latest_inreach_id = observation['inreach_id']
@@ -173,35 +172,21 @@ class InreachKMLPlugin(DasPlugin):
             pcs.save()
 
 
-
     def _transform(self, so_tuple):
-        source, observation = so_tuple
-        return (source, observation)
+
+        source, o = so_tuple
+
+        # Copy any none-standard fields into Obs.additional
+        side_data = dict((k, o.get(k)) for k in o.keys() if k not in Obs._fields)
+        return Obs(source=source, recorded_at=o.get('recorded_at'),
+                   latitude=o.get('latitude'),
+                   longitude=o.get('longitude'),
+                   additional=side_data)
 
     def execute(self):
         super().execute()
 
 
-if __name__ == '__main__':
-    import json
-    c = InreachKMLClient('/feed/Share/Odzala1', 'erikm@african-parks.org', 'odzalashare2014')
-    test_imei = '300434060661240'
-
-    c = InreachKMLClient('/feed/Share/TedSchmitt', 'teds@vulcan.com', '0dZalla')
-    test_imei = '300434060291470'
-
-    # Default start date
-    start_time = datetime.datetime.utcnow() - timedelta(days=30)
-    # start_time = datetime.datetime(2015, month=7, day=29, hour=7,minute=43,tzinfo=pytz.UTC)
-
-    start_time = datetime.datetime(2015, 10, 6, 0, 14, 45, tzinfo=pytz.utc)
-    after_id = 51331671
-
-    dat = c.get_data(test_imei, d1=start_time)
-    for x in c.gen_placemarks(dat):
-
-        if x['inreach_id'] > after_id:
-            print(x)
 
 
 
