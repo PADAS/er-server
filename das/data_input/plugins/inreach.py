@@ -149,6 +149,8 @@ class InreachPlugin(DasPlugin):
     Inreach plugin fetches data from explorer.delorme.com for radios we've set up in DAS. Data read from Delorme's
     service is entered in DAS as observations.
     '''
+
+    plugin_key = 'inreach-api'
     def __init__(self, config=None, target=None):
         super().__init__(config=config, target=target)
 

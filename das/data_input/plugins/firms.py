@@ -112,6 +112,7 @@ DEFAULT_START_TIME = datetime.datetime(2015, 8, 1, tzinfo=pytz.utc).isoformat()
 
 class FirmsPlugin(DasPlugin):
 
+    plugin_key = 'firms-ftp'
 
     def __init__(self, config=None, target=None):
         super().__init__(config=config, target=target)

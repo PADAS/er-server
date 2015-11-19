@@ -187,6 +187,7 @@ class SkygisticsSatelliteClient(SkygisticsClient):
 
 class SkygisticsSatellitePlugin(DasPlugin):
 
+    plugin_key = 'skygistics'
     def __init__(self, config=None, target=None):
 
         self.logger = logging.getLogger(self.__class__.__name__)

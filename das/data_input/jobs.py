@@ -7,86 +7,60 @@ from data_input.plugins.skygistics import SkygisticsSatellitePlugin, SkygisticsT
 from data_input.plugins.trackgenerator import DemoPlugin
 from data_input.plugins.plugin import DasDefaultTarget
 import logging
+from functools import namedtuple
 
 logger = logging.getLogger(__name__)
 
+PluginTargetPair = namedtuple('PluginTargetPair', ('plugin_class', 'target_class'))
+
+# This a list of Plugin/Target pairs, that can be run on schedule.
+plugin_target_pairs = (PluginTargetPair(SavannaPlugin, DasDefaultTarget),
+                       PluginTargetPair(DemoPlugin, DasDefaultTarget),
+                       PluginTargetPair(FirmsPlugin, DasDefaultTarget),
+                       PluginTargetPair(SkygisticsSatellitePlugin, SkygisticsTarget),
+                       PluginTargetPair(InreachPlugin, DasDefaultTarget),
+                       PluginTargetPair(InreachKMLPlugin, DasDefaultTarget)
+                       )
+# Map plugin_key to plugin_target_pair
+ptp_map = dict((p.plugin_class.plugin_key, p) for p in plugin_target_pairs)
+
+def run_all_plugins():
+    for ptp in plugin_target_pairs.values():
+        run_plugin(ptp)
+
+def run_plugin(plugin_key):
+
+    ptp = ptp_map.get(plugin_key)
+
+    if not ptp:
+        raise ValueError('No plugin target pair exists for name %s' % (plugin_key,))
+
+    pconfs = PluginConf.objects.filter(plugin_class=ptp.plugin_class.plugin_key)
+
+    for pc in pconfs:
+        try:
+            with ptp.target_class() as consumer:
+                p = ptp.plugin_class(pc, target=consumer)
+                p.execute()
+        except Exception:
+            logger.exception('Failed to run plugin %s' % (p,))
+
+
+# Convenience methods.
 def run_savanna():
-    '''
-    run Savanna plugin to ingest collar data.
-    :return:
-    '''
+    run_plugin(SavannaPlugin.plugin_key)
 
-    logger.info('Running savanna job.')
-    try:
-        pc = PluginConf.objects.get(plugin_name='savanna')
-    except Exception:
-        raise Exception("Looks like data hasn't been loaded for plugin_conf.")
-    else:
-        with DasDefaultTarget() as consumer:
-            sp = SavannaPlugin(pc, target=consumer)
-            sp.execute()
-
-
-def run_trackgenerator():
-    logger.info('Running trackgenerator job.')
-    try:
-        pc = PluginConf.objects.get(plugin_name='demo-wildlife')
-    except Exception:
-        raise Exception("Looks like data hasn't been loaded for plugin_conf.")
-    else:
-        with DasDefaultTarget() as consumer:
-            sp = DemoPlugin(pc, target=consumer)
-            sp.execute()
+def run_demo():
+    run_plugin(DemoPlugin.plugin_key)
 
 def run_firms():
-    logger.info('Running firms job.')
-    try:
-        pc = PluginConf.objects.get(plugin_name='firms')
-    except Exception:
-        raise Exception("Looks like data hasn't been loaded for plugin_conf.")
-    else:
-        with DasDefaultTarget() as consumer:
-            sp = FirmsPlugin(pc, target=consumer)
-            sp.execute()
-
-
-def run_inreach():
-
-    for pn in ('inreach', 'ap-garamba-inreach'):
-        logger.info('Running %s job.', pn)
-        try:
-            pc = PluginConf.objects.get(plugin_name=pn)
-        except Exception:
-            logger.error("No PluginConf data for job %s", pn)
-        else:
-            with DasDefaultTarget() as consumer:
-                sp = InreachPlugin(pc, target=consumer)
-                sp.execute()
-
-
-def run_inreachkml():
-
-    for pn in ('ap-odzala-inreachkml',):
-        logger.info('Running %s job.', pn)
-        try:
-            pc = PluginConf.objects.get(plugin_name=pn)
-        except Exception:
-            logger.error("No PluginConf data for job %s", pn)
-        else:
-            with DasDefaultTarget() as consumer:
-                sp = InreachKMLPlugin(pc, target=consumer)
-                sp.execute()
-
+    run_plugin(FirmsPlugin.plugin_key)
 
 def run_skygistics():
-    for pn in ('lewa-skygistics', 'ap-skygistics'):
-        logger.info('Running %s satellite job.', pn)
-        try:
-            pc = PluginConf.objects.get(plugin_name=pn)
-        except Exception:
-            logger.error("No PluginConf data for job %s", pn)
-        else:
-            with SkygisticsTarget() as consumer:
-                sp = SkygisticsSatellitePlugin(pc, target=consumer)
-                sp.execute()
+    run_plugin(SkygisticsSatellitePlugin.plugin_key)
 
+def run_inreach():
+    run_plugin(InreachPlugin.plugin_key)
+
+def run_inreachkml():
+    run_plugin(InreachKMLPlugin.plugin_key)
