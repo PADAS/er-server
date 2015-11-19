@@ -6,7 +6,8 @@ from core.models import TimestampedModel
 
 class PluginConf(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    plugin_name = models.CharField('plugin name', max_length=100)
+    plugin_name = models.CharField('plugin name', max_length=100, null=True)
+    plugin_class = models.CharField('plugin class', max_length=100, null=True)
     configuration = JSONField()
 
     def __str__(self):
