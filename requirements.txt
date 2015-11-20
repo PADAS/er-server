@@ -38,6 +38,8 @@ fastkml==0.11
 #rq==0.5.4
 #django-rq==0.8.0
 
+geopy==1.11.0
+
 # APScheduler requires SQLAlchemy if we hold schedule information in Postgres.
 APScheduler==3.0.4
 SQLAlchemy==1.0.9
