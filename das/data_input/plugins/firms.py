@@ -1,13 +1,8 @@
 """
  Fetch and transform Savannah data into DAS input format
 """
-import copy
-
-import http.client
-import ssl
-from functools import namedtuple
-from observations.models import Observation, Source
-from .plugin import DasPlugin, PluginTarget, DasPluginConfigurationError
+from observations.models import Source
+from .plugin import DasPlugin, DasPluginConfigurationError, Obs
 import datetime, time
 from data_input.models import PluginConf, PluginConfSource
 from ftplib import FTP
@@ -25,8 +20,10 @@ def __str2date(d, replace_tzinfo=pytz.utc):
 
 
 # Helpers for parsing lines from FIRMS datasource.
-field_names = ('lat', 'lon', 'brightness', 'scan', 'track', 'acq_date', 'acq_time', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
+field_names = ('latitude', 'longitude', 'brightness', 'scan', 'track', 'acq_date', 'acq_time', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
 field_transform = (float, float, float, float, float, str, str, str, int, str, float, float)
+
+additional_fields = ('brightness', 'scan', 'track', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
 
 
 # class SavannaException(Exception):
@@ -103,7 +100,7 @@ class FirmsClient(object):
         vals = (c(i) for c, i in zip(field_transform, s.split(',')))
         dt = dict((k, v) for k, v in zip(field_names, vals))
 
-        dt['ts'] = parse_date('{} {}'.format(dt['acq_date'], dt['acq_time']))
+        dt['recorded_at'] = parse_date('{} {}'.format(dt['acq_date'], dt['acq_time']))
         dt.update(kwargs)
         return dt
 
@@ -115,6 +112,7 @@ DEFAULT_START_TIME = datetime.datetime(2015, 8, 1, tzinfo=pytz.utc).isoformat()
 
 class FirmsPlugin(DasPlugin):
 
+    plugin_key = 'firms-ftp'
 
     def __init__(self, config=None, target=None):
         super().__init__(config=config, target=target)
@@ -147,27 +145,24 @@ class FirmsPlugin(DasPlugin):
                 hi_sequence = observation['offset']
 
                 if self.pass_filter(observation):
-                    yield (source, observation)
+
+                    # Pop-off side-data from observation dict.
+                    additional_data = dict((k, observation.pop(k)) for k in additional_fields)
+                    yield Obs(source=source, recorded_at=observation['recorded_at'], latitude=observation['latitude'],
+                              longitude=observation['longitude'], additional=additional_data)
 
             pcs.additional['highest_sequence'] = hi_sequence
             pcs.save()
 
     def pass_filter(self, observation):
         if self._geo_filter:
-            p  = Point(observation['lon'], observation['lat'])
+            p  = Point(observation['latitude'], observation['longitude'])
             return self._geo_filter.contains(p)
         return True
 
-    def _transform(self, so_tuple):
-        source, observation = so_tuple
-        return (source, observation)
+    def _transform(self, item):
+        return item
 
     def execute(self):
         super().execute()
 
-
-class FirmsTarget(PluginTarget):
-
-    def _handle_item(self, item):
-        (source, obs) = item
-        Observation.objects.add_observation(source, obs)

@@ -5,9 +5,8 @@ import data_input.models as models
 
 @admin.register(models.PluginConf)
 class PluginConfAdmin(admin.ModelAdmin):
-    list_display = ['id', 'plugin_name', 'created_at', 'updated_at', 'configuration']
-
-    fields = ['id', 'plugin_name', 'configuration']
+    list_display = ['id', 'plugin_class', 'plugin_name', 'created_at', 'updated_at', 'configuration']
+    fields = ['id', 'plugin_class', 'plugin_name', 'configuration']
 
 @admin.register(models.PluginConfSource)
 class PluginConfSourceAdmin(admin.ModelAdmin):

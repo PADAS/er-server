@@ -5,8 +5,8 @@ import copy
 import re
 import http.client
 import urllib.parse
-from observations.models import Observation, Source
-from .plugin import DasPlugin, PluginTarget, DasPluginConfigurationError
+from observations.models import Observation
+from .plugin import DasPlugin, Obs, DasPluginConfigurationError
 import datetime, time
 from datetime import timedelta
 from data_input.models import PluginConf, PluginConfSource
@@ -128,11 +128,11 @@ class InreachClient(BasicAuthClient):
         (ts, offset) = re.match(r'/Date\((\d{13})-?(\d{4})?\)/', s.pop('Timestamp')).groups()
         ts = float(ts)/1000
 
-        s['ts'] = datetime.datetime.fromtimestamp(ts, tz=pytz.utc)
+        s['recorded_at'] = datetime.datetime.fromtimestamp(ts, tz=pytz.utc)
         coordinate = s.pop('Coordinate', {'Latitude': 0.0, 'Longitude': 0.0})
         if coordinate:
-            s['lat'] = coordinate['Latitude']
-            s['lon'] = coordinate['Longitude']
+            s['latitude'] = coordinate['Latitude']
+            s['longitude'] = coordinate['Longitude']
 
         s['elevation'] = s.pop('Altitude', None)
 
@@ -149,6 +149,8 @@ class InreachPlugin(DasPlugin):
     Inreach plugin fetches data from explorer.delorme.com for radios we've set up in DAS. Data read from Delorme's
     service is entered in DAS as observations.
     '''
+
+    plugin_key = 'inreach-api'
     def __init__(self, config=None, target=None):
         super().__init__(config=config, target=target)
 
@@ -183,48 +185,43 @@ class InreachPlugin(DasPlugin):
 
 
     def _transform(self, so_tuple):
-        source, observation = so_tuple
-        return (source, observation)
+        source, o = so_tuple
+
+        # Copy any none-standard fields into Obs.additional
+        side_data = dict((k, o.get(k)) for k in o.keys() if k not in Obs._fields)
+        return Obs(source=source, recorded_at=o.get('recorded_at'),
+                   latitude=o.get('latitude'),
+                   longitude=o.get('longitude'),
+                   additional=side_data)
 
     def execute(self):
         super().execute()
 
 
-class InreachTarget(PluginTarget):
-
-    def _handle_item(self, item):
-        (source, obs) = item
-        Observation.objects.add_observation(source, obs)
-
-
-class InreachAccountPlugin(DasPlugin):
-
-
-    def __init__(self, config=None, target=None):
-        super().__init__(self, config=config, target=target)
-        self.client = InreachAccountClient()
-        self.logger = logging.getLogger(InreachAccountPlugin.__name__)
-
-    def _fetch(self):
-
-        source = None
-        self.logger.debug("Fetching data for Inreach account...")
-        for observation in self.client.fetch_users():
-            yield (source, observation)
-
-
-
-    def _transform(self, so_tuple):
-        source, observation = so_tuple
-        return (source, observation)
-
-    def execute(self):
-        super().execute()
+# class InreachAccountPlugin(DasPlugin):
+#
+#
+#     def __init__(self, config=None, target=None):
+#         super().__init__(self, config=config, target=target)
+#         self.client = InreachAccountClient()
+#         self.logger = logging.getLogger(InreachAccountPlugin.__name__)
+#
+#     def _fetch(self):
+#
+#         source = None
+#         self.logger.debug("Fetching data for Inreach account...")
+#         for observation in self.client.fetch_users():
+#             yield (source, observation)
+#
+#
+#
+#     def _transform(self, so_tuple):
+#         source, observation = so_tuple
+#         return (source, observation)
+#
+#     def execute(self):
+#         super().execute()
 
 
-class InreachAccountTarget(PluginTarget):
-
-    def _handle_item(self, item):
-        (source, obs) = item
 
 
