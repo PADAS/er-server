@@ -30,7 +30,7 @@ field_transform = (str, float, float, __str2date, float, float, str, int)
 
 class SavannaClient(object):
 
-    plugin_key = 'savannah-tracking'
+
     def __init__(self, config=None):
         '''
         Configuration is given by the plugin. Probably saved in PluginConf record.
@@ -93,7 +93,7 @@ class SavannaClient(object):
 
 
 def unixtimestamp(d):
-    return int(time.mktime(d.timetuple()))
+    return int(d.timestamp())
 
 DEFAULT_START_OFFSET = timedelta(days=14)
 

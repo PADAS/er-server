@@ -4,6 +4,7 @@ from data_input.plugins.firms import FirmsPlugin
 from data_input.plugins.inreach import InreachPlugin
 from data_input.plugins.inreachkml import InreachKMLPlugin
 from data_input.plugins.skygistics import SkygisticsSatellitePlugin, SkygisticsTarget
+from data_input.plugins.awtgsm import AWTHttpPlugin
 from data_input.plugins.trackgenerator import DemoPlugin
 from data_input.plugins.plugin import DasDefaultTarget
 import logging
@@ -19,7 +20,8 @@ plugin_target_pairs = (PluginTargetPair(SavannaPlugin, DasDefaultTarget),
                        PluginTargetPair(FirmsPlugin, DasDefaultTarget),
                        PluginTargetPair(SkygisticsSatellitePlugin, SkygisticsTarget),
                        PluginTargetPair(InreachPlugin, DasDefaultTarget),
-                       PluginTargetPair(InreachKMLPlugin, DasDefaultTarget)
+                       PluginTargetPair(InreachKMLPlugin, DasDefaultTarget),
+                       PluginTargetPair(AWTHttpPlugin, DasDefaultTarget),
                        )
 # Map plugin_key to plugin_target_pair
 ptp_map = dict((p.plugin_class.plugin_key, p) for p in plugin_target_pairs)
@@ -49,6 +51,9 @@ def run_plugin(plugin_key):
 # Convenience methods.
 def run_savanna():
     run_plugin(SavannaPlugin.plugin_key)
+
+def run_awt_http():
+    run_plugin(AWTHttpPlugin.plugin_key)
 
 def run_demo():
     run_plugin(DemoPlugin.plugin_key)
