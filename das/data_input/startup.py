@@ -22,6 +22,7 @@ def add_scheduled_jobs(scheduler):
     scheduler.add_job(heartbeat, id='heartbeat', trigger='cron', minute='*/10', replace_existing=True)
     scheduler.add_job(run_inreachkml, id='inreach_kml_import', trigger='cron', minute='*/5', replace_existing=True)
     scheduler.add_job(run_demo, id='demo_wildlife_import', trigger='cron', minute='*/15', replace_existing=True)
+    scheduler.add_job(run_awt_http, id='awt_http_import', trigger='cron', minute='*/10', replace_existing=True)
 
 def start_scheduler():
     '''
