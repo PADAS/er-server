@@ -256,8 +256,3 @@ class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     queryset = models.Source.objects.all()
     serializer_class = serializers.SourceSerializer
 
-
-
-
-
-
