@@ -50,7 +50,7 @@ class RandomMover(object):
 
     def next_point(self):
 
-        change_k = random.random() #*3.0
+        change_k = random.random() * 3.0
         d = geopy.distance.VincentyDistance(kilometers=change_k)
         change_bearing = random.random()*360.0
 
