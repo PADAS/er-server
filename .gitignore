@@ -136,8 +136,8 @@ das/das_server/demo_settings.py
 
 das/das_server/dev_das_settings.py
 
-das/das_server/odzala_settings.py
-
 das/das_server/lewa_settings.py
+
+das/das_server/odzala_settings.py
 
 das/das_server/ste_settings.py

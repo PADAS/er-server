@@ -188,20 +188,9 @@ class SkygisticsSatelliteClient(SkygisticsClient):
 class SkygisticsSatellitePlugin(DasPlugin):
 
     plugin_key = 'skygistics'
-    def __init__(self, config=None, target=None):
+    def initConfig(self):
+        self.client = SkygisticsSatelliteClient(self.config.configuration)
 
-        self.logger = logging.getLogger(self.__class__.__name__)
-
-        # config should be a PluginConf object with a jsonb configuration attribute
-        if hasattr(config, 'configuration'):
-
-            super().__init__(config=config, target=target)
-
-            # todo:  sanity check config.configuration and extract relevant bits
-            client_configuration = self.config.configuration
-            self.client = SkygisticsSatelliteClient(client_configuration)
-        else:
-            raise DasPluginConfigurationError()
 
     def _fetch(self):
         self.client.begin_session()
@@ -212,7 +201,6 @@ class SkygisticsSatellitePlugin(DasPlugin):
                 if 'last_fetch' in conf_source.additional:
                     start_date = datetime.strptime(conf_source.additional['last_fetch'], SKYGISTICS_PLUGIN_DATETIME_FORMAT)
                 else:
-
                     start_date = datetime.utcnow() - DEFAULT_START_OFFSET
 
             except Exception as e:
@@ -252,9 +240,6 @@ class SkygisticsSatellitePlugin(DasPlugin):
         return Obs(source=source, recorded_at=observation['recorded_at'],
                                   longitude=float(observation['longitude']), latitude=float(observation['latitude']),
                                   additional=dict((k,observation.get(k)) for k in ('imei', 'voltage', 'received_at',)))
-
-    def execute(self):
-        super().execute()
 
 
 class SkygisticsTarget(DasDefaultTarget):

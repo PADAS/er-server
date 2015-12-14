@@ -16,6 +16,7 @@ import pytz
 import json
 import base64
 import logging
+import requests
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
@@ -59,6 +60,37 @@ class InreachAccountClient(BasicAuthClient):
 
         if res and res.status == http.client.OK:
             res = json.loads(data.decode("utf-8"))
+            yield from res['Users']
+
+    def fetch_devices(self):
+
+        conn = http.client.HTTPSConnection(self.host)
+
+        headers = {'authorization': super(InreachAccountClient, self).auth_header()}
+
+        conn.request("GET", "/V1/Devices", headers=headers)
+
+        res = conn.getresponse()
+        data = res.read()
+
+        if res and res.status == http.client.OK:
+            res = json.loads(data.decode("utf-8"))
+            yield from res['Devices']
+
+    def user_for_device(self, imei):
+        conn = http.client.HTTPSConnection(self.host)
+
+        headers = {'authorization': super(InreachAccountClient, self).auth_header()}
+
+        params = {'imei' : imei}
+        r = requests.get('https://%s/V1/Users' % self.host, params=params, headers=headers)
+
+        if r.status_code == requests.codes.ok:
+
+            data = r.text
+
+            data = data.decode('utf-8') if hasattr(data, 'decode') else data
+            res = json.loads(data)
             yield from res['Users']
 
 
@@ -198,29 +230,22 @@ class InreachPlugin(DasPlugin):
         super().execute()
 
 
-# class InreachAccountPlugin(DasPlugin):
-#
-#
-#     def __init__(self, config=None, target=None):
-#         super().__init__(self, config=config, target=target)
-#         self.client = InreachAccountClient()
-#         self.logger = logging.getLogger(InreachAccountPlugin.__name__)
-#
-#     def _fetch(self):
-#
-#         source = None
-#         self.logger.debug("Fetching data for Inreach account...")
-#         for observation in self.client.fetch_users():
-#             yield (source, observation)
-#
-#
-#
-#     def _transform(self, so_tuple):
-#         source, observation = so_tuple
-#         return (source, observation)
-#
-#     def execute(self):
-#         super().execute()
+class InreachAccountPlugin(DasPlugin):
+
+
+    def initConfig(self):
+        self.client = InreachAccountClient()
+
+    def _fetch(self):
+
+        source = None
+        self.logger.debug("Fetching data for Inreach account...")
+        for observation in self.client.fetch_users():
+            yield (source, observation)
+
+    def _transform(self, so_tuple):
+        source, observation = so_tuple
+        return (source, observation)
 
 
 

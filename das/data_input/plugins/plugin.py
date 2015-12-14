@@ -2,6 +2,7 @@ import logging
 from django.conf import settings
 import observations
 from functools import namedtuple
+from abc import ABCMeta, abstractmethod
 
 class DasPluginConfigurationError(Exception):
     """
@@ -22,13 +23,12 @@ class DasPluginInsertError(Exception):
     pass
 
 
-class DasPlugin(object):
+class DasPlugin(metaclass=ABCMeta):
     """
     the basic skeleton for a data input plugin:
         the scheduler will create the instance, optionally passing
         configuration (connection) data and an insert target
     """
-
     def __init__(self, config=None, target=None):
         """
         :param config:  plugin configuration
@@ -43,18 +43,29 @@ class DasPlugin(object):
                 self.config.configuration.update(local_config)
         self.target = target
 
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.initConfig()
+
+
+    @abstractmethod
+    def initConfig(self):
+        pass
+
+    @abstractmethod
     def _fetch(self, *args, **kwargs):
         """
         Return a generator giving data
         """
         raise NotImplementedError('Subclass must implement _fetch')
 
+    @abstractmethod
     def _transform(self, *args, **kwargs):
         """
         transform the fetched data set to the insert format
         """
         raise NotImplementedError('Subclass must implement _transform')
 
+    # @abstractmethod
     def _insert(self, item, *args, **kwargs):
         """
         pass the transformed data set to the insert target
