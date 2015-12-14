@@ -6,7 +6,7 @@ import copy
 import http.client
 from functools import namedtuple
 
-from .plugin import DasPlugin, Obs, DasPluginConfigurationError
+from data_input.plugins.plugin import DasPlugin, Obs, DasPluginConfigurationError
 import datetime, time
 from datetime import timedelta
 from data_input.models import PluginConfSource
@@ -101,10 +101,7 @@ class SavannaPlugin(DasPlugin):
 
     plugin_key = 'savannah-tracking'
 
-    def __init__(self, config=None, target=None):
-        super().__init__(config=config, target=target)
-        self.logger = logging.getLogger(self.__class__.__name__)
-
+    def initConfig(self):
         self.client = SavannaClient(config=self.config.configuration)
 
     def _fetch(self):
@@ -140,8 +137,6 @@ class SavannaPlugin(DasPlugin):
         return Obs(source=source, recorded_at=o.recorded_at, latitude=o.latitude, longitude=o.longitude,
                    additional=side_data)
 
-    def execute(self):
-        super().execute()
 
 
 

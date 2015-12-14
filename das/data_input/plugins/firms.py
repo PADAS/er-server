@@ -4,6 +4,7 @@
 from observations.models import Source
 from .plugin import DasPlugin, DasPluginConfigurationError, Obs
 import datetime, time
+from datetime import timedelta
 from data_input.models import PluginConf, PluginConfSource
 from ftplib import FTP
 from django.contrib.gis.geos import Polygon, Point, MultiPolygon
@@ -106,18 +107,16 @@ class FirmsClient(object):
 
 
 def unixtimestamp(d):
-    return int(time.mktime(d.timetuple()))
+    return int(d.timestamp())
 
-DEFAULT_START_TIME = datetime.datetime(2015, 8, 1, tzinfo=pytz.utc).isoformat()
+DEFAULT_START_OFFSET = timedelta(days=14)
 
 class FirmsPlugin(DasPlugin):
 
     plugin_key = 'firms-ftp'
 
-    def __init__(self, config=None, target=None):
-        super().__init__(config=config, target=target)
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.client = FirmsClient(config=self.config.configuration)
+
+    def initConfig(self):
 
         polygons = self.config.configuration.get('polygons', None)
 
@@ -130,29 +129,33 @@ class FirmsPlugin(DasPlugin):
 
     def _fetch(self):
 
-        sources = Source.objects.filter(source_type='firms')
-        for source in sources:
+
+
+        conf_sources = PluginConfSource.objects.filter(plugin_conf=self.config)
+        for conf_source in conf_sources:
 
             try:
-                pcs = PluginConfSource.objects.get(source=source, plugin_conf=self.config)
-            except PluginConfSource.DoesNotExist:
-                pcs = PluginConfSource(source=source, plugin_conf=self.config, additional=dict(highest_sequence=-1))
-                pcs.save()
+                hi_sequence = parse_date(conf_source.additional['highest_sequence'])
+            except Exception as e:
+                hi_sequence = -1
 
-            self.logger.info("Fetching data for manufacturer_id %s" % (source.manufacturer_id,))
-            hi_sequence = pcs.additional['highest_sequence']
-            for observation in self.client.fetch_observations(region_id=source.manufacturer_id, after_offset=hi_sequence):
-                hi_sequence = observation['offset']
+            try:
+                self.logger.info("Fetching data for manufacturer_id %s" % (source.manufacturer_id,))
+                source = conf_source.source
+                for observation in self.client.fetch_observations(region_id=source.manufacturer_id, after_offset=hi_sequence):
+                    hi_sequence = observation['offset']
+                    if self.pass_filter(observation):
 
-                if self.pass_filter(observation):
+                        # Pop-off side-data from observation dict.
+                        additional_data = dict((k, observation.pop(k)) for k in additional_fields)
+                        yield Obs(source=source, recorded_at=observation['recorded_at'], latitude=observation['latitude'],
+                                  longitude=observation['longitude'], additional=additional_data)
 
-                    # Pop-off side-data from observation dict.
-                    additional_data = dict((k, observation.pop(k)) for k in additional_fields)
-                    yield Obs(source=source, recorded_at=observation['recorded_at'], latitude=observation['latitude'],
-                              longitude=observation['longitude'], additional=additional_data)
+                conf_source.additional['highest_sequence'] = hi_sequence
+                conf_source.save()
+            except Exception as e:
+                self.logger.exception("Error fetching FIRMs data")
 
-            pcs.additional['highest_sequence'] = hi_sequence
-            pcs.save()
 
     def pass_filter(self, observation):
         if self._geo_filter:
@@ -163,6 +166,4 @@ class FirmsPlugin(DasPlugin):
     def _transform(self, item):
         return item
 
-    def execute(self):
-        super().execute()
 

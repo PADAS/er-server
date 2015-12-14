@@ -134,10 +134,7 @@ class AWTHttpPlugin(DasPlugin):
 
     plugin_key = 'awt-http'
 
-    def __init__(self, config=None, target=None):
-        super().__init__(config=config, target=target)
-        self.logger = logging.getLogger(self.__class__.__name__)
-
+    def initConfig(self):
         self.client = AWTHttpClient(config=self.config.configuration)
 
     def _fetch(self):
@@ -170,10 +167,6 @@ class AWTHttpPlugin(DasPlugin):
         side_data = dict((k, o.__getattribute__(k)) for k in ('speed', 'heading', 'temperature', 'height'))
         return Obs(source=source, recorded_at=o.recorded_at, latitude=o.latitude, longitude=o.longitude,
                    additional=side_data)
-
-    def execute(self):
-        super().execute()
-
 
 
 

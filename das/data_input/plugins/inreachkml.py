@@ -133,10 +133,8 @@ class InreachKMLPlugin(DasPlugin):
     '''
 
     plugin_key = 'inreach-kml'
-    def __init__(self, config=None, target=None):
-        super().__init__(config=config, target=target)
-
-        self.logger = logging.getLogger(self.__class__.__name__)
+    def initConfig(self):
+        pass
 
     def _fetch(self):
 
@@ -185,8 +183,6 @@ class InreachKMLPlugin(DasPlugin):
                    longitude=o.get('longitude'),
                    additional=side_data)
 
-    def execute(self):
-        super().execute()
 
 
 

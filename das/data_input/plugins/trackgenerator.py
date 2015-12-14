@@ -79,9 +79,8 @@ class RandomMover(object):
 class DemoPlugin(DasPlugin):
 
     plugin_key = 'demo-wildlife'
-    def __init__(self, config=None, target=None):
-        super().__init__(config=config, target=target)
-        self.logger = logging.getLogger(self.__class__.__name__)
+    def initConfig(self):
+        pass
 
     def _fetch(self):
 
@@ -141,9 +140,6 @@ class DemoPlugin(DasPlugin):
 
     def _transform(self, item):
         return item
-
-    def execute(self):
-        super().execute()
 
 
 
