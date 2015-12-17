@@ -11,8 +11,8 @@ To re-sync your database with changes from others
 GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
-import uuid
 import datetime
+import uuid
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
@@ -20,6 +20,9 @@ from django.db.models import Q
 from django.db.models import Max
 from django.utils.text import slugify
 from django.contrib.gis.geos import Point, Polygon
+
+from .track import Track
+
 
 SOURCE_TYPES = (
     ('tracking-device', 'Tracking Device'),
@@ -34,6 +37,7 @@ def to_rgb(color):
     return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(',')])
 
 DEFAULT_COLOR = '255,255,0'
+
 
 class SourceManager(models.Manager):
     pass
@@ -173,14 +177,15 @@ class ObservationManager(models.GeoManager):
             if r:
                 return r[0]
 
+
 class Observation(models.Model):
     """observation point
     similar to archive_loc
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     location = models.PointField('point location')
-    recorded_at = models.DateTimeField('recorded at') #point in time of object at lat lon
-    created_at = models.DateTimeField('row created at', auto_now_add=True) #date/time this row created
+    recorded_at = models.DateTimeField('recorded at')  # point in time of object at lat lon
+    created_at = models.DateTimeField('row created at', auto_now_add=True)  # date/time this row created
     source = models.ForeignKey('Source')
     additional = JSONField()
 
@@ -227,12 +232,12 @@ class SubjectSource(models.Model):
 
     def __str__(self):
         return '%s, %s %s-%s' % (self.subject.name, self.source.model_name,
-                             self.assigned_range.lower, self.assigned_range.upper)
+                                 self.assigned_range.lower, self.assigned_range.upper)
 
 
 class SubjectManager(models.Manager):
     def by_region(self, region, **kwargs):
-        subjects =  self.filter(additional__region=region.region)
+        subjects = self.filter(additional__region=region.region)
         subjects.filter(additional__country=region.country, **kwargs)
         return subjects
 
@@ -244,7 +249,6 @@ class SubjectManager(models.Manager):
         subjects = subject_sources.values('subject')
         subjects = Subject.objects.filter(pk__in=subjects)
         return subjects
-
 
 
 class Subject(models.Model):
@@ -266,6 +270,13 @@ class Subject(models.Model):
     @property
     def last_observation(self):
         return Observation.objects.get_last_observation(self)
+
+    def observations(self):
+        """ returns all observations for this Subject, spanning
+        Sources as necessary """
+        sds = SubjectSource.objects.filter(subject=self)
+        obs = Observation.objects.get_source_range_observations(sds)
+        return obs
 
     @property
     def image_url(self):
