@@ -42,7 +42,5 @@ geopy==1.11.0
 Fiona==1.6.2
 geopandas==0.1.1
 
-# APScheduler requires SQLAlchemy if we hold schedule information in Postgres.
-APScheduler==3.0.4
-SQLAlchemy==1.0.9
+celery==3.1.19
 six==1.10.0
