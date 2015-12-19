@@ -191,8 +191,8 @@ class SkygisticsSatellitePlugin(DasPlugin):
     def initConfig(self):
         self.client = SkygisticsSatelliteClient(self.config.configuration)
 
-
     def _fetch(self):
+
         self.client.begin_session()
         conf_sources = PluginConfSource.objects.filter(plugin_conf=self.config)
         for conf_source in conf_sources:
