@@ -191,6 +191,11 @@ app:
                                 git: []
                                 libjpeg-turbo-devel: []
                                 libtiff-devel: []
+                            rpm:
+                                remi: http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
+                        commands:
+                          01-install-redis:
+                            command: "yum -y --enablerepo=remi,remi-test install redis; sudo service redis restart"
 
               - .ebextensions/02-commands.config:
                     permissions: 0666
@@ -208,8 +213,6 @@ app:
                             command: "mkdir -p /tmp/django_cache; chown wsgi /tmp/django_cache"
                           06-make-tmp-raster-dir:
                             command: "mkdir -p /tmp/raster; chown wsgi /tmp/raster"
-                          07-install-redis:
-                            command: "sudo rpm -Uvh http://rpms.famillecollet.com/enterprise/remi-release-6.rpm; sudo yum -y --enablerepo=remi,remi-test install redis; sudo service redis restart"
 
               - .ebextensions/03-commands.config:
                     permissions: 0666
