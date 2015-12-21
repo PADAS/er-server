@@ -195,7 +195,7 @@ app:
                                 remi: http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
                         commands:
                           01-install-redis:
-                            command: "yum -y --enablerepo=remi,remi-test install redis; sudo service redis restart"
+                            command: "yum -y --enablerepo=remi,remi-test install redis; service redis restart"
 
               - .ebextensions/02-commands.config:
                     permissions: 0666
