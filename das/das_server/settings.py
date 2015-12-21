@@ -192,10 +192,6 @@ LOGGING = {
         'mapping': {
             'handlers': ['file'],
             'level': 'INFO',
-        },
-        'apscheduler': {
-            'handlers': ['data_input_file', 'console'],
-            'level': 'INFO'
         }
     }
 }

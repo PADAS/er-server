@@ -56,10 +56,6 @@ CELERY_DEFAULT_ROUTING_KEY = 'default'
 
 # Defining scheduled tasks.
 CELERYBEAT_SCHEDULE = {
-    'heartbeat': {
-        'task': 'data_input.tasks.heartbeat',
-        'schedule': crontab(minute='*/12')
-    },
     'savannah': {
         'task': 'data_input.tasks.run_savannah',
         'schedule': timedelta(minutes=7),
