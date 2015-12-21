@@ -1,5 +1,4 @@
 from django.core.management.base import BaseCommand
-from data_input import startup
 from optparse import make_option
 from data_input.plugins import inreachgpx
 

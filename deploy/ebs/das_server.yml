@@ -127,29 +127,36 @@ app:
                         </IfModule>
                         </IfModule>
 
-              - apscheduler.conf:
+              - celeryconfig.conf:
                     permissions: 0644
                     content: |
-                        [program:apscheduler]
-                        command=/opt/python/run/venv/bin/python manage.py schedule_datainput
+                        [program:celeryworker]
+                        command=/opt/python/run/venv/bin/celery worker -A das_server -l info --schedule=/tmp/das-celery-schedule.db
                         directory=/opt/python/current/app/das
                         environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
                         user=wsgi
                         numprocs=1
-                        stdout_logfile=/opt/python/log/apscheduler.log
-                        stderr_logfile=/opt/python/log/apscheduler.log
+                        stdout_logfile=/opt/python/log/celery_worker.log
                         autostart=true
-                        autorestart=unexpected
-                        startretries=3
+                        autorestart=true
                         startsecs=10
-                        stopwaitsecs = 60
-
-                        ; When resorting to send SIGKILL to the program to terminate it
-                        ; send SIGKILL to its whole process group instead,
-                        ; taking care of its children as well.
+                        priority=20
                         killasgroup=true
 
-              - 99_supervisord_apscheduler.sh:
+                        [program:celerybeat]
+                        command=/opt/python/run/venv/bin/celery beat -A das_server -l info --schedule=/tmp/das-celery-schedule.db
+                        directory=/opt/python/current/app/das
+                        environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
+                        user=wsgi
+                        numprocs=1
+                        stdout_logfile=/opt/python/log/celery_beat.log
+                        autostart=true
+                        autorestart=true
+                        startsecs=10
+                        priority=20
+                        killasgroup=true
+
+              - 99_supervisord_celeryconfig.sh:
                     permissions: 0755
                     content: |
                         #!/usr/bin/env bash
@@ -158,7 +165,7 @@ app:
                         if ! grep -Fxq "[include]" /opt/python/etc/supervisord.conf
                             then
                             echo "[include]" | tee -a /opt/python/etc/supervisord.conf
-                            echo "files: apscheduler.conf" | tee -a /opt/python/etc/supervisord.conf
+                            echo "files: celeryconfig.conf" | tee -a /opt/python/etc/supervisord.conf
                         fi
 
                         # Reread the supervisord config
@@ -167,8 +174,8 @@ app:
                         # Update supervisord in cache without restarting all services
                         /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf update
 
-                        # Start/Restart celeryd through supervisord
-                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart apscheduler
+                        # Start/Restart celery worker and beat through supervisord
+                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart celeryworker celerybeat
 
               - .ebextensions/01-install_dependencies.config:
                     permissions: 0777
@@ -184,6 +191,11 @@ app:
                                 git: []
                                 libjpeg-turbo-devel: []
                                 libtiff-devel: []
+                            rpm:
+                                remi: http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
+                        commands:
+                          01-install-redis:
+                            command: "yum -y --enablerepo=remi,remi-test install redis; sudo service redis restart"
 
               - .ebextensions/02-commands.config:
                     permissions: 0666
@@ -215,12 +227,12 @@ app:
                             command: "chown wsgi /tmp/das.log; chown wsgi /tmp/das-data_input.log"
                           04-deflate:
                             command: "cp deflate.conf /etc/httpd/conf.d/"
-                          05-apscheduler:
-                            command: "cp apscheduler.conf /opt/python/etc/"
-                          06-installappscheduler:
-                            command: "cp 99_supervisord_apscheduler.sh /opt/elasticbeanstalk/hooks/appdeploy/post/"
-                          07-installappscheduler:
-                            command: "cp 99_supervisord_apscheduler.sh /opt/elasticbeanstalk/hooks/configdeploy/post/"
+                          05-celeryconfig:
+                            command: "cp celeryconfig.conf /opt/python/etc/"
+                          06-installcelerybeat:
+                            command: "cp 99_supervisord_celeryconfig.sh /opt/elasticbeanstalk/hooks/appdeploy/post/"
+                          07-installceleryconfig:
+                            command: "cp 99_supervisord_celeryconfig.sh /opt/elasticbeanstalk/hooks/configdeploy/post/"
                           08-fix-wsgi-oauth:
                             command: "if ! grep -q WSGIPassAuthorization config.py; then sed -i.bak '/WSGIScriptAlias/ aWSGIPassAuthorization On' config.py; fi"
                             cwd: /opt/elasticbeanstalk/hooks

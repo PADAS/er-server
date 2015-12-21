@@ -7,8 +7,12 @@ from data_input.plugins.skygistics import SkygisticsSatellitePlugin, SkygisticsT
 from data_input.plugins.awtgsm import AWTHttpPlugin
 from data_input.plugins.trackgenerator import DemoPlugin
 from data_input.plugins.plugin import DasDefaultTarget
+
 import logging
+
 from functools import namedtuple
+
+from das_server import celery
 
 logger = logging.getLogger(__name__)
 
@@ -48,24 +52,31 @@ def run_plugin(plugin_key):
             logger.exception('Failed to run plugin %s' % (p,))
 
 
-# Convenience methods.
-def run_savanna():
+# Celery tasks.
+@celery.app.task(bind=True)
+def run_savannah(self):
     run_plugin(SavannaPlugin.plugin_key)
 
-def run_awt_http():
+@celery.app.task(bind=True)
+def run_awt_http(self):
     run_plugin(AWTHttpPlugin.plugin_key)
 
-def run_demo():
+@celery.app.task(bind=True)
+def run_demo(self):
     run_plugin(DemoPlugin.plugin_key)
 
-def run_firms():
+@celery.app.task(bind=True)
+def run_firms(self):
     run_plugin(FirmsPlugin.plugin_key)
 
-def run_skygistics():
+@celery.app.task(bind=True)
+def run_skygistics(self):
     run_plugin(SkygisticsSatellitePlugin.plugin_key)
 
-def run_inreach():
+@celery.app.task(bind=True)
+def run_inreach(self):
     run_plugin(InreachPlugin.plugin_key)
 
-def run_inreachkml():
+@celery.app.task(bind=True)
+def run_inreachkml(self):
     run_plugin(InreachKMLPlugin.plugin_key)
