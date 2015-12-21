@@ -168,12 +168,6 @@ app:
                             echo "files: celeryconfig.conf" | tee -a /opt/python/etc/supervisord.conf
                         fi
 
-                        # Replace old entry for apscheduler.conf with celeryconfig.conf
-                        if grep -q apscheduler.conf /opt/python/etc/supervisord.conf
-                            then
-                            sed -i.bak 's/apscheduler.conf/celeryconfig.conf/' /opt/python/etc/supervisord.conf
-                        fi
-
                         # Reread the supervisord config
                         /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf reread
 
