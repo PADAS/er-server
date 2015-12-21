@@ -1,10 +1,11 @@
 from django.test import TestCase, TransactionTestCase
-from data_input.plugins.savanna import SavannaPlugin, SavannaTarget
+from data_input.plugins.savanna import SavannaPlugin
+from data_input.plugins.plugin import DasDefaultTarget
 from data_input.models import PluginConf
 
-class TestSavannaProvider(TransactionTestCase):
+class TestSavannahProvider(TransactionTestCase):
 
-    fixtures = ['observations_source.json', 'data_input_pluginconf.json',]
+    fixtures = ['observations_source.json', 'data_input_pluginconf.json', 'data_input_pluginconfsource.json']
 
     def setUp(self):
         pass
@@ -18,7 +19,7 @@ class TestSavannaProvider(TransactionTestCase):
         pc = PluginConf.objects.get(plugin_name='savanna')
         print(pc)
 
-        with SavannaTarget() as consumer:
-            sp = SavannaPlugin(config=pc, target=consumer)
+        with DasDefaultTarget() as target:
+            sp = SavannaPlugin(config=pc, target=target)
             sp.execute()
 

@@ -1,10 +1,11 @@
 from django.test import TestCase, TransactionTestCase
-from data_input.plugins.firms import FirmsPlugin, FirmsTarget
+from data_input.plugins.firms import FirmsPlugin
+from data_input.plugins.plugin import DasDefaultTarget
 from data_input.models import PluginConf
 
 class TestFirmsProvider(TransactionTestCase):
 
-    fixtures = ['observations_source.json', 'data_input_pluginconf.json',]
+    fixtures = ['observations_source.json', 'data_input_pluginconf.json', 'data_input_pluginconfsource.json']
 
     def setUp(self):
         pass
@@ -18,7 +19,7 @@ class TestFirmsProvider(TransactionTestCase):
         pc = PluginConf.objects.get(plugin_name='firms')
         print(pc)
 
-        with FirmsTarget() as consumer:
+        with DasDefaultTarget() as consumer:
             sp = FirmsPlugin(pc, target=consumer)
             sp.execute()
 

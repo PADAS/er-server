@@ -1,1 +1,1 @@
-from .test_savanna import TestSavannaProvider
+from .test_savanna import TestSavannahProvider

@@ -225,11 +225,9 @@ class TestSkygisticsPluginWithMockTarget(TestCase):
 
 
 class TestSkygisticsPluginWithSkygisticsTarget(TestCase):
-    fixtures = [
-        'data_input/tests/fixtures/data_input_pluginconf',
-        'data_input/tests/fixtures/data_input_pluginconfsource',
-        'observations/tests/fixtures/observations_source',
-    ]
+
+    fixtures = ['observations_source.json', 'data_input_pluginconf.json', 'data_input_pluginconfsource.json']
+
 
     def test_target(self):
         config = PluginConf.objects.get(plugin_name='skygistics')

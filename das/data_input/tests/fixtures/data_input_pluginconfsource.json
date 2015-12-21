@@ -1,43 +1,25 @@
 [
   {
-    "app_label": "data_input",
-    "fields": {
-      "plugin_conf": "52d2d62a-1673-487e-929c-fa0bb1f6c883",
-      "source": "4f5448f7-c80a-43a2-99af-0256d6e4147b",
-      "additional":  {"last_fetch": "2015-08-27T23:22:21.589Z"}
-    },
     "model": "data_input.pluginconfsource",
-    "pk": "84966553-b35b-46c2-be7e-404dc0895163"
+    "pk": "45e63200-0e95-4aa1-a732-26c5f6cdbb24",
+    "fields": {
+      "plugin_conf": "a7d409c9-f4fd-4f16-9ccc-79f7fc2a04c5",
+      "source": "08dc304d-7a46-4338-9c26-351098ac29d0",
+      "additional": {
+        "last_fetch": "2015-12-21T22:33:32.901536Z"
+      }
+    }
   },
   {
-    "app_label": "data_input",
-    "fields": {
-      "plugin_conf": "52d2d62a-1673-487e-929c-fa0bb1f6c883",
-      "source": "ca7f1ab7-430b-4bee-a182-033c26471384",
-      "additional":  {"last_fetch": "2015-08-27T23:22:21.589Z"}
-    },
     "model": "data_input.pluginconfsource",
-    "pk": "58c428b5-62f8-4c04-8ac3-3c085e81e8d9"
-  },
-  {
-    "app_label": "data_input",
+    "pk": "367f82b2-8605-438a-85d5-f4687f3c8b7a",
     "fields": {
-      "plugin_conf": "791d0a6a-2f38-466d-842b-8c5e9409134f",
-      "source": "3ccbbbba-1501-41e8-8c31-12815dbb81f9",
-      "additional":  {"last_fetch": "2015-08-27T23:22:21.589Z"}
-    },
-    "model": "data_input.pluginconfsource",
-    "pk": "2cf98931-bdb8-4c0b-9a6d-79a82dbe97f9"
-  },
-  {
-    "app_label": "data_input",
-    "fields": {
-      "plugin_conf": "264ef5ef-92ee-4090-85df-90a330ec33b8",
-      "source": "e6da7acb-21cc-4dd9-b937-16e45ce15e50",
-      "additional":  {"last_fetch": "2015-08-27T23:22:21.589Z"}
-    },
-    "model": "data_input.pluginconfsource",
-    "pk": "28336bf2-0764-467e-85fb-42833c346d3a"
+      "plugin_conf": "847a65c6-ca44-4ed4-9e85-fa50dd9fdf71",
+      "source": "182c5403-a4a1-447b-b53e-5f04dc76c558",
+      "additional": {
+        "note": "Added automatically"
+      }
+    }
   }
-]
 
+]

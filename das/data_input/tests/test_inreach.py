@@ -1,5 +1,6 @@
 from django.test import TestCase, TransactionTestCase
-from data_input.plugins.inreach import InreachPlugin, InreachTarget, InreachAccountTarget, InreachAccountPlugin
+from data_input.plugins.inreach import InreachPlugin
+from data_input.plugins.plugin import DasDefaultTarget
 from data_input.models import PluginConf
 
 class TestInreachProvider(TransactionTestCase):
@@ -18,7 +19,7 @@ class TestInreachProvider(TransactionTestCase):
         pc = PluginConf.objects.get(plugin_name='inreach')
         print(pc)
 
-        with InreachTarget() as consumer:
+        with DasDefaultTarget() as consumer:
             sp = InreachPlugin(config=pc, target=consumer)
             sp.execute()
 
