@@ -52,7 +52,6 @@ INSTALLED_APPS = (
     'observations',
     'data_input',
     'mapping.apps.MappingConfig',
-    'activity',
 )
 
 MIDDLEWARE_CLASSES = (
