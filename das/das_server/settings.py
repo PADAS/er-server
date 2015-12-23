@@ -52,6 +52,7 @@ INSTALLED_APPS = (
     'observations',
     'data_input',
     'mapping.apps.MappingConfig',
+    'rt_api.apps.RTAPIConfig'
 )
 
 MIDDLEWARE_CLASSES = (
@@ -269,6 +270,9 @@ SWAGGER_SETTINGS = {
 }
 
 OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600*48}
+
+#RT API settings
+ASYNC_MODE = 'eventlet'
 
 #override these if your libraries are in a different place
 GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'

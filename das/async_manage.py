@@ -2,15 +2,14 @@
 import os
 import sys
 
-if os.environ.get('EVENTLET_SHOULDPATCH', 'false').lower() == 'true':
-    import eventlet
-    eventlet.monkey_patch()
+import eventlet
+eventlet.monkey_patch()
 
 """
 To run the local server:
-python manage.py runserver 8080
+python async_manage.py runserver 8080
 OR
-python manage.py runserver 8080 --settings=das_server.local_settings
+python async_manage.py runserver 8080 --settings=das_server.local_settings
 
 """
 
