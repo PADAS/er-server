@@ -68,20 +68,4 @@ CACHES = {
     }
 }
 
-'''
-We're using apscheduler to run scheduled tasks.
-See http://apscheduler.readthedocs.org/en/latest/userguide.html
-This settings element defines how the BackgroundScheduler is configured.
-'''
-SCHEDULER = {
-    'db_url': 'postgres://postgres:postgres@localhost:5432/dasdb',
-    'executors': {
-        'default': {'type': 'threadpool', 'max_workers': 20},
-        'processpool': {'type': 'processpool', 'max_workers': 4},
-    },
-    'job_defaults': {
-        'coalesce': False,
-        'max_instances': 3
-    }
 
-}
