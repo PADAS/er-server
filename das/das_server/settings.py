@@ -52,6 +52,7 @@ INSTALLED_APPS = (
     'observations',
     'data_input',
     'mapping.apps.MappingConfig',
+    'activity',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -291,3 +292,8 @@ DATA_INPUT_PLUGINS = {
 
 #would want to set this to where you might have some MBTiles maps
 MAPPING = {'MBTILES': {'root': '\tmp',}}
+
+CACHE_REDIS = {'host': 'localhost',
+                      'port': 6379,
+                      'db': 1,
+                      }
