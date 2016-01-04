@@ -131,7 +131,7 @@ app:
                     permissions: 0644
                     content: |
                         [program:celeryworker]
-                        command=/opt/python/run/venv/bin/celery worker -A das_server -l info
+                        command=/opt/python/run/venv/bin/celery worker -A das_server -l info -c 4 -P gevent
                         directory=/opt/python/current/app/das
                         environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
                         user=wsgi
