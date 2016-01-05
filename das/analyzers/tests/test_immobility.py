@@ -3,7 +3,7 @@ from datetime import datetime
 from django.test import TestCase
 import pytz
 
-from analyzers.immobility import ImmobilityAnalyzer
+from analyzers.models.immobility import ImmobilityAnalyzer
 from observations.track import Track
 
 

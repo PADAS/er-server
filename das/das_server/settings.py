@@ -50,6 +50,7 @@ INSTALLED_APPS = (
     'djgeojson',
     'raster',
     'observations',
+    'analyzers',
     'data_input',
     'mapping.apps.MappingConfig',
     'activity',

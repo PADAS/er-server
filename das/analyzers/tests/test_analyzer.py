@@ -1,5 +1,5 @@
 from django.test import TestCase
-from analyzers.analyzer import Analyzer
+from analyzers.models.analyzer import Analyzer
 
 
 class TestAnalyzer(TestCase):
@@ -14,4 +14,4 @@ class TestAnalyzer(TestCase):
         Test generic analyzer
         """
 
-        self.assertRaises(TypeError, Analyzer)
+        self.assertRaises(TypeError, Analyzer())
