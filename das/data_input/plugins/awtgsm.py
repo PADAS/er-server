@@ -151,13 +151,20 @@ class AWTHttpPlugin(DasPlugin):
             st = st + timedelta(seconds=1)
             try:
                 source = conf_source.source
+                notify = False
                 self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
                 for fix in self.client.fetch_observations(source.manufacturer_id, start_time=st):
                     lt = fix.recorded_at
                     yield (source, fix)
+                    notify = True
+
 
                 conf_source.additional['latest_timestamp'] = lt.isoformat()
                 conf_source.save()
+
+                if notify:
+                    self.notify(source.id)
+
             except Exception as e:
                 self.logger.exception("Error fetching AWT http/gsm collar data")
 

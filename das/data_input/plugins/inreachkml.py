@@ -159,17 +159,22 @@ class InreachKMLPlugin(DasPlugin):
 
             dat = client.get_data(pcs.source.manufacturer_id, d1=latest_ts)
 
+            notify = False
             for observation in client.gen_placemarks(dat):
                 latest_ts = max(latest_ts, observation['recorded_at'])
 
                 if observation['inreach_id'] > latest_inreach_id:
                     latest_inreach_id = observation['inreach_id']
                     yield (pcs.source, observation)
+                    notify = True
 
             self.logger.debug("Saving latest timestamp for source %s at %s", pcs.source.manufacturer_id, latest_ts)
             pcs.additional['latest_timestamp'] = latest_ts.isoformat()
             pcs.additional['latest_inreach_id'] = latest_inreach_id
             pcs.save()
+
+            if notify:
+                self.notify(pcs.source.id)
 
 
     def _transform(self, so_tuple):

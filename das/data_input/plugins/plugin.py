@@ -3,6 +3,7 @@ from django.conf import settings
 import observations
 from functools import namedtuple
 from abc import ABCMeta, abstractmethod
+from das_server import pubsub
 
 class DasPluginConfigurationError(Exception):
     """
@@ -81,6 +82,11 @@ class DasPlugin(metaclass=ABCMeta):
         for item in self._fetch():
             t = self._transform(item)
             self._insert(t)
+
+    def notify(self, source_id):
+        pubsub.publish('tracking.update', source_id=source_id)
+        return True
+
 
 
 class DasPlugin2(object):
