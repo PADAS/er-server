@@ -121,12 +121,19 @@ class SavannaPlugin(DasPlugin):
 
                 source = conf_source.source
                 self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
+
+                notify = False
                 for fix in self.client.fetch_observations(source.manufacturer_id, start_time=st):
                     lt = fix.recorded_at
                     yield (source, fix)
+                    notify = True
 
                 conf_source.additional['latest_timestamp'] = lt.isoformat()
                 conf_source.save()
+
+                if notify:
+                    self.notify(source.id)
+
             except Exception as e:
                 self.logger.exception("Error fetching savanna collar data")
 

@@ -206,13 +206,19 @@ class SkygisticsSatellitePlugin(DasPlugin):
             except Exception as e:
                 self.logger.exception('Failure when getting cursor data for source', conf_source.source_id)
 
+            notify = False
             for unit_info in self.client.fetch_observations(imei=conf_source.source.manufacturer_id,
                                                             start_date=start_date):
                             # update the conf_source so the time this data was fetched becomes the start for the next batch
                 yield (conf_source.source, unit_info)
+                notify = True
+
             # todo:  this could be set too far in the future ...
             conf_source.additional['last_fetch'] = timezone.now().strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT)
             conf_source.save()
+
+            if notify:
+                self.notify(conf_source.source.id)
 
     def _transform(self, item):
         """

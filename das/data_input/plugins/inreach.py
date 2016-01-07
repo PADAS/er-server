@@ -206,13 +206,18 @@ class InreachPlugin(DasPlugin):
 
             self.logger.debug("Fetching data for manufacturer_id %s after %s" % (pcs.source.manufacturer_id, latest_ts))
 
+            notify = False
             for observation in self.client.fetch_observations(imei=pcs.source.manufacturer_id, after=latest_ts):
                 latest_ts = max(latest_ts, observation['ts'])
                 yield (pcs.source, observation)
+                notify = True
 
             self.logger.debug("Saving latest timestamp for source %s at %s", pcs.source.manufacturer_id, latest_ts)
             pcs.additional['latest_timestamp'] = latest_ts.isoformat()
             pcs.save()
+
+            if notify:
+                self.notify(pcs.source.id)
 
 
 

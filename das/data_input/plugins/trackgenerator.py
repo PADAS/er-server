@@ -110,6 +110,8 @@ class DemoPlugin(DasPlugin):
                 now = datetime.datetime.now(tz=pytz.utc)
                 lt = latest_ts
                 observation = None
+
+                notify = False
                 while next_ts < now:
                     p = r.next_point()
 
@@ -125,6 +127,7 @@ class DemoPlugin(DasPlugin):
                     observation = Obs(**observation)
                     yield observation
                     next_ts = next_ts + timedelta(minutes=random.randint(58, 62))
+                    notify = True
 
                 if observation:
                     # Save 'cursor' info for this source.
@@ -134,6 +137,9 @@ class DemoPlugin(DasPlugin):
                                                                }
                     conf_source.save()
                     self.logger.info("Saved config for collar_id %s" % (source.manufacturer_id,))
+
+                if notify:
+                    self.notify(source.id)
 
             except Exception as e:
                 self.logger.exception("Error fetching savanna collar data")
