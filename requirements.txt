@@ -6,18 +6,18 @@ simplejson==3.8.1
 pytz==2015.7
 python-dateutil==2.4.2
 requests==2.8.1
-Django==1.9
+Django==1.9.1
 
-djangorestframework==3.3.1
+djangorestframework==3.3.2
 #djangorestframework-gis==0.9.4
 #drf geojson serializers
 #django-spillway==0.5.1
 #https://github.com/mypebble/django-pgviews
-django-pgviews==0.0.5
+django-pgviews==0.0.6
 #see https://github.com/PADAS/django-geojson
 #django-geojson==2.8.2.dev0
 git+https://github.com/PADAS/django-geojson.git@master
-django-model-utils==2.3.1
+django-model-utils==2.4
 #django-extensions==1.5.7
 #see https://github.com/ottoyiu/django-cors-headers
 django-cors-headers==1.1.0
@@ -39,11 +39,11 @@ fastkml==0.11
 #django-rq==0.8.0
 
 geopy==1.11.0
-Fiona==1.6.2
+Fiona==1.6.3
 geopandas==0.1.1
 
 celery==3.1.19
-redis==2.10.3
+redis==2.10.5
 six==1.10.0
 
 gevent==1.1rc3

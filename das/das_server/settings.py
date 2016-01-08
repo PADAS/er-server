@@ -291,7 +291,7 @@ DATA_INPUT_PLUGINS = {
 }
 
 #would want to set this to where you might have some MBTiles maps
-MAPPING = {'MBTILES': {'root': '\tmp',}}
+MAPPING = {'MBTILES': {'root': r'\tmp',}}
 
 CACHE_REDIS = {'host': 'localhost',
                       'port': 6379,
