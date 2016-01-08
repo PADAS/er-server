@@ -8,6 +8,10 @@ from data_input.plugins.awtgsm import AWTHttpPlugin
 from data_input.plugins.trackgenerator import DemoPlugin
 from data_input.plugins.plugin import DasDefaultTarget
 
+# from django.core.cache import cache
+from data_input import lock, get_cache
+
+
 import logging
 
 from functools import namedtuple
@@ -34,22 +38,37 @@ def run_all_plugins():
     for ptp in plugin_target_pairs.values():
         run_plugin(ptp)
 
+
+# TODO: Adjust this lock expires, after we've moved to a bigger box.
+LOCK_EXPIRE = 60 * 15  # expire task lock in 15 minutes.
+
 def run_plugin(plugin_key):
+
+    logger.debug('Running %s plugin...', plugin_key)
+    lock_id = 'ingest-lock-{0}'.format(plugin_key)
 
     ptp = ptp_map.get(plugin_key)
 
     if not ptp:
         raise ValueError('No plugin target pair exists for name %s' % (plugin_key,))
 
-    pconfs = PluginConf.objects.filter(plugin_class=ptp.plugin_class.plugin_key)
+    with lock(redis_client=get_cache(), key=lock_id, timeout=LOCK_EXPIRE, blocking=False) as lock_acquired:
 
-    for pc in pconfs:
-        try:
-            with ptp.target_class() as consumer:
-                p = ptp.plugin_class(pc, target=consumer)
-                p.execute()
-        except Exception:
-            logger.exception('Failed to run plugin %s' % (p,))
+        if lock_acquired:
+            logger.debug('Acquired lock for plugin %s', plugin_key)
+            pconfs = PluginConf.objects.filter(plugin_class=ptp.plugin_class.plugin_key)
+
+            for pc in pconfs:
+                try:
+                    with ptp.target_class() as consumer:
+                        p = ptp.plugin_class(pc, target=consumer)
+                        p.execute()
+                except Exception:
+                    logger.exception('Failed to run plugin %s' % (p,))
+
+            logger.debug('Finished running plugin %s', plugin_key)
+        else:
+            logger.debug("Plugin %s is already running.", plugin_key)
 
 
 # Celery tasks.

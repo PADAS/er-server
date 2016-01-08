@@ -32,14 +32,10 @@ BROKER_TRANSPORT_OPTIONS = {
     'fanout_prefix': True
 }
 
-#Exchanges
-default_exchange = Exchange('default',)
-observations_exchange = Exchange('observations', type='topic')
 
 # Defining queues
 CELERY_QUEUES = (
-    Queue('observations', observations_exchange, routing_key='observations.update.*'),
-    Queue('default', default_exchange),
+    Queue('default', Exchange('default')),
 )
 
 # CELERY_ROUTES = {
@@ -58,11 +54,11 @@ CELERY_DEFAULT_ROUTING_KEY = 'default'
 CELERYBEAT_SCHEDULE = {
     'savannah': {
         'task': 'data_input.tasks.run_savannah',
-        'schedule': timedelta(minutes=7),
+        'schedule': timedelta(minutes=60),
     },
     'awt-http': {
         'task': 'data_input.tasks.run_awt_http',
-        'schedule': timedelta(minutes=5),
+        'schedule': timedelta(minutes=53),
     },
     'demo': {
         'task': 'data_input.tasks.run_demo',
@@ -70,11 +66,11 @@ CELERYBEAT_SCHEDULE = {
     },
     'firms': {
         'task': 'data_input.tasks.run_firms',
-        'schedule': timedelta(minutes=30 ),
+        'schedule': timedelta(minutes=31),
     },
     'skygistics': {
         'task': 'data_input.tasks.run_skygistics',
-        'schedule': timedelta(minutes=17),
+        'schedule': timedelta(minutes=61),
     },
     'inreach': {
         'task': 'data_input.tasks.run_inreach',
@@ -82,7 +78,7 @@ CELERYBEAT_SCHEDULE = {
     },
     'inreachkml': {
         'task': 'data_input.tasks.run_inreachkml',
-        'schedule': timedelta(minutes=31),
+        'schedule': timedelta(minutes=17),
     },
 
 }

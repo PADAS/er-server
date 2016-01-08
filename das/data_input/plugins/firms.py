@@ -142,6 +142,7 @@ class FirmsPlugin(DasPlugin):
             try:
                 self.logger.info("Fetching data for manufacturer_id %s" % (source.manufacturer_id,))
                 source = conf_source.source
+                notify = False
                 for observation in self.client.fetch_observations(region_id=source.manufacturer_id, after_offset=hi_sequence):
                     hi_sequence = observation['offset']
                     if self.pass_filter(observation):
@@ -150,9 +151,13 @@ class FirmsPlugin(DasPlugin):
                         additional_data = dict((k, observation.pop(k)) for k in additional_fields)
                         yield Obs(source=source, recorded_at=observation['recorded_at'], latitude=observation['latitude'],
                                   longitude=observation['longitude'], additional=additional_data)
+                        notify = True
 
                 conf_source.additional['highest_sequence'] = hi_sequence
                 conf_source.save()
+
+                self.notify(source.id)
+
             except Exception as e:
                 self.logger.exception("Error fetching FIRMs data")
 
