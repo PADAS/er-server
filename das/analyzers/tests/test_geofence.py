@@ -1,10 +1,11 @@
 from datetime import datetime
 
 from django.test import TestCase
+from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 import pytz
-from shapely.geometry import Point, Polygon
 
-from analyzers.geofence import GeofenceAnalyzer
+from analyzers.models.geofence import GeofenceAnalyzer
+from mapping.models import FeatureType, PolygonFeature
 from observations.track import Track
 
 
@@ -13,13 +14,21 @@ class TestGeofenceAnalyzer(TestCase):
     def setUp(self):
 
         # clockwise fence around null island
-        self.polygon = Polygon((
-            (-1, 1),
-            (1, 1),
-            (1, -1),
-            (-1, -1),
-            (-1, 1)
-        ))
+        self.polygon = MultiPolygon(
+            Polygon((
+                (-1, 1),
+                (1, 1),
+                (1, -1),
+                (-1, -1),
+                (-1, 1)
+            ))
+        )
+        feature_type = FeatureType.objects.create(name='dr_polygon')
+        self.polygon_feature = PolygonFeature.objects.create(
+            presentation={},
+            feature_geometry=self.polygon,
+            type=feature_type
+        )
 
         inside_fence_points = [Point((0, 0))]
 
@@ -38,7 +47,7 @@ class TestGeofenceAnalyzer(TestCase):
         Test a track inside the fence
         """
 
-        analyzer = GeofenceAnalyzer(self.polygon)
+        analyzer = GeofenceAnalyzer(polygon=self.polygon_feature)
         analyzer_result = analyzer.analyze(self.inside_track)
 
         expected = 0.0
@@ -51,7 +60,7 @@ class TestGeofenceAnalyzer(TestCase):
         Test a track outside the fence
         """
 
-        analyzer = GeofenceAnalyzer(self.polygon)
+        analyzer = GeofenceAnalyzer(polygon=self.polygon_feature)
         analyzer_result = analyzer.analyze(self.outside_track)
 
         expected = 1.0
