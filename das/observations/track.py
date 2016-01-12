@@ -1,3 +1,5 @@
+import operator
+
 from fiona import crs
 import geopandas as gpd
 from geopy.distance import distance
@@ -25,7 +27,8 @@ class Track():
     @classmethod
     def from_observations(cls, observations):
         """ Create a Track from a sequence of Observations """
-        points = ((o.location.coords, o.recorded_at) for o in observations if o.location and o.recorded_at)
+        sorted_observations = sorted(observations, key=operator.attrgetter('recorded_at'))
+        points = [(o.location.coords, o.recorded_at) for o in sorted_observations if o.location and o.recorded_at]
         if points:
             return cls(*(zip(*points)))
 
