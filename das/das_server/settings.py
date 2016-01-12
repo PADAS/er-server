@@ -50,6 +50,7 @@ INSTALLED_APPS = (
     'djgeojson',
     'raster',
     'observations',
+    'analyzers',
     'data_input',
     'mapping.apps.MappingConfig',
     'activity',
@@ -291,4 +292,9 @@ DATA_INPUT_PLUGINS = {
 }
 
 #would want to set this to where you might have some MBTiles maps
-MAPPING = {'MBTILES': {'root': '\tmp',}}
+MAPPING = {'MBTILES': {'root': r'\tmp',}}
+
+CACHE_REDIS = {'host': 'localhost',
+                      'port': 6379,
+                      'db': 1,
+                      }
