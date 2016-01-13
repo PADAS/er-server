@@ -8,7 +8,6 @@ python-dateutil==2.4.2
 requests==2.8.1
 python-engineio==0.8.6
 python-socketio==0.9.1
-eventlet==0.17.4
 greenlet==0.4.9
 gunicorn==19.4.1
 Django==1.9.1
