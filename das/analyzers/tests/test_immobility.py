@@ -4,6 +4,7 @@ from django.test import TestCase
 import pytz
 
 from analyzers.models.immobility import ImmobilityAnalyzer
+from analyzers.models.analyzer import NOMINAL, WARNING, CRITICAL
 from observations.track import Track
 
 
@@ -38,13 +39,13 @@ class TestImmobilityAnalyzer(TestCase):
         Test a mobile Track
         """
 
-        analyzer = ImmobilityAnalyzer()
-        analyzer_result = analyzer.analyze(self.mobile_track)
+        immobility_analyzer = ImmobilityAnalyzer()
+        analyzer_result = immobility_analyzer.analyze(self.mobile_track)
 
-        expected = 0.0
-        actual = analyzer_result.value
+        expected = NOMINAL
+        actual = analyzer_result.level
 
-        self.assertAlmostEqual(actual, expected)
+        self.assertEqual(actual, expected)
 
     def test_immobility_analyzer_is_immobile(self):
         """
@@ -54,7 +55,7 @@ class TestImmobilityAnalyzer(TestCase):
         analyzer = ImmobilityAnalyzer()
         analyzer_result = analyzer.analyze(self.immobile_track)
 
-        expected = 0.1
-        actual = analyzer_result.value
+        expected = WARNING
+        actual = analyzer_result.level
 
         self.assertGreater(actual, expected)
