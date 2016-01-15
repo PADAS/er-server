@@ -38,9 +38,13 @@ These are the messages originating from the server out to the registered clients
 
 subject_update
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The "data" block contains a single subject, plus if the user is authorized subject contains
+a field "track" which is the latest geojson track for that subject.
 
 .. code-block:: json
 
     {
     "type": "subject_update"
+    "data": {
+    }
     }
