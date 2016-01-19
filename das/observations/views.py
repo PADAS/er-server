@@ -3,6 +3,7 @@ import datetime
 
 import dateutil.parser
 import pytz
+from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 from django.http import Http404
 from django.contrib.auth import get_user_model
@@ -17,7 +18,13 @@ import observations.serializers as serializers
 
 logger = logging.getLogger(__name__)
 
-LAST_DAYS = datetime.timedelta(days=16)
+
+try:
+    days = int(settings.SHOW_TRACK_DAYS)
+except AttributeError:
+    days = 16
+
+LAST_DAYS = datetime.timedelta(days=days)
 
 
 def default_since():

@@ -1,6 +1,15 @@
 from django.contrib.gis.db import models
 
 
+# borrow levels from logging:
+
+NOMINAL = 20
+INFO = 20
+WARNING = 30
+ERROR = 40
+CRITICAL = 50
+
+
 class Analyzer(models.Model):
     min_time = models.TimeField(null=True)
     max_time = models.TimeField(null=True)
@@ -14,5 +23,6 @@ class Analyzer(models.Model):
 
 
 class AnalyzerResult():
+    level = NOMINAL
     value = 0.0
     analyzer_type = None

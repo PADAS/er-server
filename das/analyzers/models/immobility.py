@@ -2,7 +2,7 @@ import logging
 
 from django.contrib.gis.db import models
 
-from .analyzer import Analyzer, AnalyzerResult
+from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
 
 logger = logging.getLogger(__name__)
 
@@ -18,18 +18,18 @@ class ImmobilityAnalyzer(Analyzer):
 
         logger.info('ImmobilityAnalyzer analyzing')
 
-        probability = 0.0
+        result = AnalyzerResult()
+        result.analyzer_type = self.__class__
+
+        # assume immobile until detected otherwise
+        result.level = CRITICAL
 
         for speed in track.speed_series():
 
-            if speed < self.speed_threshold:
-                probability += .1
+            if speed >= self.speed_threshold:
 
-            if probability >= 1:
+                result.value = speed
+                result.level = NOMINAL
                 break
-
-        result = AnalyzerResult()
-        result.value = probability
-        result.analyzer_type = self.__class__
 
         return result

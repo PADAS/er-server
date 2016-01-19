@@ -4,6 +4,7 @@ from django.test import TestCase
 from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 import pytz
 
+from analyzers.models.analyzer import NOMINAL, CRITICAL
 from analyzers.models.geofence import GeofenceAnalyzer
 from mapping.models import FeatureType, PolygonFeature
 from observations.track import Track
@@ -47,11 +48,11 @@ class TestGeofenceAnalyzer(TestCase):
         Test a track inside the fence
         """
 
-        analyzer = GeofenceAnalyzer(polygon=self.polygon_feature)
-        analyzer_result = analyzer.analyze(self.inside_track)
+        geofence_analyzer = GeofenceAnalyzer(polygon=self.polygon_feature)
+        analyzer_result = geofence_analyzer.analyze(self.inside_track)
 
-        expected = 0.0
-        actual = analyzer_result.value
+        expected = NOMINAL
+        actual = analyzer_result.level
 
         self.assertEqual(actual, expected)
 
@@ -60,10 +61,10 @@ class TestGeofenceAnalyzer(TestCase):
         Test a track outside the fence
         """
 
-        analyzer = GeofenceAnalyzer(polygon=self.polygon_feature)
-        analyzer_result = analyzer.analyze(self.outside_track)
+        geofence_analyzer = GeofenceAnalyzer(polygon=self.polygon_feature)
+        analyzer_result = geofence_analyzer.analyze(self.outside_track)
 
-        expected = 1.0
-        actual = analyzer_result.value
+        expected = CRITICAL
+        actual = analyzer_result.level
 
         self.assertEqual(actual, expected)
