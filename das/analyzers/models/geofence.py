@@ -5,7 +5,8 @@ from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 
 from geopy.distance import distance
 
-from .analyzer import Analyzer, AnalyzerResult
+from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
+
 from mapping.models import FeatureType, PolygonFeature
 
 logger = logging.getLogger(__name__)
@@ -55,11 +56,13 @@ class GeofenceAnalyzer(Analyzer):
 
         logger.info('GeofenceAnalyzer analyzing')
 
-        return_value = 0.0
-
         point = track[-1]
 
         polygon = self.polygon_or_default
+
+        result = AnalyzerResult()
+        result.analyzer_type = self.__class__
+        result.level = NOMINAL
 
         if polygon.feature_geometry.contains(Point(point.x, point.y)):
             # contained, calculate distance to polygon
@@ -69,11 +72,8 @@ class GeofenceAnalyzer(Analyzer):
             # outside the fence, calculate distance to polygon
             distance = self.distance_to_exterior_point(Point(point.x, point.y))
             # do something with that
-            return_value = 1
+            result.value = distance
+            result.level = CRITICAL
             logger.debug('GeofenceAnalyzer: last point of track not contained within polygon')
-
-        result = AnalyzerResult()
-        result.value = return_value
-        result.analyzer_type = self.__class__
 
         return result
