@@ -1,7 +1,7 @@
 import logging
 
-from analyzers import NOMINAL
 from analyzers.all import all_analyzers
+from analyzers.models.analyzer import NOMINAL
 from analyzers.models.subject_analyzer import SubjectAnalyzer
 from das_server import celery
 from das_server import pubsub
@@ -29,6 +29,6 @@ def handle_subject(subject_id):
             analyzers.append(a)
 
     for analyzer in analyzers:
-        analyzer_result = analyzer().analyze(track)
+        analyzer_result = analyzer.analyze(track)
         if analyzer_result.level > NOMINAL:
             pubsub.publish(analyzer_result, 'das.analyzer.warning')

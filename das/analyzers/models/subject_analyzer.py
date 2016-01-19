@@ -12,3 +12,8 @@ class SubjectAnalyzer(models.Model):
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey('content_type', 'object_id')
     subject = models.ForeignKey(to=Subject)
+
+    @property
+    def analyzer(self):
+        return self.content_object
+
