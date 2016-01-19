@@ -21,7 +21,7 @@ class ImmobilityAnalyzer(Analyzer):
         logger.info('ImmobilityAnalyzer analyzing')
 
         result = AnalyzerResult()
-        result.analyzer_type = self.__class__
+        result.analyzer_type = self.__class__.__name__
 
         # assume immobile until detected otherwise
         result.level = CRITICAL

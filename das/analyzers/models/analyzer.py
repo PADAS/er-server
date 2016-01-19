@@ -1,3 +1,5 @@
+import inspect
+
 from django.contrib.gis.db import models
 
 
@@ -26,3 +28,10 @@ class AnalyzerResult():
     level = NOMINAL
     value = 0.0
     analyzer_type = None
+
+    def to_dict(self):
+        """ returns a dict of non-hidden attributes of this object """
+
+        # there must be a better way..
+        return {x:y for x,y in inspect.getmembers(self) if not x.startswith('__') and x != 'to_dict'}
+

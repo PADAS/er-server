@@ -35,8 +35,8 @@ def publish(message, routing_key='das'):
 
         with Connection(BROKER_URL) as conn:
 
-            producer = conn.Producer()
-            producer.publish(message, exchange=das_exchange, routing_key=routing_key)
+            producer = conn.Producer(exchange=das_exchange)
+            producer.publish(message, routing_key=routing_key)
 
     except Exception:
         logger.exception("Unhandled exception during publish")
@@ -64,7 +64,7 @@ def subscribe(routing_key='das.#', callback=None):
             auto_delete=True
         )
 
-        with conn.Consumer(event_queue, callbacks=[print]) as consumer:
+        with conn.Consumer(event_queue, callbacks=[callback]) as consumer:
             while True:
                 conn.drain_events()
 

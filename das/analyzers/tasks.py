@@ -31,4 +31,5 @@ def handle_subject(subject_id):
     for analyzer in analyzers:
         analyzer_result = analyzer.analyze(track)
         if analyzer_result.level > NOMINAL:
-            pubsub.publish(analyzer_result, 'das.analyzer.warning')
+            analyzer_result.subject_id = subject_id
+            pubsub.publish(analyzer_result.to_dict(), 'das.analyzer.warning')
