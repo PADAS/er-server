@@ -2,8 +2,8 @@ import uuid
 import os
 import logging
 import glob
-from django.contrib.auth.models import User
 
+from django.conf import settings
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ImproperlyConfigured
@@ -33,7 +33,7 @@ class Event(TimestampedModel):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
-    user = models.ForeignKey(User)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
     provenance = models.CharField(max_length=20, choices=PROVENANCES, default='system')
     attributes = JSONField()
     event_type = models.CharField(max_length=20, choices=EVENT_TYPES, default='analyzer')
