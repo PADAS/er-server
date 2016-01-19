@@ -1,3 +1,19 @@
 from django.contrib import admin
+import activity.models as models
 
-# Register your models here.
+
+class EventAttachmentInline(admin.StackedInline):
+    model=models.EventAttachment
+
+@admin.register(models.Event)
+class EventAdmin(admin.ModelAdmin):
+    inlines = [
+        EventAttachmentInline,
+    ]
+
+@admin.register(models.EventAttachment)
+class EventAttachmentAdmin(admin.ModelAdmin):
+    pass
+
+
+

@@ -1,32 +1,42 @@
 """
-A placeholder for publishing message.
+message publishing module
 """
-import logging
-from das_server import celery
 
-send_task = celery.app.send_task
+import logging
+
+from kombu import Connection, Exchange
+
+from das_server import celery_settings
+
 
 logger = logging.getLogger(__name__)
 
+das_exchange = Exchange('das', type='topic', durable=True)
 
-def publish(message, **kwargs):
+
+def publish(message, routing_key='das'):
     """Broadcast a message.
 
-    :param message: text message
-    :parma **kwargs: key value pair parameters
+    :param message: JSONifyable message to send
+    :param routing_key: routing key for the message. defaults to 'das'
+        routing key is used in the topic exchange, so must be a list of words
+        delimited by dots, up to the limit of 255 characters. Should begin
+        with the string 'das'
+
+        Example routing keys:
+            das.event.analyzer.error
+            das.tracking.data_input
+
     """
 
     # noinspection PyBroadException
     try:
-        logger.debug(message)
+        logger.debug('publish received message: {}  routing_key: {}'.format(message, routing_key))
 
-        if message in ('tracking.update'):
-            logger.debug('Handling publish for %s with kwargs %s', message, kwargs)
-            #send_task('analyzer.tasks.tracking_update', (kwargs['source_id'],))
-        else:
-            logger.warning('Unknown message: %s', message)
+        with Connection(celery_settings.BROKER_URL) as conn:
+
+            producer = conn.Producer()
+            producer.publish(message, exchange=das_exchange, routing_key=routing_key)
 
     except Exception:
         logger.exception("Unhandled exception during publish")
-
-
