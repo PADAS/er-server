@@ -1,9 +1,10 @@
 import sys
 import logging
-import urllib.parse
 import socketio
+import threading
 from django.conf import settings
 from django.contrib.auth import authenticate
+from oauthlib.common import Request
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +20,12 @@ class _SocketIOMiddleware(socketio.Middleware):
                                                   socketio_path)
 
     def __call__(self, environ, start_response):
-        environ['django.app'] = self.django_app
-        return super(_SocketIOMiddleware, self).__call__(environ,
-                                                         start_response)
+            environ['django.app'] = self.django_app
+            return super(_SocketIOMiddleware, self).__call__(environ, start_response)
 
 class RTSocketIO(object):
     """Create a SocketIO server.
-        :param app: The flask application instance. If the application instance
+    :param app: The flask application instance. If the application instance
                 isn't known at the time this class is instantiated, then call
                 ``socketio.init_app(app)`` once the application instance is
                 available.
@@ -301,17 +301,65 @@ class RTSocketIO(object):
 sios = RTSocketIO()
 
 
-class RTServer(object):
-    @sios.on('connect', namespace='/')
-    def on_connect_and_auth(sid, environ, *args):
-        qs = urllib.parse.parse_qs(environ.get('QUERY_STRING', ''))
-        if 'Authorization' not in qs:
-            logger.info('missing Authorization qparam')
-            return False
-        authorization = qs['Authorization'][0]
-        if not authorization.startswith('Bearer'):
-            logger.info('invalid Authorization qparam')
-            return False
-        user = authenticate(**{'Authorization':authorization})
+# class RTServer(object):
+#     # @sios.on('connect', namespace='/')
+#     def on_connect_and_auth(sid, environ, *args):
+#         qs = urllib.parse.parse_qs(environ.get('QUERY_STRING', ''))
+#         if 'Authorization' not in qs:
+#             logger.info('missing Authorization qparam')
+#             return False
+#         authorization = qs['Authorization'][0]
+#         if not authorization.startswith('Bearer'):
+#             logger.info('invalid Authorization qparam')
+#             return False
+#         user = authenticate(**{'Authorization':authorization})
+#
+#         logger.debug('on_connect_and_auth %s - %s', (sid, environ))
 
-        logger.debug('on_connect_and_auth %s - %s', (sid, environ))
+
+class SaferRTServer(object):
+
+    @sios.on('connect', namespace='/')
+    def on_connect(sid, socket, *args):
+
+        # Mark the connection as unauthenticated
+        socket['auth'] = False
+
+        # Drop the client from the namespace until it authenticates
+        for room in sios.server.rooms(sid, '/'):
+            sios.server.manager.leave_room(sid, room, '/')
+
+        # Drop the connection if the client hasn't authenticated within one second
+        def confirm_authed(sid, socket):
+            if not socket['auth']:
+                sios.server.disconnect(sid)
+        threading.Timer(1, confirm_authed, [sid, socket]).start()
+
+    @sios.on('authenticate', namespace='/test')
+    def on_authenticate(sid, data):
+        try:
+            # to authenticate the token, we need to create a fake http request for oauth to authenticate
+            request = DummyRequest(headers={'Authorization': data['token']})
+            user = authenticate(**{'request': request})
+
+            # If the token checks out, mark the connection as authenticated and put it into the chat rooms
+            if user is not None:
+                sios.server.environ[sid]['auth'] = True
+                sios.server.manager.enter_room(sid, sid)
+                sios.server.manager.enter_room(sid, 'all_clients')
+            else:
+                sios.server.disconnect(sid, 'Invalid authentication')
+
+        except:
+            sios.server.disconnect(sid, 'Invalid authentication')
+
+class DummyRequest(Request):
+
+    def __init__(self, uri='/dummy', http_method='POST', body={}, headers=None, encoding='utf-8'):
+        self.method = http_method
+        self.META = headers
+        self.POST = body
+        Request.__init__(self, uri, http_method, body, headers, encoding)
+
+    def get_full_path(self):
+        return self.uri
