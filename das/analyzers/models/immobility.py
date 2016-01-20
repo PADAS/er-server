@@ -2,6 +2,7 @@ from datetime import timedelta
 import logging
 
 from django.contrib.gis.db import models
+from django.contrib.gis.geos import Point as DjangoPoint
 
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
 
@@ -42,6 +43,10 @@ class ImmobilityAnalyzer(Analyzer):
                 break
 
         if result.level > NOMINAL:
+            # have to translate shapely Point to a DjangoPoint so SpatialProxy
+            # doesn't throw a wobbly
+            point = track.geo_series[-1]
+            result.location = DjangoPoint(point.x, point.y)
             logger.info('Immobility Analyzer detected immobile track')
 
         return result

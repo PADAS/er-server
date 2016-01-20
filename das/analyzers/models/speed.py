@@ -25,7 +25,7 @@ class SpeedAnalyzer(Analyzer):
 
         time_series = track.speed_series()
 
-        for speed in track.speed_series():
+        for i, speed in enumerate(track.speed_series()):
 
             if speed >= self.max_speed:
 
@@ -37,6 +37,12 @@ class SpeedAnalyzer(Analyzer):
 
                 result.value = speed
                 result.level = CRITICAL
+
+                # have to translate shapely Point to a DjangoPoint so SpatialProxy
+                # doesn't throw a wobbly
+                point = track.geo_series[i]
+                result.location = DjangoPoint(point.x, point.y)
+
                 break
 
         if result.level > NOMINAL:

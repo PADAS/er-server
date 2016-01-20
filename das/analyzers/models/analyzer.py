@@ -40,10 +40,15 @@ class AnalyzerResult():
     level = NOMINAL
     value = 0.0
     analyzer_type = None
+    location = None
 
     def to_dict(self):
-        """ returns a dict of non-hidden attributes of this object """
+        """ returns a dict of attributes of this object """
 
-        # there must be a better way..
-        return {x:y for x,y in inspect.getmembers(self) if not x.startswith('__') and x != 'to_dict'}
+        return {
+            'level': self.level,
+            'value': self.value,
+            'analyzer_type': self.analyzer_type,
+            'location': self.location and str(self.location) or None
+        }
 
