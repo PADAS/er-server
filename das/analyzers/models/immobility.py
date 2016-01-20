@@ -18,7 +18,7 @@ class ImmobilityAnalyzer(Analyzer):
         """ analyze track for immobile state. Only the 24 hours before the most
         recent observation are considered """
 
-        logger.info('ImmobilityAnalyzer analyzing')
+        super().analyze(track)
 
         result = AnalyzerResult()
         result.analyzer_type = self.__class__.__name__

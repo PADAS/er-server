@@ -52,9 +52,9 @@ class GeofenceAnalyzer(Analyzer):
         return distance(p.coords, point.coords).m
 
     def analyze(self, track):
-        """ analyze track """
+        """ analyze track for geofence containment """
 
-        logger.info('GeofenceAnalyzer analyzing')
+        super().analyze(track)
 
         point = track[-1]
 
