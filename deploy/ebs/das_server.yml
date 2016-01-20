@@ -156,6 +156,19 @@ app:
                         priority=20
                         killasgroup=true
 
+                        [program:message_queue_listeners]
+                        command=/opt/python/run/venv/bin/python manage.py message_queue_listeners
+                        directory=/opt/python/current/app/das
+                        environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
+                        user=wsgi
+                        numprocs=1
+                        stdout_logfile=/opt/python/log/message_queue_listeners.log
+                        autostart=true
+                        autorestart=true
+                        startsecs=10
+                        priority=20
+                        killasgroup=true
+
               - 99_supervisord_celeryconfig.sh:
                     permissions: 0755
                     content: |
