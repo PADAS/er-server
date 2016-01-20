@@ -5,7 +5,7 @@ from analyzers.models.analyzer import NOMINAL
 from analyzers.models.subject_analyzer import SubjectAnalyzer
 from das_server import celery
 from das_server import pubsub
-from observations.models import Subject
+from observations.models import Subject, SubjectSource
 from observations.track import Track
 
 logger = logging.getLogger(__name__)
@@ -33,3 +33,18 @@ def handle_subject(subject_id):
         if analyzer_result.level > NOMINAL:
             analyzer_result.subject_id = subject_id
             pubsub.publish(analyzer_result.to_dict(), 'das.analyzer.warning')
+
+
+@celery.app.task()
+def handle_source(source_id):
+    logger.info('handling source ' + str(source_id))
+
+    # get the most recent Subject for this Source
+    subject_source = SubjectSource\
+                        .objects\
+                        .filter(source=source_id)\
+                        .order_by('assigned_range')\
+                        .reverse()\
+                        .first()
+
+    handle_subject(str(subject_source.subject_id))
