@@ -183,11 +183,10 @@ class InreachPlugin(DasPlugin):
     '''
 
     plugin_key = 'inreach-api'
-    def __init__(self, config=None, target=None):
-        super().__init__(config=config, target=target)
 
+    def initConfig(self):
         self.client = InreachClient(config=self.config.configuration)
-        self.logger = logging.getLogger(InreachPlugin.__name__)
+
 
     def _fetch(self):
 
@@ -208,7 +207,7 @@ class InreachPlugin(DasPlugin):
 
             notify = False
             for observation in self.client.fetch_observations(imei=pcs.source.manufacturer_id, after=latest_ts):
-                latest_ts = max(latest_ts, observation['ts'])
+                latest_ts = max(latest_ts, observation['recorded_at'])
                 yield (pcs.source, observation)
                 notify = True
 
