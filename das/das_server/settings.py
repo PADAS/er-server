@@ -53,6 +53,7 @@ INSTALLED_APPS = (
     'raster',
     'observations',
     'analyzers',
+    'das_server',
     'data_input',
     'mapping.apps.MappingConfig',
     'activity',

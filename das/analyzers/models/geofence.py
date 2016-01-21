@@ -52,9 +52,9 @@ class GeofenceAnalyzer(Analyzer):
         return distance(p.coords, point.coords).m
 
     def analyze(self, track):
-        """ analyze track """
+        """ analyze track for geofence containment """
 
-        logger.info('GeofenceAnalyzer analyzing')
+        super().analyze(track)
 
         point = track[-1]
 
@@ -71,9 +71,9 @@ class GeofenceAnalyzer(Analyzer):
 
             # outside the fence, calculate distance to polygon
             distance = self.distance_to_exterior_point(Point(point.x, point.y))
-            # do something with that
             result.value = distance
             result.level = CRITICAL
+            result.location = point
             logger.debug('GeofenceAnalyzer: last point of track not contained within polygon')
 
         return result
