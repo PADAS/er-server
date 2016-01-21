@@ -147,3 +147,7 @@ das/.ipynb_checkpoints
 
 das/runserver.sh
 
+
+das/celerybeat-schedule
+
+das/celerybeat.pid

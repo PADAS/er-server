@@ -63,7 +63,7 @@ def run_plugin(plugin_key):
                     with ptp.target_class() as consumer:
                         p = ptp.plugin_class(pc, target=consumer)
                         p.execute()
-                except Exception:
+                except Exception as e:
                     logger.exception('Failed to run plugin %s' % (p,))
 
             logger.debug('Finished running plugin %s', plugin_key)

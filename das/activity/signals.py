@@ -1,0 +1,15 @@
+import logging
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+from activity.models import Event
+from das_server import pubsub
+
+
+logger = logging.getLogger(__name__)
+
+@receiver(post_save, sender=Event)
+def event_post_save(sender, instance=None, **kwargs):
+    logger.info("just saved event {}".format(instance.pk))
+    pubsub.publish({'event_id': str(instance.pk)}, 'das.event.new')
