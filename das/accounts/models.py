@@ -237,6 +237,23 @@ class PermissionsMixin(models.Model):
 
         return _user_has_module_perms(self, app_label)
 
+    def get_all_permission_sets(self, only_ids=False):
+        """
+        Returns all permission sets the user is member of AND all descendants
+        sets of those sets.
+        """
+        direct_ps = self.permission_sets.all()
+        all_ps = set()
+
+        for ps in direct_ps:
+            descendants = ps.get_descendants(include_self=True).all()
+            for descendant in descendants:
+                if only_ids:
+                    all_ps.add(descendant.id)
+                else:
+                    all_ps.add(descendant)
+        return all_ps
+
 
 class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     """
