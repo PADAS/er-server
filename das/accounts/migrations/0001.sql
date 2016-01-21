@@ -4,6 +4,9 @@
   run with psql
 
   psql -h 127.0.0.1 -d das_devdb -U postgres -l -f .\0001.sql --set ON_ERROR_STOP=1
+
+  after running, safe to move migration through level 1
+  >python manage.py migrate accounts 0001 --fake
  */
 
 CREATE OR REPLACE FUNCTION pg_temp.rem_constraint(x_table TEXT, x_column TEXT, x_like TEXT) RETURNS void AS $$
