@@ -286,7 +286,7 @@ class SubjectManager(models.Manager):
 
     def by_bbox(self, bbox):
         geom = Polygon.from_bbox(bbox)
-        sources = Observation.objects.filter(location__within=geom)
+        sources = Observation.objects.filter(location__within=geom, recorded_at__range=['2016-01-16', '2016-01-20'])
         sources = sources.values('source').annotate(models.Count('source')).values('source')
         subject_sources = SubjectSource.objects.filter(source__in=sources)
         subjects = subject_sources.values('subject')

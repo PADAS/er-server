@@ -8,8 +8,13 @@ from observations.models import Subject
 class SubjectAnalyzer(models.Model):
     """Maps Analyzer parameters to Subjects to override defaults
     """
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    limits = models.Q(app_label='analyzers', model='geofenceanalyzer') \
+        | models.Q(app_label='analyzers', model='immobilityanalyzer') \
+        | models.Q(app_label='analyzers', model='proximityanalyzer')
+
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
     object_id = models.PositiveIntegerField()
+
     content_object = GenericForeignKey('content_type', 'object_id')
     subject = models.ForeignKey(to=Subject)
 
