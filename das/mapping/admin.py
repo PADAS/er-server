@@ -16,4 +16,10 @@ class TileLayerAdmin(admin.ModelAdmin):
 
 @admin.register(models.PolygonFeature)
 class PolygonFeatureAdmin(admin.GeoModelAdmin):
+    openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
+    wms_layer = 'terrain,overlay'
+    wms_url= 'http://tiles.maps.eox.at/wms/'
+
+@admin.register(models.FeatureSet)
+class FeatureSetAdmin(admin.ModelAdmin):
     pass
