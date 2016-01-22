@@ -14,3 +14,6 @@ class MapAdmin(admin.OSMGeoAdmin):
 class TileLayerAdmin(admin.ModelAdmin):
     pass
 
+@admin.register(models.PolygonFeature)
+class PolygonFeatureAdmin(admin.GeoModelAdmin):
+    pass

@@ -10,6 +10,11 @@ class EventAttachmentInline(admin.StackedInline):
 class EventAdmin(GeoModelAdmin):
     # Relying on static content in mapping app.
     openlayers_url = '/static/js/openlayers_2.13/OpenLayers.js'
+    # wms_layer = 'MODIS_Terra_CorrectedReflectance_TrueColor'
+    # wms_url = 'http://map1a.vis.earthdata.nasa.gov/wmts-geo/wmts.cgi'
+
+    wms_layer = 'terrain,overlay'
+    wms_url= 'http://tiles.maps.eox.at/wms/'
     list_display = ('created_at', 'event_type', 'name', 'location', 'attributes',)
     readonly_fields = ('id', 'created_at', 'updated_at')
     inlines = [
