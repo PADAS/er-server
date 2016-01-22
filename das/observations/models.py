@@ -19,8 +19,10 @@ from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.db.models import Q
 from django.db.models import Max
 from django.utils.text import slugify
+from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
-
+from mptt.models import MPTTModel, TreeForeignKey, TreeManager
+from accounts.models import PermissionSet
 from .track import Track
 
 
@@ -186,7 +188,7 @@ class Observation(models.Model):
     location = models.PointField('point location')
     recorded_at = models.DateTimeField('recorded at')  # point in time of object at lat lon
     created_at = models.DateTimeField('row created at', auto_now_add=True)  # date/time this row created
-    source = models.ForeignKey('Source')
+    source = models.ForeignKey('Source', on_delete=models.CASCADE)
     additional = JSONField()
 
     objects = ObservationManager()
@@ -224,8 +226,8 @@ class SubjectSource(models.Model):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     assigned_range = DateTimeRangeField('time assigned to subject')
-    source = models.ForeignKey('Source')
-    subject = models.ForeignKey('Subject')
+    source = models.ForeignKey('Source', on_delete=models.CASCADE)
+    subject = models.ForeignKey('Subject', on_delete=models.CASCADE)
     additional = JSONField('additional')
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     objects = SubjectSourceManager()
@@ -233,6 +235,47 @@ class SubjectSource(models.Model):
     def __str__(self):
         return '%s, %s %s-%s' % (self.subject.name, self.source.model_name,
                                  self.assigned_range.lower, self.assigned_range.upper)
+
+
+class SubjectGroupManager(models.Manager):
+    pass
+
+
+class SubjectGroup(MPTTModel):
+    """
+    Manage Groups of subjects so that we can easily set permissions on a group
+    rather than each individual Subject. Additionally there are requests to
+    get a subset of subjects.
+
+    A group can contain other groups as well.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(_('name'), max_length=80, unique=True)
+    parent = TreeForeignKey('self', null=True, blank=True, related_name='children',
+        verbose_name=_('parent'), db_index=True,
+        help_text=_('The Group\'s parent. None, if it is a root node.'))
+
+
+    permission_sets = models.ManyToManyField(
+        PermissionSet,
+        blank=True,
+        help_text=_(
+            'The permission sets applied to this group. A user in a permission'
+            ' set is granted those permissions on the subjects in this group.'
+        )
+    )
+
+    tree = TreeManager()
+    objects = SubjectGroupManager()
+
+    class MPTTMeta:
+        order_insertion_by=['name']
+
+    def __str__(self):
+        return self.name
+
+    def natural_key(self):
+        return (self.name,)
 
 
 class SubjectManager(models.Manager):
@@ -257,6 +300,7 @@ class Subject(models.Model):
     name = models.CharField('name', max_length=100)
     subject_type = models.CharField('subject type', max_length=100, choices=SUBJECT_TYPES, default='wildlife')
     additional = JSONField('additional data')
+    group = TreeForeignKey(SubjectGroup, on_delete=models.SET_NULL, null=True)
 
     objects = SubjectManager()
 

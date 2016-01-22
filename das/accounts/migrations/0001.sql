@@ -7,6 +7,8 @@
 
   after running, safe to move migration through level 1
   >python manage.py migrate accounts 0001 --fake
+
+  Then need to go through level 2 to add table permissionset
  */
 
 CREATE OR REPLACE FUNCTION pg_temp.rem_constraint(x_table TEXT, x_column TEXT, x_like TEXT) RETURNS void AS $$
@@ -98,8 +100,7 @@ DECLARE
   ttn text[];
 BEGIN
 
-  table_names := array[['auth_user_groups', 'user_id', 'auth_user_groups%'],
-             ['auth_user_user_permissions', 'user_id', 'auth_user_user_permis%'],
+  table_names := array[
     ['activity_event', 'created_by_user_id', 'activity_event%'],
     ['django_admin_log', 'user_id', 'django_admin_log%'],
     ['oauth2_provider_grant', 'user_id', 'oauth2_provider_grant%'],
@@ -108,6 +109,8 @@ BEGIN
     ['oauth2_provider_accesstoken', 'user_id', 'oauth2_provider_access']
              ];
 
+DROP TABLE IF EXISTS auth_user_groups CASCADE;
+DROP TABLE IF EXISTS auth_user_user_permissions CASCADE;
 
   FOREACH ttn slice 1 in ARRAY table_names
   LOOP
@@ -115,14 +118,12 @@ BEGIN
     PERFORM pg_temp.rem_constraint(ttn[1], ttn[2], ttn[3]);
   END LOOP;
 
+ALTER TABLE auth_user DROP CONSTRAINT auth_user_username_key;
 ALTER TABLE auth_user RENAME TO accounts_user;
-ALTER TABLE auth_user_groups RENAME TO accounts_user_groups;
-ALTER TABLE auth_user_user_permissions RENAME TO accounts_user_user_permissions;
-
 ALTER TABLE accounts_user ADD COLUMN id_uuid uuid DEFAULT md5(random()::text || clock_timestamp()::text)::uuid;
-
-  table_names[1][1] := 'accounts_user_groups';
-  table_names[2][1] := 'accounts_user_user_permissions';
+ALTER TABLE accounts_user ADD COLUMN phone character varying(15) NOT NULL DEFAULT '';
+ALTER TABLE accounts_user ADD COLUMN is_email_alert boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE accounts_user ADD COLUMN is_sms_alert boolean NOT NULL DEFAULT FALSE;
 
   FOREACH ttn slice 1 in ARRAY table_names
   LOOP
@@ -135,16 +136,17 @@ ALTER TABLE accounts_user DROP CONSTRAINT auth_user_pkey;
 ALTER TABLE accounts_user DROP COLUMN id;
 ALTER TABLE accounts_user RENAME COLUMN id_uuid TO id;
 ALTER TABLE accounts_user ADD PRIMARY KEY (id);
+ALTER TABLE accounts_user ADD CONSTRAINT accounts_user_username_key UNIQUE(username);
 
   FOREACH ttn slice 1 in ARRAY table_names
   LOOP
     PERFORM pg_temp.add_constraints(ttn[1], ttn[2]);
   END LOOP;
 
-ALTER TABLE accounts_user_user_permissions ADD CONSTRAINT accounts_user_user_permissions_user_id_permission_id_key UNIQUE (user_id, permission_id);
-ALTER TABLE accounts_user_groups ADD CONSTRAINT accounts_user_groups_user_id_permission_id_key UNIQUE (user_id, group_id);
-
 ALTER TABLE accounts_user ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE accounts_user ALTER COLUMN phone DROP DEFAULT;
+ALTER TABLE accounts_user ALTER COLUMN is_email_alert DROP DEFAULT;
+ALTER TABLE accounts_user ALTER COLUMN is_sms_alert DROP DEFAULT;
 
 IF EXISTS(SELECT 1 FROM django_content_type WHERE app_label='auth' AND model='user') THEN
     UPDATE django_content_type SET app_label='accounts' WHERE app_label='auth' AND model='user';

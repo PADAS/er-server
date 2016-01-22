@@ -4,13 +4,12 @@ import uuid
 from django.contrib import auth
 from django.contrib.gis.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permission
-from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
 from django.core.mail import send_mail
 from django.core.exceptions import PermissionDenied
 from django.core import validators
 from django.utils import six, timezone
-from mptt.models import MPTTModel, TreeForeignKey
+from mptt.models import MPTTModel, TreeForeignKey, TreeManyToManyField, TreeManager
 
 
 phone_regex = validators.RegexValidator(regex=r'^\+?1?\d{9,15}$', message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed.")
@@ -36,7 +35,7 @@ PERMISSION_CATEGORY = (
     ('admin', 'Admin')
 )
 
-@python_2_unicode_compatible
+
 class PermissionSet(MPTTModel):
     """
     PermissionSets are a generic way of categorizing users to apply permissions, or
@@ -58,7 +57,6 @@ class PermissionSet(MPTTModel):
     name = models.CharField(_('name'), max_length=80, unique=True)
     permissions = models.ManyToManyField(
         Permission,
-        verbose_name=_('permissions'),
         blank=True,
     )
     category = models.CharField('permission set category', max_length=100,
@@ -68,6 +66,7 @@ class PermissionSet(MPTTModel):
         verbose_name=_('parent'), db_index=True,
         help_text=_('The permission set\'s parent set. None, if it is a root node.'))
 
+    tree = TreeManager()
     objects = PermissionSetManager()
 
     class Meta:
@@ -75,7 +74,6 @@ class PermissionSet(MPTTModel):
         verbose_name_plural = _('permission sets')
 
     class MPTTMeta:
-        level_attr = 'mptt_level'
         order_insertion_by=['name']
 
     def __str__(self):
@@ -169,16 +167,13 @@ class PermissionsMixin(models.Model):
             'explicitly assigning them.'
         ),
     )
-    permission_sets = models.ManyToManyField(
+    permission_sets = TreeManyToManyField(
         PermissionSet,
-        verbose_name=_('permission_sets'),
         blank=True,
         help_text=_(
             'The permission sets this user belongs to. A user will get all permissions '
             'granted to each of their permission sets.'
         ),
-        related_name="user_set",
-        related_query_name="user",
     )
 
     class Meta:

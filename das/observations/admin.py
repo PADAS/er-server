@@ -1,4 +1,7 @@
 from django.contrib import admin
+from mptt.admin import MPTTModelAdmin
+from mptt.forms import TreeNodeMultipleChoiceField
+
 import observations.models as models
 
 # Register your models here.
@@ -26,5 +29,9 @@ class RegionAdmin(admin.ModelAdmin):
     def __str__(self):
         return self.slug
 
+@admin.register(models.SubjectGroup)
+class SubjectGroupAdmin(MPTTModelAdmin):
+    search_fields = ('name',)
+    ordering = ('name',)
 
 
