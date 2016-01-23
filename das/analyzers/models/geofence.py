@@ -44,7 +44,8 @@ class GeofenceAnalyzer(Analyzer):
 
 
     def analyze(self, track):
-        """ analyze track for geofence containment """
+        """ analyze track for geofence containment. Only the most recent
+        observation is considered """
 
         super().analyze(track)
 

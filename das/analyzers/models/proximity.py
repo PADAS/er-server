@@ -43,15 +43,14 @@ class ProximityAnalyzer(Analyzer):
             return poly
 
     def analyze(self, track):
-        """ analyze track for proximity conditions. Only the 24 hours before the most
-        recent observation are considered """
+        """ analyze track for proximity conditions. Only the most
+        recent observation is considered """
 
         super().analyze(track)
 
         result = AnalyzerResult()
         result.analyzer_type = self.__class__.__name__
 
-        # Is track proximal to poly?
         poly = self.polygon_or_default
         point = track[-1]
 
