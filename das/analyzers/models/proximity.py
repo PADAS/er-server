@@ -4,7 +4,8 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
-from mapping.models import PolygonFeature
+from .utils import distance_to_exterior_point
+from mapping.models import FeatureType, PolygonFeature
 
 logger = logging.getLogger(__name__)
 
@@ -13,15 +14,16 @@ class ProximityAnalyzer(Analyzer):
     """ Speed Analyzer for a Track. """
 
     polygon = models.ForeignKey(to=PolygonFeature)
+    distance_m = models.FloatField(default=100)  # in meters
 
-    # default box around africa
+    # default box around null island
     _default_polygon = MultiPolygon(
         Polygon((
-            (-20, 40),
-            (60, 40),
-            (60, -40),
-            (-20, -40),
-            (-20, 40)
+            (-1, 1),
+            (1, 1),
+            (1, -1),
+            (-1, -1),
+            (-1, 1)
         ))
     )
 
@@ -49,9 +51,18 @@ class ProximityAnalyzer(Analyzer):
         result = AnalyzerResult()
         result.analyzer_type = self.__class__.__name__
 
-        # TODO: Is track proximal to poly?
+        # Is track proximal to poly?
+        poly = self.polygon_or_default
+        point = track[-1]
 
-        if result.level > NOMINAL:
-            logger.info('Speed Analyzer detected exceeded speed threshold')
+        if poly.feature_geometry.contains(Point(point.x, point.y)):
+            distance = 0.0
+        else:
+            distance = distance_to_exterior_point(poly.feature_geometry, Point(point.x, point.y))
+
+        if distance <= self.distance_m:
+            result.value = distance
+            result.level = CRITICAL
+            logger.info('Proximity Analyzer detected a proximal track')
 
         return result

@@ -3,10 +3,8 @@ import logging
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 
-from geopy.distance import distance
-
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
-
+from .utils import distance_to_exterior_point
 from mapping.models import FeatureType, PolygonFeature
 
 logger = logging.getLogger(__name__)
@@ -44,12 +42,6 @@ class GeofenceAnalyzer(Analyzer):
             )
             return poly
 
-    def distance_to_exterior_point(self, point):
-        """ for a point outside self.polygon, return the distance in meters
-        to that point """
-        d = self.polygon.feature_geometry.boundary.project(point)
-        p = self.polygon.feature_geometry.boundary.interpolate(d)
-        return distance(p.coords, point.coords).m
 
     def analyze(self, track):
         """ analyze track for geofence containment """
@@ -70,7 +62,7 @@ class GeofenceAnalyzer(Analyzer):
         else:
 
             # outside the fence, calculate distance to polygon
-            distance = self.distance_to_exterior_point(Point(point.x, point.y))
+            distance = distance_to_exterior_point(polygon.feature_geometry, Point(point.x, point.y))
             result.value = distance
             result.level = CRITICAL
             result.location = point
