@@ -3,7 +3,7 @@ from django.conf import settings
 import observations
 from functools import namedtuple
 from abc import ABCMeta, abstractmethod
-from das_server import celery
+from das_server import pubsub
 
 class DasPluginConfigurationError(Exception):
     """
@@ -87,9 +87,9 @@ class DasPlugin(metaclass=ABCMeta):
                 self.logger.exception('Failed in transforming and saving observation. %s', t)
 
     def notify(self, source_id):
-        # TODO: Move this outside the plugin.
+        '''Notify of new observations for the given source.'''
         try:
-            celery.app.send_task('analyzers.tasks.handle_source', (str(source_id),))
+            pubsub.publish({'source_id': str(source_id)}, 'das.tracking.source.observations.new')
         except Exception as e:
             pass
         return True
