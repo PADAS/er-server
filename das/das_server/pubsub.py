@@ -53,19 +53,7 @@ def subscribe(routing_key='das.#', callback=None):
     :param callback: function to call on message.  Signature should be
 
     """
-
-    with Connection(BROKER_URL) as conn:
-
-        event_queue = Queue(
-            channel=conn,
-            exchange=das_exchange,
-            routing_key=routing_key,
-            no_ack=True,
-            auto_delete=True
-        )
-
-        with conn.Consumer(event_queue, callbacks=[callback]) as consumer:
-            while True:
-                conn.drain_events()
-
-
+    # See das_server/management/commands/message_queue_listeners.py for the message
+    # listener process.  It will be nice to be able to dynamically attach
+    # subscriptions in there.
+    raise NotImplementedError
