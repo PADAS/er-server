@@ -12,6 +12,9 @@ from kombu.utils import nested
 from das_server import pubsub
 from das_server.celery_settings import BROKER_URL
 
+from importlib import import_module
+from django.utils.module_loading import module_has_submodule
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,8 @@ def tracking_callback(body, message):
     msg = "tracking_callback message: {} body: {}".format(message, body)
     print(msg)
 
+
+
 # Now define the mapping between routing_keys and callbacks
 message_queue_mappings = (
     ('das.event.#', event_callback),
@@ -38,6 +43,32 @@ message_queue_mappings = (
     ('das.tracking.#', tracking_callback)
 )
 
+def installed_apps_subscriptions(submodule='pubsub_registry', ignore_re='(djgeojson|django)'):
+    '''
+    Automatically import {{ app_name }}.pubsub_registry modules.
+    :param submodules: module name(s) within INSTALLED_APPS.
+    :param ignore_re: an re to ignore installed apps by pattern.
+    :return: a generator of tuples representing subcriptions.
+    '''
+    for app in ('analyzers', 'data_input', 'activity'): #settings.INSTALLED_APPS:
+        if re.match(ignore_re, app):
+            continue
+        _ = import_module(app)
+        try:
+            mn = "{}.{}".format(app, submodule)
+            app_submodule = import_module(mn)
+            if hasattr(app_submodule, 'PUBSUB_SUBSCRIPTIONS'):
+                yield from app_submodule.PUBSUB_SUBSCRIPTIONS
+
+        except Exception as e:
+            if module_has_submodule(_, submodule):
+                raise
+
+
+def load_message_queue_mappings():
+    return message_queue_mappings + tuple(installed_apps_subscriptions())
+
+# message_queue_mappings = message_queue_mappings + load_installed_apps_pubsub()
 # Now do the actual work of creating a queue for each mapping,
 # attached to the exchange, then listen for messages forever
 class Command(BaseCommand):
@@ -51,7 +82,8 @@ class Command(BaseCommand):
 
             consumers = []
 
-            for routing_key, callback in message_queue_mappings:
+            _ = load_message_queue_mappings()
+            for routing_key, callback in _:
 
                 queue = Queue(
                     channel=conn,
