@@ -3,18 +3,15 @@ message publishing module
 """
 
 import logging
+import re
+from importlib import import_module
 
-from kombu import Connection, Exchange, Queue
-
+from django.utils.module_loading import module_has_submodule
 from kombu import Consumer, Connection, Exchange, Queue
 from kombu.utils import nested
 
 from das_server import pubsub
 from das_server.celery_settings import BROKER_URL
-
-from importlib import import_module
-from django.utils.module_loading import module_has_submodule
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +101,7 @@ def installed_apps_subscriptions(submodule='pubsub_registry', ignore_re='(djgeoj
     for app in ('analyzers', 'data_input', 'activity'): #settings.INSTALLED_APPS:
         if re.match(ignore_re, app):
             continue
-        _ = import_module(app)
+        app_module = import_module(app)
         try:
             mn = "{}.{}".format(app, submodule)
             app_submodule = import_module(mn)
@@ -112,11 +109,11 @@ def installed_apps_subscriptions(submodule='pubsub_registry', ignore_re='(djgeoj
                 yield from app_submodule.PUBSUB_SUBSCRIPTIONS
 
         except Exception as e:
-            if module_has_submodule(_, submodule):
+            if module_has_submodule(app_module, submodule):
                 raise
 
 
-def __load_message_queue_mappings():
+def load_message_queue_mappings():
     '''
     Load (routing_key, callback) tuples for sibling applications.
     :return:
@@ -130,8 +127,7 @@ def start_message_queue_listeners():
 
         consumers = []
 
-        _ = __load_message_queue_mappings()
-        for routing_key, callback in _:
+        for routing_key, callback in load_message_queue_mappings():
 
             queue = Queue(
                 channel=conn,
