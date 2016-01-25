@@ -10,7 +10,6 @@ from django.utils.module_loading import module_has_submodule
 from kombu import Consumer, Connection, Exchange, Queue
 from kombu.utils import nested
 
-from das_server import pubsub
 from das_server.celery_settings import BROKER_URL
 
 logger = logging.getLogger(__name__)
@@ -131,7 +130,7 @@ def start_message_queue_listeners():
 
             queue = Queue(
                 channel=conn,
-                exchange=pubsub.das_exchange,
+                exchange=das_exchange,
                 routing_key=routing_key,
                 no_ack=True,
                 auto_delete=True
