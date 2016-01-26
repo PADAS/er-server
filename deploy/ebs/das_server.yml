@@ -283,7 +283,7 @@ app:
                           10-cp-realtime-wsgi:
                             command: "cp realtime_httpd.conf /opt/elasticbeanstalk/hooks/"
                           11-fix-realtime-wsgi:
-                            command: "if ! grep -q socket.io config.py; then sed -i.bak '/<VirtualHost *:80>/ r realtime_httpd.conf' config.py; fi"
+                            command: "if ! grep -q socket.io config.py; then sed -i.bak '/<VirtualHost \*:%s>/ r realtime_httpd.conf' config.py; fi"
                             cwd: /opt/elasticbeanstalk/hooks
 
 
