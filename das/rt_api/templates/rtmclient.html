@@ -8,30 +8,36 @@
     <script src="{% static 'js/das-client/das.js' %}"></script>
     <script type="text/javascript" charset="utf-8">
         $(document).ready(function(){
-            namespace = '/test'; // change to an empty string to use the global namespace
-
-            // the socket.io documentation recommends sending an explicit package upon connection
-            // this is specially important when using the global namespace
-            var socket = io.connect('http://' + document.domain + ':' + location.port + namespace);
-
-            // event handler for server sent data
-            // the data is displayed in the "Received" section of the page
-            socket.on('my response', function(msg) {
-                $('#log').append('<br>Received #' + msg.count + ': ' + msg.data);
-            });
-
-            // event handler for new connections
-            socket.on('connect', function() {
-                socket.emit('authenticate', {token: 'Bearer {0}'.format('TOKEN GOES HERE')});
-            });
-
-//            // event handler for new connections that will fail to authenticate
-//            socket.on('connect', function() {
-//                socket.emit('authenticate', {token: 'bad_token'});
-//            });
+            namespace = '/das'; // change to an empty string to use the global namespace
+            var socket = null
 
             // handlers for the different forms in the page
             // these send data to the server in a variety of ways
+            $('form#connect').submit(function(event) {
+                if (socket !== null)
+                {
+                    return false;
+                }
+                socket = io.connect('http://' + document.domain + ':' + location.port + namespace);
+
+                // event handler for server sent data
+                // the data is displayed in the "Received" section of the page
+                socket.on('resp_authorization', function(msg) {
+                    $('#log').append('<br>Received #' + msg.resp_id + ': ' + msg.status.message);
+                });
+
+                // event handler for new connections
+                socket.on('connect', function() {
+                    socket.emit('authorization', {'id': 1, authorization: 'Bearer ' + $('#bearer_token').val()});
+//                    socket.emit('authorization', {'id': 1, authorization: 'Bearer ' + 'BAD TOKEN'});
+                });
+
+                socket.on('disconnect', function() {
+                     $('#log').append('<br>Disconnected');
+                    socket = null;
+                });
+                return false;
+            });
             $('form#emit').submit(function(event) {
                 socket.emit('my event', {data: $('#emit_data').val()});
                 return false;
@@ -57,7 +63,7 @@
                 return false;
             });
             $('form#disconnect').submit(function(event) {
-                socket.emit('disconnect request');
+                socket.disconnect()
                 return false;
             });
         });
@@ -66,6 +72,10 @@
 <body>
     <h1>DAS RTM Test</h1>
     <h2>Send:</h2>
+    <form id="connect" method="POST" action='#'>
+        <input type="text" name="bearer_token" id="bearer_token" placeholder="Token">
+        <input type="submit" value="Connect">
+    </form>
     <form id="emit" method="POST" action='#'>
         <input type="text" name="emit_data" id="emit_data" placeholder="Message">
         <input type="submit" value="Echo">

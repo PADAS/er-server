@@ -13,6 +13,7 @@ class _SocketIOMiddleware(socketio.Middleware):
     """This WSGI middleware simply exposes the Flask application in the WSGI
     environment before executing the request.
     """
+
     def __init__(self, socketio_app, django_app, socketio_path='socket.io'):
         self.django_app = django_app
         super(_SocketIOMiddleware, self).__init__(socketio_app,
@@ -20,8 +21,9 @@ class _SocketIOMiddleware(socketio.Middleware):
                                                   socketio_path)
 
     def __call__(self, environ, start_response):
-            environ['django.app'] = self.django_app
-            return super(_SocketIOMiddleware, self).__call__(environ, start_response)
+        environ['django.app'] = self.django_app
+        return super(_SocketIOMiddleware, self).__call__(environ, start_response)
+
 
 class RTSocketIO(object):
     """Create a SocketIO server.
@@ -160,11 +162,13 @@ class RTSocketIO(object):
                     type, value, traceback = sys.exc_info()
                     return err_handler(value)
                 return ret
+
             if self.server:
                 self.server.on(message, _handler, namespace=namespace)
             else:
                 self.handlers.append((message, _handler, namespace))
             return _handler
+
         return decorator
 
     def on_error(self, namespace=None):
@@ -189,6 +193,7 @@ class RTSocketIO(object):
                 raise ValueError('exception_handler must be callable')
             self.exception_handlers[namespace] = exception_handler
             return exception_handler
+
         return decorator
 
     def on_error_default(self, exception_handler):
@@ -290,7 +295,7 @@ class RTSocketIO(object):
 
     def test_client(self, app, namespace=None):
         """Return a simple SocketIO client that can be used for unit tests."""
-        #return SocketIOTestClient(app, self, namespace)
+        # return SocketIOTestClient(app, self, namespace)
         raise NotImplementedError()
 
     def _copy_session(self, src, dest):
@@ -301,24 +306,7 @@ class RTSocketIO(object):
 sios = RTSocketIO()
 
 
-# class RTServer(object):
-#     # @sios.on('connect', namespace='/')
-#     def on_connect_and_auth(sid, environ, *args):
-#         qs = urllib.parse.parse_qs(environ.get('QUERY_STRING', ''))
-#         if 'Authorization' not in qs:
-#             logger.info('missing Authorization qparam')
-#             return False
-#         authorization = qs['Authorization'][0]
-#         if not authorization.startswith('Bearer'):
-#             logger.info('invalid Authorization qparam')
-#             return False
-#         user = authenticate(**{'Authorization':authorization})
-#
-#         logger.debug('on_connect_and_auth %s - %s', (sid, environ))
-
-
 class SaferRTServer(object):
-
     @sios.on('connect', namespace='/')
     def on_connect(sid, socket, *args):
 
@@ -326,35 +314,77 @@ class SaferRTServer(object):
         socket['auth'] = False
 
         # Drop the client from the namespace until it authenticates
-        for room in sios.server.rooms(sid, '/'):
-            sios.server.manager.leave_room(sid, room, '/')
+        # for room in sios.server.rooms(sid, '/'):
+        # print('disconnect from: ' + room)
+        # sios.server.manager.leave_room(sid, room, '/')
 
         # Drop the connection if the client hasn't authenticated within one second
         def confirm_authed(sid, socket):
             if not socket['auth']:
                 sios.server.disconnect(sid)
-        threading.Timer(1, confirm_authed, [sid, socket]).start()
 
-    @sios.on('authenticate', namespace='/test')
+        threading.Timer(1.0, confirm_authed, [sid, socket]).start()
+
+    @sios.on('authorization', namespace='/das')
     def on_authenticate(sid, data):
         try:
+            # validate the data
+            for param in ('type', 'authorization', 'id'):
+                if param not in data:
+                    sios.emit('resp_authorization',
+                              {'resp_id': data['id'],
+                               'status': {'code': 400, 'message': 'Required fields: "type", "authorization", "id"'}
+                              },
+                              room=str(sid),
+                              namespace='/das')
+                    sios.server.disconnect(sid)
+
             # to authenticate the token, we need to create a fake http request for oauth to authenticate
-            request = DummyRequest(headers={'Authorization': data['token']})
+            request = DummyRequest(headers={'Authorization': data['authorization']})
             user = authenticate(**{'request': request})
 
             # If the token checks out, mark the connection as authenticated and put it into the chat rooms
             if user is not None:
                 sios.server.environ[sid]['auth'] = True
-                sios.server.manager.enter_room(sid, sid)
-                sios.server.manager.enter_room(sid, 'all_clients')
+                sios.server.manager.enter_room(sid, 'all_clients', '/das')
+                sios.emit('resp_authorization',
+                          {'type': 'resp_authorization',
+                           'resp_id': data['id'],
+                           'status': {'code': 200, 'message': 'OK'}
+                          },
+                          room=str(sid),
+                          namespace='/das')
+
             else:
-                sios.server.disconnect(sid, 'Invalid authentication')
+                sios.emit('resp_authorization',
+                          {'type': 'resp_authorization',
+                           'resp_id': data['id'],
+                           'status': {'code': 401, 'message': 'Invalid credentials'}
+                          },
+                          room=str(sid),
+                          namespace='/das')
+                sios.server.disconnect(sid)
 
         except:
-            sios.server.disconnect(sid, 'Invalid authentication')
+            sios.emit('resp_authorization',
+                      {'type': 'resp_authorization',
+                       'resp_id': data['id'],
+                       'status': {'code': 401, 'message': 'Authentication error'}
+                      },
+                      room=str(sid),
+                      namespace='/das')
+            sios.server.disconnect(sid)
+
+    # @sios.on('disconnect', namespace='/')
+    # def on_disconnect(sid, socket, *args):
+    #     pass
+
+    # def broadcast_subject_update(self, subject):
+    #     data = {'data': {'subject': subject}}
+    #     sios.emit('subject_update', data, namespace='/das')
+
 
 class DummyRequest(Request):
-
     def __init__(self, uri='/dummy', http_method='POST', body={}, headers=None, encoding='utf-8'):
         self.method = http_method
         self.META = headers
