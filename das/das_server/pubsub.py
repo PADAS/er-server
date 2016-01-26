@@ -15,6 +15,8 @@ from das_server.celery_settings import BROKER_URL
 logger = logging.getLogger(__name__)
 
 das_exchange = Exchange('das', type='topic', durable=True)
+connection = Connection(BROKER_URL)
+pool = connection.Pool(20)
 
 def publish(message, routing_key='das'):
     """Broadcast a message.
@@ -35,7 +37,7 @@ def publish(message, routing_key='das'):
     try:
         logger.debug('publish received message: {}  routing_key: {}'.format(message, routing_key))
 
-        with Connection(BROKER_URL) as conn:
+        with pool.acquire() as conn:
 
             producer = conn.Producer(exchange=das_exchange)
             producer.publish(message, routing_key=routing_key)
