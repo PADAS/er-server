@@ -169,6 +169,32 @@ app:
                         priority=20
                         killasgroup=true
 
+              - realtime.conf:
+                    permissions: 0644
+                    content: |
+                        [program:realtime]
+                        command=/opt/python/run/venv/bin/python manage.py rtserver 127.0.0.1:8081
+                        directory=/opt/python/current/app/das
+                        environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH',EVENTLET_SHOULDPATCH='True'
+                        user=wsgi
+                        numprocs=1
+                        stdout_logfile=/opt/python/log/realtime.log
+                        autostart=true
+                        autorestart=true
+                        startsecs=10
+                        priority=20
+                        killasgroup=true
+              - realtime_httpd.conf:
+                    permissions: 0644
+                    content: |
+                    RewriteEngine On
+                    RewriteCond %{REQUEST_URI}  ^/socket.io            [NC]
+                    RewriteCond %{QUERY_STRING} transport=websocket    [NC]
+                    RewriteRule /(.*)           ws://localhost:8081/$1 [P,L]
+
+                    ProxyPass        /socket.io http://localhost:8081/socket.io
+                    ProxyPassReverse /socket.io http://localhost:8081/socket.io
+
               - 99_supervisord_celeryconfig.sh:
                     permissions: 0755
                     content: |
@@ -178,7 +204,7 @@ app:
                         if ! grep -Fxq "[include]" /opt/python/etc/supervisord.conf
                             then
                             echo "[include]" | tee -a /opt/python/etc/supervisord.conf
-                            echo "files: celeryconfig.conf" | tee -a /opt/python/etc/supervisord.conf
+                            echo "files: celeryconfig.conf realtime.conf" | tee -a /opt/python/etc/supervisord.conf
                         fi
 
                         # Reread the supervisord config
@@ -189,6 +215,9 @@ app:
 
                         # Start/Restart celery worker and beat through supervisord
                         /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart celeryworker celerybeat
+
+                        # Start/Restart realtime socketio api server
+                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart realtime
 
               - .ebextensions/01-install_dependencies.config:
                     permissions: 0777
@@ -242,15 +271,20 @@ app:
                             command: "cp deflate.conf /etc/httpd/conf.d/"
                           05-celeryconfig:
                             command: "cp celeryconfig.conf /opt/python/etc/"
-                          06-installcelerybeat:
+                          06-realtimeconfig:
+                            command: "cp realtime.conf /opt/python/etc/"
+                          07-installcelerybeat:
                             command: "cp 99_supervisord_celeryconfig.sh /opt/elasticbeanstalk/hooks/appdeploy/post/"
-                          07-installceleryconfig:
+                          08-installceleryconfig:
                             command: "cp 99_supervisord_celeryconfig.sh /opt/elasticbeanstalk/hooks/configdeploy/post/"
-                          08-fix-wsgi-oauth:
+                          09-fix-wsgi-oauth:
                             command: "if ! grep -q WSGIPassAuthorization config.py; then sed -i.bak '/WSGIScriptAlias/ aWSGIPassAuthorization On' config.py; fi"
                             cwd: /opt/elasticbeanstalk/hooks
-
-
+                          10-cp-realtime-wsgi:
+                            command: "cp realtime_httpd.conf /opt/elasticbeanstalk/hooks/"
+                          11-fix-realtime-wsgi:
+                            command: "if ! grep -q socket.io config.py; then sed -i.bak '/<VirtualHost *:80>/ r realtime_httpd.conf' config.py; fi"
+                            cwd: /opt/elasticbeanstalk/hooks
 
 
     # Under the environments node is each environment and their config.
