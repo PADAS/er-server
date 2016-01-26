@@ -13,13 +13,14 @@ import itertools
 class Track():
     """ defines a track consisting of points identified by location in time and space """
 
-    def __init__(self, points, times):
+    def __init__(self, points=None, times=None):
         """ parameters should be sequences of equal length:
         points - sequence of points, any type which can be handled by shapely.geometry.Point
         times - sequence of aware datetimes
         """
-        self.geo_series = gpd.GeoSeries(list(map(Point, points)), index=times)
-        self.geo_series.crs = crs.from_epsg(4326)
+        if points and times:
+            self.geo_series = gpd.GeoSeries(list(map(Point, points)), index=times)
+            self.geo_series.crs = crs.from_epsg(4326)
 
     def __getitem__(self, index):
         return self.geo_series[index]
@@ -34,6 +35,18 @@ class Track():
 
     def as_linestring(self):
         return gpd.GeoSeries([LineString(self.geo_series[:])])
+
+    @property
+    def last_observation(self):
+        """ returns (timestamp, Point) of last observation """
+        return (self.geo_series.index[-1], self.geo_series[-1])
+
+    def truncate(self, before=None):
+        """ returns a new Track with all records before datetime before removed """
+        track = Track()
+        if before:
+            track.geo_series = self.geo_series[self.geo_series.index >= before]
+        return track
 
     def speed_series(self):
 

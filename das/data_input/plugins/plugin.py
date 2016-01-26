@@ -80,11 +80,18 @@ class DasPlugin(metaclass=ABCMeta):
         :return:
         '''
         for item in self._fetch():
-            t = self._transform(item)
-            self._insert(t)
+            try:
+                t = self._transform(item)
+                self._insert(t)
+            except Exception as e:
+                self.logger.exception('Failed in transforming and saving observation. %s', t)
 
     def notify(self, source_id):
-        pubsub.publish('tracking.update', source_id=source_id)
+        '''Notify of new observations for the given source.'''
+        try:
+            pubsub.publish({'source_id': str(source_id)}, 'das.tracking.source.observations.new')
+        except Exception as e:
+            pass
         return True
 
 

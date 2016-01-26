@@ -12,6 +12,7 @@ Contents:
    :maxdepth: 2
 
    oauth2
+   user
    region
    changes
    realtime
