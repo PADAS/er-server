@@ -2,15 +2,19 @@
 message publishing module
 """
 
+from importlib import import_module
 import logging
 import re
-from importlib import import_module
+import signal
+import socket
 
+from django.apps import apps
 from django.utils.module_loading import module_has_submodule
 from kombu import Consumer, Connection, Exchange, Queue
 from kombu.utils import nested
 
 from das_server.celery_settings import BROKER_URL
+
 
 logger = logging.getLogger(__name__)
 
@@ -63,33 +67,6 @@ def subscribe(routing_key='das.#', callback=None):
     raise NotImplementedError
 
 
-
-
-# Here are some sample callbacks, followed by mappings to them.
-def event_callback(body, message):
-    """ generic kombu callback, just prints body and message """
-    msg = "event_callback message: {} body: {}".format(message, body)
-    print(msg)
-
-def another_event_callback(body, message):
-    """ generic kombu callback, just prints body and message """
-    msg = "another_event_callback message: {} body: {}".format(message, body)
-    print(msg)
-
-def tracking_callback(body, message):
-    """ generic kombu callback, just prints body and message """
-    msg = "tracking_callback message: {} body: {}".format(message, body)
-    print(msg)
-
-
-
-# Now define the mapping between routing_keys and callbacks
-DEFAULT_MESSAGE_QUEUE_MAP = (
-    ('das.event.#', event_callback),
-    ('das.event.#', another_event_callback),
-    ('das.tracking.#', tracking_callback)
-)
-
 def installed_apps_subscriptions(submodule='pubsub_registry', ignore_re='(djgeojson|django)'):
     '''
     Automatically import {{ app_name }}.pubsub_registry modules.
@@ -98,37 +75,40 @@ def installed_apps_subscriptions(submodule='pubsub_registry', ignore_re='(djgeoj
     :return: a generator of tuples representing subcriptions.
     '''
 
-    # TODO: I want to iterate over installed-apps to find the pubsub modules, but face some failures in testing.
-    for app in ('analyzers', 'data_input', 'activity'): #settings.INSTALLED_APPS:
-        if re.match(ignore_re, app):
+    for app_config in apps.get_app_configs():
+        if re.match(ignore_re, app_config.name):
             continue
-        app_module = import_module(app)
+
+        logger.debug('registering tasks for app {}'.format(app_config.name))
+        module_name = "{}.{}".format(app_config.name, submodule)
+
         try:
-            mn = "{}.{}".format(app, submodule)
-            app_submodule = import_module(mn)
-            if hasattr(app_submodule, 'PUBSUB_SUBSCRIPTIONS'):
-                yield from app_submodule.PUBSUB_SUBSCRIPTIONS
+            app_submodule = import_module(module_name)
+            for routing_key, callback in app_submodule.PUBSUB_SUBSCRIPTIONS:
+                logger.info('registering routing key {} to {}'.format(routing_key, callback.__name__))
+                yield (routing_key, callback)
 
-        except Exception as e:
-            if module_has_submodule(app_module, submodule):
-                raise
+        except AttributeError as e:
+            logger.warn('{}.PUBSUB_SUBSCRIPTIONS should be a sequence of (routing_key, callback) sequences'.format(module_name))
+        except ImportError as e:
+            logger.debug('No pubsub registrations imported for app {}'.format(app_config.name))
 
 
-def load_message_queue_mappings():
-    '''
-    Load (routing_key, callback) tuples for sibling applications.
-    :return:
-    '''
-    return DEFAULT_MESSAGE_QUEUE_MAP + tuple(installed_apps_subscriptions())
+running = True
+def signal_handler(*args):
+    logger.warning("SIGINT caught")
+    global running
+    running = False
+
+signal.signal(signal.SIGINT, signal_handler)
 
 def start_message_queue_listeners():
 
-    # configure key / handler mapping somewhere less deep
     with Connection(BROKER_URL) as conn:
 
         consumers = []
 
-        for routing_key, callback in load_message_queue_mappings():
+        for routing_key, callback in installed_apps_subscriptions():
 
             queue = Queue(
                 channel=conn,
@@ -141,6 +121,10 @@ def start_message_queue_listeners():
             consumers.append(consumer)
 
         with nested(*consumers):
-            while True:
-                conn.drain_events()
+            while running:
+                try:
+                    conn.drain_events(timeout=2)
+                except socket.timeout as e:
+                    logger.debug('No messages received for 2 seconds')
 
+            logger.debug('Exiting')

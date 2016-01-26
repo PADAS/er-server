@@ -1,10 +1,14 @@
+import logging
+
 from das_server import celery
+
+
+logger = logging.getLogger(__name__)
+
 def new_observations_callback(body, message):
 
-    print(message, body)
+    logger.debug('Received message [{}]. sending task analyzers.tasks.handle_source'.format(message))
     source_id = body['source_id']
-
-    print('sending task for analyzers.')
     celery.app.send_task('analyzers.tasks.handle_source', args=(source_id,))
 
 
