@@ -50,7 +50,7 @@ def publish(message, routing_key='das'):
         logger.exception("Unhandled exception during publish")
 
 
-def subscribe(routing_key='das.#', callback=None):
+def subscribe(routing_key='das.#', callback=None, loop_forever=True):
     """Subscribe to messages routed by routing_key
 
     :param routing_key: routing key for the message. defaults to 'das.#'
@@ -60,11 +60,16 @@ def subscribe(routing_key='das.#', callback=None):
 
     :param callback: function to call on message.  Signature should be
 
+    This function will block, but can be run in a thread
     """
-    # See das_server/management/commands/message_queue_listeners.py for the message
-    # listener process.  It will be nice to be able to dynamically attach
-    # subscriptions in there.
-    raise NotImplementedError
+
+    with Connection(BROKER_URL) as conn:
+        consumer = get_consumer(conn, routing_key, callback)
+        with consumer:
+            while True:
+                conn.drain_events()
+                if not loop_forever:
+                    break
 
 
 def installed_apps_subscriptions(submodule='pubsub_registry', ignore_re='(djgeojson|django)'):
@@ -102,6 +107,22 @@ def signal_handler(*args):
 
 signal.signal(signal.SIGINT, signal_handler)
 
+
+def get_consumer(connection, routing_key, callback):
+    """ returns a kombu.Consumer which routes messages from connection
+     with routing_key to callback """
+
+    queue = Queue(
+         channel=connection,
+         exchange=das_exchange,
+         routing_key=routing_key,
+         no_ack=True,
+         auto_delete=True
+    )
+    consumer = Consumer(connection, queues=[queue], callbacks=[callback])
+    return consumer
+
+
 def start_message_queue_listeners():
 
     with Connection(BROKER_URL) as conn:
@@ -109,15 +130,7 @@ def start_message_queue_listeners():
         consumers = []
 
         for routing_key, callback in installed_apps_subscriptions():
-
-            queue = Queue(
-                channel=conn,
-                exchange=das_exchange,
-                routing_key=routing_key,
-                no_ack=True,
-                auto_delete=True
-            )
-            consumer = Consumer(conn, queues=[queue], callbacks=[callback])
+            consumer = get_consumer(conn, routing_key, callback)
             consumers.append(consumer)
 
         with nested(*consumers):
