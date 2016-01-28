@@ -200,8 +200,8 @@ app:
                     content: |
                         LoadModule proxy_wstunnel_module modules/mod_proxy_wstunnel.so
                         RewriteEngine On
-                        RewriteCond %{{REQUEST_URI}}  ^/socket.io            [NC]
-                        RewriteCond %{{QUERY_STRING}} transport=websocket    [NC]
+                        RewriteCond %%{REQUEST_URI}  ^/socket.io            [NC]
+                        RewriteCond %%{QUERY_STRING} transport=websocket    [NC]
                         RewriteRule /(.*)           ws://localhost:8081/$1 [P,L]
 
                         ProxyPass        /socket.io http://localhost:8081/socket.io
