@@ -241,9 +241,13 @@ class SubjectManager(models.Manager):
         subjects.filter(additional__country=region.country, **kwargs)
         return subjects
 
-    def by_bbox(self, bbox):
+    def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
         sources = Observation.objects.filter(location__within=geom)
+        if last_days:
+            gt = datetime.datetime.utcnow() - last_days
+            lt = datetime.datetime.utcnow()
+            sources = sources.filter(recorded_at__range=(gt, lt))
         sources = sources.values('source').annotate(models.Count('source')).values('source')
         subject_sources = SubjectSource.objects.filter(source__in=sources)
         subjects = subject_sources.values('subject')
