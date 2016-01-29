@@ -76,10 +76,14 @@ app:
             # need this to support websockets over 80 and 443 through an ELB
             'aws:elb:listener:80':
                 ListenerProtocol: TCP
+                InstancePort: 80
+                InstanceProtocol: TCP
 
             'aws:elb:listener:443':
                 ListenerProtocol: SSL
                 SSLCertificateId: 'arn:aws:iam::074677080781:server-certificate/wildcard-pamdas-org-2015'
+                InstancePort: 80
+                InstanceProtocol: TCP
 
             'aws:elb:policies':
                 Stickiness Policy: false
