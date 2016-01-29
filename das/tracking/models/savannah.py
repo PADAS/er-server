@@ -121,7 +121,6 @@ class SavannahPlugin(Plugin):
                 yield self._transform((source, fix))
 
             source_plugin.cursor_data['latest_timestamp'] = lt.isoformat()
-            source_plugin.save()
 
         except Exception as e:
             self.logger.exception("Error fetching savanna collar data")

@@ -54,30 +54,27 @@ class SourcePlugin(TimestampedModel):
                               related_query_name='source_plugin')
 
     cursor_data = JSONField(null=True)
-
     status = models.CharField(max_length=15, default=STATUS_ENABLED)
+
+    last_run = models.DateTimeField(auto_now_add=True, verbose_name='Timestamp for when this plugin last executed.')
 
     def execute(self, target=None):
         '''
         Run basic logic to fetch new observations for the associated source.
         :return:
         '''
-        target = target or DasDefaultTarget()
-
         result = SourcePluginResult()
         result.plugin_type = self.plugin_type
         result.source_id = self.source_id
 
-        with target:
-
-            cnt=0
+        with target or DasDefaultTarget() as target:
             for x in self.plugin.fetch(self):
                 target.send(x)
-                cnt=cnt+1
-
-            result.count=cnt
+                result.count += 1
+        self.save()
 
         return result
+
 
     def maintenance(self, target=None):
         raise NotImplementedError('maintenance is not yet implemented')
