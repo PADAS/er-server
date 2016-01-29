@@ -199,6 +199,7 @@ app:
                         startsecs=10
                         priority=20
                         killasgroup=true
+                        stopsignal=INT
               - realtime_httpd.conf:
                     permissions: 0644
                     content: |
