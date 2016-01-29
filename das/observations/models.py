@@ -317,12 +317,12 @@ class Region(models.Model):
 
 
 MARKER_ICONS = {
-    'elephant': '/static/Elephant_Male.png',
-    'elephant-male': '/static/Elephant_Male.png',
-    'elephant-female': '/static/Elephant_Female.png',
-    'forest elephant': '/static/Elephant_Male.png',
-    'forest elephant-male': '/static/Elephant_Male.png',
-    'forest elephant-female': '/static/Elephant_Female.png',
+    'elephant': '/static/elephant-black-male.svg',
+    'elephant-male': '/static/elephant-black-male.svg',
+    'elephant-female': '/static/elephant-black-female.svg',
+    'forest elephant': '/static/elephant-black-male.svg',
+    'forest elephant-male': '/static/elephant-black-male.svg',
+    'forest elephant-female': '/static/elephant-black-female.svg',
     'lion-male': '/static/Lion_Male.png',
     'lion-female': '/static/Lion_Female.png',
     'ranger': '/static/ranger.png',
