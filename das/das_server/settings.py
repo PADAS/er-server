@@ -53,6 +53,7 @@ INSTALLED_APPS = (
     'analyzers',
     'das_server',
     'data_input',
+    'tracking',
     'mapping.apps.MappingConfig',
     'activity',
     'rt_api.apps.RTAPIConfig'

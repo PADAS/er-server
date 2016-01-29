@@ -1,9 +1,17 @@
-from django.contrib import admin
-import observations.models as models
+from django.contrib.gis import admin
+import tracking.models as models
+from django.contrib.staticfiles.templatetags.staticfiles import static
 
-# Register your models here.
+# class EventAttachmentInline(admin.StackedInline):
+#     model=models.EventAttachment
 
+@admin.register(models.SourcePlugin)
+class SourcePluginAdmin(admin.ModelAdmin):
+    list_display = ['plugin_type', 'source']
 
+@admin.register(models.SavannahPlugin)
+class SavannahPluginAdmin(admin.ModelAdmin):
+    pass
 
 
 
