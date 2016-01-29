@@ -73,12 +73,27 @@ app:
               Subnets: "subnet-11bf3166,subnet-6910780c,subnet-0074d659"
               AssociatePublicIpAddress: "true"
 
-            'aws:elb:loadbalancer':
+            # need this to support websockets over 80 and 443 through an ELB
+            'aws:elb:listener:80':
+                ListenerProtocol: TCP
+                InstancePort: 80
+                InstanceProtocol: TCP
+
+            'aws:elb:listener:443':
+                ListenerProtocol: SSL
                 SSLCertificateId: 'arn:aws:iam::074677080781:server-certificate/wildcard-pamdas-org-2015'
-                LoadBalancerHTTPSPort: 443
+                InstancePort: 80
+                InstanceProtocol: TCP
 
             'aws:elb:policies':
-                Stickiness Policy: true
+                Stickiness Policy: false
+
+            # Apache does not suppor Proxy Protocol v1, nginx does
+            # which is needed to get the client IP using TCP ListenerProtocol
+            #'aws:elb:policies:EnableProxyProtocol':
+            #    ProxyProtocol: true
+            #    InstancePorts: 80, 443
+
 
 
         # instructions on how to build the application archive
@@ -184,12 +199,14 @@ app:
                         startsecs=10
                         priority=20
                         killasgroup=true
+                        stopsignal=INT
               - realtime_httpd.conf:
                     permissions: 0644
                     content: |
+                        LoadModule proxy_wstunnel_module modules/mod_proxy_wstunnel.so
                         RewriteEngine On
-                        RewriteCond %{REQUEST_URI}  ^/socket.io            [NC]
-                        RewriteCond %{QUERY_STRING} transport=websocket    [NC]
+                        RewriteCond %%{REQUEST_URI}  ^/socket.io            [NC]
+                        RewriteCond %%{QUERY_STRING} transport=websocket    [NC]
                         RewriteRule /(.*)           ws://localhost:8081/$1 [P,L]
 
                         ProxyPass        /socket.io http://localhost:8081/socket.io
