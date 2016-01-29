@@ -98,36 +98,38 @@ class SavannahPlugin(Plugin):
 
     def fetch(self, source_plugin):
 
+        # Save reference to cursor data.
+        self.cursor_data = source_plugin.cursor_data
+        source = source_plugin.source
+
         self.logger = logging.getLogger(self.__class__.__name__)
         client = SavannaClient(username=self.service_user_id,
                                password=self.service_password,
                                host=self.service_api_host)
 
         try:
-            st = parse_date(source_plugin.cursor_data['latest_timestamp'])
+            st = parse_date(self.cursor_data['latest_timestamp'])
         except Exception as e:
-            source_plugin.cursor_data = source_plugin.cursor_data or {}
+            self.cursor_data = self.cursor_data or {}
             st = datetime.datetime.utcnow() - self.DEFAULT_START_OFFSET
 
         try:
             lt = st
             st = int(st.timestamp()) + 1
 
-            source = source_plugin.source
             self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
 
             for fix in client.fetch_observations(source.manufacturer_id, start_time=st):
                 lt = fix.recorded_at
-                yield self._transform((source, fix))
+                yield self._transform((self.source, fix))
 
-            source_plugin.cursor_data['latest_timestamp'] = lt.isoformat()
+            self.cursor_data['latest_timestamp'] = lt.isoformat()
 
         except Exception as e:
             self.logger.exception("Error fetching savanna collar data")
 
     def _transform(self, item):
         source, o = item
-
         side_data = dict((k, o.__getattribute__(k)) for k in ('speed', 'heading', 'temperature', 'height'))
         return Obs(source=source, recorded_at=o.recorded_at, latitude=o.latitude, longitude=o.longitude,
                    additional=side_data)

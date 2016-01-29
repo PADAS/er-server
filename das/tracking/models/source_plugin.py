@@ -1,6 +1,7 @@
 import uuid
 
 import logging
+import datetime
 
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -71,6 +72,8 @@ class SourcePlugin(TimestampedModel):
             for x in self.plugin.fetch(self):
                 target.send(x)
                 result.count += 1
+        self.last_run = datetime.datetime.utcnow()
+        self.cursor_data = self.plugin.cursor_data
         self.save()
 
         return result

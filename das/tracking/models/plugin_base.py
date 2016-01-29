@@ -45,10 +45,10 @@ class Plugin(TimestampedModel):
     status = models.CharField(max_length=15, default=STATUS_ENABLED, choices=STATUS_CHOICES)
     additional = JSONField(null=True)
 
+    cursor_data = {}
+
     class Meta:
         abstract = True
-
-
 
 class PluginTarget(object):
     def __init__(self, config=None):
@@ -95,7 +95,7 @@ class PluginTarget(object):
         return True
 
 '''
-Default Classes
+Default target that writes to the Observations model.
 '''
 class DasDefaultTarget(PluginTarget):
 
