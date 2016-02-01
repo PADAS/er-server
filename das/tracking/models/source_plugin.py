@@ -43,7 +43,10 @@ class SourcePlugin(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    limits = models.Q(app_label='tracking', model='savannahplugin')
+    limits = models.Q(app_label='tracking', model='savannahplugin') | \
+        models.Q(app_label='tracking', model='inreachplugin') | \
+        models.Q(app_label='tracking', model='demosubjectplugin')
+
 
     # Generic foreign key to plugin
     plugin_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
@@ -69,7 +72,7 @@ class SourcePlugin(TimestampedModel):
         result.source_id = self.source_id
 
         with target or DasDefaultTarget() as target:
-            for x in self.plugin.fetch(self):
+            for x in self.plugin.fetch(self.source, self.cursor_data):
                 target.send(x)
                 result.count += 1
         self.last_run = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)

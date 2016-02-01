@@ -3,6 +3,7 @@
 """
 import http.client
 from functools import namedtuple
+import copy
 
 from tracking.models.plugin_base import Obs
 from .plugin_base import Plugin, DasPluginFetchError
@@ -14,6 +15,7 @@ import pytz
 
 import logging
 from django.contrib.gis.db import models
+
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
@@ -99,13 +101,12 @@ class SavannahPlugin(Plugin):
     service_api_host = models.CharField(max_length=50,
                                         help_text='the ip-address or host-name for the Savannah Tracking service.')
 
-    def fetch(self, source_plugin):
+    def fetch(self, source, cursor_data=None):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        # Save reference to cursor data.
-        self.cursor_data = source_plugin.cursor_data
-        source = source_plugin.source
+        # create cursor_data
+        self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
 
         client = SavannaClient(username=self.service_user_id,
                                password=self.service_password,
@@ -114,7 +115,6 @@ class SavannahPlugin(Plugin):
         try:
             st = parse_date(self.cursor_data['latest_timestamp'])
         except Exception as e:
-            self.cursor_data = self.cursor_data or {}
             st = datetime.datetime.utcnow() - self.DEFAULT_START_OFFSET
 
         lt = st
@@ -126,6 +126,7 @@ class SavannahPlugin(Plugin):
             lt = fix.recorded_at
             yield self._transform((source, fix))
 
+        # Update cursor data.
         self.cursor_data['latest_timestamp'] = lt.isoformat()
 
 

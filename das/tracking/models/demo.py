@@ -1,21 +1,18 @@
-from django.contrib.gis.geos import Polygon, Point, MultiPolygon
 import random
+import copy
 
+from functools import namedtuple
+import datetime
+from datetime import timedelta
+from dateutil.parser import parse as parse_date
+import pytz
+
+from django.contrib.gis.geos import Polygon, Point, MultiPolygon
 import geopy
 import geopy.distance
 
-from data_input.models import PluginConfSource
-
-
-from functools import namedtuple
-
 from tracking.models.plugin_base import Obs
 from .plugin_base import Plugin
-import datetime
-from datetime import timedelta
-
-from dateutil.parser import parse as parse_date
-import pytz
 
 import logging
 from django.contrib.gis.db import models
@@ -101,19 +98,19 @@ class DemoSubjectPlugin(Plugin):
     range_polygon = models.ForeignKey(mapping.models.PolygonFeature, null=True)
 
 
-    def fetch(self, source_plugin):
+    def fetch(self, source, cursor_data=None):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        source = source_plugin.source
-        self.cursor_data = source_plugin.cursor_data or {}
+        # create cursor_data
+        self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
+
         try:
             default_starttime = datetime.datetime.now(tz=pytz.utc) - self.DEFAULT_START_OFFSET
-            _ = self.cursor_data.get('latest_timestamp', None)
+            _ = self.cursor_data['latest_timestamp']
             latest_ts = parse_date(_)
             latest_ts = max(default_starttime, latest_ts)
-
-        except AttributeError:
+        except KeyError:
             latest_ts = default_starttime
 
         self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
@@ -144,10 +141,9 @@ class DemoSubjectPlugin(Plugin):
             observation = Obs(**observation)
             yield observation
             next_ts = next_ts + timedelta(minutes=random.randint(58, 62))
-            notify = True
 
         if observation:
-            # Save 'cursor' info for this source.
+            # Update cursor_data for this source.
             self.cursor_data['latest_timestamp'] = observation.recorded_at.isoformat()
             self.cursor_data['last_location'] = {'latitude': observation.latitude,
                                                        'longitude': observation.longitude

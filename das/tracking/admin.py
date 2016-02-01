@@ -13,5 +13,15 @@ class SourcePluginAdmin(admin.ModelAdmin):
 class SavannahPluginAdmin(admin.ModelAdmin):
     pass
 
+@admin.register(models.InreachPlugin)
+class InreachPluginAdmin(admin.ModelAdmin):
+    pass
+
+@admin.register(models.DemoSubjectPlugin)
+class DemoPluginAdmin(admin.ModelAdmin):
+    pass
+
+
+
 
 
