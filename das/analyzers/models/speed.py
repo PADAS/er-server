@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib.gis.db import models
+from django.contrib.gis.geos import Point as DjangoPoint
 
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
 
