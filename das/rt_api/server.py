@@ -5,7 +5,9 @@ import threading
 from django.conf import settings
 from django.contrib.auth import authenticate
 from oauthlib.common import Request
-
+from das_server import pubsub
+from observations.models import Subject
+from observations.serializers import ObservationSerializer
 logger = logging.getLogger(__name__)
 
 
@@ -306,21 +308,16 @@ class RTSocketIO(object):
 sios = RTSocketIO()
 
 
-class SaferRTServer(object):
+class RTServer(object):
+
     @sios.on('connect', namespace='/')
     def on_connect(sid, socket, *args):
-
         # Mark the connection as unauthenticated
-        socket['auth'] = False
-
-        # Drop the client from the namespace until it authenticates
-        # for room in sios.server.rooms(sid, '/'):
-        # print('disconnect from: ' + room)
-        # sios.server.manager.leave_room(sid, room, '/')
+        socket['user'] = None
 
         # Drop the connection if the client hasn't authenticated within one second
         def confirm_authed(sid, socket):
-            if not socket['auth']:
+            if socket['user'] is None:
                 sios.server.disconnect(sid)
 
         threading.Timer(1.0, confirm_authed, [sid, socket]).start()
@@ -333,8 +330,7 @@ class SaferRTServer(object):
                 if param not in data:
                     sios.emit('resp_authorization',
                               {'resp_id': data['id'],
-                               'status': {'code': 400, 'message': 'Required fields: "type", "authorization", "id"'}
-                              },
+                               'status': {'code': 400, 'message': 'Required fields: "type", "authorization", "id"'}},
                               room=str(sid),
                               namespace='/das')
                     sios.server.disconnect(sid)
@@ -345,13 +341,11 @@ class SaferRTServer(object):
 
             # If the token checks out, mark the connection as authenticated and put it into the chat rooms
             if user is not None:
-                sios.server.environ[sid]['auth'] = True
+                sios.server.environ[sid]['user'] = user
                 sios.server.manager.enter_room(sid, 'all_clients', '/das')
                 sios.emit('resp_authorization',
-                          {'type': 'resp_authorization',
-                           'resp_id': data['id'],
-                           'status': {'code': 200, 'message': 'OK'}
-                          },
+                          {'type': 'resp_authorization', 'resp_id': data['id'],
+                           'status': {'code': 200, 'message': 'OK'}},
                           room=str(sid),
                           namespace='/das')
 
@@ -359,8 +353,7 @@ class SaferRTServer(object):
                 sios.emit('resp_authorization',
                           {'type': 'resp_authorization',
                            'resp_id': data['id'],
-                           'status': {'code': 401, 'message': 'Invalid credentials'}
-                          },
+                           'status': {'code': 401, 'message': 'Invalid credentials'}},
                           room=str(sid),
                           namespace='/das')
                 sios.server.disconnect(sid)
@@ -369,19 +362,35 @@ class SaferRTServer(object):
             sios.emit('resp_authorization',
                       {'type': 'resp_authorization',
                        'resp_id': data['id'],
-                       'status': {'code': 401, 'message': 'Authentication error'}
-                      },
+                       'status': {'code': 401, 'message': 'Authentication error'}},
                       room=str(sid),
                       namespace='/das')
             sios.server.disconnect(sid)
 
-    # @sios.on('disconnect', namespace='/')
-    # def on_disconnect(sid, socket, *args):
-    #     pass
+    @sios.on('echo', namespace='/das')
+    def on_echo(sid, *args):
+        sios.emit('echo_resp',
+                  {'type': 'echo_resp',
+                   'resp_id': 5,
+                   'message': args[0]['data']},
+                  room=str(sid),
+                  namespace='/das')
 
-    # def broadcast_subject_update(self, subject):
-    #     data = {'data': {'subject': subject}}
-    #     sios.emit('subject_update', data, namespace='/das')
+    @staticmethod
+    def user_subject_update(user, subjectid, observation):
+        print('Emitting subject update to user')
+        # Need to lookup the user's socket id
+        sios.emit('subject_update', {'type': 'subject_update', 'subject_id': subjectid, 'observation': observation},
+                  room=str(user), namespace='/das')
+    @staticmethod
+    def broadcast_subject_update(subjectid, observation):
+        print('Broadcast subject update to all users')
+        sios.emit('subject_update', {'type': 'subject_update', 'subject_id': subjectid, 'observation': observation},
+                  namespace='/das')
+
+    test = False
+    if test:
+        import rt_api.tests.subject_update_loop
 
 
 class DummyRequest(Request):
