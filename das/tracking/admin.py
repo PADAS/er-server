@@ -21,6 +21,9 @@ class InreachPluginAdmin(admin.ModelAdmin):
 class DemoPluginAdmin(admin.ModelAdmin):
     pass
 
+@admin.register(models.AWTHttpPlugin)
+class AWTHttpAdmin(admin.ModelAdmin):
+    pass
 
 
 
