@@ -284,9 +284,13 @@ class SubjectManager(models.Manager):
         subjects.filter(additional__country=region.country, **kwargs)
         return subjects
 
-    def by_bbox(self, bbox):
+    def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
         sources = Observation.objects.filter(location__within=geom)
+        if last_days:
+            gt = datetime.datetime.utcnow() - last_days
+            lt = datetime.datetime.utcnow()
+            sources = sources.filter(recorded_at__range=(gt, lt))
         sources = sources.values('source').annotate(models.Count('source')).values('source')
         subject_sources = SubjectSource.objects.filter(source__in=sources)
         subjects = subject_sources.values('subject')
@@ -361,12 +365,12 @@ class Region(models.Model):
 
 
 MARKER_ICONS = {
-    'elephant': '/static/Elephant_Male.png',
-    'elephant-male': '/static/Elephant_Male.png',
-    'elephant-female': '/static/Elephant_Female.png',
-    'forest elephant': '/static/Elephant_Male.png',
-    'forest elephant-male': '/static/Elephant_Male.png',
-    'forest elephant-female': '/static/Elephant_Female.png',
+    'elephant': '/static/elephant-black-male.svg',
+    'elephant-male': '/static/elephant-black-male.svg',
+    'elephant-female': '/static/elephant-black-female.svg',
+    'forest elephant': '/static/elephant-black-male.svg',
+    'forest elephant-male': '/static/elephant-black-male.svg',
+    'forest elephant-female': '/static/elephant-black-female.svg',
     'lion-male': '/static/Lion_Male.png',
     'lion-female': '/static/Lion_Female.png',
     'ranger': '/static/ranger.png',

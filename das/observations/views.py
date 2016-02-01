@@ -29,9 +29,9 @@ LAST_DAYS = datetime.timedelta(days=days)
 
 def default_since():
     """default value for since
-    last 16 days is the default
+    last days is the default
     """
-    return datetime.datetime.now(pytz.utc) - datetime.timedelta(days=16)
+    return datetime.datetime.now(pytz.utc) - datetime.timedelta(days=days)
 
 
 def dateparse(date_str, default_tz=pytz.utc):
@@ -100,7 +100,7 @@ class SubjectsView(generics.ListAPIView):
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
-            queryset = models.Subject.objects.by_bbox(bbox)
+            queryset = models.Subject.objects.by_bbox(bbox, last_days=LAST_DAYS)
         return queryset
 
 

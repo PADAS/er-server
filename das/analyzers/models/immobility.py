@@ -4,16 +4,37 @@ import logging
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point as DjangoPoint
 
-from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
+from .analyzer import Analyzer, AnalyzerResult, NOMINAL, WARNING, CRITICAL
+from .utils import cluster
 
 logger = logging.getLogger(__name__)
 
 
 class ImmobilityAnalyzer(Analyzer):
-    """ Analyzer for a Track. """
+    """ Immobility Analyzer for a Track.
 
-    radius = models.FloatField(default=20.0)
-    speed_threshold = models.FloatField(default=10 ** -1)
+    Based on the clustering algorithm described by Jake Wall in RTM_Appendix_A.pdf
+
+    parameters:
+
+    radius: radius of cluster.  Defaults to 13m as in the Wall document
+
+    threshold_time: time in seconds the track is expected to be stationary.
+        Defaults to 18000 (5 hours) as in Wall
+
+    threshold_warning_cluster_ratio: the proportion of observations in a sample which
+        must be inside a cluster to generate a WARNING.  Default 0.8 as in Wall
+
+    threshold_critical_cluster_ratio: the proportion of observations in a sample which
+        must be inside a cluster to generate a CRITICAL.  Default 1.0
+
+     """
+
+    radius = models.FloatField(default=13.0)
+    threshold_time = models.IntegerField(default=18000)
+    threshold_warning_cluster_ratio = models.FloatField(default=.8)
+    threshold_critical_cluster_ratio = models.FloatField(default=1.0)
+
 
     def analyze(self, track):
         """ analyze track for immobile state. Only the 24 hours before the most
@@ -25,28 +46,27 @@ class ImmobilityAnalyzer(Analyzer):
         result.analyzer_type = self.__class__.__name__
 
         # assume immobile until detected otherwise
-        result.level = CRITICAL
+        result.level = NOMINAL
 
         # truncate track to recent observations
         t_last_observation, p_last_observation  = track.last_observation
         t_cutoff = t_last_observation - timedelta(hours=24)
         track = track.truncate(before=t_cutoff)
 
-        time_series = track.speed_series()
+        cluster_probability = cluster(track, self.radius)
 
-        for speed in track.speed_series():
+        if cluster_probability >= self.threshold_warning_cluster_ratio:
 
-            if speed >= self.speed_threshold:
-
-                result.value = speed
-                result.level = NOMINAL
-                break
-
-        if result.level > NOMINAL:
-            # have to translate shapely Point to a DjangoPoint so SpatialProxy
-            # doesn't throw a wobbly
+            result.value = cluster_probability
             point = track.geo_series[-1]
             result.location = DjangoPoint(point.x, point.y)
-            logger.info('Immobility Analyzer detected immobile track')
+
+            if cluster_probability >= self.threshold_critical_cluster_ratio:
+                result.level = CRITICAL
+                logger.info('Immobility Analyzer detected critical level immobile track')
+
+            else:
+                result.level = WARNING
+                logger.info('Immobility Analyzer detected warning level immobile track')
 
         return result

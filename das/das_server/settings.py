@@ -57,6 +57,7 @@ INSTALLED_APPS = (
     'data_input',
     'mapping.apps.MappingConfig',
     'activity',
+    'rt_api.apps.RTAPIConfig'
 )
 
 MIDDLEWARE_CLASSES = (
@@ -245,8 +246,9 @@ TIME_ZONE = 'UTC'
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "www", "static")
 STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'observations', 'static'),
-    os.path.join(BASE_DIR, 'mapping', 'static')
+    os.path.join(BASE_DIR, 'observations'),
+    os.path.join(BASE_DIR, 'mapping'),
+    os.path.join(BASE_DIR, 'rt_api')
 )
 
 SITE_ID = 1
@@ -291,6 +293,9 @@ SWAGGER_SETTINGS = {
 }
 
 OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600*48}
+
+#RT API settings
+ASYNC_MODE = 'eventlet'
 
 #override these if your libraries are in a different place
 GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'
