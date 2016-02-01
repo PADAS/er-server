@@ -58,7 +58,7 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             self.logger.exception('Time-out connecting to skygistics API.')
         return response_text
 
-    def _login(self):
+    def _login(self, username=None, password=None, service_url='http://skyq1.skygistics.com'):
         """
         GET /SkygisticsAPI/SkygisticsAPI.asmx/Login?username=string&password=string
         sets self.session_id based on LoginResult.  0 for failure
@@ -71,10 +71,10 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             # todo:  the username and password are in the clear here ... !!
             # parse response content for session_id
             self.session_id = etree.fromstring(self._get_text(
-                '{0}{1}/Login'.format(self.config['host'], SKYGISTICS_API_ENDPOINT),
+                '{0}{1}/Login'.format(service_url, SKYGISTICS_API_ENDPOINT),
                 {
-                    'username': self.config['credentials']['username'],
-                    'password': self.config['credentials']['password'],
+                    'username': username,
+                    'password': password,
                 })).text
         except requests.ConnectionError as e:
             self.logger.exception('Failed connecting, logging in to skygistics API.')
@@ -137,8 +137,8 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             })
         return etree.fromstring(response_text)
 
-    def begin_session(self):
-        self._login()
+    def begin_session(self, username=None, password=None, service_url='http://skyq1.skygistics.com'):
+        self._login(username=username, password=password, service_url=service_url)
 
     def fetch_observations(self, imei, start_date, end_date=None):
         """
@@ -184,7 +184,7 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
 
     DEFAULT_START_OFFSET = timedelta(days=14)
 
-    service_user_id = models.CharField(max_length=50,
+    service_username = models.CharField(max_length=50,
                                        help_text='The username for Skygistics API.')
     service_password = models.CharField(max_length=50,
                                         help_text='The password for Skygistics API.')

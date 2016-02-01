@@ -106,7 +106,7 @@ class InreachPlugin(TrackingPlugin):
     service is entered in DAS as observations.
     '''
 
-    service_user_id = models.CharField(max_length=50,
+    service_username = models.CharField(max_length=50,
                                        help_text='The username for querying the InReach API service.')
     service_password = models.CharField(max_length=50,
                                         help_text='The password for querying the InReach API service.')
@@ -123,7 +123,7 @@ class InreachPlugin(TrackingPlugin):
         self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
 
         self.client = InreachClient(host=self.service_api_host,
-                                    username=self.service_user_id,
+                                    username=self.service_username,
                                     password=self.service_password)
 
         try:

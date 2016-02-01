@@ -79,19 +79,12 @@ class RandomMover(object):
         return True
 
 
-class DemoSubjectPlugin(TrackingPlugin):
+class DemoSourcePlugin(TrackingPlugin):
 
     '''
     Generate track data using RandomMover.
     '''
     DEFAULT_START_OFFSET = timedelta(days=14)
-
-    # service_user_id = models.CharField(max_length=50,
-    #                                    help_text='The username for querying the Savannah Tracking service.')
-    # service_password = models.CharField(max_length=50,
-    #                                     help_text='The password for querying the Savannah Tracking service.')
-    # service_api_host = models.CharField(max_length=50,
-    #                                     help_text='the ip-address or host-name for the Savannah Tracking service.')
 
     range_polygon = models.ForeignKey(mapping.models.PolygonFeature, null=True)
 

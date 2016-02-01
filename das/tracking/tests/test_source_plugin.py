@@ -52,9 +52,3 @@ class TestSourcePlugin(TestCase):
         self.assertEqual(self.source.id, source_plugin.source.id)
 
 
-    def test_xxx(self):
-
-        splist = tracking.models.SourcePlugin.objects.all()
-
-        for sp in splist:
-            sp.execute()

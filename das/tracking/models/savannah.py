@@ -90,7 +90,7 @@ class SavannahPlugin(TrackingPlugin):
     '''
     DEFAULT_START_OFFSET = timedelta(days=14)
 
-    service_user_id = models.CharField(max_length=50,
+    service_username = models.CharField(max_length=50,
                                        help_text='The username for querying the Savannah Tracking service.')
     service_password = models.CharField(max_length=50,
                                         help_text='The password for querying the Savannah Tracking service.')
@@ -104,7 +104,7 @@ class SavannahPlugin(TrackingPlugin):
         # create cursor_data
         self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
 
-        client = SavannaClient(username=self.service_user_id,
+        client = SavannaClient(username=self.service_usernamea,
                                password=self.service_password,
                                host=self.service_api_host)
 

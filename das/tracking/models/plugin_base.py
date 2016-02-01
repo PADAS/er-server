@@ -5,6 +5,7 @@ import logging
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
+from django.contrib.contenttypes.fields import GenericRelation
 from core.models import TimestampedModel
 
 import observations
