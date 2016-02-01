@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 class DasPluginConfigurationError(Exception):
     pass
 
+class DasPluginConnectionError(Exception):
+    pass
 
 class DasPluginFetchError(Exception):
     pass
@@ -40,6 +42,7 @@ class Plugin(TimestampedModel):
                       )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=50, null=True, unique=True, verbose_name='Unique name to identify the plugin.')
     min_time = models.TimeField(null=True)
     max_time = models.TimeField(null=True)
     status = models.CharField(max_length=15, default=STATUS_ENABLED, choices=STATUS_CHOICES)

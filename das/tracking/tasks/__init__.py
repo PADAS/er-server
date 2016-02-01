@@ -1,1 +1,0 @@
-from .adhoc import run_all_source_plugins

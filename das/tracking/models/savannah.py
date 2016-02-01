@@ -5,7 +5,7 @@ import http.client
 from functools import namedtuple
 
 from tracking.models.plugin_base import Obs
-from .plugin_base import Plugin
+from .plugin_base import Plugin, DasPluginFetchError
 import datetime
 from datetime import timedelta
 
@@ -67,6 +67,10 @@ class SavannaClient(object):
                 if line != saveline: # We occassionally see duplicate records in results.
                     yield self.parse_line(line.decode('utf-8').strip())
                 saveline = line
+        else:
+            msg = 'Failed to get data from Savannah Tracking API.'
+            self.logger.exception(msg)
+            raise DasPluginFetchError(msg)
 
     @classmethod
     def parse_line(cls, s):
@@ -95,14 +99,14 @@ class SavannahPlugin(Plugin):
     service_api_host = models.CharField(max_length=50,
                                         help_text='the ip-address or host-name for the Savannah Tracking service.')
 
-
     def fetch(self, source_plugin):
+
+        self.logger = logging.getLogger(self.__class__.__name__)
 
         # Save reference to cursor data.
         self.cursor_data = source_plugin.cursor_data
         source = source_plugin.source
 
-        self.logger = logging.getLogger(self.__class__.__name__)
         client = SavannaClient(username=self.service_user_id,
                                password=self.service_password,
                                host=self.service_api_host)
@@ -113,20 +117,17 @@ class SavannahPlugin(Plugin):
             self.cursor_data = self.cursor_data or {}
             st = datetime.datetime.utcnow() - self.DEFAULT_START_OFFSET
 
-        try:
-            lt = st
-            st = int(st.timestamp()) + 1
+        lt = st
+        st = int(st.timestamp()) + 1
 
-            self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
+        self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
 
-            for fix in client.fetch_observations(source.manufacturer_id, start_time=st):
-                lt = fix.recorded_at
-                yield self._transform((self.source, fix))
+        for fix in client.fetch_observations(source.manufacturer_id, start_time=st):
+            lt = fix.recorded_at
+            yield self._transform((source, fix))
 
-            self.cursor_data['latest_timestamp'] = lt.isoformat()
+        self.cursor_data['latest_timestamp'] = lt.isoformat()
 
-        except Exception as e:
-            self.logger.exception("Error fetching savanna collar data")
 
     def _transform(self, item):
         source, o = item

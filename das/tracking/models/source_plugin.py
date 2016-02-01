@@ -1,7 +1,7 @@
 import uuid
 
 import logging
-import datetime
+import datetime, pytz
 
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -72,7 +72,7 @@ class SourcePlugin(TimestampedModel):
             for x in self.plugin.fetch(self):
                 target.send(x)
                 result.count += 1
-        self.last_run = datetime.datetime.utcnow()
+        self.last_run = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
         self.cursor_data = self.plugin.cursor_data
         self.save()
 
