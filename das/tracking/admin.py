@@ -29,6 +29,10 @@ class AWTHttpAdmin(admin.ModelAdmin):
 class InreachKMLAdmin(admin.ModelAdmin):
     pass
 
+@admin.register(models.SkygisticsSatellitePlugin)
+class SkygisticsSatelliteAdmin(admin.ModelAdmin):
+    pass
+
 
 
 

@@ -4,5 +4,6 @@ from .demo import DemoSubjectPlugin
 from .inreach import InreachPlugin
 from .awtgsm import AWTHttpPlugin
 from .inreachkml import InreachKMLPlugin
+from .skygistics import SkygisticsSatellitePlugin
 from .plugin_base import Plugin
 
