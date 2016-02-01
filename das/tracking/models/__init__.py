@@ -5,5 +5,6 @@ from .inreach import InreachPlugin
 from .awtgsm import AWTHttpPlugin
 from .inreachkml import InreachKMLPlugin
 from .skygistics import SkygisticsSatellitePlugin
+from .firms import FirmsPlugin
 from .plugin_base import Plugin
 

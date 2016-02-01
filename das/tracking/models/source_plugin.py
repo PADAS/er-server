@@ -8,7 +8,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
 
-from das_server import pubsub
 from observations.models import Source
 from core.models import TimestampedModel
 from tracking.models.plugin_base import DasDefaultTarget
@@ -48,8 +47,8 @@ class SourcePlugin(TimestampedModel):
         models.Q(app_label='tracking', model='demosubjectplugin') | \
         models.Q(app_label='tracking', model='awthttpplugin') | \
         models.Q(app_label='tracking', model='inreachkmlplugin') | \
-        models.Q(app_label='tracking', model='skygisticssatelliteplugin')
-
+        models.Q(app_label='tracking', model='skygisticssatelliteplugin') | \
+        models.Q(app_label='tracking', model='firmsplugin')
 
     # Generic foreign key to plugin
     plugin_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)

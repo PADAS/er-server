@@ -48,8 +48,6 @@ class Plugin(TimestampedModel):
     status = models.CharField(max_length=15, default=STATUS_ENABLED, choices=STATUS_CHOICES)
     additional = JSONField(null=True)
 
-    cursor_data = {}
-
     class Meta:
         abstract = True
 

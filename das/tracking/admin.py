@@ -33,6 +33,10 @@ class InreachKMLAdmin(admin.ModelAdmin):
 class SkygisticsSatelliteAdmin(admin.ModelAdmin):
     pass
 
+@admin.register(models.FirmsPlugin)
+class FirmsPluginAdmin(admin.ModelAdmin):
+    pass
+
 
 
 

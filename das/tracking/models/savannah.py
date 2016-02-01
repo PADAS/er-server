@@ -5,7 +5,6 @@ import http.client
 from functools import namedtuple
 import copy
 
-from tracking.models.plugin_base import Obs, Plugin, DasPluginFetchError
 import datetime
 from datetime import timedelta
 
@@ -15,6 +14,7 @@ import pytz
 import logging
 from django.contrib.gis.db import models
 
+from tracking.models.plugin_base import Obs, Plugin, DasPluginFetchError
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
