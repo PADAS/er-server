@@ -1,6 +1,3 @@
-"""
- Fetch and transform Savannah data into DAS input format
-"""
 from functools import namedtuple
 import datetime
 import copy
@@ -8,12 +5,11 @@ from datetime import timedelta
 import requests
 from dateutil.parser import parse as parse_date
 import pytz
-
 import logging
+
 from django.contrib.gis.db import models
 
-from tracking.models.plugin_base import Obs, Plugin
-
+from tracking.models.plugin_base import Obs, TrackingPlugin
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
@@ -121,7 +117,7 @@ class AWTHttpClient(object):
 
 
 
-class AWTHttpPlugin(Plugin):
+class AWTHttpPlugin(TrackingPlugin):
 
     service_api_url = models.URLField(help_text='The URL for the AWT service.',
                                       default='http://www.yrless.co.za/STE/yrserv/datanew.phtml')

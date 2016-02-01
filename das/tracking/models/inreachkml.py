@@ -11,7 +11,7 @@ import re
 from fastkml import kml
 from django.contrib.gis.db import models
 
-from tracking.models.plugin_base import Obs, Plugin
+from tracking.models.plugin_base import Obs, TrackingPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +128,7 @@ def safe_map(k, v):
     return k.lower().replace(' ', '_'), v
 
 
-class InreachKMLPlugin(Plugin):
+class InreachKMLPlugin(TrackingPlugin):
     '''
     Fetch data from Inreach KML share.
     '''

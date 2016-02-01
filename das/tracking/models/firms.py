@@ -1,7 +1,3 @@
-"""
- Fetch and transform Savannah data into DAS input format
-"""
-import datetime, time
 import copy
 from datetime import timedelta
 from ftplib import FTP
@@ -12,7 +8,7 @@ import pytz
 import logging
 from django.contrib.gis.db import models
 
-from tracking.models.plugin_base import Obs, Plugin
+from tracking.models.plugin_base import Obs, TrackingPlugin
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
@@ -98,7 +94,7 @@ class FirmsClient(object):
         dt.update(kwargs)
         return dt
 
-class FirmsPlugin(Plugin):
+class FirmsPlugin(TrackingPlugin):
 
     DEFAULT_START_OFFSET = timedelta(days=14)
 

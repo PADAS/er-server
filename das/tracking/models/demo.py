@@ -6,16 +6,14 @@ import datetime
 from datetime import timedelta
 from dateutil.parser import parse as parse_date
 import pytz
-
 from django.contrib.gis.geos import Polygon, Point, MultiPolygon
+import logging
+from django.contrib.gis.db import models
+
 import geopy
 import geopy.distance
 
-from tracking.models.plugin_base import Obs
-from .plugin_base import Plugin
-
-import logging
-from django.contrib.gis.db import models
+from tracking.models.plugin_base import Obs, TrackingPlugin
 
 import mapping.models
 
@@ -81,7 +79,7 @@ class RandomMover(object):
         return True
 
 
-class DemoSubjectPlugin(Plugin):
+class DemoSubjectPlugin(TrackingPlugin):
 
     '''
     Generate track data using RandomMover.

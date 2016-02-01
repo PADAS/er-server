@@ -1,6 +1,3 @@
-"""
- Fetch and transform Savannah data into DAS input format
-"""
 import http.client
 from functools import namedtuple
 import copy
@@ -14,7 +11,7 @@ import pytz
 import logging
 from django.contrib.gis.db import models
 
-from tracking.models.plugin_base import Obs, Plugin, DasPluginFetchError
+from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
@@ -87,9 +84,9 @@ class SavannaClient(object):
 
 
 
-class SavannahPlugin(Plugin):
+class SavannahPlugin(TrackingPlugin):
     '''
-    Fetch data from Savnnah Tracking API.
+    Fetch data from Savannah Tracking API.
     '''
     DEFAULT_START_OFFSET = timedelta(days=14)
 

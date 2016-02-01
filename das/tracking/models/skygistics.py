@@ -1,18 +1,15 @@
-""" fetch and transform Skygistics (AWT) data into DAS input format
-"""
-import requests
 import xml.etree.ElementTree as etree
-# from decimal import Decimal
 from datetime import datetime, timedelta
 import copy
 
+import requests
+
 from django.utils import timezone
-# from django.contrib.gis.geos import Point
 from django.contrib.gis.db import models
 
-from tracking.models.plugin_base import Obs, Plugin, DasPluginFetchError
+from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
 
-from .utils import dictify
+from tracking.models.utils import dictify
 import logging
 
 SKYGISTICS_DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -183,7 +180,7 @@ class SkygisticsSatelliteClient(SkygisticsClient):
                 yield unit_info
 
 
-class SkygisticsSatellitePlugin(Plugin):
+class SkygisticsSatellitePlugin(TrackingPlugin):
 
     DEFAULT_START_OFFSET = timedelta(days=14)
 

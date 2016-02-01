@@ -1,6 +1,3 @@
-"""
- Fetch and transform Savannah data into DAS input format
-"""
 import re
 import copy
 import http.client
@@ -16,7 +13,7 @@ import base64
 import logging
 import requests
 
-from tracking.models.plugin_base import Obs, Plugin
+from tracking.models.plugin_base import Obs, TrackingPlugin
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
@@ -103,7 +100,7 @@ class InreachClient(BasicAuthClient):
         return s
 
 
-class InreachPlugin(Plugin):
+class InreachPlugin(TrackingPlugin):
     '''
     Inreach plugin fetches data from explorer.delorme.com for radios we've set up in DAS. Data read from Delorme's
     service is entered in DAS as observations.
