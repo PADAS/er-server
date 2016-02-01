@@ -46,7 +46,8 @@ class SourcePlugin(TimestampedModel):
     limits = models.Q(app_label='tracking', model='savannahplugin') | \
         models.Q(app_label='tracking', model='inreachplugin') | \
         models.Q(app_label='tracking', model='demosubjectplugin') | \
-        models.Q(app_label='tracking', model='awthttpplugin')
+        models.Q(app_label='tracking', model='awthttpplugin') | \
+        models.Q(app_label='tracking', model='inreachkmlplugin')
 
 
     # Generic foreign key to plugin

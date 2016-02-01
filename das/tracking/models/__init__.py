@@ -3,5 +3,6 @@ from .savannah import SavannahPlugin
 from .demo import DemoSubjectPlugin
 from .inreach import InreachPlugin
 from .awtgsm import AWTHttpPlugin
+from .inreachkml import InreachKMLPlugin
 from .plugin_base import Plugin
 
