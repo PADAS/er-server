@@ -54,37 +54,8 @@ CELERY_DEFAULT_ROUTING_KEY = 'default'
 CELERYBEAT_SCHEDULE = {
     'plugins': {
       'task': 'tracking.tasks.run_all_source_plugins',
-        'schedule': timedelta(minutes=15),
+        'schedule': timedelta(minutes=29),
     },
-    # 'savannah': {
-    #     'task': 'data_input.tasks.run_savannah',
-    #     'schedule': timedelta(minutes=60),
-    # },
-    # 'awt-http': {
-    #     'task': 'data_input.tasks.run_awt_http',
-    #     'schedule': timedelta(minutes=53),
-    # },
-    # 'demo': {
-    #     'task': 'data_input.tasks.run_demo',
-    #     'schedule': timedelta(minutes=15),
-    # },
-    # 'firms': {
-    #     'task': 'data_input.tasks.run_firms',
-    #     'schedule': timedelta(minutes=31),
-    # },
-    # 'skygistics': {
-    #     'task': 'data_input.tasks.run_skygistics',
-    #     'schedule': timedelta(minutes=61),
-    # },
-    # 'inreach': {
-    #     'task': 'data_input.tasks.run_inreach',
-    #     'schedule': timedelta(minutes=23),
-    # },
-    # 'inreachkml': {
-    #     'task': 'data_input.tasks.run_inreachkml',
-    #     'schedule': timedelta(minutes=17),
-    # },
-
 }
 
 
