@@ -20,11 +20,14 @@ def run_all_source_plugins(self):
 
 @celery.app.task(bind=True)
 def run_source_plugin(self, source_plugin_id):
+
     sp = SourcePlugin.objects.get(id=source_plugin_id)
+
+    logger.debug('Running plugin {} for source {}'.format(sp, sp.source))
     result = sp.execute()
     if result.count > 0:
         notify_new_tracks(result.source_id)
-
+    logger.debug('Finished running plugin {} for source {} with result.count={}'.format(sp, sp.source, result.count))
 
 
 
