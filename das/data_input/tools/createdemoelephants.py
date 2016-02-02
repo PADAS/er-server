@@ -3,14 +3,14 @@ django.setup()
 from functools import namedtuple
 import observations
 
-import data_input
+import tracking
 import datetime
 import pytz
 
 DEFAULT_DATE_RANGE = (datetime.datetime(2015, 11, 1, tzinfo=pytz.utc), datetime.datetime(2018, 1, 1, tzinfo=pytz.utc))
 import uuid
 
-DEFAULT_DIPS_ADDITIONAL = {"boundaries": {"polygons": [[[25.029, 19.447], [25.017, 22.652], [26.242, 22.632], [26.963, 20.628], [26.971, 19.431], [25.029, 19.447]]]} }
+DEFAULT_CURSOR_DATA = {"boundaries": {"polygons": [[[25.029, 19.447], [25.017, 22.652], [26.242, 22.632], [26.963, 20.628], [26.971, 19.431], [25.029, 19.447]]]} }
 
 Item = namedtuple('Item', ('name', 'manufacturer_id', 'species', 'sex'))
 data = (('Russel', 'demo-collar-1', 'Elephant', 'Male'),
@@ -19,9 +19,7 @@ data = (('Russel', 'demo-collar-1', 'Elephant', 'Male'),
         ('Shirley', 'demo-collar-4', 'Elephant', 'Female'))
 data = (Item(*d) for d in data)
 
-plugin_conf, created = data_input.models.PluginConf.objects.get_or_create(plugin_name='demo-wildlife',
-                                                                          defaults=dict(additional={
-                                                                              "note": "Added to support demo plugin."}))
+demosubjectplugin, created = tracking.models.DemoSubjectPlugin.objects.get_or_create(name='demo-elephants')
 
 try:
     for item in data:
@@ -40,9 +38,11 @@ try:
                                                 source=src,
                                                 subject=sub)
 
-        dips, created = data_input.models.PluginConfSource.objects.get_or_create(defaults=dict(additional=DEFAULT_DIPS_ADDITIONAL),
-                                           source=src,
-                                           plugin_conf=plugin_conf)
+        ss = tracking.models.SourcePlugin(source=src, plugin=demosubjectplugin, cursor_data=DEFAULT_CURSOR_DATA)
+
+        ss.save()
+        # ss, created = tracking.models.SourcePlugin.objects.get_or_create(source=src, plugin=demosubjectplugin)
+
 except Exception as e:
     print(e)
 

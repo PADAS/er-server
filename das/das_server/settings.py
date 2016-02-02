@@ -54,7 +54,7 @@ INSTALLED_APPS = (
     'observations',
     'analyzers',
     'das_server',
-    'data_input',
+    'tracking',
     'mapping.apps.MappingConfig',
     'activity',
     'rt_api.apps.RTAPIConfig'
@@ -183,12 +183,6 @@ LOGGING = {
             'stream': sys.stdout,
             'formatter': 'simple'
         },
-        'data_input_file':{
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': '/tmp/das-data_input.log',
-            'formatter': 'simple'
-        }
     },
     'loggers': {
         'django': {
@@ -207,10 +201,6 @@ LOGGING = {
         'observations': {
             'handlers': ['file'],
             'level': 'INFO',
-        },
-        'data_input': {
-            'handlers': ['data_input_file'],
-            'level': 'DEBUG'
         },
         'mapping': {
             'handlers': ['file'],
