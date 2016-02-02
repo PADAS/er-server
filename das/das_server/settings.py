@@ -205,6 +205,10 @@ LOGGING = {
         'mapping': {
             'handlers': ['file'],
             'level': 'INFO',
+        },
+        'tracking': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
         }
     }
 }
