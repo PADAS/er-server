@@ -28,8 +28,11 @@ class SkygisticsClient(object):
 
 
 class SkygisticsSatelliteClient(SkygisticsClient):
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, username=None, password=None, service_url='http://skyq1.skygistics.com'):
+        self.username = username
+        self.password = password
+        self.service_url = service_url
+
         # this is mildly ugly:  skygistics returns '0' for a failed login
         #   but a session_id for success and session_ids may contain hyphens so the session_id must
         #   be a "string"
@@ -58,7 +61,7 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             self.logger.exception('Time-out connecting to skygistics API.')
         return response_text
 
-    def _login(self, username=None, password=None, service_url='http://skyq1.skygistics.com'):
+    def _login(self):
         """
         GET /SkygisticsAPI/SkygisticsAPI.asmx/Login?username=string&password=string
         sets self.session_id based on LoginResult.  0 for failure
@@ -71,10 +74,10 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             # todo:  the username and password are in the clear here ... !!
             # parse response content for session_id
             self.session_id = etree.fromstring(self._get_text(
-                '{0}{1}/Login'.format(service_url, SKYGISTICS_API_ENDPOINT),
+                '{0}{1}/Login'.format(self.service_url, SKYGISTICS_API_ENDPOINT),
                 {
-                    'username': username,
-                    'password': password,
+                    'username': self.username,
+                    'password': self.password,
                 })).text
         except requests.ConnectionError as e:
             self.logger.exception('Failed connecting, logging in to skygistics API.')
@@ -98,7 +101,7 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             raise SkygisticsLoginError('Client does not have a valid session_id.')
         # todo:  the username and password are in the clear here ...
         response_text = self._get_text(
-            '{0}{1}/GetReplayDataCount'.format(self.config['host'], SKYGISTICS_API_ENDPOINT),
+            '{0}{1}/GetReplayDataCount'.format(self.service_url, SKYGISTICS_API_ENDPOINT),
             {
                 'imei': imei,
                 'startdate': start_date.strftime(SKYGISTICS_DATETIME_FORMAT),
@@ -126,7 +129,7 @@ class SkygisticsSatelliteClient(SkygisticsClient):
         if not self.session_id or self.session_id == '0':
             raise SkygisticsLoginError('Client does not have a valid session_id.')
         response_text = self._get_text(
-            '{0}{1}/GetReplayData'.format(self.config['host'], SKYGISTICS_API_ENDPOINT),
+            '{0}{1}/GetReplayData'.format(self.service_url, SKYGISTICS_API_ENDPOINT),
             {
                 'imei': imei,
                 'startdate': start_date.strftime(SKYGISTICS_DATETIME_FORMAT),
@@ -137,8 +140,8 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             })
         return etree.fromstring(response_text)
 
-    def begin_session(self, username=None, password=None, service_url='http://skyq1.skygistics.com'):
-        self._login(username=username, password=password, service_url=service_url)
+    def begin_session(self):
+        self._login()
 
     def fetch_observations(self, imei, start_date, end_date=None):
         """
@@ -199,7 +202,11 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
         # create cursor_data
         self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
 
-        self.client.begin_session()
+        client = SkygisticsSatelliteClient(username=self.service_username,
+                                           password=self.service_password,
+                                           service_url=self.service_api_url)
+
+        client.begin_session()
 
         if 'last_fetch' in self.cursor_data:
             start_date = datetime.strptime(self.cursor_data['last_fetch'], SKYGISTICS_PLUGIN_DATETIME_FORMAT)
@@ -207,7 +214,7 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
             start_date = datetime.utcnow() - DEFAULT_START_OFFSET
 
 
-        for unit_info in self.client.fetch_observations(imei=source.manufacturer_id,
+        for unit_info in client.fetch_observations(imei=source.manufacturer_id,
                                                         start_date=start_date):
             result = self._transform(source, unit_info)
             if self._pass_filter(result):
