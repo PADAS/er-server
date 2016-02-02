@@ -5,15 +5,16 @@ from django.contrib.contenttypes.models import ContentType
 
 class AccountsModelBackend(ModelBackend):
     """
-    Handle heirarchical groups and obj permissions.
+    Handle hierarchical groups and obj permissions.
+
+    Inspired by Django-Guardian
     """
 
     def get_user_permissions(self, user_obj, obj=None):
         """
-        Returns a set of permission strings the user `user_obj` has from their
-        `user_permissions`.
+        Accounts model does not have permissions assigned to users.
         """
-        return self.get_group_permissions(user_obj=user_obj, obj=obj)
+        return set()
 
     def get_group_permissions(self, user_obj, obj=None):
         """
@@ -24,12 +25,26 @@ class AccountsModelBackend(ModelBackend):
             if user_obj.is_superuser:
                 perms = Permission.objects.all()
             else:
-                groups_ids = user_obj.get_all_permission_sets(only_ids=True)
-                perms = Permission.objects.filter(group__in=groups_ids)
+                user_ps_ids = user_obj.get_all_permission_sets(only_ids=True)
+                if obj and hasattr(obj, 'get_obj_permission_set_ids'):
+                    obj_ps_ids = obj.get_obj_permission_set_ids(obj)
+                    intersect_ids = user_ps_ids & obj_ps_ids
+
+                    perms = Permission.objects.filter(permissionset__in=intersect_ids)
+                else:
+                    perms = Permission.objects.filter(permissionset__in=user_ps_ids)
+
             perms = perms.values_list('content_type__app_label', 'codename').order_by()
             user_obj._group_perm_cache = set(["%s.%s" % (ct, name) for ct, name in perms])
         return user_obj._group_perm_cache
 
+    def get_all_permissions(self, user_obj, obj=None):
+        """
+        Returns a set of permission strings that the given ``user_obj`` has for ``obj``
+        """
+        if not user_obj.is_active or user_obj.is_anonymous():
+            return set()
+        return self.get_group_permissions(user_obj, obj)
 
     def has_perm(self, user_obj, perm, obj=None):
         """
@@ -62,12 +77,6 @@ class AccountsModelBackend(ModelBackend):
         elif user_obj and user_obj.is_superuser:
             return True
         return perm in self.get_all_permissions(user_obj, obj)
-
-    def get_all_permissions(self, user_obj, obj=None):
-        """
-        Returns a set of permission strings that the given ``user_obj`` has for ``obj``
-        """
-        return self.get_group_permissions(user_obj, obj)
 
     def get_local_cache_key(self, obj):
         """

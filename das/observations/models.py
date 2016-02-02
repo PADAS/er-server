@@ -22,7 +22,8 @@ from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
 from mptt.models import MPTTModel, TreeForeignKey, TreeManager
-from accounts.models import PermissionSet
+
+from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from .track import Track
 
 
@@ -241,7 +242,7 @@ class SubjectGroupManager(models.Manager):
     pass
 
 
-class SubjectGroup(MPTTModel):
+class SubjectGroup(MPTTModel, PermissionSetHierarchyMixin):
     """
     Manage Groups of subjects so that we can easily set permissions on a group
     rather than each individual Subject. Additionally there are requests to
@@ -254,16 +255,6 @@ class SubjectGroup(MPTTModel):
     parent = TreeForeignKey('self', null=True, blank=True, related_name='children',
         verbose_name=_('parent'), db_index=True,
         help_text=_('The Group\'s parent. None, if it is a root node.'))
-
-
-    permission_sets = models.ManyToManyField(
-        PermissionSet,
-        blank=True,
-        help_text=_(
-            'The permission sets applied to this group. A user in a permission'
-            ' set is granted those permissions on the subjects in this group.'
-        )
-    )
 
     tree = TreeManager()
     objects = SubjectGroupManager()
@@ -298,7 +289,7 @@ class SubjectManager(models.Manager):
         return subjects
 
 
-class Subject(models.Model):
+class Subject(models.Model, PermissionSetGroupMixin):
     """Person, Animal, Vehicle, etc"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField('name', max_length=100)

@@ -25,17 +25,6 @@ class PermissionSetManager(models.Manager):
         return self.get(name=name)
 
 
-PERMISSION_CATEGORY = (
-    ('view_animals', 'View Animals'),
-    ('operational_group', 'Operational Group'),
-    ('view_patrols', 'View Patrol Teams'),
-    ('view_vehicles', 'View Vehicles'),
-    ('alerts', 'Alerts'),
-    ('actions', 'Actions'),
-    ('admin', 'Admin')
-)
-
-
 class PermissionSet(MPTTModel):
     """
     PermissionSets are a generic way of categorizing users to apply permissions, or
@@ -59,9 +48,6 @@ class PermissionSet(MPTTModel):
         Permission,
         blank=True,
     )
-    category = models.CharField('permission set category', max_length=100,
-                                   null=False, choices=PERMISSION_CATEGORY)
-
     parent = TreeForeignKey('self', null=True, blank=True, related_name='children',
         verbose_name=_('parent'), db_index=True,
         help_text=_('The permission set\'s parent set. None, if it is a root node.'))
@@ -81,6 +67,9 @@ class PermissionSet(MPTTModel):
 
     def natural_key(self):
         return (self.name,)
+
+    def get_ancestor_ids(self):
+        return [a.id for a in self.get_ancestors()]
 
 
 class UserManager(BaseUserManager):
@@ -115,30 +104,6 @@ class UserManager(BaseUserManager):
         return self._create_user(username, email, password, **extra_fields)
 
 
-# A few helper functions for common logic between User and AnonymousUser.
-def _user_get_all_permissions(user, obj):
-    permissions = set()
-    for backend in auth.get_backends():
-        if hasattr(backend, "get_all_permissions"):
-            permissions.update(backend.get_all_permissions(user, obj))
-    return permissions
-
-
-def _user_has_perm(user, perm, obj):
-    """
-    A backend can raise `PermissionDenied` to short-circuit permission checking.
-    """
-    for backend in auth.get_backends():
-        if not hasattr(backend, 'has_perm'):
-            continue
-        try:
-            if backend.has_perm(user, perm, obj):
-                return True
-        except PermissionDenied:
-            return False
-    return False
-
-
 def _user_has_module_perms(user, app_label):
     """
     A backend can raise `PermissionDenied` to short-circuit permission checking.
@@ -157,7 +122,7 @@ def _user_has_module_perms(user, app_label):
 class PermissionsMixin(models.Model):
     """
     A mixin class that adds the fields and methods necessary to support
-    DAS's PermissionSet and Permission model using the ModelBackend.
+    DAS's PermissionSet and Permission model using the AccountsModelBackend.
     """
     is_superuser = models.BooleanField(
         _('superuser status'),
@@ -179,6 +144,13 @@ class PermissionsMixin(models.Model):
     class Meta:
         abstract = True
 
+    def get_user_permissions(self, obj=None):
+        """
+        Accounts does not assign permissions to a user,
+         all permissions come through the permissions sets a user is a member of.
+        """
+        return set()
+
     def get_group_permissions(self, obj=None):
         """
         Returns a list of permission strings that this user has through their
@@ -192,7 +164,7 @@ class PermissionsMixin(models.Model):
         return permissions
 
     def get_all_permissions(self, obj=None):
-        return _user_get_all_permissions(self, obj)
+        return self.get_group_permissions(obj)
 
     def has_perm(self, perm, obj=None):
         """
@@ -208,7 +180,15 @@ class PermissionsMixin(models.Model):
             return True
 
         # Otherwise we need to check the backends.
-        return _user_has_perm(self, perm, obj)
+        for backend in auth.get_backends():
+            if not hasattr(backend, 'has_perm'):
+                continue
+            try:
+                if backend.has_perm(self, perm, obj):
+                    return True
+            except PermissionDenied:
+                return False
+        return False
 
     def has_perms(self, perm_list, obj=None):
         """
@@ -229,8 +209,15 @@ class PermissionsMixin(models.Model):
         # Active superusers have all permissions.
         if self.is_active and self.is_superuser:
             return True
-
-        return _user_has_module_perms(self, app_label)
+        for backend in auth.get_backends():
+            if not hasattr(backend, 'has_module_perms'):
+                continue
+            try:
+                if backend.has_module_perms(self, app_label):
+                    return True
+            except PermissionDenied:
+                return False
+        return False
 
     def get_all_permission_sets(self, only_ids=False):
         """
