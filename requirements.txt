@@ -6,11 +6,11 @@ simplejson==3.8.1
 pytz==2015.7
 python-dateutil==2.4.2
 requests==2.8.1
-python-engineio==0.8.6
-python-socketio==0.9.1
+python-engineio==0.8.7
+python-socketio==1.0
 greenlet==0.4.9
-gunicorn==19.4.1
-Django==1.9.1
+gunicorn==19.4.5
+Django==1.9.2
 
 djangorestframework==3.3.2
 #djangorestframework-gis==0.9.4
@@ -26,7 +26,7 @@ django-model-utils==2.4
 #see https://github.com/ottoyiu/django-cors-headers
 django-cors-headers==1.1.0
 django-oauth-toolkit==0.9.0
-django-rest-swagger==0.3.4
+django-rest-swagger==0.3.5
 #numpy 1.9.3, required by django-raster
 numpy==1.10.4
 #django-raster==0.1.7
@@ -46,9 +46,9 @@ geopy==1.11.0
 Fiona==1.6.3
 geopandas==0.1.1
 
-celery==3.1.19
+celery==3.1.20
 redis==2.10.5
 six==1.10.0
 
-eventlet==0.17.4
+eventlet==0.18.1
 
