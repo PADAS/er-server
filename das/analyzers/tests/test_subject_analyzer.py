@@ -1,7 +1,7 @@
 from django.test import TestCase
 
 from analyzers.models.subject_analyzer import SubjectAnalyzer
-from analyzers.models.geofence import GeofenceAnalyzer
+from analyzers.models.containment import ContainmentAnalyzer
 from mapping.models import FeatureType, PolygonFeature
 from observations.models import Subject
 
@@ -20,7 +20,7 @@ class TestSubjectAnalyzer(TestCase):
             feature_geometry=dr_polygon,
             type=feature_type
         )
-        self.analyzer = GeofenceAnalyzer.objects.create(polygon=polygon_feature)
+        self.analyzer = ContainmentAnalyzer.objects.create(polygon=polygon_feature)
         self.subject_analyzer = SubjectAnalyzer(subject=self.subject, content_object=self.analyzer)
         self.subject_analyzer.save()
 

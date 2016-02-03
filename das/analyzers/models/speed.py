@@ -22,9 +22,7 @@ class SpeedAnalyzer(Analyzer):
         result = AnalyzerResult()
         result.analyzer_type = self.__class__.__name__
 
-        track = self.truncate_track(track, hours=24)
-
-        time_series = track.speed_series()
+        track = track.truncate(hours=24)
 
         for i, speed in enumerate(track.speed_series()):
 
