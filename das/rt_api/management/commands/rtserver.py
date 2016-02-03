@@ -17,6 +17,7 @@ from django.utils import autoreload, six
 from django.utils.encoding import force_text, get_system_encoding
 
 import rt_api.server
+import rt_api.pubsub_listener
 
 
 class Command(runserver.Command):
@@ -50,7 +51,7 @@ class Command(runserver.Command):
         try:
             app = self.get_handler(*args, **options)
             socketio_app = rt_api.server.sios
-            app = socketio_app.init_app(app=app).wsgi_app
+            app = socketio_app.init_app(app=app, **{'message_queue': settings.KMOBU_MESSAGE_QUEUE_URL}).wsgi_app
 
             self.run_socket(self.addr, int(self.port), app,
                 ipv6=self.use_ipv6, threading=threading)
