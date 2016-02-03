@@ -283,7 +283,7 @@ app:
                           02-collectstatic:
                             command: "source /opt/python/run/venv/bin/activate && python das/manage.py collectstatic --noinput --settings=das_server.local_settings"
                           03-fix-file-perms:
-                            command: "chown wsgi /tmp/das.log; chown wsgi /tmp/das-data_input.log"
+                            command: "if [ -f /tmp/das.log ]; then chown wsgi /tmp/das.log; fi"
                           04-deflate:
                             command: "cp deflate.conf /etc/httpd/conf.d/"
                           05-celeryconfig:
