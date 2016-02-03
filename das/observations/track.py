@@ -1,3 +1,4 @@
+from datetime import timedelta
 import operator
 
 from fiona import crs
@@ -19,11 +20,14 @@ class Track():
         times - sequence of aware datetimes
         """
         if points and times:
-            self.geo_series = gpd.GeoSeries(list(map(Point, points)), index=times)
+            self.geo_series = gpd.GeoSeries([Point(p) for p in points], index=times)
             self.geo_series.crs = crs.from_epsg(4326)
 
     def __getitem__(self, index):
         return self.geo_series[index]
+
+    def __len__(self):
+        return len(self.geo_series)
 
     @classmethod
     def from_observations(cls, observations):
@@ -41,11 +45,31 @@ class Track():
         """ returns (timestamp, Point) of last observation """
         return (self.geo_series.index[-1], self.geo_series[-1])
 
-    def truncate(self, before=None):
-        """ returns a new Track with all records before datetime before removed """
+    @property
+    def points(self):
+        return self.geo_series[:]
+
+    @property
+    def times(self):
+        return self.geo_series.index
+
+    def truncate(self, hours=None, before=None):
+        """ returns a new Track with some records removed
+        @optional_parameters
+
+        before: dates before this are removed
+        hours: only the most recent hours hours are preserved
+        """
+
         track = Track()
+
+        if hours:
+            t_last_observation, _  = self.last_observation
+            before = t_last_observation - timedelta(hours=hours)
+
         if before:
             track.geo_series = self.geo_series[self.geo_series.index >= before]
+
         return track
 
     def speed_series(self):
