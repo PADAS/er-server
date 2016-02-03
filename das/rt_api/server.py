@@ -377,20 +377,19 @@ class RTServer(object):
                   namespace='/das')
 
     @staticmethod
-    def user_subject_update(user, subjectid, observation):
-        print('Emitting subject update to user')
+    def user_subject_update(user, subjectid, geo_json = None):
         # Need to lookup the user's socket id
-        sios.emit('subject_update', {'type': 'subject_update', 'subject_id': subjectid, 'observation': observation},
+        sios.emit('subject_update', {'type': 'subject_update', 'subject_id': subjectid},
                   room=str(user), namespace='/das')
     @staticmethod
-    def broadcast_subject_update(subjectid, observation):
-        print('Broadcast subject update to all users')
-        sios.emit('subject_update', {'type': 'subject_update', 'subject_id': subjectid, 'observation': observation},
+    def broadcast_subject_update(subjectid, geo_json = None):
+        sios.emit('subject_update', {'type': 'subject_update', 'subject_id': subjectid},
                   namespace='/das')
 
-    test = False
-    if test:
-        import rt_api.tests.subject_update_loop
+    # test = False
+    # if test:
+    #     test = False
+    #     import rt_api.tests.subject_update_loop
 
 
 class DummyRequest(Request):
