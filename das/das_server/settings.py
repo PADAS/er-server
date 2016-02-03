@@ -304,3 +304,5 @@ CACHE_REDIS = {'host': 'localhost',
                       'port': 6379,
                       'db': 1,
                       }
+
+KMOBU_MESSAGE_QUEUE_URL = 'redis://localhost:6379'
