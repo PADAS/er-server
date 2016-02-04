@@ -56,7 +56,7 @@ class Event(TimestampedModel):
 
     provenance = models.CharField(max_length=20, choices=PROVENANCE_CHOICES, default='system')
     attributes = JSONField()
-    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, default='analyzer')
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, default='default')
     location = models.PointField(srid=4326)
 
     def __str__(self):
