@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from tracking.models.source_plugin import SourcePlugin
+from tracking.models.plugin_base import SourcePlugin
 from mapping.models import FeatureType, PolygonFeature
 from observations.models import Source
 from tracking.models import SavannahPlugin
@@ -51,4 +51,23 @@ class TestSourcePlugin(TestCase):
         self.assertEqual(source_plugin.id, self.source_plugin.id)
         self.assertEqual(self.source.id, source_plugin.source.id)
 
+    def test_genericrelation_between_plugin_and_source_plugin(self):
+
+        plugin, created = SavannahPlugin.objects.get_or_create(name='dummy-savannah-plugin',
+                                                      defaults=dict(service_username='foo',
+                                                                    service_password='pwd',
+                                                                    service_api_host='0.0.0.0'))
+
+        self.assertTrue(created)
+        src, created = Source.objects.get_or_create(manufacturer_id='dummy-source-id',
+                                           defaults=dict(model_name='Dummy', additional={}))
+
+        expected, created = SourcePlugin.objects.get_or_create(source=src,
+                                           defaults=dict(plugin=plugin))
+
+        # This tests the GenericRelation that's in TrackingPlugin.
+        source_plugins = plugin.source_plugins.all()
+        self.assertTrue(len(source_plugins) == 1)
+
+        self.assertEqual(source_plugins[0].id, expected.id)
 

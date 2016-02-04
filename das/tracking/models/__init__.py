@@ -1,4 +1,4 @@
-from tracking.models.source_plugin import SourcePlugin
+from tracking.models.plugin_base import SourcePlugin
 from tracking.models.savannah import SavannahPlugin
 from tracking.models.demo import DemoSourcePlugin
 from tracking.models.inreach import InreachPlugin

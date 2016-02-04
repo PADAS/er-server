@@ -1,7 +1,8 @@
-import tracking.models
-import data_input
 from django.conf import settings
-import mapping.models
+
+import tracking.models
+import data_input.models
+import observations.models
 
 def savannah(plugin_conf):
 
@@ -103,7 +104,6 @@ DIPC_2_PLUGIN = {
     'demo-wildlife': demo,
 }
 
-import observations
 from django.contrib.contenttypes.models import ContentType
 def ensure_source_plugin(dips, tracking_plugin):
     '''
