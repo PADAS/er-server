@@ -35,6 +35,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = (
+    'accounts.apps.AccountsConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -43,6 +44,7 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'django.contrib.gis',
     #'django.contrib.sites',
+    'mptt',
     'corsheaders',
     'oauth2_provider',
     'rest_framework',
@@ -91,8 +93,26 @@ TEMPLATES = [
     },
 ]
 
-#AUTH_USER_MODEL = 'django.contrib.auth.models.User'
+AUTH_USER_MODEL = 'accounts.User'
 WSGI_APPLICATION = 'das_server.wsgi.application'
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 9,
+        }
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
@@ -115,10 +135,13 @@ REST_FRAMEWORK = {
 
 AUTHENTICATION_BACKENDS = (
     'oauth2_provider.backends.OAuth2Backend',
-    # Uncomment following if you want to access the admin
-    'django.contrib.auth.backends.ModelBackend',
+    'accounts.backends.AccountsModelBackend',
 
 )
+
+SERIALIZATION_MODULES = {
+    'geojson' : 'djgeojson.serializers'
+}
 
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
@@ -298,3 +321,5 @@ CACHE_REDIS = {'host': 'localhost',
                       'port': 6379,
                       'db': 1,
                       }
+
+KMOBU_MESSAGE_QUEUE_URL = 'redis://localhost:6379'

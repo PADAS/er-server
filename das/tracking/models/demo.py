@@ -21,12 +21,18 @@ Config = namedtuple('Config', ('name', 'manufacturer_id', 'boundaries',))
 
 
 class RandomMover(object):
+
+    DEFAULT_SPEED_MPS = 1.3 # roughly 3 miles per hour
+    DEFAULT_INTERVAL_SECONDS = 3600
     '''
     Something that could behave a little like a moving animal. Started at a psuedo-random point.
     '''
-    def __init__(self, boundaries, initial_position=None):
+    def __init__(self, boundaries, initial_position=None, speed_mps=DEFAULT_SPEED_MPS,
+                 interval_seconds=DEFAULT_INTERVAL_SECONDS):
 
         polygons = boundaries.get('polygons', None)
+        self.speed_mps = speed_mps # meters per second
+        self.interval_seconds = interval_seconds # time interval between fixes
 
         if polygons:
             polygons = list((Polygon(p) for p in polygons))
@@ -53,8 +59,9 @@ class RandomMover(object):
 
     def next_point(self):
 
-        change_k = random.random() * 3.0
-        d = geopy.distance.VincentyDistance(kilometers=change_k)
+        # come up with a random distance based on the desired speed and interval.
+        change_m = ((random.random() - 0.5) + self.speed_mps) * self.interval_seconds
+        d = geopy.distance.VincentyDistance(meters=change_m)
         change_bearing = random.random()*360.0
 
         # self.logger.debug('change_k: {0}, change_b: {1}'.format(change_k, change_bearing))
@@ -96,8 +103,12 @@ class DemoSourcePlugin(TrackingPlugin):
         # create cursor_data
         self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
 
+        speed_mps = self.cursor_data.get('speed_mps', RandomMover.DEFAULT_SPEED_MPS)
+        interval_seconds = self.cursor_data.get('interval_seconds', RandomMover.DEFAULT_INTERVAL_SECONDS)
+
+
         try:
-            default_starttime = datetime.datetime.now(tz=pytz.utc) - self.DEFAULT_START_OFFSET
+            default_starttime = datetime.datetime.now(tz=pytz.utc) - timedelta(seconds=24 * interval_seconds)
             _ = self.cursor_data['latest_timestamp']
             latest_ts = parse_date(_)
             latest_ts = max(default_starttime, latest_ts)
@@ -109,12 +120,13 @@ class DemoSourcePlugin(TrackingPlugin):
         boundaries = self.cursor_data['boundaries']
 
         last_location = self.cursor_data.get('last_location')
-        r = RandomMover(boundaries=boundaries, initial_position=last_location)
+        r = RandomMover(boundaries=boundaries, initial_position=last_location,
+                        speed_mps=speed_mps, interval_seconds=interval_seconds)
 
-        next_ts = latest_ts + timedelta(hours=1)
+        next_ts = latest_ts + timedelta(seconds=interval_seconds)
 
         now = datetime.datetime.now(tz=pytz.utc)
-        lt = latest_ts
+        # lt = latest_ts
         observation = None
 
         while next_ts < now:
@@ -131,7 +143,9 @@ class DemoSourcePlugin(TrackingPlugin):
 
             observation = Obs(**observation)
             yield observation
-            next_ts = next_ts + timedelta(minutes=random.randint(58, 62))
+
+            # Bump the next observation time by a random timedelta that's based on interval_seconds.
+            next_ts += timedelta(seconds=random.randint(int(interval_seconds*0.9), interval_seconds))
 
         if observation:
             # Update cursor_data for this source.
