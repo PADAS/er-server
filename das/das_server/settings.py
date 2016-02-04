@@ -139,6 +139,10 @@ AUTHENTICATION_BACKENDS = (
 
 )
 
+SERIALIZATION_MODULES = {
+    'geojson' : 'djgeojson.serializers'
+}
+
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
 # we use postgis, create the db from the spatial db template
