@@ -2,7 +2,7 @@ import logging
 
 from das_server import celery
 from tracking.pubsub_registry import notify_new_tracks
-from tracking.models import SourcePlugin
+from tracking.models import SourcePlugin, DemoSourcePlugin
 
 logger = logging.getLogger(__name__)
 
@@ -30,4 +30,16 @@ def run_source_plugin(self, source_plugin_id):
     logger.debug('Finished running plugin {} for source {} with result.count={}'.format(sp, sp.source, result.count))
 
 
+
+@celery.app.task(bind=True)
+def run_demo_plugins(self, inline=True):
+    '''
+    :param inline: Whether to run directly. If False, then queue tasks.
+    '''
+    demo_plugins = DemoSourcePlugin.objects.filter(status=DemoSourcePlugin.STATUS_ENABLED)
+
+    func = run_source_plugin if inline else run_source_plugin.delay
+    for demo_plugin in demo_plugins:
+        for sp in demo_plugin.source_plugins.all():
+            func(str(sp.id))
 
