@@ -51,9 +51,11 @@ INSTALLED_APPS = (
     'raster',
     'observations',
     'analyzers',
-    'data_input',
+    'das_server',
+    'tracking',
     'mapping.apps.MappingConfig',
     'activity',
+    'rt_api.apps.RTAPIConfig'
 )
 
 MIDDLEWARE_CLASSES = (
@@ -162,12 +164,6 @@ LOGGING = {
             'stream': sys.stdout,
             'formatter': 'simple'
         },
-        'data_input_file':{
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': '/tmp/das-data_input.log',
-            'formatter': 'simple'
-        }
     },
     'loggers': {
         'django': {
@@ -187,13 +183,13 @@ LOGGING = {
             'handlers': ['file'],
             'level': 'INFO',
         },
-        'data_input': {
-            'handlers': ['data_input_file'],
-            'level': 'DEBUG'
-        },
         'mapping': {
             'handlers': ['file'],
             'level': 'INFO',
+        },
+        'tracking': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
         }
     }
 }
@@ -225,8 +221,9 @@ TIME_ZONE = 'UTC'
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "www", "static")
 STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'observations', 'static'),
-    os.path.join(BASE_DIR, 'mapping', 'static')
+    os.path.join(BASE_DIR, 'observations'),
+    os.path.join(BASE_DIR, 'mapping'),
+    os.path.join(BASE_DIR, 'rt_api')
 )
 
 SITE_ID = 1
@@ -272,6 +269,9 @@ SWAGGER_SETTINGS = {
 
 OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600*48}
 
+#RT API settings
+ASYNC_MODE = 'eventlet'
+
 #override these if your libraries are in a different place
 GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'
 GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
@@ -298,3 +298,5 @@ CACHE_REDIS = {'host': 'localhost',
                       'port': 6379,
                       'db': 1,
                       }
+
+KMOBU_MESSAGE_QUEUE_URL = 'redis://localhost:6379'

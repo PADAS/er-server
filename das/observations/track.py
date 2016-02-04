@@ -1,3 +1,4 @@
+from datetime import timedelta
 import operator
 
 from fiona import crs
@@ -13,16 +14,20 @@ import itertools
 class Track():
     """ defines a track consisting of points identified by location in time and space """
 
-    def __init__(self, points, times):
+    def __init__(self, points=None, times=None):
         """ parameters should be sequences of equal length:
         points - sequence of points, any type which can be handled by shapely.geometry.Point
         times - sequence of aware datetimes
         """
-        self.geo_series = gpd.GeoSeries(list(map(Point, points)), index=times)
-        self.geo_series.crs = crs.from_epsg(4326)
+        if points and times:
+            self.geo_series = gpd.GeoSeries([Point(p) for p in points], index=times)
+            self.geo_series.crs = crs.from_epsg(4326)
 
     def __getitem__(self, index):
         return self.geo_series[index]
+
+    def __len__(self):
+        return len(self.geo_series)
 
     @classmethod
     def from_observations(cls, observations):
@@ -34,6 +39,38 @@ class Track():
 
     def as_linestring(self):
         return gpd.GeoSeries([LineString(self.geo_series[:])])
+
+    @property
+    def last_observation(self):
+        """ returns (timestamp, Point) of last observation """
+        return (self.geo_series.index[-1], self.geo_series[-1])
+
+    @property
+    def points(self):
+        return self.geo_series[:]
+
+    @property
+    def times(self):
+        return self.geo_series.index
+
+    def truncate(self, hours=None, before=None):
+        """ returns a new Track with some records removed
+        @optional_parameters
+
+        before: dates before this are removed
+        hours: only the most recent hours hours are preserved
+        """
+
+        track = Track()
+
+        if hours:
+            t_last_observation, _  = self.last_observation
+            before = t_last_observation - timedelta(hours=hours)
+
+        if before:
+            track.geo_series = self.geo_series[self.geo_series.index >= before]
+
+        return track
 
     def speed_series(self):
 

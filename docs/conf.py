@@ -22,6 +22,7 @@ import os
 src_dir = os.path.join(os.path.dirname(os.path.abspath('.')), 'das')
 print(src_dir)
 sys.path.insert(0, src_dir)
+sys.path.append(os.path.abspath('.'))
 
 # -- General configuration ------------------------------------------------
 
@@ -32,7 +33,7 @@ sys.path.insert(0, src_dir)
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ['sphinxcontrib.httpdomain', 'sphinx.ext.autodoc',
-              ]
+              'pygsonsetup']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

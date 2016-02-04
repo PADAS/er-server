@@ -73,12 +73,27 @@ app:
               Subnets: "subnet-11bf3166,subnet-6910780c,subnet-0074d659"
               AssociatePublicIpAddress: "true"
 
-            'aws:elb:loadbalancer':
+            # need this to support websockets over 80 and 443 through an ELB
+            'aws:elb:listener:80':
+                ListenerProtocol: TCP
+                InstancePort: 80
+                InstanceProtocol: TCP
+
+            'aws:elb:listener:443':
+                ListenerProtocol: SSL
                 SSLCertificateId: 'arn:aws:iam::074677080781:server-certificate/wildcard-pamdas-org-2015'
-                LoadBalancerHTTPSPort: 443
+                InstancePort: 80
+                InstanceProtocol: TCP
 
             'aws:elb:policies':
-                Stickiness Policy: true
+                Stickiness Policy: false
+
+            # Apache does not suppor Proxy Protocol v1, nginx does
+            # which is needed to get the client IP using TCP ListenerProtocol
+            #'aws:elb:policies:EnableProxyProtocol':
+            #    ProxyProtocol: true
+            #    InstancePorts: 80, 443
+
 
 
         # instructions on how to build the application archive
@@ -156,6 +171,47 @@ app:
                         priority=20
                         killasgroup=true
 
+                        [program:message_queue_listeners]
+                        command=/opt/python/run/venv/bin/python manage.py message_queue_listeners
+                        directory=/opt/python/current/app/das
+                        environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
+                        user=wsgi
+                        numprocs=1
+                        stdout_logfile=/opt/python/log/message_queue_listeners.log
+                        autostart=true
+                        autorestart=true
+                        startsecs=10
+                        priority=20
+                        killasgroup=true
+
+              - realtime.conf:
+                    permissions: 0644
+                    content: |
+                        [program:realtime]
+                        command=/opt/python/run/venv/bin/python manage.py rtserver 127.0.0.1:8081
+                        directory=/opt/python/current/app/das
+                        environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH',EVENTLET_SHOULDPATCH='True'
+                        user=wsgi
+                        numprocs=1
+                        stdout_logfile=/opt/python/log/realtime.log
+                        autostart=true
+                        autorestart=true
+                        startsecs=10
+                        priority=20
+                        killasgroup=true
+                        stopsignal=INT
+              - realtime_httpd.conf:
+                    permissions: 0644
+                    content: |
+                        LoadModule proxy_wstunnel_module modules/mod_proxy_wstunnel.so
+                        RewriteEngine On
+                        RewriteCond %%{REQUEST_URI}  ^/socket.io            [NC]
+                        RewriteCond %%{QUERY_STRING} transport=websocket    [NC]
+                        RewriteRule /(.*)           ws://localhost:8081/$1 [P,L]
+
+                        ProxyPass        /socket.io http://localhost:8081/socket.io
+                        ProxyPassReverse /socket.io http://localhost:8081/socket.io
+
               - 99_supervisord_celeryconfig.sh:
                     permissions: 0755
                     content: |
@@ -165,7 +221,7 @@ app:
                         if ! grep -Fxq "[include]" /opt/python/etc/supervisord.conf
                             then
                             echo "[include]" | tee -a /opt/python/etc/supervisord.conf
-                            echo "files: celeryconfig.conf" | tee -a /opt/python/etc/supervisord.conf
+                            echo "files: celeryconfig.conf realtime.conf" | tee -a /opt/python/etc/supervisord.conf
                         fi
 
                         # Reread the supervisord config
@@ -176,6 +232,9 @@ app:
 
                         # Start/Restart celery worker and beat through supervisord
                         /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart celeryworker celerybeat
+
+                        # Start/Restart realtime socketio api server
+                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart realtime
 
               - .ebextensions/01-install_dependencies.config:
                     permissions: 0777
@@ -224,20 +283,25 @@ app:
                           02-collectstatic:
                             command: "source /opt/python/run/venv/bin/activate && python das/manage.py collectstatic --noinput --settings=das_server.local_settings"
                           03-fix-file-perms:
-                            command: "chown wsgi /tmp/das.log; chown wsgi /tmp/das-data_input.log"
+                            command: "if [ -f /tmp/das.log ]; then chown wsgi /tmp/das.log; fi"
                           04-deflate:
                             command: "cp deflate.conf /etc/httpd/conf.d/"
                           05-celeryconfig:
                             command: "cp celeryconfig.conf /opt/python/etc/"
-                          06-installcelerybeat:
+                          06-realtimeconfig:
+                            command: "cp realtime.conf /opt/python/etc/"
+                          07-installcelerybeat:
                             command: "cp 99_supervisord_celeryconfig.sh /opt/elasticbeanstalk/hooks/appdeploy/post/"
-                          07-installceleryconfig:
+                          08-installceleryconfig:
                             command: "cp 99_supervisord_celeryconfig.sh /opt/elasticbeanstalk/hooks/configdeploy/post/"
-                          08-fix-wsgi-oauth:
+                          09-fix-wsgi-oauth:
                             command: "if ! grep -q WSGIPassAuthorization config.py; then sed -i.bak '/WSGIScriptAlias/ aWSGIPassAuthorization On' config.py; fi"
                             cwd: /opt/elasticbeanstalk/hooks
-
-
+                          10-cp-realtime-wsgi:
+                            command: "cp realtime_httpd.conf /opt/elasticbeanstalk/hooks/"
+                          11-fix-realtime-wsgi:
+                            command: "if ! grep -q socket.io config.py; then sed -i.bak '/<VirtualHost \\*:%s>/ r realtime_httpd.conf' config.py; fi"
+                            cwd: /opt/elasticbeanstalk/hooks
 
 
     # Under the environments node is each environment and their config.

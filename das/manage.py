@@ -2,6 +2,9 @@
 import os
 import sys
 
+if os.environ.get('EVENTLET_SHOULDPATCH', 'false').lower() == 'true':
+    import eventlet
+    eventlet.monkey_patch()
 
 """
 To run the local server:

@@ -28,4 +28,3 @@ class PluginConfSource(models.Model):
         unique_together = (
             ('plugin_conf', 'source')
         )
-

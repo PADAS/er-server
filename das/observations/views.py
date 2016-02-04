@@ -3,6 +3,7 @@ import datetime
 
 import dateutil.parser
 import pytz
+from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 from django.http import Http404
 from django.contrib.auth import get_user_model
@@ -17,14 +18,20 @@ import observations.serializers as serializers
 
 logger = logging.getLogger(__name__)
 
-LAST_DAYS = datetime.timedelta(days=16)
+
+try:
+    days = int(settings.SHOW_TRACK_DAYS)
+except AttributeError:
+    days = 16
+
+LAST_DAYS = datetime.timedelta(days=days)
 
 
 def default_since():
     """default value for since
-    last 16 days is the default
+    last days is the default
     """
-    return datetime.datetime.now(pytz.utc) - datetime.timedelta(days=16)
+    return datetime.datetime.now(pytz.utc) - datetime.timedelta(days=days)
 
 
 def dateparse(date_str, default_tz=pytz.utc):
@@ -93,7 +100,7 @@ class SubjectsView(generics.ListAPIView):
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
-            queryset = models.Subject.objects.by_bbox(bbox)
+            queryset = models.Subject.objects.by_bbox(bbox, last_days=LAST_DAYS)
         return queryset
 
 
