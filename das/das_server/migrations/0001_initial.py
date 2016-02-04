@@ -10,31 +10,32 @@ def load_default_clients(apps, schema_editor):
 
     User = get_user_model()
 
-    user = User(username='das_oauth_act',
-         email='das_oauth_act@das.org',
-         password='das_2015',
-         is_active=False,
-         last_login=timezone.now())
-    user.save()
+    if not User.objects.filter(username='das_oauth_act').exists():
+        user = User(username='das_oauth_act',
+             email='das_oauth_act@das.org',
+             password='das_2015',
+             is_active=False,
+             last_login=timezone.now())
+        user.save()
 
-    #Application = apps.get_model('oauth2_provider.Application')
+        #Application = apps.get_model('oauth2_provider.Application')
 
-    Application(client_id='das_web_client',
-                client_type='Confidential',
-                authorization_grant_type='password',
-                client_secret='',
-                name='DAS Web',
-                skip_authorization=True,
-                user=user
-                ).save()
-    Application(client_id='das_ios_client',
-                client_type='Confidential',
-                authorization_grant_type='password',
-                client_secret='',
-                name='DAS IOS App',
-                skip_authorization=True,
-                user=user
-                ).save()
+        Application(client_id='das_web_client',
+                    client_type='Confidential',
+                    authorization_grant_type='password',
+                    client_secret='',
+                    name='DAS Web',
+                    skip_authorization=True,
+                    user=user
+                    ).save()
+        Application(client_id='das_ios_client',
+                    client_type='Confidential',
+                    authorization_grant_type='password',
+                    client_secret='',
+                    name='DAS IOS App',
+                    skip_authorization=True,
+                    user=user
+                    ).save()
 
 class Migration(migrations.Migration):
 

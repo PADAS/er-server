@@ -12,6 +12,7 @@ from rest_framework import generics
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.parsers import JSONParser
 
 
 from raster.models import RasterLayer
@@ -73,6 +74,8 @@ class FeatureSetListJsonView(APIView):
 
 
 class FeatureSetGeoJsonView(APIView):
+    parser_classes = (JSONParser,)
+
     def get(self, request, featureset_id):
         # todo:  better 404 handling, what to do with empty featureset
         featureset = FeatureSet.objects.get(id=featureset_id)
@@ -83,6 +86,9 @@ class FeatureSetGeoJsonView(APIView):
                             fields='name, presentation, feature_geometry,'
                             )
         return HttpResponse(feature, content_type='application/json')
+
+    def post(self, request, format=None):
+        pass
 
 
 class MapListJsonView(generics.ListAPIView):

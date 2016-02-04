@@ -1,6 +1,6 @@
 import uuid
 import logging
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from django.contrib.gis.db import models
@@ -46,7 +46,7 @@ class Event(TimestampedModel):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80)
-    created_by_user = models.ForeignKey(User, on_delete=models.SET(get_sentinel_user), null=True, related_name='events',
+    created_by_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user), null=True, related_name='events',
                                         related_query_name='event')
 
     # # Generic foreign key relation to anything that has an id of type UUID.

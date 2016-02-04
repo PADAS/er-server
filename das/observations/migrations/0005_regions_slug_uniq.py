@@ -3,12 +3,12 @@ from __future__ import unicode_literals
 
 from django.db import models, migrations
 from django.utils.text import slugify
-from observations.models import Region, Subject
+
 
 def backfill_regions(apps, schema_editor):
 
-    #Region = apps.get_model('observations.Region')
-    #Subject = apps.get_model('observations.Subject')
+    Region = apps.get_model('observations.Region')
+    Subject = apps.get_model('observations.Subject')
 
     for s in Subject.objects.all():
         region = s.additional.get('region', None)
