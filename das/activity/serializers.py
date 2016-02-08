@@ -1,4 +1,5 @@
 from django.contrib.gis.geos import Point
+from django.core.urlresolvers import reverse
 
 import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
@@ -14,37 +15,36 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.Event
         fields = (
-        'id', 'location', 'created_at', 'updated_at', 'attributes', 'name', 'description', 'provenance', 'event_type')
+        'id', 'location', 'time', 'name', 'description', 'provenance', 'event_type')
         id_field = False
         geo_field = 'location'
 
-    def to_representation(self, instance):
+    def to_representation(self, event):
 
-        feature = make_feature(self.context['request'], instance)
+        rep = super().to_representation(event)
+        rep['url'] = das_utils.add_base_url(self.context['request'], reverse('event-view', args=[event.id,]))
 
-        rep = das_utils.json.empty_geojson_featurecollection()
-        rep['features'].append(feature)
+        if event.location is not None:
+            geodata = make_feature(self.context['request'], event)
+            rep['geojson'] = geodata
         return rep
 
 
 def make_feature(request, event):
     is_point = isinstance(event.coordinates, Point)
     image_url = das_utils.add_base_url(request, event.image_url)
-    feature = {
-        'geometry': {
-            'type': 'LineString' if not is_point else 'Point',
-            'coordinates': event.coordinates if not is_point else event.coordinates.tuple
-        },
-        'type': 'Feature',
-        'properties': {
-            'title': event.name,
-            'description': event.description,
-            'datetime': event.time,
-        },
+    feature = das_utils.json.empty_geojson_feature()
+    feature['geometry'] = {
+        'type': 'LineString' if not is_point else 'Point',
+        'coordinates': event.coordinates if not is_point else event.coordinates.tuple
     }
+    feature['type'] = 'Feature'
+    feature['properties'] = {
+        'title': event.name,
+        'datetime': event.time
+    }
+
     properties = feature['properties']
-
-
     if hasattr(event, 'color'):
         feature['style'] = {
             "color": event.color,
