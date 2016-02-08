@@ -5,8 +5,8 @@ from observations.models import SubjectGroup
 
 class SubjectGroupTestCase(TestCase):
     def setUp(self):
-        all_set = PermissionSet.objects.create(name='all', category='view_animals')
-        some_set = PermissionSet.objects.create(name='some', category='view_animals')
+        all_set = PermissionSet.objects.create(name='all')
+        some_set = PermissionSet.objects.create(name='some')
 
         some_set.parent = all_set
         some_set.save()
