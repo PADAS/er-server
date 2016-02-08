@@ -1,13 +1,13 @@
 import uuid
 import logging
 import datetime
-from django.conf import settings
+
 from django.contrib.auth import get_user_model
-
 from django.contrib.gis.db import models
-from django.contrib.gis.geos import Point, Polygon
-
+from django.contrib.gis.geos import Polygon
+from django.utils import timezone
 from django.contrib.postgres.fields import JSONField
+
 # from django.db.models import ManyToManyField
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -103,12 +103,7 @@ class Event(TimestampedModel):
                                         related_name='events',
                                         related_query_name='event')
 
-    # # Generic foreign key relation to anything that has an id of type UUID.
-    # content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    # target_id = models.UUIDField()
-    # target = GenericForeignKey('content_type', 'target_id')
-
-    event_time = models.DateTimeField(auto_now_add=True)
+    event_time = models.DateTimeField(default=timezone.now())
     provenance = models.CharField(max_length=20, choices=PROVENANCE_CHOICES, default=SYSTEM)
     event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, default=ET_SYSTEM)
     location = models.PointField(srid=4326, null=True)
