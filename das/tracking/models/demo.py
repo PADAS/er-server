@@ -91,8 +91,6 @@ class DemoSourcePlugin(TrackingPlugin):
     '''
     Generate track data using RandomMover.
     '''
-    DEFAULT_START_OFFSET = timedelta(days=14)
-
     range_polygon = models.ForeignKey(mapping.models.PolygonFeature, null=True)
 
 
