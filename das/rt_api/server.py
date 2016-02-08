@@ -377,14 +377,25 @@ class RTServer(object):
                   namespace='/das')
 
     @staticmethod
-    def user_subject_update(user, subjectid, geo_json = None):
-        # Need to lookup the user's socket id
-        sios.emit('subject_update', {'type': 'subject_update', 'subject_id': subjectid},
-                  room=str(user), namespace='/das')
+    def emit_subject_update(subjectid, geo_json=None, user=None):
+        data = {'type': 'subject_position_update', 'subject_id': subjectid}
+        if geo_json is not None:
+            data['geo_json'] = geo_json
+        RTServer.emit('subject_position_update', data, user)
+
     @staticmethod
-    def broadcast_subject_update(subjectid, geo_json = None):
-        sios.emit('subject_update', {'type': 'subject_update', 'subject_id': subjectid},
-                  namespace='/das')
+    def emit_new_event(event_id, event_data=None, user=None):
+        data = {'type': 'new_event', 'event_id': event_id}
+        if event_data is not None:
+            data['event_data'] = event_data
+        RTServer.emit('new_event', data, user)
+
+    @staticmethod
+    def emit(message_type, data, user=None):
+        if user is None:
+            sios.emit(message_type, data, namespace='/das')
+        else:
+            sios.emit(message_type, data, room=str(user), namespace='/das')
 
     # test = False
     # if test:
@@ -393,11 +404,16 @@ class RTServer(object):
 
 
 class DummyRequest(Request):
+    _request = None
     def __init__(self, uri='/dummy', http_method='POST', body={}, headers=None, encoding='utf-8'):
         self.method = http_method
         self.META = headers
         self.POST = body
+        self._request = self
         Request.__init__(self, uri, http_method, body, headers, encoding)
 
     def get_full_path(self):
         return self.uri
+
+    def build_absolute_uri(self, url):
+        return url
