@@ -10,19 +10,9 @@ from mptt.forms import TreeNodeMultipleChoiceField
 from accounts.models import User, PermissionSet
 
 
-class PermissionSetMPTTModelAdmin(MPTTModelAdmin):
-    search_fields = ('name',)
-    ordering = ('name',)
-    filter_horizontal = ('permissions',)
+class PermissionSetAdmin(DjangoGroupAdmin):
+    pass
 
-    def formfield_for_manytomany(self, db_field, request=None, **kwargs):
-        if db_field.name == 'permissions':
-            qs = kwargs.get('queryset', db_field.remote_field.model.objects)
-            # Avoid a major performance hit resolving permission names which
-            # triggers a content_type load:
-            kwargs['queryset'] = qs.select_related('content_type')
-        return super(PermissionSetMPTTModelAdmin, self).formfield_for_manytomany(
-            db_field, request=request, **kwargs)
 
 class UserAdmin(DjangoUserAdmin):
     fieldsets = (
@@ -37,15 +27,9 @@ class UserAdmin(DjangoUserAdmin):
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'permission_sets')
     filter_horizontal = ('permission_sets',)
 
-class UserWithMPTTChangeForm(UserChangeForm):
-    permission_sets = TreeNodeMultipleChoiceField(queryset=PermissionSet.objects.all())
-
-class UserWithMPTTAdmin(UserAdmin):
-    form = UserWithMPTTChangeForm
 
 
-
-admin.site.register(User, UserWithMPTTAdmin)
+admin.site.register(User, UserAdmin)
 if admin.site.is_registered(django.contrib.auth.models.Group):
     admin.site.unregister(django.contrib.auth.models.Group)
-admin.site.register(PermissionSet, PermissionSetMPTTModelAdmin)
+admin.site.register(PermissionSet, PermissionSetAdmin)

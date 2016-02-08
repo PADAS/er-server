@@ -9,7 +9,6 @@ from django.core.mail import send_mail
 from django.core.exceptions import PermissionDenied
 from django.core import validators
 from django.utils import six, timezone
-from mptt.models import MPTTModel, TreeForeignKey, TreeManyToManyField, TreeManager
 
 
 phone_regex = validators.RegexValidator(regex=r'^\+?1?\d{9,15}$', message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed.")
@@ -21,11 +20,8 @@ class PermissionSetManager(models.Manager):
     """
     use_in_migrations = True
 
-    def get_by_natural_key(self, name):
-        return self.get(name=name)
 
-
-class PermissionSet(MPTTModel):
+class PermissionSet(models.Model):
     """
     PermissionSets are a generic way of categorizing users to apply permissions, or
     some other label, to those users. A user can belong to any number of
@@ -48,25 +44,30 @@ class PermissionSet(MPTTModel):
         Permission,
         blank=True,
     )
-    parent = TreeForeignKey('self', null=True, blank=True, related_name='children',
-        verbose_name=_('parent'), db_index=True,
-        help_text=_('The permission set\'s parent set. None, if it is a root node.'))
+    members = models.ManyToManyField('self', symmetrical=False, blank=True)
 
-    tree = TreeManager()
     objects = PermissionSetManager()
 
     class Meta:
         verbose_name = _('permission set')
         verbose_name_plural = _('permission sets')
 
-    class MPTTMeta:
-        order_insertion_by=['name']
-
     def __str__(self):
         return self.name
 
     def natural_key(self):
         return (self.name,)
+
+
+    def _get_ancestors(self, id):
+        parents = PermissionSet.objects.filter(members__id__exact=id)
+        for parent in parents:
+            yield parent
+            for grandparent in self._get_ancestors(parent.id):
+                yield grandparent
+
+    def get_ancestors(self):
+        return list(self._get_ancestors(self.id))
 
     def get_ancestor_ids(self):
         return [a.id for a in self.get_ancestors()]
@@ -132,7 +133,7 @@ class PermissionsMixin(models.Model):
             'explicitly assigning them.'
         ),
     )
-    permission_sets = TreeManyToManyField(
+    permission_sets = models.ManyToManyField(
         PermissionSet,
         blank=True,
         help_text=_(
@@ -221,19 +222,24 @@ class PermissionsMixin(models.Model):
 
     def get_all_permission_sets(self, only_ids=False):
         """
-        Returns all permission sets the user is member of AND all descendants
-        sets of those sets.
+        Returns all permission sets the user is member of AND ascendant permission sets.
+        For example, if this user is a member of Group Five, and Group Five is a member of Group A,
+        we return Group A and Group Five.
         """
         direct_ps = self.permission_sets.all()
         all_ps = set()
 
         for ps in direct_ps:
-            descendants = ps.get_descendants(include_self=True).all()
-            for descendant in descendants:
+            if only_ids:
+                all_ps.add(ps.id)
+            else:
+                all_ps.add(ps)
+            ancestors = ps.get_ancestors()
+            for ancestor in ancestors:
                 if only_ids:
-                    all_ps.add(descendant.id)
+                    all_ps.add(ancestor.id)
                 else:
-                    all_ps.add(descendant)
+                    all_ps.add(ancestor)
         return all_ps
 
 

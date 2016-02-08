@@ -77,7 +77,7 @@ class PermissionSetHierarchyMixin(PermissionSetMixin):
 
                 for ps in direct_ps:
                     all_ps.add(ps.id)
-                    all_ps.add(ps.get_ancestor_ids())
+                    all_ps.update(ps.get_ancestor_ids())
             obj._obj_perm_hierarchy_cache = all_ps
 
         return obj._obj_perm_hierarchy_cache

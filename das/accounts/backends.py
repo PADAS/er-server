@@ -65,13 +65,12 @@ class AccountsModelBackend(ModelBackend):
         If user is authenticated but inactive at the same time, all checks
         always returns ``False``.
         """
-        if '.' in perm:
-            app_label, perm = perm.split('.')
+        if '.' in perm and obj:
+            app_label, codename = perm.split('.')
             if app_label != obj._meta.app_label:
                 raise ValueError("Passed perm has app label of '%s' and "
                                     "given obj has '%s'" % (app_label, obj._meta.app_label))
 
-        perm = perm.split('.')[-1]
         if user_obj and not user_obj.is_active:
             return False
         elif user_obj and user_obj.is_superuser:

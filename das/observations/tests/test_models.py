@@ -1,7 +1,11 @@
 from django.test import TestCase
+from django.contrib.auth.models import Permission
 from accounts.models import PermissionSet, User
-from observations.models import SubjectGroup
+from observations.models import SubjectGroup, Subject
 
+
+def make_perm(perm):
+    return "{0}.{1}".format(perm.content_type.app_label, perm.codename)
 
 class SubjectGroupTestCase(TestCase):
     def setUp(self):
@@ -11,9 +15,48 @@ class SubjectGroupTestCase(TestCase):
         some_set.parent = all_set
         some_set.save()
 
-    def test_all_is_parent_of_some(self):
-        all_set = PermissionSet.objects.get(name='all')
-        some_set = PermissionSet.objects.get(name='some')
+    def test_subject_in_group(self):
+        ele = Subject.objects.create(name='ele', additional={})
+        ele_group = SubjectGroup.objects.create(name='ele_group')
 
-        self.assertEqual(all_set, some_set.parent)
-        self.assertIn(some_set, all_set.get_children())
+        ele.group = ele_group
+        ele.save()
+
+        self.assertEquals(ele.group, ele_group)
+
+
+class SubjectPermissionsTestCase(TestCase):
+    def setUp(self):
+        self.all_set = PermissionSet.objects.create(name='all')
+        self.some_set = PermissionSet.objects.create(name='some')
+        self.view_last_position_name = 'view_last_position'
+
+        self.view_last_position = Permission.objects.get(codename=self.view_last_position_name)
+
+        self.some_set.parent = self.all_set
+        self.some_set.permissions.add(Permission.objects.get(codename=self.view_last_position_name))
+        self.some_set.save()
+
+        self.superuser = User.objects.create_superuser('admin', 'admin@test.com',
+                                                   'admin')
+        self.user = User.objects.create_user('joe', 'joe@example.com', 'joe')
+
+
+    def test_user_has_view_permission(self):
+        user = User.objects.create(username='active_user')
+
+        user.permission_sets.add(self.some_set)
+        user.save()
+
+        ele = Subject.objects.create(name="ele", additional={})
+
+        ele_group = SubjectGroup.objects.create(name='ele_group')
+        ele.group = ele_group
+        ele.save()
+
+        ele_group.permission_sets.add(self.some_set)
+        ele_group.save()
+
+        self.assertTrue(user.has_perm(make_perm(self.view_last_position), ele))
+
+        #view_perm = Permission.objects.get()
