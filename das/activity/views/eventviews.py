@@ -12,8 +12,6 @@ from django.contrib.gis.geos import Point
 
 from rest_framework import generics
 
-from observations.serializers import TrackSerializer
-
 from activity.models import Event
 from activity.serializers import EventSerializer
 
@@ -26,7 +24,6 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 class EventsView(generics.ListCreateAPIView):
-
     __doc__ = """
     Returns all events.
     Optional query-params:
@@ -53,13 +50,6 @@ class EventsView(generics.ListCreateAPIView):
             queryset = Event.objects.by_bbox(bbox, last_days=LAST_DAYS).order_by('-created_at')
         return queryset
 
-    # def list(self, request):
-    #     queryset = self.get_queryset()
-    #     serializer = EventSerializer(queryset, many=True)
-    #
-    #     return Response(serializer.data)
-    #
-
 
 class EventView(generics.RetrieveUpdateAPIView):
     serializer_class = EventSerializer
@@ -78,60 +68,60 @@ class EventView(generics.RetrieveUpdateAPIView):
         return context
 
 
-@api_view(['POST', 'GET'])
-@authentication_classes((OAuth2Authentication, SessionAuthentication))
-@permission_classes((IsAuthenticated,))
-def event(request, *args, **kwargs):
-    """
-    For a manufacturer_id:
-        list some observations, or create a new observation.
-    """
-    if request.method == 'POST':
-
-        try:
-            location = request.data.get('location')
-            lat = location.get('lat', None)
-            lon = location.get('lon', None)
-
-            location = Point(x=float(lon), y=float(lat))
-        except:
-            location = None
-
-        name = request.data.get('name', None)
-        event_type = request.data.get('event_type', None)
-
-        # if stuff is missing:
-        #     return Response(data="Missing parameters.",
-        #                     status=status.HTTP_400_BAD_REQUEST)
-
-
-        provenance = request.data.get('provenance', 'informant')
-        Event(name=name, provenance=provenance)
-
-        event_data = {
-            'location': location,
-            'event_type': event_type,
-            'provenance': provenance,
-            'name': name,
-        }
-
-        serializer = EventSerializer(data=event_data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    elif request.method == 'GET':
-
-        event_id = kwargs.get('event_id')
-        # event_id = request.query_params.get('event_id')
-        # event_type = request.query_params.get('event_type', 'informant')
-        if event_id:
-            event = Event.objects.get(id=event_id)
-
-            if event:
-                serializer = EventSerializer(event)
-                return Response(serializer.data)
-
-        return Response(status=status.HTTP_404_NOT_FOUND)
+# @api_view(['POST', 'GET'])
+# @authentication_classes((OAuth2Authentication, SessionAuthentication))
+# @permission_classes((IsAuthenticated,))
+# def event(request, *args, **kwargs):
+#     """
+#     For a manufacturer_id:
+#         list some observations, or create a new observation.
+#     """
+#     if request.method == 'POST':
+#
+#         try:
+#             location = request.data.get('location')
+#             lat = location.get('lat', None)
+#             lon = location.get('lon', None)
+#
+#             location = Point(x=float(lon), y=float(lat))
+#         except:
+#             location = None
+#
+#         name = request.data.get('name', None)
+#         event_type = request.data.get('event_type', None)
+#
+#         # if stuff is missing:
+#         #     return Response(data="Missing parameters.",
+#         #                     status=status.HTTP_400_BAD_REQUEST)
+#
+#
+#         provenance = request.data.get('provenance', 'informant')
+#         Event(name=name, provenance=provenance)
+#
+#         event_data = {
+#             'location': location,
+#             'event_type': event_type,
+#             'provenance': provenance,
+#             'name': name,
+#         }
+#
+#         serializer = EventSerializer(data=event_data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_201_CREATED)
+#
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#
+#     elif request.method == 'GET':
+#
+#         event_id = kwargs.get('event_id')
+#         # event_id = request.query_params.get('event_id')
+#         # event_type = request.query_params.get('event_type', 'informant')
+#         if event_id:
+#             event = Event.objects.get(id=event_id)
+#
+#             if event:
+#                 serializer = EventSerializer(event)
+#                 return Response(serializer.data)
+#
+#         return Response(status=status.HTTP_404_NOT_FOUND)

@@ -1,3 +1,3 @@
 __author__ = 'chris'
 
-from .eventviews import event, EventView, EventsView
+from .eventviews import EventView, EventsView

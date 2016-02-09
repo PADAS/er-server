@@ -19,7 +19,7 @@ class TestSourcePlugin(TestCase):
             e = Event.objects.create(name='Bogus event', description=fake_long_description,
                                      provenance=Event.INFORMANT,
                                      event_type=Event.ET_LIVESTOCK_THEFT,
-                                     priority=Event.PRI_IMPORTANT,
+                                     priority='urgent',
                                      attributes={},
                                      )
 

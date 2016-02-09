@@ -10,19 +10,20 @@ import activity.models
 
 
 class EventSerializer(rest_framework.serializers.ModelSerializer):
+    # Using PointField here provides the magic to convert between a json {lat/lon} and our internal representation.
     location = PointField(required=False)
 
     class Meta:
         model = activity.models.Event
         fields = (
-        'id', 'location', 'time', 'name', 'description', 'provenance', 'event_type')
+            'id', 'location', 'time', 'name', 'description', 'provenance', 'event_type', 'priority', 'attributes',
+            'image_url')
         id_field = False
         geo_field = 'location'
 
     def to_representation(self, event):
-
         rep = super().to_representation(event)
-        rep['url'] = das_utils.add_base_url(self.context['request'], reverse('event-view', args=[event.id,]))
+        rep['url'] = das_utils.add_base_url(self.context['request'], reverse('event-view', args=[event.id, ]))
 
         if event.location is not None:
             geodata = make_feature(self.context['request'], event)
@@ -41,7 +42,8 @@ def make_feature(request, event):
     feature['type'] = 'Feature'
     feature['properties'] = {
         'title': event.name,
-        'datetime': event.time
+        'datetime': event.time,
+        'image': event.image_url
     }
 
     properties = feature['properties']
@@ -52,12 +54,10 @@ def make_feature(request, event):
             "opacity": 1,
             "deprecating": "use https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0"
         }
-        #see https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0
+        # see https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0
         properties['stroke'] = event.color
         properties['stroke-opacity'] = 1.0
         properties['stroke-width'] = 2
         properties['image'] = image_url
 
-
     return feature
-
