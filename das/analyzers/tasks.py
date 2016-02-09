@@ -1,9 +1,11 @@
 import logging
 
+from django.contrib.gis.geos import Point
 from django.db import transaction
 
 from activity.models import Event, EventAttachment
 from analyzers.all import all_analyzers
+from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.models.analyzer import NOMINAL
 from analyzers.models.subject_analyzer import SubjectAnalyzer
 from das_server import celery
@@ -21,7 +23,8 @@ def handle_subject(subject_id):
     track = Track.from_observations(subject.observations())
 
     if not track:
-        logger.info('Subject {} ({}) has no observations'.format(subject.name, subject_id))
+        logger.warning('Subject {} ({}) has no observations'.format(subject.name, subject_id))
+        return
 
     # get all analyzers, using Subject-specific analyzers where applicable
     analyzers = [sa.analyzer for sa in SubjectAnalyzer.objects.filter(subject=subject)]
@@ -31,21 +34,25 @@ def handle_subject(subject_id):
             analyzers.append(a)
 
     for analyzer in analyzers:
-        analyzer_result = analyzer.analyze(track)
-        if analyzer_result.level > NOMINAL:
-            analyzer_result.subject_id = subject_id
+        try:
+            analyzer_result = analyzer.analyze(track)
+            if analyzer_result.level > NOMINAL:
+                analyzer_result.subject_id = subject_id
+                location = Point(analyzer_result.location.x, analyzer_result.location.y)
+                with transaction.atomic():
+                    event = Event(
+                        provenance=Event.ANALYZER,
+                        attributes=analyzer_result.to_dict(),
+                        location=location,
+                        name='{}'.format(analyzer.__class__.__name__)
+                    )
 
-            with transaction.atomic():
-                event = Event(
-                    provenance=Event.ANALYZER,
-                    attributes=analyzer_result.to_dict(),
-                    location=analyzer_result.location,
-                    name='{}'.format(analyzer.__class__.__name__)
-                )
+                    event.save()
+                    event_attachment = EventAttachment(event=event, target=subject, reason=EventAttachment.TARGET)
+                    event_attachment.save()
 
-                event.save()
-                event_attachment = EventAttachment(event=event, target=subject, reason=EventAttachment.TARGET)
-                event_attachment.save()
+        except InsufficientDataAnalyzerException:
+            logger.warning('insufficient observations exist to support analyzer {}'.format(analyzer))
 
 @celery.app.task()
 def handle_source(source_id):

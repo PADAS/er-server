@@ -5,6 +5,8 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point as DjangoPoint
 
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, WARNING, CRITICAL
+from ..exceptions import InsufficientDataAnalyzerException
+
 from .utils import cluster
 
 logger = logging.getLogger(__name__)
@@ -41,6 +43,9 @@ class ImmobilityAnalyzer(Analyzer):
         recent observation are considered """
 
         super().analyze(track)
+
+        if len(track) < 5:
+            raise InsufficientDataAnalyzerException
 
         result = AnalyzerResult()
         result.analyzer_type = self.__class__.__name__
