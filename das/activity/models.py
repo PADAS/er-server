@@ -5,7 +5,7 @@ import datetime
 from django.contrib.auth import get_user_model
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
-from django.utils import timezone
+import django.utils
 from django.contrib.postgres.fields import JSONField
 
 # from django.db.models import ManyToManyField
@@ -107,7 +107,7 @@ class Event(TimestampedModel):
                                         related_name='events',
                                         related_query_name='event')
 
-    event_time = models.DateTimeField(default=timezone.now())
+    event_time = models.DateTimeField(default=django.utils.timezone.now)
     provenance = models.CharField(max_length=20, choices=PROVENANCE_CHOICES, default=SYSTEM)
     event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, default=ET_SYSTEM)
     location = models.PointField(srid=4326, null=True)
