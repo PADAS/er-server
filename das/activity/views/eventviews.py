@@ -1,15 +1,9 @@
 from datetime import timedelta
 
-from rest_framework import status
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.response import Response
 from oauth2_provider.ext.rest_framework import OAuth2Authentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
-
-from django.contrib.gis.geos import Point
-
 from rest_framework import generics
 
 from activity.models import Event
@@ -34,6 +28,9 @@ class EventsView(generics.ListCreateAPIView):
     """.format(page_size=StandardResultsSetPagination.page_size,
                     max_page_size=StandardResultsSetPagination.max_page_size)
 
+    authentication_classes = ((OAuth2Authentication, SessionAuthentication))
+    permission_classes = ((IsAuthenticated,))
+
     serializer_class = EventSerializer
 
     pagination_class = StandardResultsSetPagination
@@ -49,6 +46,12 @@ class EventsView(generics.ListCreateAPIView):
                 raise ValueError("invalid bbox param")
             queryset = Event.objects.by_bbox(bbox, last_days=LAST_DAYS).order_by('-created_at')
         return queryset
+
+    # def get(self, request, *args, **kwargs):
+    #     return super().get(request, *args, **kwargs)
+
+
+
 
 
 class EventView(generics.RetrieveUpdateAPIView):

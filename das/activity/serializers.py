@@ -7,6 +7,13 @@ from drf_extra_fields.geo_fields import PointField
 import das_utils
 
 import activity.models
+from observations.serializers import SubjectSerializer
+
+class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
+
+    class Meta:
+        model = activity.models.EventAttachment
+
 
 
 class EventSerializer(rest_framework.serializers.ModelSerializer):
@@ -28,8 +35,17 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         if event.location is not None:
             geodata = make_feature(self.context['request'], event)
             rep['geojson'] = geodata
-        return rep
 
+        subject_attachment = event.attachments.filter(reason='target')
+
+        if subject_attachment:
+            try:
+                # TODO: Fix this so it can handle different types of attachments.
+                subject_attachment = subject_attachment[0]
+                rep['subject'] = SubjectSerializer().to_representation(subject_attachment.target)
+            except:
+                pass
+        return rep
 
 def make_feature(request, event):
     is_point = isinstance(event.coordinates, Point)
