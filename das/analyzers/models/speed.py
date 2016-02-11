@@ -26,25 +26,16 @@ class SpeedAnalyzer(Analyzer):
 
         for i, speed in enumerate(track.speed_series()):
 
-            if speed >= self.max_speed:
-
-                result.value = speed
-                result.level = CRITICAL
-                break
-
-            if speed <= self.min_speed:
+            if (speed <= self.min_speed) or (speed >= self.max_speed):
 
                 result.value = speed
                 result.level = CRITICAL
 
-                # have to translate shapely Point to a DjangoPoint so SpatialProxy
-                # doesn't throw a wobbly
+                # have to translate shapely Point to a DjangoPoint for SpatialProxy
                 point = track.geo_series[i]
                 result.location = DjangoPoint(point.x, point.y)
+                logger.info('Speed Analyzer detected speed outside of window [{}-{}] m/s'.format(self.min_speed, self.max_speed))
 
                 break
-
-        if result.level > NOMINAL:
-            logger.info('Speed Analyzer detected exceeded speed threshold')
 
         return result
