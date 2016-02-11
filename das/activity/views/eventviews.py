@@ -60,8 +60,6 @@ class EventView(generics.RetrieveUpdateAPIView):
         context = {}
         event = self.get_object()
 
-        event.image_url = 'http://tempuri.org/image.jpg'
-
         context['time'] = event.created_at
         context['coordinates'] = event.location
         context['request'] = self.request
