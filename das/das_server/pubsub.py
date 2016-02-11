@@ -50,22 +50,31 @@ def publish(message, routing_key='das'):
         logger.exception("Unhandled exception during publish")
 
 
-def subscribe(routing_key='das.#', callback=None, loop_forever=True):
-    """Subscribe to messages routed by routing_key
+def subscribe(subscription_list, loop_forever=True):
+    """Create a set of subscriptions to messages routed by routing_key
 
-    :param routing_key: routing key for the message. defaults to 'das.#'
+    :param subscription_list: a list of dictionaries with keys
+        'routing_key' and 'callback'.
+
+    routing_key is the routing key for the message. defaults to 'das.#'
         routing key is used in the topic exchange, so must be a list of words
         delimited by dots, up to the limit of 255 characters. Should begin
         with the string 'das'
 
-    :param callback: function to call on message.  Signature should be
+    callback is the function to call on the message.
 
     This function will block, but can be run in a thread
     """
 
     with Connection(BROKER_URL) as conn:
-        consumer = get_consumer(conn, routing_key, callback)
-        with consumer:
+
+        consumers = []
+
+        for subscription in subscription_list:
+            consumer = get_consumer(conn, subscription['routing_key'], subscription['callback'])
+            consumers.append(consumer)
+
+        with nested(*consumers):
             while True:
                 conn.drain_events()
                 if not loop_forever:

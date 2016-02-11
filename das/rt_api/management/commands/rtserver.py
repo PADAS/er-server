@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#this comes to late when using manage.py
+#this comes too late when using manage.py
 #set environment variable EVENTLET_SHOULDPATCH=True
 import eventlet
 eventlet.monkey_patch()
