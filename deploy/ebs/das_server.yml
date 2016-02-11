@@ -316,6 +316,8 @@ app:
             option_settings:
               'aws:elasticbeanstalk:application:environment':
                 DAS_ENV_NAME: 'dev'
+              'aws:autoscaling:launchconfiguration':
+                InstanceType: "t2.small"
 
         'das-server-lewa':
             cname_prefix: 'das-server-lewa'

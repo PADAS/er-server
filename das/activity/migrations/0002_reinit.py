@@ -38,7 +38,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='event',
             name='event_type',
-            field=models.CharField(choices=[('default', 'System Event'), ('alert', 'Analyzer')], default='analyzer', max_length=20),
+            field=models.CharField(choices=[('default', 'System Event'), ('alert', 'Analyzer')], default='default', max_length=20),
         ),
         migrations.AlterField(
             model_name='event',

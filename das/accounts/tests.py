@@ -7,8 +7,8 @@ from accounts.models import PermissionSet, User
 
 class BaseTestCase(TestCase):
     def setUp(self):
-        self.all_set = PermissionSet.objects.create(name='all', category='view_animals')
-        self.some_set = PermissionSet.objects.create(name='some', category='view_animals')
+        self.all_set = PermissionSet.objects.create(name='all')
+        self.some_set = PermissionSet.objects.create(name='some')
 
         self.some_set.parent = self.all_set
         self.some_set.save()
@@ -40,4 +40,4 @@ class ObjectPermissionSetTestCase(BaseTestCase):
     def test_user_has_view_permission(self):
         user = User.objects.create(username='active_user')
 
-        view_perm = Permission.objects.get()
+        #view_perm = Permission.objects.get()
