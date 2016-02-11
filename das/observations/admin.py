@@ -1,15 +1,18 @@
 from django.contrib import admin
 from mptt.admin import MPTTModelAdmin
-from mptt.forms import TreeNodeMultipleChoiceField
 
 import observations.models as models
-
-# Register your models here.
+import observations.forms
+from observations.forms import SubjectForm
 
 
 @admin.register(models.Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'subject_type', 'additional']
+
+    list_display = ['id', 'name', 'subject_type', 'subject_subtype', 'type_subtype_view', 'additional']
+    search_fields=['name',]
+
+    fields = ('id', 'name', 'additional', SubjectForm.SUBTYPE_FIELD)
 
     def queryset(self, request):
         """Limit Subjects to those this person can administer"""
@@ -19,6 +22,28 @@ class SubjectAdmin(admin.ModelAdmin):
 
         raise NotImplementedError('implement filtering SubjectAdmin to user permissions')
         return qs.filter(owner=request.user)
+
+    form = observations.forms.SubjectForm
+
+    def type_subtype_view(self, obj):
+        if obj is not None:
+            return '{}:{}'.format(obj.subject_type, obj.subject_subtype)
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj=obj, **kwargs)
+        form.base_fields[SubjectForm.SUBTYPE_FIELD].initial = self.type_subtype_view(obj)
+        return form
+
+    def save_model(self, request, obj, form, change):
+        '''
+        Hook to coerce type_subtype value to valid subject_type and subject_subtype model fields.
+        '''
+        if change and SubjectForm.SUBTYPE_FIELD in form.changed_data:
+            (t, st) = form.cleaned_data.get(SubjectForm.SUBTYPE_FIELD).split(':')
+            obj.subject_type = t
+            obj.subject_subtype = st
+
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(models.Source)

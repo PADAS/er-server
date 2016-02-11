@@ -213,12 +213,7 @@ class SubjectSourceManager(models.GeoManager):
         return sds
 
 
-SUBJECT_TYPES = (
-    ('wildlife', 'Wildlife'),
-    ('vehicle', 'Vehicle'),
-    ('stationary-object', 'Stationary Object'),
-    ('person', 'Person')
-)
+
 
 
 class SubjectSource(models.Model):
@@ -291,11 +286,80 @@ class SubjectManager(models.Manager):
 
 class Subject(models.Model, PermissionSetGroupMixin):
     """Person, Animal, Vehicle, etc"""
+
+    def clean_fields(self, exclude=None):
+        return super().clean_fields(exclude)
+
+    TYPE_WILDLIFE = 'wildlife'
+    TYPE_PERSON = 'person'
+    TYPE_VEHICLE = 'vehicle'
+    TYPE_STATIONARY_OBJECT = 'stationary-object'
+
+    SUBTYPE_ELEPHANT = 'elephant'
+    SUBTYPE_ZEBRA = 'zebra'
+    SUBTYPE_RHINO = 'rhino'
+    SUBTYPE_LION = 'lion'
+
+    SUBTYPE_SECURITY = 'security'
+    SUBTYPE_RESEARCH = 'research'
+    SUBTYPE_CAMERA_TRAP = 'camera-trap'
+    SUBTYPE_WEATHER_STATION = 'weather-station'
+
+    SUBTYPE_RANGER = 'ranger'
+    SUBTYPE_MANAGER = 'manager'
+    SUBTYPE_DRIVER = 'driver'
+
+    TYPES_HIERARCHIES = [
+        {
+            'value': TYPE_WILDLIFE,
+            'name': 'Wildlife',
+            'subtypes': (
+                (SUBTYPE_ELEPHANT, 'Elephant'),
+                (SUBTYPE_ZEBRA, 'Zebra'),
+                (SUBTYPE_RHINO, 'Rhino'),
+                (SUBTYPE_LION, 'Lion'),
+            )
+
+        },
+        {
+            'value': TYPE_PERSON,
+            'name': 'Person',
+            'subtypes': (
+                (SUBTYPE_RANGER, 'Ranger'),
+                (SUBTYPE_DRIVER, 'Driver'),
+                (SUBTYPE_MANAGER, 'Manager'),
+            )
+        },
+        {
+            'value': TYPE_VEHICLE,
+            'name': 'Vehicle',
+            'subtypes': (
+                (SUBTYPE_SECURITY, 'Security Vehicle'),
+                (SUBTYPE_RESEARCH, 'Research Vehicle'),
+            )
+        },
+        {
+            'value': TYPE_STATIONARY_OBJECT,
+            'name': 'Stationary Sensor',
+            'subtypes': (
+                (SUBTYPE_CAMERA_TRAP, 'Camera Trap'),
+                (SUBTYPE_WEATHER_STATION, 'Weather Sensor'),
+            )
+        }
+    ]
+
+    TYPE_CHOICES = [(item['value'], item['name']) for item in TYPES_HIERARCHIES]
+    SUBTYPE_CHOICES = [(item['name'], item['subtypes']) for item in TYPES_HIERARCHIES]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField('name', max_length=100)
-    subject_type = models.CharField('subject type', max_length=100, choices=SUBJECT_TYPES, default='wildlife')
-    additional = JSONField('additional data')
-    group = TreeForeignKey(SubjectGroup, on_delete=models.SET_NULL, null=True)
+
+    subject_type = models.CharField('subject type', max_length=100, default=TYPE_WILDLIFE, choices=TYPE_CHOICES)
+    subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_ELEPHANT,
+                                       choices=SUBTYPE_CHOICES)
+
+    additional = JSONField('additional data',)
+    group = TreeForeignKey(SubjectGroup, on_delete=models.SET_NULL, null=True, blank=True)
 
     objects = SubjectManager()
 
