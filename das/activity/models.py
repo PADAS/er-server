@@ -49,9 +49,9 @@ class Event(TimestampedModel):
     ANALYZER = 'analyzer'
     INFORMANT = 'informant'
     RANGER = 'ranger'
-    
+
     PROVENANCE_CHOICES = (
-        (RANGER, 'Ranger')
+        (RANGER, 'Ranger'),
         (SYSTEM, 'System Process'),
         (SENSOR, 'Sensor'),
         (ANALYZER, 'Analyzer'),
