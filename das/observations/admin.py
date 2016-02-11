@@ -9,8 +9,8 @@ from observations.forms import SubjectForm
 @admin.register(models.Subject)
 class SubjectAdmin(admin.ModelAdmin):
 
-    list_display = ['id', 'name', 'subject_type', 'subject_subtype', 'type_subtype_view', 'additional']
-    search_fields=['name',]
+    list_display = ['id', 'name', 'subject_type', 'subject_subtype', 'additional']
+    search_fields=['name', 'subject_subtype']
 
     fields = ('id', 'name', 'additional', SubjectForm.SUBTYPE_FIELD)
 
