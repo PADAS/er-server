@@ -31,7 +31,7 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
                          'species',)
     class Meta:
         model = models.Subject
-        fields = ('id', 'name', 'subject_type')
+        fields = ('id', 'name', 'subject_type', 'subject_subtype')
 
     def to_representation(self, instance):
         rep = super(SubjectSerializer, self).to_representation(instance)
