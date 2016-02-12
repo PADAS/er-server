@@ -326,5 +326,5 @@ CACHE_REDIS = {'host': 'localhost',
                       'db': 1,
                       }
 
-REALTIME_BROKER_URL = 'redis://localhost:6379/1'
-PUBSUB_BROKER_URL = 'redis://localhost:6379/2'
+REALTIME_BROKER_URL = 'redis://localhost:6379'
+PUBSUB_BROKER_URL = 'redis://localhost:6379'
