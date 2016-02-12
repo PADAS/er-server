@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 #!/usr/bin/env python
 #this comes too late when using manage.py
 #set environment variable EVENTLET_SHOULDPATCH=True
@@ -7,20 +9,21 @@ eventlet.monkey_patch()
 import errno
 import sys
 import os
-from datetime import datetime
 import socket
-import socketio
 
+from django.utils import autoreload, six
+from django.utils.encoding import get_system_encoding
+from datetime import datetime
 from django.conf import settings
 import django.core.management.commands.runserver as runserver
-from django.utils import autoreload, six
-from django.utils.encoding import force_text, get_system_encoding
+from django.utils.encoding import force_text
 
 import rt_api.server
+from rt_api.socketio import RTSocketIO
 import rt_api.pubsub_listener
 
-
 class Command(runserver.Command):
+
     def inner_run(self, *args, **options):
         # If an exception was silenced in ManagementUtility.execute in order
         # to be raised in the child process, raise it now.
@@ -49,12 +52,12 @@ class Command(runserver.Command):
         })
 
         try:
-            app = self.get_handler(*args, **options)
-            socketio_app = rt_api.server.sios
-            app = socketio_app.init_app(app=app, **{'message_queue': settings.REALTIME_BROKER_URL}).wsgi_app
+            wsgi_handler = self.get_handler(*args, **options)
+            sios = RTSocketIO(app=wsgi_handler, **{'message_queue': settings.REALTIME_BROKER_URL})
+            realtime_services = rt_api.server.create_realtime_handler(sios)
+            rt_api.pubsub_listener.start(realtime_services)
+            self.run_socket(self.addr, int(self.port), sios.wsgi_app)
 
-            self.run_socket(self.addr, int(self.port), app,
-                ipv6=self.use_ipv6, threading=threading)
         except socket.error as e:
             # Use helpful error messages instead of ugly tracebacks.
             ERRORS = {
@@ -74,8 +77,8 @@ class Command(runserver.Command):
                 self.stdout.write(shutdown_message)
             sys.exit(0)
 
-    def run_socket(self, addr, port, app, ipv6=False, threading=False):
-        import eventlet.wsgi
+
+    def run_socket(self, addr, port, app):
         eventlet.wsgi.server(eventlet.listen((addr, port)), app)
 
 
