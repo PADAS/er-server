@@ -209,8 +209,8 @@ app:
                         RewriteCond %%{QUERY_STRING} transport=websocket    [NC]
                         RewriteRule /(.*)           ws://localhost:8081/$1 [P,L]
 
-                        ProxyPass        /socket.io http://localhost:8081/socket.io
-                        ProxyPassReverse /socket.io http://localhost:8081/socket.io
+                        ProxyPass        /socket.io ws://localhost:8081/socket.io
+                        ProxyPassReverse /socket.io ws://localhost:8081/socket.io
 
               - 99_supervisord_celeryconfig.sh:
                     permissions: 0755

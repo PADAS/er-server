@@ -410,6 +410,7 @@ class RTServer(object):
             else:
                 sios.emit(message_type, data, room=str(user), namespace='/das')
         except Exception as ex:
+
             logger.error("Error emitting event over socket", ex)
 
     # test = False

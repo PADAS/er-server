@@ -48,6 +48,7 @@ def new_event_handler(data, message):
 
 
 def pubsub_listener():
+
     logger.debug('Starting pubsub listener')
     subscriptions = [
         {'routing_key': 'das.tracking.source.observations.new', 'callback': new_observation_handler},

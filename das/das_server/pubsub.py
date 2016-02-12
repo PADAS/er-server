@@ -13,13 +13,13 @@ from django.utils.module_loading import module_has_submodule
 from kombu import Consumer, Connection, Exchange, Queue
 from kombu.utils import nested
 
-from das_server.celery_settings import BROKER_URL
+from django.conf import settings
 
 
 logger = logging.getLogger(__name__)
 
 das_exchange = Exchange('das', type='topic', durable=True)
-connection = Connection(BROKER_URL)
+connection = Connection(settings.PUBSUB_BROKER_URL)
 pool = connection.Pool(20)
 
 def publish(message, routing_key='das'):
@@ -66,7 +66,7 @@ def subscribe(subscription_list, loop_forever=True):
     This function will block, but can be run in a thread
     """
 
-    with Connection(BROKER_URL) as conn:
+    with Connection(settings.PUBSUB_BROKER_URL) as conn:
 
         consumers = []
 
@@ -134,7 +134,7 @@ def get_consumer(connection, routing_key, callback):
 
 def start_message_queue_listeners():
 
-    with Connection(BROKER_URL) as conn:
+    with Connection(settings.PUBSUB_BROKER_URL) as conn:
 
         consumers = []
 

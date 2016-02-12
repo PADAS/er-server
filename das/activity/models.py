@@ -171,20 +171,20 @@ class EventAttachment(models.Model):
 
 EVENT_TYPE_ICONS = {
 
-    Event.ET_SYSTEM: '/static/event-type-system.svg',
-    Event.ET_PROXIMITY: '/static/event-type-proximity.svg',
-    Event.ET_GEOFENCE: '/static/event-type-geofence.svg',
-    Event.ET_SPEED: '/static/event-type-speed.svg',
+    Event.ET_SYSTEM: '/static/event-type-system.png',
+    Event.ET_PROXIMITY: '/static/event-type-proximity.png',
+    Event.ET_GEOFENCE: '/static/event-type-geofence.png',
+    Event.ET_SPEED: '/static/event-type-speed.png',
 
-    Event.ET_FENCE_BREACH: '/static/event-type-fence-breach.svg',
-    Event.ET_ELEPHANT_SIGHTING: '/static/event-type-elephant-sighting.svg',
-    Event.ET_WOUNDED_ANIMAL: '/static/event-type-wounded-animal.svg',
-    Event.ET_FIRE: '/static/event-type-fire.svg',
-    Event.ET_LIVESTOCK_THEFT: '/static/event-type-livestock-theft.svg',
+    Event.ET_FENCE_BREACH: '/static/event-type-fence-breach.png',
+    Event.ET_ELEPHANT_SIGHTING: '/static/event-type-elephant-sighting.png',
+    Event.ET_WOUNDED_ANIMAL: '/static/event-type-wounded-animal.png',
+    Event.ET_FIRE: '/static/event-type-fire.png',
+    Event.ET_LIVESTOCK_THEFT: '/static/event-type-livestock-theft.png',
 }
 
 
 def marker_icon(event_type):
-    url = EVENT_TYPE_ICONS.get(event_type, '/static/event-type-system.svg')
+    url = EVENT_TYPE_ICONS.get(event_type, '/static/event-type-system.png')
     return url
 

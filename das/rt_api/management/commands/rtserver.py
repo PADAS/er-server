@@ -51,7 +51,7 @@ class Command(runserver.Command):
         try:
             app = self.get_handler(*args, **options)
             socketio_app = rt_api.server.sios
-            app = socketio_app.init_app(app=app, **{'message_queue': settings.KMOBU_MESSAGE_QUEUE_URL}).wsgi_app
+            app = socketio_app.init_app(app=app, **{'message_queue': settings.REALTIME_BROKER_URL}).wsgi_app
 
             self.run_socket(self.addr, int(self.port), app,
                 ipv6=self.use_ipv6, threading=threading)

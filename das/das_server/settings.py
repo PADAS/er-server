@@ -213,6 +213,10 @@ LOGGING = {
         'tracking': {
             'handlers': ['file'],
             'level': 'DEBUG',
+        },
+        'activity': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
         }
     }
 }
@@ -322,4 +326,5 @@ CACHE_REDIS = {'host': 'localhost',
                       'db': 1,
                       }
 
-KMOBU_MESSAGE_QUEUE_URL = 'redis://localhost:6379'
+REALTIME_BROKER_URL = 'redis://localhost:6379/1'
+PUBSUB_BROKER_URL = 'redis://localhost:6379/2'

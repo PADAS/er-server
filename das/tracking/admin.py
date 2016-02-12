@@ -8,6 +8,7 @@ from django.contrib.staticfiles.templatetags.staticfiles import static
 @admin.register(models.SourcePlugin)
 class SourcePluginAdmin(admin.ModelAdmin):
     list_display = ['plugin_type', 'source']
+    search_fields = ['source__manufacturer_id',]
 
 @admin.register(models.SavannahPlugin)
 class SavannahPluginAdmin(admin.ModelAdmin):
