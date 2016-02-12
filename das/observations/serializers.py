@@ -112,6 +112,8 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         'type': 'Feature',
         'properties': {
             'title': subject.name,
+            'subject_type': subject.subject_type,
+            'subject_subtype': subject.subject_subtype
         },
     }
     properties = feature['properties']
