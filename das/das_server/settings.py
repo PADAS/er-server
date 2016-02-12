@@ -217,6 +217,10 @@ LOGGING = {
         'activity': {
             'handlers': ['file'],
             'level': 'DEBUG',
+        },
+        'rt_api': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
         }
     }
 }
@@ -256,19 +260,6 @@ STATICFILES_DIRS = (
 SITE_ID = 1
 
 #CORS_URLS_REGEX = r'^/api/.*$'
-
-# SCHEDULER = {
-#     'db_url': 'postgres://postgres:postgres@localhost:5432/dasdb',
-#     'executors': {
-#         'default': {'type': 'threadpool', 'max_workers': 20},
-#         'processpool': {'type': 'processpool', 'max_workers': 4},
-#     },
-#     'job_defaults': {
-#         'coalesce': False,
-#         'max_instances': 3
-#     }
-#
-# }
 
 SWAGGER_SETTINGS = {
     'api_version': 'v1.0',
@@ -320,11 +311,6 @@ DATA_INPUT_PLUGINS = {
 
 #would want to set this to where you might have some MBTiles maps
 MAPPING = {'MBTILES': {'root': r'\tmp',}}
-
-CACHE_REDIS = {'host': 'localhost',
-                      'port': 6379,
-                      'db': 1,
-                      }
 
 REALTIME_BROKER_URL = 'redis://localhost:6379'
 PUBSUB_BROKER_URL = 'redis://localhost:6379'

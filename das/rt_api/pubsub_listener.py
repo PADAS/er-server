@@ -57,4 +57,5 @@ def pubsub_listener():
     pubsub.subscribe(subscriptions)
 
 import eventlet
-eventlet.spawn(pubsub_listener)
+pool = eventlet.GreenPool(size=16)
+pool.spawn(pubsub_listener, )
