@@ -55,7 +55,7 @@ class ContainmentAnalyzer(Analyzer):
         polygon = self.polygon_or_default
 
         result = AnalyzerResult()
-        result.analyzer_type = self.__class__
+        result.analyzer_type = self.__class__.__name__
         result.level = NOMINAL
 
         if polygon.feature_geometry.contains(Point(point.x, point.y)):

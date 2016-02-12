@@ -4,6 +4,7 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point as DjangoPoint
 
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
+from ..exceptions import InsufficientDataAnalyzerException
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,9 @@ class SpeedAnalyzer(Analyzer):
         """ analyze track for speed thresholds. Only the 24 hours before the most
         recent observation are considered """
         super().analyze(track)
+
+        if len(track) < 5:
+            raise InsufficientDataAnalyzerException
 
         result = AnalyzerResult()
         result.analyzer_type = self.__class__.__name__

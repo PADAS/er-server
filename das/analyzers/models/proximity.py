@@ -2,8 +2,9 @@ import logging
 
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point, Polygon, MultiPolygon
+from django.core.exceptions import ObjectDoesNotExist
 
-from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
+from .analyzer import Analyzer, AnalyzerResult, CRITICAL
 from .utils import distance_to_exterior_point
 from mapping.models import FeatureType, PolygonFeature
 
@@ -31,7 +32,9 @@ class ProximityAnalyzer(Analyzer):
     def polygon_or_default(self):
         try:
             return self.polygon
-        except:
+
+        except ObjectDoesNotExist:
+
             # create the objects, but we don't need to save() them
             feature_type = FeatureType(name='')
 

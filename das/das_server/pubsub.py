@@ -103,18 +103,9 @@ def installed_apps_subscriptions(submodule='pubsub_registry', ignore_re='(djgeoj
                 yield (routing_key, callback)
 
         except AttributeError as e:
-            logger.warn('{}.PUBSUB_SUBSCRIPTIONS should be a sequence of (routing_key, callback) sequences'.format(module_name))
+            logger.warning('{}.PUBSUB_SUBSCRIPTIONS should be a sequence of (routing_key, callback) sequences. {}'.format(module_name, e))
         except ImportError as e:
             logger.debug('No pubsub registrations imported for app {}'.format(app_config.name))
-
-
-running = True
-def signal_handler(*args):
-    logger.warning("SIGINT caught")
-    global running
-    running = False
-
-signal.signal(signal.SIGINT, signal_handler)
 
 
 def get_consumer(connection, routing_key, callback):
@@ -122,17 +113,26 @@ def get_consumer(connection, routing_key, callback):
      with routing_key to callback """
 
     queue = Queue(
-         channel=connection,
-         exchange=das_exchange,
-         routing_key=routing_key,
-         no_ack=True,
-         auto_delete=True
+        channel=connection,
+        exchange=das_exchange,
+        routing_key=routing_key,
+        no_ack=True,
+        auto_delete=True
     )
     consumer = Consumer(connection, queues=[queue], callbacks=[callback])
     return consumer
 
 
+running = True
+
 def start_message_queue_listeners():
+
+    def signal_handler(*args):
+        logger.warning("SIGINT caught")
+        global running
+        running = False
+
+    signal.signal(signal.SIGINT, signal_handler)
 
     with Connection(settings.PUBSUB_BROKER_URL) as conn:
 
@@ -146,7 +146,7 @@ def start_message_queue_listeners():
             while running:
                 try:
                     conn.drain_events(timeout=2)
-                except socket.timeout as e:
-                    logger.debug('No messages received for 2 seconds')
+                except socket.timeout:
+                    pass
 
             logger.debug('Exiting')

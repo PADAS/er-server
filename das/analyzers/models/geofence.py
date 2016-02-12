@@ -5,6 +5,7 @@ from django.contrib.gis.geos import Point, LineString, MultiLineString
 from django.core.exceptions import ObjectDoesNotExist
 
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
+from ..exceptions import InsufficientDataAnalyzerException
 from mapping.models import FeatureType, LineFeature
 
 
@@ -47,7 +48,11 @@ class GeofenceAnalyzer(Analyzer):
         two observations are considered """
         super().analyze(track)
 
+        if len(track) < 2:
+            raise InsufficientDataAnalyzerException
+
         last_points = track[-2:]
+
         track_segment = MultiLineString(
             LineString((
                 Point(last_points[0].x, last_points[0].y),
