@@ -1,10 +1,9 @@
 import sys
 import logging
+
 import socketio
-import eventlet
 from django.conf import settings
-from django.contrib.auth import authenticate
-from oauthlib.common import Request
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,13 +14,13 @@ class _SocketIOMiddleware(socketio.Middleware):
 
     def __init__(self, socketio_app, django_app, socketio_path='socket.io'):
         self.django_app = django_app
-        super(_SocketIOMiddleware, self).__init__(socketio_app,
+        super().__init__(socketio_app,
                                                   django_app,
                                                   socketio_path)
 
     def __call__(self, environ, start_response):
         environ['django.app'] = self.django_app
-        return super(_SocketIOMiddleware, self).__call__(environ, start_response)
+        return super().__call__(environ, start_response)
 
 
 class RTSocketIO(object):

@@ -27,7 +27,7 @@ def start(realtime_server):
 
     def new_observation_handler(data, message):
         try:
-
+            logger.info("Handling new observation: %s", data)
             ss = SubjectSource.objects \
                     .filter(source_id=data['source_id']) \
                     .order_by('-assigned_range') \
@@ -64,7 +64,7 @@ def start(realtime_server):
         ]
         pubsub.subscribe(subscriptions)
 
-    pool = eventlet.GreenPool()
+    pool = eventlet.GreenPool(size=500)
     pool.spawn(pubsub_listener, )
 
 
