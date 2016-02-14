@@ -74,7 +74,6 @@ class ObservationManager(models.GeoManager):
         subject_sources = sorted(subject_sources,
                                  key=lambda ss: ss.assigned_range.lower,
                                  reverse=True)
-
         qs = None
         for ss in subject_sources:
             q = Q(source_id=ss.source_id) &\
@@ -385,11 +384,16 @@ class Subject(models.Model, PermissionSetGroupMixin):
     def last_observation(self):
         return Observation.objects.get_last_observation(self)
 
-    def observations(self):
+    def observations(self, last_days=None):
         """ returns all observations for this Subject, spanning
         Sources as necessary """
         sds = SubjectSource.objects.filter(subject=self)
-        obs = Observation.objects.get_source_range_observations(sds)
+        if last_days:
+            until = datetime.datetime.utcnow()
+            since = until - datetime.timedelta(days=last_days)
+            obs = Observation.objects.get_source_range_observations(sds, since=since, until=until)
+        else:
+            obs = Observation.objects.get_source_range_observations(sds)
         return obs
 
     @property

@@ -14,11 +14,6 @@ def event_callback(body, message):
     msg = "event_callback message: {} body: {}".format(message.delivery_info, body)
     logger.debug(msg)
 
-def another_event_callback(body, message):
-    """ generic kombu callback, just prints body and message """
-    msg = "another_event_callback message: {} body: {}".format(message, body)
-    logger.debug(msg)
-
 def tracking_callback(body, message):
     """ generic kombu callback, just prints body and message """
     msg = "tracking_callback message: {} body: {}".format(message.delivery_info, body)
@@ -29,6 +24,5 @@ def tracking_callback(body, message):
 # This will get picked up in pubsub.start_message_queue_listeners
 PUBSUB_SUBSCRIPTIONS = (
     ('das.event.#', event_callback),
-    ('das.event.#', another_event_callback),
     ('das.tracking.#', tracking_callback)
 )

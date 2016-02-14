@@ -63,7 +63,7 @@ class GeofenceAnalyzer(Analyzer):
         fence = self.fence_or_default
 
         result = AnalyzerResult()
-        result.analyzer_type = self.__class__
+        result.analyzer_type = self.__class__.__name__
         result.level = NOMINAL
 
         if track_segment.intersects(fence.feature_geometry):
@@ -82,7 +82,7 @@ class GeofenceAnalyzer(Analyzer):
                 (segment_times[1] - segment_times[0]).to_pytimedelta()
             crossing_time = segment_times[0] + dt
 
-            result.value = crossing_time
+            result.value = str(crossing_time)
             result.location = crossing_point
             result.level = CRITICAL
         else:

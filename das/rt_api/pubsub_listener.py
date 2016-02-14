@@ -38,8 +38,14 @@ def start(realtime_server):
             if subject:
                 sources = models.SubjectSource.objects.get_subject_sources(subject)
                 if sources:
-                    observations = models.Observation.objects.get_source_range_observations_last(sources, datetime.timedelta(days=3))
+
+                    # observations = models.Observation.objects.get_source_range_observations_last(sources, datetime.timedelta(days=3))
+                    # FIXME: last_days isn't working
+                    observations = subject.observations(last_days=None)
+                    # observations = subject.observations(last_days=3)
+
                     if observations:
+
                         coordinates = []
                         times = []
                         for i in range(0, 1):
@@ -50,8 +56,7 @@ def start(realtime_server):
                         feature = serializers.make_feature(request, coordinates, subject,times)
                         rep = das_utils.json.empty_geojson_featurecollection()
                         rep['features'].append(feature)
-
-                        realtime_server.emit_subject_update(subjectid=str(data['source_id']), geo_json=rep)
+                        realtime_server.emit_subject_update(subjectid=str(subject.pk), geo_json=rep)
         except Exception:
             logger.exception('Error handling new observation message: %s' % (data,))
 

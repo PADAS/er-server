@@ -21,6 +21,8 @@ points = (
     (37.45, 0.225),
     (37.50, 0.225),
     (37.55, 0.225),
+    (37.35, 0.425),
+    (37.55, 0.0),
 )
 
 source_id = '276600ae-06de-4fca-be79-58bb29695f5b'
@@ -52,7 +54,9 @@ def create_actors():
     global subject
     subject = Subject.objects.create(
         name = 'Topsy',
-        additional = {},
+        additional = {'sex': 'Female', 'species': 'Elephant'},
+        subject_type='wildlife',
+        subject_subtype='elephant'
         )
 
     DEFAULT_DATE_RANGE = (
@@ -88,7 +92,11 @@ def create_analyzers():
 
 def drive():
     # create Observation objects for each point
-    t0 = datetime(2016,3,1)
+    # t0 = datetime(2016,3,1)
+
+
+    t0 = datetime.now() - timedelta(days=3)
+
     for i, point in enumerate(points):
         dt = timedelta(hours=i)
         t = t0 + dt
@@ -99,8 +107,10 @@ def drive():
             recorded_at=t,
             additional={}
         )
-
-        notify_new_tracks(source.id)
+        from django.db import transaction
+        transaction.on_commit(lambda: notify_new_tracks(source.id))
+        transaction.commit()
+        input('press the any key')
 
 class Command(BaseCommand):
 
