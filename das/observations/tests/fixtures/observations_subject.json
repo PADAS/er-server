@@ -1,0 +1,12 @@
+[
+  {
+    "pk": "00000000-0000-0000-0000-000000000000",
+    "model": "observations.subject",
+    "fields": {
+      "name": "Topsy",
+      "subject_type": "wildlife",
+      "subject_subtype": "elephant",
+      "additional": {"note": "demo animal"}
+    }
+  }
+]

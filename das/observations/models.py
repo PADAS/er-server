@@ -212,9 +212,6 @@ class SubjectSourceManager(models.GeoManager):
         return sds
 
 
-
-
-
 class SubjectSource(models.Model):
     """A Subject is associated with a Source device for a specific time period
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
@@ -384,16 +381,27 @@ class Subject(models.Model, PermissionSetGroupMixin):
     def last_observation(self):
         return Observation.objects.get_last_observation(self)
 
+    @property
+    def source(self):
+        subject_source = SubjectSource \
+            .objects \
+            .filter(subject_id=self.pk) \
+            .order_by('-assigned_range') \
+            .first()
+
+        return subject_source.source
+
     def observations(self, last_days=None):
         """ returns all observations for this Subject, spanning
         Sources as necessary """
-        sds = SubjectSource.objects.filter(subject=self)
+        subject_sources = SubjectSource.objects.filter(subject=self)
         if last_days:
-            until = datetime.datetime.utcnow()
+            until = datetime.datetime.now()
             since = until - datetime.timedelta(days=last_days)
-            obs = Observation.objects.get_source_range_observations(sds, since=since, until=until)
+            obs = Observation.objects.get_source_range_observations(subject_sources, since=since, until=until)
         else:
-            obs = Observation.objects.get_source_range_observations(sds)
+            obs = Observation.objects.get_source_range_observations(subject_sources)
+
         return obs
 
     @property

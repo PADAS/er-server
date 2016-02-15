@@ -1,0 +1,17 @@
+[
+  {
+    "model": "observations.observation",
+    "pk": "10000000-0000-0000-0000-000000000000",
+    "fields": {
+      "location": "SRID=4326;POINT (0.000001 0.000001)",
+      "recorded_at": "2015-11-09T00:00:00Z",
+      "created_at": "2015-11-09T00:00:00Z",
+      "source": "04859b48-5665-4895-b7b1-64319f9812b0",
+      "additional": {
+        "voltage": "135",
+        "imei": "01080997SKY7B76",
+        "received_time": "2015-11-09T04:55:16.000000Z"
+      }
+    }
+  }
+]

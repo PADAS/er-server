@@ -1,7 +1,6 @@
-from django.test import TestCase
 from django.db import transaction
+from django.test import TestCase
 
-import activity.models
 from activity.models import Event, EventAttachment
 from activity.models import get_sentinel_user
 
@@ -24,7 +23,6 @@ class TestSourcePlugin(TestCase):
                                      )
 
         self.assertIsNotNone(e.id)
-        print(e.id)
 
 fake_long_description = '''
 Lorem ipsum dolor sit amet, duis libero nunc vitae wisi et, etiam viverra hic sagittis aliquam adipiscing,
