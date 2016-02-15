@@ -312,5 +312,5 @@ DATA_INPUT_PLUGINS = {
 #would want to set this to where you might have some MBTiles maps
 MAPPING = {'MBTILES': {'root': r'\tmp',}}
 
-REALTIME_BROKER_URL = 'redis://localhost:6379'
-PUBSUB_BROKER_URL = 'redis://localhost:6379'
+REALTIME_BROKER_URL = 'redis://localhost:6379/2'
+PUBSUB_BROKER_URL = 'redis://localhost:6379/1'
