@@ -14,9 +14,7 @@ class _SocketIOMiddleware(socketio.Middleware):
 
     def __init__(self, socketio_app, django_app, socketio_path='socket.io'):
         self.django_app = django_app
-        super().__init__(socketio_app,
-                                                  django_app,
-                                                  socketio_path)
+        super().__init__(socketio_app, django_app, socketio_path)
 
     def __call__(self, environ, start_response):
         environ['django.app'] = self.django_app

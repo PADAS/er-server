@@ -53,7 +53,7 @@ class Command(runserver.Command):
 
         try:
             wsgi_handler = self.get_handler(*args, **options)
-            sios = RTSocketIO(app=wsgi_handler, **{'message_queue': settings.REALTIME_BROKER_URL})
+            sios = RTSocketIO(app=wsgi_handler, message_queue=settings.REALTIME_BROKER_URL, logger=True)
             realtime_services = rt_api.server.create_realtime_handler(sios)
             rt_api.pubsub_listener.start(realtime_services)
             self.run_socket(self.addr, int(self.port), sios.wsgi_app)
