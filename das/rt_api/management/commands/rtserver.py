@@ -1,22 +1,19 @@
 from __future__ import unicode_literals
 
-#!/usr/bin/env python
-#this comes too late when using manage.py
-#set environment variable EVENTLET_SHOULDPATCH=True
-import eventlet
-eventlet.monkey_patch()
+# this comes too late when using manage.py
+# set environment variable EVENTLET_SHOULDPATCH=True
+# eventlet.monkey_patch()
 
 import errno
 import sys
 import os
 import socket
 
-from django.utils import autoreload, six
-from django.utils.encoding import get_system_encoding
-from datetime import datetime
 from django.conf import settings
 import django.core.management.commands.runserver as runserver
+from django.utils import autoreload
 from django.utils.encoding import force_text
+import eventlet
 
 import rt_api.server
 from rt_api.socketio import RTSocketIO
@@ -28,28 +25,6 @@ class Command(runserver.Command):
         # If an exception was silenced in ManagementUtility.execute in order
         # to be raised in the child process, raise it now.
         autoreload.raise_last_exception()
-
-        threading = options.get('use_threading')
-        shutdown_message = options.get('shutdown_message', '')
-        quit_command = 'CTRL-BREAK' if sys.platform == 'win32' else 'CONTROL-C'
-
-        self.stdout.write("Performing system checks...\n\n")
-        self.check(display_num_errors=True)
-        self.check_migrations()
-        now = datetime.now().strftime('%B %d, %Y - %X')
-
-        self.stdout.write(now)
-        self.stdout.write((
-            "Django version %(version)s, using settings %(settings)r\n"
-            "Starting development server at http://%(addr)s:%(port)s/\n"
-            "Quit the server with %(quit_command)s.\n"
-        ) % {
-            "version": self.get_version(),
-            "settings": settings.SETTINGS_MODULE,
-            "addr": '[%s]' % self.addr if self._raw_ipv6 else self.addr,
-            "port": self.port,
-            "quit_command": quit_command,
-        })
 
         try:
             wsgi_handler = self.get_handler(*args, **options)
@@ -73,8 +48,6 @@ class Command(runserver.Command):
             # Need to use an OS exit because sys.exit doesn't work in a thread
             os._exit(1)
         except KeyboardInterrupt:
-            if shutdown_message:
-                self.stdout.write(shutdown_message)
             sys.exit(0)
 
 

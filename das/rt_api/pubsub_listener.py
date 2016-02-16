@@ -1,13 +1,16 @@
 import logging
-from das_server import pubsub
-from observations.models import Subject, SubjectSource
-from rt_api.server import DummyRequest
-from observations import models, serializers
+
+import eventlet
+
 from activity.models import Event
 from activity.serializers import EventSerializer
+from das_server import pubsub
 import das_utils
-import datetime
-import eventlet
+from observations.models import SubjectSource
+from observations import serializers
+from rt_api.server import DummyRequest
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,35 +31,30 @@ def start(realtime_server):
     def new_observation_handler(data, message):
         try:
             logger.info("Handling new observation: %s", data)
-            ss = SubjectSource.objects \
+            subject = SubjectSource.objects \
                     .filter(source_id=data['source_id']) \
                     .order_by('-assigned_range') \
-                    .first()
+                    .first() \
+                    .subject
 
-            subject = ss.subject
+            observations = subject.observations(last_days=3)
 
-            if subject:
-                sources = models.SubjectSource.objects.get_subject_sources(subject)
-                if sources:
+            observations = observations[:2]
 
-                    # observations = models.Observation.objects.get_source_range_observations_last(sources, datetime.timedelta(days=3))
-                    # FIXME: last_days isn't working
-                    observations = subject.observations(last_days=None)
-                    # observations = subject.observations(last_days=3)
+            if not observations:
+                logger.warning('Could not locate any observations')
+                return
 
-                    if observations:
+            coordinates, times = zip(*[
+                (o.location.coords, str(o.recorded_at)) for o in observations
+            ])
 
-                        coordinates = []
-                        times = []
-                        for i in range(0, 1):
-                            coordinates.append(observations[i].location.coords)
-                            times.append(str(observations[i].recorded_at))
+            request = DummyRequest(uri='', http_method='GET')
+            feature = serializers.make_feature(request, coordinates, subject, times)
+            rep = das_utils.json.empty_geojson_featurecollection()
+            rep['features'].append(feature)
+            realtime_server.emit_subject_update(subjectid=str(subject.pk), geo_json=rep)
 
-                        request = DummyRequest(uri='', http_method='GET')
-                        feature = serializers.make_feature(request, coordinates, subject,times)
-                        rep = das_utils.json.empty_geojson_featurecollection()
-                        rep['features'].append(feature)
-                        realtime_server.emit_subject_update(subjectid=str(subject.pk), geo_json=rep)
         except Exception:
             logger.exception('Error handling new observation message: %s' % (data,))
 
@@ -69,8 +67,7 @@ def start(realtime_server):
         ]
         pubsub.subscribe(subscriptions)
 
-    pool = eventlet.GreenPool(size=500)
-    pool.spawn(pubsub_listener, )
+    eventlet.greenthread.spawn_n(pubsub_listener)
 
 
 

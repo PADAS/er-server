@@ -21,7 +21,7 @@ class _SocketIOMiddleware(socketio.Middleware):
         return super().__call__(environ, start_response)
 
 
-class RTSocketIO(object):
+class RTSocketIO():
     """Create a SocketIO server.
     :param app: The flask application instance. If the application instance
                 isn't known at the time this class is instantiated, then call
