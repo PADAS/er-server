@@ -8,6 +8,7 @@ python-dateutil==2.4.2
 requests==2.8.1
 python-engineio==0.8.7
 #python-socketio==1.0
+git+https://github.com/PADAS/python-socketio.git@master
 greenlet==0.4.9
 gunicorn==19.4.5
 Django==1.9.2
