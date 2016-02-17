@@ -16,13 +16,13 @@ events:
     description: Elephant near village and Rangeland Hotel
     provenance: informant
     event_type: elephant-sighting
-    priority: important
+    priority: 0
     center: [37.5241474,0.2792556]
 
   - name: Livestock Theft
     description: Cattle missing in Leparua
     provenance: informant
     event_type: livestock-theft
-    priority: urgent
+    priority: 0
     center: [37.423530, 0.299690]
 
