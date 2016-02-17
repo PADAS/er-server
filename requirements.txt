@@ -51,6 +51,6 @@ celery==3.1.20
 redis==2.10.5
 six==1.10.0
 
-eventlet==0.18.1
+eventlet==0.18.4
 django-mptt==0.8.0
 django-extra-fields==0.5
