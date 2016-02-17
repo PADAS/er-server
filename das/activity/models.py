@@ -63,16 +63,19 @@ class Event(TimestampedModel):
     ET_GEOFENCE = 'geofence'
     ET_IMMOBILITY = 'immobility'
     ET_SPEED = 'speed'
-
-    ET_FENCE_BREACH = 'fence-breach'
+    ET_EXCLUSION_ZONE_BREACH = 'exclusion-zone-breach'
+    ET_PERIMETER_FENCE_BREACH = 'perimeter-fence-breach'
     ET_ELEPHANT_SIGHTING = 'elephant-sighting'
     ET_WOUNDED_ANIMAL = 'wounded-animal'
     ET_FIRE = 'fire'
     ET_LIVESTOCK_THEFT = 'livestock-theft'
+    ET_CONTAINMENT_BREACH = 'containment-breach'
+    ET_FOOTPRINTS = 'footprints'
 
     EVENT_TYPE_CHOICES = (
         (ET_SYSTEM, 'System'),
-        (ET_FENCE_BREACH, 'Fence Breach'),
+        (ET_EXCLUSION_ZONE_BREACH, 'Exclusion Zone Breach'),
+        (ET_PERIMETER_FENCE_BREACH, 'Perimeter Fence Breach'),
         (ET_ELEPHANT_SIGHTING, 'Elephant Sighting'),
         (ET_WOUNDED_ANIMAL, 'Wounded Animal'),
         (ET_LIVESTOCK_THEFT, 'Livestock Theft'),
@@ -80,8 +83,9 @@ class Event(TimestampedModel):
         (ET_PROXIMITY, 'Proximity'),
         (ET_GEOFENCE, 'Geofence'),
         (ET_IMMOBILITY, 'Immobility'),
-        (ET_SPEED, 'Speed')
-
+        (ET_SPEED, 'Speed'),
+        (ET_CONTAINMENT_BREACH, 'Containment Breach'),
+        (ET_FOOTPRINTS, 'Suspicious Signs')
     )
 
     PRI_URGENT = 300
@@ -127,7 +131,7 @@ class Event(TimestampedModel):
 
     @property
     def image_url(self):
-        return marker_icon(self.event_type)
+        return marker_icon(self.event_type, self.priority_label.lower())
 
     def __str__(self):
         return self.name
@@ -161,22 +165,8 @@ class EventAttachment(models.Model):
         return '{0}:{1}'.format(self.target.__str__(), self.reason)
 
 
-EVENT_TYPE_ICONS = {
-
-    Event.ET_SYSTEM: '/static/event-type-system.png',
-    Event.ET_PROXIMITY: '/static/event-type-proximity.png',
-    Event.ET_GEOFENCE: '/static/event-type-geofence.png',
-    Event.ET_SPEED: '/static/event-type-speed.png',
-
-    Event.ET_FENCE_BREACH: '/static/event-type-fence-breach.png',
-    Event.ET_ELEPHANT_SIGHTING: '/static/event-type-elephant-sighting.png',
-    Event.ET_WOUNDED_ANIMAL: '/static/event-type-wounded-animal.png',
-    Event.ET_FIRE: '/static/event-type-fire.png',
-    Event.ET_LIVESTOCK_THEFT: '/static/event-type-livestock-theft.png',
-}
+def marker_icon(*args):
+    return '/static/event-marker-{}.svg'.format('-'.join(args))
 
 
-def marker_icon(event_type):
-    url = EVENT_TYPE_ICONS.get(event_type, '/static/event-type-system.png')
-    return url
 

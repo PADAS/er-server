@@ -63,17 +63,25 @@ def make_feature(request, event):
     }
 
     properties = feature['properties']
-    if hasattr(event, 'color'):
-        feature['style'] = {
-            "color": event.color,
+    if hasattr(event, 'image_url'):
+
+        properties['icon'] = {
             "iconUrl": image_url,
-            "opacity": 1,
-            "deprecating": "use https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0"
+            "iconSize": [25, 25],
+            "iconAncor": [12, 12],
+            "popupAncor": [0, -13],
+            "className": 'dot',
+
         }
-        # see https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0
-        properties['stroke'] = event.color
-        properties['stroke-opacity'] = 1.0
-        properties['stroke-width'] = 2
-        properties['image'] = image_url
+        # feature['style'] = {
+        #     "color": event.color,
+        #     "opacity": 1,
+        #     "deprecating": "use https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0"
+        # }
+        # # see https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0
+        # properties['stroke'] = event.color
+        # properties['stroke-opacity'] = 1.0
+        # properties['stroke-width'] = 2
+        # properties['icon'] = image_url
 
     return feature
