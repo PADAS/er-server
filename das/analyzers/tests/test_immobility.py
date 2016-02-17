@@ -18,20 +18,19 @@ class TestImmobilityAnalyzer(TestCase):
         self.n_points = 50
 
         mobile_points = [
-            (200 * i * 10 ** -6,0)
+            [200 * i * 10 ** -6,0]
             for i in range(self.n_points)
         ]
 
         # dead track
         immobile_points = [
-            (0,0)
+            [0,0]
             for i in range(self.n_points)
         ]
 
-        immobile_points_with_outliers = copy.copy(immobile_points)
-        # insert noisy readings:
-        immobile_points_with_outliers[40] = (1e09, 1e09)
-        immobile_points_with_outliers[45] = (-1e09, -1e09)
+        immobile_points_with_outliers = copy.deepcopy(immobile_points)
+        # insert noise:
+        immobile_points_with_outliers[49][0] = immobile_points_with_outliers[49][0] + .0004
 
         times = [
             datetime(2000,1,1,0,0,0,tzinfo=pytz.utc) + timedelta(hours=i)
@@ -47,13 +46,13 @@ class TestImmobilityAnalyzer(TestCase):
         Test a mobile Track
         """
 
-        immobility_analyzer = ImmobilityAnalyzer(radius=100)
+        immobility_analyzer = ImmobilityAnalyzer()
         analyzer_result = immobility_analyzer.analyze(self.mobile_track)
 
         expected = NOMINAL
         actual = analyzer_result.level
 
-        self.assertEqual(actual, expected)
+        self.assertEqual(actual, expected, 'actual value: {}'.format(analyzer_result.value))
 
     def test_immobility_analyzer_is_critical_immobile(self):
         """
@@ -63,8 +62,8 @@ class TestImmobilityAnalyzer(TestCase):
         analyzer = ImmobilityAnalyzer()
         analyzer_result = analyzer.analyze(self.immobile_track)
 
-        expected = CRITICAL
         actual = analyzer_result.level
+        expected = CRITICAL
 
         self.assertEqual(actual, expected)
 
@@ -72,14 +71,13 @@ class TestImmobilityAnalyzer(TestCase):
         """
         Test an immobile Track
         """
-
         analyzer = ImmobilityAnalyzer()
         analyzer_result = analyzer.analyze(self.immobile_track)
 
         expected = CRITICAL
         actual = analyzer_result.level
 
-        self.assertEqual(actual, expected)
+        self.assertEqual(actual, expected, "actual value: {}".format(analyzer_result.value))
 
     def test_immobility_analyzer_is_nominal_with_a_few_outliers_but_less_than_threshold_ratio(self):
         """
@@ -93,7 +91,7 @@ class TestImmobilityAnalyzer(TestCase):
         expected = WARNING
         actual = analyzer_result.level
 
-        self.assertEqual(actual, expected, "actual value: ".format(analyzer_result.value))
+        self.assertEqual(actual, expected, "actual value: {}".format(analyzer_result.value))
 
     def test_immobility_analyzer_is_warning_with_more_outliers_than_the_threshold_ratio(self):
         """
@@ -106,4 +104,4 @@ class TestImmobilityAnalyzer(TestCase):
         expected = NOMINAL
         actual = analyzer_result.level
 
-        self.assertEqual(actual, expected)
+        self.assertEqual(actual, expected, "actual value: {}".format(analyzer_result.value))

@@ -54,14 +54,13 @@ class ImmobilityAnalyzer(Analyzer):
         result.level = NOMINAL
 
         # truncate track to recent observations
-        t_last_observation, p_last_observation  = track.last_observation
-        t_cutoff = t_last_observation - timedelta(hours=24)
+        t_last_observation, p_last_observation = track.last_observation
+        t_cutoff = t_last_observation - timedelta(seconds=self.threshold_time)
         track = track.truncate(before=t_cutoff)
 
         cluster_probability = cluster(track, self.radius)
 
         if cluster_probability >= self.threshold_warning_cluster_ratio:
-
             result.value = cluster_probability
             point = track.geo_series[-1]
             result.location = DjangoPoint(point.x, point.y)
