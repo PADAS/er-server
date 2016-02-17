@@ -23,8 +23,8 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.Event
         fields = (
-            'id', 'location', 'time', 'name', 'description', 'provenance', 'event_type', 'priority', 'attributes',
-            'image_url')
+            'id', 'location', 'time', 'name', 'description', 'provenance', 'event_type', 'priority',
+            'priority_label', 'attributes', 'image_url')
         id_field = False
         geo_field = 'location'
 

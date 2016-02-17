@@ -18,6 +18,9 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 class EventsView(generics.ListCreateAPIView):
+    def perform_create(self, serializer):
+        serializer.save(created_by_user=self.request.user)
+
     __doc__ = """
     Returns all events.
     Optional query-params:

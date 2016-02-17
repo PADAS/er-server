@@ -84,23 +84,19 @@ class Event(TimestampedModel):
 
     )
 
-    '''
-    I want to let the API expose string values, but the database hold numerics (for filtering and sorting).
-    See the priority @property methods too.
-    '''
-    PRI_URGENT = 'urgent'
-    PRI_IMPORTANT = 'important'
-    PRI_REFERENCE = 'reference'
+    PRI_URGENT = 300
+    PRI_IMPORTANT = 200
+    PRI_REFERENCE = 100
 
-    PRI_VALUES = (
-        (PRI_URGENT, 'Urgent', 300),
-        (PRI_IMPORTANT, 'Important', 200),
-        (PRI_REFERENCE, 'Reference', 100),
+    PRI_DEFAULT_VALUE = PRI_REFERENCE
+
+    PRIORITY_CHOICES = (
+        (100, 'Reference'),
+        (200, 'Important'),
+        (300, 'Urgent')
     )
-    PRI_MAP = dict((z, x) for (x, y, z) in PRI_VALUES)
-    PRI_MAP_REVERSE = dict((y, x) for (x, y) in PRI_MAP.items())
-    PRI_CHOICES = ((z, y) for (x, y, z) in PRI_VALUES)
-    PRI_DEFAULT_VALUE = 100
+
+    PRIORITY_LABELS_MAP = dict((x, y) for (x,y) in PRIORITY_CHOICES)
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
@@ -114,20 +110,16 @@ class Event(TimestampedModel):
     provenance = models.CharField(max_length=20, choices=PROVENANCE_CHOICES, default=SYSTEM)
     event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, default=ET_SYSTEM)
     location = models.PointField(srid=4326, null=True)
-    _priority = models.PositiveSmallIntegerField(db_column='priority', default=PRI_DEFAULT_VALUE, choices=PRI_CHOICES)
+    priority = models.PositiveSmallIntegerField(db_column='priority', default=PRI_DEFAULT_VALUE, choices=PRIORITY_CHOICES)
     attributes = JSONField(default={})
+
+    @property
+    def priority_label(self):
+        return self.PRIORITY_LABELS_MAP.get(self.priority, 'Unknown')
 
     @property
     def coordinates(self):
         return self.location
-
-    @property
-    def priority(self):
-        return self.PRI_MAP[self._priority]
-
-    @priority.setter
-    def priority(self, value):
-        self._priority = self.PRI_MAP_REVERSE[value]
 
     @property
     def time(self):
