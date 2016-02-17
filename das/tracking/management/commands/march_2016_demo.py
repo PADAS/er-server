@@ -1,5 +1,8 @@
-import subprocess
 from datetime import datetime, timedelta
+import os
+import subprocess
+import yaml
+from yaml import CSafeLoader as SafeLoader
 
 from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 from django.core.management.base import BaseCommand
@@ -33,6 +36,30 @@ points = (
     (37.55, 0.15),
     (37.50, 0.16),
     (37.45, 0.17),
+    # stay in place for 10h, triggering immobility
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
+    (37.40, 0.2),
     (37.40, 0.2),
     (37.35, 0.2),
 )
@@ -50,9 +77,10 @@ def delete_observations():
     Observation.objects.filter(source_id=source_id).delete()
 
 def delete_events():
-    for event_attachment in EventAttachment.objects.filter(target_id=subject_id):
-        event_attachment.event.delete()
-        event_attachment.delete()
+    Event.objects.all().delete()
+    # for event_attachment in EventAttachment.objects.filter(target_id=subject_id):
+    #     event_attachment.event.delete()
+    #     event_attachment.delete()
 
 def delete_analyzers():
     pass
@@ -108,6 +136,15 @@ def create_analyzers():
     subject_analyzer = SubjectAnalyzer(subject=subject, content_object=analyzer)
     subject_analyzer.save()
 
+    analyzer = ImmobilityAnalyzer.objects.create(
+        radius=100,
+        threshold_time=60*60,
+        threshold_warning_cluster_ratio=0.2,
+        threshold_critical_cluster_ratio=0.3,
+        )
+    immobility_analyzer = SubjectAnalyzer(subject=subject, content_object=analyzer)
+    immobility_analyzer.save()
+
 
 def drive():
     while True:
@@ -128,8 +165,42 @@ def drive():
             )
             transaction.on_commit(lambda: notify_new_tracks(source.id))
             transaction.commit()
-            # sleep for a second, or continue on enter press
-            subprocess.call('read -t 1', shell=True)
+            yield
+
+
+def get_time():
+    last_time = datetime.utcnow() - timedelta(hours=2)
+    last_time = last_time.replace(tzinfo=pytz.UTC)
+    time_increment = timedelta(minutes=5)
+    while True:
+        last_time = last_time + time_increment
+        yield last_time
+
+
+def add_demo_data(file=None):
+
+    def default_demo_file():
+        return os.path.join(os.path.dirname(__file__), 'march_2016_demo.yml')
+
+    if not file:
+        file = default_demo_file()
+    with open(file) as fp:
+        demo_data = yaml.load(fp, Loader=SafeLoader)
+
+    times = get_time()
+    print("add_demo_data")
+    print(demo_data)
+    for evt in demo_data['events']:
+        event = Event(name=evt['name'])
+        event.event_time = next(times)
+        if evt.get('center', None):
+            event.location = Point(*evt['center'])
+
+        for k,v in evt.items():
+            if hasattr(event, k):
+                setattr(event, k, v)
+        event.save()
+
 
 class Command(BaseCommand):
 
@@ -145,6 +216,17 @@ class Command(BaseCommand):
 
         create_actors()
         create_analyzers()
+        add_demo_data()
+
+        generator = drive()
+
+        # prime the DB with a couple of observations
+        next(generator)
+        next(generator)
 
         input('setup complete, press enter to start demo')
-        drive()
+
+        for step in generator:
+            # sleep for a bit, or continue on enter press
+            input('press enter to continue')
+            # subprocess.call('read -t 10', shell=True)

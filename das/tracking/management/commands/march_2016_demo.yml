@@ -1,0 +1,28 @@
+#1.	informant report: elephant near village – called in and logged in ops room (important)
+#2.	livestock theft (urgent)
+#3.	exclusion zone fence breach
+#4.	fire FIRMS (urgent) Fire detected in park (Chris will send example of notification)
+#5.	ranger call-in - daily log * KH: new icon – daily log – include in top 5
+#6.	suspicious footprints – ranger team following up to see if they belong to poachers
+#7.	low speed Title: Low speed alert Desc. Animal name at GPS coordinates
+#8.	wounded animal (urgent)
+#9.	geofence break Title: Geofence breach Desc. Animal name at GPS coordinates
+#10.	perimeter fence breach
+#11.	fast speed Title: Low speed alert Desc. Animal name at GPS coordinates
+#12.	immobility Title: Immobile animal Desc. Animal name at GPS coordinates
+
+events:
+  - name: Elephant near village
+    description: Elephant near village and Rangeland Hotel
+    provenance: informant
+    event_type: elephant-sighting
+    priority: important
+    center: [37.5241474,0.2792556]
+
+  - name: Livestock Theft
+    description: Cattle missing in Leparua
+    provenance: informant
+    event_type: livestock-theft
+    priority: urgent
+    center: [37.423530, 0.299690]
+
