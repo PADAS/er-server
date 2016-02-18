@@ -4,6 +4,7 @@ import logging
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point as DjangoPoint
 
+from activity.models import Event
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, WARNING, CRITICAL
 from ..exceptions import InsufficientDataAnalyzerException
 
@@ -32,6 +33,8 @@ class ImmobilityAnalyzer(Analyzer):
 
      """
 
+    event_type = Event.ET_IMMOBILITY
+
     radius = models.FloatField(default=13.0)
     threshold_time = models.IntegerField(default=18000)
     threshold_warning_cluster_ratio = models.FloatField(default=.8)
@@ -47,7 +50,7 @@ class ImmobilityAnalyzer(Analyzer):
         if len(track) < 5:
             raise InsufficientDataAnalyzerException
 
-        result = AnalyzerResult()
+        result = AnalyzerResult(self)
         result.analyzer_type = self.__class__.__name__
 
         # assume immobile until detected otherwise
@@ -67,10 +70,17 @@ class ImmobilityAnalyzer(Analyzer):
 
             if cluster_probability >= self.threshold_critical_cluster_ratio:
                 result.level = CRITICAL
-                logger.info('Immobility Analyzer detected critical level immobile track')
+                result.title = 'Subject is immobile'
+                logger.info(result.title)
 
             else:
                 result.level = WARNING
-                logger.info('Immobility Analyzer detected warning level immobile track')
+                result.title = 'Subject is almost immobile'
+                logger.info(result.title)
+
+        else:
+            result.location = DjangoPoint(p_last_observation.x, p_last_observation.y)
+            result.title = 'Subject is mobile'
+            logger.info(result.title)
 
         return result

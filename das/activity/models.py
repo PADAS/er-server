@@ -111,8 +111,8 @@ class Event(TimestampedModel):
                                         related_query_name='event')
 
     event_time = models.DateTimeField(default=django.utils.timezone.now)
-    provenance = models.CharField(max_length=20, choices=PROVENANCE_CHOICES, default=SYSTEM)
-    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, default=ET_SYSTEM)
+    provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES, default=SYSTEM)
+    event_type = models.CharField(max_length=40, choices=EVENT_TYPE_CHOICES, default=ET_SYSTEM)
     location = models.PointField(srid=4326, null=True)
     priority = models.PositiveSmallIntegerField(db_column='priority', default=PRI_DEFAULT_VALUE, choices=PRIORITY_CHOICES)
     attributes = JSONField(default={})

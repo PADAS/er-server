@@ -4,6 +4,7 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point, LineString, MultiLineString
 from django.core.exceptions import ObjectDoesNotExist
 
+from activity.models import Event
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
 from ..exceptions import InsufficientDataAnalyzerException
 from mapping.models import FeatureType, LineFeature
@@ -15,7 +16,13 @@ logger = logging.getLogger(__name__)
 class GeofenceAnalyzer(Analyzer):
     """ Analyzer for Track for geofence crossing """
 
-    fence = models.ForeignKey(to=LineFeature)
+    event_type = Event.ET_GEOFENCE
+
+    fence = models.ForeignKey(
+        to=LineFeature,
+        on_delete=models.CASCADE,
+        null=True
+    )
 
     # default equator
     _default_fence = MultiLineString(
@@ -30,9 +37,9 @@ class GeofenceAnalyzer(Analyzer):
 
     @property
     def fence_or_default(self):
-        try:
+        if self.fence:
             return self.fence
-        except ObjectDoesNotExist:
+        else:
             # create the objects, but we don't need to save() them
             feature_type = FeatureType(name='')
 
@@ -62,12 +69,11 @@ class GeofenceAnalyzer(Analyzer):
 
         fence = self.fence_or_default
 
-        result = AnalyzerResult()
+        result = AnalyzerResult(self)
         result.analyzer_type = self.__class__.__name__
         result.level = NOMINAL
 
         if track_segment.intersects(fence.feature_geometry):
-            logger.debug('GeofenceAnalyzer: last 2 points of track crossed fence')
             # determine crossing point
             crossing_point = track_segment.intersection(fence.feature_geometry)
 
@@ -85,8 +91,12 @@ class GeofenceAnalyzer(Analyzer):
             result.value = str(crossing_time)
             result.location = crossing_point
             result.level = CRITICAL
+            result.title = 'Subject crossed fence'
+            logger.debug(result.title)
         else:
-            logger.debug('GeofenceAnalyzer: last 2 points of track are clear of fence')
-
+            result.location = track[-1]
+            result.value = str(track.geo_series.index[-1].to_datetime())
+            result.title = 'Subject clear of fence'
+            logger.debug(result.title)
 
         return result

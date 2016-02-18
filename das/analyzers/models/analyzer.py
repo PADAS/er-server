@@ -2,6 +2,7 @@ import logging
 
 from django.contrib.gis.db import models
 
+from observations.models import Subject
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,8 @@ class Analyzer(models.Model):
     min_time = models.TimeField(null=True)
     max_time = models.TimeField(null=True)
 
+    subject = models.ForeignKey(to=Subject, on_delete=models.CASCADE)
+
     class Meta:
         abstract = True
 
@@ -25,23 +28,31 @@ class Analyzer(models.Model):
     def valid_times(self):
         return (self.min_time, self.max_time)
 
+    @property
+    def name(self):
+        return self.__class__.__name__
+
     def analyze(self, track):
         logger.info('{} analyzing {} records'.format(self.__class__.__name__, len(track)))
 
 
 class AnalyzerResult():
+
     level = NOMINAL
     value = 0.0
-    analyzer_type = None
+    title = 'AnalyzerResult'
     location = None
+
+    def __init__(self, analyzer):
+        self.analyzer = analyzer
 
     def to_dict(self):
         """ returns a dict of attributes of this object """
 
         return {
+            'title': self.title,
             'level': self.level,
             'value': self.value,
-            'analyzer_type': self.analyzer_type,
+            'analyzer_type': self.analyzer.name,
             'location': self.location and str(self.location) or None
         }
-
