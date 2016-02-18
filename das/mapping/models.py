@@ -119,6 +119,11 @@ class LineFeature(Feature):
 class PointFeature(Feature):
     feature_geometry = models.MultiPointField(srid=4326)
 
+    @property
+    def image_url(self):
+        return 'http://maps.google.com/mapfiles/kml/shapes/ranger_station.png'
+        #return 'http://maps.google.com/mapfiles/kml/shapes/triangle.png'
+
 
 class MissingTileError(Exception):
     pass
