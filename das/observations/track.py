@@ -72,6 +72,7 @@ class Track():
 
         return track
 
+    @property
     def speed_series(self):
 
         def speed_gen():
@@ -86,7 +87,7 @@ class Track():
                 dt = abs((t1 - t0).total_seconds())
                 yield dist_meters / dt
 
-        speeds = itertools.chain(speed_gen(), (np.nan,))
+        speeds = itertools.chain((np.nan,), speed_gen())
 
         # FIXME: get Series to init from a generator
         return pd.Series(list(speeds), index=self.geo_series.index)

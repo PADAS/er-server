@@ -4,6 +4,7 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 from django.core.exceptions import ObjectDoesNotExist
 
+from activity.models import Event
 from .analyzer import Analyzer, AnalyzerResult, CRITICAL
 from .utils import distance_to_exterior_point
 from mapping.models import FeatureType, PolygonFeature
@@ -14,7 +15,14 @@ logger = logging.getLogger(__name__)
 class ProximityAnalyzer(Analyzer):
     """ Speed Analyzer for a Track. """
 
-    polygon = models.ForeignKey(to=PolygonFeature)
+    event_type = Event.ET_PROXIMITY
+
+    polygon = models.ForeignKey(
+        to=PolygonFeature,
+        on_delete=models.CASCADE,
+        null=True
+    )
+
     distance_m = models.FloatField(default=100)  # in meters
 
     # default box around null island
@@ -30,11 +38,10 @@ class ProximityAnalyzer(Analyzer):
 
     @property
     def polygon_or_default(self):
-        try:
+        if self.polygon:
             return self.polygon
 
-        except ObjectDoesNotExist:
-
+        else:
             # create the objects, but we don't need to save() them
             feature_type = FeatureType(name='')
 
@@ -51,7 +58,7 @@ class ProximityAnalyzer(Analyzer):
 
         super().analyze(track)
 
-        result = AnalyzerResult()
+        result = AnalyzerResult(self)
         result.analyzer_type = self.__class__.__name__
 
         poly = self.polygon_or_default
@@ -62,9 +69,15 @@ class ProximityAnalyzer(Analyzer):
         else:
             distance = distance_to_exterior_point(poly.feature_geometry, Point(point.x, point.y))
 
+        result.location = Point(point.x, point.y)
+
         if distance <= self.distance_m:
             result.value = distance
             result.level = CRITICAL
-            logger.info('Proximity Analyzer detected a proximal track')
+            result.title = 'Subject too close to polygon'
+            logger.info(result.title)
+        else:
+            result.title = 'Subject is distant from polygon'
+            logger.info(result.title)
 
         return result

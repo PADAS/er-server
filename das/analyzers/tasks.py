@@ -3,17 +3,21 @@ import logging
 from django.contrib.gis.geos import Point
 from django.db import transaction
 
+from analyzers.models.analyzer import NOMINAL, WARNING, CRITICAL
 from activity.models import Event, EventAttachment
-from analyzers.all import all_analyzers
 from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers.models.analyzer import NOMINAL
-from analyzers.models.subject_analyzer import SubjectAnalyzer
+from analyzers.utils import get_or_create_analyzers_for_subject, latest_event_for
 from das_server import celery
 from observations.models import Subject, SubjectSource
 from observations.track import Track
 
 logger = logging.getLogger(__name__)
 
+analyzer_level_to_event_priority = {
+    NOMINAL: Event.PRI_REFERENCE,
+    WARNING: Event.PRI_IMPORTANT,
+    CRITICAL: Event.PRI_URGENT
+}
 
 @celery.app.task()
 def handle_subject(subject_id):
@@ -26,25 +30,28 @@ def handle_subject(subject_id):
         logger.warning('Subject {} ({}) has no observations'.format(subject.name, subject_id))
         return
 
-    # get all analyzers, using Subject-specific analyzers where applicable
-    analyzers = [sa.analyzer for sa in SubjectAnalyzer.objects.filter(subject=subject)]
-    analyzer_classes = [x.__class__ for x in analyzers]
-    for a in all_analyzers:
-        if a.__class__ not in analyzer_classes:
-            analyzers.append(a)
+    for analyzer in get_or_create_analyzers_for_subject(subject):
+        latest_event = latest_event_for(subject, analyzer)
 
-    for analyzer in analyzers:
         try:
             analyzer_result = analyzer.analyze(track)
-            if analyzer_result.level > NOMINAL:
+            if not latest_event and analyzer_result.level == NOMINAL:
+                continue
+
+            if analyzer_result and \
+                ((not latest_event) or (analyzer_result.level != latest_event.attributes.get('level'))):
+
                 analyzer_result.subject_id = subject_id
                 location = Point(analyzer_result.location.x, analyzer_result.location.y)
+
                 with transaction.atomic():
                     event = Event(
+                        event_type=analyzer.event_type,
                         provenance=Event.ANALYZER,
                         attributes=analyzer_result.to_dict(),
                         location=location,
-                        name='{}'.format(analyzer.__class__.__name__)
+                        priority=analyzer_level_to_event_priority[analyzer_result.level],
+                        name=analyzer_result.title
                     )
 
                     event.save()

@@ -20,7 +20,7 @@ class TestSubjectAnalyzer(TestCase):
             feature_geometry=dr_polygon,
             type=feature_type
         )
-        self.analyzer = ContainmentAnalyzer.objects.create(polygon=polygon_feature)
+        self.analyzer = ContainmentAnalyzer.objects.create(subject=self.subject, polygon=polygon_feature)
         self.subject_analyzer = SubjectAnalyzer(subject=self.subject, content_object=self.analyzer)
         self.subject_analyzer.save()
 

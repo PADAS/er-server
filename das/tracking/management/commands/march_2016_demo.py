@@ -31,30 +31,15 @@ points = (
     (37.55, 0.25),
     (37.50, 0.26),
     (37.45, 0.27),
-    (37.42, 0.3),
-    (37.35, 0.3),
+    (37.41, 0.3),
+    (37.37, 0.3),
     (37.55, 0.15),
+    (37.52, 0.155),
     (37.50, 0.16),
+    (37.47, 0.165),
     (37.45, 0.17),
-    # stay in place for 10h, triggering immobility
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
+    (37.42, 0.19),
+    # stay in place for a 5h, triggering immobility
     (37.40, 0.2),
     (37.40, 0.2),
     (37.40, 0.2),
@@ -78,9 +63,7 @@ def delete_observations():
 
 def delete_events():
     Event.objects.all().delete()
-    # for event_attachment in EventAttachment.objects.filter(target_id=subject_id):
-    #     event_attachment.event.delete()
-    #     event_attachment.delete()
+    EventAttachment.objects.all().delete()
 
 def delete_analyzers():
     pass
@@ -132,18 +115,18 @@ def create_analyzers():
         feature_geometry=dr_polygon,
         type=feature_type
     )
-    analyzer = ContainmentAnalyzer.objects.create(polygon=polygon_feature)
-    subject_analyzer = SubjectAnalyzer(subject=subject, content_object=analyzer)
-    subject_analyzer.save()
 
-    analyzer = ImmobilityAnalyzer.objects.create(
+    ContainmentAnalyzer.objects.create(
+        subject=subject,
+        polygon=polygon_feature)
+
+    ImmobilityAnalyzer.objects.create(
+        subject=subject,
         radius=100,
         threshold_time=60*60,
         threshold_warning_cluster_ratio=0.2,
         threshold_critical_cluster_ratio=0.3,
         )
-    immobility_analyzer = SubjectAnalyzer(subject=subject, content_object=analyzer)
-    immobility_analyzer.save()
 
 
 def drive():
@@ -220,13 +203,10 @@ class Command(BaseCommand):
 
         generator = drive()
 
-        # prime the DB with a couple of observations
-        next(generator)
+        # prime the DB with an observation
         next(generator)
 
         input('setup complete, press enter to start demo')
 
-        for step in generator:
-            # sleep for a bit, or continue on enter press
+        for _ in generator:
             input('press enter to continue')
-            # subprocess.call('read -t 10', shell=True)

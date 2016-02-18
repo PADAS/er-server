@@ -3,7 +3,8 @@ import logging
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point as DjangoPoint
 
-from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
+from activity.models import Event
+from .analyzer import Analyzer, AnalyzerResult, CRITICAL
 from ..exceptions import InsufficientDataAnalyzerException
 
 logger = logging.getLogger(__name__)
@@ -11,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 class SpeedAnalyzer(Analyzer):
     """ Speed Analyzer for a Track. """
+
+    event_type = Event.ET_SPEED
 
     max_speed = models.FloatField(default=2)
     min_speed = models.FloatField(default=0)
@@ -20,26 +23,25 @@ class SpeedAnalyzer(Analyzer):
         recent observation are considered """
         super().analyze(track)
 
-        if len(track) < 5:
+        if len(track) < 3:
             raise InsufficientDataAnalyzerException
 
-        result = AnalyzerResult()
-        result.analyzer_type = self.__class__.__name__
+        result = AnalyzerResult(self)
+        result.analyzer_type = self.name
 
-        track = track.truncate(hours=24)
+        speed = track.speed_series[-1]
 
-        for i, speed in enumerate(track.speed_series()):
+        result.value = speed
+        point = track.geo_series[-1]
+        result.location = DjangoPoint(point.x, point.y)
 
-            if (speed <= self.min_speed) or (speed >= self.max_speed):
+        if (speed <= self.min_speed) or (speed >= self.max_speed):
 
-                result.value = speed
-                result.level = CRITICAL
+            result.level = CRITICAL
+            result.title = "Subject's speed is outside of [{}-{}] m/s".format(self.min_speed, self.max_speed)
+            logger.info(result.title)
+        else:
+            result.title = "Subject's speed is within range [{}-{}] m/s".format(self.min_speed, self.max_speed)
 
-                # have to translate shapely Point to a DjangoPoint for SpatialProxy
-                point = track.geo_series[i]
-                result.location = DjangoPoint(point.x, point.y)
-                logger.info('Speed Analyzer detected speed outside of window [{}-{}] m/s'.format(self.min_speed, self.max_speed))
-
-                break
 
         return result

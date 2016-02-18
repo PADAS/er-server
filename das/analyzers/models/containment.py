@@ -4,6 +4,7 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 from django.core.exceptions import ObjectDoesNotExist
 
+from activity.models import Event
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
 from .utils import distance_to_exterior_point
 from mapping.models import FeatureType, PolygonFeature
@@ -14,7 +15,14 @@ logger = logging.getLogger(__name__)
 class ContainmentAnalyzer(Analyzer):
     """ Analyzer for Track for polygon boundary crossing """
 
-    polygon = models.ForeignKey(to=PolygonFeature)
+    event_type = Event.ET_PERIMETER_FENCE_BREACH
+
+    polygon = models.ForeignKey(
+        to=PolygonFeature,
+        on_delete=models.CASCADE,
+        null=True
+    )
+
     interior_buffer = models.FloatField(default=0.0)
 
     # default box around africa
@@ -30,9 +38,9 @@ class ContainmentAnalyzer(Analyzer):
 
     @property
     def polygon_or_default(self):
-        try:
+        if self.polygon:
             return self.polygon
-        except ObjectDoesNotExist:
+        else:
             # create the objects, but we don't need to save() them
             feature_type = FeatureType(name='')
 
@@ -54,20 +62,21 @@ class ContainmentAnalyzer(Analyzer):
 
         polygon = self.polygon_or_default
 
-        result = AnalyzerResult()
+        result = AnalyzerResult(self)
         result.analyzer_type = self.__class__.__name__
         result.level = NOMINAL
+        result.location = point
 
         if polygon.feature_geometry.contains(Point(point.x, point.y)):
-            # contained, calculate distance to polygon
-            logger.debug('ContainmentAnalyzer: last point of track contained within polygon')
+            result.title = 'Subject contained within polygon'
+            logger.debug(result.title)
         else:
 
             # outside the fence, calculate distance to polygon
             distance = distance_to_exterior_point(polygon.feature_geometry, Point(point.x, point.y))
             result.value = distance
             result.level = CRITICAL
-            result.location = point
-            logger.debug('ContainmentAnalyzer: last point of track not contained within polygon')
+            result.title = 'Subject not contained within polygon'
+            logger.debug(result.title)
 
         return result

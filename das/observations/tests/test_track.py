@@ -31,6 +31,6 @@ class TestTrack(TestCase):
         meters_per_degree_longitude_wgs84 = 111319
 
         expected = meters_per_degree_longitude_wgs84 / 1
-        actual = int(self.track.speed_series()[0])
+        actual = int(self.track.speed_series[1])
 
         self.assertEqual(actual, expected)
