@@ -24,6 +24,7 @@ from django.contrib.gis.geos import Point, Polygon
 from mptt.models import MPTTModel, TreeForeignKey, TreeManager
 
 from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
+from accounts.models import PermissionSet
 from .track import Track
 
 
@@ -416,6 +417,17 @@ class Subject(models.Model, PermissionSetGroupMixin):
             else:
                 key = species
         return googlemarkericon(key)
+
+    def get_users_to_notify(self):
+        """
+        return a queryset of all users to be notified for this subject
+        :return:
+        """
+        users = set()
+        ps_ids = self.group.get_obj_permission_set_ids()
+        for ps in PermissionSet.objects.filter(id__in=ps_ids):
+             users.update(ps.user_set.all())
+        return users
 
     def __str__(self):
         return '%s, %s' % (self.name,self.subject_type)

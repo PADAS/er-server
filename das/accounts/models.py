@@ -165,7 +165,11 @@ class PermissionsMixin(models.Model):
         return permissions
 
     def get_all_permissions(self, obj=None):
-        return self.get_group_permissions(obj)
+        permissions = set()
+        for backend in auth.get_backends():
+            if hasattr(backend, "get_all_permissions"):
+                permissions.update(backend.get_all_permissions(self, obj))
+        return permissions
 
     def has_perm(self, perm, obj=None):
         """
@@ -324,9 +328,22 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
 
 
 class User(AccountsAbstractUser):
+    user_perms = set(('accounts.view_user', 'accounts.change_user'))
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
     class Meta(AbstractBaseUser.Meta):
         swappable = 'AUTH_USER_MODEL'
         verbose_name = _('user')
         verbose_name_plural = _('users')
+        permissions = (
+            ('view_user', "View a user's information."),
+        )
+
+    def get_user_permissions(self, obj=None):
+        """
+        A user can view and edit themselves
+        """
+        if obj and isinstance(obj, User) and self.id == obj.id:
+            return super(User, self).get_user_permissions(obj) + self.user_perms
+
+        return set()

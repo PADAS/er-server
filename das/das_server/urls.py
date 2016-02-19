@@ -22,6 +22,7 @@ from das_server import views
 import django.contrib.staticfiles.views
 
 urlpatterns = [
+    url(r'^api/v1.0/', include('accounts.urls')),
     url(r'^api/v1.0/', include('observations.urls')),
     url(r'^api/v1.0/', include('mapping.urls')),
     url(r'^api/v1.0/tms/', include('raster.urls')),

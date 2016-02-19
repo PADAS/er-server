@@ -9,25 +9,28 @@ class AccountsModelBackend(ModelBackend):
 
     Inspired by Django-Guardian
     """
-
     def get_user_permissions(self, user_obj, obj=None):
         """
-        Accounts model does not have permissions assigned to users.
+        Returns a set of permission strings the user `user_obj` has from their
+        `user_permissions`.
         """
-        return set()
+        return set(('accounts.view_user',))
 
     def get_group_permissions(self, user_obj, obj=None):
         """
         Returns a set of permission strings that this user has through his/her
         groups and their children.
         """
+        if not user_obj.is_active or user_obj.is_anonymous():
+            return set()
+
         if not hasattr(user_obj, '_group_perm_cache'):
             if user_obj.is_superuser:
                 perms = Permission.objects.all()
             else:
                 user_ps_ids = user_obj.get_all_permission_sets(only_ids=True)
                 if obj and hasattr(obj, 'get_obj_permission_set_ids'):
-                    obj_ps_ids = obj.get_obj_permission_set_ids(obj)
+                    obj_ps_ids = obj.get_obj_permission_set_ids()
                     intersect_ids = user_ps_ids & obj_ps_ids
 
                     perms = Permission.objects.filter(permissionset__in=intersect_ids)
@@ -44,7 +47,9 @@ class AccountsModelBackend(ModelBackend):
         """
         if not user_obj.is_active or user_obj.is_anonymous():
             return set()
-        return self.get_group_permissions(user_obj, obj)
+        perms = self.get_group_permissions(user_obj, obj)
+        perms.update(self.get_user_permissions(user_obj, obj))
+        return perms
 
     def has_perm(self, user_obj, perm, obj=None):
         """

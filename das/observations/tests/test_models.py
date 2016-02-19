@@ -60,3 +60,33 @@ class SubjectPermissionsTestCase(TestCase):
         self.assertTrue(user.has_perm(make_perm(self.view_last_position), ele))
 
         #view_perm = Permission.objects.get()
+
+
+class SubjectAlertTestCase(TestCase):
+    def setUp(self):
+        self.all_set = PermissionSet.objects.create(name='all')
+        self.some_set = PermissionSet.objects.create(name='some')
+
+        self.some_set.parent = self.all_set
+        self.some_set.save()
+
+
+    def test_return_user(self):
+        user = User.objects.create(username='active_user')
+        user.permission_sets.add(self.some_set)
+        user.permission_sets.add(self.all_set)
+        user.save()
+
+        user2 = User.objects.create(username='no_alert')
+
+        ele = Subject.objects.create(name="ele", additional={})
+
+        ele_group = SubjectGroup.objects.create(name='ele_group')
+        ele.group = ele_group
+        ele.save()
+
+        ele_group.permission_sets.add(self.some_set)
+        ele_group.save()
+
+        self.assertIn(user, ele.get_users_to_notify())
+        self.assertNotIn(user2, ele.get_users_to_notify())

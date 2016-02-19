@@ -19,8 +19,6 @@ from observations import views
 
 
 urlpatterns = [
-    url(r'^users/?$', views.UsersView.as_view()),
-    url(r'^user/(?P<id>me|[0-9]+)/?$', views.UserView.as_view()),
     url(r'^status/?$', views.StatusView.as_view()),
     url(r'^regions/?$', views.RegionsView.as_view()),
     url(r'^region/(?P<slug>[a-z0-9-]+)/?$', views.RegionView.as_view()),

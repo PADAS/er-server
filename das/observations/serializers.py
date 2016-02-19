@@ -1,23 +1,13 @@
 from django.contrib.gis.geos import Point
-from django.contrib.auth import get_user_model
 import rest_framework.serializers
-
 
 from observations import models
 import das_utils.json
 from das_utils import add_base_url
 
+
 class VersionSerializer(rest_framework.serializers.Serializer):
     version = rest_framework.serializers.CharField(read_only=True)
-
-
-class UserSerializer(rest_framework.serializers.ModelSerializer):
-    class Meta:
-        model = get_user_model()
-        read_only_fields = ('is_staff', 'is_superuser',
-                            'date_joined', 'id', 'is_active')
-        fields = ('username', 'email', 'first_name',
-                  'last_name') + read_only_fields
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):

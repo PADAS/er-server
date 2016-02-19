@@ -9,12 +9,12 @@ from accounts.models import PermissionSet
 class PermissionSetGroupMixin(object):
     group_attr_name = 'group'
 
-    def get_obj_permission_set_ids(self, obj=None):
+    def get_obj_permission_set_ids(self):
         """
         Returns a set of permission set ids of all permission sets
         assigned to this object
         """
-        return getattr(self, self.group_attr_name).get_obj_permission_set_ids(obj)
+        return getattr(self, self.group_attr_name).get_obj_permission_set_ids()
 
 
 class PermissionSetMixin(models.Model):
@@ -36,20 +36,20 @@ class PermissionSetMixin(models.Model):
         )
     )
 
-    def get_obj_permission_set_ids(self, obj=None):
+    def get_obj_permission_set_ids(self):
         """
         Returns a set of permission set ids of all permission sets
         assigned to this object
         """
-        if not hasattr(obj, '_obj_perm_cache'):
+        if not hasattr(self, '_obj_perm_cache'):
             all_ps = set()
             direct_ps = self.permission_sets.all()
 
             for ps in direct_ps:
                 all_ps.add(ps.id)
                 all_ps.add(ps.get_ancestor_ids())
-            obj._obj_perm_cache = all_ps
-        return obj._obj_perm_cache
+            self._obj_perm_cache = all_ps
+        return self._obj_perm_cache
 
 
 class PermissionSetHierarchyMixin(PermissionSetMixin):
@@ -63,13 +63,13 @@ class PermissionSetHierarchyMixin(PermissionSetMixin):
     class Meta:
         abstract = True
 
-    def get_obj_permission_set_ids(self, obj=None):
+    def get_obj_permission_set_ids(self):
         """
-        Returns a set of permission ids that this object has has through the group and
+        Returns a set of permission ids that this object has through the group and
         group ancestors.
         .
         """
-        if not hasattr(obj, '_obj_perm_hierarchy_cache'):
+        if not hasattr(self, '_obj_perm_hierarchy_cache'):
             all_ps = set()
 
             for g in self.get_ancestors(include_self=True):
@@ -78,6 +78,6 @@ class PermissionSetHierarchyMixin(PermissionSetMixin):
                 for ps in direct_ps:
                     all_ps.add(ps.id)
                     all_ps.update(ps.get_ancestor_ids())
-            obj._obj_perm_hierarchy_cache = all_ps
+            self._obj_perm_hierarchy_cache = all_ps
 
-        return obj._obj_perm_hierarchy_cache
+        return self._obj_perm_hierarchy_cache

@@ -10,6 +10,7 @@ from django.contrib.auth import get_user_model
 
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
+from rest_framework.filters import DjangoObjectPermissionsFilter
 
 
 from observations import models
@@ -52,23 +53,6 @@ class StatusView(generics.RetrieveAPIView):
 
     def get_object(self):
         return {'version': 'v1.0'} #request.version}
-
-
-class UsersView(generics.ListAPIView):
-    queryset = get_user_model().objects.all()
-    serializer_class = serializers.UserSerializer
-
-
-class UserView(generics.RetrieveAPIView):
-    lookup_field = 'id'
-    queryset = get_user_model().objects.all()
-    serializer_class = serializers.UserSerializer
-
-    def get_object(self):
-        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
-        if self.kwargs[lookup_url_kwarg] == 'me':
-            self.kwargs[lookup_url_kwarg] = self.request.user.id
-        return super(UserView, self).get_object()
 
 
 class RegionsView(generics.ListAPIView):
