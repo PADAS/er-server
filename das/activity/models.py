@@ -63,6 +63,8 @@ class Event(TimestampedModel):
     ET_GEOFENCE = 'geofence'
     ET_IMMOBILITY = 'immobility'
     ET_SPEED = 'speed'
+
+    ET_OTHER = 'other'
     ET_EXCLUSION_ZONE_BREACH = 'exclusion-zone-breach'
     ET_PERIMETER_FENCE_BREACH = 'perimeter-fence-breach'
     ET_ELEPHANT_SIGHTING = 'elephant-sighting'
@@ -71,21 +73,24 @@ class Event(TimestampedModel):
     ET_LIVESTOCK_THEFT = 'livestock-theft'
     ET_CONTAINMENT_BREACH = 'containment-breach'
     ET_FOOTPRINTS = 'footprints'
+    ET_GUNSHOT_HEARD = 'gunshot-heard'
 
     EVENT_TYPE_CHOICES = (
         (ET_SYSTEM, 'System'),
+        (ET_PROXIMITY, 'Proximity'),
+        (ET_GEOFENCE, 'Geofence'),
+        (ET_IMMOBILITY, 'Immobility'),
+        (ET_SPEED, 'Speed'),
         (ET_EXCLUSION_ZONE_BREACH, 'Exclusion Zone Breach'),
         (ET_PERIMETER_FENCE_BREACH, 'Perimeter Fence Breach'),
         (ET_ELEPHANT_SIGHTING, 'Elephant Sighting'),
         (ET_WOUNDED_ANIMAL, 'Wounded Animal'),
         (ET_LIVESTOCK_THEFT, 'Livestock Theft'),
         (ET_FIRE, 'Fire'),
-        (ET_PROXIMITY, 'Proximity'),
-        (ET_GEOFENCE, 'Geofence'),
-        (ET_IMMOBILITY, 'Immobility'),
-        (ET_SPEED, 'Speed'),
         (ET_CONTAINMENT_BREACH, 'Containment Breach'),
-        (ET_FOOTPRINTS, 'Suspicious Signs')
+        (ET_FOOTPRINTS, 'Suspicious Signs'),
+        (ET_GUNSHOT_HEARD, 'Gunshot Heard'),
+        (ET_OTHER, 'Other'),
     )
 
     PRI_URGENT = 300
