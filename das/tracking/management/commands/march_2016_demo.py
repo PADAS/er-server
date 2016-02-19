@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import os
 import subprocess
 import yaml
-from yaml import CSafeLoader as SafeLoader
+from yaml import SafeLoader
 
 from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 from django.core.management.base import BaseCommand
