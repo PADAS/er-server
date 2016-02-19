@@ -1,9 +1,9 @@
-#1.	informant report: elephant near village – called in and logged in ops room (important)
+#1.	informant report: elephant near village ? called in and logged in ops room (important)
 #2.	livestock theft (urgent)
 #3.	exclusion zone fence breach
 #4.	fire FIRMS (urgent) Fire detected in park (Chris will send example of notification)
-#5.	ranger call-in - daily log * KH: new icon – daily log – include in top 5
-#6.	suspicious footprints – ranger team following up to see if they belong to poachers
+#5.	ranger call-in - daily log * KH: new icon ? daily log ? include in top 5
+#6.	suspicious footprints ? ranger team following up to see if they belong to poachers
 #7.	low speed Title: Low speed alert Desc. Animal name at GPS coordinates
 #8.	wounded animal (urgent)
 #9.	geofence break Title: Geofence breach Desc. Animal name at GPS coordinates
@@ -13,16 +13,79 @@
 
 events:
   - name: Elephant near village
-    description: Elephant near village and Rangeland Hotel
+    description: Elephant spotted near village outside S-18 to the east, is nearing crops.
     provenance: informant
     event_type: elephant-sighting
-    priority: 0
+    priority: 200
     center: [37.5241474,0.2792556]
 
   - name: Livestock Theft
-    description: Cattle missing in Leparua
+    description: Report from S-1 that about 200 sheep have been driven away by unknown people.
     provenance: informant
     event_type: livestock-theft
-    priority: 0
-    center: [37.423530, 0.299690]
+    priority: 300
+
+  - name: Exclusion zone fence breach
+    description: Exclusion zone fence in north section of S-11 has been breached.
+    provenance: ranger
+    event_type: exclusion-zone-breach
+    priority: 200
+
+  - name: Fire detected in park
+    description: Fire detected in park at GPS coordinates.
+    provenance: analyzer
+    event_type: fire
+    priority: 300
+
+  - name: Monitoring team wildlife log 29-Feb-2016
+    description: Sighted 32 black and 14 white rhinos. See attached log for details.
+    provenance: ranger
+    event_type: elephant-sighting
+    priority: 100
+
+  - name: Suspicious footprints
+    description: Suspicious footprints found near NE ravine. Romeo 2 team tracking.
+    provenance: ranger
+    event_type: footprints
+    priority: 300
+
+  - name: Low speed alert
+    description: Animal name at GPS coordinates
+    provenance: analyzer
+    event_type: speed
+    priority: 300
+    subject_name: Topsy
+
+  - name: Injured rhino
+    description: Female rhino limping in section 3, needs assessment to determine severity of injury
+    provenance: ranger
+    event_type: wounded-animal
+    priority: 300
+
+  - name: Geofence break
+    description: Animal name at GPS coordinates
+    provenance: analyzer
+    event_type: geofence
+    priority: 300
+    subject_name: Topsy
+
+  - name: Perimeter fence breach
+    description: Perimeter fence breach S-14 north, about 500 m west of S-16 border.
+    provenance: ranger
+    event_type: perimeter-fence-breach
+    priority: 300
+
+  - name: Fast speed alert
+    description: Animal name at GPS coordinates
+    provenance: analyzer
+    event_type: speed
+    priority: 300
+    subject_name: Topsy
+
+  - name: Immobile animal
+    description: Animal name at GPS coordinates
+    provenance: analyzer
+    event_type: immobility
+    priority: 300
+    subject_name: Topsy
 

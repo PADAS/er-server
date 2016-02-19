@@ -2,7 +2,11 @@ from datetime import datetime, timedelta
 import os
 import subprocess
 import yaml
-from yaml import SafeLoader
+try:
+    from yaml import CSafeLoader as SafeLoader
+except ImportError:
+    from yaml import SafeLoader
+
 
 from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 from django.core.management.base import BaseCommand
@@ -64,6 +68,9 @@ def delete_observations():
 def delete_events():
     Event.objects.all().delete()
     EventAttachment.objects.all().delete()
+
+def delete_driven_events(time):
+    Event.objects.filter(event_time__gt=time).delete()
 
 def delete_analyzers():
     pass
@@ -130,9 +137,11 @@ def create_analyzers():
 
 
 def drive():
+    begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=24*3-1)
+
     while True:
         delete_observations()
-        delete_events()
+        delete_driven_events(begin_time)
 
         t0 = datetime.now(tz=pytz.UTC) - timedelta(hours=24*3-1)
 
@@ -152,9 +161,9 @@ def drive():
 
 
 def get_time():
-    last_time = datetime.utcnow() - timedelta(hours=2)
+    last_time = datetime.utcnow() - timedelta(hours=24*5)
     last_time = last_time.replace(tzinfo=pytz.UTC)
-    time_increment = timedelta(minutes=5)
+    time_increment = timedelta(minutes=30)
     while True:
         last_time = last_time + time_increment
         yield last_time
@@ -173,7 +182,7 @@ def add_demo_data(file=None):
     times = get_time()
     print("add_demo_data")
     print(demo_data)
-    for evt in demo_data['events']:
+    for evt in reversed(demo_data['events']):
         event = Event(name=evt['name'])
         event.event_time = next(times)
         if evt.get('center', None):
@@ -183,6 +192,10 @@ def add_demo_data(file=None):
             if hasattr(event, k):
                 setattr(event, k, v)
         event.save()
+
+        if evt.get('subject_name', None):
+            subject = Subject.objects.get(name=evt['subject_name'])
+            att = EventAttachment.objects.create(target=subject, event=event)
 
 
 class Command(BaseCommand):
@@ -199,6 +212,8 @@ class Command(BaseCommand):
 
         create_actors()
         create_analyzers()
+        #yes, twice
+        add_demo_data()
         add_demo_data()
 
         generator = drive()
