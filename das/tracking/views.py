@@ -90,7 +90,7 @@ def observation_list(request):
 
         return Response(status=status.HTTP_404_NOT_FOUND)
 
-@api_view(['POST',])
+@api_view(['POST','GET'])
 @authentication_classes((OAuth2Authentication, SessionAuthentication))
 @permission_classes((IsAuthenticated,))
 def message_list(request):
@@ -143,7 +143,9 @@ def message_list(request):
             event_attachment.save()
 
         serializer = EventSerializer(event)
-        return Response(status=status.HTTP_201_CREATED)
+        return Response({'event_id':str(event.id)}, status=status.HTTP_201_CREATED)
+    elif request.method == 'GET':
+        return Response({}, status=status.HTTP_200_OK)
 
 
 # Helper functions for hydrating Source and Subject for the given message.
