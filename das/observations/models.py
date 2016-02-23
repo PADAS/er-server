@@ -423,11 +423,14 @@ class Subject(models.Model, PermissionSetGroupMixin):
         return a queryset of all users to be notified for this subject
         :return:
         """
-        users = set()
-        ps_ids = self.group.get_obj_permission_set_ids()
-        for ps in PermissionSet.objects.filter(id__in=ps_ids):
-             users.update(ps.user_set.all())
-        return users
+        if not self.group:
+            return []
+        else:
+            users = set()
+            ps_ids = self.group.get_obj_permission_set_ids()
+            for ps in PermissionSet.objects.filter(id__in=ps_ids):
+                 users.update(ps.user_set.all())
+            return users
 
     def __str__(self):
         return '%s, %s' % (self.name,self.subject_type)

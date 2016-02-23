@@ -1,0 +1,13 @@
+DAS Event
+
+{{event}}
+
+{{summary}}
+
+{{time}}
+
+{{name}}
+
+{{location}}
+
+{{content}}

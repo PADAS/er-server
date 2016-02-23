@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 import os
-import subprocess
 import yaml
 try:
     from yaml import CSafeLoader as SafeLoader
@@ -13,11 +12,12 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 import pytz
 
+from accounts.models import PermissionSet, Permission, User
 from activity.models import Event, EventAttachment
 from analyzers.models import ContainmentAnalyzer, SubjectAnalyzer, \
     GeofenceAnalyzer, ImmobilityAnalyzer, ProximityAnalyzer, SpeedAnalyzer
 from mapping.models import FeatureType, PolygonFeature
-from observations.models import Subject, SubjectSource, Source, Observation
+from observations.models import Subject, SubjectGroup, SubjectSource, Source, Observation
 from tracking.pubsub_registry import notify_new_tracks
 
 
@@ -57,7 +57,8 @@ source_id = '276600ae-06de-4fca-be79-58bb29695f5b'
 subject_id = '276600ae-06de-4fca-be79-58bb29695f5c'
 
 def delete_subject():
-    Subject.objects.filter(name="Topsy").delete()
+    Subject.objects.filter(name='Topsy').delete()
+    SubjectGroup.objects.filter(name='demo_group').delete()
 
 def delete_source():
     Source.objects.filter(manufacturer_id='topsy').delete()
@@ -88,13 +89,28 @@ def create_actors():
         )
 
     global subject
-    subject = Subject.objects.create(
+    subject = Subject(
         id=subject_id,
         name = 'Topsy',
         additional = {'sex': 'Female', 'species': 'Elephant'},
         subject_type='wildlife',
         subject_subtype='elephant'
         )
+
+    # (163, 'Permission to subscribe to an alert on this Subject.'),
+    permission = Permission.objects.get(pk=163)
+    permission_set = PermissionSet.objects.get_or_create(name='Demo PermissionSet')[0]
+    permission_set.permissions.add(permission)
+
+    user = User.objects.get_or_create(username='demouser', email='josephs@vulcan.com')[0]
+    user.permission_sets.add(permission_set)
+    user.save()
+
+    group = SubjectGroup.objects.create(name='demo_group')
+    group.permission_sets.add(permission_set)
+    group.save()
+    subject.group = group
+    subject.save()
 
     DEFAULT_DATE_RANGE = (
         datetime(2015, 11, 1, tzinfo=pytz.utc),
@@ -139,9 +155,10 @@ def create_analyzers():
 def drive():
     begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=24*3-1)
 
+    delete_driven_events(begin_time)
+
     while True:
         delete_observations()
-        delete_driven_events(begin_time)
 
         t0 = datetime.now(tz=pytz.UTC) - timedelta(hours=24*3-1)
 

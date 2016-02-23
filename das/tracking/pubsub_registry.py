@@ -4,7 +4,7 @@ logger = logging.getLogger(__name__)
 from das_server import pubsub
 
 def tracking_callback(body, message):
-    logger.debug('Received message [{}].'.format(message))
+    logger.debug('Tracking received message [{}].'.format(body))
 
 
 PUBSUB_SUBSCRIPTIONS = (

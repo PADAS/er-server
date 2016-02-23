@@ -15,6 +15,7 @@ from django.contrib.contenttypes.models import ContentType
 from core.models import TimestampedModel
 
 import accounts.models
+from observations.models import Subject
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,6 @@ class EventManager(models.Manager):
 class Event(TimestampedModel):
     objects = EventManager()
 
-    image_url = 'http://tempuri.org/eventimage.jpg'
     ordering = ['-created_at']
 
     '''
@@ -137,6 +137,14 @@ class Event(TimestampedModel):
     @property
     def image_url(self):
         return marker_icon(self.event_type, self.priority_label.lower())
+
+    @property
+    def subjects(self):
+        event_attachments = EventAttachment.objects.filter(
+            event_id=self.pk,
+            content_type=ContentType.objects.get_for_model(Subject)
+        )
+        return [event_attachment.target for event_attachment in event_attachments]
 
     def __str__(self):
         return self.name

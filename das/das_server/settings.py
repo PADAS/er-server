@@ -80,7 +80,7 @@ ROOT_URLCONF = 'das_server.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR,],
+        'DIRS': [BASE_DIR, 'das_server'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -314,3 +314,9 @@ MAPPING = {'MBTILES': {'root': r'\tmp',}}
 
 REALTIME_BROKER_URL = 'redis://localhost:6379/2'
 PUBSUB_BROKER_URL = 'redis://localhost:6379/1'
+
+AWS_SES_REGION = 'us-west-2'
+
+# the email address to send from. This is the simulator from
+# http://docs.aws.amazon.com/ses/latest/DeveloperGuide/mailbox-simulator.html
+FROM_EMAIL = 'success@simulator.amazonses.com'

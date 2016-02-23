@@ -22,6 +22,7 @@ class SubjectGroupTestCase(TestCase):
         ele.group = ele_group
         ele.save()
 
+        ele = Subject.objects.get(name='ele')
         self.assertEquals(ele.group, ele_group)
 
 
@@ -37,8 +38,7 @@ class SubjectPermissionsTestCase(TestCase):
         self.some_set.permissions.add(Permission.objects.get(codename=self.view_last_position_name))
         self.some_set.save()
 
-        self.superuser = User.objects.create_superuser('admin', 'admin@test.com',
-                                                   'admin')
+        self.superuser = User.objects.create_superuser('admin', 'admin@test.com', 'admin')
         self.user = User.objects.create_user('joe', 'joe@example.com', 'joe')
 
 
