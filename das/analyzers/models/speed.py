@@ -38,10 +38,10 @@ class SpeedAnalyzer(Analyzer):
         if (speed <= self.min_speed) or (speed >= self.max_speed):
 
             result.level = CRITICAL
-            result.title = "Subject's speed is outside of [{}-{}] m/s".format(self.min_speed, self.max_speed)
+            result.title = "Speed is outside of [{}-{}] m/s".format(self.min_speed, self.max_speed)
             logger.info(result.title)
         else:
-            result.title = "Subject's speed is within range [{}-{}] m/s".format(self.min_speed, self.max_speed)
+            result.title = "Speed is within range [{}-{}] m/s".format(self.min_speed, self.max_speed)
 
 
         return result

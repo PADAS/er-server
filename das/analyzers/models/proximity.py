@@ -74,10 +74,10 @@ class ProximityAnalyzer(Analyzer):
         if distance <= self.distance_m:
             result.value = distance
             result.level = CRITICAL
-            result.title = 'Subject too close to polygon'
+            result.title = 'Too close to polygon'
             logger.info(result.title)
         else:
-            result.title = 'Subject is distant from polygon'
+            result.title = 'Distant from polygon'
             logger.info(result.title)
 
         return result

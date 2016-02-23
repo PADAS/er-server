@@ -91,12 +91,12 @@ class GeofenceAnalyzer(Analyzer):
             result.value = str(crossing_time)
             result.location = crossing_point
             result.level = CRITICAL
-            result.title = 'Subject crossed fence'
+            result.title = 'Crossed fence'
             logger.debug(result.title)
         else:
             result.location = track[-1]
             result.value = str(track.geo_series.index[-1].to_datetime())
-            result.title = 'Subject clear of fence'
+            result.title = 'Clear of fence'
             logger.debug(result.title)
 
         return result

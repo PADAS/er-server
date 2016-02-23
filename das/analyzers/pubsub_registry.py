@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 def new_observations_callback(body, message):
 
-    logger.debug('Received message [{}]. sending task analyzers.tasks.handle_source'.format(message))
+    logger.debug('new observation message [{}]. sending task analyzers.tasks.handle_source'.format(body))
     source_id = body['source_id']
     celery.app.send_task('analyzers.tasks.handle_source', args=(source_id,))
 

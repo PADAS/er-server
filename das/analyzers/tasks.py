@@ -51,7 +51,8 @@ def handle_subject(subject_id):
                         attributes=analyzer_result.to_dict(),
                         location=location,
                         priority=analyzer_level_to_event_priority[analyzer_result.level],
-                        name=analyzer_result.title
+                        name=analyzer_result.title,
+                        description='{}'.format(subject.name)
                     )
 
                     event.save()

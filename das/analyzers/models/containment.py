@@ -68,7 +68,7 @@ class ContainmentAnalyzer(Analyzer):
         result.location = point
 
         if polygon.feature_geometry.contains(Point(point.x, point.y)):
-            result.title = 'Subject contained within polygon'
+            result.title = 'Contained within polygon'
             logger.debug(result.title)
         else:
 
@@ -76,7 +76,7 @@ class ContainmentAnalyzer(Analyzer):
             distance = distance_to_exterior_point(polygon.feature_geometry, Point(point.x, point.y))
             result.value = distance
             result.level = CRITICAL
-            result.title = 'Subject not contained within polygon'
+            result.title = 'Not contained within polygon'
             logger.debug(result.title)
 
         return result
