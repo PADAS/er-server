@@ -122,6 +122,7 @@ def message_list(request):
         src = ensure_source(source_type, manufacturer_id)
         ss = ensure_subject_source(src, recorded_at)
 
+        message_name = 'Message from {}'.format(ss.subject.name)
         message_body = request.data.get('message_body')
 
         with transaction.atomic():
@@ -131,7 +132,7 @@ def message_list(request):
                 attributes={},
                 location=location,
                 priority=Event.PRI_IMPORTANT,
-                name=message_body,
+                name=message_name,
                 description=message_body
             )
 
