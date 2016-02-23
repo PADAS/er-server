@@ -74,6 +74,7 @@ class Event(TimestampedModel):
     ET_CONTAINMENT_BREACH = 'containment-breach'
     ET_FOOTPRINTS = 'footprints'
     ET_GUNSHOT_HEARD = 'gunshot-heard'
+    ET_RADIO_TEXT_MESSAGE = 'radio-text-message'
 
     EVENT_TYPE_CHOICES = (
         (ET_SYSTEM, 'System'),
@@ -90,6 +91,7 @@ class Event(TimestampedModel):
         (ET_CONTAINMENT_BREACH, 'Containment Breach'),
         (ET_FOOTPRINTS, 'Suspicious Signs'),
         (ET_GUNSHOT_HEARD, 'Gunshot Heard'),
+        (ET_RADIO_TEXT_MESSAGE, 'Radio Text Message'),
         (ET_OTHER, 'Other'),
     )
 
@@ -157,7 +159,7 @@ class EventAttachment(models.Model):
     TARGET = 'target'
     EVENT_ATTACHMENT_REASONS = (
         (TARGET, 'Target'),
-    )
+   )
 
     # Foreign Key to event for this attachment.
     event = models.ForeignKey(Event, on_delete=models.CASCADE,
