@@ -51,14 +51,10 @@ def observation_list(request):
             return Response(data="Missing parameters. Please provide both 'manufacturer_id' and 'source_type'.",
                             status=status.HTTP_400_BAD_REQUEST)
 
-        src, created = Source.objects.get_or_create(source_type=source_type,
-                                           manufacturer_id=manufacturer_id,
-                                           defaults={'model_name':'auto-created',
-                                                     'additional': {'note':'automatically created during observation post.'}})
-
         recorded_at = request.data.get('recorded_at')
-        # if recorded_at:
-        #     recorded_at = parser.parse(recorded_at)
+        recorded_at = __str2date(recorded_at)
+        src = ensure_source(source_type, manufacturer_id)
+        ss = ensure_subject_source(src, recorded_at)
 
         observation_data = {
             'location': location,
