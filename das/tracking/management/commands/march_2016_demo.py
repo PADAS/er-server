@@ -28,6 +28,12 @@ points = (
     (37.351, 0.2251),
     (37.375, 0.230),
     (37.40, 0.225),
+
+    (37.412, 0.215),
+    (37.424, 0.210),
+    (37.436, 0.215),
+
+
     (37.45, 0.235),
     (37.50, 0.225),
     (37.55, 0.227),
@@ -44,6 +50,8 @@ points = (
     (37.42, 0.26),
     (37.415, 0.25),
     (37.410, 0.23),
+    (37.405, 0.225),
+    (37.402, 0.222),
     # stay in place for a 5h, triggering immobility
     (37.40, 0.22),
     (37.40, 0.2),
@@ -51,6 +59,7 @@ points = (
     (37.40, 0.2),
     (37.40, 0.2),
     (37.40, 0.2),
+    (37.37, 0.21),
     (37.35, 0.2),
 )
 
@@ -188,6 +197,28 @@ def create_analyzers():
         threshold_warning_cluster_ratio=0.2,
         threshold_critical_cluster_ratio=0.3,
         )
+
+    # polygon surrounding "Lewa Wildlife Convervancy" tree on map
+    proximity_polygon = MultiPolygon(
+        Polygon((
+            (37.424, 0.210),
+            (37.436, 0.220),
+            (37.436, 0.210),
+            (37.424, 0.210),
+        ))
+    )
+    proximity_polygon_feature = PolygonFeature.objects.create(
+        name="Topsy's Proximity Feature",
+        presentation={},
+        feature_geometry=proximity_polygon,
+        type=feature_type
+    )
+
+    ProximityAnalyzer.objects.create(
+        subject=subject,
+        polygon=proximity_polygon_feature,
+        distance_m=100
+    )
 
 
 def drive():
