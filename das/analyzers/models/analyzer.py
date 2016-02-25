@@ -21,6 +21,9 @@ class Analyzer(models.Model):
 
     subject = models.ForeignKey(to=Subject, on_delete=models.CASCADE)
 
+    # At least one Analyzer shouldn't report back when changing back to 'good' state
+    is_two_state = True
+
     class Meta:
         abstract = True
 

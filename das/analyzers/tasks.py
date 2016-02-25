@@ -35,29 +35,32 @@ def handle_subject(subject_id):
 
         try:
             analyzer_result = analyzer.analyze(track)
-            if not latest_event and analyzer_result.level == NOMINAL:
+            if (not latest_event and analyzer_result.level == NOMINAL) or \
+               ((not analyzer.is_two_state) and analyzer_result.level < WARNING) or \
+               (not analyzer_result) or \
+               (latest_event and analyzer.is_two_state and analyzer_result.level == latest_event.attributes.get('level')):
+
                 continue
 
-            if analyzer_result and \
-                ((not latest_event) or (analyzer_result.level != latest_event.attributes.get('level'))):
+            # conditions met to create a new Event
 
-                analyzer_result.subject_id = subject_id
-                location = Point(analyzer_result.location.x, analyzer_result.location.y)
+            analyzer_result.subject_id = subject_id
+            location = Point(analyzer_result.location.x, analyzer_result.location.y)
 
-                with transaction.atomic():
-                    event = Event(
-                        event_type=analyzer.event_type,
-                        provenance=Event.ANALYZER,
-                        attributes=analyzer_result.to_dict(),
-                        location=location,
-                        priority=analyzer_level_to_event_priority[analyzer_result.level],
-                        name=analyzer_result.title,
-                        description='{}'.format(subject.name)
-                    )
+            with transaction.atomic():
+                event = Event(
+                    event_type=analyzer.event_type,
+                    provenance=Event.ANALYZER,
+                    attributes=analyzer_result.to_dict(),
+                    location=location,
+                    priority=analyzer_level_to_event_priority[analyzer_result.level],
+                    name=analyzer_result.title,
+                    description='{}'.format(subject.name)
+                )
 
-                    event.save()
-                    event_attachment = EventAttachment(event=event, target=subject, reason=EventAttachment.TARGET)
-                    event_attachment.save()
+                event.save()
+                event_attachment = EventAttachment(event=event, target=subject, reason=EventAttachment.TARGET)
+                event_attachment.save()
 
         except InsufficientDataAnalyzerException:
             logger.warning('insufficient observations exist to support analyzer {}'.format(analyzer))

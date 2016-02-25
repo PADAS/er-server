@@ -12,4 +12,7 @@ def event_mailer(event_id):
 
     for subject in event.subjects:
         for user in subject.get_users_to_notify():
-            mailer.send_event_mail(event, user)
+            if user.is_email_alert:
+                mailer.send_event_mail(event, user)
+            else:
+                logger.debug('{} has is_email_alert off'.format(user))

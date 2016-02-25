@@ -1,6 +1,7 @@
 import logging
 
 from django.conf import settings
+from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
 from activity.models import Event
@@ -11,10 +12,12 @@ logger = logging.getLogger(__name__)
 
 def send_event_mail(event, user):
 
-    from boto import ses
+
+    if event.priority < Event.PRI_IMPORTANT:
+        logger.debug("Event wasn't high enough priority to mail out")
+        return
 
     subjects = event.subjects
-    conn = ses.connect_to_region(settings.AWS_SES_REGION)
 
     if subjects:
         summary = '({})'.format(', '.join([s.name for s in subjects]))
@@ -37,6 +40,6 @@ def send_event_mail(event, user):
     }
 
     body = render_to_string('templates/mailer_new_event.txt', parameters)
-    to = [user.email]
-    logger.info('emailing {}'.format(user.email))
-    return conn.send_email(settings.FROM_EMAIL, subject, body, to)
+    logger.info('emailing {} from {}'.format(user.email, settings.FROM_EMAIL))
+
+    send_mail(subject, body, settings.FROM_EMAIL, [user.email])

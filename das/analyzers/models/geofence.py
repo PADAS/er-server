@@ -24,6 +24,8 @@ class GeofenceAnalyzer(Analyzer):
         null=True
     )
 
+    is_two_state = False
+
     # default equator
     _default_fence = MultiLineString(
         LineString((

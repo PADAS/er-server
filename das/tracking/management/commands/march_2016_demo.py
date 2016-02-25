@@ -7,29 +7,30 @@ except ImportError:
     from yaml import SafeLoader
 
 
-from django.contrib.gis.geos import Point, Polygon, MultiPolygon
+from django.contrib.gis.geos import Point, Polygon, MultiPolygon, LineString, MultiLineString
 from django.core.management.base import BaseCommand
 from django.db import transaction
 import pytz
 
 from accounts.models import PermissionSet, Permission, User
 from activity.models import Event, EventAttachment
-from analyzers.models import ContainmentAnalyzer, SubjectAnalyzer, \
+from analyzers.models import all_analyzers, ContainmentAnalyzer, SubjectAnalyzer, \
     GeofenceAnalyzer, ImmobilityAnalyzer, ProximityAnalyzer, SpeedAnalyzer
-from mapping.models import FeatureType, PolygonFeature
+from mapping.models import FeatureType, PolygonFeature, LineFeature
 from observations.models import Subject, SubjectGroup, SubjectSource, Source, Observation
 from tracking.pubsub_registry import notify_new_tracks
-
 
 
 source, subject = None, None
 
 points = (
     (37.35, 0.225),
+    (37.351, 0.2251),
+    (37.375, 0.230),
     (37.40, 0.225),
-    (37.45, 0.225),
+    (37.45, 0.235),
     (37.50, 0.225),
-    (37.55, 0.225),
+    (37.55, 0.227),
     (37.55, 0.230),
     (37.55, 0.24),
     (37.55, 0.25),
@@ -37,14 +38,14 @@ points = (
     (37.45, 0.27),
     (37.41, 0.3),
     (37.37, 0.3),
-    (37.55, 0.15),
-    (37.52, 0.155),
-    (37.50, 0.16),
-    (37.47, 0.165),
-    (37.45, 0.17),
-    (37.42, 0.19),
+    (37.40, 0.29),
+    (37.43, 0.28),
+    (37.425, 0.27),
+    (37.42, 0.26),
+    (37.415, 0.25),
+    (37.410, 0.23),
     # stay in place for a 5h, triggering immobility
-    (37.40, 0.2),
+    (37.40, 0.22),
     (37.40, 0.2),
     (37.40, 0.2),
     (37.40, 0.2),
@@ -74,10 +75,18 @@ def delete_driven_events(time):
     Event.objects.filter(event_time__gt=time).delete()
 
 def delete_analyzers():
-    pass
+    for klass in all_analyzers:
+        klass.objects.filter(subject_id=subject_id).delete()
 
 def delete_subject_analyzers():
     pass
+
+def get_or_create_user(username, email, permission_set):
+
+    user = User.objects.get_or_create(username='demouser', email='josephs@vulcan.com')[0]
+    user.permission_sets.add(permission_set)
+    user.save()
+    return user
 
 def create_actors():
     global source
@@ -102,9 +111,14 @@ def create_actors():
     permission_set = PermissionSet.objects.get_or_create(name='Demo PermissionSet')[0]
     permission_set.permissions.add(permission)
 
-    user = User.objects.get_or_create(username='demouser', email='josephs@vulcan.com')[0]
-    user.permission_sets.add(permission_set)
-    user.save()
+    users = (
+        ('demouser', 'josephs@vulcan.com'),
+        ('chrisj', 'chrisj@vulcan.com'),
+        ('teds', 'teds@vulcan.com'),
+    )
+
+    for username, email in users:
+        get_or_create_user(username, email, permission_set)
 
     group = SubjectGroup.objects.create(name='demo_group')
     group.permission_sets.add(permission_set)
@@ -126,6 +140,7 @@ def create_actors():
 
 
 def create_analyzers():
+
     # create a breachable container
     polygon = Polygon(((37, 1), (37.49, 1), (37.49, -1), (37, -1), (37, 1)))
     dr_polygon = MultiPolygon(polygon)
@@ -141,7 +156,30 @@ def create_analyzers():
 
     ContainmentAnalyzer.objects.create(
         subject=subject,
-        polygon=polygon_feature)
+        polygon=polygon_feature
+    )
+
+    # Western edge of Lewa
+    multi_line_string = MultiLineString(
+        LineString(
+            (37.350, 0.200),
+            (37.400, 0.310),
+        )
+    )
+
+    FeatureType.objects.filter(name="Topsy's Geofence FeatureType").delete()
+    feature_type, _ = FeatureType.objects.get_or_create(name="Topsy's Geofence FeatureType")
+
+    line_feature = LineFeature.objects.create(
+        presentation={},
+        feature_geometry=multi_line_string,
+        type=feature_type
+    )
+
+    GeofenceAnalyzer.objects.create(
+        subject=subject,
+        fence=line_feature
+    )
 
     ImmobilityAnalyzer.objects.create(
         subject=subject,
@@ -193,26 +231,28 @@ def add_demo_data(file=None):
 
     if not file:
         file = default_demo_file()
-    with open(file) as fp:
-        demo_data = yaml.load(fp, Loader=SafeLoader)
 
-    times = get_time()
-    print("add_demo_data")
-    print(demo_data)
-    for evt in reversed(demo_data['events']):
-        event = Event(name=evt['name'])
-        event.event_time = next(times)
-        if evt.get('center', None):
-            event.location = Point(*evt['center'])
+    #yes, twice
+    for _ in range(2):
+        with open(file) as fp:
+            demo_data = yaml.load(fp, Loader=SafeLoader)
 
-        for k,v in evt.items():
-            if hasattr(event, k):
-                setattr(event, k, v)
-        event.save()
+        times = get_time()
 
-        if evt.get('subject_name', None):
-            subject = Subject.objects.get(name=evt['subject_name'])
-            att = EventAttachment.objects.create(target=subject, event=event)
+        for evt in reversed(demo_data['events']):
+            event = Event(name=evt['name'])
+            event.event_time = next(times)
+            if evt.get('center', None):
+                event.location = Point(*evt['center'])
+
+            for k,v in evt.items():
+                if hasattr(event, k):
+                    setattr(event, k, v)
+            event.save()
+
+            if evt.get('subject_name', None):
+                Subject.objects.get(name=evt['subject_name'])
+                EventAttachment.objects.create(target=subject, event=event)
 
 
 class Command(BaseCommand):
@@ -229,16 +269,15 @@ class Command(BaseCommand):
 
         create_actors()
         create_analyzers()
-        #yes, twice
-        add_demo_data()
+
         add_demo_data()
 
         generator = drive()
-
         # prime the DB with an observation
         next(generator)
+        next(generator)
 
-        input('setup complete, press enter to start demo')
+        input('removed old data. load web app and press enter to continue')
 
         for _ in generator:
             input('press enter to continue')
