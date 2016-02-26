@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+import glob
+import json
 import os
 import yaml
 try:
@@ -16,7 +18,7 @@ from accounts.models import PermissionSet, Permission, User
 from activity.models import Event, EventAttachment
 from analyzers.models import all_analyzers, ContainmentAnalyzer, SubjectAnalyzer, \
     GeofenceAnalyzer, ImmobilityAnalyzer, ProximityAnalyzer, SpeedAnalyzer
-from mapping.models import FeatureType, PolygonFeature, LineFeature
+from mapping.models import FeatureType, PolygonFeature, LineFeature, FeatureSet
 from observations.models import Subject, SubjectGroup, SubjectSource, Source, Observation
 from tracking.pubsub_registry import notify_new_tracks
 
@@ -258,7 +260,7 @@ def get_time():
 def add_demo_data(file=None):
 
     def default_demo_file():
-        return os.path.join(os.path.dirname(__file__), 'march_2016_demo.yml')
+        return os.path.join(os.path.dirname(__file__), 'march_2016_demo_data/march_2016_demo.yml')
 
     if not file:
         file = default_demo_file()
@@ -285,6 +287,42 @@ def add_demo_data(file=None):
                 Subject.objects.get(name=evt['subject_name'])
                 EventAttachment.objects.create(target=subject, event=event)
 
+def import_geojson():
+    data_pattern = os.path.join(os.path.dirname(__file__), 'march_2016_demo_data/*.geojson')
+    feature_type, _ = FeatureType.objects.get_or_create(name='wat')
+    feature_set, _ = FeatureSet.objects.get_or_create(
+        type=feature_type,
+        name='feature set name',
+        description='feature set description'
+    )
+
+    for data_file in glob.glob(data_pattern):
+        with open(data_file) as f:
+            geojson = json.load(f)
+            geom = geojson['features'][0]['geometry']
+            coords = geom['coordinates']
+            if geom['type'] == 'MultiLineString':
+                # TODO: handle this
+                pass
+
+            elif geom['type'] == 'Point':
+                # TODO: handle this
+                pass
+
+            else:
+                # TODO: only the first poly is handled
+                poly = Polygon(coords[0])
+                multi_polygon = MultiPolygon(poly)
+                name = data_file[-80:]
+                PolygonFeature.objects.filter(name=name).delete()
+
+                PolygonFeature.objects.create(
+                    name=name,
+                    presentation={},
+                    type=feature_type,
+                    feature_geometry=multi_polygon,
+                    featureset=feature_set
+                )
 
 class Command(BaseCommand):
 
@@ -302,6 +340,7 @@ class Command(BaseCommand):
         create_analyzers()
 
         add_demo_data()
+        import_geojson()
 
         generator = drive()
         # prime the DB with an observation

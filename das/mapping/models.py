@@ -98,7 +98,7 @@ class Feature(TimestampedModel):
 
     # the feature set with which this feature is being grouped.
     # todo:  evaluate whether many-to-many might be a better approach or stick with this simple approach
-    featureset = models.ForeignKey(to=FeatureSet, null=True)
+    featureset = models.ForeignKey(to=FeatureSet, null=True)  # probably should be spelled feature_set
 
     class Meta:
         abstract = True
