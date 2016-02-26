@@ -299,30 +299,31 @@ def import_geojson():
     for data_file in glob.glob(data_pattern):
         with open(data_file) as f:
             geojson = json.load(f)
-            geom = geojson['features'][0]['geometry']
-            coords = geom['coordinates']
-            if geom['type'] == 'MultiLineString':
-                # TODO: handle this
-                pass
+            for feature in geojson['features']:
+                geom = feature['geometry']
+                coords = geom['coordinates']
+                if geom['type'] == 'MultiLineString':
+                    # TODO: handle this
+                    pass
 
-            elif geom['type'] == 'Point':
-                # TODO: handle this
-                pass
+                elif geom['type'] == 'Point':
+                    # TODO: handle this
+                    pass
 
-            else:
-                # TODO: only the first poly is handled
-                poly = Polygon(coords[0])
-                multi_polygon = MultiPolygon(poly)
-                name = data_file[-80:]
-                PolygonFeature.objects.filter(name=name).delete()
+                else:
+                    # TODO: only the first poly is handled
+                    poly = Polygon(coords[0])
+                    multi_polygon = MultiPolygon(poly)
+                    name = feature['properties']['name']  # data_file[-80:]
+                    PolygonFeature.objects.filter(name=name).delete()
 
-                PolygonFeature.objects.create(
-                    name=name,
-                    presentation={},
-                    type=feature_type,
-                    feature_geometry=multi_polygon,
-                    featureset=feature_set
-                )
+                    PolygonFeature.objects.create(
+                        name=name,
+                        presentation={},
+                        type=feature_type,
+                        feature_geometry=multi_polygon,
+                        featureset=feature_set
+                    )
 
 class Command(BaseCommand):
 
