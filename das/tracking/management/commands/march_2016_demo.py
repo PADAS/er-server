@@ -313,7 +313,7 @@ def import_geojson():
                     LineFeature.objects.filter(name=name).delete()
                     LineFeature.objects.create(
                         name=name,
-                        presentation={},
+                        presentation=feature.get('properties'),
                         type=feature_type,
                         feature_geometry=mls,
                         featureset=feature_set
@@ -332,7 +332,7 @@ def import_geojson():
 
                     PolygonFeature.objects.create(
                         name=name,
-                        presentation={},
+                        presentation=feature.get('properties'),
                         type=feature_type,
                         feature_geometry=multi_polygon,
                         featureset=feature_set

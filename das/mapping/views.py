@@ -1,4 +1,3 @@
-import itertools
 import simplejson as json
 import logging
 from itertools import chain
@@ -6,16 +5,12 @@ from itertools import chain
 from django.core.serializers import serialize
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, Http404
-from django.views.generic import View
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import generics
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.parsers import JSONParser
 
-
-from raster.models import RasterLayer
 from mapping.models import PolygonFeature, LineFeature, PointFeature, FeatureSet
 from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError, Map
 import mapping.serializers as serializers
@@ -62,7 +57,7 @@ class FeatureSetListJsonView(APIView):
 
     def get(self, request):
         # todo:  add api docs
-        response_data = {'das_api_stuff': 'goes_here', 'features': []}
+        response_data = {'features': []}
         featuresets = FeatureSet.objects.all()
         for featureset in featuresets:
             response_data['features'].append({
@@ -84,9 +79,18 @@ class FeatureSetGeoJsonView(APIView):
                             list(chain(PolygonFeature.objects.filter(featureset=featureset),
                                        LineFeature.objects.filter(featureset=featureset),
                                        PointFeature.objects.filter(featureset=featureset))),
-                            properties={'name': 'title', 'image_url': 'image'},
                             geometry_field='feature_geometry'
                             )
+
+        # horrible hack to move presentation into properties for simplespec
+        # FIXME: make serialize() do this, or figure out if mapbox can use
+        # a different property than 'properties' for styling
+        doc = json.loads(feature)
+        for feature in doc['features']:
+            feature['properties'].update(feature['properties']['presentation'])
+            del feature['properties']['presentation']
+
+        feature = json.dumps(doc)
         return HttpResponse(feature, content_type='application/json')
 
     def post(self, request, format=None):
