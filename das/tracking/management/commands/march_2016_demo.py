@@ -303,8 +303,21 @@ def import_geojson():
                 geom = feature['geometry']
                 coords = geom['coordinates']
                 if geom['type'] == 'MultiLineString':
-                    # TODO: handle this
-                    pass
+                    lines = []
+                    for l in coords:
+
+                        ls = LineString(l)
+                        lines.append(ls)
+                    mls = MultiLineString(lines)
+                    name = feature['properties'].get('roadclass')
+                    LineFeature.objects.filter(name=name).delete()
+                    LineFeature.objects.create(
+                        name=name,
+                        presentation={},
+                        type=feature_type,
+                        feature_geometry=mls,
+                        featureset=feature_set
+                    )
 
                 elif geom['type'] == 'Point':
                     # TODO: handle this
