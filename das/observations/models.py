@@ -11,7 +11,8 @@ To re-sync your database with changes from others
 GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
-import datetime
+
+from datetime import datetime, timedelta
 import uuid
 
 from django.contrib.gis.db import models
@@ -22,6 +23,7 @@ from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
 from mptt.models import MPTTModel, TreeForeignKey, TreeManager
+import pytz
 
 from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
@@ -114,7 +116,7 @@ class ObservationManager(models.GeoManager):
         result = Observation.objects.filter(qs)
         result = result.order_by('-recorded_at')
         result = result.exclude(location=EMPTY_POINT)
-        gt = datetime.datetime.utcnow() - last_days
+        gt = datetime.now(tz=pytz.UTC) - last_days
         result = result.filter(recorded_at__gt=gt)
         return result
 
@@ -271,8 +273,8 @@ class SubjectManager(models.Manager):
         geom = Polygon.from_bbox(bbox)
         sources = Observation.objects.filter(location__within=geom)
         if last_days:
-            gt = datetime.datetime.utcnow() - last_days
-            lt = datetime.datetime.utcnow()
+            lt = datetime.now(tz=pytz.UTC)
+            gt = lt - last_days
             sources = sources.filter(recorded_at__range=(gt, lt))
         sources = sources.values('source').annotate(models.Count('source')).values('source')
         subject_sources = SubjectSource.objects.filter(source__in=sources)
@@ -397,8 +399,8 @@ class Subject(models.Model, PermissionSetGroupMixin):
         Sources as necessary """
         subject_sources = SubjectSource.objects.filter(subject=self)
         if last_days:
-            until = datetime.datetime.now()
-            since = until - datetime.timedelta(days=last_days)
+            until = datetime.now(tz=pytz.UTC)
+            since = until - timedelta(days=last_days)
             obs = Observation.objects.get_source_range_observations(subject_sources, since=since, until=until)
         else:
             obs = Observation.objects.get_source_range_observations(subject_sources)

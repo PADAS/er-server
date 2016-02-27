@@ -1,6 +1,6 @@
 import uuid
 import logging
-import datetime
+from datetime import datetime
 
 from django.contrib.auth import get_user_model
 from django.contrib.gis.db import models
@@ -8,10 +8,9 @@ from django.contrib.gis.geos import Polygon
 import django.utils
 from django.contrib.postgres.fields import JSONField
 
-# from django.db.models import ManyToManyField
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-
+import pytz
 from core.models import TimestampedModel
 
 import accounts.models
@@ -29,8 +28,8 @@ class EventManager(models.Manager):
         geom = Polygon.from_bbox(bbox)
         events = Event.objects.filter(location__within=geom).order_by('-created_at')
         if last_days:
-            gt = datetime.datetime.utcnow() - last_days
-            lt = datetime.datetime.utcnow()
+            lt = datetime.now(tz=pytz.UTC)
+            gt = lt - last_days
             events = events.filter(created_at__range=(gt, lt))
 
         return events

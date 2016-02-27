@@ -250,8 +250,7 @@ def drive():
 
 
 def get_time():
-    last_time = datetime.utcnow() - timedelta(hours=24*5)
-    last_time = last_time.replace(tzinfo=pytz.UTC)
+    last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=24*5)
     time_increment = timedelta(minutes=30)
     while True:
         last_time = last_time + time_increment
