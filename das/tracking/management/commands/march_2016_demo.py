@@ -26,8 +26,8 @@ from tracking.pubsub_registry import notify_new_tracks
 source, subject = None, None
 
 points = (
-    (37.35, 0.225),
-    (37.351, 0.2251),
+    (37.36, 0.225),
+    (37.361, 0.2251),
     (37.375, 0.230),
     (37.40, 0.225),
 
@@ -68,6 +68,13 @@ points = (
 source_id = '276600ae-06de-4fca-be79-58bb29695f5b'
 subject_id = '276600ae-06de-4fca-be79-58bb29695f5c'
 
+feature_type, _ = FeatureType.objects.get_or_create(name='wat')
+feature_set, _ = FeatureSet.objects.get_or_create(
+    type=feature_type,
+    name='Demo feature set name',
+    description='Demo feature set description'
+)
+
 def delete_subject():
     Subject.objects.filter(name='Topsy').delete()
     SubjectGroup.objects.filter(name='demo_group').delete()
@@ -94,9 +101,23 @@ def delete_subject_analyzers():
 
 def get_or_create_user(username, email, permission_set):
 
+    # add perms to ChrisJ and TedS
+    user = User.objects.get_or_create(username='chrisj', email='chrisj@vulcan.com')[0]
+    user.permission_sets.add(permission_set)
+    user.save()
+
+    user = User.objects.get_or_create(username='teds', email='teds@vulcan.com')[0]
+    user.permission_sets.add(permission_set)
+    user.save()
+
+    user = User.objects.get_or_create(username='josephs', email='josephs@vulcan.com')[0]
+    user.permission_sets.add(permission_set)
+    user.save()
+
     user = User.objects.get_or_create(username='demouser', email='josephs@vulcan.com')[0]
     user.permission_sets.add(permission_set)
     user.save()
+
     return user
 
 def create_actors():
@@ -152,40 +173,16 @@ def create_actors():
 
 def create_analyzers():
 
-    # create a breachable container
-    polygon = Polygon(((37, 1), (37.49, 1), (37.49, -1), (37, -1), (37, 1)))
-    dr_polygon = MultiPolygon(polygon)
-    feature_type, _ = FeatureType.objects.get_or_create(name="Topsy's Container's FeatureType")
-
     PolygonFeature.objects.filter(name="Topsy's Container").delete()
-    polygon_feature = PolygonFeature.objects.create(
-        name="Topsy's Container",
-        presentation={},
-        feature_geometry=dr_polygon,
-        type=feature_type
-    )
+    polygon_feature = PolygonFeature.objects.filter(name__contains='Lewa_boundary').first()
 
     ContainmentAnalyzer.objects.create(
         subject=subject,
-        polygon=polygon_feature
-    )
-
-    # Western edge of Lewa
-    multi_line_string = MultiLineString(
-        LineString(
-            (37.350, 0.200),
-            (37.400, 0.310),
-        )
+        polygon=polygon_feature,
     )
 
     FeatureType.objects.filter(name="Topsy's Geofence FeatureType").delete()
-    feature_type, _ = FeatureType.objects.get_or_create(name="Topsy's Geofence FeatureType")
-
-    line_feature = LineFeature.objects.create(
-        presentation={},
-        feature_geometry=multi_line_string,
-        type=feature_type
-    )
+    line_feature = LineFeature.objects.filter(name__contains='Major highway - A2').first()
 
     GeofenceAnalyzer.objects.create(
         subject=subject,
@@ -209,10 +206,14 @@ def create_analyzers():
             (37.424, 0.210),
         ))
     )
+
+    PolygonFeature.objects.filter(name="Topsy's Proximity Feature").delete()
+
     proximity_polygon_feature = PolygonFeature.objects.create(
         name="Topsy's Proximity Feature",
         presentation={},
         feature_geometry=proximity_polygon,
+        featureset=feature_set,
         type=feature_type
     )
 
@@ -289,12 +290,6 @@ def add_demo_data(file=None):
 
 def import_geojson():
     data_pattern = os.path.join(os.path.dirname(__file__), 'march_2016_demo_data/*.geojson')
-    feature_type, _ = FeatureType.objects.get_or_create(name='wat')
-    feature_set, _ = FeatureSet.objects.get_or_create(
-        type=feature_type,
-        name='feature set name',
-        description='feature set description'
-    )
 
     for data_file in glob.glob(data_pattern):
         with open(data_file) as f:
@@ -302,6 +297,7 @@ def import_geojson():
             for feature in geojson['features']:
                 geom = feature['geometry']
                 coords = geom['coordinates']
+
                 if geom['type'] == 'MultiLineString':
                     lines = []
                     for l in coords:
@@ -320,11 +316,9 @@ def import_geojson():
                     )
 
                 elif geom['type'] == 'Point':
-                    # TODO: handle this
                     pass
 
                 else:
-                    # TODO: only the first poly is handled
                     poly = Polygon(coords[0])
                     multi_polygon = MultiPolygon(poly)
                     name = feature['properties']['name']  # data_file[-80:]
@@ -350,11 +344,11 @@ class Command(BaseCommand):
         delete_observations()
         delete_events()
 
+        import_geojson()
         create_actors()
         create_analyzers()
 
         add_demo_data()
-        import_geojson()
 
         generator = drive()
         # prime the DB with an observation
