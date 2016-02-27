@@ -9,7 +9,7 @@ except ImportError:
     from yaml import SafeLoader
 
 
-from django.contrib.gis.geos import Point, Polygon, MultiPolygon, LineString, MultiLineString
+from django.contrib.gis.geos import Point, MultiPoint, Polygon, MultiPolygon, LineString, MultiLineString
 from django.core.management.base import BaseCommand
 from django.db import transaction
 import pytz
@@ -18,7 +18,7 @@ from accounts.models import PermissionSet, Permission, User
 from activity.models import Event, EventAttachment
 from analyzers.models import all_analyzers, ContainmentAnalyzer, SubjectAnalyzer, \
     GeofenceAnalyzer, ImmobilityAnalyzer, ProximityAnalyzer, SpeedAnalyzer
-from mapping.models import FeatureType, PolygonFeature, LineFeature, FeatureSet
+from mapping.models import FeatureType, PolygonFeature, LineFeature, PointFeature, FeatureSet
 from observations.models import Subject, SubjectGroup, SubjectSource, Source, Observation
 from tracking.pubsub_registry import notify_new_tracks
 
@@ -315,7 +315,22 @@ def import_geojson():
                     )
 
                 elif geom['type'] == 'Point':
-                    pass
+                    point = Point(geom['coordinates'])
+                    mp = MultiPoint([point])
+                    name = feature['properties'].get('name')
+                    # FIXME: mapbox doesn't seem to want to style a MultiPoint,
+                    # which is what PointFeature wants to store.
+                    # may have to serialize this as a Point on outbound,
+                    # or change PointFeature to reference Points
+                    feature['properties']['marker-symbol'] = 1
+                    PointFeature.objects.filter(name=name).delete()
+                    PointFeature.objects.create(
+                        name=name,
+                        presentation=feature.get('properties'),
+                        type=feature_type,
+                        feature_geometry=mp,
+                        featureset=feature_set
+                    )
 
                 else:
                     poly = Polygon(coords[0])
