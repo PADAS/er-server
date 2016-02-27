@@ -174,7 +174,7 @@ def create_actors():
 def create_analyzers():
 
     PolygonFeature.objects.filter(name="Topsy's Container").delete()
-    polygon_feature = PolygonFeature.objects.filter(name__contains='Lewa_boundary').first()
+    polygon_feature = PolygonFeature.objects.filter(name__contains='Lewa').first()
 
     ContainmentAnalyzer.objects.create(
         subject=subject,
