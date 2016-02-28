@@ -409,16 +409,13 @@ class Subject(models.Model, PermissionSetGroupMixin):
 
     @property
     def image_url(self):
-        key = self.subject_type
-        species = self.additional.get('species', None)
-        if species:
-            species = species.lower()
-            sex = self.additional.get('sex', None)
-            if sex:
-                key = '-'.join((species, sex.lower()))
-            else:
-                key = species
-        return googlemarkericon(key)
+        # TODO: This is a bit kludgy, so fix it to use subject type and subtype after March demo.
+        key = self.subject_subtype
+        sex = self.additional.get('sex', None)
+        if sex:
+            key = '-'.join((key, sex))
+
+        return googlemarkericon(key.lower())
 
     def get_users_to_notify(self):
         """
