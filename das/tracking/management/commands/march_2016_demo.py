@@ -176,10 +176,10 @@ def create_analyzers():
     PolygonFeature.objects.filter(name="Topsy's Container").delete()
     polygon_feature = PolygonFeature.objects.filter(name__contains='Lewa').first()
 
-    ContainmentAnalyzer.objects.create(
-        subject=subject,
-        polygon=polygon_feature,
-    )
+    #ContainmentAnalyzer.objects.create(
+    #    subject=subject,
+    #    polygon=polygon_feature,
+    #)
 
     FeatureType.objects.filter(name="Topsy's Geofence FeatureType").delete()
     line_feature = LineFeature.objects.filter(name__contains='Major highway - A2').first()
@@ -217,11 +217,11 @@ def create_analyzers():
         type=feature_type
     )
 
-    ProximityAnalyzer.objects.create(
-        subject=subject,
-        polygon=proximity_polygon_feature,
-        distance_m=100
-    )
+    #ProximityAnalyzer.objects.create(
+    #    subject=subject,
+    #    polygon=proximity_polygon_feature,
+    #    distance_m=100
+    #)
 
 
 def drive():
