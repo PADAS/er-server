@@ -15,7 +15,7 @@ class SpeedAnalyzer(Analyzer):
 
     event_type = Event.ET_SPEED
 
-    max_speed = models.FloatField(default=2)
+    max_speed = models.FloatField(default=8)
     min_speed = models.FloatField(default=0)
 
     def analyze(self, track):

@@ -133,9 +133,9 @@ def create_actors():
     subject = Subject(
         id=subject_id,
         name = 'Topsy',
-        additional = {'sex': 'Female', 'species': 'Elephant'},
-        subject_type='wildlife',
-        subject_subtype='elephant'
+        additional = {},
+        subject_type='person',
+        subject_subtype='ranger'
         )
 
     # (163, 'Permission to subscribe to an alert on this Subject.'),
