@@ -197,25 +197,7 @@ def create_analyzers():
         threshold_critical_cluster_ratio=0.3,
         )
 
-    # polygon surrounding "Lewa Wildlife Convervancy" tree on map
-    proximity_polygon = MultiPolygon(
-        Polygon((
-            (37.424, 0.210),
-            (37.436, 0.220),
-            (37.436, 0.210),
-            (37.424, 0.210),
-        ))
-    )
-
     PolygonFeature.objects.filter(name="Topsy's Proximity Feature").delete()
-
-    proximity_polygon_feature = PolygonFeature.objects.create(
-        name="Topsy's Proximity Feature",
-        presentation={},
-        feature_geometry=proximity_polygon,
-        featureset=feature_set,
-        type=feature_type
-    )
 
     #ProximityAnalyzer.objects.create(
     #    subject=subject,
