@@ -465,7 +465,7 @@ MARKER_ICONS = {
     'forest elephant-female': '/static/elephant-black-female.svg',
     'lion-male': '/static/Lion_Male.png',
     'lion-female': '/static/Lion_Female.png',
-    'ranger': '/static/ranger.png',
+    'ranger': '/static/patrol_team-black.svg',
     'vehicle': '/static/truck.png',
     'cow': '',
     'cheetah': '',
