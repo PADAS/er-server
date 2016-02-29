@@ -10,7 +10,7 @@
 		"type": "Feature",
 		"properties": {
 			"name": "Lewa",
-			"stroke-opacity": 0.75,
+			"stroke-opacity": 0.35,
 			"fill-opacity": 0,
 			"title": "Private Conservancies",
 			"stroke": "#cacaca",
