@@ -4,10 +4,10 @@
 		"type": "Feature",
 		"properties": {
 			"name": "NONE",
-			"stroke-opacity": 0.3,
+			"stroke-opacity": 0.5,
 			"fill-opacity": 0,
 			"title": "Lewa patrol blocks",
-			"stroke": "#A83800",
+			"stroke": "#cacaca",
 			"fill": "#555555",
 			"PatrolName": "NONE"
 		},
@@ -59,10 +59,10 @@
 		"type": "Feature",
 		"properties": {
 			"name": "S17",
-			"stroke-opacity": 0.3,
+			"stroke-opacity": 0.5,
 			"fill-opacity": 0,
 			"title": "Lewa patrol blocks",
-			"stroke": "#A83800",
+			"stroke": "#cacaca",
 			"fill": "#555555",
 			"PatrolName": "S17"
 		},
@@ -154,10 +154,10 @@
 		"type": "Feature",
 		"properties": {
 			"name": "S18",
-			"stroke-opacity": 0.3,
+			"stroke-opacity": 0.5,
 			"fill-opacity": 0,
 			"title": "Lewa patrol blocks",
-			"stroke": "#A83800",
+			"stroke": "#cacaca",
 			"fill": "#555555",
 			"PatrolName": "S18"
 		},
@@ -279,10 +279,10 @@
 		"type": "Feature",
 		"properties": {
 			"name": "S16",
-			"stroke-opacity": 0.3,
+			"stroke-opacity": 0.5,
 			"fill-opacity": 0,
 			"title": "Lewa patrol blocks",
-			"stroke": "#A83800",
+			"stroke": "#cacaca",
 			"fill": "#555555",
 			"PatrolName": "S16"
 		},
@@ -374,10 +374,10 @@
 		"type": "Feature",
 		"properties": {
 			"name": "S14",
-			"stroke-opacity": 0.3,
+			"stroke-opacity": 0.5,
 			"fill-opacity": 0,
 			"title": "Lewa patrol blocks",
-			"stroke": "#A83800",
+			"stroke": "#cacaca",
 			
 			"fill": "#555555",
 			"PatrolName": "S14"
@@ -486,10 +486,10 @@
 		"type": "Feature",
 		"properties": {
 			"name": "S13",
-			"stroke-opacity": 0.3,
+			"stroke-opacity": 0.5,
 			"fill-opacity": 0,
 			"title": "Lewa patrol blocks",
-			"stroke": "#A83800",
+			"stroke": "#cacaca",
 			
 			"fill": "#555555",
 			"PatrolName": "S13"
@@ -592,10 +592,10 @@
 		"type": "Feature",
 		"properties": {
 			"name": "S12",
-			"stroke-opacity": 0.3,
+			"stroke-opacity": 0.5,
 			"fill-opacity": 0,
 			"title": "Lewa patrol blocks",
-			"stroke": "#A83800",
+			"stroke": "#cacaca",
 			
 			"fill": "#555555",
 			"PatrolName": "S12"
@@ -706,10 +706,10 @@
 		"type": "Feature",
 		"properties": {
 			"name": "S9",
-			"stroke-opacity": 0.3,
+			"stroke-opacity": 0.5,
 			"fill-opacity": 0,
 			"title": "Lewa patrol blocks",
-			"stroke": "#A83800",
+			"stroke": "#cacaca",
 			
 			"fill": "#555555",
 			"PatrolName": "S9"
@@ -796,10 +796,10 @@
 		"type": "Feature",
 		"properties": {
 			"name": "S11",
-			"stroke-opacity": 0.3,
+			"stroke-opacity": 0.5,
 			"fill-opacity": 0,
 			"title": "Lewa patrol blocks",
-			"stroke": "#A83800",
+			"stroke": "#cacaca",
 			
 			"fill": "#555555",
 			"PatrolName": "S11"
@@ -876,10 +876,10 @@
 		"type": "Feature",
 		"properties": {
 			"name": "S10",
-			"stroke-opacity": 0.3,
+			"stroke-opacity": 0.5,
 			"fill-opacity": 0,
 			"title": "Lewa patrol blocks",
-			"stroke": "#A83800",
+			"stroke": "#cacaca",
 			
 			"fill": "#555555",
 			"PatrolName": "S10"
