@@ -10,12 +10,12 @@
 		"type": "Feature",
 		"properties": {
 			"name": "NONE",
-			"stroke-opacity": 0.5,
-			"fill-opacity": 0.3,
+			"stroke-opacity": 0.3,
+			"fill-opacity": 0.2,
 			"title": "Lewa swamp",
-			"stroke": "#596a32",
-			"stroke-width": 2.0,
-			"fill": "#596a32",
+			"stroke": "#809848",
+			"stroke-width": 1.0,
+			"fill": "#809848",
 			"SWAMP_ID": 1,
 			"ACRES": 186.933000,
 			"HECTARES": 75.649000
