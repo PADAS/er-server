@@ -8,6 +8,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from dateutil.parser import parse as parse_date
 import pytz
+from django.conf import settings
 from django.contrib.gis.geos import Point
 from django.db import transaction
 
@@ -16,13 +17,21 @@ from observations.serializers import ObservationSerializer
 from activity.models import Event, EventAttachment
 from activity.serializers import EventSerializer
 
+try:
+    hours = int(settings.TRBONET_TIME_OFFSET)
+except AttributeError:
+    hours = 0
+
+TRBONET_TIME_OFFSET = timedelta(hours=hours)
+
 
 def __str2date(d, default_tzinfo=pytz.UTC):
     '''Parse a date and if it's naive, replace tzinfo with default_tzinfo.'''
     dt = parse_date(d)
     if not dt.tzinfo:
-        return dt.replace(tzinfo=default_tzinfo)
-    return dt
+        dt = dt.replace(tzinfo=default_tzinfo)
+
+    return dt - TRBONET_TIME_OFFSET
 
 
 @api_view(['POST', 'GET'])
