@@ -11,7 +11,7 @@
 		"properties": {
 			"roadclass": "Major highway - A2",
 			"stroke": "#555555",
-			"stroke-opacity": 0.5,
+			"stroke-opacity": 0,
 			"stroke-width": 2,
 			"srftyp": null,
 			"collect_us": "Barnerd Lesowapir"
@@ -3354,9 +3354,9 @@
 		"type": "Feature",
 		"properties": {
 			"roadclass": "Minor tracks -",
-			"stroke": "#555555",
-			"stroke-opacity": 0.4,
-			"stroke-width": 1,
+			"stroke": "#ffffff",
+			"stroke-opacity": 0.9,
+			"stroke-width": 1.2,
 			"srftyp": null,
 			"collect_us": "Barnerd Lesowapir"
 		},
@@ -25666,8 +25666,8 @@
 		"type": "Feature",
 		"properties": {
 			"roadclass": "Primary",
-			"stroke": "#555555",
-			"stroke-opacity": 0.4,
+			"stroke": "#ffffff",
+			"stroke-opacity": 0.9,
 			"stroke-width": 1.5,
 			"srftyp": "Dirt\/Sand",
 			"collect_us": "Jake Wall"
@@ -26132,8 +26132,8 @@
 		"type": "Feature",
 		"properties": {
 			"roadclass": "Secondary",
-			"stroke": "#555555",
-			"stroke-opacity": 0.4,
+			"stroke": "#ffffff",
+			"stroke-opacity": 0.9,
 			"stroke-width": 1.2,
 			"srftyp": "Dirt\/Sand",
 			"collect_us": "Jake Wall"
