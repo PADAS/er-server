@@ -49,3 +49,8 @@ class SubjectTestCase(TestCase):
         expected = 1
 
         self.assertEqual(actual, expected)
+
+        actual = len(subject.observations(last_days=30))
+        expected = 2
+
+        self.assertEqual(actual, expected)
