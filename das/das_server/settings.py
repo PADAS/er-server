@@ -322,8 +322,5 @@ EMAIL_BACKEND = 'django_ses.SESBackend'
 AWS_SES_REGION_NAME = 'us-west-2'
 AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 
-
-# the email address to send from
-# FIXME: override this with a verified address that is not Joseph's
-FROM_EMAIL = 'josephs@vulcan.com'
-# FROM_EMAIL = 'success@simulator.amazonses.com'
+# the address to send notification emails from
+FROM_EMAIL = 'notifications@pamdas.org'
