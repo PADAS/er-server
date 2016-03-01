@@ -192,9 +192,9 @@ def create_analyzers():
     ImmobilityAnalyzer.objects.create(
         subject=subject,
         radius=100,
-        threshold_time=60*60,
-        threshold_warning_cluster_ratio=0.2,
-        threshold_critical_cluster_ratio=0.3,
+        threshold_time=60*60*2,
+        threshold_warning_cluster_ratio=1.0,
+        threshold_critical_cluster_ratio=1.0,
         )
 
     PolygonFeature.objects.filter(name="Topsy's Proximity Feature").delete()
@@ -205,19 +205,21 @@ def create_analyzers():
     #    distance_m=100
     #)
 
+    SpeedAnalyzer.objects.create(subject=subject, max_speed=10000000)
+
 
 def drive():
-    begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=24*3-1)
+    begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=24)
 
     delete_driven_events(begin_time)
 
     while True:
         delete_observations()
 
-        t0 = datetime.now(tz=pytz.UTC) - timedelta(hours=24*3-1)
+        t0 = datetime.now(tz=pytz.UTC) - timedelta(hours=24)
 
         for i, point in enumerate(points):
-            dt = timedelta(hours=i)
+            dt = timedelta(minutes=i*30)
             t = t0 + dt
 
             _ = Observation.objects.create(
