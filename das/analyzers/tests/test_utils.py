@@ -1,7 +1,10 @@
+from django.contrib.gis.geos import Point, LineString, MultiLineString
 from django.test import TestCase
 
-from activity.models import Event, EventAttachment
+from activity.models import EventAttachment
 from analyzers import models, utils
+from analyzers.models.analyzer import AnalyzerResult
+from mapping.models import FeatureType, LineFeature
 from observations.models import Subject
 
 class TestAnalyzerUtils(TestCase):
@@ -24,28 +27,83 @@ class TestAnalyzerUtils(TestCase):
         self.assertEqual(actual, expected)
 
 
-    def test_latest_event_for(self):
+    def test_latest_event_for_with_single_analyzer(self):
         """
         Ensure the return of the most recent Event for a (subject|analyzer)
         """
 
-        analyzer = models.GeofenceAnalyzer()
-
         subject = Subject.objects.get(name='Topsy')
 
-        event_params = {
-            'provenance': Event.ANALYZER,
-            'attributes': {
-                'analyzer_type': analyzer.name
-            }
-        }
-        event1 = Event.objects.create(**event_params)
-        event2 = Event.objects.create(**event_params)
+        analyzer = models.GeofenceAnalyzer.objects.create(subject=subject)
+
+        event1 = AnalyzerResult(analyzer, subject=subject).create_event()
+        event2 = AnalyzerResult(analyzer, subject=subject).create_event()
 
         EventAttachment.objects.create(event=event1, target=subject, reason=EventAttachment.TARGET)
         EventAttachment.objects.create(event=event2, target=subject, reason=EventAttachment.TARGET)
 
-        actual = utils.latest_event_for(subject, analyzer)
+        actual = utils.latest_event_for(analyzer)
+        expected = event2
+
+        self.assertEqual(actual, expected)
+
+    def test_latest_event_for_with_multiple_analyzers(self):
+        """
+        Ensure the return of the most recent Event for a (subject|analyzer)
+        respecting the existence of multiple instances of an analyzer type
+        per subject
+        """
+
+        feature_type = FeatureType.objects.create(name='fence 1')
+
+        # Make one GeofenceAnalyzer
+        fence = MultiLineString(
+            LineString((
+                (-1, 1),
+                (-1, -1),
+            ))
+        )
+
+        polygon_feature = LineFeature.objects.create(
+            presentation={},
+            feature_geometry=fence,
+            type=feature_type,
+            name='fence1'
+        )
+
+        # Make a second GeofenceAnalyzer
+        fence2 = MultiLineString(
+            LineString((
+                (1, 1),
+                (1, -1),
+            ))
+        )
+
+        polygon_feature2 = LineFeature.objects.create(
+            presentation={},
+            feature_geometry=fence2,
+            type=feature_type,
+            name='fence2'
+        )
+
+        subject = Subject.objects.get(name='Topsy')
+
+        analyzer1 = models.GeofenceAnalyzer.objects.create(fence=polygon_feature, subject=subject)
+        analyzer2 = models.GeofenceAnalyzer.objects.create(fence=polygon_feature2, subject=subject)
+
+        # make an Event for each analyzer
+        event1 = AnalyzerResult(analyzer1, subject=subject).create_event()
+        event2 = AnalyzerResult(analyzer2, subject=subject).create_event()
+
+        EventAttachment.objects.create(event=event1, target=subject, reason=EventAttachment.TARGET)
+        EventAttachment.objects.create(event=event2, target=subject, reason=EventAttachment.TARGET)
+
+        actual = utils.latest_event_for(analyzer1)
+        expected = event1
+
+        self.assertEqual(actual, expected)
+
+        actual = utils.latest_event_for(analyzer2)
         expected = event2
 
         self.assertEqual(actual, expected)

@@ -15,14 +15,13 @@ def get_or_create_analyzers_for_subject(subject):
             yield analyzer
 
 
-def latest_event_for(subject, analyzer):
+def latest_event_for(analyzer):
     """ Returns the most recent event or None for a given subject and analyzer """
 
     event = Event.objects \
         .filter(
-            attachment__target_id=subject.id,
             provenance='analyzer',
-            attributes__analyzer_type=analyzer.name) \
+            attributes__analyzer_id=analyzer.id) \
         .order_by('-created_at') \
         .first()
 

@@ -1,7 +1,10 @@
 import logging
 
 from django.contrib.gis.db import models
+from django.contrib.gis.geos import Point
+from django.db import transaction
 
+from activity.models import Event, EventAttachment
 from observations.models import Subject
 
 logger = logging.getLogger(__name__)
@@ -14,6 +17,11 @@ WARNING = 30
 ERROR = 40
 CRITICAL = 50
 
+analyzer_level_to_event_priority = {
+    NOMINAL: Event.PRI_REFERENCE,
+    WARNING: Event.PRI_IMPORTANT,
+    CRITICAL: Event.PRI_URGENT
+}
 
 class Analyzer(models.Model):
     min_time = models.TimeField(null=True)
@@ -45,9 +53,11 @@ class AnalyzerResult():
     value = 0.0
     title = 'AnalyzerResult'
     location = None
+    subject = None
 
-    def __init__(self, analyzer):
+    def __init__(self, analyzer, subject=None):
         self.analyzer = analyzer
+        self.subject = subject
 
     def to_dict(self):
         """ returns a dict of attributes of this object """
@@ -57,5 +67,26 @@ class AnalyzerResult():
             'level': self.level,
             'value': self.value,
             'analyzer_type': self.analyzer.name,
+            'analyzer_id': self.analyzer.id,
             'location': self.location and str(self.location) or None
         }
+
+    def create_event(self):
+
+        location = self.location and Point(self.location.x, self.location.y) or None
+
+        with transaction.atomic():
+            event = Event(
+                event_type=self.analyzer.event_type,
+                provenance=Event.ANALYZER,
+                attributes=self.to_dict(),
+                location=location,
+                priority=analyzer_level_to_event_priority[self.level],
+                name=self.title,
+                description='{}'.format(self.subject.name)
+            )
+
+            event.save()
+            event_attachment = EventAttachment(event=event, target=self.subject, reason=EventAttachment.TARGET)
+            event_attachment.save()
+            return event

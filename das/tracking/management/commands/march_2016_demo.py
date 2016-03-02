@@ -198,12 +198,53 @@ def create_analyzers():
         )
 
     PolygonFeature.objects.filter(name="Topsy's Proximity Feature").delete()
+    PolygonFeature.objects.filter(name="Topsy's Proximity Feature 2").delete()
 
-    #ProximityAnalyzer.objects.create(
-    #    subject=subject,
-    #    polygon=proximity_polygon_feature,
-    #    distance_m=100
-    #)
+    # polygon surrounding "Lewa Wildlife Convervancy" tree on map
+    proximity_polygon = MultiPolygon(
+        Polygon((
+            (37.424, 0.210),
+            (37.436, 0.220),
+            (37.436, 0.210),
+            (37.424, 0.210),
+        ))
+    )
+
+    proximity_polygon_feature = PolygonFeature.objects.create(
+        name="Topsy's Proximity Feature",
+        presentation={},
+        feature_geometry=proximity_polygon,
+        featureset=feature_set,
+        type=feature_type
+    )
+    ProximityAnalyzer.objects.create(
+       subject=subject,
+       polygon=proximity_polygon_feature,
+       distance_m=100
+    )
+
+    # polygon surrounding "Lewa Wildlife Convervancy" tree on map
+    proximity_polygon2 = MultiPolygon(
+        Polygon((
+            (37.524, 0.210),
+            (37.536, 0.220),
+            (37.536, 0.210),
+            (37.524, 0.210),
+        ))
+    )
+
+    proximity_polygon_feature2 = PolygonFeature.objects.create(
+        name="Topsy's Proximity Feature 2",
+        presentation={},
+        feature_geometry=proximity_polygon2,
+        featureset=feature_set,
+        type=feature_type
+    )
+    ProximityAnalyzer.objects.create(
+       subject=subject,
+       polygon=proximity_polygon_feature2,
+       distance_m=3200
+    )
 
     SpeedAnalyzer.objects.create(subject=subject, max_speed=10000000)
 

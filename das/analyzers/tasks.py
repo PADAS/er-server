@@ -1,10 +1,7 @@
 import logging
 
-from django.contrib.gis.geos import Point
-from django.db import transaction
-
 from analyzers.models.analyzer import NOMINAL, WARNING, CRITICAL
-from activity.models import Event, EventAttachment
+from activity.models import Event
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.utils import get_or_create_analyzers_for_subject, latest_event_for
 from das_server import celery
@@ -13,11 +10,6 @@ from observations.track import Track
 
 logger = logging.getLogger(__name__)
 
-analyzer_level_to_event_priority = {
-    NOMINAL: Event.PRI_REFERENCE,
-    WARNING: Event.PRI_IMPORTANT,
-    CRITICAL: Event.PRI_URGENT
-}
 
 @celery.app.task()
 def handle_subject(subject_id):
@@ -31,7 +23,7 @@ def handle_subject(subject_id):
         return
 
     for analyzer in get_or_create_analyzers_for_subject(subject):
-        latest_event = latest_event_for(subject, analyzer)
+        latest_event = latest_event_for(analyzer)
 
         try:
             analyzer_result = analyzer.analyze(track)
@@ -44,23 +36,8 @@ def handle_subject(subject_id):
 
             # conditions met to create a new Event
 
-            analyzer_result.subject_id = subject_id
-            location = Point(analyzer_result.location.x, analyzer_result.location.y)
-
-            with transaction.atomic():
-                event = Event(
-                    event_type=analyzer.event_type,
-                    provenance=Event.ANALYZER,
-                    attributes=analyzer_result.to_dict(),
-                    location=location,
-                    priority=analyzer_level_to_event_priority[analyzer_result.level],
-                    name=analyzer_result.title,
-                    description='{}'.format(subject.name)
-                )
-
-                event.save()
-                event_attachment = EventAttachment(event=event, target=subject, reason=EventAttachment.TARGET)
-                event_attachment.save()
+            analyzer_result.subject = subject
+            _ = analyzer_result.create_event()
 
         except InsufficientDataAnalyzerException:
             logger.warning('insufficient observations exist to support analyzer {}'.format(analyzer))
