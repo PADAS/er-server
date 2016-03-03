@@ -311,7 +311,6 @@ app:
     # specific configuration onto it.  Any number of environments can be
     # specified
     environments:
-        # the dev version of the app
         'das-server-dev':
             cname_prefix: 'das-server-dev'
             option_settings:
@@ -319,7 +318,14 @@ app:
                 DAS_ENV_NAME: 'dev'
               'aws:autoscaling:launchconfiguration':
                 InstanceType: "t2.small"
-
+        # the odzala version of the app
+        'das-server-odzala':
+            cname_prefix: 'das-server-odzala'
+            option_settings:
+              'aws:elasticbeanstalk:application:environment':
+                DAS_ENV_NAME: 'odzala'
+              'aws:autoscaling:launchconfiguration':
+                InstanceType: "t2.medium"
         'das-server-lewa':
             cname_prefix: 'das-server-lewa'
             option_settings:
@@ -327,25 +333,17 @@ app:
                 DAS_ENV_NAME: 'lewa'
               'aws:autoscaling:launchconfiguration':
                 InstanceType: "t2.medium"
-
-        'das-server-lewa':
-            cname_prefix: 'das-server-odzala'
+        # the demo version of the app
+        'das-server-demo':
+            cname_prefix: 'das-server-demo'
             option_settings:
               'aws:elasticbeanstalk:application:environment':
-                DAS_ENV_NAME: 'odzala'
+                DAS_ENV_NAME: 'demo'
+        # the ste version of the app
+        'das-server-ste':
+            cname_prefix: 'das-server-ste'
+            option_settings:
+              'aws:elasticbeanstalk:application:environment':
+                DAS_ENV_NAME: 'ste'
               'aws:autoscaling:launchconfiguration':
                 InstanceType: "t2.medium"
-
-        # the production version of the app
-        #'das-server-prod':
-        #    cname_prefix: 'das-server-prod'
-        #    option_settings:
-        #      'aws:elasticbeanstalk:application:environment':
-        #        DAS_ENV_NAME: 'prod'
-
-        # the odzala version of the app
-        #'das-server-odzala':
-        #    cname_prefix: 'das-server-odzala'
-        #    option_settings:
-        #      'aws:elasticbeanstalk:application:environment':
-        #        DAS_ENV_NAME: 'odzala'
