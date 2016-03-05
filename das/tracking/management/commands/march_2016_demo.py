@@ -23,47 +23,110 @@ from observations.models import Subject, SubjectGroup, SubjectSource, Source, Ob
 from tracking.pubsub_registry import notify_new_tracks
 
 
+HISTORY_HOURS=24
 source, subject = None, None
 
-points = (
-    (37.36, 0.225),
-    (37.361, 0.2251),
-    (37.375, 0.230),
-    (37.40, 0.225),
+points = [
+          [
+            37.46440887451172,
+            0.2138895788924224
+          ],
+          [
+            37.467498779296875,
+            0.1895138145932037
+          ],
+          [
+            37.483978271484375,
+            0.17578097424708533
+          ],
+          [
+            37.49256134033203,
+            0.17028783523693297
+          ],
+          [
+            37.501487731933594,
+            0.1665113012564374
+          ],
+          [
+            37.51007080078124,
+            0.17818422205893264
+          ],
+          [
+            37.515220642089844,
+            0.18917049371396785
+          ],
+          [
+            37.50663757324219,
+            0.20015675841377878
+          ],
+          [
+            37.49702453613281,
+            0.2056498880292469
+          ],
+          [
+            37.49359130859375,
+            0.22212926533206975
+          ],
+          [
+            37.48294830322265,
+            0.23036894717780024
+          ],
 
-    (37.412, 0.215),
-    (37.424, 0.210),
-    (37.436, 0.215),
+          [
+            37.48,
+            0.23
+          ],
+          [
+            37.48,
+            0.23
+          ],
+          [
+            37.48,
+            0.23
+          ],
+          [
+            37.48,
+            0.23
+          ],
+          [
+            37.48,
+            0.23
+          ],
+          [
+            37.48,
+            0.23
+          ],
 
 
-    (37.45, 0.235),
-    (37.50, 0.225),
-    (37.55, 0.227),
-    (37.55, 0.230),
-    (37.55, 0.24),
-    (37.55, 0.25),
-    (37.50, 0.26),
-    (37.45, 0.27),
-    (37.41, 0.3),
-    (37.37, 0.3),
-    (37.40, 0.29),
-    (37.43, 0.28),
-    (37.425, 0.27),
-    (37.42, 0.26),
-    (37.415, 0.25),
-    (37.410, 0.23),
-    (37.405, 0.225),
-    (37.402, 0.222),
-    # stay in place for a 5h, triggering immobility
-    (37.40, 0.22),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.40, 0.2),
-    (37.37, 0.21),
-    (37.35, 0.2),
-)
+          [
+            37.463035583496094,
+            0.23929526379559607
+          ],
+          [
+            37.44621276855469,
+            0.24684829640586692
+          ],
+          [
+            37.435569763183594,
+            0.23689202526852574
+          ],
+          [
+            37.43762969970703,
+            0.22487582646616774
+          ],
+          [
+            37.434539794921875,
+            0.2070231701397364
+          ],
+          [
+            37.449989318847656,
+            0.21148633617335558
+          ],
+          [
+            37.463035583496094,
+            0.21869606319738805
+          ]
+        ]
 
 source_id = '276600ae-06de-4fca-be79-58bb29695f5b'
 subject_id = '276600ae-06de-4fca-be79-58bb29695f5c'
@@ -76,11 +139,11 @@ feature_set, _ = FeatureSet.objects.get_or_create(
 )
 
 def delete_subject():
-    Subject.objects.filter(name='Topsy').delete()
+    Subject.objects.filter(name='TEAM SIX').delete()
     SubjectGroup.objects.filter(name='demo_group').delete()
 
 def delete_source():
-    Source.objects.filter(manufacturer_id='topsy').delete()
+    Source.objects.filter(manufacturer_id='TEAM SIX').delete()
 
 def delete_observations():
     Observation.objects.filter(source_id=source_id).delete()
@@ -125,14 +188,14 @@ def create_actors():
     source = Source.objects.create(
         id=source_id,
         additional = {},
-        manufacturer_id='topsy',
-        model_name='topsy'
+        manufacturer_id='TEAM SIX',
+        model_name='TEAM SIX'
         )
 
     global subject
     subject = Subject(
         id=subject_id,
-        name = 'Topsy',
+        name = 'TEAM SIX',
         additional = {},
         subject_type='person',
         subject_subtype='ranger'
@@ -173,7 +236,7 @@ def create_actors():
 
 def create_analyzers():
 
-    PolygonFeature.objects.filter(name="Topsy's Container").delete()
+    PolygonFeature.objects.filter(name="TEAM SIX's Container").delete()
     polygon_feature = PolygonFeature.objects.filter(name__contains='Lewa').first()
 
     #ContainmentAnalyzer.objects.create(
@@ -181,7 +244,7 @@ def create_analyzers():
     #    polygon=polygon_feature,
     #)
 
-    FeatureType.objects.filter(name="Topsy's Geofence FeatureType").delete()
+    FeatureType.objects.filter(name="TEAM SIX's Geofence FeatureType").delete()
     line_feature = LineFeature.objects.filter(name__contains='Major highway - A2').first()
 
     GeofenceAnalyzer.objects.create(
@@ -197,67 +260,27 @@ def create_analyzers():
         threshold_critical_cluster_ratio=1.0,
         )
 
-    PolygonFeature.objects.filter(name="Topsy's Proximity Feature").delete()
-    PolygonFeature.objects.filter(name="Topsy's Proximity Feature 2").delete()
+    PolygonFeature.objects.filter(name="TEAM SIX's Proximity Feature").delete()
 
-    # polygon surrounding "Lewa Wildlife Convervancy" tree on map
-    proximity_polygon = MultiPolygon(
-        Polygon((
-            (37.424, 0.210),
-            (37.436, 0.220),
-            (37.436, 0.210),
-            (37.424, 0.210),
-        ))
-    )
-
-    proximity_polygon_feature = PolygonFeature.objects.create(
-        name="Topsy's Proximity Feature",
-        presentation={},
-        feature_geometry=proximity_polygon,
-        featureset=feature_set,
-        type=feature_type
-    )
-    ProximityAnalyzer.objects.create(
-       subject=subject,
-       polygon=proximity_polygon_feature,
-       distance_m=100
-    )
-
-    # polygon surrounding "Lewa Wildlife Convervancy" tree on map
-    proximity_polygon2 = MultiPolygon(
-        Polygon((
-            (37.524, 0.210),
-            (37.536, 0.220),
-            (37.536, 0.210),
-            (37.524, 0.210),
-        ))
-    )
-
-    proximity_polygon_feature2 = PolygonFeature.objects.create(
-        name="Topsy's Proximity Feature 2",
-        presentation={},
-        feature_geometry=proximity_polygon2,
-        featureset=feature_set,
-        type=feature_type
-    )
-    ProximityAnalyzer.objects.create(
-       subject=subject,
-       polygon=proximity_polygon_feature2,
-       distance_m=3200
-    )
+    #ProximityAnalyzer.objects.create(
+    #    subject=subject,
+    #    polygon=proximity_polygon_feature,
+    #    distance_m=100
+    #)
 
     SpeedAnalyzer.objects.create(subject=subject, max_speed=10000000)
 
 
 def drive():
-    begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=24)
 
+    begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
     delete_driven_events(begin_time)
 
+    # Outer loop is for restarting the whole thing.
     while True:
         delete_observations()
 
-        t0 = datetime.now(tz=pytz.UTC) - timedelta(hours=24)
+        t0 = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
 
         for i, point in enumerate(points):
             dt = timedelta(minutes=i*30)
@@ -275,7 +298,7 @@ def drive():
 
 
 def get_time():
-    last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=24*5)
+    last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
     time_increment = timedelta(minutes=30)
     while True:
         last_time = last_time + time_increment

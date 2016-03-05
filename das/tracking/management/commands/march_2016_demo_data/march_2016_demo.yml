@@ -60,7 +60,7 @@ events:
     provenance: analyzer
     event_type: speed
     priority: 300
-    subject_name: Topsy
+    subject_name: TEAM SIX
     center: [36.9541474,0.2432556]
 
   - name: Injured rhino
@@ -75,7 +75,7 @@ events:
     provenance: analyzer
     event_type: geofence
     priority: 300
-    subject_name: Topsy
+    subject_name: TEAM SIX
     center: [37.1541474,0.2492556]
 
   - name: Perimeter fence breach
@@ -90,7 +90,7 @@ events:
     provenance: analyzer
     event_type: speed
     priority: 300
-    subject_name: Topsy
+    subject_name: TEAM SIX
     center: [37.1641474,0.2372556]
 
   - name: Immobile animal
@@ -98,6 +98,6 @@ events:
     provenance: analyzer
     event_type: immobility
     priority: 300
-    subject_name: Topsy
+    subject_name: TEAM SIX
     center: [36.9941474,0.2392556]
 
