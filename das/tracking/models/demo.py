@@ -60,7 +60,8 @@ class RandomMover(object):
     def next_point(self):
 
         # come up with a random distance based on the desired speed and interval.
-        change_m = ((random.random() - 0.5) + self.speed_mps) * self.interval_seconds
+        change_m = self.speed_mps * (random.random() + 0.5) * self.interval_seconds
+
         d = geopy.distance.VincentyDistance(meters=change_m)
         change_bearing = random.random()*360.0
 
