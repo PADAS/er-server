@@ -26,9 +26,15 @@ from tracking.pubsub_registry import notify_new_tracks
 def gen_random_rgb():
     return ','.join([str(random.randint(0,175)) for i in range(3)])
 
-
+RADIOS = (
+    # name, source_id, subject_id
+    ('TEAM SIX', '276600ae-06de-4fca-be79-58bb29695f5b', '276600ae-06de-4fca-be79-58bb29695f5c'),
+    ('TEAM TWO', 'ab67ff28-c16d-4726-b5b9-ac20c2a76857', '000c5330-7e08-4b69-8332-cb9b4ec2460d'),
+    ('ALPHA 9', '991462f0-9506-4345-b5bd-0d9f48ffdd8d', '3a7f48ff-0c37-42dd-8f47-8d563136affa'),
+    ('Fox Team', '9ef849a3-fcbb-4c3d-ae6c-e9a571659431', 'a7a11938-c7a8-46c1-96ca-4b99e413e10c')
+)
 HISTORY_HOURS=24
-source, subject = None, None
+# source, subject = None, None
 
 points = [
           [
@@ -129,8 +135,8 @@ points = [
           ]
         ]
 
-source_id = '276600ae-06de-4fca-be79-58bb29695f5b'
-subject_id = '276600ae-06de-4fca-be79-58bb29695f5c'
+# source_id = '276600ae-06de-4fca-be79-58bb29695f5b'
+# subject_id = '276600ae-06de-4fca-be79-58bb29695f5c'
 
 feature_type, _ = FeatureType.objects.get_or_create(name='wat')
 feature_set, _ = FeatureSet.objects.get_or_create(
@@ -139,68 +145,26 @@ feature_set, _ = FeatureSet.objects.get_or_create(
     description='Demo feature set description'
 )
 
-def delete_subject():
-    Subject.objects.filter(name='TEAM SIX').delete()
-    SubjectGroup.objects.filter(name='demo_group').delete()
-
-def delete_source():
-    Source.objects.filter(manufacturer_id='TEAM SIX').delete()
-
-def delete_observations():
-    Observation.objects.filter(source_id=source_id).delete()
-
-def delete_events():
-    Event.objects.all().delete()
-    EventAttachment.objects.all().delete()
-
-def delete_driven_events(time):
-    Event.objects.filter(event_time__gt=time).delete()
-
-def delete_analyzers():
-    for klass in all_analyzers:
-        klass.objects.filter(subject_id=subject_id).delete()
-
 def delete_subject_analyzers():
     pass
 
 def get_or_create_user(username, email, permission_set):
-
-    # add perms to ChrisJ and TedS
-    user = User.objects.get_or_create(username='chrisj', email='chrisj@vulcan.com')[0]
+    user = User.objects.get_or_create(username='chrisd', email='chrisdo@vulcan.com')[0]
     user.permission_sets.add(permission_set)
     user.save()
-
-    user = User.objects.get_or_create(username='teds', email='teds@vulcan.com')[0]
-    user.permission_sets.add(permission_set)
-    user.save()
-
-    user = User.objects.get_or_create(username='josephs', email='josephs@vulcan.com')[0]
-    user.permission_sets.add(permission_set)
-    user.save()
-
-    user = User.objects.get_or_create(username='demouser', email='josephs@vulcan.com')[0]
-    user.permission_sets.add(permission_set)
-    user.save()
-
     return user
 
-def create_actors():
-    global source
-    source = Source.objects.create(
-        id=source_id,
-        additional = {},
-        manufacturer_id='TEAM SIX',
-        model_name='TEAM SIX'
-        )
+def varypoint(p):
+    return [p[0]+random.random()*0.01, p[1]+random.random()* 0.01]
 
-    global subject
-    subject = Subject(
-        id=subject_id,
-        name = 'TEAM SIX',
-        additional = {'rgb': gen_random_rgb()},
-        subject_type='person',
-        subject_subtype='ranger'
-        )
+def load_track_geojson(name):
+    filename = os.path.join(os.path.dirname(__file__), 'track_data/{0}.geojson'.format(name))
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+group = None
+def create_actors():
+
 
     # (163, 'Permission to subscribe to an alert on this Subject.'),
     permission = Permission.objects.get(pk=163)
@@ -216,97 +180,146 @@ def create_actors():
     for username, email in users:
         get_or_create_user(username, email, permission_set)
 
-    group = SubjectGroup.objects.create(name='demo_group')
+    global group
+    group, created = SubjectGroup.objects.get_or_create(name='demo_group')
     group.permission_sets.add(permission_set)
     group.save()
-    subject.group = group
-    subject.save()
 
+
+
+
+
+class DemoDriver():
     DEFAULT_DATE_RANGE = (
         datetime(2015, 11, 1, tzinfo=pytz.utc),
         datetime(3030, 1, 1, tzinfo=pytz.utc)
     )
+    def __init__(self, name, source_id, subject_id, group):
+        self.source_id = source_id
+        self.subject_id = subject_id
+        self.name = name
+        self.manufacturer_id = name.lower().replace(' ', '_')
+        self.group = group
 
-    subject_source = SubjectSource.objects.create(
-        assigned_range=DEFAULT_DATE_RANGE,
-        additional={'note': 'Added for a demo animal.'},
-        source=source,
-        subject=subject
-    )
+    def hydrate(self):
+        self.source = Source.objects.create(
+            id=self.source_id,
+            additional = {},
+            manufacturer_id=self.manufacturer_id,
+            model_name='Super model'
+            )
 
+        self.subject = Subject(
+            id=self.subject_id,
+            name = self.name,
+            additional = {'rgb': gen_random_rgb()},
+            subject_type='person',
+            subject_subtype='ranger',
+            group=self.group
+            )
+        self.source.save()
+        self.subject.save()
 
-def create_analyzers():
-
-    PolygonFeature.objects.filter(name="TEAM SIX's Container").delete()
-    polygon_feature = PolygonFeature.objects.filter(name__contains='Lewa').first()
-
-    #ContainmentAnalyzer.objects.create(
-    #    subject=subject,
-    #    polygon=polygon_feature,
-    #)
-
-    FeatureType.objects.filter(name="TEAM SIX's Geofence FeatureType").delete()
-    line_feature = LineFeature.objects.filter(name__contains='Major highway - A2').first()
-
-    GeofenceAnalyzer.objects.create(
-        subject=subject,
-        fence=line_feature
-    )
-
-    ImmobilityAnalyzer.objects.create(
-        subject=subject,
-        radius=100,
-        threshold_time=60*60*2,
-        threshold_warning_cluster_ratio=1.0,
-        threshold_critical_cluster_ratio=1.0,
+        self.subject_source = SubjectSource.objects.create(
+            assigned_range=self.DEFAULT_DATE_RANGE,
+            additional={'note': 'Added for a demo animal.'},
+            source=self.source,
+            subject=self.subject
         )
 
-    PolygonFeature.objects.filter(name="TEAM SIX's Proximity Feature").delete()
+    def create_analyzers(self):
 
-    #ProximityAnalyzer.objects.create(
-    #    subject=subject,
-    #    polygon=proximity_polygon_feature,
-    #    distance_m=100
-    #)
+        PolygonFeature.objects.filter(name="TEAM SIX's Container").delete()
 
-    SpeedAnalyzer.objects.create(subject=subject, max_speed=10000000)
+        FeatureType.objects.filter(name="TEAM SIX's Geofence FeatureType").delete()
+        line_feature = LineFeature.objects.filter(name__contains='Major highway - A2').first()
 
+        GeofenceAnalyzer.objects.create(
+            subject=self.subject,
+            fence=line_feature
+        )
 
-def drive():
-
-    begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
-    delete_driven_events(begin_time)
-
-    # Outer loop is for restarting the whole thing.
-    while True:
-        delete_observations()
-
-        t0 = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
-
-        for i, point in enumerate(points):
-            dt = timedelta(minutes=i*30)
-            t = t0 + dt
-
-            _ = Observation.objects.create(
-                source_id=source.id,
-                location=Point(point),
-                recorded_at=t,
-                additional={}
+        ImmobilityAnalyzer.objects.create(
+            subject=self.subject,
+            radius=100,
+            threshold_time=60*60*2,
+            threshold_warning_cluster_ratio=1.0,
+            threshold_critical_cluster_ratio=1.0,
             )
-            transaction.on_commit(lambda: notify_new_tracks(source.id))
-            transaction.commit()
-            yield
+
+        PolygonFeature.objects.filter(name="TEAM SIX's Proximity Feature").delete()
+        SpeedAnalyzer.objects.create(subject=self.subject, max_speed=10000000)
 
 
-def get_time():
-    last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS*2)
-    time_increment = timedelta(minutes=30)
-    while True:
-        last_time = last_time + time_increment
-        yield last_time
+    def drive(self):
+
+        begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
+        self.delete_driven_events(begin_time)
+
+        # Outer loop is for restarting the whole thing.
+        while True:
+            self.delete_observations()
+
+            t0 = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
+
+            points = load_track_geojson(self.manufacturer_id)
+            points = points['features'][0]['geometry']['coordinates']
+            plist = [varypoint(p) for p in points]
+            for i, point in enumerate(plist):
+                dt = timedelta(minutes=i*30)
+                t = t0 + dt
+
+                _ = Observation.objects.create(
+                    source_id=self.source.id,
+                    location=Point(point),
+                    recorded_at=t,
+                    additional={}
+                )
+                transaction.on_commit(lambda: notify_new_tracks(self.source.id))
+                transaction.commit()
+                yield
+
+    @staticmethod
+    def get_time():
+        last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS*2)
+        time_increment = timedelta(minutes=30)
+        while True:
+            last_time = last_time + time_increment
+            yield last_time
+
+    def delete_subject(self):
+        Subject.objects.filter(id=self.subject_id).delete()
+
+    def delete_source(self):
+        Source.objects.filter(id=self.source_id).delete()
+
+    def delete_observations(self):
+        Observation.objects.filter(source_id=self.source_id).delete()
+
+    def delete_events(self):
+        # EventAttachment.objects.filter(target_id=self.subject.id).delete()
+        EventAttachment.objects.all().delete()
+        Event.objects.all().delete()
+
+    def delete_driven_events(self, time):
+        Event.objects.filter(event_time__gt=time).delete()
+
+    def delete_analyzers(self):
+        for klass in all_analyzers:
+            klass.objects.filter(subject_id=self.subject_id).delete()
+
+    def ignition(self):
+        self.delete_analyzers()
+        delete_subject_analyzers()
+        self.delete_subject()
+        self.delete_source()
+        self.delete_observations()
+        self.delete_events()
+        self.hydrate()
+        self.create_analyzers()
 
 
-def add_demo_data(file=None):
+def add_demo_data(file=None, subject=None):
 
     def default_demo_file():
         return os.path.join(os.path.dirname(__file__), 'march_2016_demo_data/march_2016_demo.yml')
@@ -319,7 +332,7 @@ def add_demo_data(file=None):
         with open(file) as fp:
             demo_data = yaml.load(fp, Loader=SafeLoader)
 
-        times = get_time()
+        times = DemoDriver.get_time()
 
         for evt in reversed(demo_data['events']):
             event = Event(name=evt['name'])
@@ -400,25 +413,27 @@ class Command(BaseCommand):
     help = 'Run the March 2016 demo track'
 
     def handle(self, *args, **options):
-        delete_analyzers()
-        delete_subject_analyzers()
-        delete_subject()
-        delete_source()
-        delete_observations()
-        delete_events()
 
         import_geojson()
+
         create_actors()
-        create_analyzers()
+        drivers = []
+        for radio in RADIOS:
+            driver = DemoDriver(radio[0], radio[1], radio[2], group)
+            driver.ignition()
+            drivers.append(driver)
 
-        add_demo_data()
+        add_demo_data(subject=drivers[0].subject)
 
-        generator = drive()
+        generators = list(driver.drive() for driver in drivers)
         # prime the DB with an observation
-        next(generator)
-        next(generator)
+        for g in generators:
+            next(g)
+            next(g)
 
         input('removed old data. load web app and press enter to continue')
 
-        for _ in generator:
+        while True:
+            for _ in generators:
+                next(_)
             input('press enter to continue')
