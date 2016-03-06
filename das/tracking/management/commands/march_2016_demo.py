@@ -24,119 +24,17 @@ from observations.models import Subject, SubjectGroup, SubjectSource, Source, Ob
 from tracking.pubsub_registry import notify_new_tracks
 
 def gen_random_rgb():
-    return ','.join([str(random.randint(0,175)) for i in range(3)])
+    return ','.join([str(random.randint(50,200)) for i in range(3)])
 
 RADIOS = (
     # name, source_id, subject_id
     ('TEAM SIX', '276600ae-06de-4fca-be79-58bb29695f5b', '276600ae-06de-4fca-be79-58bb29695f5c'),
-    ('TEAM TWO', 'ab67ff28-c16d-4726-b5b9-ac20c2a76857', '000c5330-7e08-4b69-8332-cb9b4ec2460d'),
-    ('ALPHA 9', '991462f0-9506-4345-b5bd-0d9f48ffdd8d', '3a7f48ff-0c37-42dd-8f47-8d563136affa'),
-    ('Fox Team', '9ef849a3-fcbb-4c3d-ae6c-e9a571659431', 'a7a11938-c7a8-46c1-96ca-4b99e413e10c')
+    ('Alpha 9', 'ab67ff28-c16d-4726-b5b9-ac20c2a76857', '000c5330-7e08-4b69-8332-cb9b4ec2460d'),
+    ('SIX Alt', '991462f0-9506-4345-b5bd-0d9f48ffdd8d', '3a7f48ff-0c37-42dd-8f47-8d563136affa'),
+    ('Fox Team', '9ef849a3-fcbb-4c3d-ae6c-e9a571659431', 'a7a11938-c7a8-46c1-96ca-4b99e413e10c'),
+    ('Ndare Z', 'f513960c-23f1-46d4-96cf-26a7b5e26f4e', 'be61884e-4e33-4447-b179-d453fe15ab89')
 )
 HISTORY_HOURS=24
-# source, subject = None, None
-
-points = [
-          [
-            37.46440887451172,
-            0.2138895788924224
-          ],
-          [
-            37.467498779296875,
-            0.1895138145932037
-          ],
-          [
-            37.483978271484375,
-            0.17578097424708533
-          ],
-          [
-            37.49256134033203,
-            0.17028783523693297
-          ],
-          [
-            37.501487731933594,
-            0.1665113012564374
-          ],
-          [
-            37.51007080078124,
-            0.17818422205893264
-          ],
-          [
-            37.515220642089844,
-            0.18917049371396785
-          ],
-          [
-            37.50663757324219,
-            0.20015675841377878
-          ],
-          [
-            37.49702453613281,
-            0.2056498880292469
-          ],
-          [
-            37.49359130859375,
-            0.22212926533206975
-          ],
-          [
-            37.48294830322265,
-            0.23036894717780024
-          ],
-          [
-            37.48,
-            0.23
-          ],
-          [
-            37.48,
-            0.23
-          ],
-          [
-            37.48,
-            0.23
-          ],
-          [
-            37.48,
-            0.23
-          ],
-          [
-            37.48,
-            0.23
-          ],
-          [
-            37.48,
-            0.23
-          ],
-          [
-            37.463035583496094,
-            0.23929526379559607
-          ],
-          [
-            37.44621276855469,
-            0.24684829640586692
-          ],
-          [
-            37.435569763183594,
-            0.23689202526852574
-          ],
-          [
-            37.43762969970703,
-            0.22487582646616774
-          ],
-          [
-            37.434539794921875,
-            0.2070231701397364
-          ],
-          [
-            37.449989318847656,
-            0.21148633617335558
-          ],
-          [
-            37.463035583496094,
-            0.21869606319738805
-          ]
-        ]
-
-# source_id = '276600ae-06de-4fca-be79-58bb29695f5b'
-# subject_id = '276600ae-06de-4fca-be79-58bb29695f5c'
 
 feature_type, _ = FeatureType.objects.get_or_create(name='wat')
 feature_set, _ = FeatureSet.objects.get_or_create(
@@ -434,6 +332,7 @@ class Command(BaseCommand):
         input('removed old data. load web app and press enter to continue')
 
         while True:
-            for _ in generators:
-                next(_)
+            for g in generators:
+                if 0.7 > random.random():
+                    next(g)
             input('press enter to continue')
