@@ -34,6 +34,22 @@ RADIOS = (
     ('Fox Team', '9ef849a3-fcbb-4c3d-ae6c-e9a571659431', 'a7a11938-c7a8-46c1-96ca-4b99e413e10c'),
     ('Ndare Z', 'f513960c-23f1-46d4-96cf-26a7b5e26f4e', 'be61884e-4e33-4447-b179-d453fe15ab89')
 )
+ANIMALS = (
+    ('Rosie', 'b9872fd7-3c9d-4c07-85e9-3d99f4724f3f', 'fe0064fa-b13e-45c6-b677-d22d7e64e342', dict(subject_type='wildlife',
+                                                                                                   subject_subtype='elephant',
+                                                                                                   species='Elephant',
+                                                                                                   sex='Female')),
+    ('Henry', '491b3b6c-6cb7-4414-9bf7-3e568cac3b10', 'f9c1ce90-d762-4fc4-ad5f-945e35e6a6af', dict(subject_type='wildlife',
+                                                                                                   subject_subtype='elephant',
+                                                                                                   species='Elephant',
+                                                                                                   sex='Male')
+     ),
+    ('Tara', '81b09768-ce0d-4bc4-95ab-d28cf58bb728', '19d91852-8ebc-4938-a95f-9ba15f18641c', dict(subject_type='wildlife',
+                                                                                                   subject_subtype='elephant',
+                                                                                                   species='Elephant',
+                                                                                                   sex='Female')
+     ),
+)
 HISTORY_HOURS=24
 
 feature_type, _ = FeatureType.objects.get_or_create(name='wat')
@@ -92,12 +108,13 @@ class DemoDriver():
         datetime(2015, 11, 1, tzinfo=pytz.utc),
         datetime(3030, 1, 1, tzinfo=pytz.utc)
     )
-    def __init__(self, name, source_id, subject_id, group):
+    def __init__(self, name, source_id, subject_id, group, attributes={}):
         self.source_id = source_id
         self.subject_id = subject_id
         self.name = name
         self.manufacturer_id = name.lower().replace(' ', '_')
         self.group = group
+        self.attributes = attributes
 
     def hydrate(self):
         self.source = Source.objects.create(
@@ -107,12 +124,15 @@ class DemoDriver():
             model_name='Super model'
             )
 
+        subadd = {'rgb': gen_random_rgb()}
+        subadd.update(self.attributes) # In case attributes includes species, sex, etc.
+
         self.subject = Subject(
             id=self.subject_id,
             name = self.name,
-            additional = {'rgb': gen_random_rgb()},
-            subject_type='person',
-            subject_subtype='ranger',
+            additional=subadd,
+            subject_type=self.attributes.get('subject_type', 'person'),
+            subject_subtype=self.attributes.get('subject_subtype', 'ranger'),
             group=self.group
             )
         self.source.save()
@@ -321,6 +341,13 @@ class Command(BaseCommand):
             driver.ignition()
             drivers.append(driver)
 
+        for animal in ANIMALS:
+            driver = DemoDriver(animal[0], animal[1], animal[2], group, attributes=animal[3])
+            driver.ignition()
+            drivers.append(driver)
+
+
+        # We have some canned events that are associated with the first RADIO.
         add_demo_data(subject=drivers[0].subject)
 
         generators = list(driver.drive() for driver in drivers)

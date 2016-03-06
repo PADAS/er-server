@@ -39,7 +39,7 @@ events:
     provenance: analyzer
     event_type: fire
     priority: 300
-    center: [37.5341474,0.2822556]
+    center: [37.4908447265625, 0.17818422205893264]
 
   - name: Monitoring team wildlife log 29-Feb-2016
     description: Sighted 32 black and 14 white rhinos. See attached log for details.
