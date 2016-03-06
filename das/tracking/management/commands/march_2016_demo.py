@@ -13,6 +13,7 @@ from django.contrib.gis.geos import Point, MultiPoint, Polygon, MultiPolygon, Li
 from django.core.management.base import BaseCommand
 from django.db import transaction
 import pytz
+import random
 
 from accounts.models import PermissionSet, Permission, User
 from activity.models import Event, EventAttachment
@@ -21,6 +22,9 @@ from analyzers.models import all_analyzers, ContainmentAnalyzer, SubjectAnalyzer
 from mapping.models import FeatureType, PolygonFeature, LineFeature, PointFeature, FeatureSet
 from observations.models import Subject, SubjectGroup, SubjectSource, Source, Observation
 from tracking.pubsub_registry import notify_new_tracks
+
+def gen_random_rgb():
+    return ','.join([str(random.randint(0,175)) for i in range(3)])
 
 
 HISTORY_HOURS=24
@@ -71,7 +75,6 @@ points = [
             37.48294830322265,
             0.23036894717780024
           ],
-
           [
             37.48,
             0.23
@@ -96,8 +99,6 @@ points = [
             37.48,
             0.23
           ],
-
-
           [
             37.463035583496094,
             0.23929526379559607
@@ -196,7 +197,7 @@ def create_actors():
     subject = Subject(
         id=subject_id,
         name = 'TEAM SIX',
-        additional = {},
+        additional = {'rgb': gen_random_rgb()},
         subject_type='person',
         subject_subtype='ranger'
         )
@@ -298,7 +299,7 @@ def drive():
 
 
 def get_time():
-    last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
+    last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS*2)
     time_increment = timedelta(minutes=30)
     while True:
         last_time = last_time + time_increment
