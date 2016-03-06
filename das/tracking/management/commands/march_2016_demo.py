@@ -62,8 +62,8 @@ feature_set, _ = FeatureSet.objects.get_or_create(
 def delete_subject_analyzers():
     pass
 
-def get_or_create_user(username, email, permission_set):
-    user = User.objects.get_or_create(username='chrisd', email='chrisdo@vulcan.com')[0]
+def get_or_create_user(username='chrisd', email='chrisdo@vulcan.com', permission_set=permission_set):
+    user, created = User.objects.get_or_create(username=username, defaults=dict(mail=email))
     user.permission_sets.add(permission_set)
     user.save()
     return user
@@ -87,12 +87,11 @@ def create_actors():
 
     users = (
         ('demouser', 'josephs@vulcan.com'),
-        ('chrisj', 'chrisj@vulcan.com'),
-        ('teds', 'teds@vulcan.com'),
+        ('chrisd', 'chrisdo@vulcan.com'),
     )
 
     for username, email in users:
-        get_or_create_user(username, email, permission_set)
+        get_or_create_user(username=username, email=email, permission_set=permission_set)
 
     global group
     group, created = SubjectGroup.objects.get_or_create(name='demo_group')
