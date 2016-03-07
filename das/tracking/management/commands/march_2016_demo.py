@@ -26,30 +26,7 @@ from tracking.pubsub_registry import notify_new_tracks
 def gen_random_rgb():
     return ','.join([str(random.randint(50,200)) for i in range(3)])
 
-RADIOS = (
-    # name, source_id, subject_id
-    ('TEAM SIX', '276600ae-06de-4fca-be79-58bb29695f5b', '276600ae-06de-4fca-be79-58bb29695f5c'),
-    ('Alpha 9', 'ab67ff28-c16d-4726-b5b9-ac20c2a76857', '000c5330-7e08-4b69-8332-cb9b4ec2460d'),
-    ('SIX Alt', '991462f0-9506-4345-b5bd-0d9f48ffdd8d', '3a7f48ff-0c37-42dd-8f47-8d563136affa'),
-    ('Fox Team', '9ef849a3-fcbb-4c3d-ae6c-e9a571659431', 'a7a11938-c7a8-46c1-96ca-4b99e413e10c'),
-    ('Ndare Z', 'f513960c-23f1-46d4-96cf-26a7b5e26f4e', 'be61884e-4e33-4447-b179-d453fe15ab89')
-)
-ANIMALS = (
-    ('Rosie', 'b9872fd7-3c9d-4c07-85e9-3d99f4724f3f', 'fe0064fa-b13e-45c6-b677-d22d7e64e342', dict(subject_type='wildlife',
-                                                                                                   subject_subtype='elephant',
-                                                                                                   species='Elephant',
-                                                                                                   sex='Female')),
-    ('Henry', '491b3b6c-6cb7-4414-9bf7-3e568cac3b10', 'f9c1ce90-d762-4fc4-ad5f-945e35e6a6af', dict(subject_type='wildlife',
-                                                                                                   subject_subtype='elephant',
-                                                                                                   species='Elephant',
-                                                                                                   sex='Male')
-     ),
-    ('Tara', '81b09768-ce0d-4bc4-95ab-d28cf58bb728', '19d91852-8ebc-4938-a95f-9ba15f18641c', dict(subject_type='wildlife',
-                                                                                                   subject_subtype='elephant',
-                                                                                                   species='Elephant',
-                                                                                                   sex='Female')
-     ),
-)
+# For observations, animal and ranger movements, this is how far we'll go back to start.
 HISTORY_HOURS=24
 
 feature_type, _ = FeatureType.objects.get_or_create(name='wat')
@@ -62,9 +39,10 @@ feature_set, _ = FeatureSet.objects.get_or_create(
 def delete_subject_analyzers():
     pass
 
-def get_or_create_user(username='chrisd', email='chrisdo@vulcan.com', permission_set=permission_set):
+def get_or_create_user(username='chrisd', email='chrisdo@vulcan.com', permission_set=None):
     user, created = User.objects.get_or_create(username=username, defaults=dict(mail=email))
-    user.permission_sets.add(permission_set)
+    if permission_set:
+        user.permission_sets.add(permission_set)
     user.save()
     return user
 
@@ -99,39 +77,38 @@ def create_actors():
     group.save()
 
 
-
-
-
 class DemoDriver():
     DEFAULT_DATE_RANGE = (
         datetime(2015, 11, 1, tzinfo=pytz.utc),
         datetime(3030, 1, 1, tzinfo=pytz.utc)
     )
-    def __init__(self, name, source_id, subject_id, group, attributes={}):
+    def __init__(self, name=None, source_id=None, subject_id=None, group=None, **kwargs):
         self.source_id = source_id
         self.subject_id = subject_id
         self.name = name
-        self.manufacturer_id = name.lower().replace(' ', '_')
+        self.manufacturer_id = kwargs.pop('manufacturer_id', name.lower().replace(' ', '_'))
         self.group = group
-        self.attributes = attributes
+        self.subject_type = kwargs.pop('subject_type', 'person')
+        self.subject_subtype = kwargs.pop('subject_subtype', 'ranger')
+        self.kwargs = kwargs
 
     def hydrate(self):
         self.source = Source.objects.create(
             id=self.source_id,
             additional = {},
             manufacturer_id=self.manufacturer_id,
-            model_name='Super model'
+            model_name='Super model. The best money can buy!'
             )
 
         subadd = {'rgb': gen_random_rgb()}
-        subadd.update(self.attributes) # In case attributes includes species, sex, etc.
+        subadd.update(self.kwargs) # In case attributes includes species, sex, etc.
 
         self.subject = Subject(
             id=self.subject_id,
             name = self.name,
             additional=subadd,
-            subject_type=self.attributes.get('subject_type', 'person'),
-            subject_subtype=self.attributes.get('subject_subtype', 'ranger'),
+            subject_type=self.subject_type,
+            subject_subtype=self.subject_subtype,
             group=self.group
             )
         self.source.save()
@@ -165,7 +142,7 @@ class DemoDriver():
             )
 
         PolygonFeature.objects.filter(name="TEAM SIX's Proximity Feature").delete()
-        SpeedAnalyzer.objects.create(subject=self.subject, max_speed=10000000)
+        # SpeedAnalyzer.objects.create(subject=self.subject, max_speed=10000000)
 
 
     def drive(self):
@@ -235,8 +212,10 @@ class DemoDriver():
         self.hydrate()
         self.create_analyzers()
 
+demodatafile = {}
+def read_demo_data(file=None):
 
-def add_demo_data(file=None, subject=None):
+    global demodatafile
 
     def default_demo_file():
         return os.path.join(os.path.dirname(__file__), 'march_2016_demo_data/march_2016_demo.yml')
@@ -244,27 +223,51 @@ def add_demo_data(file=None, subject=None):
     if not file:
         file = default_demo_file()
 
-    #yes, twice
-    for _ in range(2):
+    if demodatafile.get(file) is None:
         with open(file) as fp:
             demo_data = yaml.load(fp, Loader=SafeLoader)
+            demodatafile[file] = demo_data
+
+    return demodatafile[file]
+
+
+def generate_events():
+    demo_data = read_demo_data()
+    yield from demo_data['events']
+
+def inject_random_events():
+
+    times = DemoDriver.get_time()
+    while True:
+        for e in sorted(list(generate_events()), key=lambda x: random.random()):
+            store_event(e, None, next(times))
+            yield
+
+def add_demo_data(subject=None):
+
+    #yes, twice
+    for _ in range(2):
 
         times = DemoDriver.get_time()
 
-        for evt in reversed(demo_data['events']):
-            event = Event(name=evt['name'])
-            event.event_time = next(times)
-            if evt.get('center', None):
-                event.location = Point(*evt['center'])
+        for evt in generate_events():
+            store_event(evt, subject, next(times))
 
-            for k,v in evt.items():
-                if hasattr(event, k):
-                    setattr(event, k, v)
-            event.save()
+def store_event(evt, subject, t):
+    event = Event(name=evt['name'])
+    event.event_time = t
+    if evt.get('center', None):
+        event.location = Point(*evt['center'])
 
-            if evt.get('subject_name', None):
-                Subject.objects.get(name=evt['subject_name'])
-                EventAttachment.objects.create(target=subject, event=event)
+    for k,v in evt.items():
+        if hasattr(event, k):
+            setattr(event, k, v)
+    event.save()
+
+    if evt.get('subject_name', None):
+        subject = Subject.objects.get(name=evt['subject_name'])
+        EventAttachment.objects.create(target=subject, event=event)
+
 
 def import_geojson():
     data_pattern = os.path.join(os.path.dirname(__file__), 'march_2016_demo_data/*.geojson')
@@ -335,13 +338,8 @@ class Command(BaseCommand):
 
         create_actors()
         drivers = []
-        for radio in RADIOS:
-            driver = DemoDriver(radio[0], radio[1], radio[2], group)
-            driver.ignition()
-            drivers.append(driver)
-
-        for animal in ANIMALS:
-            driver = DemoDriver(animal[0], animal[1], animal[2], group, attributes=animal[3])
+        for sub in read_demo_data()['subjects']:
+            driver = DemoDriver(group=group, **sub)
             driver.ignition()
             drivers.append(driver)
 
@@ -357,8 +355,15 @@ class Command(BaseCommand):
 
         input('removed old data. load web app and press enter to continue')
 
+        randomevents = inject_random_events()
+        next(randomevents)
         while True:
             for g in generators:
                 if 0.7 > random.random():
                     next(g)
+
+            # Inject a random event occasionally.
+            if 0.4 > random.random():
+                next(randomevents)
+
             input('press enter to continue')
