@@ -246,7 +246,7 @@ app:
                                 httpd24-devel: []
                                 postgresql94-devel: []
                                 gcc: []
-                                make: 
+                                make: []
                                 gcc-c++: []
                                 libtool: []
                                 libxml2-devel: []
