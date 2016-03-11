@@ -28,6 +28,7 @@ django-model-utils==2.4
 django-cors-headers==1.1.0
 django-oauth-toolkit==0.9.0
 django-rest-swagger==0.3.5
+django-leaflet==0.18.0
 #numpy 1.9.3, required by django-raster
 numpy==1.10.4
 #django-raster==0.1.7
