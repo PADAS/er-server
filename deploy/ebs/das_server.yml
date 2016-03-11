@@ -88,11 +88,9 @@ app:
             'aws:elb:policies':
                 Stickiness Policy: false
 
-            # Apache does not suppor Proxy Protocol v1, nginx does
-            # which is needed to get the client IP using TCP ListenerProtocol
-            #'aws:elb:policies:EnableProxyProtocol':
-            #    ProxyProtocol: true
-            #    InstancePorts: 80, 443
+            'aws:elb:policies:EnableProxyProtocol':
+                ProxyProtocol: true
+                InstancePorts: 80, 443
 
 
 
@@ -309,6 +307,9 @@ app:
                             command: "cp realtime_httpd.conf /opt/elasticbeanstalk/hooks/"
                           11-fix-realtime-wsgi:
                             command: "if ! grep -q socket.io config.py; then sed -i.bak '/<VirtualHost \\*:%s>/ r realtime_httpd.conf' config.py; fi"
+                            cwd: /opt/elasticbeanstalk/hooks
+                          12-fix-proxy-protocol:
+                            command: "if ! grep -q ProxyProtocol config.py; then sed -i.bak '/WSGIScriptAlias/ aProxyProtocol On' config.py; fi"
                             cwd: /opt/elasticbeanstalk/hooks
 
 
