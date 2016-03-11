@@ -279,7 +279,7 @@ app:
                           07-mod-proxy-protocol:
                             command: "if [ ! -e /etc/httpd/modules/mod_proxy_protocol.so ]; then cd /opt; git clone https://github.com/roadrunner2/mod-proxy-protocol.git; cd mod-proxy-protocol; apxs -i -a -c mod_proxy_protocol.c; fi"
                           08-fix-ld:
-                            command: "if ! grep -q /usr/local/lib /etc/ld.so.conf; then sed -i '$a\/usr\/local\/lib' /etc/ld.so.conf; /sbin/ldconfig;fi"
+                            command: "if ! grep -q /usr/local/lib /etc/ld.so.conf; then sed -i '$a/usr/local/lib' /etc/ld.so.conf; /sbin/ldconfig;fi"
 
               - .ebextensions/03-commands.config:
                     permissions: 0666
