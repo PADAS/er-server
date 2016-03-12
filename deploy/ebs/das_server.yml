@@ -88,9 +88,9 @@ app:
             'aws:elb:policies':
                 Stickiness Policy: false
 
-            'aws:elb:policies:EnableProxyProtocol':
-                ProxyProtocol: true
-                InstancePorts: 80, 443
+            #'aws:elb:policies:EnableProxyProtocol':
+            #    ProxyProtocol: true
+            #    InstancePorts: 80, 443
 
 
 
@@ -308,9 +308,9 @@ app:
                           11-fix-realtime-wsgi:
                             command: "if ! grep -q socket.io config.py; then sed -i.bak '/<VirtualHost \\*:%s>/ r realtime_httpd.conf' config.py; fi"
                             cwd: /opt/elasticbeanstalk/hooks
-                          12-fix-proxy-protocol:
-                            command: "if ! grep -q ProxyProtocol config.py; then sed -i.bak '/WSGIScriptAlias/ aProxyProtocol On' config.py; fi"
-                            cwd: /opt/elasticbeanstalk/hooks
+                          #12-fix-proxy-protocol:
+                          #  command: "if ! grep -q ProxyProtocol config.py; then sed -i.bak '/WSGIScriptAlias/ aProxyProtocol On' config.py; fi"
+                          #  cwd: /opt/elasticbeanstalk/hooks
 
 
     # Under the environments node is each environment and their config.
