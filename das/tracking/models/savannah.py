@@ -104,7 +104,7 @@ class SavannahPlugin(TrackingPlugin):
         # create cursor_data
         self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
 
-        client = SavannaClient(username=self.service_usernamea,
+        client = SavannaClient(username=self.service_username,
                                password=self.service_password,
                                host=self.service_api_host)
 
