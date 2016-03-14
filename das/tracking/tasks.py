@@ -30,6 +30,12 @@ def run_source_plugin(self, source_plugin_id):
     logger.debug('Finished running plugin {} for source {} with result.count={}'.format(sp, sp.source, result.count))
 
 
+@celery.app.task(bind=True)
+def run_source_plugin_for_source(self, source_id):
+    sp = SourcePlugin.objects.get(source_id=source_id)
+    if sp:
+        run_source_plugin.delay(str(sp.id))
+
 
 @celery.app.task(bind=True)
 def run_demo_plugins(self, inline=True):
