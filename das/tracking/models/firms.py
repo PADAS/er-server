@@ -90,7 +90,8 @@ class FirmsClient(object):
         vals = (c(i) for c, i in zip(field_transform, s.split(',')))
         dt = dict((k, v) for k, v in zip(field_names, vals))
 
-        dt['recorded_at'] = parse_date('{} {}'.format(dt['acq_date'], dt['acq_time']))
+        # FIRMS ftp data times are UTC.
+        dt['recorded_at'] = parse_date('{} {}'.format(dt['acq_date'], dt['acq_time'])).replace(tzinfo=pytz.UTC)
         dt.update(kwargs)
         return dt
 
@@ -132,6 +133,7 @@ class FirmsPlugin(TrackingPlugin):
 
         for observation in self.client.fetch_observations(region_id=source.manufacturer_id, after_offset=hi_sequence):
             hi_sequence = observation['offset']
+            print(observation)
             if self.pass_filter(observation):
 
                 # Pop-off side-data from observation dict.
@@ -146,7 +148,7 @@ class FirmsPlugin(TrackingPlugin):
 
     def pass_filter(self, observation):
         if self._geo_filter:
-            p  = Point(observation['latitude'], observation['longitude'])
+            p  = Point(y=observation['latitude'], x=observation['longitude'])
             return self._geo_filter.contains(p)
         return True
 
