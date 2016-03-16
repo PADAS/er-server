@@ -14,10 +14,10 @@ def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
     return parse_date(d).replace(tzinfo=replace_tzinfo)
 
-
+_trim = lambda v: str(v).strip()
 # Helpers for parsing lines from FIRMS datasource.
 field_names = ('latitude', 'longitude', 'brightness', 'scan', 'track', 'acq_date', 'acq_time', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
-field_transform = (float, float, float, float, float, str, str, str, int, str, float, float)
+field_transform = (float, float, float, float, float, str, str, str, int, _trim, float, float)
 
 additional_fields = ('brightness', 'scan', 'track', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
 
@@ -94,6 +94,7 @@ class FirmsClient(object):
         dt['recorded_at'] = parse_date('{} {}'.format(dt['acq_date'], dt['acq_time'])).replace(tzinfo=pytz.UTC)
         dt.update(kwargs)
         return dt
+
 
 class FirmsPlugin(TrackingPlugin):
 
