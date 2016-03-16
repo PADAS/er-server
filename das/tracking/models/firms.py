@@ -8,6 +8,11 @@ import pytz
 import logging
 from django.contrib.gis.db import models
 
+from django.contrib.gis.geos import Point
+from django.db import transaction
+
+from activity.models import Event, EventAttachment
+
 from tracking.models.plugin_base import Obs, TrackingPlugin
 
 def __str2date(d, replace_tzinfo=pytz.utc):
@@ -139,11 +144,32 @@ class FirmsPlugin(TrackingPlugin):
 
                 # Pop-off side-data from observation dict.
                 additional_data = dict((k, observation.pop(k)) for k in additional_fields)
-                yield Obs(source=source, recorded_at=observation['recorded_at'], latitude=observation['latitude'],
+                obs = Obs(source=source, recorded_at=observation['recorded_at'], latitude=observation['latitude'],
                           longitude=observation['longitude'], additional=additional_data)
+                self.create_event(obs)
+                yield obs
+
+
 
         # Save cursor_data
         self.cursor_data['highest_sequence'] = hi_sequence
+
+    def create_event(self, observation):
+
+        location = Point(x=observation.longitude, y=observation.latitude)
+
+        with transaction.atomic():
+            event = Event(
+                event_type=Event.ET_FIRE,
+                provenance=Event.SENSOR,
+                attributes=observation.additional,
+                location=location,
+                priority=Event.PRI_IMPORTANT,
+                name='Fire detected by satellite',
+                description='Fire detected, with confidence: {confidence}, brightness: {brightness}, frp: {frp}'.format(**observation.additional)
+            )
+            event.save()
+            return event
 
 
 
