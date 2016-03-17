@@ -13,26 +13,24 @@
 <script>
 
     {# base maps #}
-
-    {# todo:  add the Odzala base map as a baseLayer option  #}
-    var osm = L.tileLayer('http://b.tile.openstreetmap.com/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
-            '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a> ',
-        id: 'examples.map-20v6611k'
+    L.mapbox.accessToken = 'pk.eyJ1IjoiamFzb25iIiwiYSI6ImNpZnJhdDYydjd5ZXlzM2txbmF1YXRha2kifQ.aPy_2GpKESLXxXNwOduwLQ';
+    var map = L.mapbox.map('map', 'mapbox.outdoors', {
+      zoomControl: true,
+      center: [0.84,37.12],
+      zoom: 9,
+      dragging: true,
+      scrollWheelZoom: true,
+      doubleClickZoom: true
     });
 
-    var rsm = L.tileLayer("/api/v1.0/tms/tiles/18/{z}/{x}/{y}.png", {
-        id: 'tms map'
+
+
+    var dg = L.tileLayer.wms("https://Vulcan%20Aerospace:MyDG1!@services.digitalglobe.com/mapservice/wmsaccess?connectid=8fd9ee98-0180-4d3f-9af3-5017b312cd14", {
+        version: '1.0.0',
+        layers: 'DigitalGlobe:ImageryTileService'
     });
 
-    var mbtiles = L.mapbox.tileLayer("{% url 'tilejson' 'Odzala_LS8__13'%}");
 
-    var map = L.map('map', {
-        center:  [0.230452, 37.441967],
-        zoom: 9,
-        layers: [osm, rsm]
-    });
 
     {# vector layers for overlays ... depend on sample data in test fixtures #}
     boundaries = new L.GeoJSON.AJAX(
@@ -61,13 +59,13 @@
 
     {# layers control #}
     var baseLayers = {
-        "Open Street Map": osm,
-        "Odzala MBTiles": mbtiles,
-        "TMS map": rsm
+        "Mapbox Terrain": map
+
     };
     var overlays = {
-        "Park boundary": boundaries,
-        "Camps": camps
+        //"Park boundary": boundaries,
+        //"Camps": camps,
+        "DG Kenya": dg
     };
     L.control.layers(baseLayers, overlays).addTo(map);
 
