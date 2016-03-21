@@ -44,7 +44,9 @@ class FirmsClient(object):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def fetch_observations(self, region_id, **kwargs):
+
+
+    def fetch_observations(self, region_id, current_filename=None, next_lineno=0, last_filesize=0):
 
         '''
         Sample filename: Northern_and_Central_Africa_MCD14DL_2015243.txt
@@ -52,36 +54,50 @@ class FirmsClient(object):
         :param kwargs:
         :return:
         '''
+
+
         ftp = FTP(self.hosts[0], self.username, self.password)
 
         ftp.cwd('FIRMS/{}'.format(region_id))
 
-        latest = ftp.nlst()[-1]
+        # Go back as much as three files (three days).
+        filelist = ftp.nlst()[-3:]
 
-        # I want a universal sequence id for lines in this file, so I'll concatenate the file's name's date component
-        # with the line number.
-        file_sequence = int(latest.split('_')[-1].split('.')[0])
-        file_sequence *= 1000000
+        try:
+            i = filelist.index(current_filename)
+            filelist = filelist[i:]
+        except ValueError:
+            filelist = filelist[-1:]
+            next_lineno = 0
+            last_filesize=0
 
-        after_offset = kwargs.get('after_offset', -1)
-        # fsize = ftp.size(latest)
-        # print("File size : %s" % (fsize,))
 
-        # store lines in an array. Switch to a tmp file if the files turn out to be very large.
-        lines_buffer = []
-        def cb(data):
-            lines_buffer.append(data)
+        for filename in filelist:
 
-        ftp.retrlines('RETR {}'.format(latest), cb)
+            # short-circuit if the file is the same size as when we last read it.
+            filesize = ftp.size(filename)
+            if filesize > last_filesize:
+                lines_buffer = []
 
-        for i, line in enumerate(lines_buffer):
-            try:
-                if i > after_offset:
-                    v = self.parse_line(line.strip(), offset=file_sequence+i)
-                    yield v
-            except ValueError:
-                if not line.startswith('latitude'):
-                    raise
+                _ = dict(idx=0)
+                def cb(data):
+                    _['idx'] += 1
+                    if _['idx'] >= next_lineno:
+                        lines_buffer.append(data)
+
+                ftp.retrlines('RETR {}'.format(filename), cb)
+
+                for i, line in enumerate(lines_buffer, next_lineno):
+                    try:
+                        v = self.parse_line(line.strip(), filename=filename, lineno=i, filesize=filesize)
+                        yield v
+                    except ValueError:
+                        if not line.startswith('latitude'):
+                            raise
+
+            # Any file beyond the first file will start at line zero.
+            next_lineno = 0
+            last_filesize = 0
 
 
     @staticmethod
@@ -127,19 +143,22 @@ class FirmsPlugin(TrackingPlugin):
         else:
             self._geo_filter = None
 
-
-        try:
-            hi_sequence = parse_date(self.cursor_data['highest_sequence'])
-        except:
-            hi_sequence = -1
+        # Our cursor data keeps track of:
+        # - the last file we've processed
+        # - the next line number we want to see
+        # - the size of file from our last run (so we won't waste time downloading the same file)
+        last_filename = self.cursor_data.get('current_filename', None)
+        next_lineno = self.cursor_data.get('next_lineno', 0)
+        last_filesize = self.cursor_data.get('last_filesize', 0)
 
         self.logger.info("Fetching data for manufacturer_id %s" % (source.manufacturer_id,))
 
         self.client = FirmsClient(username=self.service_username, password=self.service_password)
 
-        for observation in self.client.fetch_observations(region_id=source.manufacturer_id, after_offset=hi_sequence):
-            hi_sequence = observation['offset']
-            print(observation)
+        for observation in self.client.fetch_observations(region_id=source.manufacturer_id,
+                                                          current_filename=last_filename, next_lineno=next_lineno,
+                                                          last_filesize=last_filesize):
+
             if self.pass_filter(observation):
 
                 # Pop-off side-data from observation dict.
@@ -149,10 +168,11 @@ class FirmsPlugin(TrackingPlugin):
                 self.create_event(obs)
                 yield obs
 
-
-
-        # Save cursor_data
-        self.cursor_data['highest_sequence'] = hi_sequence
+        # Save cursor_data (if we've processed any observations).
+        if observation:
+            self.cursor_data['current_filename'] = observation['filename']
+            self.cursor_data['next_lineno'] = observation['lineno'] + 1
+            self.cursor_data['last_filesize'] = observation['filesize']
 
     def create_event(self, observation):
 
