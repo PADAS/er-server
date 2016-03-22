@@ -56,49 +56,57 @@ class FirmsClient(object):
         '''
 
 
+        self.logger.debug('Fetching FIRMS data for region_id: %s, current_filename: %s, next_lineno: %d, last_filesize: %d',
+                          region_id, current_filename, next_lineno, last_filesize)
         ftp = FTP(self.hosts[0], self.username, self.password)
 
-        ftp.cwd('FIRMS/{}'.format(region_id))
-
-        # Go back as much as three files (three days).
-        filelist = ftp.nlst()[-3:]
-
         try:
-            i = filelist.index(current_filename)
-            filelist = filelist[i:]
-        except ValueError:
-            filelist = filelist[-1:]
-            next_lineno = 0
-            last_filesize=0
+            ftp.cwd('FIRMS/{}'.format(region_id))
+
+            # Go back as much as three files (three days).
+            filelist = ftp.nlst()[-3:]
+
+            try:
+                i = filelist.index(current_filename)
+                filelist = filelist[i:]
+            except ValueError:
+                filelist = filelist[-1:]
+                next_lineno = 0
+                last_filesize=0
 
 
-        for filename in filelist:
+            for filename in filelist:
 
-            # short-circuit if the file is the same size as when we last read it.
-            filesize = ftp.size(filename)
-            if filesize > last_filesize:
-                lines_buffer = []
+                # short-circuit if the file is the same size as when we last read it.
+                filesize = ftp.size(filename)
 
-                _ = dict(idx=0)
-                def cb(data):
-                    _['idx'] += 1
-                    if _['idx'] >= next_lineno:
-                        lines_buffer.append(data)
+                self.logger.debug('Current filesize: %d', filesize)
 
-                ftp.retrlines('RETR {}'.format(filename), cb)
+                if filesize > last_filesize:
+                    lines_buffer = []
 
-                for i, line in enumerate(lines_buffer, next_lineno):
-                    try:
-                        v = self.parse_line(line.strip(), filename=filename, lineno=i, filesize=filesize)
-                        yield v
-                    except ValueError:
-                        if not line.startswith('latitude'):
-                            raise
+                    _ = dict(idx=0)
+                    def cb(data):
+                        _['idx'] += 1
+                        if _['idx'] >= next_lineno:
+                            lines_buffer.append(data)
 
-            # Any file beyond the first file will start at line zero.
-            next_lineno = 0
-            last_filesize = 0
+                    ftp.retrlines('RETR {}'.format(filename), cb)
 
+                    for i, line in enumerate(lines_buffer, next_lineno):
+                        try:
+                            v = self.parse_line(line.strip(), filename=filename, lineno=i, filesize=filesize)
+                            yield v
+                        except ValueError:
+                            if not line.startswith('latitude'):
+                                raise
+
+                # Any file beyond the first file will start at line zero.
+                next_lineno = 0
+                last_filesize = 0
+        finally:
+            if ftp:
+                ftp.close()
 
     @staticmethod
     def parse_line(s, **kwargs):
