@@ -111,7 +111,7 @@ class SavannahPlugin(TrackingPlugin):
         try:
             st = parse_date(self.cursor_data['latest_timestamp'])
         except Exception as e:
-            st = datetime.datetime.utcnow() - self.DEFAULT_START_OFFSET
+            st = datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
 
         lt = st
         st = int(st.timestamp()) + 1

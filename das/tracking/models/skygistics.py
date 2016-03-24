@@ -1,13 +1,18 @@
 import xml.etree.ElementTree as etree
 from datetime import datetime, timedelta
+from dateutil.parser import parse as parse_date
+import pytz
 import copy
 
 import requests
 
 from django.utils import timezone
 from django.contrib.gis.db import models
+from django.contrib.contenttypes.models import ContentType
 
 from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
+from tracking.models import SourcePlugin
+from observations.models import Source, Subject, SubjectSource
 
 from tracking.models.utils import dictify
 import logging
@@ -19,6 +24,12 @@ SKYGISTICS_API_XMLNS = '{http://www.skygistics.com/SkygisticsAPI}'
 SKYGISTICS_API_ENDPOINT = '/SkygisticsAPI/SkygisticsAPI.asmx'
 DEFAULT_START_OFFSET = timedelta(days=14)
 
+def _qualify(s):
+    return '{}{}'.format(SKYGISTICS_API_XMLNS, s)
+
+def _unqualify(s):
+    return s.replace(SKYGISTICS_API_XMLNS, '')
+
 class SkygisticsLoginError(Exception):
     pass
 
@@ -26,6 +37,12 @@ class SkygisticsLoginError(Exception):
 class SkygisticsClient(object):
     pass
 
+def str2date(d, default_tzinfo=pytz.UTC):
+    '''Parse a date and if it's naive, replace tzinfo with default_tzinfo.'''
+    dt = parse_date(d)
+    if not dt.tzinfo:
+        dt = dt.replace(tzinfo=default_tzinfo)
+    return dt
 
 class SkygisticsSatelliteClient(SkygisticsClient):
     def __init__(self, username=None, password=None, service_url='http://skyq1.skygistics.com'):
@@ -140,6 +157,32 @@ class SkygisticsSatelliteClient(SkygisticsClient):
             })
         return etree.fromstring(response_text)
 
+    def _get_unit_list(self):
+        """
+        GET /SkygisticsAPI/SkygisticsAPI.asmx/GetUnitList?sessionid=string
+        :return:
+        """
+        if not self.session_id or self.session_id == '0':
+            raise SkygisticsLoginError('Client does not have a valid session_id.')
+        response_text = self._get_text(
+            '{0}{1}/GetUnitList'.format(self.service_url, SKYGISTICS_API_ENDPOINT),
+            {
+                'sessionid': self.session_id,
+            })
+
+
+        root = etree.fromstring(response_text)
+
+        def _dictify(el, result=None):
+            result = result or {}
+            for child in el:
+                result[_unqualify(child.tag)] = child.text
+            return result
+
+        if root.tag == _qualify('ArrayOfUnitInfo'):
+            for child in root:
+                yield _dictify(child)
+
     def begin_session(self):
         self._login()
 
@@ -208,20 +251,24 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
 
         client.begin_session()
 
-        if 'last_fetch' in self.cursor_data:
-            start_date = datetime.strptime(self.cursor_data['last_fetch'], SKYGISTICS_PLUGIN_DATETIME_FORMAT)
-        else:
-            start_date = datetime.utcnow() - DEFAULT_START_OFFSET
+        try:
+            st = parse_date(self.cursor_data['latest_timestamp'])
+        except Exception as e:
+            st = datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
 
 
+
+        observation = None
         for unit_info in client.fetch_observations(imei=source.manufacturer_id,
-                                                        start_date=start_date):
-            result = self._transform(source, unit_info)
-            if self._pass_filter(result):
-                yield result
+                                                        start_date=st):
+            observation = self._transform(source, unit_info)
+
+            if self._pass_filter(observation):
+                yield observation
 
         # TODO: this could be set too far in the future.
-        self.cursor_data['last_fetch'] = timezone.now().strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT)
+        if observation:
+            self.cursor_data['latest_timestamp'] = observation.recorded_at.isoformat()
 
     def _pass_filter(self, observation):
         '''
@@ -262,3 +309,85 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
         return Obs(source=source, recorded_at=observation['recorded_at'],
                                   longitude=float(observation['longitude']), latitude=float(observation['latitude']),
                                   additional=dict((k,observation.get(k)) for k in ('imei', 'voltage', 'received_at',)))
+
+
+    def _maintenance(self):
+        self._sync_unit_info()
+
+    def _sync_unit_info(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        client = SkygisticsSatelliteClient(username=self.service_username,
+                                           password=self.service_password,
+                                           service_url=self.service_api_url)
+
+        client.begin_session()
+
+        try:
+
+            unitlist = client._get_unit_list()
+
+            for unit in unitlist:
+
+                src = ensure_source('tracking-device', unit['IMEI'])
+                ensure_source_plugin(src, self)
+                ts = str2date(unit['Time'])
+                ensure_subject_source(src, ts, unit['Name'])
+        except Exception as e:
+            self.logger.exception('Error in maintenance')
+
+
+
+# Helper functions for hydrating Source and Subject for the given message.
+def ensure_source(source_type, manufacturer_id):
+    src, created = Source.objects.get_or_create(source_type=source_type,
+                                   manufacturer_id=manufacturer_id,
+                                   defaults={'model_name':'skygistics',
+                                             'additional': {'note': 'Created automatically during feed sync.'}})
+
+    return src
+
+def ensure_source_plugin(source, tracking_plugin):
+
+    defaults = dict(
+        status='enabled',
+        # cursor_data={}
+    )
+
+
+    plugin_type = ContentType.objects.get_for_model(tracking_plugin)
+    v, created = SourcePlugin.objects.get_or_create(defaults=defaults,
+                                          source=source,
+                                          plugin_id=tracking_plugin.id,
+                                                       plugin_type=plugin_type)
+
+    return v
+
+def ensure_subject_source(source, event_time, subject_name=None):
+    # get the most recent Subject for this Source
+    subject_source = SubjectSource \
+                        .objects \
+                        .filter(source=source, assigned_range__contains=event_time)\
+                        .order_by('assigned_range')\
+                        .reverse()\
+                        .first()
+
+    if not subject_source:
+
+        subject_name = subject_name or 'sky-{}'.format(source.manufacturer_id)
+
+        sub, created = Subject.objects.get_or_create(
+            subject_type='wildlife', subject_subtype='elephant',
+            name=subject_name,
+            defaults=dict(additional=dict(region='', country='', ))
+        )
+
+        d1 = event_time - timedelta(days=30)
+        d2 = d1 + timedelta(days=5*365)
+        if sub:
+            subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
+                                                                 defaults=dict(assigned_range=(d1, d2), additional={
+                                                                     'note': 'Created automatically during feed sync.'}))
+
+    return subject_source
+
