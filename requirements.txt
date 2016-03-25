@@ -56,6 +56,9 @@ eventlet==0.18.4
 django-mptt==0.8.3
 django-extra-fields==0.5
 
+# Gevent, for celery workers
+gevent==1.1.0
+
 boto==2.39.0
 
 PyYAML==3.11
