@@ -9,8 +9,8 @@ from django.core.exceptions import PermissionDenied
 from django.core import validators
 from django.utils import six, timezone
 
-from accounts.mixins import PermissionSetHierarchyMixin, PermissionsMixin
-from core.models import HierarchyModel, HierarchyManager
+from accounts.mixins import PermissionsMixin
+
 
 phone_regex = validators.RegexValidator(regex=r'^\+?1?\d{9,15}$', message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed.")
 

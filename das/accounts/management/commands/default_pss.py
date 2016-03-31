@@ -2,6 +2,7 @@ import os
 import logging
 
 from django.core.management.base import BaseCommand
+from django.contrib.auth.models import Permission
 from django.db import transaction
 import yaml
 # Use the C (faster) implementation if possible
@@ -11,10 +12,11 @@ try:
 except ImportError:
     from yaml import SafeLoader, SafeDumper
 
-from accounts.models import Permission, PermissionSet
+from accounts.models import PermissionSet
 from observations.models import SubjectGroup
 
 logger = logging.getLogger(__name__)
+
 
 class Command(BaseCommand):
     help = 'Create the default permission sets'
