@@ -21,29 +21,29 @@ permission_sets:
     permissions:
       - observations.subject.view_real_time
       - observations.subject.subscribe_alerts
-      - observations.subject.subject_view
+      - observations.subject.view_subject
 
   - name: View Delayed Elephants
     permissions:
       - observations.subject.view_delayed
-      - observations.subject.subject_view
+      - observations.subject.view_subject
 
   - name: View Last Point Elephants
     permissions:
       - observations.subject.view_last_position
-      - observations.subject.subject_view
+      - observations.subject.view_subject
 
   - name: View Elephants
     permissions:
       - observations.subject.view_real_time
       - observations.subject.subscribe_alerts
-      - observations.subject.subject_view
+      - observations.subject.view_subject
 
   - name: View Rangers
     permissions:
       - observations.subject.view_real_time
       - observations.subject.subscribe_alerts
-      - observations.subject.subject_view
+      - observations.subject.view_subject
 
 subjectgroups:
   - name: All Subjects

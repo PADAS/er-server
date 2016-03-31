@@ -19,7 +19,22 @@ class AuditableModel(TimestampedModel):
 
 
 class HierarchyManager(AL_NodeManager):
-    pass
+    def get_decendants(self, qs):
+        """
+        Returns all nodes AND descendant nodes for the list of nodes
+        found in qs.
+        TODO: Optimize this for Postgresql using a CTE common table expression
+        """
+        raise NotImplementedError()
+        direct_nodes = self.permission_sets.all()
+        all_nodes = set()
+
+        for ps in direct_nodes:
+            all_nodes.add(ps)
+            ancestors = ps.get_ancestors()
+            for ancestor in ancestors:
+                all_nodes.add(ancestor)
+        return all_nodes
 
 
 class HierarchyModel(AL_Node):

@@ -265,6 +265,7 @@ class SubjectSource(models.Model):
 
 DEFAULT_SUBJECT_GROUP_ID = '3a4a6a0f-6e1a-4b0f-8fd4-ce865355501c'
 
+
 class SubjectGroupManager(HierarchyManager):
     pass
 
@@ -304,13 +305,14 @@ class SubjectManager(models.Manager):
         subjects = Subject.objects.filter(pk__in=subjects)
         return subjects
 
-    def get_user_subjects(self, user, perms):
-        subjects = set()
-        all_ps = user.get_all_permission_sets()
-        for ps in all_ps:
-            for sg in ps.subjectgroup_set.all():
-                subjects.update(sg.subject_set.all())
-        return subjects
+    def by_user_subjects(self, user):
+        sg_all = set()
+        for sg in SubjectGroup.objects.all().filter(
+                permission_sets__in=user.get_all_permission_sets()):
+            sg_all.add(sg)
+            sg_all.update(sg.get_descendants())
+
+        return Subject.objects.all().filter(group__in=sg_all)
 
 
 class Subject(models.Model, PermissionSetGroupMixin):

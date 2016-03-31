@@ -64,10 +64,21 @@ class BasePermissionTest(TestCase):
         self.subject_view_delayed_set.permissions.add(self.view_subject)
         self.subject_view_delayed_set.save()
 
+        self.all_group = SubjectGroup.objects.create(name='all_group')
+
         self.ele = Subject.objects.create(name="ele", additional={})
-        self.ele_group = SubjectGroup.objects.create(name='ele_group')
+        self.ele_group = SubjectGroup.objects.create(name='ele_group',
+                                                     parent=self.all_group)
         self.ele.group = self.ele_group
         self.ele.save()
+
+        self.ranger = Subject.objects.create(name="ranger", additional={})
+        self.ranger_group = SubjectGroup.objects.create(name='ranger_group',
+                                                        parent=self.all_group)
+        self.ranger.group = self.ranger_group
+        self.ranger.save()
+
+
 
         DEFAULT_DATE_RANGE = (
         datetime.datetime(2015, 11, 1, tzinfo=pytz.utc),
@@ -165,3 +176,27 @@ class SubjectViewPermissionsTest(BasePermissionTest):
 
         response = views.SubjectSourcesView.as_view()(request, id=str(self.ele.id))
         self.assertEqual(response.status_code, 200)
+
+    def test_return_subjects_bbox_no_view(self):
+        bbox = '37.18,0.1,37.55,0.54'
+        request = self.factory.get(API_BASE + '/subjects/')
+        self.force_authenticate(request, self.no_view_user)
+
+        response = views.SubjectsView.as_view()(request, bbox=bbox)
+        self.assertEqual(response.status_code, 403)
+
+    def test_return_subjects_bbox_view_delayed(self):
+        bbox = '37.18,0.1,37.55,0.54'
+        request = self.factory.get(API_BASE + '/subjects/?bbox={0}'.format(bbox))
+        self.force_authenticate(request, self.delayed_view_user)
+
+        response = views.SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+    def test_not_return_ranger_in_subjects_call(self):
+        request = self.factory.get(API_BASE + '/subjects/')
+        self.force_authenticate(request, self.delayed_view_user)
+
+        response = views.SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse([s for s in response.data if s['id'] == str(self.ranger.id) ])

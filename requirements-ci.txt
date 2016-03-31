@@ -1,0 +1,4 @@
+#apt-get install sloccount
+coverage==4.1b2
+django-jenkins==0.18.1
+pep8==1.7.0

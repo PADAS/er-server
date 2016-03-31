@@ -8,10 +8,11 @@ from core.admin import HierarchyModelAdmin
 @admin.register(models.Subject)
 class SubjectAdmin(admin.ModelAdmin):
 
-    list_display = ['id', 'name', 'subject_type', 'subject_subtype', 'additional']
+    list_display = ['id', 'name', 'subject_type', 'subject_subtype',
+                    'additional', 'group']
     search_fields=['name', 'subject_subtype']
 
-    fields = ('id', 'name', 'additional', SubjectForm.SUBTYPE_FIELD)
+    fields = ('id', 'name', 'additional', 'group', SubjectForm.SUBTYPE_FIELD)
 
     def queryset(self, request):
         """Limit Subjects to those this person can administer"""
