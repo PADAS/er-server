@@ -1,9 +1,8 @@
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions, DjangoModelPermissions
-from rest_framework.filters import DjangoObjectPermissionsFilter
 
 
 class SubjectObjectPermissions(DjangoObjectPermissions):
-    view_perms = ['%(app_label)s.view_real_time', '%(app_label)s.view_last_position', '%(app_label)s.view_delayed']
+    view_perms = ['%(app_label)s.view_%(model_name)s']
 
     perms_map = {
         'GET': view_perms,

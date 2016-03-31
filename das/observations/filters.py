@@ -1,20 +1,23 @@
 import logging
 from rest_framework.filters import BaseFilterBackend
-
+from observations.models import Subject
 
 class SubjectObjectPermissionsFilter(BaseFilterBackend):
     """
     Filter the list of subjects to what the user is allowed to view
     """
 
-    perm_format = '%(app_label)s.view_%(model_name)s'
+    view_perms = ['observations.view_real_time', 'observations.view_last_position', 'observations.view_delayed']
 
     def filter_queryset(self, request, queryset, view):
         user = request.user
-        model_cls = queryset.model
-        kwargs = {
-            'app_label': model_cls._meta.app_label,
-            'model_name': model_cls._meta.model_name
-        }
-        permission = self.perm_format % kwargs
-        return guardian.shortcuts.get_objects_for_user(user, permission, queryset, **extra)
+
+        if user.is_superuser:
+            return queryset
+
+        allowed = self.get_user_subjects(user)
+        values = allowed.values_list(id, flat=True)
+        return queryset.filter(id__in=values)
+
+    def get_user_subjects(self, user):
+        return Subject.objects.all()

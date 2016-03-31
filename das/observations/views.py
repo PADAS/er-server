@@ -9,10 +9,12 @@ from django.http import Http404
 from django.contrib.auth import get_user_model
 
 from rest_framework import generics
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 from rest_framework.filters import DjangoObjectPermissionsFilter
 
-
+from observations.filters import SubjectObjectPermissionsFilter
+from observations.permissions import SubjectObjectPermissions
 from observations import models
 import observations.serializers as serializers
 
@@ -75,6 +77,9 @@ class SubjectsView(generics.ListAPIView):
         example: bbox=14.24, .41, 15.45, 1.66
     """
     serializer_class = serializers.SubjectSerializer
+    permission_classes = (SubjectObjectPermissions,)
+    filter_backends = (SubjectObjectPermissionsFilter,)
+
 
     def get_queryset(self):
         queryset = models.Subject.objects.all()
@@ -92,6 +97,9 @@ class SubjectsView(generics.ListAPIView):
 class RegionSubjectsView(generics.ListAPIView):
     lookup_field = 'slug'
     serializer_class = serializers.SubjectSerializer
+    permission_classes = (SubjectObjectPermissions,)
+    filter_backends = (SubjectObjectPermissionsFilter,)
+
     def get_queryset(self):
         region = generics.get_object_or_404(models.Region.objects.all(),
                                             slug=self.kwargs['slug'])
@@ -106,6 +114,7 @@ class RegionSubjectsView(generics.ListAPIView):
 
 
 class SubjectView(generics.RetrieveAPIView):
+    permission_classes = (SubjectObjectPermissions,)
     serializer_class = serializers.SubjectSerializer
     queryset = models.Subject.objects.all()
     lookup_field = 'id'
@@ -113,7 +122,14 @@ class SubjectView(generics.RetrieveAPIView):
     def get_serializer_context(self):
         context = {'request': self.request}
         subject = self.get_object()
-        last_position = models.Observation.objects.get_last_observation(subject)
+
+        if self.request.user.has_any_perms(subject.VIEW_POSITION_PERMS, subject):
+            last_position = models.Observation.objects.get_last_observation(subject)
+        elif self.request.user.has_any_perms(subject.VIEW_DELAYED_PERMS, subject):
+            last_position = models.Observation.objects.get_delayed_observation(subject)
+        else:
+            last_position = None
+
         if last_position:
             first_position = models.Observation.objects.get_first_observation(subject)
             context = dict(first_position=first_position,
@@ -130,7 +146,8 @@ class SubjectSourcesView(generics.ListAPIView):
 
     def get_queryset(self):
         subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
-        self.check_object_permissions(self.request, subject)
+        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
+            raise PermissionDenied
 
         self.subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
         sources = models.Source.objects.filter(pk__in=self.subject_sources.values('source'))
@@ -142,7 +159,8 @@ class SubjectSourceView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
-        self.check_object_permissions(self.request, subject)
+        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
+            raise PermissionDenied
 
         self.subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
         sources = models.Source.objects.all()
@@ -161,6 +179,8 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()
+    permission_classes = (SubjectObjectPermissions,)
+
 
     def get_serializer_context(self):
         context = {}
@@ -197,6 +217,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
 
 class SubjectTracksView(generics.RetrieveAPIView):
+    permission_classes = (SubjectObjectPermissions,)
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()

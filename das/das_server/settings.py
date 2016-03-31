@@ -45,7 +45,7 @@ INSTALLED_APPS = (
     'django.contrib.gis',
     'django_ses',
     #'django.contrib.sites',
-    'mptt',
+    'treebeard',
     'corsheaders',
     'oauth2_provider',
     'rest_framework',
@@ -130,6 +130,7 @@ REST_FRAMEWORK = {
         'das_utils.json.ExtendedBrowsableAPIRenderer',
     ),
     'EXCEPTION_HANDLER': 'das_utils.drf.api_exception_handler',
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
     #'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
     #'DEFAULT_VERSION': 'v1.0',
 }

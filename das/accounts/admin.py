@@ -5,8 +5,6 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin a
 from django.utils.translation import ugettext_lazy as _
 import django.contrib.auth.models
 from django.contrib.auth.forms import UserChangeForm
-from mptt.admin import MPTTModelAdmin
-from mptt.forms import TreeNodeMultipleChoiceField
 from accounts.models import User, PermissionSet
 
 

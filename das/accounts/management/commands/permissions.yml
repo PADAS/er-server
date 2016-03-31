@@ -9,7 +9,7 @@ permission_sets:
       - accounts.user.delete_user
       - accounts.user.change_user
 
-  - name: Admin Subjects
+  - name: Admin All Subjects
     permissions:
       - observations.subject.add_subject
       - observations.subject.delete_subject
@@ -17,35 +17,39 @@ permission_sets:
       - observations.subject.change_view
       - observations.subject.change_alerts
 
-  - name: View Subjects
+  - name: View All Subjects
     permissions:
       - observations.subject.view_real_time
       - observations.subject.subscribe_alerts
+      - observations.subject.subject_view
 
-  - name: Delayed View Elephants
+  - name: View Delayed Elephants
     permissions:
       - observations.subject.view_delayed
+      - observations.subject.subject_view
 
   - name: View Last Point Elephants
     permissions:
       - observations.subject.view_last_position
+      - observations.subject.subject_view
 
   - name: View Elephants
     permissions:
       - observations.subject.view_real_time
       - observations.subject.subscribe_alerts
+      - observations.subject.subject_view
 
   - name: View Rangers
     permissions:
       - observations.subject.view_real_time
       - observations.subject.subscribe_alerts
+      - observations.subject.subject_view
 
 subjectgroups:
   - name: All Subjects
-    ps_sets: [View Subjects, Admin Subjects]
+    ps_sets: [View All Subjects, Admin All Subjects]
   - name: Elephants
     parent: All Subjects
-    ps_sets: [View Elephants, Delayed View Elephants, View Last Point Elephants]
+    ps_sets: [View Elephants, View Delayed Elephants, View Last Point Elephants]
   - name: Rangers
     ps_sets: [View Rangers]
-    parent: All Subjects

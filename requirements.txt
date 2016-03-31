@@ -3,18 +3,20 @@
 #
 psycopg2==2.6.1
 simplejson==3.8.2
-pytz==2015.7
-python-dateutil==2.5.0
+pytz==2016.3
+python-dateutil==2.5.2
 requests==2.9.1
 python-engineio==0.9.0
-#python-socketio==1.2
-git+https://github.com/PADAS/python-socketio.git@cba6c3ed8b8b2c777538a5a35e73f98f4ec9d4bb
+python-socketio==1.2
+#master python-socketio project took our last update
+#git+https://github.com/PADAS/python-socketio.git@cba6c3ed8b8b2c777538a5a35e73f98f4ec9d4bb
+
 git+https://github.com/PADAS/django-ses.git@2fae0ebdaa96ff6daaea4edaafca3c02cdda61d8
 greenlet==0.4.9
 gunicorn==19.4.5
 Django==1.9.4
 
-djangorestframework==3.3.2
+djangorestframework==3.3.3
 #djangorestframework-gis==0.9.4
 #drf geojson serializers
 #django-spillway==0.5.1
@@ -32,7 +34,10 @@ django-leaflet==0.18.0
 #numpy 1.9.3, required by django-raster
 numpy==1.10.4
 #django-raster==0.1.7
-git+https://github.com/PADAS/django-raster.git@68b2d181c70827dffad3c07f4f38d3490872a3eb
+#git+https://github.com/PADAS/django-raster.git@68b2d181c70827dffad3c07f4f38d3490872a3eb
+#django-raster django 1.9 compatible
+git+https://github.com/geodesign/django-raster.git@9824c443de13cbf8b1d81b68078744d504e7bda5
+
 GDAL==1.11.2
 # Under windows add appropriate path'ed Environment Variables
 #GDAL_DATA=C:\projects\das\dasvir\Lib\site-packages\osgeo\data\gdal
@@ -48,13 +53,14 @@ geopy==1.11.0
 Fiona==1.6.3
 geopandas==0.1.1
 shapely==1.5.13
-celery==3.1.22
+celery==3.1.23
 redis==2.10.5
 six==1.10.0
 
 eventlet==0.18.4
 django-mptt==0.8.3
-django-extra-fields==0.5
+django-treebeard==4.0
+django-extra-fields==0.6
 
 # Gevent, for celery workers
 gevent==1.1.0

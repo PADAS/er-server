@@ -26,9 +26,12 @@ Steps
     * they are here: [dropbox](https://www.dropbox.com/sh/gtyw1jxlldw0h4z/AADLNMwr4ymtbEkqtrfabXuna?dl=0 "wheelhoue")
 * install GEOS
     * on ubuntu: sudo apt-get install binutils libproj-dev gdal-bin libgeos-dev
-    * on windows: GEOS_LIBRARY_PATH = 'C:\python34\Lib\site-packages\shapely\DLLs\geos_c.dll' in local_settings.py
+    * on windows:
+        * GEOS_LIBRARY_PATH = 'C:\projects\das\dasvir\Lib\site-packages\osgeo\geos_c.dll' in local_settings.py
+        * add osgeo directory to env PATH, C:\projects\das\dasvir\Lib\site-packages\osgeo
 * from a shell, cd to the project root
 * pip install -r requirements.txt -f wheelhouse
+* mkdir \tmp, or change directory for MAPPING and LOGGING
 * run the Django project
     * python manage.py runserver 8080
 

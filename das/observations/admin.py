@@ -1,10 +1,9 @@
 from django.contrib import admin
-from mptt.admin import MPTTModelAdmin
 
 import observations.models as models
 import observations.forms
 from observations.forms import SubjectForm
-
+from core.admin import HierarchyModelAdmin
 
 @admin.register(models.Subject)
 class SubjectAdmin(admin.ModelAdmin):
@@ -64,7 +63,13 @@ class RegionAdmin(admin.ModelAdmin):
         return self.slug
 
 @admin.register(models.SubjectGroup)
-class SubjectGroupAdmin(MPTTModelAdmin):
+class SubjectGroupAdmin(HierarchyModelAdmin):
+    search_fields = ('name',)
+    ordering = ('name',)
+
+
+@admin.register(models.SourceGroup)
+class SubjectGroupAdmin(HierarchyModelAdmin):
     search_fields = ('name',)
     ordering = ('name',)
 

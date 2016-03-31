@@ -10,7 +10,7 @@ class BaseTestCase(TestCase):
         self.all_set = PermissionSet.objects.create(name='all')
         self.some_set = PermissionSet.objects.create(name='some')
 
-        self.all_set.members.add(self.some_set)
+        self.all_set.children.add(self.some_set)
         self.all_set.save()
 
 
@@ -19,6 +19,6 @@ class PermissionSetTestCase(BaseTestCase):
         all_set = PermissionSet.objects.get(name='all')
         some_set = PermissionSet.objects.get(name='some')
 
-        self.assertIn(some_set, all_set.members.all())
+        self.assertIn(some_set, all_set.children.all())
         self.assertIn(all_set.id, some_set.get_ancestor_ids())
 

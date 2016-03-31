@@ -22,12 +22,12 @@ from django.db.models import Max
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
-from mptt.models import MPTTModel, TreeForeignKey, TreeManager
 import pytz
 
 from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
 from .track import Track
+from core.models import HierarchyManager, HierarchyModel
 
 
 SOURCE_TYPES = (
@@ -43,6 +43,26 @@ def to_rgb(color):
     return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(',')])
 
 DEFAULT_COLOR = '255,255,0'
+
+
+class SourceGroupManager(HierarchyManager):
+    pass
+
+
+class SourceGroup(HierarchyModel, PermissionSetHierarchyMixin):
+    """
+    Manage Groups of sources so that we can easily set permissions on a group
+    rather than each individual Source. Additionally there are requests to
+    get a subset of Sources.
+
+    A group can contain other groups as well.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(_('name'), max_length=80, unique=True)
+    objects = SourceGroupManager()
+
+    def __str__(self):
+        return self.name
 
 
 class SourceManager(models.Manager):
@@ -152,13 +172,21 @@ class ObservationManager(models.GeoManager):
         """
         return self._get_observation(subject, first=False)
 
+    def get_delayed_observation(self, subject, older_than=None):
+        """get the delayed last recorded observation of the subject
+        :returns Observation
+        """
+        if not older_than:
+            older_than = datetime.now(tz=pytz.UTC) - timedelta(hours=24)
+        return self._get_observation(subject, first=False, older_than=older_than)
+
     def get_first_observation(self, subject):
         """get the first recorded observation of the subject
         :returns Observation
         """
         return self._get_observation(subject, first=True)
 
-    def _get_observation(self, subject=None, first=False, subject_sources=None):
+    def _get_observation(self, subject=None, first=False, subject_sources=None, older_than=None):
         field = '-recorded_at'
         if first:
             field = 'recorded_at'
@@ -177,7 +205,10 @@ class ObservationManager(models.GeoManager):
             r = Observation.objects.filter(source=ssource.source)
             r = r.exclude(location=EMPTY_POINT)
             r = r.filter(recorded_at__gt=ssource.assigned_range.lower)
-            r = r.filter(recorded_at__lt=ssource.assigned_range.upper)
+            upper_range = ssource.assigned_range.upper
+            if older_than and older_than < upper_range:
+                upper_range = older_than
+            r = r.filter(recorded_at__lt=upper_range)
             r = r.order_by(field)[:1]
             if r:
                 return r[0]
@@ -232,11 +263,13 @@ class SubjectSource(models.Model):
                                  self.assigned_range.lower, self.assigned_range.upper)
 
 
-class SubjectGroupManager(models.Manager):
+DEFAULT_SUBJECT_GROUP_ID = '3a4a6a0f-6e1a-4b0f-8fd4-ce865355501c'
+
+class SubjectGroupManager(HierarchyManager):
     pass
 
 
-class SubjectGroup(MPTTModel, PermissionSetHierarchyMixin):
+class SubjectGroup(HierarchyModel, PermissionSetHierarchyMixin):
     """
     Manage Groups of subjects so that we can easily set permissions on a group
     rather than each individual Subject. Additionally there are requests to
@@ -246,21 +279,10 @@ class SubjectGroup(MPTTModel, PermissionSetHierarchyMixin):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_('name'), max_length=80, unique=True)
-    parent = TreeForeignKey('self', null=True, blank=True, related_name='children',
-        verbose_name=_('parent'), db_index=True,
-        help_text=_('The Group\'s parent. None, if it is a root node.'))
-
-    tree = TreeManager()
     objects = SubjectGroupManager()
-
-    class MPTTMeta:
-        order_insertion_by=['name']
 
     def __str__(self):
         return self.name
-
-    def natural_key(self):
-        return (self.name,)
 
 
 class SubjectManager(models.Manager):
@@ -280,6 +302,14 @@ class SubjectManager(models.Manager):
         subject_sources = SubjectSource.objects.filter(source__in=sources)
         subjects = subject_sources.values('subject')
         subjects = Subject.objects.filter(pk__in=subjects)
+        return subjects
+
+    def get_user_subjects(self, user, perms):
+        subjects = set()
+        all_ps = user.get_all_permission_sets()
+        for ps in all_ps:
+            for sg in ps.subjectgroup_set.all():
+                subjects.update(sg.subject_set.all())
         return subjects
 
 
@@ -358,7 +388,7 @@ class Subject(models.Model, PermissionSetGroupMixin):
                                        choices=SUBTYPE_CHOICES)
 
     additional = JSONField('additional data',)
-    group = TreeForeignKey(SubjectGroup, on_delete=models.SET_NULL, null=True, blank=True)
+    group = models.ForeignKey(SubjectGroup, on_delete=models.SET_NULL, null=True, blank=True)
 
     objects = SubjectManager()
 
@@ -367,11 +397,16 @@ class Subject(models.Model, PermissionSetGroupMixin):
             ('view_last_position', 'Allow the user to view the last reported position of a Subject.'),
             ('view_real_time', 'Access to updated observations as they become available, includes view_last_position.'),
             ('view_delayed', 'Access to a time dated observation feed. The delay is 24 hours, i.e. can only see yesterday and older observations. No real-time or last position.'),
+            ('view_subject', 'Permission to view a subject, does not include permission to see location'),
             ('subscribe_alerts', 'Permission to subscribe to an alert on this Subject.'),
             ('change_alerts', 'Permission to configure alerts for subject, includes setting geofences, proximity and immobility settings.'),
             ('change_view', 'An admin permission to change which users can view a Subject and their view permission.'),
 
         )
+
+    VIEW_POSITION_PERMS = ('observations.view_last_position', 'observations.view_real_time')
+    VIEW_DELAYED_PERMS = ('observations.view_delayed',)
+    VIEW_SUBJECT_PERMS = ('observations.view_subject',)
 
     @property
     def color(self):
