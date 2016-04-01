@@ -1,5 +1,3 @@
-import platform
-
 from .settings import *
 
 """
@@ -33,3 +31,5 @@ _test_fixtures = ('%s/tests/fixtures' % x for x in ('observations',
                                                     'mapping',
                                                     'das_server'))
 FIXTURE_DIRS = list(os.path.join(BASE_DIR, x) for x in _test_fixtures)
+
+LOGGING['handlers']['file']['filename'] = './das.log'
