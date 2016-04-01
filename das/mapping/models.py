@@ -144,8 +144,9 @@ class MBTilesManager(object):
         license: Lesser GNU Public License
     """
     def __init__(self, *args, **kwargs):
+        self.logger = logging.getLogger(self.__class__.__name__)
         if not os.path.exists(MBTILES['root']):
-            raise MBTilesFolderError()
+            self.logger.error('MBTILES folder not set %s', MBTilesFolderError())
         self.folder = MBTILES['root']
 
     def filter(self, catalog=None):
