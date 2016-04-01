@@ -3,15 +3,19 @@ from .settings import *
 """
 In Jenkins:
 
-python manage.py jenkins --setttings=das_server.local_ci.py
+python manage.py jenkins --enable-coverage --settings=das_server.local_settings.py
 """
 
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': 'test_dasdb',
-    }
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': 'unittest_dasdb',
+        'USER': 'postgres',
+        'HOST': '127.0.0.1',
+        'PASSWORD': 'postgres',
+        'CONN_MAX_AGE': 5,
+    },
 }
 
 global INSTALLED_APPS
