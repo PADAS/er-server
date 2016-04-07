@@ -34,7 +34,10 @@ def run_source_plugin(self, source_plugin_id):
 def run_source_plugin_for_source(self, source_id):
     sp = SourcePlugin.objects.get(source_id=source_id)
     if sp:
+        logger.debug('Running source plugin %s', sp)
         run_source_plugin.delay(str(sp.id))
+    else:
+        logger.debug('No sourcePlugin found for source_id = %s', source_id)
 
 
 @celery.app.task(bind=True)
