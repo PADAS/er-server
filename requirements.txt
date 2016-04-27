@@ -3,8 +3,8 @@
 #
 psycopg2==2.6.1
 simplejson==3.8.2
-pytz==2016.3
-python-dateutil==2.5.2
+pytz==2016.4
+python-dateutil==2.5.3
 requests==2.9.1
 python-engineio==0.9.0
 python-socketio==1.2
@@ -14,23 +14,23 @@ python-socketio==1.2
 git+https://github.com/PADAS/django-ses.git@2fae0ebdaa96ff6daaea4edaafca3c02cdda61d8
 greenlet==0.4.9
 gunicorn==19.4.5
-Django==1.9.4
+Django==1.9.5
 
 djangorestframework==3.3.3
 #djangorestframework-gis==0.9.4
 #drf geojson serializers
 #django-spillway==0.5.1
 #https://github.com/mypebble/django-pgviews
-django-pgviews==0.0.6
+django-pgviews==0.1.0
 django-geojson==2.9.0
 #git+https://github.com/PADAS/django-geojson.git@master
-django-model-utils==2.4
+django-model-utils==2.5
 #django-extensions==1.5.7
 #see https://github.com/ottoyiu/django-cors-headers
 django-cors-headers==1.1.0
 django-oauth-toolkit==0.9.0
 django-rest-swagger==0.3.5
-django-leaflet==0.18.0
+django-leaflet==0.18.1
 #numpy 1.9.3, required by django-raster
 numpy==1.10.4
 #django-raster==0.1.7
@@ -60,10 +60,10 @@ six==1.10.0
 eventlet==0.18.4
 django-mptt==0.8.3
 django-treebeard==4.0
-django-extra-fields==0.6
+django-extra-fields==0.7
 
 # Gevent, for celery workers
-gevent==1.1.0
+gevent==1.1.1
 
 boto==2.39.0
 
