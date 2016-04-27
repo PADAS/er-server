@@ -33,12 +33,10 @@ django-rest-swagger==0.3.5
 django-leaflet==0.18.1
 #numpy 1.9.3, required by django-raster
 numpy==1.10.4
-#django-raster==0.1.7
-#git+https://github.com/PADAS/django-raster.git@68b2d181c70827dffad3c07f4f38d3490872a3eb
-#django-raster django 1.9 compatible
-git+https://github.com/geodesign/django-raster.git@9824c443de13cbf8b1d81b68078744d504e7bda5
+django-raster==0.2
 
 GDAL==1.11.2
+pyproj==1.9.5
 # Under windows add appropriate path'ed Environment Variables
 #GDAL_DATA=C:\projects\das\dasvir\Lib\site-packages\osgeo\data\gdal
 #GDAL_DRIVER_PATH=C:\projects\das\dasvir\Lib\site-packages\osgeo\gdalplugins
