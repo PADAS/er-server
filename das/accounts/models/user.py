@@ -7,12 +7,21 @@ from django.utils.translation import ugettext_lazy as _
 from django.core.mail import send_mail
 from django.core.exceptions import PermissionDenied
 from django.core import validators
-from django.utils import six, timezone
+from django.utils import timezone
 
 from accounts.mixins import PermissionsMixin
 
 
-phone_regex = validators.RegexValidator(regex=r'^\+?1?\d{9,15}$', message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed.")
+phone_regex = validators.RegexValidator(
+    regex=r'^\+?1?\d{9,15}$',
+    message="Phone number must be entered in the format:  "
+            "'+999999999'. Up to 15 digits allowed.")
+
+
+class UserQuerySet(models.QuerySet):
+    """Don't allow users to be deleted, set them as inactive"""
+    def delete(self):
+        self.update(active=False)
 
 
 class UserManager(BaseUserManager):
@@ -49,7 +58,8 @@ class UserManager(BaseUserManager):
 
 def _user_has_module_perms(user, app_label):
     """
-    A backend can raise `PermissionDenied` to short-circuit permission checking.
+    A backend can raise `PermissionDenied` to short-circuit
+    permission checking.
     """
     for backend in auth.get_backends():
         if not hasattr(backend, 'has_module_perms'):
@@ -73,7 +83,8 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         _('username'),
         max_length=30,
         unique=True,
-        help_text=_('Required. 30 characters or fewer. Letters, digits and @/./+/-/_ only.'),
+        help_text=_('Required. 30 characters or fewer.'
+                    ' Letters, digits and @/./+/-/_ only.'),
         validators=[
             validators.RegexValidator(
                 r'^[\w.@+-]+$',
@@ -88,7 +99,8 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(_('first name'), max_length=30, blank=True)
     last_name = models.CharField(_('last name'), max_length=30, blank=True)
     email = models.EmailField(_('email address'), blank=True)
-    phone = models.CharField(validators=[phone_regex], max_length=15, blank=True) # validators should be a list
+    phone = models.CharField(validators=[phone_regex], max_length=15,
+                             blank=True)  # validators should be a list
     is_email_alert = models.BooleanField(
         _('email alert'),
         default=False,
@@ -102,19 +114,20 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(
         _('staff status'),
         default=False,
-        help_text=_('Designates whether the user can log into this admin site.'),
+        help_text=_('Designates whether the user can log '
+                    'into this admin site.'),
     )
     is_active = models.BooleanField(
         _('active'),
         default=True,
         help_text=_(
             'Designates whether this user should be treated as active. '
-            'Unselect this instead of deleting accounts.'
+            'Set this False instead of deleting accounts.'
         ),
     )
     date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
 
-    objects = UserManager()
+    objects = UserManager.from_queryset(UserQuerySet)()
 
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email', 'phone']
@@ -132,7 +145,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         return full_name.strip()
 
     def get_short_name(self):
-        "Returns the short name for the user."
+        """Returns the short name for the user."""
         return self.first_name
 
     def email_user(self, subject, message, from_email=None, **kwargs):
@@ -143,7 +156,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
 
 
 class User(AccountsAbstractUser):
-    user_perms = set(('accounts.view_user', 'accounts.change_user'))
+    user_perms = {'accounts.view_user', 'accounts.change_user'}
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
     class Meta(AbstractBaseUser.Meta):
@@ -159,6 +172,14 @@ class User(AccountsAbstractUser):
         A user can view and edit themselves
         """
         if obj and isinstance(obj, User) and self.id == obj.id:
-            return super(User, self).get_user_permissions(obj) + self.user_perms
+            return super(User, self).get_user_permissions(obj)\
+                   + self.user_perms
 
         return set()
+
+    def delete(self, using=None, keep_parents=False):
+        """Don't allow users to be deleted when they are referenced in
+        other tables.
+        """
+        self.is_active = False
+        self.save()

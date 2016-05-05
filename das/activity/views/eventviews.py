@@ -17,6 +17,7 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+
 class EventsView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save(created_by_user=self.request.user)
@@ -31,13 +32,12 @@ class EventsView(generics.ListCreateAPIView):
     """.format(page_size=StandardResultsSetPagination.page_size,
                     max_page_size=StandardResultsSetPagination.max_page_size)
 
-    authentication_classes = ((OAuth2Authentication, SessionAuthentication))
-    permission_classes = ((IsAuthenticated,))
+    authentication_classes = (OAuth2Authentication, SessionAuthentication)
+    permission_classes = (IsAuthenticated,)
 
     serializer_class = EventSerializer
 
     pagination_class = StandardResultsSetPagination
-    queryset = Event.objects.all().order_by('-created_at')
 
     def get_queryset(self):
         queryset = Event.objects.all().order_by('-created_at')

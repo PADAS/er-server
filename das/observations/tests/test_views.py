@@ -8,29 +8,21 @@ from oauth2_provider.models import Application, AccessToken
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
+from core.tests import BaseAPITest
 from accounts.models import User, PermissionSet
 from observations.models import Subject, SubjectGroup, Source, SubjectSource, Observation
 import observations.views as views
 
 API_BASE = '/api/v1.0'
 
-class BasePermissionTest(TestCase):
+class BasePermissionTest(BaseAPITest):
     def setUp(self):
+        super().setUp()
         self.superuser = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True)
         self.last_view_user = User.objects.create_user('last_view_joe', 'last_joe@test.com', 'last_view_joe')
         self.realtime_view_user = User.objects.create_user('realtime_joe', 'realtimejoe@test.com', 'realtime_view_joe')
         self.delayed_view_user = User.objects.create_user('delayed_view_joe', 'jerry@test.com', 'delayed_view_joe')
         self.no_view_user = User.objects.create_user('no_view_john', 'john@test.com', 'no_view_john')
-
-        self.application = Application(
-        name="Test Application",
-        redirect_uris="http://localhost",
-        user=self.last_view_user,
-        client_type=Application.CLIENT_CONFIDENTIAL,
-        authorization_grant_type=Application.GRANT_AUTHORIZATION_CODE,
-        )
-        self.application.save()
-
 
         self.subject_set = PermissionSet.objects.create(name='subject')
         self.subject_view_last_set = PermissionSet.objects.create(name='subject_view')
@@ -122,18 +114,7 @@ class BasePermissionTest(TestCase):
 
 class SubjectViewPermissionsTest(BasePermissionTest):
     def setUp(self):
-        super(SubjectViewPermissionsTest, self).setUp()
-        self.factory = APIRequestFactory(enforce_csrf_checks=True)
-
-    def force_authenticate(self, request, user):
-        request.user = user
-        tok = AccessToken.objects.create(
-            user=request.user, token='1234567890',
-            application=self.application, scope='read write',
-            expires=timezone.now() + datetime.timedelta(days=1)
-        )
-
-        force_authenticate(request, user=request.user, token=tok)
+        super().setUp()
 
     def test_return_current_observation_for_subject(self):
         request = self.factory.get(API_BASE + '/subject/')
