@@ -38,7 +38,7 @@ urlpatterns = [
 
 
 # give the api a chance to override and return json
-django.conf.urls.handler404 = 'das_utils.drf.error404View'
+django.conf.urls.handler404 = 'utils.drf.error404View'
 
 if settings.DEV:
     urlpatterns += [

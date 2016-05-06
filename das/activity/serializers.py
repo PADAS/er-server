@@ -5,7 +5,7 @@ import rest_framework.serializers
 from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
-import das_utils
+import utils
 
 import activity.models
 from observations.serializers import SubjectSerializer, SourceSerializer
@@ -40,7 +40,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, event):
         rep = super().to_representation(event)
-        rep['url'] = das_utils.add_base_url(self.context['request'],
+        rep['url'] = utils.add_base_url(self.context['request'],
                                             reverse('event-view',
                                                     args=[event.id, ]))
 
@@ -59,16 +59,11 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
                 pass
         return rep
 
-    def update_not_used(self, instance, validated_data):
-        user = self.context['request'].user
-
-        return super().update(instance, validated_data)
-
 
 def make_feature(request, event):
     is_point = isinstance(event.coordinates, Point)
-    image_url = das_utils.add_base_url(request, event.image_url)
-    feature = das_utils.json.empty_geojson_feature()
+    image_url = utils.add_base_url(request, event.image_url)
+    feature = utils.json.empty_geojson_feature()
     feature['geometry'] = {
         'type': 'LineString' if not is_point else 'Point',
         'coordinates': event.coordinates if not is_point else event.coordinates.tuple

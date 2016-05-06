@@ -10,7 +10,7 @@ from django.core.urlresolvers import reverse, NoReverseMatch
 from django.utils.translation import ugettext_lazy as _
 
 from core.models import TimestampedModel
-from das_utils.decorator import reify
+from utils.decorator import reify
 from mapping.app_settings import MBTILES
 from mapping.mbtiles import ExtractionError, GoogleProjection, MBTilesReader
 from mapping.mbtiles import InvalidFormatError

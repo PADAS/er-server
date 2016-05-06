@@ -5,7 +5,7 @@ import eventlet
 from activity.models import Event
 from activity.serializers import EventSerializer
 from das_server import pubsub
-import das_utils
+import utils
 from observations.models import SubjectSource
 from observations import serializers as observation_serializers
 from rt_api.server import DummyRequest
@@ -51,7 +51,7 @@ def start(realtime_server):
 
             request = DummyRequest(uri='', http_method='GET')
             feature = observation_serializers.make_feature(request, coordinates, subject, times)
-            rep = das_utils.json.empty_geojson_featurecollection()
+            rep = utils.json.empty_geojson_featurecollection()
             rep['features'].append(feature)
             realtime_server.emit_subject_update(subjectid=str(subject.pk), geo_json=rep)
 

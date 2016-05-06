@@ -119,15 +119,15 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'das_utils.drf.SuperUserSessionAuthentication',
+        'utils.drf.SuperUserSessionAuthentication',
         'oauth2_provider.ext.rest_framework.OAuth2Authentication',
     ),
     #'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
     'DEFAULT_RENDERER_CLASSES': (
-        'das_utils.json.ExtendedJSONRenderer',
-        'das_utils.json.ExtendedBrowsableAPIRenderer',
+        'utils.json.ExtendedJSONRenderer',
+        'utils.json.ExtendedBrowsableAPIRenderer',
     ),
-    'EXCEPTION_HANDLER': 'das_utils.drf.api_exception_handler',
+    'EXCEPTION_HANDLER': 'utils.drf.api_exception_handler',
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
     #'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
     #'DEFAULT_VERSION': 'v1.0',
@@ -198,7 +198,7 @@ LOGGING = {
             'handlers': ['file'],
             'level': 'INFO',
         },
-        'das_utils': {
+        'utils': {
             'handlers': ['file'],
             'level': 'INFO',
         },
