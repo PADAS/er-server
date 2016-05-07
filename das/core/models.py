@@ -1,5 +1,5 @@
+from django.conf import settings
 from django.contrib.gis.db import models
-from django.contrib.auth.models import User
 from treebeard.al_tree import AL_Node, AL_NodeManager
 
 
@@ -12,7 +12,7 @@ class TimestampedModel(models.Model):
 
 
 class AuditableModel(TimestampedModel):
-    user = models.ForeignKey(to=User)
+    user = models.ForeignKey(to=settings.AUTH_USER_MODEL)
 
     class Meta:
         abstract = True
@@ -50,3 +50,5 @@ class HierarchyModel(AL_Node):
 
     def get_ancestor_ids(self):
         return [a.id for a in self.get_ancestors()]
+
+

@@ -55,6 +55,9 @@ class UserManager(BaseUserManager):
 
         return self._create_user(username, email, password, **extra_fields)
 
+    def get_queryset(self):
+        return UserQuerySet(self.model, using=self._db)
+
 
 def _user_has_module_perms(user, app_label):
     """
@@ -127,7 +130,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     )
     date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
 
-    objects = UserManager.from_queryset(UserQuerySet)()
+    objects = UserManager()
 
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email', 'phone']

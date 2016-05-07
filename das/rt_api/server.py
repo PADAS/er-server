@@ -2,6 +2,7 @@ import sys
 import logging
 import eventlet
 from django.contrib.auth import authenticate
+from django.db import close_old_connections
 from oauthlib.common import Request
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,8 @@ def create_realtime_handler(sios):
                           room=str(sid),
                           namespace='/das')
                 sios.server.disconnect(sid)
+            finally:
+                close_old_connections()
 
 
         @sios.on('echo', namespace='/das')

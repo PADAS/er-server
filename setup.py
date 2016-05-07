@@ -18,25 +18,37 @@ if sys.version_info <= (3, 4):
     print(error, file=sys.stderr)
     sys.exit(1)
 
+from das import VERSION, __version__
+
+if VERSION[-1] == 'final':
+    STATUS = ['Development Status :: 5 - Production/Stable']
+elif 'beta' in VERSION[-1]:
+    STATUS = ['Development Status :: 4 - Beta']
+else:
+    STATUS = ['Development Status :: 3 - Alpha']
+
+
 def readme():
     with open('readme.md') as f:
         return f.read()
 
-setup(name = 'das',
-      version = '0.1.1',
-      description = 'Domain Awareness System, server',
-      long_description = readme(),
-      author = 'Vulcan',
-      url = 'https://github.com/padas/das/',
-      packages = ['das',],
-      license = 'MIT',
-      platforms = 'Posix; MacOS X; Windows',
-      classifiers = ['Development Status :: 3 - Alpha',
-                     'Intended Audience :: Developers',
-                     'License :: OSI Approved :: BSD License',
-                     'Operating System :: OS Independent',
-                     'Topic :: Internet',
-                     'Programming Language :: Python :: 3.4'],
+setup(name='das',
+      version=__version__,
+      description='Domain Awareness System, server',
+      long_description=readme(),
+      author='Vulcan',
+      url='https://github.com/padas/das/',
+      packages=('das',),
+      license='MIT',
+      platforms='Posix; MacOS X; Windows',
+      classifiers=STATUS + [
+          'Framework :: Django',
+          'Intended Audience :: Developers',
+          'License :: OSI Approved :: BSD License',
+          'Operating System :: OS Independent',
+          'Topic :: Internet',
+          'Programming Language :: Python :: 3.4',
+          'Programming Language :: Python :: 3.5'],
       **extra
       )
 
