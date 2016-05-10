@@ -1,8 +1,5 @@
 from datetime import timedelta
 
-from oauth2_provider.ext.rest_framework import OAuth2Authentication
-from rest_framework.authentication import SessionAuthentication
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import generics
 
@@ -31,9 +28,6 @@ class EventsView(generics.ListCreateAPIView):
     page_size, (default is {page_size}, max is {max_page_size})
     """.format(page_size=StandardResultsSetPagination.page_size,
                     max_page_size=StandardResultsSetPagination.max_page_size)
-
-    authentication_classes = (OAuth2Authentication, SessionAuthentication)
-    permission_classes = (IsAuthenticated,)
 
     serializer_class = EventSerializer
 
