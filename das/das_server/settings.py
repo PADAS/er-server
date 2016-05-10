@@ -120,8 +120,8 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'utils.drf.SuperUserSessionAuthentication',
         'oauth2_provider.ext.rest_framework.OAuth2Authentication',
+        'utils.drf.SuperUserSessionAuthentication',
     ),
     #'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
     'DEFAULT_RENDERER_CLASSES': (
