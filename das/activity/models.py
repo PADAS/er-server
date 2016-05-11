@@ -1,18 +1,21 @@
 import uuid
 import logging
+import copy
 
+from django.core import serializers
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
 import django.utils
 from django.contrib.postgres.fields import JSONField
 from django.contrib.contenttypes.fields import GenericForeignKey
-from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.models import ContentType, ContentTypeManager
 from django.utils import timezone
 
 from core.models import TimestampedModel
-import accounts.models
 from observations.models import Subject
+from .manager import Revision
 
 logger = logging.getLogger(__name__)
 
@@ -110,20 +113,26 @@ class Event(TimestampedModel):
 
     name = models.CharField(max_length=80)
     description = models.TextField(default='')
-    created_by_user = models.ForeignKey(accounts.models.User, on_delete=models.SET(get_sentinel_user), null=True,
-                                        related_name='events',
-                                        related_query_name='event')
+    created_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
+        null=True, related_name='events', related_query_name='event')
 
     event_time = models.DateTimeField(default=django.utils.timezone.now)
-    provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES, default=SYSTEM)
-    event_type = models.CharField(max_length=40, choices=EVENT_TYPE_CHOICES, default=ET_SYSTEM)
+    provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
+                                  default=SYSTEM)
+    event_type = models.CharField(max_length=40, choices=EVENT_TYPE_CHOICES,
+                                  default=ET_SYSTEM)
     location = models.PointField(srid=4326, null=True)
-    priority = models.PositiveSmallIntegerField(db_column='priority', default=PRI_DEFAULT_VALUE, choices=PRIORITY_CHOICES)
+    priority = models.PositiveSmallIntegerField(
+        db_column='priority',
+        default=PRI_DEFAULT_VALUE, choices=PRIORITY_CHOICES)
     attributes = JSONField(default={})
+
+    revision = Revision()
 
     @property
     def priority_label(self):
-        return self.PRIORITY_LABELS_MAP.get(self.priority, 'Unknown')
+        return self.get_priority_display()
 
     @property
     def coordinates(self):
@@ -135,7 +144,7 @@ class Event(TimestampedModel):
 
     @property
     def image_url(self):
-        return marker_icon(self.event_type, self.priority_label.lower())
+        return marker_icon(self.event_type, self.get_priority_display().lower())
 
     @property
     def subjects(self):
@@ -170,7 +179,8 @@ class EventAttachment(models.Model):
     target_id = models.UUIDField()
     target = GenericForeignKey('content_type', 'target_id')
 
-    reason = models.CharField(max_length=20, choices=EVENT_ATTACHMENT_REASONS, default='target')
+    reason = models.CharField(max_length=20, choices=EVENT_ATTACHMENT_REASONS,
+                              default='target')
 
     def __str__(self):
         # TODO: Devise a better way to represent EventAttachment.
@@ -179,6 +189,5 @@ class EventAttachment(models.Model):
 
 def marker_icon(*args):
     return '/static/event-marker-{}.svg'.format('-'.join(args))
-
 
 
