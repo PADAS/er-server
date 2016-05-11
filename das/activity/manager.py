@@ -35,9 +35,10 @@ class RevisionManager(models.Manager):
 
 
 class RevisionDescriptor(object):
-    def __init__(self, model, manager_class):
+    def __init__(self, model, manager_class, manager_name):
         self.model = model
         self.manager_class = manager_class
+        self.manager_name = manager_name
 
     def __get__(self, instance, owner):
         if instance is None:
@@ -186,9 +187,10 @@ class Revision(object):
                                                 )
             return result
 
-        user_field = UserField(related_name = rel_name, editable = False)
+        user_field = UserField(related_name = rel_name, editable = False,
+                               on_delete=models.SET_NULL)
 
-        #check if the manager has been attached to auth user model
+        #check if this manager has been attached to auth user model
         if [model._meta.app_label, model.__name__] == getattr(settings, 'AUTH_USER_MODEL', 'auth.User').split("."):
             user_field = UserField(related_name = rel_name, editable = False, to = 'self')
 
@@ -205,6 +207,7 @@ class Revision(object):
             'user': user_field,
             'data': JSONField(default={}),
             '__str__': to_str,
+            '__module__': model.__module__,
         }
 
     def get_meta_options(self, model):
