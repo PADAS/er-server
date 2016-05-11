@@ -57,6 +57,8 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
                 rep['subject'] = SubjectSerializer().to_representation(subject_attachment.target)
             except:
                 pass
+
+        rep['updates'] = event.get_history()
         return rep
 
 

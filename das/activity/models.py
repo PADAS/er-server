@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from core.models import TimestampedModel
 from observations.models import Subject
-from .manager import Revision
+from .manager import Revision, AC_DELETED
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +153,16 @@ class Event(TimestampedModel):
             content_type=ContentType.objects.get_for_model(Subject)
         )
         return [event_attachment.target for event_attachment in event_attachments]
+
+    def get_history(self):
+        return ['{action} {choice} by {user}'.format(
+                action=revision.get_action_label(),
+                change=revision.get_change_label(),
+                user=revision.user.get_full_name()
+                )
+                for revision in self.revision.all().orderby('sequence')
+                if revision.action != AC_DELETED
+                ]
 
     def __str__(self):
         return self.name

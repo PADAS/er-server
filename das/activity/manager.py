@@ -10,7 +10,7 @@ from django.contrib.gis.geos import Polygon
 import django.utils
 from django.contrib.postgres.fields import JSONField
 from django.contrib.contenttypes.fields import GenericForeignKey
-from django.contrib.contenttypes.models import ContentType, ContentTypeManager
+from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
 from core.models import TimestampedModel
@@ -30,7 +30,7 @@ class RevisionManager(models.Manager):
         if self.instance is None:
             return super(RevisionManager, self).get_queryset()
 
-        f = {self.instance._meta.pk.name : self.instance.pk}
+        f = {'object_id': self.instance.pk}
         return super(RevisionManager, self).get_queryset().filter(**f)
 
 
@@ -55,13 +55,13 @@ class UserField(models.ForeignKey):
 
 
 def make_revision_model_name(model):
-    return '{0}Revision'.format(model.name)
+    return '{0}Revision'.format(model._meta.object_name)
 
 
 def get_revision_model(model):
-    return ContentTypeManager.get_by_natural_key(
-        model.app_label,
-        make_revision_model_name(model)
+    return ContentType.objects.get_by_natural_key(
+        model._meta.app_label,
+        make_revision_model_name(model).lower()
     )
 
 
@@ -71,7 +71,7 @@ class RevisionAdapter(object):
     def __init__(self, model):
         self.model = model
 
-    def get_fields_to_serialize(self):
+    def get_fieldnames(self):
         opts = self.model._meta.concrete_model._meta
         fields = self.fields or (field.name for field in opts.local_fields
                                  + opts.local_many_to_many)
@@ -83,32 +83,31 @@ class RevisionAdapter(object):
             else:
                 yield field.attname
 
-    def get_serialized_data(self, obj):
+    def _serialize(self, obj, fieldnames):
         return serializers.serialize(
             'json',
             (obj,),
-            fields = list(self.get_fields_to_serialize()),
+            fields=fieldnames
         )
+
+    def get_serialized_data(self, obj):
+        return self._serialize(obj, list(self.get_fieldnames()))
 
     def get_serialized_data_diff(self, obj):
         source = self.model.object.get(id=obj.id)
-        fields = list(self.get_fields_to_serialize())
+        fields = list(self.get_fieldnames())
         fields_diff = [key for key in fields if getattr(source, key) != getattr(obj, key)]
+        return self._serialize(obj, fields_diff)
 
-        return serializers.serialize(
-            'json',
-            (obj,),
-            fields=fields_diff,
-        )
 
-ADDED = 1
-CHANGED = 2
-DELETED = 3
+AC_ADDED = 1
+AC_CHANGED = 2
+AC_DELETED = 3
 
 ACTION_CHOICES = (
-    (ADDED, 'Added'),
-    (CHANGED, 'Changed'),
-    (DELETED, 'Deleted'),
+    (AC_ADDED, 'Added'),
+    (AC_CHANGED, 'Changed'),
+    (AC_DELETED, 'Deleted'),
 )
 
 CHANGED_CHOICES = (
@@ -119,6 +118,10 @@ CHANGED_CHOICES = (
 class Revision(object):
     manager_class = RevisionManager
     changed_choices = CHANGED_CHOICES
+
+    def __init__(self, changed_choices=None):
+        if changed_choices:
+            self.changed_choices = changed_choices
 
     def contribute_to_class(self, cls, name):
         self.manager_name = name
@@ -137,7 +140,7 @@ class Revision(object):
         else:
             data = adapter.get_serialized_data_diff(instance)
 
-        changed = 'field' if action == CHANGED else ''
+        changed = 'field' if action == AC_CHANGED else ''
 
         manager.create(
             object_id=instance.id,
@@ -149,10 +152,10 @@ class Revision(object):
         )
 
     def post_save(self, instance, created, **kwargs):
-        self.create_revision(instance, created and ADDED or CHANGED)
+        self.create_revision(instance, created and AC_ADDED or AC_CHANGED)
 
     def post_delete(self, instance, **kwargs):
-        self.create_revision(instance, DELETED)
+        self.create_revision(instance, AC_DELETED)
 
     def post_init(self, instance, **kwargs):
         manager = getattr(instance, self.manager_name)
@@ -198,7 +201,7 @@ class Revision(object):
             'id': models.UUIDField(primary_key=True, default=uuid.uuid4),
             'object_id': models.UUIDField(),
             'action': models.IntegerField(choices=ACTION_CHOICES,
-                                         default=ADDED),
+                                          default=AC_ADDED),
             'changed': models.CharField(max_length=20,
                                          choices=self.changed_choices,
                                           default=''),
@@ -223,5 +226,5 @@ class Revision(object):
     def create_revision_model(self, model):
         attrs = self.get_table_fields(model)
         attrs.update(Meta = type(str('Meta'), (), self.get_meta_options(model)))
-        name = str('%sRevision'%model._meta.object_name)
+        name = make_revision_model_name(model)
         return type(name, (models.Model,), attrs)
