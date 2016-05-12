@@ -72,6 +72,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
+    'activity.middleware.RevisionMiddleware',
     #'django.contrib.sites.middleware.CurrentSiteMiddleware',
 )
 

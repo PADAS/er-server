@@ -1,6 +1,8 @@
 from django.db.models import signals
 from django.utils.functional import curry
 
+from .manager import RevisionMixin
+
 
 class RevisionMiddleware(object):
     def process_request(self, request):
@@ -20,5 +22,5 @@ class RevisionMiddleware(object):
         return response
 
     def _pre_save_info(self, user, sender, instance, **kwargs):
-        if hasattr(instance, 'user') and not getattr(instance, 'user'):
-            setattr(instance, 'user', user)
+        if isinstance(sender, RevisionMixin):
+            setattr(instance, 'revision_user', user)

@@ -58,7 +58,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             except:
                 pass
 
-        rep['updates'] = event.get_history()
+        rep['updates'] = event.get_history_display()
         return rep
 
 

@@ -2,8 +2,10 @@ import uuid
 import logging
 import copy
 
+import simplejson as json
 from django.core import serializers
 from django.conf import settings
+import django.db.transaction as transaction
 from django.contrib.auth import get_user_model
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
@@ -84,75 +86,74 @@ class RevisionAdapter(object):
                 yield field.attname
 
     def _serialize(self, obj, fieldnames):
-        return serializers.serialize(
+        data = serializers.serialize(
             'json',
             (obj,),
             fields=fieldnames
         )
+        data = json.loads(data)[0]
+        data = data['fields']
+        return data
+
+    def get_data_copy(self, obj):
+        return {k: copy.deepcopy(getattr(obj, k)) for
+                k in list(self.get_fieldnames())}
 
     def get_serialized_data(self, obj):
         return self._serialize(obj, list(self.get_fieldnames()))
 
-    def get_serialized_data_diff(self, obj):
-        source = self.model.object.get(id=obj.id)
+    def get_serialized_data_diff(self, obj, original):
         fields = list(self.get_fieldnames())
-        fields_diff = [key for key in fields if getattr(source, key) != getattr(obj, key)]
+        fields_diff = [key for key in fields if original.get(key, None) != getattr(obj, key)]
         return self._serialize(obj, fields_diff)
 
 
-AC_ADDED = 1
-AC_CHANGED = 2
-AC_DELETED = 3
+AC_ADDED = 'a'
+AC_UPDATED = 'u'
+AC_DELETED = 'd'
 
 ACTION_CHOICES = (
     (AC_ADDED, 'Added'),
-    (AC_CHANGED, 'Changed'),
+    (AC_UPDATED, 'Updated'),
     (AC_DELETED, 'Deleted'),
-)
-
-CHANGED_CHOICES = (
-    ('field', 'Field(s) Changed'),
 )
 
 
 class Revision(object):
     manager_class = RevisionManager
-    changed_choices = CHANGED_CHOICES
-
-    def __init__(self, changed_choices=None):
-        if changed_choices:
-            self.changed_choices = changed_choices
 
     def contribute_to_class(self, cls, name):
         self.manager_name = name
         models.signals.class_prepared.connect(self.finalize, sender = cls)
 
     def create_revision(self, instance, action):
-        user = getattr(self, 'user', None)
+        user = getattr(self, 'revision_user', None)
         manager = getattr(instance, self.manager_name)
         adapter = RevisionAdapter(type(instance))
 
-        revision_model = get_revision_model(adapter.model)
         sequence = instance.revision_sequence + 1
 
         if sequence == 1:
             data = adapter.get_serialized_data(instance)
+        elif action == AC_DELETED:
+            data = {}
         else:
-            data = adapter.get_serialized_data_diff(instance)
-
-        changed = 'field' if action == AC_CHANGED else ''
+            data = adapter.get_serialized_data_diff(instance,
+                                                    instance.revision_original)
 
         manager.create(
             object_id=instance.id,
             sequence=sequence,
             action=action,
             user=user,
-            changed=changed,
             data=data
         )
 
     def post_save(self, instance, created, **kwargs):
-        self.create_revision(instance, created and AC_ADDED or AC_CHANGED)
+        try:
+            self.create_revision(instance, created and AC_ADDED or AC_UPDATED)
+        except Exception as ex:
+            logger.exception(ex)
 
     def post_delete(self, instance, **kwargs):
         self.create_revision(instance, AC_DELETED)
@@ -161,9 +162,11 @@ class Revision(object):
         manager = getattr(instance, self.manager_name)
         instance.revision_sequence = 0
         if instance.id:
+            adapter = RevisionAdapter(type(instance))
+            instance.revision_original = adapter.get_data_copy(instance)
             sequences = manager.all().filter(
                 object_id=instance.id)
-            sequences = sequences.order_by('object_id', '-sequence')
+            sequences = sequences.order_by('-sequence')
             for sequence in sequences.values('sequence'):
                 instance.revision_sequence = sequence['sequence']
                 break
@@ -200,11 +203,8 @@ class Revision(object):
         return {
             'id': models.UUIDField(primary_key=True, default=uuid.uuid4),
             'object_id': models.UUIDField(),
-            'action': models.IntegerField(choices=ACTION_CHOICES,
+            'action': models.CharField(max_length=1, choices=ACTION_CHOICES,
                                           default=AC_ADDED),
-            'changed': models.CharField(max_length=20,
-                                         choices=self.changed_choices,
-                                          default=''),
             'revision_at': models.DateTimeField(auto_now_add=True),
             'sequence': models.IntegerField(help_text='Revision sequence'),
             'user': user_field,
@@ -228,3 +228,9 @@ class Revision(object):
         attrs.update(Meta = type(str('Meta'), (), self.get_meta_options(model)))
         name = make_revision_model_name(model)
         return type(name, (models.Model,), attrs)
+
+
+class RevisionMixin(object):
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            return super().save(*args, **kwargs)

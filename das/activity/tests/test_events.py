@@ -89,7 +89,7 @@ class TestEventView(BaseAPITest):
         event = self.create_event(self.event_data)
 
         update_data = copy.deepcopy(self.event_data)
-        update_data['name'] = lorem_ipsum.sentence()[:50]
+        update_data['name'] = 'A completely different title'
 
         request = self.factory.patch(
             self.api_base + '/event/{0}/'.format(str(event.id)),
