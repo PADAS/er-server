@@ -11,3 +11,9 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
                   'last_name') + read_only_fields
 
 
+class UserDisplaySerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        read_only_fields = ('username', 'first_name', 'last_name', 'id')
+        fields = read_only_fields
+

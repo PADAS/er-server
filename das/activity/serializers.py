@@ -6,9 +6,10 @@ from rest_framework.fields import DateTimeField, CharField
 from drf_extra_fields.geo_fields import PointField
 
 import utils
-
 import activity.models
 from observations.serializers import SubjectSerializer, SourceSerializer
+from activity.manager import AC_DELETED, AC_UPDATED
+from accounts.serializers import UserDisplaySerializer
 
 
 ATTACHMENT_SERIALIZER_MAPPING = {
@@ -67,9 +68,37 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             except:
                 pass
 
-        rep['updates'] = event.get_history_display()
+        rep['updates'] = self.render_updates(event)
         return rep
 
+    def render_updates(self, event):
+        def get_username(user):
+            if not user:
+                return ''
+            if not user.get_full_name():
+                return user.get_username()
+            return user.get_full_name()
+
+        def get_action(revision):
+            if revision.action == AC_UPDATED:
+                field_mapping = {'message': 'Event Text',
+                                 'event_time': 'Event Time',
+                                 'priority': 'Event Priority',
+                                 'location': 'Location',
+                                 'provenance': 'Event Reporter',
+                                 'created_by_user': 'Event Writer'}
+                fieldnames = [field_mapping[k] for k in revision.data.keys() if k in field_mapping]
+                '{0} fields: {1}'.format(revision.get_action_display(),
+                                         ', '.join(fieldnames))
+            return revision.get_action_display()
+
+        return [dict(message='Event {action} by {user}'.format(
+            action=get_action(revision),
+            user=get_username(revision.user)
+        ), time=revision.revision_at.isoformat(),
+           user=UserDisplaySerializer().to_representation(revision.user))
+                for revision in event.get_history()
+                ]
 
 def make_feature(request, event):
     is_point = isinstance(event.coordinates, Point)

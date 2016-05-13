@@ -159,23 +159,6 @@ class Event(RevisionMixin, TimestampedModel):
     def get_history(self):
         return self.revision.all().order_by('sequence')
 
-    def get_history_display(self):
-
-        def get_username(user):
-            if not user:
-                return ''
-            if not user.get_full_name():
-                return user.get_username()
-            return user.get_full_name()
-
-        return ['{action} by {user}'.format(
-                action=revision.get_action_display(),
-                user=get_username(revision.user)
-                )
-                for revision in self.get_history()
-                if revision.action != AC_DELETED
-                ]
-
     def __str__(self):
         return self.message[50:]
 
