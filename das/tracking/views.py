@@ -127,28 +127,26 @@ def message_list(request):
         src = ensure_source(source_type, manufacturer_id)
         ss = ensure_subject_source(src, recorded_at)
 
-        message_name = 'Message from {}'.format(ss.subject.name)
-        message_body = request.data.get('message_body')
+        message = 'Message from {}: {}'.format(ss.subject.name,
+                                               request.data.get('message_body'))
 
         with transaction.atomic():
-            event = Event(
+            event = Event.objects.create_event(
                 event_type=Event.ET_RADIO_TEXT_MESSAGE,
                 provenance=Event.SYSTEM,
                 attributes={},
                 location=location,
                 priority=Event.PRI_IMPORTANT,
-                name=message_name,
-                description=message_body
+                message=message
             )
 
-            event.save()
-
             # TODO: For now, use reason=target, to let the UI treat this as it does analyzer events.
-            event_attachment = EventAttachment(event=event, target=ss.subject, reason=EventAttachment.TARGET)
-            event_attachment.save()
+            event_attachment = EventAttachment.objects.create_attachment(
+                event=event, target=ss.subject, reason=EventAttachment.TARGET)
 
         serializer = EventSerializer(event)
-        return Response({'event_id':str(event.id)}, status=status.HTTP_201_CREATED)
+        return Response({'event_id': str(event.id)},
+                         status=status.HTTP_201_CREATED)
     elif request.method == 'GET':
         return Response({}, status=status.HTTP_200_OK)
 

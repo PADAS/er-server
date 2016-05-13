@@ -2,7 +2,7 @@ from django.contrib.gis.geos import Point
 from django.core.urlresolvers import reverse
 
 import rest_framework.serializers
-from rest_framework.fields import DateTimeField
+from rest_framework.fields import DateTimeField, CharField
 from drf_extra_fields.geo_fields import PointField
 
 import utils
@@ -32,11 +32,20 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.Event
         fields = (
-            'id', 'location', 'time', 'name', 'description', 'provenance',
+            'id', 'location', 'time', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes',
             'image_url')
         id_field = False
         geo_field = 'location'
+
+    def create(self, validated_data):
+        return activity.models.Event.objects.create_event(**validated_data)
+
+    def update(self, instance, validated_data):
+        for k, v in validated_data.items():
+            setattr(instance, k, v)
+        instance.save()
+        return instance
 
     def to_representation(self, event):
         rep = super().to_representation(event)
@@ -72,7 +81,7 @@ def make_feature(request, event):
     }
     feature['type'] = 'Feature'
     feature['properties'] = {
-        'title': event.name,
+        'message': event.message,
         'datetime': event.time,
         'image': event.image_url
     }

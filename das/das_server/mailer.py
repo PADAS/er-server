@@ -34,7 +34,7 @@ def send_event_mail(event, user):
         'event': 'Id: {}'.format(event.pk),
         'time': 'Time: {}'.format(event.time.isoformat()),
         'summary': summary,
-        'name': event.name,
+        'message': event.message,
         'location': event.location and 'Location: {}'.format(event.location) or 'n/a',
         'content': ''
     }

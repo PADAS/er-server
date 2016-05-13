@@ -6,7 +6,7 @@ DAS Event
 
 {{time}}
 
-{{name}}
+{{message}}
 
 {{location}}
 

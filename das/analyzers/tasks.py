@@ -1,7 +1,6 @@
 import logging
 
 from analyzers.models.analyzer import NOMINAL, WARNING, CRITICAL
-from activity.models import Event
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.utils import get_or_create_analyzers_for_subject, latest_event_for
 from das_server import celery
@@ -41,6 +40,7 @@ def handle_subject(subject_id):
 
         except InsufficientDataAnalyzerException:
             logger.warning('insufficient observations exist to support analyzer {}'.format(analyzer))
+
 
 @celery.app.task()
 def handle_source(source_id):

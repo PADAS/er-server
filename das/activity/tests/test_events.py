@@ -28,8 +28,7 @@ class TestSourcePlugin(TestCase):
 
     def test_create_event_with_attachment(self):
         with transaction.atomic():
-            e = Event.objects.create(name='Bogus event',
-                                     description=lorem_ipsum.paragraph(),
+            e = Event.objects.create_event(message=lorem_ipsum.paragraph(),
                                      provenance=Event.INFORMANT,
                                      event_type=Event.ET_LIVESTOCK_THEFT,
                                      priority=Event.PRI_URGENT,
@@ -44,8 +43,8 @@ class TestEventView(BaseAPITest):
         super().setUp()
         self.user = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True)
 
-        self.event_data = dict(name='Test Event',
-            description=lorem_ipsum.paragraph(),
+        self.event_data = dict(
+            message=lorem_ipsum.paragraph(),
             time=DateTimeField().to_representation(timezone.now()),
             provenance='ranger',
             event_type='other',
@@ -63,7 +62,7 @@ class TestEventView(BaseAPITest):
             del data['time']
         data['location'] = PointField().to_internal_value(
             data['location'])
-        return Event.objects.create(**data)
+        return Event.objects.create_event(**data)
 
     def test_return_event_details(self):
         request = self.factory.get(self.api_base + '/event/')
@@ -85,11 +84,11 @@ class TestEventView(BaseAPITest):
         response_data = {k:response_data[k] for k in self.event_data.keys()}
         self.assertDictEqual(response_data, self.event_data)
 
-    def test_update_title_succeed(self):
+    def test_update_message_succeed(self):
         event = self.create_event(self.event_data)
 
         update_data = copy.deepcopy(self.event_data)
-        update_data['name'] = 'A completely different title'
+        update_data['message'] = 'A completely different message'
 
         request = self.factory.patch(
             self.api_base + '/event/{0}/'.format(str(event.id)),
@@ -100,7 +99,7 @@ class TestEventView(BaseAPITest):
                                              id=str(event.id))
         self.assertEqual(response.status_code, 200)
         response_data = response.data
-        self.assertEqual(response_data['name'], update_data['name'])
+        self.assertEqual(response_data['message'], update_data['message'])
 
 
 

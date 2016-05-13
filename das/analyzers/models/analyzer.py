@@ -47,7 +47,7 @@ class Analyzer(models.Model):
         logger.info('{} analyzing {} records'.format(self.__class__.__name__, len(track)))
 
 
-class AnalyzerResult():
+class AnalyzerResult(object):
 
     level = NOMINAL
     value = 0.0
@@ -74,19 +74,18 @@ class AnalyzerResult():
     def create_event(self):
 
         location = self.location and Point(self.location.x, self.location.y) or None
-
+        message = '{0}: {1}'.format(self.title, self.subject.name)
         with transaction.atomic():
-            event = Event(
+            event = Event.objects.create_event(
                 event_type=self.analyzer.event_type,
                 provenance=Event.ANALYZER,
                 attributes=self.to_dict(),
                 location=location,
                 priority=analyzer_level_to_event_priority[self.level],
-                name=self.title,
-                description='{}'.format(self.subject.name)
+                message=message,
             )
 
-            event.save()
-            event_attachment = EventAttachment(event=event, target=self.subject, reason=EventAttachment.TARGET)
-            event_attachment.save()
+            EventAttachment.objects.create_attachment(
+                event=event, target=self.subject, reason=EventAttachment.TARGET)
+
             return event

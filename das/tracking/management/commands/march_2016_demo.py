@@ -2,26 +2,27 @@ from datetime import datetime, timedelta
 import glob
 import json
 import os
+
 import yaml
 try:
     from yaml import CSafeLoader as SafeLoader
 except ImportError:
     from yaml import SafeLoader
-
-
 from django.contrib.gis.geos import Point, MultiPoint, Polygon, MultiPolygon, LineString, MultiLineString
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.contrib.auth.models import Permission
 import pytz
 import random
 
-from accounts.models import PermissionSet, Permission, User
+from accounts.models import PermissionSet, User
 from activity.models import Event, EventAttachment
 from analyzers.models import all_analyzers, ContainmentAnalyzer, SubjectAnalyzer, \
     GeofenceAnalyzer, ImmobilityAnalyzer, ProximityAnalyzer, SpeedAnalyzer
 from mapping.models import FeatureType, PolygonFeature, LineFeature, PointFeature, FeatureSet
 from observations.models import Subject, SubjectGroup, SubjectSource, Source, Observation
 from tracking.pubsub_registry import notify_new_tracks
+
 
 def gen_random_rgb():
     return ','.join([str(random.randint(50,200)) for i in range(3)])
@@ -254,7 +255,7 @@ def add_demo_data(subject=None):
             store_event(evt, subject, next(times))
 
 def store_event(evt, subject, t):
-    event = Event(name=evt['name'])
+    event = Event(message=evt['message'])
     event.event_time = t
     if evt.get('center', None):
         event.location = Point(*evt['center'])

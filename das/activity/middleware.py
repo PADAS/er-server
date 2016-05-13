@@ -22,5 +22,5 @@ class RevisionMiddleware(object):
         return response
 
     def _pre_save_info(self, user, sender, instance, **kwargs):
-        if isinstance(sender, RevisionMixin):
+        if issubclass(sender, RevisionMixin):
             setattr(instance, 'revision_user', user)

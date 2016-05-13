@@ -35,6 +35,9 @@ class EventManager(models.Manager):
 
         return events
 
+    def create_event(self, **values):
+        return self.create(**values)
+
 
 class Event(RevisionMixin, TimestampedModel):
     objects = EventManager()
@@ -111,8 +114,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    name = models.CharField(max_length=80)
-    description = models.TextField(default='')
+    message = models.TextField(default='')
     created_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
         null=True, related_name='events', related_query_name='event')
@@ -158,22 +160,36 @@ class Event(RevisionMixin, TimestampedModel):
         return self.revision.all().order_by('sequence')
 
     def get_history_display(self):
+
+        def get_username(user):
+            if not user:
+                return ''
+            if not user.get_full_name():
+                return user.get_username()
+            return user.get_full_name()
+
         return ['{action} by {user}'.format(
                 action=revision.get_action_display(),
-                user=revision.user.get_full_name() if revision.user else ''
+                user=get_username(revision.user)
                 )
                 for revision in self.get_history()
                 if revision.action != AC_DELETED
                 ]
 
     def __str__(self):
-        return self.name
+        return self.message[50:]
+
+
+class EventAttachmentManager(models.Manager):
+    def create_attachment(self, **kwargs):
+        return self.create(**kwargs)
 
 
 class EventAttachment(models.Model):
     # An event should allow attaching one or more other model objects. This model accommodates
     # attaching an object for an arbitrary model as long as its id is of type UUID.
 
+    objects = EventAttachmentManager()
     TARGET = 'target'
     EVENT_ATTACHMENT_REASONS = (
         (TARGET, 'Target'),

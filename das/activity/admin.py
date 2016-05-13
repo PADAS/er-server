@@ -11,7 +11,7 @@ class EventAdmin(admin.OSMGeoAdmin):
     wms_layer = 'terrain,overlay'
     wms_url= 'http://tiles.maps.eox.at/wms/'
 
-    list_display = ('created_at', 'event_type', 'name', 'location', 'attributes',)
+    list_display = ('created_at', 'event_type', 'message', 'location', 'attributes',)
     readonly_fields = ('id', 'created_at', 'updated_at')
     inlines = [
         EventAttachmentInline,

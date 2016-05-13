@@ -12,89 +12,77 @@
 #12.	immobility Title: Immobile animal Desc. Animal name at GPS coordinates
 
 events:
-  - name: Elephant near village
-    description: Elephant spotted near village outside S-18 to the east, is nearing crops.
+  - message: Elephant spotted near village outside S-18 to the east, is nearing crops.
     provenance: informant
     event_type: elephant-sighting
     priority: 200
     center: [37.5241474,0.2792556]
 
-  - name: Livestock Theft
-    description: Report from S-1 that about 200 sheep have been driven away by unknown people.
+  - message: Report from S-1 that about 200 sheep have been driven away by unknown people.
     provenance: informant
     event_type: livestock-theft
     priority: 300
     center: [37.510911,0.2572556]
 
-  - name: Exclusion zone fence breach
-    description: Exclusion zone fence in north section of S-11 has been breached.
+  - message: Exclusion zone fence in north section of S-11 has been breached.
     provenance: ranger
     event_type: exclusion-zone-breach
     priority: 200
     center: [37.4941474,0.2392556]
 
 
-  - name: Fire detected in park
-    description: Fire detected in park at GPS coordinates.
+  - message: Fire detected in park at GPS coordinates.
     provenance: analyzer
     event_type: fire
     priority: 300
     center: [37.4908447265625, 0.17818422205893264]
 
-  - name: Monitoring team wildlife log 29-Feb-2016
-    description: Sighted 32 black and 14 white rhinos. See attached log for details.
+  - message: Monitoring team wildlife log 29-Feb-2016. Sighted 32 black and 14 white rhinos. See attached log for details.
     provenance: ranger
     event_type: elephant-sighting
     priority: 100
     center: [37.1241474,0.2492556]
 
-  - name: Suspicious footprints
-    description: Suspicious footprints found near NE ravine. Romeo 2 team tracking.
+  - message: Suspicious footprints found near NE ravine. Romeo 2 team tracking.
     provenance: ranger
     event_type: footprints
     priority: 300
     center: [37.1441474,0.2372556]
 
-  - name: Low speed alert
-    description: Animal name at GPS coordinates
+  - message: Low speed alert, Animal name at GPS coordinates
     provenance: analyzer
     event_type: speed
     priority: 300
     subject_name: Team 6
     center: [36.9541474,0.2432556]
 
-  - name: Injured rhino
-    description: Female rhino limping in section 3, needs assessment to determine severity of injury
+  - message: Female rhino limping in section 3, needs assessment to determine severity of injury
     provenance: ranger
     event_type: wounded-animal
     priority: 300
     center: [37.1841474,0.2692556]
 
-  - name: Geofence break
-    description: Animal name at GPS coordinates
+  - message: Geofence break, Animal name at GPS coordinates
     provenance: analyzer
     event_type: geofence
     priority: 300
     subject_name: Team 6
     center: [37.1541474,0.2492556]
 
-  - name: Perimeter fence breach
-    description: Perimeter fence breach S-14 north, about 500 m west of S-16 border.
+  - message: Perimeter fence breach S-14 north, about 500 m west of S-16 border.
     provenance: ranger
     event_type: perimeter-fence-breach
     priority: 300
     center: [37.1941474,0.2812556]
 
-  - name: Fast speed alert
-    description: Team 6 speed alert
+  - message: Team 6 speed alert
     provenance: analyzer
     event_type: speed
     priority: 300
     subject_name: Team 6
     center: [37.1641474,0.2372556]
 
-  - name: Immobile subject
-    description: Team 6 is immobile
+  - message: Team 6 is immobile
     provenance: analyzer
     event_type: immobility
     priority: 300

@@ -23,8 +23,7 @@ try:
 
     for x in range(0,100):
         newevents.append(
-            Event(name='Test event {}'.format(x),
-                  description='Test event {}'.format(x),
+            Event(message='Test event {}'.format(x),
                   event_type=Event.ET_SYSTEM,
                   priority=Event.PRI_IMPORTANT,
                   provenance=Event.INFORMANT,

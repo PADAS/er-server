@@ -187,16 +187,16 @@ class FirmsPlugin(TrackingPlugin):
         location = Point(x=observation.longitude, y=observation.latitude)
 
         with transaction.atomic():
-            event = Event(
+            event = Event.objects.create_event(
                 event_type=Event.ET_FIRE,
                 provenance=Event.SENSOR,
                 attributes=observation.additional,
                 location=location,
                 priority=Event.PRI_IMPORTANT,
-                name='Fire detected by satellite',
-                description='Fire detected, with confidence: {confidence}, brightness: {brightness}, frp: {frp}'.format(**observation.additional)
+                message='Fire detected by satellite,'
+                        ' with confidence: {confidence}, brightness: {brightness},'
+                        ' frp: {frp}'.format(**observation.additional)
             )
-            event.save()
             return event
 
 

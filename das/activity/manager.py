@@ -108,9 +108,9 @@ class RevisionAdapter(object):
         return self._serialize(obj, fields_diff)
 
 
-AC_ADDED = 'a'
-AC_UPDATED = 'u'
-AC_DELETED = 'd'
+AC_ADDED = 'added'
+AC_UPDATED = 'updated'
+AC_DELETED = 'deleted'
 
 ACTION_CHOICES = (
     (AC_ADDED, 'Added'),
@@ -127,7 +127,7 @@ class Revision(object):
         models.signals.class_prepared.connect(self.finalize, sender = cls)
 
     def create_revision(self, instance, action):
-        user = getattr(self, 'revision_user', None)
+        user = getattr(instance, 'revision_user', None)
         manager = getattr(instance, self.manager_name)
         adapter = RevisionAdapter(type(instance))
 
@@ -203,7 +203,7 @@ class Revision(object):
         return {
             'id': models.UUIDField(primary_key=True, default=uuid.uuid4),
             'object_id': models.UUIDField(),
-            'action': models.CharField(max_length=1, choices=ACTION_CHOICES,
+            'action': models.CharField(max_length=10, choices=ACTION_CHOICES,
                                           default=AC_ADDED),
             'revision_at': models.DateTimeField(auto_now_add=True),
             'sequence': models.IntegerField(help_text='Revision sequence'),
