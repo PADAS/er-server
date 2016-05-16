@@ -3,7 +3,7 @@ from datetime import timedelta
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import generics
 
-from activity.models import Event
+from activity.models import Event, EventNote
 from activity.serializers import EventSerializer
 
 LAST_DAYS = timedelta(days=3)
@@ -60,3 +60,14 @@ class EventView(generics.RetrieveUpdateAPIView):
         return context
 
 
+class EventNoteView(generics.RetrieveUpdateAPIView):
+    serializer_class = EventSerializer
+    queryset = EventNote.objects.all()
+    lookup_field = 'id'
+
+    def get_serializer_context(self):
+        context = {}
+        note = self.get_object()
+        context['time'] = note.created_at
+        context['request'] = self.request
+        return context

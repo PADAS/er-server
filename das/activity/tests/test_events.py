@@ -29,7 +29,7 @@ class TestSourcePlugin(TestCase):
     def test_create_event_with_attachment(self):
         with transaction.atomic():
             e = Event.objects.create_event(message=lorem_ipsum.paragraph(),
-                                     provenance=Event.INFORMANT,
+                                     provenance=Event.COMMUNITY,
                                      event_type=Event.ET_LIVESTOCK_THEFT,
                                      priority=Event.PRI_URGENT,
                                      attributes={},
@@ -46,9 +46,9 @@ class TestEventView(BaseAPITest):
         self.event_data = dict(
             message=lorem_ipsum.paragraph(),
             time=DateTimeField().to_representation(timezone.now()),
-            provenance='ranger',
-            event_type='other',
-            priority=100,
+            provenance=Event.COMMUNITY,
+            event_type=Event.ET_OTHER,
+            priority=Event.PRI_DEFAULT_VALUE,
             location=dict(longitude='40.1353', latitude='-1.891517')
             )
 
@@ -82,6 +82,18 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         response_data = response.data
         response_data = {k:response_data[k] for k in self.event_data.keys()}
+        self.assertDictEqual(response_data, self.event_data)
+
+    def notready_add_note(self):
+        request = self.factory.post(self.api_base
+            + '/event/{0}'.format(self.sample_event.id),
+                                    self.event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        response_data = {k: response_data[k] for k in self.event_data.keys()}
         self.assertDictEqual(response_data, self.event_data)
 
     def test_update_message_succeed(self):

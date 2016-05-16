@@ -6,9 +6,10 @@ from rest_framework.fields import DateTimeField
 
 import activity.models
 import utils
-from accounts.serializers import UserDisplaySerializer
+from accounts.serializers import UserDisplaySerializer, get_username
 from observations.serializers import SubjectSerializer, SourceSerializer
 from revision.manager import AC_UPDATED
+
 
 ATTACHMENT_SERIALIZER_MAPPING = {
     'observations.subject': {'serializer': SubjectSerializer,
@@ -21,6 +22,47 @@ ATTACHMENT_SERIALIZER_MAPPING = {
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventAttachment
+
+
+class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventNote
+
+    def create(self, validated_data):
+        return activity.models.EventNote.objects.create_event(**validated_data)
+
+    def update(self, instance, validated_data):
+        for k, v in validated_data.items():
+            setattr(instance, k, v)
+        instance.save()
+        return instance
+
+    def to_representation(self, note):
+        rep = super().to_representation(note)
+        rep['updates'] = self.render_updates(note)
+        return rep
+
+    def render_updates(self, note):
+        def get_action(revision):
+            if revision.action == AC_UPDATED:
+                field_mapping = {'text': 'Note Text'}
+                fieldnames = [field_mapping[k] for k in revision.data.keys() if
+                              k in field_mapping]
+                return '{0} fields: {1}'.format(revision.get_action_display(),
+                                         ', '.join(fieldnames))
+
+            return revision.get_action_display()
+
+        return [
+            dict(message='Note {action} by {user}'.format(
+                action=get_action(revision),
+                user=get_username(revision.user)),
+                time=revision.revision_at.isoformat(),
+                text=revision.data.get('text', ''),
+                user=UserDisplaySerializer().to_representation(revision.user)
+            )
+            for revision in note.revision.all()
+        ]
 
 
 class EventSerializer(rest_framework.serializers.ModelSerializer):
@@ -70,13 +112,6 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         return rep
 
     def render_updates(self, event):
-        def get_username(user):
-            if not user:
-                return ''
-            if not user.get_full_name():
-                return user.get_username()
-            return user.get_full_name()
-
         def get_action(revision):
             if revision.action == AC_UPDATED:
                 field_mapping = {'message': 'Event Text',
@@ -86,8 +121,8 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
                                  'provenance': 'Event Reporter',
                                  'created_by_user': 'Event Writer'}
                 fieldnames = [field_mapping[k] for k in revision.data.keys() if k in field_mapping]
-                '{0} fields: {1}'.format(revision.get_action_display(),
-                                         ', '.join(fieldnames))
+                return '{0} fields: {1}'.format(revision.get_action_display(),
+                                                ', '.join(fieldnames))
             return revision.get_action_display()
 
         return [dict(message='Event {action} by {user}'.format(
@@ -95,8 +130,9 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             user=get_username(revision.user)
         ), time=revision.revision_at.isoformat(),
            user=UserDisplaySerializer().to_representation(revision.user))
-                for revision in event.get_history()
+                for revision in event.revision.all()
                 ]
+
 
 def make_feature(request, event):
     is_point = isinstance(event.coordinates, Point)
@@ -124,15 +160,4 @@ def make_feature(request, event):
             "className": 'dot',
 
         }
-        # feature['style'] = {
-        #     "color": event.color,
-        #     "opacity": 1,
-        #     "deprecating": "use https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0"
-        # }
-        # # see https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0
-        # properties['stroke'] = event.color
-        # properties['stroke-opacity'] = 1.0
-        # properties['stroke-width'] = 2
-        # properties['icon'] = image_url
-
     return feature

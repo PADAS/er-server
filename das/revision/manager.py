@@ -33,7 +33,8 @@ class RevisionManager(models.Manager):
             return super(RevisionManager, self).get_queryset()
 
         f = {'object_id': self.instance.pk}
-        return super(RevisionManager, self).get_queryset().filter(**f)
+        return super(RevisionManager, self).get_queryset().filter(**f)\
+            .order_by('sequence')
 
 
 class RevisionDescriptor(object):
@@ -44,7 +45,7 @@ class RevisionDescriptor(object):
 
     def __get__(self, instance, owner):
         if instance is None:
-            return  self.manager_class(self.model)
+            return self.manager_class(self.model)
         return self.manager_class(self.model, instance)
 
 

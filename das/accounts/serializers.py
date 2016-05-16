@@ -17,3 +17,10 @@ class UserDisplaySerializer(rest_framework.serializers.ModelSerializer):
         read_only_fields = ('username', 'first_name', 'last_name', 'id')
         fields = read_only_fields
 
+
+def get_username(user):
+    if not user:
+        return ''
+    if not user.get_full_name():
+        return user.get_username()
+    return user.get_full_name()

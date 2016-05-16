@@ -52,15 +52,15 @@ class Event(RevisionMixin, TimestampedModel):
     SYSTEM = 'system'
     SENSOR = 'sensor'
     ANALYZER = 'analyzer'
-    INFORMANT = 'informant'
-    RANGER = 'ranger'
+    COMMUNITY = 'community'
+    STAFF = 'staff'
 
     PROVENANCE_CHOICES = (
-        (RANGER, 'Ranger'),
+        (STAFF, 'Staff'),
         (SYSTEM, 'System Process'),
         (SENSOR, 'Sensor'),
         (ANALYZER, 'Analyzer'),
-        (INFORMANT, 'Informant'),
+        (COMMUNITY, 'Community'),
     )
 
     ET_SYSTEM = 'system'
@@ -157,9 +157,6 @@ class Event(RevisionMixin, TimestampedModel):
             content_type=ContentType.objects.get_for_model(Subject)
         )
         return [event_attachment.target for event_attachment in event_attachments]
-
-    def get_history(self):
-        return self.revision.all().order_by('sequence')
 
     def __str__(self):
         return self.message[50:]
