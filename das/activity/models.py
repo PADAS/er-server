@@ -1,27 +1,29 @@
-import uuid
 import logging
-import copy
+import uuid
 
-from django.core import serializers
+import django.utils
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
-import django.utils
 from django.contrib.postgres.fields import JSONField
-from django.contrib.contenttypes.fields import GenericForeignKey
-from django.contrib.contenttypes.models import ContentType, ContentTypeManager
 from django.utils import timezone
 
 from core.models import TimestampedModel
 from observations.models import Subject
-from .manager import Revision, AC_DELETED, RevisionMixin
+from revision.manager import Revision, RevisionMixin
 
 logger = logging.getLogger(__name__)
 
 
 def get_sentinel_user():
     return get_user_model().objects.get_or_create(username='deleted', is_active=False)[0]
+
+
+def marker_icon(*args):
+    return '/static/event-marker-{}.svg'.format('-'.join(args))
 
 
 class EventManager(models.Manager):
@@ -168,7 +170,7 @@ class EventAttachmentManager(models.Manager):
         return self.create(**kwargs)
 
 
-class EventAttachment(models.Model):
+class EventAttachment(RevisionMixin, models.Model):
     # An event should allow attaching one or more other model objects. This model accommodates
     # attaching an object for an arbitrary model as long as its id is of type UUID.
 
@@ -198,7 +200,17 @@ class EventAttachment(models.Model):
         return '{0}:{1}'.format(self.target.__str__(), self.reason)
 
 
-def marker_icon(*args):
-    return '/static/event-marker-{}.svg'.format('-'.join(args))
+class EventNoteManager(models.Manager):
+    def create_note(self, *args, **kwargs):
+        return self.create(*args, **kwargs)
 
 
+class EventNote(RevisionMixin, TimestampedModel):
+    objects = EventNoteManager()
+    text = models.TextField()
+    created_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
+        null=True)
+
+    def __str__(self):
+        return '{0}'.format(self.text[50:])

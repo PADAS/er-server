@@ -1,16 +1,14 @@
+import rest_framework.serializers
 from django.contrib.gis.geos import Point
 from django.core.urlresolvers import reverse
-
-import rest_framework.serializers
-from rest_framework.fields import DateTimeField, CharField
 from drf_extra_fields.geo_fields import PointField
+from rest_framework.fields import DateTimeField
 
-import utils
 import activity.models
-from observations.serializers import SubjectSerializer, SourceSerializer
-from activity.manager import AC_DELETED, AC_UPDATED
+import utils
 from accounts.serializers import UserDisplaySerializer
-
+from observations.serializers import SubjectSerializer, SourceSerializer
+from revision.manager import AC_UPDATED
 
 ATTACHMENT_SERIALIZER_MAPPING = {
     'observations.subject': {'serializer': SubjectSerializer,

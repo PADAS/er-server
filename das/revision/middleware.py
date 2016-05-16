@@ -1,7 +1,7 @@
 from django.db.models import signals
 from django.utils.functional import curry
 
-from .manager import RevisionMixin
+from revision.manager import RevisionMixin
 
 
 class RevisionMiddleware(object):
