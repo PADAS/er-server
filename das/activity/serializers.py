@@ -28,8 +28,14 @@ class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
 
 
 class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
+    created_by_user = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault()
+    )
+
     class Meta:
         model = activity.models.EventNote
+        read_only_fields = ('created_at',)
+        fields = ('id', 'created_by_user', 'text', 'event') + read_only_fields
 
     def create(self, validated_data):
         return activity.models.EventNote.objects.create_note(**validated_data)
@@ -84,8 +90,6 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             'id', 'location', 'time', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes',
             'image_url', 'created_by_user', 'notes')
-        id_field = False
-        geo_field = 'location'
 
     def create(self, validated_data):
         return activity.models.Event.objects.create_event(**validated_data)
@@ -116,7 +120,10 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             except:
                 pass
 
-        rep['updates'] = self.render_updates(event)
+        updates = self.render_updates(event)
+        for note in rep['notes']:
+            updates.extend(note['updates'])
+        rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
         return rep
 
     def render_updates(self, event):

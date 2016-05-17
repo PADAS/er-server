@@ -117,7 +117,6 @@ class Event(RevisionMixin, TimestampedModel):
     )
 
     PRIORITY_LABELS_MAP = dict((x, y) for (x,y) in PRIORITY_CHOICES)
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
     message = models.TextField(blank=True)
@@ -178,8 +177,8 @@ class EventAttachment(RevisionMixin, models.Model):
     TARGET = 'target'
     EVENT_ATTACHMENT_REASONS = (
         (TARGET, 'Target'),
-   )
-
+    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     # Foreign Key to event for this attachment.
     event = models.ForeignKey(Event, on_delete=models.CASCADE,
                               related_name='attachments',

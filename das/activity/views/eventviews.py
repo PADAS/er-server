@@ -63,6 +63,7 @@ class EventView(ContextMixin, generics.RetrieveUpdateAPIView):
 
 class EventNotesView(ContextMixin, generics.ListCreateAPIView):
     serializer_class = EventNoteSerializer
+    pagination_class = StandardResultsSetPagination
 
     def create(self, request, *args, **kwargs):
         request.data['event'] = self.kwargs['id']
@@ -75,15 +76,9 @@ class EventNotesView(ContextMixin, generics.ListCreateAPIView):
         notes = EventNote.objects.all().filter(event=event)
         return notes
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['event_id'] = self.kwargs['id']
-
 
 class EventNoteView(ContextMixin, generics.RetrieveUpdateAPIView):
     serializer_class = EventNoteSerializer
-    queryset = EventNote.objects.all()
-    lookup_field = 'id'
 
     def get_queryset(self):
         event = generics.get_object_or_404(Event.objects.all(),
@@ -92,7 +87,10 @@ class EventNoteView(ContextMixin, generics.RetrieveUpdateAPIView):
         notes = EventNote.objects.all().filter(event=event)
         return notes
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['event_id'] = self.kwargs['id']
-        context['note_id'] = self.kwargs['note_id']
+    def get_object(self):
+        queryset = self.get_queryset()
+        filters = {'id': self.kwargs['note_id']}
+
+        obj = generics.get_object_or_404(queryset, **filters)
+
+        return obj
