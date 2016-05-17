@@ -40,6 +40,10 @@ class EventManager(models.Manager):
     def create_event(self, **values):
         return self.create(**values)
 
+    def defaults(self):
+        d = {}
+        return d
+
 
 class Event(RevisionMixin, TimestampedModel):
     objects = EventManager()
@@ -116,7 +120,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    message = models.TextField(default='')
+    message = models.TextField(blank=True)
     created_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
         null=True, related_name='events', related_query_name='event')
@@ -131,7 +135,6 @@ class Event(RevisionMixin, TimestampedModel):
         db_column='priority',
         default=PRI_DEFAULT_VALUE, choices=PRIORITY_CHOICES)
     attributes = JSONField(default={})
-
     revision = Revision()
 
     @property
@@ -191,6 +194,7 @@ class EventAttachment(RevisionMixin, models.Model):
 
     reason = models.CharField(max_length=20, choices=EVENT_ATTACHMENT_REASONS,
                               default='target')
+    revision = Revision()
 
     def __str__(self):
         # TODO: Devise a better way to represent EventAttachment.
@@ -204,10 +208,16 @@ class EventNoteManager(models.Manager):
 
 class EventNote(RevisionMixin, TimestampedModel):
     objects = EventNoteManager()
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     text = models.TextField()
     created_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
         null=True)
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE,
+                              related_name='notes',
+                              related_query_name='note')
+    revision = Revision()
 
     def __str__(self):
         return '{0}'.format(self.text[50:])

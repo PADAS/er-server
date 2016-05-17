@@ -19,6 +19,9 @@ ATTACHMENT_SERIALIZER_MAPPING = {
 }
 
 
+class EventDefaultsSerializer(rest_framework.serializers.BaseSerializer):
+    pass
+
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventAttachment
@@ -29,7 +32,7 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
         model = activity.models.EventNote
 
     def create(self, validated_data):
-        return activity.models.EventNote.objects.create_event(**validated_data)
+        return activity.models.EventNote.objects.create_note(**validated_data)
 
     def update(self, instance, validated_data):
         for k, v in validated_data.items():
@@ -70,12 +73,17 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     #  json {lat/lon} and our internal representation.
     location = PointField(required=False)
     time = DateTimeField(source='event_time')
+    created_by_user = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault()
+    )
+    notes = EventNoteSerializer(many=True, required=False)
+
     class Meta:
         model = activity.models.Event
         fields = (
             'id', 'location', 'time', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes',
-            'image_url')
+            'image_url', 'created_by_user', 'notes')
         id_field = False
         geo_field = 'location'
 

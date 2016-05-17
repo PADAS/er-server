@@ -84,17 +84,19 @@ class TestEventView(BaseAPITest):
         response_data = {k:response_data[k] for k in self.event_data.keys()}
         self.assertDictEqual(response_data, self.event_data)
 
-    def notready_add_note(self):
+    def test_add_note(self):
+        note_data = {'text': lorem_ipsum.paragraph()}
         request = self.factory.post(self.api_base
-            + '/event/{0}'.format(self.sample_event.id),
-                                    self.event_data)
+            + '/event/{0}/notes'.format(self.sample_event.id),
+                                    note_data)
         self.force_authenticate(request, self.user)
 
-        response = views.EventsView.as_view()(request)
+        response = views.EventNotesView.as_view()(request,
+                                                  id=str(self.sample_event.id))
         self.assertEqual(response.status_code, 201)
         response_data = response.data
-        response_data = {k: response_data[k] for k in self.event_data.keys()}
-        self.assertDictEqual(response_data, self.event_data)
+        response_data = {k: response_data[k] for k in note_data.keys()}
+        self.assertDictEqual(response_data, note_data)
 
     def test_update_message_succeed(self):
         event = self.create_event(self.event_data)

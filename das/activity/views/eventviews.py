@@ -3,8 +3,10 @@ from datetime import timedelta
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import generics
 
+from core.serializers import ContextMixin
 from activity.models import Event, EventNote
-from activity.serializers import EventSerializer
+from activity.serializers import EventSerializer, EventNoteSerializer,\
+    EventDefaultsSerializer
 
 LAST_DAYS = timedelta(days=3)
 
@@ -15,10 +17,11 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 
-class EventsView(generics.ListCreateAPIView):
-    def perform_create(self, serializer):
-        serializer.save(created_by_user=self.request.user)
+class EventDefaultsView(generics.RetrieveAPIView):
+    serializer_class = EventDefaultsSerializer
 
+
+class EventsView(generics.ListCreateAPIView):
     __doc__ = """
     Returns all events.
     Optional query-params:
@@ -30,7 +33,6 @@ class EventsView(generics.ListCreateAPIView):
                     max_page_size=StandardResultsSetPagination.max_page_size)
 
     serializer_class = EventSerializer
-
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
@@ -45,29 +47,52 @@ class EventsView(generics.ListCreateAPIView):
         return queryset
 
 
-class EventView(generics.RetrieveUpdateAPIView):
+class EventView(ContextMixin, generics.RetrieveUpdateAPIView):
     serializer_class = EventSerializer
     queryset = Event.objects.all()
     lookup_field = 'id'
 
     def get_serializer_context(self):
-        context = {}
+        context = super().get_serializer_context()
         event = self.get_object()
 
         context['time'] = event.created_at
         context['coordinates'] = event.location
-        context['request'] = self.request
         return context
 
 
-class EventNoteView(generics.RetrieveUpdateAPIView):
-    serializer_class = EventSerializer
+class EventNotesView(ContextMixin, generics.ListCreateAPIView):
+    serializer_class = EventNoteSerializer
+
+    def create(self, request, *args, **kwargs):
+        request.data['event'] = self.kwargs['id']
+        return super().create(request, *args, **kwargs)
+
+    def get_queryset(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['id'])
+
+        notes = EventNote.objects.all().filter(event=event)
+        return notes
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['event_id'] = self.kwargs['id']
+
+
+class EventNoteView(ContextMixin, generics.RetrieveUpdateAPIView):
+    serializer_class = EventNoteSerializer
     queryset = EventNote.objects.all()
     lookup_field = 'id'
 
+    def get_queryset(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['id'])
+
+        notes = EventNote.objects.all().filter(event=event)
+        return notes
+
     def get_serializer_context(self):
-        context = {}
-        note = self.get_object()
-        context['time'] = note.created_at
-        context['request'] = self.request
-        return context
+        context = super().get_serializer_context()
+        context['event_id'] = self.kwargs['id']
+        context['note_id'] = self.kwargs['note_id']
