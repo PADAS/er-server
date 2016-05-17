@@ -251,7 +251,13 @@ STATICFILES_DIRS = (
 
 SITE_ID = 1
 
-#CORS_URLS_REGEX = r'^/api/.*$'
+#socket.io uses the CORS_ORIGIN_WHITELIST as well
+#caveat is that socket.io matches against the whole ORIGIN ie: http://localhost
+# CORS_ALLOW_CREDENTIALS = True
+# CORS_ORIGIN_ALLOW_ALL = False
+# CORS_ORIGIN_WHITELIST = (
+#     )
+# CORS_REPLACE_HTTPS_REFERER = True
 
 SWAGGER_SETTINGS = {
     'api_version': 'v1.0',
