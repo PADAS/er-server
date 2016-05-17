@@ -19,8 +19,8 @@ ATTACHMENT_SERIALIZER_MAPPING = {
 }
 
 
-class EventDefaultsSerializer(rest_framework.serializers.BaseSerializer):
-    pass
+class EventDefaultsSerializer(rest_framework.serializers.Serializer):
+    data = rest_framework.serializers.CharField()
 
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
