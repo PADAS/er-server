@@ -107,9 +107,16 @@ class RTSocketIO():
             if url:
                 queue = socketio.KombuManager(url)
                 self.server_options['client_manager'] = queue
-        if ('cors_credentials' not in kwargs and
-            hasattr(settings, 'CORS_CREDENTIALS')):
-            self.server_options['cors_credentials'] = settings.CORS_CREDENTIALS
+        if 'cors_credentials' not in kwargs:
+            self.server_options['cors_credentials'] =\
+                getattr(settings, 'CORS_ALLOW_CREDENTIALS', False)
+
+
+        if 'cors_allowed_origins' not in kwargs:
+            if not getattr(settings, 'CORS_ORIGIN_ALLOW_ALL', False):
+                self.server_options['cors_allowed_origins'] = \
+                    getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
+
 
         if 'async_mode' not in kwargs:
             kwargs['async_mode'] = settings.ASYNC_MODE

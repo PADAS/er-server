@@ -298,6 +298,8 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
                 '_text'],
             'voltage': unit_info[('{0}Voltage'.format(SKYGISTICS_API_XMLNS))][0][
                 '_text'],
+            'location': unit_info[('{0}Location'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
+            'temperature': unit_info[('{0}Temperature'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
             'recorded_at': timezone.make_aware(datetime.strptime(unit_info[('{0}Time'.format(SKYGISTICS_API_XMLNS))][0][
                 '_text'], SKYGISTICS_DATETIME_FORMAT), timezone.utc),
             # add T and Z to string timestamp so UTC is obvious.
@@ -308,7 +310,7 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
 
         return Obs(source=source, recorded_at=observation['recorded_at'],
                                   longitude=float(observation['longitude']), latitude=float(observation['latitude']),
-                                  additional=dict((k,observation.get(k)) for k in ('imei', 'voltage', 'received_at',)))
+                                  additional=dict((k,observation.get(k)) for k in ('imei', 'voltage', 'received_at', 'temperature', 'location')))
 
 
     def _maintenance(self):
