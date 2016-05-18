@@ -19,6 +19,8 @@ import rt_api.server
 from rt_api.socketio import RTSocketIO
 import rt_api.pubsub_listener
 
+MAX_GREEN_THREADS = 20
+
 class Command(runserver.Command):
 
     def inner_run(self, *args, **options):
@@ -52,7 +54,8 @@ class Command(runserver.Command):
 
 
     def run_socket(self, addr, port, app):
-        eventlet.wsgi.server(eventlet.listen((addr, port)), app)
+        eventlet.wsgi.server(eventlet.listen((addr, port)),
+                             app, max_size=MAX_GREEN_THREADS)
 
 
 

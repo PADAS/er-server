@@ -1,4 +1,7 @@
+from collections import OrderedDict
+
 import rest_framework.serializers
+import rest_framework.metadata
 from django.contrib.gis.geos import Point
 from django.core.urlresolvers import reverse
 from drf_extra_fields.geo_fields import PointField
@@ -19,12 +22,31 @@ ATTACHMENT_SERIALIZER_MAPPING = {
 }
 
 
-class EventDefaultsSerializer(rest_framework.serializers.Serializer):
-    data = rest_framework.serializers.CharField()
+class EventMetadata(rest_framework.metadata.SimpleMetadata):
+    def determine_metadata(self, request, view):
+        metadata = OrderedDict()
+        metadata['name'] = view.get_view_name()
+        metadata['description'] = view.get_view_description()
+        return metadata
+
+
+
+class AttachmentRelatedField(rest_framework.serializers.RelatedField):
+    def to_representation(self, value):
+        mapping = ATTACHMENT_SERIALIZER_MAPPING.get(
+            value._meta.label_lower, None)
+        if not mapping:
+            raise Exception('Unexpected Attachment Type {0}'.format(type(value)))
+
+        return mapping['serializer']().to_representation(value)
+
 
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
+    target = AttachmentRelatedField(read_only=True)
+
     class Meta:
         model = activity.models.EventAttachment
+        fields = ('target', 'reason', 'id')
 
 
 class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
@@ -119,6 +141,14 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
                 rep['subject'] = SubjectSerializer().to_representation(subject_attachment.target)
             except:
                 pass
+
+        attachments = []
+        for attach in event.attachments.all():
+            attachments.append(EventAttachmentSerializer()
+                               .to_representation(attach))
+
+        if attachments:
+            rep['attachments'] = attachments
 
         updates = self.render_updates(event)
         for note in rep['notes']:

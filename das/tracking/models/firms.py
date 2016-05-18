@@ -189,7 +189,7 @@ class FirmsPlugin(TrackingPlugin):
         with transaction.atomic():
             event = Event.objects.create_event(
                 event_type=Event.ET_FIRE,
-                provenance=Event.SENSOR,
+                provenance=Event.PC_SENSOR,
                 attributes=observation.additional,
                 location=location,
                 priority=Event.PRI_IMPORTANT,

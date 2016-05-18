@@ -2,6 +2,7 @@ import logging
 import uuid
 
 import django.utils
+from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -10,6 +11,8 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
 from django.utils import timezone
+from django.utils.translation import ugettext_lazy as _
+
 
 from core.models import TimestampedModel
 from observations.models import Subject
@@ -53,18 +56,18 @@ class Event(RevisionMixin, TimestampedModel):
     '''
     An Event is something that happened. Maybe an incident, or an analyzer result, or a phone call from an informant.
     '''
-    SYSTEM = 'system'
-    SENSOR = 'sensor'
-    ANALYZER = 'analyzer'
-    COMMUNITY = 'community'
-    STAFF = 'staff'
+    PC_SYSTEM = 'system'
+    PC_SENSOR = 'sensor'
+    PC_ANALYZER = 'analyzer'
+    PC_COMMUNITY = 'community'
+    PC_STAFF = 'staff'
 
     PROVENANCE_CHOICES = (
-        (STAFF, 'Staff'),
-        (SYSTEM, 'System Process'),
-        (SENSOR, 'Sensor'),
-        (ANALYZER, 'Analyzer'),
-        (COMMUNITY, 'Community'),
+        (PC_STAFF, 'Staff'),
+        (PC_SYSTEM, 'System Process'),
+        (PC_SENSOR, 'Sensor'),
+        (PC_ANALYZER, 'Analyzer'),
+        (PC_COMMUNITY, 'Community'),
     )
 
     ET_SYSTEM = 'system'
@@ -126,7 +129,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     event_time = models.DateTimeField(default=django.utils.timezone.now)
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
-                                  default=SYSTEM)
+                                  default=PC_SYSTEM)
     event_type = models.CharField(max_length=40, choices=EVENT_TYPE_CHOICES,
                                   default=ET_SYSTEM)
     location = models.PointField(srid=4326, null=True)
@@ -135,6 +138,17 @@ class Event(RevisionMixin, TimestampedModel):
         default=PRI_DEFAULT_VALUE, choices=PRIORITY_CHOICES)
     attributes = JSONField(default={})
     revision = Revision()
+
+    _usermodel = settings.AUTH_USER_MODEL.lower().split('.')
+    reported_by_limits = models.Q(app_label='observations', model='subject')\
+        | models.Q(app_label='observations', model='source')\
+        | models.Q(app_label=_usermodel[0], model=_usermodel[1])
+    reported_by_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE,
+                                     limit_choices_to=reported_by_limits)
+    reported_by_id = models.UUIDField()
+    reported_by = GenericForeignKey('reported_by_content_type',
+                                    'reported_by_id')
+
 
     @property
     def priority_label(self):
@@ -159,6 +173,17 @@ class Event(RevisionMixin, TimestampedModel):
             content_type=ContentType.objects.get_for_model(Subject)
         )
         return [event_attachment.target for event_attachment in event_attachments]
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        """validate reported_by based on prevenance"""
+        if self.provenance == self.PC_STAFF:
+            raise ValidationError(
+                {'reported_by': ValidationError(_('Invalid value for provenance'), code='invalid')})
 
     def __str__(self):
         return self.message[50:]
