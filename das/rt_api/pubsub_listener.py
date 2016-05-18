@@ -28,6 +28,20 @@ def start(realtime_server):
         except Exception:
             logger.exception("Error handling new event for {0}".format(data,))
 
+    def update_event_handler(data, message):
+        try:
+            event = Event.objects.get(id=data['event_id'])
+            if event:
+                event.event_time = str(event.event_time)
+                serializer = EventSerializer(event)
+                serializer.context = {
+                    'request': DummyRequest(uri='', http_method='GET')}
+                event_data = serializer.data
+                realtime_server.emit_update_event(event_id=str(data['event_id']),
+                                               event_data=event_data)
+        except Exception:
+            logger.exception("Error handling new event for {0}".format(data, ))
+
     def new_observation_handler(data, message):
         try:
             logger.info("Handling new observation: %s", data)
@@ -64,6 +78,7 @@ def start(realtime_server):
         subscriptions = [
             {'routing_key': 'das.tracking.source.observations.new', 'callback': new_observation_handler},
             {'routing_key': 'das.event.new', 'callback': new_event_handler},
+            {'routing_key': 'das.event.update', 'callback': update_event_handler},
         ]
         pubsub.subscribe(subscriptions)
 
