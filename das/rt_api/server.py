@@ -111,6 +111,15 @@ def create_realtime_handler(sios):
             RealtimeServices.emit('new_event', data, user)
 
         @staticmethod
+        def emit_update_event(event_id, event_data=None, user=None):
+            data = {'type': 'update_event', 'event_id': event_id}
+            if event_data is not None:
+                data['event_data'] = event_data
+
+            logger.info("Emitting update event. %s", event_data)
+            RealtimeServices.emit('update_event', data, user)
+
+        @staticmethod
         def emit(message_type, data, user=None):
             try:
                 if user is None:
