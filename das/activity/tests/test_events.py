@@ -84,6 +84,7 @@ class TestEventView(BaseAPITest):
     def test_create_new_event(self):
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
+        event_data['provenance'] = Event.PC_STAFF
         request = self.factory.post(self.api_base + '/events/', event_data)
         self.force_authenticate(request, self.user)
 
