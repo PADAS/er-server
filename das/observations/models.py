@@ -236,6 +236,8 @@ class Observation(models.Model):
         )
 
 
+
+
 class SubjectSourceManager(models.GeoManager):
     def get_subject_sources(self, subject):
         sds = SubjectSource.objects.filter(subject_id=subject.id)
@@ -314,6 +316,9 @@ class SubjectManager(models.Manager):
 
         return Subject.objects.all().filter(group__in=sg_all)
 
+    def get_staff(self):
+        return self.all().filter(subject_type=Subject.TYPE_PERSON)
+
 
 class Subject(models.Model, PermissionSetGroupMixin):
     """Person, Animal, Vehicle, etc"""
@@ -389,7 +394,7 @@ class Subject(models.Model, PermissionSetGroupMixin):
     subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_ELEPHANT,
                                        choices=SUBTYPE_CHOICES)
 
-    additional = JSONField('additional data',)
+    additional = JSONField('additional data')
     group = models.ForeignKey(SubjectGroup, on_delete=models.SET_NULL, null=True, blank=True)
 
     objects = SubjectManager()

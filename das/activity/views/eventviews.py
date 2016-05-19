@@ -3,10 +3,9 @@ from datetime import timedelta
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import generics
 
-from core.serializers import ContextMixin
 from activity.models import Event, EventNote
 from activity.serializers import EventSerializer, EventNoteSerializer,\
-    EventDefaultsSerializer
+    EventMetadata
 
 LAST_DAYS = timedelta(days=3)
 
@@ -15,10 +14,6 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_size = 25
     page_size_query_param = 'page_size'
     max_page_size = 100
-
-
-class EventDefaultsView(generics.RetrieveAPIView):
-    serializer_class = EventDefaultsSerializer
 
 
 class EventsView(generics.ListCreateAPIView):
@@ -34,6 +29,7 @@ class EventsView(generics.ListCreateAPIView):
 
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
+    metadata_class = EventMetadata
 
     def get_queryset(self):
         queryset = Event.objects.all().order_by('-created_at')
@@ -47,7 +43,7 @@ class EventsView(generics.ListCreateAPIView):
         return queryset
 
 
-class EventView(ContextMixin, generics.RetrieveUpdateAPIView):
+class EventView(generics.RetrieveUpdateAPIView):
     serializer_class = EventSerializer
     queryset = Event.objects.all()
     lookup_field = 'id'
@@ -61,7 +57,7 @@ class EventView(ContextMixin, generics.RetrieveUpdateAPIView):
         return context
 
 
-class EventNotesView(ContextMixin, generics.ListCreateAPIView):
+class EventNotesView(generics.ListCreateAPIView):
     serializer_class = EventNoteSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -77,7 +73,7 @@ class EventNotesView(ContextMixin, generics.ListCreateAPIView):
         return notes
 
 
-class EventNoteView(ContextMixin, generics.RetrieveUpdateAPIView):
+class EventNoteView(generics.RetrieveUpdateAPIView):
     serializer_class = EventNoteSerializer
 
     def get_queryset(self):

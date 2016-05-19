@@ -186,3 +186,6 @@ class User(AccountsAbstractUser):
         """
         self.is_active = False
         self.save()
+
+    def __str__(self):
+        return self.get_username()

@@ -108,7 +108,7 @@ class RegionSubjectsView(generics.ListAPIView):
         return subjects
 
     def get_serializer_context(self):
-        context = {'request': self.request}
+        context = super().get_serializer_context()
         context['show_last_position_date'] = True
         return context
 
@@ -120,7 +120,7 @@ class SubjectView(generics.RetrieveAPIView):
     lookup_field = 'id'
 
     def get_serializer_context(self):
-        context = {'request': self.request}
+        context = super().get_serializer_context()
         subject = self.get_object()
 
         if self.request.user.has_any_perms(subject.VIEW_POSITION_PERMS, subject):
@@ -183,7 +183,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
 
     def get_serializer_context(self):
-        context = {}
+        context = super().get_serializer_context()
         subject = self.get_object()
         source_id = self.kwargs['source_id']
 
@@ -212,7 +212,6 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
         context['times'] = times
         context['coordinates'] = coordinates
-        context['request'] = self.request
         return context
 
 
@@ -223,7 +222,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
     queryset = models.Subject.objects.all()
 
     def get_serializer_context(self):
-        context = {}
+        context = super().get_serializer_context()
         subject = self.get_object()
         since = self.request.query_params.get('since', None)
         if isinstance(since, str):
@@ -250,7 +249,6 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         context['times'] = times
         context['coordinates'] = coordinates
-        context['request'] = self.request
         return context
 
 

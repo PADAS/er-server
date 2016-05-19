@@ -25,4 +25,6 @@ class EventAttachmentAdmin(admin.ModelAdmin):
     pass
 
 
-
+@admin.register(models.Community)
+class CommunityAdmin(admin.ModelAdmin):
+    pass

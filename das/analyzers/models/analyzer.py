@@ -78,7 +78,7 @@ class AnalyzerResult(object):
         with transaction.atomic():
             event = Event.objects.create_event(
                 event_type=self.analyzer.event_type,
-                provenance=Event.ANALYZER,
+                provenance=Event.PC_ANALYZER,
                 attributes=self.to_dict(),
                 location=location,
                 priority=analyzer_level_to_event_priority[self.level],

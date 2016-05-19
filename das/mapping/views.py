@@ -105,9 +105,6 @@ class MapListJsonView(generics.ListAPIView):
     queryset = Map.objects.all()
     serializer_class = serializers.MapSerializer
 
-    def get_serializer_context(self):
-        context = {'request': self.request}
-        return context
 
 #
 #Don't secure the following until we can have Leaflet use auth tokens

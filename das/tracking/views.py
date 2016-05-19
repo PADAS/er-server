@@ -133,7 +133,7 @@ def message_list(request):
         with transaction.atomic():
             event = Event.objects.create_event(
                 event_type=Event.ET_RADIO_TEXT_MESSAGE,
-                provenance=Event.SYSTEM,
+                provenance=Event.PC_SYSTEM,
                 attributes={},
                 location=location,
                 priority=Event.PRI_IMPORTANT,

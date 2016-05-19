@@ -26,7 +26,7 @@ try:
             Event(message='Test event {}'.format(x),
                   event_type=Event.ET_SYSTEM,
                   priority=Event.PRI_IMPORTANT,
-                  provenance=Event.COMMUNITY,
+                  provenance=Event.PC_COMMUNITY,
                   attributes={},
                   location=gen_random_point()
                   )
