@@ -8,6 +8,7 @@ from drf_extra_fields.geo_fields import PointField
 from rest_framework.fields import DateTimeField
 
 import activity.models
+import observations.models
 import utils
 from accounts.serializers import UserDisplaySerializer, get_username
 from observations.serializers import SubjectSerializer, SourceSerializer
@@ -21,6 +22,12 @@ ATTACHMENT_SERIALIZER_MAPPING = {
                             'field': 'source'},
 }
 
+REPORTED_SERIALIZER_MAPPING = {
+    'observations.subject': {'serializer': SubjectSerializer,
+                             'field': 'subject'},
+    'accounts.user': {'serializer': UserDisplaySerializer,
+                            'field': 'user'},
+}
 
 class EventMetadata(rest_framework.metadata.SimpleMetadata):
     def determine_metadata(self, request, view):
@@ -29,6 +36,27 @@ class EventMetadata(rest_framework.metadata.SimpleMetadata):
         metadata['description'] = view.get_view_description()
         return metadata
 
+
+class ReportedByRelatedField(rest_framework.serializers.RelatedField):
+    def to_representation(self, value):
+        mapping = REPORTED_SERIALIZER_MAPPING.get(
+            value._meta.label_lower, None)
+        if not mapping:
+            raise Exception('Unexpected ReportedBy Type {0}'.format(type(value)))
+
+        return mapping['serializer']().to_representation(value)
+
+    def get_queryset(self):
+        return observations.models.Subject.objects.staff()
+
+    def to_internal_value(self, data):
+        mapping = REPORTED_SERIALIZER_MAPPING.get(
+            data['content_type'], None)
+        if not mapping:
+            raise Exception(
+                'Unexpected ReportedBy Type {0}'.format(data))
+
+        return mapping['serializer']().to_internal_value(data)
 
 
 class AttachmentRelatedField(rest_framework.serializers.RelatedField):
@@ -105,13 +133,13 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         default=rest_framework.serializers.CurrentUserDefault()
     )
     notes = EventNoteSerializer(many=True, required=False)
-
+    reported_by = ReportedByRelatedField()
     class Meta:
         model = activity.models.Event
         fields = (
             'id', 'location', 'time', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes',
-            'image_url', 'created_by_user', 'notes')
+            'image_url', 'created_by_user', 'notes', 'reported_by')
 
     def create(self, validated_data):
         return activity.models.Event.objects.create_event(**validated_data)
@@ -121,6 +149,10 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             setattr(instance, k, v)
         instance.save()
         return instance
+
+    def to_internal_value(self, data):
+        obj = super().to_internal_value(data)
+        return obj
 
     def to_representation(self, event):
         rep = super().to_representation(event)

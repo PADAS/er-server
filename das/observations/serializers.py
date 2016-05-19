@@ -1,6 +1,7 @@
 from django.contrib.gis.geos import Point
 import rest_framework.serializers
 
+from core.serializers import ContentTypeField
 from observations import models
 import utils.json
 from utils import add_base_url
@@ -17,11 +18,19 @@ class RegionSerializer(rest_framework.serializers.ModelSerializer):
 
 
 class SubjectSerializer(rest_framework.serializers.ModelSerializer):
+    content_type = ContentTypeField()
     additional_fields = ('region', 'country', 'sex',
                          'species',)
+
     class Meta:
         model = models.Subject
-        fields = ('id', 'name', 'subject_type', 'subject_subtype')
+        fields = ('id', 'name', 'subject_type', 'subject_subtype',
+                  'content_type')
+
+    def to_internal_value(self, data):
+        if 'id' in data:
+            return models.Subject.objects.get(id=data['id'])
+        return super().to_internal_value(data)
 
     def to_representation(self, instance):
         rep = super(SubjectSerializer, self).to_representation(instance)

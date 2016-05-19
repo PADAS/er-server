@@ -14,6 +14,10 @@ from activity.models import Event, EventAttachment
 from activity.models import get_sentinel_user
 from activity.serializers import ATTACHMENT_SERIALIZER_MAPPING
 from activity import views
+from observations.models import Subject
+from accounts.serializers import UserDisplaySerializer
+from observations.serializers import SubjectSerializer
+
 
 User = django.contrib.auth.get_user_model()
 
@@ -42,6 +46,9 @@ class TestEventView(BaseAPITest):
     def setUp(self):
         super().setUp()
         self.user = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True)
+        self.user_rep = UserDisplaySerializer().to_representation(self.user)
+        self.staff = Subject.objects.create(name='Ranger 2', additional={})
+        self.staff_rep = SubjectSerializer().to_representation(self.staff)
 
         self.event_data = dict(
             message=lorem_ipsum.paragraph(),
@@ -75,14 +82,16 @@ class TestEventView(BaseAPITest):
         self.assertDictEqual(response_data, self.event_data)
 
     def test_create_new_event(self):
-        request = self.factory.post(self.api_base + '/events/', self.event_data)
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        request = self.factory.post(self.api_base + '/events/', event_data)
         self.force_authenticate(request, self.user)
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
         response_data = response.data
-        response_data = {k:response_data[k] for k in self.event_data.keys()}
-        self.assertDictEqual(response_data, self.event_data)
+        response_data = {k:response_data[k] for k in event_data.keys()}
+        self.assertDictEqual(response_data, event_data)
 
     def test_add_note(self):
         note_data = {'text': lorem_ipsum.paragraph()}

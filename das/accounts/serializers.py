@@ -1,5 +1,7 @@
 from django.contrib.auth import get_user_model
 import rest_framework.serializers
+from rest_framework.exceptions import ValidationError
+from core.serializers import ContentTypeField
 
 
 class UserSerializer(rest_framework.serializers.ModelSerializer):
@@ -12,11 +14,18 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
 
 
 class UserDisplaySerializer(rest_framework.serializers.ModelSerializer):
+    content_type = ContentTypeField()
+
     class Meta:
         model = get_user_model()
-        read_only_fields = ('username', 'first_name', 'last_name', 'id')
-        fields = read_only_fields
+        fields = ('username', 'first_name', 'last_name', 'id', 'content_type')
+        read_only_fields = fields
 
+    def to_internal_value(self, data):
+        if not 'id' in data:
+            raise ValidationError('Missing id in deserializing User object')
+        obj = get_user_model().objects.get(id=data['id'])
+        return obj
 
 def get_username(user):
     if not user:

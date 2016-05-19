@@ -125,27 +125,30 @@ class Event(RevisionMixin, TimestampedModel):
     message = models.TextField(blank=True)
     created_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
-        null=True, related_name='events', related_query_name='event')
+        null=True, blank=True, related_name='events', related_query_name='event')
 
     event_time = models.DateTimeField(default=django.utils.timezone.now)
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   default=PC_SYSTEM)
     event_type = models.CharField(max_length=40, choices=EVENT_TYPE_CHOICES,
                                   default=ET_SYSTEM)
-    location = models.PointField(srid=4326, null=True)
+    location = models.PointField(srid=4326, null=True, blank=True)
     priority = models.PositiveSmallIntegerField(
         db_column='priority',
         default=PRI_DEFAULT_VALUE, choices=PRIORITY_CHOICES)
-    attributes = JSONField(default={})
+    attributes = JSONField(default={}, blank=True)
     revision = Revision()
 
     _usermodel = settings.AUTH_USER_MODEL.lower().split('.')
     reported_by_limits = models.Q(app_label='observations', model='subject')\
         | models.Q(app_label='observations', model='source')\
         | models.Q(app_label=_usermodel[0], model=_usermodel[1])
-    reported_by_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE,
-                                     limit_choices_to=reported_by_limits)
-    reported_by_id = models.UUIDField()
+    reported_by_content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        limit_choices_to=reported_by_limits,
+        null=True, blank=True)
+    reported_by_id = models.UUIDField(null=True, blank=True, default=None)
     reported_by = GenericForeignKey('reported_by_content_type',
                                     'reported_by_id')
 
