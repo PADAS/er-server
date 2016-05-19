@@ -314,7 +314,7 @@ class SubjectManager(models.Manager):
 
         return Subject.objects.all().filter(group__in=sg_all)
 
-    def by_staff(self):
+    def get_staff(self):
         return self.all().filter(subject_type=Subject.TYPE_PERSON)
 
 

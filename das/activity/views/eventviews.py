@@ -29,7 +29,7 @@ class EventsView(generics.ListCreateAPIView):
 
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
-    #metadata_class = EventMetadata
+    metadata_class = EventMetadata
 
     def get_queryset(self):
         queryset = Event.objects.all().order_by('-created_at')
