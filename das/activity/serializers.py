@@ -2,12 +2,14 @@ from collections import OrderedDict
 
 import rest_framework.serializers
 import rest_framework.metadata
+from core.serializers import ContentTypeField
 from django.contrib.auth import get_user_model
 from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
 from django.core.urlresolvers import reverse
 from drf_extra_fields.geo_fields import PointField
 from rest_framework.fields import DateTimeField
+from rest_framework.exceptions import ValidationError
 
 import activity.models
 import observations.models
@@ -15,6 +17,20 @@ import utils
 from accounts.serializers import UserDisplaySerializer, get_username
 from observations.serializers import SubjectSerializer, SourceSerializer
 from revision.manager import AC_UPDATED
+
+
+class CommunitySerializer(rest_framework.serializers.ModelSerializer):
+    content_type = ContentTypeField()
+
+    class Meta:
+        model = activity.models.Community
+        fields = ('name', 'id', 'content_type')
+
+    def to_internal_value(self, data):
+        if not 'id' in data:
+            raise ValidationError('Missing id in deserializing User object')
+        obj = activity.models.Community.objects.get(id=data['id'])
+        return obj
 
 
 ATTACHMENT_SERIALIZER_MAPPING = {
@@ -29,7 +45,11 @@ REPORTED_SERIALIZER_MAPPING = {
                              'field': 'subject'},
     'accounts.user': {'serializer': UserDisplaySerializer,
                             'field': 'user'},
+    'activity.community': {'serializer': CommunitySerializer,
+                          'field': 'community'},
+
 }
+
 
 class EventMetadata(rest_framework.metadata.SimpleMetadata):
     def determine_metadata(self, request, view):
@@ -120,6 +140,8 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
         for obj in observations.models.Subject.objects.get_staff():
             yield obj
         for obj in get_user_model().objects.all().filter(is_active=True):
+            yield obj
+        for obj in activity.models.Community.objects.all():
             yield obj
 
     def to_internal_value(self, data):

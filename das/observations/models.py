@@ -236,6 +236,8 @@ class Observation(models.Model):
         )
 
 
+
+
 class SubjectSourceManager(models.GeoManager):
     def get_subject_sources(self, subject):
         sds = SubjectSource.objects.filter(subject_id=subject.id)

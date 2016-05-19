@@ -29,6 +29,20 @@ def marker_icon(*args):
     return '/static/event-marker-{}.svg'.format('-'.join(args))
 
 
+class CommunityManager(models.Manager):
+    def create_member(self, **values):
+        return self.create(**values)
+
+
+class Community(TimestampedModel):
+    objects = CommunityManager()
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=80)
+
+    def __str__(self):
+        return self.name
+
+
 class EventManager(models.Manager):
     def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
@@ -141,7 +155,8 @@ class Event(RevisionMixin, TimestampedModel):
 
     _usermodel = settings.AUTH_USER_MODEL.lower().split('.')
     reported_by_limits = models.Q(app_label='observations', model='subject')\
-        | models.Q(app_label='observations', model='source')\
+        | models.Q(app_label='observations', model='source') \
+        | models.Q(app_label='activity', model='community') \
         | models.Q(app_label=_usermodel[0], model=_usermodel[1])
     reported_by_content_type = models.ForeignKey(
         ContentType,
@@ -183,10 +198,16 @@ class Event(RevisionMixin, TimestampedModel):
 
     def clean(self):
         super().clean()
-        """validate reported_by based on prevenance"""
+        """validate reported_by based on provenance"""
         if self.provenance == self.PC_STAFF:
+            if not isinstance(self.reported_by, (get_user_model(), Subject)):
+                raise ValidationError(
+                    {'reported_by': ValidationError(_('Invalid value for reported_by'), code='invalid')})
+        elif self.provenance and self.reported_by:
             raise ValidationError(
-                {'reported_by': ValidationError(_('Invalid value for provenance'), code='invalid')})
+                {'reported_by': ValidationError(
+                    _('Invalid value for provenance and reported_by fields'), code='invalid')})
+
 
     def __str__(self):
         return self.message[50:]
