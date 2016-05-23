@@ -12,11 +12,18 @@ Requirements
 
 Coding Conventions
 -----------------------------------------------------------------
-We use PEP8 of course
-4 space indents
-'' single quotes around strings as much as possible
+* PEP 8 -- Style Guide for Python Code
+* Spaces not tabs, 4 space indents
+* Maximum line length less than 80
+* Doc strings less than 72
+* Line breaks before operators
+* '' single quotes around strings as much as possible
 
-
+Unit Testing
+-----------------------------------------------------------------
+* We use python unittest with Django unittest extensions
+* Put tests in with each app
+* python manage.py test --settings=das_server.local_settings
 
 Steps
 -----------------------------------------------------------------
