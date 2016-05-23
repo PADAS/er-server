@@ -326,7 +326,7 @@ app:
               'aws:elasticbeanstalk:application:environment':
                 DAS_ENV_NAME: 'dev'
               'aws:autoscaling:launchconfiguration':
-                InstanceType: "t2.small"
+                InstanceType: "t2.medium"
         # the odzala version of the app
         'das-server-odzala':
             cname_prefix: 'das-server-odzala'
