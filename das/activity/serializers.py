@@ -330,7 +330,7 @@ def make_feature(request, event):
     feature['type'] = 'Feature'
     feature['properties'] = {
         'message': event.message,
-        'datetime': event.time,
+        'datetime': event.time if isinstance(event.time, str) else event.time.isoformat(),
         'image': event.image_url
     }
 

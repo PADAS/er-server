@@ -20,7 +20,6 @@ def start(realtime_server):
         try:
             event = Event.objects.get(id=data['event_id'])
             if event:
-                event.event_time = str(event.event_time)
                 serializer = EventSerializer(event)
                 serializer.context = {'request': DummyRequest(uri='', http_method='GET')}
                 event_data = serializer.data
@@ -32,7 +31,6 @@ def start(realtime_server):
         try:
             event = Event.objects.get(id=data['event_id'])
             if event:
-                event.event_time = str(event.event_time)
                 serializer = EventSerializer(event)
                 serializer.context = {
                     'request': DummyRequest(uri='', http_method='GET')}
