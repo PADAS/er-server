@@ -107,7 +107,7 @@ def create_realtime_handler(sios):
             if event_data is not None:
                 data['event_data'] = event_data
 
-            logger.info("Emitting new event. %s", event_data)
+            logger.info("Emitting new event. %s", event_id)
             RealtimeServices.emit('new_event', data, user)
 
         @staticmethod
@@ -116,7 +116,7 @@ def create_realtime_handler(sios):
             if event_data is not None:
                 data['event_data'] = event_data
 
-            logger.info("Emitting update event. %s", event_data)
+            logger.info("Emitting update event. %s", event_id)
             RealtimeServices.emit('update_event', data, user)
 
         @staticmethod
