@@ -1,4 +1,5 @@
 import uuid
+import copy
 import datetime
 from itertools import islice, chain
 from types import GeneratorType
@@ -90,6 +91,18 @@ class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
                     'status': {'code': response.status_code,
                                'message': response.status_text}}
         return super(ExtendedBrowsableAPIRenderer, self).render(data, *args, **kwargs)
+
+
+def dumps(obj, **kwargs):
+    dumps_args = copy.copy(kwargs)
+    custom_args = dict(cls=ExtendedJSONEncoder, ensure_ascii=True,
+                       bigint_as_string=True)
+    dumps_args.update(custom_args)
+    return json.dumps(obj, **dumps_args)
+
+
+def loads(s,**kwargs):
+    return json.loads(s, **kwargs)
 
 
 def json_string(objects, pretty_output=False):
