@@ -4,7 +4,7 @@ from django.db.models.signals import post_save
 from django.db import transaction
 from django.dispatch import receiver
 
-from activity.models import Event
+from activity.models import Event, EventNote, EventAttachment
 from das_server import pubsub
 
 
@@ -17,3 +17,18 @@ def event_post_save(sender, instance, created, **kwargs):
     transaction.on_commit(lambda: pubsub.publish(
         {'event_id': str(instance.pk)},
         'das.event.new' if created else 'das.event.update'))
+
+
+@receiver(post_save, sender=EventNote)
+def event_note_post_save(sender, instance, created, **kwargs):
+    logger.info("saved note for event {}, created={}".format(instance.event_id, str(created)))
+    transaction.on_commit(lambda: pubsub.publish(
+        {'event_id': str(instance.event_id)}, 'das.event.update'))
+
+
+@receiver(post_save, sender=EventAttachment)
+def event_attachment_post_save(sender, instance, created, **kwargs):
+    logger.info("saved attachment for event {}, created={}".format(instance.event_id, str(created)))
+    transaction.on_commit(lambda: pubsub.publish(
+        {'event_id': str(instance.event_id)}, 'das.event.update'))
+
