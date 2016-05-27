@@ -66,7 +66,17 @@ class SourceGroup(HierarchyModel, PermissionSetHierarchyMixin):
 
 
 class SourceManager(models.Manager):
-    pass
+
+    # Helper functions for hydrating Source and Subject for the given message.
+    def ensure_source(self, source_type, manufacturer_id=None, model_name=None, additional=None):
+
+        additional = additional or {}
+        src, created = Source.objects.get_or_create(source_type=source_type,
+                                                    manufacturer_id=manufacturer_id,
+                                                    defaults={'model_name': model_name,
+                                                              'additional': additional})
+
+        return src, created
 
 
 class Source(models.Model):
@@ -246,6 +256,34 @@ class SubjectSourceManager(models.GeoManager):
     def get_subject_source(self, subject, source_id):
         sds = SubjectSource.objects.filter(subject_id=subject.id, source_id=source_id)
         return sds
+
+    def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None, assigned_range=None,
+                              additional=None):
+
+        additional = additional or {}
+
+        # get the most recent Subject for this Source
+        subject_source = SubjectSource \
+                            .objects \
+                            .filter(source=source, assigned_range__contains=timestamp)\
+                            .order_by('assigned_range')\
+                            .reverse()\
+                            .first()
+
+        if not subject_source:
+
+            sub, created = Subject.objects.get_or_create(
+                subject_type=subject_type, subject_subtype=subject_subtype,
+                name=source.manufacturer_id,
+                defaults=dict(additional=dict(region='', country='', ))
+            )
+
+            if sub:
+                subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
+                                                                     defaults=dict(assigned_range=assigned_range,
+                                                                                   additional=additional))
+
+        return subject_source, created
 
 
 class SubjectSource(models.Model):
