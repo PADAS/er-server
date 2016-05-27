@@ -221,6 +221,15 @@ class SubjectTracksView(generics.RetrieveAPIView):
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()
 
+    def get_object(self):
+        try:
+            return self._cached_object
+        except AttributeError:
+            pass
+        self._cached_object = super().get_object()
+
+        return self._cached_object
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         subject = self.get_object()
