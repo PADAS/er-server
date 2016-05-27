@@ -23,7 +23,7 @@ def _parse_location(lat, lon):
 gsat_map = {
     'manufacturer_id': lambda o: str(o.get('uniqueid')),
     'location': lambda o: _parse_location(o.get('lat'), o.get('lng')),
-    'recorded_at': lambda o: datetime.datetime.fromtimestamp(int(o.get('time'))).replace(tzinfo=pytz.UTC),
+    'recorded_at': lambda o: datetime.datetime.fromtimestamp(int(o.get('time')), tz=pytz.UTC),
     'altitude_meters': lambda o: float(o.get('alt')),
     'speed_mps': lambda o: float(o.get('speed')),
     'heading': lambda o: float(o.get('head')),
