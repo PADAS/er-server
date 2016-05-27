@@ -151,6 +151,7 @@ app:
                         user=wsgi
                         numprocs=1
                         stdout_logfile=/opt/python/log/celery_worker.log
+                        stderr_logfile=/opt/python/log/celery_worker_stderr.log
                         autostart=true
                         autorestart=true
                         startsecs=10
@@ -164,6 +165,7 @@ app:
                         user=wsgi
                         numprocs=1
                         stdout_logfile=/opt/python/log/celery_beat.log
+                        stderr_logfile=/opt/python/log/celery_beat_stderr.log
                         autostart=true
                         autorestart=true
                         startsecs=10
@@ -177,6 +179,7 @@ app:
                         user=wsgi
                         numprocs=1
                         stdout_logfile=/opt/python/log/message_queue_listeners.log
+                        stderr_logfile=/opt/python/log/message_queue_listeners_stderr.log
                         autostart=true
                         autorestart=true
                         startsecs=10
@@ -193,6 +196,7 @@ app:
                         user=wsgi
                         numprocs=1
                         stdout_logfile=/opt/python/log/realtime.log
+                        stderr_logfile=/opt/python/log/realtime_stderr.log
                         autostart=true
                         autorestart=true
                         startsecs=10
@@ -222,6 +226,13 @@ app:
                             then
                             echo "[include]" | tee -a /opt/python/etc/supervisord.conf
                             echo "files: celeryconfig.conf realtime.conf" | tee -a /opt/python/etc/supervisord.conf
+                        fi
+
+                        if ! grep -Fxq "stdout_logfile=/opt/python/log/das.log" /opt/python/etc/supervisord.conf
+                          then
+                          sed -i '/redirect_stderr=false/ astderr_logfile=\/opt\/python\/log\/das_stderr.log' /opt/python/etc/supervisord.conf
+                          sed -i '/redirect_stderr=false/ astdout_logfile=\/opt\/python\/log\/das.log' /opt/python/etc/supervisord.conf
+
                         fi
 
                         # Reread the supervisord config
