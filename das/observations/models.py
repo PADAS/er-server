@@ -113,15 +113,18 @@ class ObservationManager(models.GeoManager):
                 Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
             qs = qs | q if qs else q
 
-        result = Observation.objects.filter(qs)
-        if since:
-            result = result.filter(Q(recorded_at__gt=since))
-        if until:
-            result = result.filter(Q(recorded_at__lte=until))
-        result = result.order_by('-recorded_at')
-        result = result.exclude(location=EMPTY_POINT)
+        if qs:
+            result = Observation.objects.filter(qs)
+            if since:
+                result = result.filter(Q(recorded_at__gt=since))
+            if until:
+                result = result.filter(Q(recorded_at__lte=until))
+            result = result.order_by('-recorded_at')
+            for observation in result.values('location', 'recorded_at'):
+                if observation['location'] != EMPTY_POINT:
+                    yield observation
 
-        return result
+
 
     def get_source_range_observations_last(self, subject_sources, last_days):
         """get the last days worth of observations starting from now.
@@ -131,24 +134,21 @@ class ObservationManager(models.GeoManager):
                                  key=lambda ss: ss.assigned_range.lower,
                                  reverse=True)
 
-        last_observation = self._get_observation(first=False,
-                                                 subject_sources=subject_sources)
-
-        if not last_observation:
-            return []
-
         qs = None
         for ss in subject_sources:
             q = Q(source_id=ss.source_id) &\
                 Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
             qs = qs | q if qs else q
 
-        result = Observation.objects.filter(qs)
-        result = result.order_by('-recorded_at')
-        result = result.exclude(location=EMPTY_POINT)
-        gt = datetime.now(tz=pytz.UTC) - last_days
-        result = result.filter(recorded_at__gt=gt)
-        return result
+        if qs:
+            result = Observation.objects.filter(qs)
+            result = result.order_by('-recorded_at')
+            gt = datetime.now(tz=pytz.UTC) - last_days
+            result = result.filter(recorded_at__gt=gt)
+            for observation in result.values('location', 'recorded_at'):
+                if observation['location'] != EMPTY_POINT:
+                    yield observation
+
 
     def add_observation(self, observation):
         '''
