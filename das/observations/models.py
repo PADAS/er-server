@@ -120,35 +120,43 @@ class ObservationManager(models.GeoManager):
             if until:
                 result = result.filter(Q(recorded_at__lte=until))
             result = result.order_by('-recorded_at')
+            result = result.exclude(location=EMPTY_POINT)
+            return result
+        return []
+
+    def get_source_range_observation_values(self, subject_sources, since=None,
+                                      until=None):
+        """get observations for a set of sources and date ranges.
+        An animal may switch source devices based on a date range.
+        """
+        subject_sources = sorted(subject_sources,
+                                 key=lambda ss: ss.assigned_range.lower,
+                                 reverse=True)
+        qs = None
+        for ss in subject_sources:
+            q = Q(source_id=ss.source_id) & \
+                Q(recorded_at__range=[ss.assigned_range.lower,
+                                      ss.assigned_range.upper])
+            qs = qs | q if qs else q
+
+        if qs:
+            result = Observation.objects.filter(qs)
+            if since:
+                result = result.filter(Q(recorded_at__gt=since))
+            if until:
+                result = result.filter(Q(recorded_at__lte=until))
+            result = result.order_by('-recorded_at')
             for observation in result.values('location', 'recorded_at'):
                 if observation['location'] != EMPTY_POINT:
                     yield observation
-
 
 
     def get_source_range_observations_last(self, subject_sources, last_days):
         """get the last days worth of observations starting from now.
         An animal may switch source devices based on a date range.
         """
-        subject_sources = sorted(subject_sources,
-                                 key=lambda ss: ss.assigned_range.lower,
-                                 reverse=True)
-
-        qs = None
-        for ss in subject_sources:
-            q = Q(source_id=ss.source_id) &\
-                Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
-            qs = qs | q if qs else q
-
-        if qs:
-            result = Observation.objects.filter(qs)
-            result = result.order_by('-recorded_at')
-            gt = datetime.now(tz=pytz.UTC) - last_days
-            result = result.filter(recorded_at__gt=gt)
-            for observation in result.values('location', 'recorded_at'):
-                if observation['location'] != EMPTY_POINT:
-                    yield observation
-
+        since = datetime.now(tz=pytz.UTC) - last_days
+        return self.get_source_range_observations(subject_sources, since=since)
 
     def add_observation(self, observation):
         '''

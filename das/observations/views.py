@@ -199,14 +199,13 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
         if not sds:
             raise Http404
 
-        if since or until:
-            observations = models.Observation.objects.get_source_range_observations(sds, since, until)
-        else:
-            observations = models.Observation.objects.get_source_range_observations_last(sds, LAST_DAYS)
+        if not since and not until:
+            since = datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS
 
         coordinates = []
         times = []
-        for ob in observations:
+        for ob in models.Observation.objects.get_source_range_observation_values(
+                sds, since, until):
             coordinates.append(ob['location'].coords)
             times.append(ob['recorded_at'])
 
@@ -262,16 +261,15 @@ class SubjectTracksView(generics.RetrieveAPIView):
         if not sds:
             raise Http404
 
-        if since or until:
-            observations = models.Observation.objects.get_source_range_observations(sds, since, until)
-        else:
-            observations = models.Observation.objects.get_source_range_observations_last(sds, LAST_DAYS)
+        if not since and not until:
+            since = datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS
 
         coordinates = []
         times = []
-        for ob in observations:
+        for ob in models.Observation.objects.get_source_range_observation_values(
+                sds, since, until):
             coordinates.append(ob['location'].coords)
-            times.append(ob['recorded_at'])
+        times.append(ob['recorded_at'])
 
         context['times'] = times
         context['coordinates'] = coordinates
