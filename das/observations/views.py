@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import generics
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
+from rest_framework.response import Response
 from rest_framework.filters import DjangoObjectPermissionsFilter
 
 from observations.filters import SubjectObjectPermissionsFilter
@@ -181,7 +182,6 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
     queryset = models.Subject.objects.all()
     permission_classes = (SubjectObjectPermissions,)
 
-
     def get_serializer_context(self):
         context = super().get_serializer_context()
         subject = self.get_object()
@@ -199,16 +199,15 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
         if not sds:
             raise Http404
 
-        if since or until:
-            observations = models.Observation.objects.get_source_range_observations(sds, since, until)
-        else:
-            observations = models.Observation.objects.get_source_range_observations_last(sds, LAST_DAYS)
+        if not since and not until:
+            since = datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS
 
         coordinates = []
         times = []
-        for ob in observations:
-            coordinates.append(ob.location.coords)
-            times.append(ob.recorded_at)
+        for ob in models.Observation.objects.get_source_range_observation_values(
+                sds, since, until):
+            coordinates.append(ob['location'].coords)
+            times.append(ob['recorded_at'])
 
         context['times'] = times
         context['coordinates'] = coordinates
@@ -220,6 +219,32 @@ class SubjectTracksView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()
+
+    def get_object(self):
+        try:
+            return self._cached_object
+        except AttributeError:
+            pass
+        self._cached_object = super().get_object()
+
+        return self._cached_object
+
+    def get(self, request, *args, **kwargs):
+        now = datetime.datetime.now()
+        instance = self.get_object()
+        logger.debug('Time to get object %s', datetime.datetime.now() - now)
+        now = datetime.datetime.now()
+        serializer = self.get_serializer(instance)
+        logger.debug('Time to get serializer %s', datetime.datetime.now() - now)
+        now = datetime.datetime.now()
+        data = serializer.data
+        logger.debug('Time to get serializer.data %s',
+                     datetime.datetime.now() - now)
+        now = datetime.datetime.now()
+        response = Response(data)
+        logger.debug('Time to get response %s',
+                     datetime.datetime.now() - now)
+        return response
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -236,16 +261,15 @@ class SubjectTracksView(generics.RetrieveAPIView):
         if not sds:
             raise Http404
 
-        if since or until:
-            observations = models.Observation.objects.get_source_range_observations(sds, since, until)
-        else:
-            observations = models.Observation.objects.get_source_range_observations_last(sds, LAST_DAYS)
+        if not since and not until:
+            since = datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS
 
         coordinates = []
         times = []
-        for ob in observations:
-            coordinates.append(ob.location.coords)
-            times.append(ob.recorded_at)
+        for ob in models.Observation.objects.get_source_range_observation_values(
+                sds, since, until):
+            coordinates.append(ob['location'].coords)
+        times.append(ob['recorded_at'])
 
         context['times'] = times
         context['coordinates'] = coordinates

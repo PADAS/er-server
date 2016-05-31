@@ -66,7 +66,17 @@ class SourceGroup(HierarchyModel, PermissionSetHierarchyMixin):
 
 
 class SourceManager(models.Manager):
-    pass
+
+    # Helper functions for hydrating Source and Subject for the given message.
+    def ensure_source(self, source_type, manufacturer_id=None, model_name=None, additional=None):
+
+        additional = additional or {}
+        src, created = Source.objects.get_or_create(source_type=source_type,
+                                                    manufacturer_id=manufacturer_id,
+                                                    defaults={'model_name': model_name,
+                                                              'additional': additional})
+
+        return src, created
 
 
 class Source(models.Model):
@@ -103,42 +113,50 @@ class ObservationManager(models.GeoManager):
                 Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
             qs = qs | q if qs else q
 
-        result = Observation.objects.filter(qs)
-        if since:
-            result = result.filter(Q(recorded_at__gt=since))
-        if until:
-            result = result.filter(Q(recorded_at__lte=until))
-        result = result.order_by('-recorded_at')
-        result = result.exclude(location=EMPTY_POINT)
+        if qs:
+            result = Observation.objects.filter(qs)
+            if since:
+                result = result.filter(Q(recorded_at__gt=since))
+            if until:
+                result = result.filter(Q(recorded_at__lte=until))
+            result = result.order_by('-recorded_at')
+            result = result.exclude(location=EMPTY_POINT)
+            return result
+        return []
 
-        return result
-
-    def get_source_range_observations_last(self, subject_sources, last_days):
-        """get the last days worth of observations starting from now.
+    def get_source_range_observation_values(self, subject_sources, since=None,
+                                      until=None):
+        """get observations for a set of sources and date ranges.
         An animal may switch source devices based on a date range.
         """
         subject_sources = sorted(subject_sources,
                                  key=lambda ss: ss.assigned_range.lower,
                                  reverse=True)
-
-        last_observation = self._get_observation(first=False,
-                                                 subject_sources=subject_sources)
-
-        if not last_observation:
-            return []
-
         qs = None
         for ss in subject_sources:
-            q = Q(source_id=ss.source_id) &\
-                Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
+            q = Q(source_id=ss.source_id) & \
+                Q(recorded_at__range=[ss.assigned_range.lower,
+                                      ss.assigned_range.upper])
             qs = qs | q if qs else q
 
-        result = Observation.objects.filter(qs)
-        result = result.order_by('-recorded_at')
-        result = result.exclude(location=EMPTY_POINT)
-        gt = datetime.now(tz=pytz.UTC) - last_days
-        result = result.filter(recorded_at__gt=gt)
-        return result
+        if qs:
+            result = Observation.objects.filter(qs)
+            if since:
+                result = result.filter(Q(recorded_at__gt=since))
+            if until:
+                result = result.filter(Q(recorded_at__lte=until))
+            result = result.order_by('-recorded_at')
+            for observation in result.values('location', 'recorded_at'):
+                if observation['location'] != EMPTY_POINT:
+                    yield observation
+
+
+    def get_source_range_observations_last(self, subject_sources, last_days):
+        """get the last days worth of observations starting from now.
+        An animal may switch source devices based on a date range.
+        """
+        since = datetime.now(tz=pytz.UTC) - last_days
+        return self.get_source_range_observations(subject_sources, since=since)
 
     def add_observation(self, observation):
         '''
@@ -246,6 +264,34 @@ class SubjectSourceManager(models.GeoManager):
     def get_subject_source(self, subject, source_id):
         sds = SubjectSource.objects.filter(subject_id=subject.id, source_id=source_id)
         return sds
+
+    def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None, assigned_range=None,
+                              additional=None):
+
+        additional = additional or {}
+
+        # get the most recent Subject for this Source
+        subject_source = SubjectSource \
+                            .objects \
+                            .filter(source=source, assigned_range__contains=timestamp)\
+                            .order_by('assigned_range')\
+                            .reverse()\
+                            .first()
+
+        if not subject_source:
+
+            sub, created = Subject.objects.get_or_create(
+                subject_type=subject_type, subject_subtype=subject_subtype,
+                name=source.manufacturer_id,
+                defaults=dict(additional=dict(region='', country='', ))
+            )
+
+            if sub:
+                subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
+                                                                     defaults=dict(assigned_range=assigned_range,
+                                                                                   additional=additional))
+
+        return subject_source, created
 
 
 class SubjectSource(models.Model):
