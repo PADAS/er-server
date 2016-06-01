@@ -2,10 +2,13 @@ from datetime import timedelta
 
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import generics
+from rest_framework import viewsets
+from rest_framework import decorators
+from rest_framework import mixins
 
 from activity.models import Event, EventNote
 from activity.serializers import EventSerializer, EventNoteSerializer,\
-    EventMetadata
+    EventJSONSchema
 
 LAST_DAYS = timedelta(days=3)
 
@@ -14,6 +17,43 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_size = 25
     page_size_query_param = 'page_size'
     max_page_size = 100
+
+
+class EventsViewSet(mixins.CreateModelMixin,
+                    mixins.ListModelMixin,
+                    viewsets.GenericViewSet):
+    __doc__ = """
+        Returns all events.
+        Optional query-params:
+        bbox, where bbox is the (west, south, east, north) lon,lat pairs.
+            example: bbox=14.24, .41, 15.45, 1.66
+        page, page number
+        page_size, (default is {page_size}, max is {max_page_size})
+        """.format(page_size=StandardResultsSetPagination.page_size,
+                   max_page_size=StandardResultsSetPagination.max_page_size)
+    serializer_class = EventSerializer
+    pagination_class = StandardResultsSetPagination
+    metadata_class = EventJSONSchema
+    queryset = Event.objects.all()
+
+    def get_queryset(self):
+        queryset = Event.objects.all().order_by('-created_at')
+        bbox = self.request.query_params.get('bbox', None)
+        if bbox:
+            bbox = bbox.split(',')
+            bbox = [float(v) for v in bbox]
+            if len(bbox) != 4:
+                raise ValueError("invalid bbox param")
+            queryset = Event.objects.by_bbox(bbox,
+                                             last_days=LAST_DAYS).order_by(
+                '-created_at')
+        return queryset
+
+    @decorators.list_route(methods=['GET', 'POST'])
+    def schema(self, request):
+        meta = self.metadata_class()
+        data = meta.determine_metadata(request, self)
+        return generics.views.Response(data)
 
 
 class EventsView(generics.ListCreateAPIView):
@@ -29,7 +69,7 @@ class EventsView(generics.ListCreateAPIView):
 
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
-    metadata_class = EventMetadata
+    metadata_class = EventJSONSchema
 
     def get_queryset(self):
         queryset = Event.objects.all().order_by('-created_at')

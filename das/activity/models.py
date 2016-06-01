@@ -57,9 +57,16 @@ class EventManager(models.Manager):
     def create_event(self, **values):
         return self.create(**values)
 
-    def defaults(self):
-        d = {}
-        return d
+    def get_reported_by_for_provenance(self, provenance):
+        if Event.PC_STAFF == provenance:
+            for obj in get_user_model().objects.all().filter(
+                    is_active=True):
+                yield obj
+            for obj in Subject.objects.get_staff():
+                yield obj
+        elif Event.PC_COMMUNITY == provenance:
+            for obj in Community.objects.all():
+                yield obj
 
 
 class Event(RevisionMixin, TimestampedModel):
@@ -207,7 +214,6 @@ class Event(RevisionMixin, TimestampedModel):
             raise ValidationError(
                 {'reported_by': ValidationError(
                     _('Invalid value for provenance and reported_by fields'), code='invalid')})
-
 
     def __str__(self):
         return self.message[50:]
