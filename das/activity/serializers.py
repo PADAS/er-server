@@ -149,19 +149,18 @@ class EventJSONSchema(BaseMetadata):
         """
         field_info = OrderedDict()
         field_info['type'] = self.label_lookup[field]
-        field_info['id'] = field
         field_info['required'] = getattr(field, 'required', False)
 
-        attrs = [
-            'read_only', 'label', 'help_text',
-            'min_length', 'max_length',
-            'min_value', 'max_value'
-        ]
+        attr_map = {
+            'label': 'title', 'help_text': 'description',
+            'min_length': 'minLength', 'max_length': 'maxLength',
+            'min_value': 'minimum', 'max_value': 'maximum'
+        }
 
-        for attr in attrs:
-            value = getattr(field, attr, None)
+        for key, dest_key in attr_map.items():
+            value = getattr(field, key, None)
             if value is not None and value != '':
-                field_info[attr] = force_text(value, strings_only=True)
+                field_info[dest_key] = value
 
         if getattr(field, 'child', None):
             field_info['child'] = self.get_field_info(field.child)
@@ -170,16 +169,18 @@ class EventJSONSchema(BaseMetadata):
 
         if not field_info.get('read_only'):
             if hasattr(field, 'object_choices'):
-                field_info['oneOf'] = [
+                field_info['enum_ext'] = [
                     {
-                        choice_value: force_text(choice_name, strings_only=True)
+                        'value': choice_value,
+                        'title': force_text(choice_name, strings_only=True)
                     }
                     for choice_value, choice_name in field.object_choices
                     ]
             elif hasattr(field, 'choices'):
-                field_info['oneOf'] = [
+                field_info['enum_ext'] = [
                     {
-                        choice_value: force_text(choice_name, strings_only=True)
+                        'value': choice_value,
+                        'title': force_text(choice_name, strings_only=True)
                     }
                     for choice_value, choice_name in field.choices.items()
                     ]
