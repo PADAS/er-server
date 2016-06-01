@@ -1,3 +1,4 @@
+import logging
 from collections import OrderedDict
 
 from core.serializers import ContentTypeField
@@ -9,6 +10,7 @@ from django.core.urlresolvers import reverse
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from drf_extra_fields.geo_fields import PointField
+import drf_extra_fields.geo_fields
 import rest_framework.serializers
 from rest_framework.metadata import BaseMetadata
 from rest_framework.fields import DateTimeField
@@ -23,6 +25,8 @@ from accounts.serializers import UserDisplaySerializer, get_username
 from observations.serializers import SubjectSerializer, SourceSerializer
 from revision.manager import AC_UPDATED
 
+
+logger = logging.getLogger(__name__)
 
 class CommunitySerializer(rest_framework.serializers.ModelSerializer):
     content_type = ContentTypeField()
@@ -57,14 +61,14 @@ REPORTED_SERIALIZER_MAPPING = {
 
 
 class EventJSONSchema(BaseMetadata):
+
     label_lookup = ClassLookupDict({
-        rest_framework.serializers.Field: 'field',
         rest_framework.serializers.BooleanField: 'boolean',
         rest_framework.serializers.NullBooleanField: 'boolean',
         rest_framework.serializers.CharField: 'string',
         rest_framework.serializers.URLField: 'string',
         rest_framework.serializers.EmailField: 'string',
-        rest_framework.serializers.RegexField: 'regex',
+        rest_framework.serializers.RegexField: 'string',
         rest_framework.serializers.SlugField: 'string',
         rest_framework.serializers.IntegerField: 'integer',
         rest_framework.serializers.FloatField: 'number',
@@ -74,11 +78,13 @@ class EventJSONSchema(BaseMetadata):
         rest_framework.serializers.TimeField: 'string',
         rest_framework.serializers.ChoiceField: 'string',
         rest_framework.serializers.MultipleChoiceField: 'string',
-        rest_framework.serializers.FileField: 'file upload',
-        rest_framework.serializers.ImageField: 'image upload',
         rest_framework.serializers.ListField: 'array',
         rest_framework.serializers.DictField: 'object',
         rest_framework.serializers.Serializer: 'object',
+        rest_framework.serializers.UUIDField: 'string',
+        rest_framework.serializers.RelatedField: 'object',
+        drf_extra_fields.geo_fields.PointField: 'string',
+
     })
     schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
@@ -134,8 +140,6 @@ class EventJSONSchema(BaseMetadata):
 
         def get_fields():
             for field_name, field in serializer.fields.items():
-                if isinstance(field, (rest_framework.serializers.PrimaryKeyRelatedField,)):
-                    continue
                 value = self.get_field_info(field)
                 if value:
                     yield (field_name, value)
@@ -148,7 +152,13 @@ class EventJSONSchema(BaseMetadata):
         of metadata about it.
         """
         field_info = OrderedDict()
-        field_info['type'] = self.label_lookup[field]
+        try:
+            field_info['type'] = self.label_lookup[field]
+        except KeyError:
+            logger.debug('Unsupported field {0} type {1} for JSON schema'.format(
+                field.field_name, type(field)))
+            return None
+
         field_info['required'] = getattr(field, 'required', False)
 
         attr_map = {
@@ -162,20 +172,28 @@ class EventJSONSchema(BaseMetadata):
             if value is not None and value != '':
                 field_info[dest_key] = value
 
-        if getattr(field, 'child', None):
-            field_info['child'] = self.get_field_info(field.child)
-        elif getattr(field, 'fields', None):
-            field_info['children'] = self.get_serializer_info(field)
-
         if not field_info.get('read_only'):
             if hasattr(field, 'object_choices'):
-                field_info['enum_ext'] = [
-                    {
-                        'value': choice_value,
-                        'title': force_text(choice_name, strings_only=True)
-                    }
-                    for choice_value, choice_name in field.object_choices
-                    ]
+                object_choices = field.object_choices
+                if isinstance(object_choices, dict):
+                    field_info['enum_ext'] ={}
+                    for group, values in object_choices.items():
+                        field_info['enum_ext'][group] = [
+                            {
+                                'value': choice_value,
+                                'title': force_text(choice_name,
+                                                    strings_only=True)
+                            }
+                            for choice_value, choice_name in values
+                        ]
+                else:
+                    field_info['enum_ext'] = [
+                        {
+                            'value': choice_value,
+                            'title': force_text(choice_name, strings_only=True)
+                        }
+                        for choice_value, choice_name in field.object_choices
+                        ]
             elif hasattr(field, 'choices'):
                 field_info['enum_ext'] = [
                     {
@@ -184,6 +202,8 @@ class EventJSONSchema(BaseMetadata):
                     }
                     for choice_value, choice_name in field.choices.items()
                     ]
+                field_info['enum'] = [v['value'] for v in
+                                      field_info['enum_ext']]
 
         return field_info
 
@@ -197,14 +217,6 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
 
         return mapping['serializer']().to_representation(value)
 
-    def get_queryset(self):
-        for obj in observations.models.Subject.objects.get_staff():
-            yield obj
-        for obj in get_user_model().objects.all().filter(is_active=True):
-            yield obj
-        for obj in activity.models.Community.objects.all():
-            yield obj
-
     def to_internal_value(self, data):
         mapping = REPORTED_SERIALIZER_MAPPING.get(
             data['content_type'], None)
@@ -214,17 +226,28 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
 
         return mapping['serializer']().to_internal_value(data)
 
+    def get_queryset(self):
+        return activity.models.Community.objects.all()
+
+    def get_object_queryset(self):
+        for p in activity.models.Event.PROVENANCE_CHOICES:
+            provenance = p[0]
+            values = list(activity.models.Event.objects.get_reported_by_for_provenance(
+                provenance))
+            if values:
+                yield (provenance, values)
+
     @property
     def object_choices(self):
-        queryset = self.get_queryset()
+        queryset = self.get_object_queryset()
         if queryset is None:
             # Ensure that field.choices returns something sensible
             # even when accessed with a read-only field.
             return {}
 
-        return [(self.to_representation(item),
-                 self.display_value(item))
-                 for item in queryset]
+        return {provenance: [(self.to_representation(item),
+                 self.display_value(item)) for item in values]
+                 for provenance, values in queryset}
 
 
 class AttachmentRelatedField(rest_framework.serializers.RelatedField):
