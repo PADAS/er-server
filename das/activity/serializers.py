@@ -1,15 +1,20 @@
 from collections import OrderedDict
 
-import rest_framework.serializers
-import rest_framework.metadata
 from core.serializers import ContentTypeField
+import django.db.models
 from django.contrib.auth import get_user_model
 from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
 from django.core.urlresolvers import reverse
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
 from drf_extra_fields.geo_fields import PointField
+import rest_framework.serializers
+from rest_framework.metadata import BaseMetadata
 from rest_framework.fields import DateTimeField
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, APIException
+from rest_framework.request import clone_request
+from rest_framework.utils.field_mapping import ClassLookupDict
 
 import activity.models
 import observations.models
@@ -51,16 +56,71 @@ REPORTED_SERIALIZER_MAPPING = {
 }
 
 
-class EventMetadata(rest_framework.metadata.SimpleMetadata):
+class EventJSONSchema(BaseMetadata):
+    label_lookup = ClassLookupDict({
+        rest_framework.serializers.Field: 'field',
+        rest_framework.serializers.BooleanField: 'boolean',
+        rest_framework.serializers.NullBooleanField: 'boolean',
+        rest_framework.serializers.CharField: 'string',
+        rest_framework.serializers.URLField: 'string',
+        rest_framework.serializers.EmailField: 'string',
+        rest_framework.serializers.RegexField: 'regex',
+        rest_framework.serializers.SlugField: 'string',
+        rest_framework.serializers.IntegerField: 'integer',
+        rest_framework.serializers.FloatField: 'number',
+        rest_framework.serializers.DecimalField: 'number',
+        rest_framework.serializers.DateField: 'string',
+        rest_framework.serializers.DateTimeField: 'string',
+        rest_framework.serializers.TimeField: 'string',
+        rest_framework.serializers.ChoiceField: 'string',
+        rest_framework.serializers.MultipleChoiceField: 'string',
+        rest_framework.serializers.FileField: 'file upload',
+        rest_framework.serializers.ImageField: 'image upload',
+        rest_framework.serializers.ListField: 'array',
+        rest_framework.serializers.DictField: 'object',
+        rest_framework.serializers.Serializer: 'object',
+    })
+    schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'type': 'object',
+        'properties': {},
+        'required': [],
+        'dependencies': {}
+    }
+
     def determine_metadata(self, request, view):
-        metadata = OrderedDict()
-        metadata['name'] = view.get_view_name()
+        metadata = OrderedDict(self.schema)
         metadata['description'] = view.get_view_description()
         if hasattr(view, 'get_serializer'):
-            defaults = self.determine_actions(request, view)
-            if defaults and 'POST' in defaults:
-                metadata['defaults'] = defaults['POST']
+            properties = self.determine_properties(request, view)
+            metadata['properties'] = properties
+
         return metadata
+
+    def determine_properties(self, request, view):
+        """Return the schema properties for a view"""
+
+        actions = {}
+        for method in {'PUT', 'POST'} & set(view.allowed_methods):
+            view.request = clone_request(request, method)
+            try:
+                # Test global permissions
+                if hasattr(view, 'check_permissions'):
+                    view.check_permissions(view.request)
+                # Test object permissions
+                if method == 'PUT' and hasattr(view, 'get_object'):
+                    view.get_object()
+            except (APIException, PermissionDenied, Http404):
+                pass
+            else:
+                # If user has appropriate permissions for the view, include
+                # appropriate metadata about the fields that should be supplied.
+                serializer = view.get_serializer()
+                return self.get_serializer_info(serializer)
+            finally:
+                view.request = request
+
+        return actions
 
     def get_serializer_info(self, serializer):
         """
@@ -72,12 +132,14 @@ class EventMetadata(rest_framework.metadata.SimpleMetadata):
             # underlying child serializer instance instead.
             serializer = serializer.child
 
-        def ignore_no_choice():
+        def get_fields():
             for field_name, field in serializer.fields.items():
+                if isinstance(field, (rest_framework.serializers.PrimaryKeyRelatedField,)):
+                    continue
                 value = self.get_field_info(field)
-                if value and 'choices' in value:
+                if value:
                     yield (field_name, value)
-        return OrderedDict([(key, value) for key, value in ignore_no_choice()
+        return OrderedDict([(key, value) for key, value in get_fields()
                            ])
 
     def get_field_info(self, field):
@@ -87,6 +149,7 @@ class EventMetadata(rest_framework.metadata.SimpleMetadata):
         """
         field_info = OrderedDict()
         field_info['type'] = self.label_lookup[field]
+        field_info['id'] = field
         field_info['required'] = getattr(field, 'required', False)
 
         attrs = [
@@ -107,19 +170,16 @@ class EventMetadata(rest_framework.metadata.SimpleMetadata):
 
         if not field_info.get('read_only'):
             if hasattr(field, 'object_choices'):
-                field_info['choices'] = [
+                field_info['oneOf'] = [
                     {
-                        'value': choice_value,
-                        'display_name': force_text(choice_name,
-                                                   strings_only=True)
+                        choice_value: force_text(choice_name, strings_only=True)
                     }
                     for choice_value, choice_name in field.object_choices
                     ]
             elif hasattr(field, 'choices'):
-                field_info['choices'] = [
+                field_info['oneOf'] = [
                     {
-                        'value': choice_value,
-                        'display_name': force_text(choice_name, strings_only=True)
+                        choice_value: force_text(choice_name, strings_only=True)
                     }
                     for choice_value, choice_name in field.choices.items()
                     ]
@@ -192,7 +252,8 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventNote
         read_only_fields = ('created_at',)
-        fields = ('id', 'created_by_user', 'text', 'event') + read_only_fields
+        write_only_fields = ('event',)
+        fields = ('id', 'created_by_user', 'text') + write_only_fields + read_only_fields
 
     def create(self, validated_data):
         return activity.models.EventNote.objects.create_note(**validated_data)

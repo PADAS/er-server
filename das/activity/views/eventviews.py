@@ -8,7 +8,7 @@ from rest_framework import mixins
 
 from activity.models import Event, EventNote
 from activity.serializers import EventSerializer, EventNoteSerializer,\
-    EventMetadata
+    EventJSONSchema
 
 LAST_DAYS = timedelta(days=3)
 
@@ -33,7 +33,7 @@ class EventsViewSet(mixins.CreateModelMixin,
                    max_page_size=StandardResultsSetPagination.max_page_size)
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
-    metadata_class = EventMetadata
+    metadata_class = EventJSONSchema
     queryset = Event.objects.all()
 
     def get_queryset(self):
@@ -69,7 +69,7 @@ class EventsView(generics.ListCreateAPIView):
 
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
-    metadata_class = EventMetadata
+    metadata_class = EventJSONSchema
 
     def get_queryset(self):
         queryset = Event.objects.all().order_by('-created_at')
