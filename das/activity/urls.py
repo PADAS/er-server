@@ -1,13 +1,10 @@
 from django.conf.urls import url, include
-from rest_framework import routers
 from . import views
 
-router = routers.SimpleRouter(trailing_slash=False)
-router.register(r'events', views.EventsViewSet)
 
 urlpatterns = [
-    url(r'^', include(router.urls)),
-    #url(r'^events/?$', views.EventsView.as_view()),
+    url(r'^events/?$', views.EventsView.as_view()),
+    url(r'^events/schema/?$', views.EventSchemaView.as_view()),
     url(r'^event/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.EventView.as_view(), name='event-view'),
     url(

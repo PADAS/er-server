@@ -15,6 +15,7 @@ from tracking.pubsub_registry import notify_new_tracks
 
 class GsatHandler():
     SENSOR_TYPE = 'gsat'
+    SOURCE_TYPE = 'gps-radio'
 
     gsat_map = {
         'manufacturer_id': lambda o: str(o.get('uniqueid')),
@@ -43,39 +44,38 @@ class GsatHandler():
 
     @staticmethod
     def _default_assigned_range(d1):
-        return (d1, d1 + timedelta(days=365*5))
+        return (d1, d1 + timedelta(days=365 * 5))
 
     @staticmethod
     def handle_observation(request, provider_key):
 
-            source_type = 'gps-radio'
+        obj = GsatHandler._parse_gsat_request(request.query_params)
 
-            obj = GsatHandler._parse_gsat_request(request.query_params)
+        obj['provider_key'] = provider_key
 
-            obj['provider_key'] = provider_key
+        model_name = '{}:{}'.format(GsatHandler.SENSOR_TYPE, provider_key)
+        src, created = Source.objects.ensure_source(GsatHandler.SOURCE_TYPE, obj.get('manufacturer_id'),
+                                                    model_name=model_name)
+        # If the Source already exists, assume the SubjectSource and Subject already exist.
+        if created:
+            ss, created = SubjectSource.objects.ensure_subject_source(src,
+                                                                      timestamp=obj['recorded_at'],
+                                                                      subject_type='person',
+                                                                      subject_subtype='ranger',
+                                                                      assigned_range=GsatHandler._default_assigned_range(
+                                                                          obj['recorded_at'])
+                                                                      )
 
-            model_name = '{}:{}'.format(GsatHandler.SENSOR_TYPE, provider_key)
-            src, created = Source.objects.ensure_source(source_type, obj.get('manufacturer_id'), model_name=model_name)
-            # If the Source already exists, assume the SubjectSource and Subject already exist.
-            if created:
-                ss, created = SubjectSource.objects.ensure_subject_source(src,
-                                                                 timestamp=obj['recorded_at'],
-                                                                 subject_type='person',
-                                                                 subject_subtype='ranger',
-                                                                 assigned_range=GsatHandler._default_assigned_range(obj['recorded_at'])
-                                                                 )
+        obj['additional'] = dict((k, obj[k]) for k in obj if k not in ('manufacturer_id', 'location', 'recorded_at',))
+        obj['source'] = src.id
 
-            obj['additional'] = dict((k, obj[k]) for k in obj if k not in ('manufacturer_id', 'location', 'recorded_at',))
-            obj['source'] = src.id
-            serializer = ObservationSerializer(data=obj)
-            if serializer.is_valid():
-                serializer.save()
+        serializer = ObservationSerializer(data=obj)
+        if serializer.is_valid():
+            serializer.save()
 
-                notify_new_tracks(src.id)
+            notify_new_tracks(src.id)
 
-                # GSAT service expects 200 and considers anything else bad.
-                return Response(serializer.data, status=status.HTTP_200_OK)
+            # GSAT service expects 200 and considers anything else bad.
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
