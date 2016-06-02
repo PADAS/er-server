@@ -40,6 +40,21 @@ def start(realtime_server):
         except Exception:
             logger.exception("Error handling new event for {0}".format(data, ))
 
+    def delete_event_handler(data, message):
+        try:
+                realtime_server.emit_delete_event(
+                    event_id=str(data['event_id']))
+        except Exception:
+            logger.exception("Error handling delete event for {0}".format(data))
+
+    def count_event_handler(data, message):
+        try:
+            count = Event.objects.count()
+            realtime_server.emit_count_event(count)
+        except Exception:
+            logger.exception(
+                "Error handling count event for {0}".format(data))
+
     def new_observation_handler(data, message):
         try:
             logger.info("Handling new observation: %s", data)
@@ -76,11 +91,17 @@ def start(realtime_server):
         subscriptions = [
             {'routing_key': 'das.tracking.source.observations.new', 'callback': new_observation_handler},
             {'routing_key': 'das.event.new', 'callback': new_event_handler},
+            {'routing_key': 'das.event.new', 'callback': count_event_handler},
             {'routing_key': 'das.event.update', 'callback': update_event_handler},
+            {'routing_key': 'das.event.delete',
+             'callback': delete_event_handler},
+            {'routing_key': 'das.event.delete',
+             'callback': count_event_handler},
+
         ]
         pubsub.subscribe(subscriptions)
 
-    eventlet.greenthread.spawn_n(pubsub_listener)
+    eventlet.spawn_n(pubsub_listener)
 
 
 
