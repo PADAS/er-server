@@ -32,6 +32,18 @@ class EventSchemaView(generics.ListCreateAPIView):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
 
 
+class EventsCountView(generics.ListAPIView):
+    serializer_class = EventSerializer
+    pagination_class = StandardResultsSetPagination
+    metadata_class = EventJSONSchema
+    queryset = Event.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        count = Event.objects.count()
+        data = {'count': count}
+        return generics.views.Response(data)
+
+
 class EventsView(generics.ListCreateAPIView):
     __doc__ = """
     Returns all events.
