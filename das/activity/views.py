@@ -2,10 +2,11 @@ from datetime import timedelta
 
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import generics
+import rest_framework.exceptions
 
 from activity.models import Event, EventNote
 from activity.serializers import EventSerializer, EventNoteSerializer,\
-    EventMetadata
+    EventJSONSchema
 
 LAST_DAYS = timedelta(days=3)
 
@@ -14,6 +15,21 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_size = 25
     page_size_query_param = 'page_size'
     max_page_size = 100
+
+
+class EventSchemaView(generics.ListCreateAPIView):
+    serializer_class = EventSerializer
+    pagination_class = StandardResultsSetPagination
+    metadata_class = EventJSONSchema
+    queryset = Event.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        meta = self.metadata_class()
+        data = meta.determine_metadata(request, self)
+        return generics.views.Response(data)
+
+    def post(self, request, *args, **kwargs):
+        raise rest_framework.exceptions.MethodNotAllowed('For Schema')
 
 
 class EventsView(generics.ListCreateAPIView):
@@ -29,7 +45,7 @@ class EventsView(generics.ListCreateAPIView):
 
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
-    metadata_class = EventMetadata
+    metadata_class = EventJSONSchema
 
     def get_queryset(self):
         queryset = Event.objects.all().order_by('-created_at')

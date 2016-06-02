@@ -36,6 +36,7 @@ app:
                 "/bower_components": "/opt/python/current/app/das/www/bower_components"
                 "/index.html": "/opt/python/current/app/das/www/index.html"
                 "/login": "/opt/python/current/app/das/www/index.html"
+                "/page-speed": "/opt/python/current/app/das/www/index.html"
                 "/robots.txt": "/opt/python/current/app/das/www/robots.txt"
                 "/favicon.ico": "/opt/python/current/app/das/www/favicon.ico"
                 "/docs": "/opt/python/current/app/das/docs"

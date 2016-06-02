@@ -1,22 +1,29 @@
+import logging
 from collections import OrderedDict
 
-import rest_framework.serializers
-import rest_framework.metadata
 from core.serializers import ContentTypeField
-from django.contrib.auth import get_user_model
 from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
 from django.core.urlresolvers import reverse
+from django.core.exceptions import PermissionDenied
+from django.contrib.auth import get_user_model
+from django.http import Http404
 from drf_extra_fields.geo_fields import PointField
+import drf_extra_fields.geo_fields
+import rest_framework.serializers
+from rest_framework.metadata import BaseMetadata
 from rest_framework.fields import DateTimeField
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, APIException
+from rest_framework.request import clone_request
+from rest_framework.utils.field_mapping import ClassLookupDict
 
 import activity.models
-import observations.models
 import utils
-from accounts.serializers import UserDisplaySerializer, get_username
+from accounts.serializers import UserDisplaySerializer, get_user_display
 from observations.serializers import SubjectSerializer, SourceSerializer
 from revision.manager import AC_UPDATED
+
+logger = logging.getLogger(__name__)
 
 
 class CommunitySerializer(rest_framework.serializers.ModelSerializer):
@@ -44,23 +51,79 @@ REPORTED_SERIALIZER_MAPPING = {
     'observations.subject': {'serializer': SubjectSerializer,
                              'field': 'subject'},
     'accounts.user': {'serializer': UserDisplaySerializer,
-                            'field': 'user'},
+                      'field': 'user'},
     'activity.community': {'serializer': CommunitySerializer,
-                          'field': 'community'},
+                           'field': 'community'},
 
 }
 
 
-class EventMetadata(rest_framework.metadata.SimpleMetadata):
+class EventJSONSchema(BaseMetadata):
+    label_lookup = ClassLookupDict({
+        rest_framework.serializers.BooleanField: 'boolean',
+        rest_framework.serializers.NullBooleanField: 'boolean',
+        rest_framework.serializers.CharField: 'string',
+        rest_framework.serializers.URLField: 'string',
+        rest_framework.serializers.EmailField: 'string',
+        rest_framework.serializers.RegexField: 'string',
+        rest_framework.serializers.SlugField: 'string',
+        rest_framework.serializers.IntegerField: 'integer',
+        rest_framework.serializers.FloatField: 'number',
+        rest_framework.serializers.DecimalField: 'number',
+        rest_framework.serializers.DateField: 'string',
+        rest_framework.serializers.DateTimeField: 'string',
+        rest_framework.serializers.TimeField: 'string',
+        rest_framework.serializers.ChoiceField: 'string',
+        rest_framework.serializers.MultipleChoiceField: 'string',
+        rest_framework.serializers.ListField: 'array',
+        rest_framework.serializers.DictField: 'object',
+        rest_framework.serializers.Serializer: 'object',
+        rest_framework.serializers.UUIDField: 'string',
+        rest_framework.serializers.RelatedField: 'object',
+        drf_extra_fields.geo_fields.PointField: 'string',
+
+    })
+    schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'type': 'object',
+        'properties': {},
+        'required': [],
+        'dependencies': {}
+    }
+
     def determine_metadata(self, request, view):
-        metadata = OrderedDict()
-        metadata['name'] = view.get_view_name()
+        metadata = OrderedDict(self.schema)
         metadata['description'] = view.get_view_description()
         if hasattr(view, 'get_serializer'):
-            defaults = self.determine_actions(request, view)
-            if defaults and 'POST' in defaults:
-                metadata['defaults'] = defaults['POST']
+            properties = self.determine_properties(request, view)
+            metadata['properties'] = properties
+
         return metadata
+
+    def determine_properties(self, request, view):
+        """Return the schema properties for a view"""
+
+        actions = {}
+        for method in {'PUT', 'POST'} & set(view.allowed_methods):
+            view.request = clone_request(request, method)
+            try:
+                # Test global permissions
+                if hasattr(view, 'check_permissions'):
+                    view.check_permissions(view.request)
+                # Test object permissions
+                if method == 'PUT' and hasattr(view, 'get_object'):
+                    view.get_object()
+            except (APIException, PermissionDenied, Http404):
+                pass
+            else:
+                # If user has appropriate permissions for the view, include
+                # appropriate metadata about the fields that should be supplied.
+                serializer = view.get_serializer()
+                return self.get_serializer_info(serializer)
+            finally:
+                view.request = request
+
+        return actions
 
     def get_serializer_info(self, serializer):
         """
@@ -72,13 +135,14 @@ class EventMetadata(rest_framework.metadata.SimpleMetadata):
             # underlying child serializer instance instead.
             serializer = serializer.child
 
-        def ignore_no_choice():
+        def get_fields():
             for field_name, field in serializer.fields.items():
                 value = self.get_field_info(field)
-                if value and 'choices' in value:
+                if value:
                     yield (field_name, value)
-        return OrderedDict([(key, value) for key, value in ignore_no_choice()
-                           ])
+
+        return OrderedDict([(key, value) for key, value in get_fields()
+                            ])
 
     def get_field_info(self, field):
         """
@@ -86,43 +150,59 @@ class EventMetadata(rest_framework.metadata.SimpleMetadata):
         of metadata about it.
         """
         field_info = OrderedDict()
-        field_info['type'] = self.label_lookup[field]
+        try:
+            field_info['type'] = self.label_lookup[field]
+        except KeyError:
+            logger.debug(
+                'Unsupported field {0} type {1} for JSON schema'.format(
+                    field.field_name, type(field)))
+            return None
+
         field_info['required'] = getattr(field, 'required', False)
 
-        attrs = [
-            'read_only', 'label', 'help_text',
-            'min_length', 'max_length',
-            'min_value', 'max_value'
-        ]
+        attr_map = {
+            'label': 'title', 'help_text': 'description',
+            'min_length': 'minLength', 'max_length': 'maxLength',
+            'min_value': 'minimum', 'max_value': 'maximum'
+        }
 
-        for attr in attrs:
-            value = getattr(field, attr, None)
+        for key, dest_key in attr_map.items():
+            value = getattr(field, key, None)
             if value is not None and value != '':
-                field_info[attr] = force_text(value, strings_only=True)
-
-        if getattr(field, 'child', None):
-            field_info['child'] = self.get_field_info(field.child)
-        elif getattr(field, 'fields', None):
-            field_info['children'] = self.get_serializer_info(field)
+                field_info[dest_key] = value
 
         if not field_info.get('read_only'):
             if hasattr(field, 'object_choices'):
-                field_info['choices'] = [
-                    {
-                        'value': choice_value,
-                        'display_name': force_text(choice_name,
-                                                   strings_only=True)
-                    }
-                    for choice_value, choice_name in field.object_choices
-                    ]
+                object_choices = field.object_choices
+                if isinstance(object_choices, dict):
+                    field_info['enum_ext'] = {}
+                    for group, values in object_choices.items():
+                        field_info['enum_ext'][group] = [
+                            {
+                                'value': choice_value,
+                                'title': force_text(choice_name,
+                                                    strings_only=True)
+                            }
+                            for choice_value, choice_name in values
+                            ]
+                else:
+                    field_info['enum_ext'] = [
+                        {
+                            'value': choice_value,
+                            'title': force_text(choice_name, strings_only=True)
+                        }
+                        for choice_value, choice_name in field.object_choices
+                        ]
             elif hasattr(field, 'choices'):
-                field_info['choices'] = [
+                field_info['enum_ext'] = [
                     {
                         'value': choice_value,
-                        'display_name': force_text(choice_name, strings_only=True)
+                        'title': force_text(choice_name, strings_only=True)
                     }
                     for choice_value, choice_name in field.choices.items()
                     ]
+                field_info['enum'] = [v['value'] for v in
+                                      field_info['enum_ext']]
 
         return field_info
 
@@ -132,17 +212,10 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
         mapping = REPORTED_SERIALIZER_MAPPING.get(
             value._meta.label_lower, None)
         if not mapping:
-            raise Exception('Unexpected ReportedBy Type {0}'.format(type(value)))
+            raise Exception(
+                'Unexpected ReportedBy Type {0}'.format(type(value)))
 
         return mapping['serializer']().to_representation(value)
-
-    def get_queryset(self):
-        for obj in observations.models.Subject.objects.get_staff():
-            yield obj
-        for obj in get_user_model().objects.all().filter(is_active=True):
-            yield obj
-        for obj in activity.models.Community.objects.all():
-            yield obj
 
     def to_internal_value(self, data):
         mapping = REPORTED_SERIALIZER_MAPPING.get(
@@ -153,17 +226,35 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
 
         return mapping['serializer']().to_internal_value(data)
 
+    def get_queryset(self):
+        return activity.models.Community.objects.all()
+
+    def get_object_queryset(self):
+        for p in activity.models.Event.PROVENANCE_CHOICES:
+            provenance = p[0]
+            values = list(
+                activity.models.Event.objects.get_reported_by_for_provenance(
+                    provenance))
+            if values:
+                yield (provenance, values)
+
+    def display_value(self, instance):
+        if isinstance(instance, get_user_model()):
+            return get_user_display(instance)
+        return super().display_value(instance)
+
     @property
     def object_choices(self):
-        queryset = self.get_queryset()
+        queryset = self.get_object_queryset()
         if queryset is None:
             # Ensure that field.choices returns something sensible
             # even when accessed with a read-only field.
             return {}
 
-        return [(self.to_representation(item),
-                 self.display_value(item))
-                 for item in queryset]
+        return {provenance: [(
+                                 self.to_representation(item),
+                                 self.display_value(item)) for item in values]
+                for provenance, values in queryset}
 
 
 class AttachmentRelatedField(rest_framework.serializers.RelatedField):
@@ -171,7 +262,8 @@ class AttachmentRelatedField(rest_framework.serializers.RelatedField):
         mapping = ATTACHMENT_SERIALIZER_MAPPING.get(
             value._meta.label_lower, None)
         if not mapping:
-            raise Exception('Unexpected Attachment Type {0}'.format(type(value)))
+            raise Exception(
+                'Unexpected Attachment Type {0}'.format(type(value)))
 
         return mapping['serializer']().to_representation(value)
 
@@ -192,7 +284,9 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventNote
         read_only_fields = ('created_at',)
-        fields = ('id', 'created_by_user', 'text', 'event') + read_only_fields
+        write_only_fields = ('event',)
+        fields = ('id', 'created_by_user',
+                  'text') + write_only_fields + read_only_fields
 
     def create(self, validated_data):
         return activity.models.EventNote.objects.create_note(**validated_data)
@@ -215,20 +309,20 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
                 fieldnames = [field_mapping[k] for k in revision.data.keys() if
                               k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
-                                         ', '.join(fieldnames))
+                                                ', '.join(fieldnames))
 
             return revision.get_action_display()
 
         return [
             dict(message='Note {action} by {user}'.format(
                 action=get_action(revision),
-                user=get_username(revision.user)),
+                user=get_user_display(revision.user)),
                 time=revision.revision_at.isoformat(),
                 text=revision.data.get('text', ''),
                 user=UserDisplaySerializer().to_representation(revision.user)
             )
             for revision in note.revision.all()
-        ]
+            ]
 
 
 class EventSerializer(rest_framework.serializers.ModelSerializer):
@@ -265,8 +359,8 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     def to_representation(self, event):
         rep = super().to_representation(event)
         rep['url'] = utils.add_base_url(self.context['request'],
-                                            reverse('event-view',
-                                                    args=[event.id, ]))
+                                        reverse('event-view',
+                                                args=[event.id, ]))
 
         if event.location is not None:
             geodata = make_feature(self.context['request'], event)
@@ -278,7 +372,8 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             try:
                 # TODO: Fix this so it can handle different types of attachments.
                 subject_attachment = subject_attachment[0]
-                rep['subject'] = SubjectSerializer().to_representation(subject_attachment.target)
+                rep['subject'] = SubjectSerializer().to_representation(
+                    subject_attachment.target)
             except:
                 pass
 
@@ -305,16 +400,17 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
                                  'location': 'Location',
                                  'provenance': 'Event Reporter',
                                  'created_by_user': 'Event Writer'}
-                fieldnames = [field_mapping[k] for k in revision.data.keys() if k in field_mapping]
+                fieldnames = [field_mapping[k] for k in revision.data.keys() if
+                              k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
                                                 ', '.join(fieldnames))
             return revision.get_action_display()
 
         return [dict(message='Event {action} by {user}'.format(
             action=get_action(revision),
-            user=get_username(revision.user)
+            user=get_user_display(revision.user)
         ), time=revision.revision_at.isoformat(),
-           user=UserDisplaySerializer().to_representation(revision.user))
+            user=UserDisplaySerializer().to_representation(revision.user))
                 for revision in event.revision.all()
                 ]
 
@@ -330,13 +426,13 @@ def make_feature(request, event):
     feature['type'] = 'Feature'
     feature['properties'] = {
         'message': event.message,
-        'datetime': event.time if isinstance(event.time, str) else event.time.isoformat(),
+        'datetime': event.time if isinstance(event.time,
+                                             str) else event.time.isoformat(),
         'image': event.image_url
     }
 
     properties = feature['properties']
     if hasattr(event, 'image_url'):
-
         properties['icon'] = {
             "iconUrl": image_url,
             "iconSize": [25, 25],

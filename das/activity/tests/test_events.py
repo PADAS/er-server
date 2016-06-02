@@ -125,6 +125,14 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         self.assertEqual(response_data['message'], update_data['message'])
 
+    def test_validate_serializer_schema(self):
+        request = self.factory.get(self.api_base + '/events/schema')
+        self.force_authenticate(request, self.user)
+
+        response = views.EventSchemaView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('provenance', response_data['properties'])
 
 
 class TestSerializers(TestCase):
