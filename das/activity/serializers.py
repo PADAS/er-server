@@ -341,7 +341,8 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         fields = (
             'id', 'location', 'time', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes',
-            'image_url', 'created_by_user', 'notes', 'reported_by')
+            'image_url', 'created_by_user', 'notes', 'reported_by',
+            'state')
 
     def create(self, validated_data):
         return activity.models.Event.objects.create_event(**validated_data)
@@ -396,6 +397,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             if revision.action == AC_UPDATED:
                 field_mapping = {'message': 'Event Text',
                                  'event_time': 'Event Time',
+                                 'state': 'Event State',
                                  'priority': 'Event Priority',
                                  'location': 'Location',
                                  'provenance': 'Event Reporter',
