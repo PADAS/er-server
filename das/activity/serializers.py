@@ -2,12 +2,11 @@ import logging
 from collections import OrderedDict
 
 from core.serializers import ContentTypeField
-import django.db.models
-from django.contrib.auth import get_user_model
 from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
 from django.core.urlresolvers import reverse
 from django.core.exceptions import PermissionDenied
+from django.contrib.auth import get_user_model
 from django.http import Http404
 from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
@@ -19,14 +18,13 @@ from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 
 import activity.models
-import observations.models
 import utils
-from accounts.serializers import UserDisplaySerializer, get_username
+from accounts.serializers import UserDisplaySerializer, get_user_display
 from observations.serializers import SubjectSerializer, SourceSerializer
 from revision.manager import AC_UPDATED
 
-
 logger = logging.getLogger(__name__)
+
 
 class CommunitySerializer(rest_framework.serializers.ModelSerializer):
     content_type = ContentTypeField()
@@ -53,15 +51,14 @@ REPORTED_SERIALIZER_MAPPING = {
     'observations.subject': {'serializer': SubjectSerializer,
                              'field': 'subject'},
     'accounts.user': {'serializer': UserDisplaySerializer,
-                            'field': 'user'},
+                      'field': 'user'},
     'activity.community': {'serializer': CommunitySerializer,
-                          'field': 'community'},
+                           'field': 'community'},
 
 }
 
 
 class EventJSONSchema(BaseMetadata):
-
     label_lookup = ClassLookupDict({
         rest_framework.serializers.BooleanField: 'boolean',
         rest_framework.serializers.NullBooleanField: 'boolean',
@@ -143,8 +140,9 @@ class EventJSONSchema(BaseMetadata):
                 value = self.get_field_info(field)
                 if value:
                     yield (field_name, value)
+
         return OrderedDict([(key, value) for key, value in get_fields()
-                           ])
+                            ])
 
     def get_field_info(self, field):
         """
@@ -155,8 +153,9 @@ class EventJSONSchema(BaseMetadata):
         try:
             field_info['type'] = self.label_lookup[field]
         except KeyError:
-            logger.debug('Unsupported field {0} type {1} for JSON schema'.format(
-                field.field_name, type(field)))
+            logger.debug(
+                'Unsupported field {0} type {1} for JSON schema'.format(
+                    field.field_name, type(field)))
             return None
 
         field_info['required'] = getattr(field, 'required', False)
@@ -176,7 +175,7 @@ class EventJSONSchema(BaseMetadata):
             if hasattr(field, 'object_choices'):
                 object_choices = field.object_choices
                 if isinstance(object_choices, dict):
-                    field_info['enum_ext'] ={}
+                    field_info['enum_ext'] = {}
                     for group, values in object_choices.items():
                         field_info['enum_ext'][group] = [
                             {
@@ -185,7 +184,7 @@ class EventJSONSchema(BaseMetadata):
                                                     strings_only=True)
                             }
                             for choice_value, choice_name in values
-                        ]
+                            ]
                 else:
                     field_info['enum_ext'] = [
                         {
@@ -213,7 +212,8 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
         mapping = REPORTED_SERIALIZER_MAPPING.get(
             value._meta.label_lower, None)
         if not mapping:
-            raise Exception('Unexpected ReportedBy Type {0}'.format(type(value)))
+            raise Exception(
+                'Unexpected ReportedBy Type {0}'.format(type(value)))
 
         return mapping['serializer']().to_representation(value)
 
@@ -232,10 +232,16 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
     def get_object_queryset(self):
         for p in activity.models.Event.PROVENANCE_CHOICES:
             provenance = p[0]
-            values = list(activity.models.Event.objects.get_reported_by_for_provenance(
-                provenance))
+            values = list(
+                activity.models.Event.objects.get_reported_by_for_provenance(
+                    provenance))
             if values:
                 yield (provenance, values)
+
+    def display_value(self, instance):
+        if isinstance(instance, get_user_model()):
+            return get_user_display(instance)
+        return super().display_value(instance)
 
     @property
     def object_choices(self):
@@ -245,9 +251,10 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
             # even when accessed with a read-only field.
             return {}
 
-        return {provenance: [(self.to_representation(item),
-                 self.display_value(item)) for item in values]
-                 for provenance, values in queryset}
+        return {provenance: [(
+                                 self.to_representation(item),
+                                 self.display_value(item)) for item in values]
+                for provenance, values in queryset}
 
 
 class AttachmentRelatedField(rest_framework.serializers.RelatedField):
@@ -255,7 +262,8 @@ class AttachmentRelatedField(rest_framework.serializers.RelatedField):
         mapping = ATTACHMENT_SERIALIZER_MAPPING.get(
             value._meta.label_lower, None)
         if not mapping:
-            raise Exception('Unexpected Attachment Type {0}'.format(type(value)))
+            raise Exception(
+                'Unexpected Attachment Type {0}'.format(type(value)))
 
         return mapping['serializer']().to_representation(value)
 
@@ -277,7 +285,8 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
         model = activity.models.EventNote
         read_only_fields = ('created_at',)
         write_only_fields = ('event',)
-        fields = ('id', 'created_by_user', 'text') + write_only_fields + read_only_fields
+        fields = ('id', 'created_by_user',
+                  'text') + write_only_fields + read_only_fields
 
     def create(self, validated_data):
         return activity.models.EventNote.objects.create_note(**validated_data)
@@ -300,20 +309,20 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
                 fieldnames = [field_mapping[k] for k in revision.data.keys() if
                               k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
-                                         ', '.join(fieldnames))
+                                                ', '.join(fieldnames))
 
             return revision.get_action_display()
 
         return [
             dict(message='Note {action} by {user}'.format(
                 action=get_action(revision),
-                user=get_username(revision.user)),
+                user=get_user_display(revision.user)),
                 time=revision.revision_at.isoformat(),
                 text=revision.data.get('text', ''),
                 user=UserDisplaySerializer().to_representation(revision.user)
             )
             for revision in note.revision.all()
-        ]
+            ]
 
 
 class EventSerializer(rest_framework.serializers.ModelSerializer):
@@ -350,8 +359,8 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     def to_representation(self, event):
         rep = super().to_representation(event)
         rep['url'] = utils.add_base_url(self.context['request'],
-                                            reverse('event-view',
-                                                    args=[event.id, ]))
+                                        reverse('event-view',
+                                                args=[event.id, ]))
 
         if event.location is not None:
             geodata = make_feature(self.context['request'], event)
@@ -363,7 +372,8 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             try:
                 # TODO: Fix this so it can handle different types of attachments.
                 subject_attachment = subject_attachment[0]
-                rep['subject'] = SubjectSerializer().to_representation(subject_attachment.target)
+                rep['subject'] = SubjectSerializer().to_representation(
+                    subject_attachment.target)
             except:
                 pass
 
@@ -390,16 +400,17 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
                                  'location': 'Location',
                                  'provenance': 'Event Reporter',
                                  'created_by_user': 'Event Writer'}
-                fieldnames = [field_mapping[k] for k in revision.data.keys() if k in field_mapping]
+                fieldnames = [field_mapping[k] for k in revision.data.keys() if
+                              k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
                                                 ', '.join(fieldnames))
             return revision.get_action_display()
 
         return [dict(message='Event {action} by {user}'.format(
             action=get_action(revision),
-            user=get_username(revision.user)
+            user=get_user_display(revision.user)
         ), time=revision.revision_at.isoformat(),
-           user=UserDisplaySerializer().to_representation(revision.user))
+            user=UserDisplaySerializer().to_representation(revision.user))
                 for revision in event.revision.all()
                 ]
 
@@ -415,13 +426,13 @@ def make_feature(request, event):
     feature['type'] = 'Feature'
     feature['properties'] = {
         'message': event.message,
-        'datetime': event.time if isinstance(event.time, str) else event.time.isoformat(),
+        'datetime': event.time if isinstance(event.time,
+                                             str) else event.time.isoformat(),
         'image': event.image_url
     }
 
     properties = feature['properties']
     if hasattr(event, 'image_url'):
-
         properties['icon'] = {
             "iconUrl": image_url,
             "iconSize": [25, 25],

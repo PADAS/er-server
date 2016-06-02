@@ -27,9 +27,13 @@ class UserDisplaySerializer(rest_framework.serializers.ModelSerializer):
         obj = get_user_model().objects.get(id=data['id'])
         return obj
 
-def get_username(user):
+
+def get_user_display(user):
     if not user:
         return ''
-    if not user.get_full_name():
-        return user.get_username()
-    return user.get_full_name()
+    try:
+        if user.get_full_name():
+            return user.get_full_name()
+    except NotImplementedError:
+        pass
+    return user.get_username()

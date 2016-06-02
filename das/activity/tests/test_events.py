@@ -132,6 +132,7 @@ class TestEventView(BaseAPITest):
         response = views.EventSchemaView.as_view()(request)
         response_data = response.data
         self.assertEqual(response.status_code, 200)
+        self.assertIn('provenance', response_data['properties'])
 
 
 class TestSerializers(TestCase):

@@ -2,9 +2,7 @@ from datetime import timedelta
 
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import generics
-from rest_framework import viewsets
-from rest_framework import decorators
-from rest_framework import mixins
+import rest_framework.exceptions
 
 from activity.models import Event, EventNote
 from activity.serializers import EventSerializer, EventNoteSerializer,\
@@ -19,7 +17,7 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 
-class EventSchemaView(generics.RetrieveAPIView):
+class EventSchemaView(generics.ListCreateAPIView):
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
@@ -29,6 +27,9 @@ class EventSchemaView(generics.RetrieveAPIView):
         meta = self.metadata_class()
         data = meta.determine_metadata(request, self)
         return generics.views.Response(data)
+
+    def post(self, request, *args, **kwargs):
+        raise rest_framework.exceptions.MethodNotAllowed('For Schema')
 
 
 class EventsView(generics.ListCreateAPIView):
