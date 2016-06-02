@@ -134,6 +134,15 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertIn('provenance', response_data['properties'])
 
+    def test_event_count(self):
+        request = self.factory.get(self.api_base + '/events/count')
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsCountView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response_data['count'], Event.objects.count())
+
 
 class TestSerializers(TestCase):
     def test_have_all_attachment_serializer_mappings(self):
