@@ -4,7 +4,10 @@ import sys
 
 if os.environ.get('EVENTLET_SHOULDPATCH', 'false').lower() == 'true':
     import eventlet
-    eventlet.monkey_patch()
+    if os.environ.get('EVENTLET_ATTACH_DEBUG', 'false').lower() == 'true':
+        eventlet.monkey_patch(all=False, socket=True, select=True, thread=False)
+    else:
+        eventlet.monkey_patch()
 
 """
 To run the local server:

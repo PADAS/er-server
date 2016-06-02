@@ -120,6 +120,18 @@ def create_realtime_handler(sios):
             RealtimeServices.emit('update_event', data, user)
 
         @staticmethod
+        def emit_delete_event(event_id, event_data=None, user=None):
+            data = {'type': 'delete_event', 'event_id': event_id}
+            logger.info("Emitting delete event. %s", event_id)
+            RealtimeServices.emit('delete_event', data, user)
+
+        @staticmethod
+        def emit_count_event(count, user=None):
+            data = {'type': 'count_event', 'count': count}
+            logger.info("Emitting count event change. %s", count)
+            RealtimeServices.emit('count_event', data, user)
+
+        @staticmethod
         def emit(message_type, data, user=None):
             try:
                 if user is None:
