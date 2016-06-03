@@ -325,6 +325,19 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
             ]
 
 
+class EventStateSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.Event
+        fields = ('state',)
+
+    def update(self, instance, validated_data):
+        for k, v in validated_data.items():
+            setattr(instance, k, v)
+        instance.save()
+        return instance
+
+
+
 class EventSerializer(rest_framework.serializers.ModelSerializer):
     # Using PointField here provides the magic to convert between a
     #  json {lat/lon} and our internal representation.
@@ -352,10 +365,6 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             setattr(instance, k, v)
         instance.save()
         return instance
-
-    def to_internal_value(self, data):
-        obj = super().to_internal_value(data)
-        return obj
 
     def to_representation(self, event):
         rep = super().to_representation(event)

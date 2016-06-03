@@ -6,7 +6,7 @@ import rest_framework.exceptions
 
 from activity.models import Event, EventNote
 from activity.serializers import EventSerializer, EventNoteSerializer,\
-    EventJSONSchema
+    EventJSONSchema, EventStateSerializer
 
 LAST_DAYS = timedelta(days=3)
 
@@ -76,13 +76,11 @@ class EventView(generics.RetrieveUpdateAPIView):
     queryset = Event.objects.all()
     lookup_field = 'id'
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        event = self.get_object()
 
-        context['time'] = event.created_at
-        context['coordinates'] = event.location
-        return context
+class EventStateView(generics.RetrieveUpdateAPIView):
+    serializer_class = EventStateSerializer
+    queryset = Event.objects.all()
+    lookup_field = 'id'
 
 
 class EventNotesView(generics.ListCreateAPIView):

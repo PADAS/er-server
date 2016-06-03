@@ -143,6 +143,36 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_data['count'], Event.objects.count())
 
+    def test_update_event_state_active(self):
+        event = self.create_event(self.event_data)
+        update_data = {'state': 'active'}
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}/state'.format(str(event.id)),
+            update_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventStateView.as_view()(request,
+                                             id=str(event.id))
+        self.assertEqual(response.status_code, 200)
+        response_data = response.data
+        self.assertEqual(response_data['state'], update_data['state'])
+
+    def test_update_event_active(self):
+        event = self.create_event(self.event_data)
+        update_data = {'state': 'active'}
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}'.format(str(event.id)),
+            update_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventStateView.as_view()(request,
+                                                  id=str(event.id))
+        self.assertEqual(response.status_code, 200)
+        response_data = response.data
+        self.assertEqual(response_data['state'], update_data['state'])
+
 
 class TestSerializers(TestCase):
     def test_have_all_attachment_serializer_mappings(self):
