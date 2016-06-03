@@ -43,10 +43,11 @@ class Community(TimestampedModel):
         return self.name
 
 
-class EventManager(models.Manager):
+class EventFilteringQuerySet(models.QuerySet):
     def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
-        events = Event.objects.filter(location__within=geom).order_by('-created_at')
+        events = self.filter(location__within=geom).order_by(
+            '-created_at')
         if last_days:
             lt = timezone.now()
             gt = lt - last_days
@@ -54,6 +55,14 @@ class EventManager(models.Manager):
 
         return events
 
+    def by_state(self, state):
+        return self.filter(state=state)
+
+    def by_event_type(self, event_type):
+        return self.filter(event_type=event_type)
+
+
+class EventManager(models.Manager):
     def create_event(self, **values):
         return self.create(**values)
 
@@ -70,7 +79,7 @@ class EventManager(models.Manager):
 
 
 class Event(RevisionMixin, TimestampedModel):
-    objects = EventManager()
+    objects = EventManager.from_queryset(EventFilteringQuerySet)()
 
     ordering = ['-created_at']
 
@@ -173,9 +182,9 @@ class Event(RevisionMixin, TimestampedModel):
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   default=PC_SYSTEM)
     event_type = models.CharField(max_length=40, choices=EVENT_TYPE_CHOICES,
-                                  default=ET_SYSTEM)
+                                  default=ET_SYSTEM, db_index=True)
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
-                             default=SC_NEW)
+                             default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)
     priority = models.PositiveSmallIntegerField(
         db_column='priority',
