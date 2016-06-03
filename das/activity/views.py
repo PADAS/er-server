@@ -72,7 +72,13 @@ class EventsView(generics.ListCreateAPIView):
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
-            queryset = Event.objects.by_bbox(bbox, last_days=LAST_DAYS).order_by('-created_at')
+            queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS)
+        state = self.request.query_params.get('state', None)
+        if state:
+            queryset = queryset.by_state(state)
+        event_type = self.request.query_params.get('event_type', None)
+        if event_type:
+            queryset = queryset.by_event_type(event_type)
         return queryset
 
 
