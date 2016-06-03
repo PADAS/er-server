@@ -331,9 +331,12 @@ class EventStateSerializer(rest_framework.serializers.ModelSerializer):
         fields = ('state',)
 
     def update(self, instance, validated_data):
+        dirty = False
         for k, v in validated_data.items():
+            dirty |= getattr(instance, k) != v
             setattr(instance, k, v)
-        instance.save()
+        if dirty:
+            instance.save()
         return instance
 
 
