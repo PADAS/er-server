@@ -151,6 +151,17 @@ class Event(RevisionMixin, TimestampedModel):
     )
 
     PRIORITY_LABELS_MAP = dict((x, y) for (x,y) in PRIORITY_CHOICES)
+
+    class Meta:
+        permissions = (
+            ('view_event',
+             'Permission to view an event'),
+            ('admin_event',
+             'An admin permission to change which users can view a Subject and their view permission.'),
+
+        )
+
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
     message = models.TextField(blank=True)
