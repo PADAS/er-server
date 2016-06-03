@@ -91,6 +91,16 @@ class Event(RevisionMixin, TimestampedModel):
         (PC_COMMUNITY, 'Community'),
     )
 
+    SC_NEW = 'new'
+    SC_ACTIVE = 'active'
+    SC_RESOLVED = 'resolved'
+
+    STATE_CHOICES = (
+        (SC_NEW, 'New'),
+        (SC_ACTIVE, 'Active'),
+        (SC_RESOLVED, 'Resolved'),
+    )
+
     ET_SYSTEM = 'system'
     ET_PROXIMITY = 'proximity'
     ET_GEOFENCE = 'geofence'
@@ -141,6 +151,17 @@ class Event(RevisionMixin, TimestampedModel):
     )
 
     PRIORITY_LABELS_MAP = dict((x, y) for (x,y) in PRIORITY_CHOICES)
+
+    class Meta:
+        permissions = (
+            ('view_event',
+             'Permission to view an event'),
+            ('admin_event',
+             'An admin permission to change which users can view a Subject and their view permission.'),
+
+        )
+
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
     message = models.TextField(blank=True)
@@ -153,6 +174,8 @@ class Event(RevisionMixin, TimestampedModel):
                                   default=PC_SYSTEM)
     event_type = models.CharField(max_length=40, choices=EVENT_TYPE_CHOICES,
                                   default=ET_SYSTEM)
+    state = models.CharField(max_length=40, choices=STATE_CHOICES,
+                             default=SC_NEW)
     location = models.PointField(srid=4326, null=True, blank=True)
     priority = models.PositiveSmallIntegerField(
         db_column='priority',
@@ -173,7 +196,6 @@ class Event(RevisionMixin, TimestampedModel):
     reported_by_id = models.UUIDField(null=True, blank=True, default=None)
     reported_by = GenericForeignKey('reported_by_content_type',
                                     'reported_by_id')
-
 
     @property
     def priority_label(self):

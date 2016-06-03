@@ -6,10 +6,12 @@ from django.db import transaction
 from django.utils import lorem_ipsum
 from django.test import TestCase
 from django.utils import timezone
+from django.contrib.auth.models import Permission
 from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
 from core.tests import BaseAPITest
+from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment
 from activity.models import get_sentinel_user
 from activity.serializers import ATTACHMENT_SERIALIZER_MAPPING
@@ -46,6 +48,12 @@ class TestEventView(BaseAPITest):
     def setUp(self):
         super().setUp()
         self.user = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True)
+        self.readonly_user = User.objects.create_user('readonly',
+                                                      'readonly@test.com',
+                                                      'readonly')
+        self.no_perms_user = User.objects.create_user('noperms',
+                                                      'noperms@test.com',
+                                                      'noperms')
         self.user_rep = UserDisplaySerializer().to_representation(self.user)
         self.staff = Subject.objects.create(name='Ranger 2', additional={})
         self.staff_rep = SubjectSerializer().to_representation(self.staff)
@@ -60,6 +68,11 @@ class TestEventView(BaseAPITest):
             )
 
         self.sample_event = self.create_event(self.event_data)
+
+        self.event_set = PermissionSet.objects.create(name='eventset')
+        self.event_set.permissions.add(
+            Permission.objects.get(codename='view_event'))
+        self.readonly_user.permission_sets.add(self.event_set)
 
     def create_event(self, event_data):
         data = copy.deepcopy(event_data)
@@ -108,6 +121,18 @@ class TestEventView(BaseAPITest):
         response_data = {k: response_data[k] for k in note_data.keys()}
         self.assertDictEqual(response_data, note_data)
 
+    def test_add_note_view_permission(self):
+        note_data = {'text': lorem_ipsum.paragraph()}
+        request = self.factory.post(self.api_base
+                                    + '/event/{0}/notes'.format(
+            self.sample_event.id),
+                                    note_data)
+        self.force_authenticate(request, self.readonly_user)
+
+        response = views.EventNotesView.as_view()(request,
+                                                  id=str(self.sample_event.id))
+        self.assertEqual(response.status_code, 403)
+
     def test_update_message_succeed(self):
         event = self.create_event(self.event_data)
 
@@ -142,6 +167,59 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_data['count'], Event.objects.count())
+
+    def test_event_count_no_view_permission(self):
+        request = self.factory.get(self.api_base + '/events/count')
+        self.force_authenticate(request, self.no_perms_user)
+
+        response = views.EventsCountView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 403)
+
+
+    def test_update_event_state_active(self):
+        event = self.create_event(self.event_data)
+        update_data = {'state': 'active'}
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}/state'.format(str(event.id)),
+            update_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventStateView.as_view()(request,
+                                             id=str(event.id))
+        self.assertEqual(response.status_code, 200)
+        response_data = response.data
+        self.assertEqual(response_data['state'], update_data['state'])
+
+    def test_update_event_active(self):
+        event = self.create_event(self.event_data)
+        update_data = {'state': 'active'}
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}'.format(str(event.id)),
+            update_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventStateView.as_view()(request,
+                                                  id=str(event.id))
+        self.assertEqual(response.status_code, 200)
+        response_data = response.data
+        self.assertEqual(response_data['state'], update_data['state'])
+
+    def test_update_event_active_no_permission(self):
+        event = self.create_event(self.event_data)
+        update_data = {'state': 'active'}
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}'.format(str(event.id)),
+            update_data)
+        self.force_authenticate(request, self.readonly_user)
+
+        response = views.EventStateView.as_view()(request,
+                                                  id=str(event.id))
+        self.assertEqual(response.status_code, 403)
+
 
 
 class TestSerializers(TestCase):

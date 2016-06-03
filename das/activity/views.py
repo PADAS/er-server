@@ -6,7 +6,9 @@ import rest_framework.exceptions
 
 from activity.models import Event, EventNote
 from activity.serializers import EventSerializer, EventNoteSerializer,\
-    EventJSONSchema
+    EventJSONSchema, EventStateSerializer
+from activity.filters import EventObjectPermissionsFilter
+from activity.permissions import EventObjectPermissions
 
 LAST_DAYS = timedelta(days=3)
 
@@ -18,6 +20,7 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 
 class EventSchemaView(generics.ListCreateAPIView):
+    permission_classes = (EventObjectPermissions,)
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
@@ -33,6 +36,7 @@ class EventSchemaView(generics.ListCreateAPIView):
 
 
 class EventsCountView(generics.ListAPIView):
+    permission_classes = (EventObjectPermissions,)
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
@@ -54,7 +58,8 @@ class EventsView(generics.ListCreateAPIView):
     page_size, (default is {page_size}, max is {max_page_size})
     """.format(page_size=StandardResultsSetPagination.page_size,
                     max_page_size=StandardResultsSetPagination.max_page_size)
-
+    permission_classes = (EventObjectPermissions,)
+    filter_backends = (EventObjectPermissionsFilter,)
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
@@ -72,20 +77,21 @@ class EventsView(generics.ListCreateAPIView):
 
 
 class EventView(generics.RetrieveUpdateAPIView):
+    permission_classes = (EventObjectPermissions,)
     serializer_class = EventSerializer
     queryset = Event.objects.all()
     lookup_field = 'id'
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        event = self.get_object()
 
-        context['time'] = event.created_at
-        context['coordinates'] = event.location
-        return context
+class EventStateView(generics.RetrieveUpdateAPIView):
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = EventStateSerializer
+    queryset = Event.objects.all()
+    lookup_field = 'id'
 
 
 class EventNotesView(generics.ListCreateAPIView):
+    permission_classes = (EventObjectPermissions,)
     serializer_class = EventNoteSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -102,6 +108,7 @@ class EventNotesView(generics.ListCreateAPIView):
 
 
 class EventNoteView(generics.RetrieveUpdateAPIView):
+    permission_classes = (EventObjectPermissions,)
     serializer_class = EventNoteSerializer
 
     def get_queryset(self):
