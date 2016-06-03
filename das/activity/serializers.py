@@ -419,11 +419,24 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
 
         return [dict(message='Event {action} by {user}'.format(
             action=get_action(revision),
-            user=get_user_display(revision.user)
+            user=self.get_user_display(revision.user, event)
         ), time=revision.revision_at.isoformat(),
-            user=UserDisplaySerializer().to_representation(revision.user))
+            user=self.get_revision_user(revision.user, event))
                 for revision in event.revision.all()
                 ]
+
+    def get_user_display(self, user, event):
+        if user:
+            return get_user_display(user)
+        return event.get_provenance_display()
+
+    def get_revision_user(self, user, event):
+        if user:
+            return UserDisplaySerializer().to_representation(
+            user)
+        return {'first_name': event.get_provenance_display(),
+                'last_name': '',
+                'username': event.provenance}
 
 
 def make_feature(request, event):

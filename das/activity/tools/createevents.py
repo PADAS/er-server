@@ -1,12 +1,9 @@
+import random
+
 import django
 django.setup()
 from django.contrib.gis.geos import Point
-import random
-import datetime
-import pytz
-from functools import namedtuple
 
-import observations
 from activity.models import Event
 
 def gen_random_point():
@@ -26,13 +23,14 @@ try:
             Event(message='Test event {}'.format(x),
                   event_type=Event.ET_SYSTEM,
                   priority=Event.PRI_IMPORTANT,
-                  provenance=Event.PC_COMMUNITY,
+                  provenance=Event.PC_SYSTEM,
                   attributes={},
                   location=gen_random_point()
                   )
         )
 
-    Event.objects.bulk_create(newevents)
+    for event in newevents:
+        event.save()
 
 except Exception as e:
     print(e)
