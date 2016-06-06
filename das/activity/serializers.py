@@ -283,7 +283,7 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = activity.models.EventNote
-        read_only_fields = ('created_at',)
+        read_only_fields = ('created_at', 'updated_at')
         write_only_fields = ('event',)
         fields = ('id', 'created_by_user',
                   'text') + write_only_fields + read_only_fields
@@ -354,11 +354,12 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = activity.models.Event
+        read_only_fields = ('updated_at',)
         fields = (
             'id', 'location', 'time', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes',
             'image_url', 'created_by_user', 'notes', 'reported_by',
-            'state')
+            'state') + read_only_fields
 
     def create(self, validated_data):
         return activity.models.Event.objects.create_event(**validated_data)

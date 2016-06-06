@@ -36,6 +36,9 @@ class EventSchemaView(generics.ListCreateAPIView):
 
 
 class EventsCountView(generics.ListAPIView):
+    __doc__ = """
+    Returns the count of New Events.
+    """
     permission_classes = (EventObjectPermissions,)
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
@@ -43,7 +46,7 @@ class EventsCountView(generics.ListAPIView):
     queryset = Event.objects.all()
 
     def get(self, request, *args, **kwargs):
-        count = Event.objects.count()
+        count = Event.objects.new_count()
         data = {'count': count}
         return generics.views.Response(data)
 
@@ -65,7 +68,7 @@ class EventsView(generics.ListCreateAPIView):
     metadata_class = EventJSONSchema
 
     def get_queryset(self):
-        queryset = Event.objects.all().order_by('-created_at')
+        queryset = Event.objects.all().order_by('-updated_at')
         bbox = self.request.query_params.get('bbox', None)
         if bbox:
             bbox = bbox.split(',')
@@ -73,10 +76,10 @@ class EventsView(generics.ListCreateAPIView):
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
             queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS)
-        state = self.request.query_params.get('state', None)
+        state = self.request.query_params.getlist('state', None)
         if state:
             queryset = queryset.by_state(state)
-        event_type = self.request.query_params.get('event_type', None)
+        event_type = self.request.query_params.getlist('event_type', None)
         if event_type:
             queryset = queryset.by_event_type(event_type)
         return queryset

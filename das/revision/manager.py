@@ -71,8 +71,11 @@ def get_revision_model(model):
 class RevisionAdapter(object):
     fields = ()
     exclude = []
+
     def __init__(self, model):
         self.model = model
+        self.ignore_fields = getattr(model,
+                                     'revision_ignore_fields', [])
 
     def get_fieldnames(self):
         opts = self.model._meta.concrete_model._meta
@@ -106,6 +109,9 @@ class RevisionAdapter(object):
     def get_serialized_data_diff(self, obj, original):
         fields = list(self.get_fieldnames())
         fields_diff = [key for key in fields if original.get(key, None) != getattr(obj, key)]
+        if fields_diff:
+            if not set(fields_diff) ^ set(self.ignore_fields):
+                return None
         return self._serialize(obj, fields_diff)
 
 
@@ -125,7 +131,7 @@ class Revision(object):
 
     def contribute_to_class(self, cls, name):
         self.manager_name = name
-        models.signals.class_prepared.connect(self.finalize, sender = cls)
+        models.signals.class_prepared.connect(self.finalize, sender=cls)
 
     def create_revision(self, instance, action):
         user = getattr(instance, 'revision_user', None)
@@ -141,6 +147,8 @@ class Revision(object):
         else:
             data = adapter.get_serialized_data_diff(instance,
                                                     instance.revision_original)
+            if not data:
+                return
 
         manager.create(
             object_id=instance.id,

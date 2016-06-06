@@ -49,7 +49,7 @@ def start(realtime_server):
 
     def count_event_handler(data, message):
         try:
-            count = Event.objects.count()
+            count = Event.objects.new_count()
             realtime_server.emit_count_event(count)
         except Exception:
             logger.exception(

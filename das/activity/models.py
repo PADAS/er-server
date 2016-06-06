@@ -56,10 +56,23 @@ class EventFilteringQuerySet(models.QuerySet):
         return events
 
     def by_state(self, state):
-        return self.filter(state=state)
+        return self._by_field('state', state)
 
     def by_event_type(self, event_type):
-        return self.filter(event_type=event_type)
+        return self._by_field('event_type', event_type)
+
+    def _by_field(self, field_name, field_data):
+        if not field_data:
+            return self
+
+        if isinstance(field_data, (list, tuple)):
+            field_q = None
+            for value in field_data:
+                field_q = field_q | models.Q(**{field_name: value}) if field_q\
+                    else models.Q(**{field_name: value})
+        else:
+            field_q = models.Q(**{field_name: field_data})
+        return self.filter(field_q)
 
 
 class EventManager(models.Manager):
@@ -77,10 +90,12 @@ class EventManager(models.Manager):
             for obj in Community.objects.all():
                 yield obj
 
+    def new_count(self):
+        return self.filter(state=Event.SC_NEW).count()
 
 class Event(RevisionMixin, TimestampedModel):
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
-
+    revision_ignore_fields = ('updated_at', )
     ordering = ['-created_at']
 
     '''
@@ -170,7 +185,6 @@ class Event(RevisionMixin, TimestampedModel):
 
         )
 
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
     message = models.TextField(blank=True)
@@ -230,6 +244,10 @@ class Event(RevisionMixin, TimestampedModel):
         )
         return [event_attachment.target for event_attachment in event_attachments]
 
+    def dependent_table_updated(self):
+        self.updated_at = timezone.now()
+        self.save()
+
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
@@ -281,6 +299,11 @@ class EventAttachment(RevisionMixin, models.Model):
                               default='target')
     revision = Revision()
 
+    def save(self, *args, **kwargs):
+        result = super().save(*args, **kwargs)
+        self.event.dependent_table_updated()
+        return result
+
     def __str__(self):
         # TODO: Devise a better way to represent EventAttachment.
         return '{0}:{1}'.format(self.target.__str__(), self.reason)
@@ -303,6 +326,11 @@ class EventNote(RevisionMixin, TimestampedModel):
                               related_name='notes',
                               related_query_name='note')
     revision = Revision()
+
+    def save(self, *args, **kwargs):
+        result = super().save(*args, **kwargs)
+        self.event.dependent_table_updated()
+        return result
 
     def __str__(self):
         return '{0}'.format(self.text[50:])

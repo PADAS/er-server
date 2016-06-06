@@ -25,18 +25,3 @@ def event_post_delete(sender, instance, **kwargs):
     pubsub.publish(
         {'event_id': str(instance.pk)},
         'das.event.delete')
-
-
-@receiver(post_save, sender=EventNote)
-def event_note_post_save(sender, instance, created, **kwargs):
-    logger.info("saved note for event {}, created={}".format(instance.event_id, str(created)))
-    transaction.on_commit(lambda: pubsub.publish(
-        {'event_id': str(instance.event_id)}, 'das.event.update'))
-
-
-@receiver(post_save, sender=EventAttachment)
-def event_attachment_post_save(sender, instance, created, **kwargs):
-    logger.info("saved attachment for event {}, created={}".format(instance.event_id, str(created)))
-    transaction.on_commit(lambda: pubsub.publish(
-        {'event_id': str(instance.event_id)}, 'das.event.update'))
-
