@@ -408,7 +408,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     def render_updates(self, event):
         def get_action(revision):
             if revision.action == AC_UPDATED:
-                field_mapping = {'message': 'Event Text',
+                field_mapping = {'message': 'Event Message',
                                  'event_time': 'Event Time',
                                  'state': 'Event State',
                                  'priority': 'Event Priority',

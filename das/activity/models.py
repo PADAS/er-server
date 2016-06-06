@@ -11,14 +11,13 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
 from django.utils import timezone
+from utils.html import clean_user_text
 from django.utils.translation import ugettext_lazy as _
 
 
 from core.models import TimestampedModel
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
-
-logger = logging.getLogger(__name__)
 
 
 def get_sentinel_user():
@@ -92,6 +91,8 @@ class EventManager(models.Manager):
 
     def new_count(self):
         return self.filter(state=Event.SC_NEW).count()
+
+
 
 class Event(RevisionMixin, TimestampedModel):
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
@@ -264,6 +265,8 @@ class Event(RevisionMixin, TimestampedModel):
                 {'reported_by': ValidationError(
                     _('Invalid value for provenance and reported_by fields'), code='invalid')})
 
+        self.message = clean_user_text(self.message, 'Event.message')
+
     def __str__(self):
         return self.message[50:]
 
@@ -328,9 +331,14 @@ class EventNote(RevisionMixin, TimestampedModel):
     revision = Revision()
 
     def save(self, *args, **kwargs):
+        self.full_clean()
         result = super().save(*args, **kwargs)
         self.event.dependent_table_updated()
         return result
+
+    def clean(self):
+        super().clean()
+        self.text = clean_user_text(self.text, 'EventNote.text')
 
     def __str__(self):
         return '{0}'.format(self.text[50:])
