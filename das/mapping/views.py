@@ -79,18 +79,10 @@ class FeatureSetGeoJsonView(APIView):
                             list(chain(PolygonFeature.objects.filter(featureset=featureset),
                                        LineFeature.objects.filter(featureset=featureset),
                                        PointFeature.objects.filter(featureset=featureset))),
+                            properties={'name': 'title', 'image_url': 'image'},
                             geometry_field='feature_geometry'
                             )
 
-        # horrible hack to move presentation into properties for simplespec
-        # FIXME: make serialize() do this, or figure out if mapbox can use
-        # a different property than 'properties' for styling
-        doc = json.loads(feature)
-        for feature in doc['features']:
-            feature['properties'].update(feature['properties']['presentation'])
-            del feature['properties']['presentation']
-
-        feature = json.dumps(doc)
         return HttpResponse(feature, content_type='application/json')
 
     def post(self, request, format=None):

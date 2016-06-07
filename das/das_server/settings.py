@@ -48,7 +48,6 @@ INSTALLED_APPS = (
     'oauth2_provider',
     'rest_framework',
     'rest_framework_swagger',
-    'djgeojson',
     'raster',
     'observations',
     'analyzers',
@@ -143,7 +142,7 @@ AUTHENTICATION_BACKENDS = (
 )
 
 SERIALIZATION_MODULES = {
-    'geojson' : 'djgeojson.serializers'
+    'geojson' : 'core.serializers'
 }
 
 # Database

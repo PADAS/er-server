@@ -157,12 +157,14 @@ class Revision(object):
             user=user,
             data=data
         )
+        instance.revision_sequence += 1
 
     def post_save(self, instance, created, **kwargs):
         try:
             self.create_revision(instance, created and AC_ADDED or AC_UPDATED)
         except Exception as ex:
             logger.exception(ex)
+            raise
 
     def post_delete(self, instance, **kwargs):
         self.create_revision(instance, AC_DELETED)

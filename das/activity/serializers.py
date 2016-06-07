@@ -340,7 +340,6 @@ class EventStateSerializer(rest_framework.serializers.ModelSerializer):
         return instance
 
 
-
 class EventSerializer(rest_framework.serializers.ModelSerializer):
     # Using PointField here provides the magic to convert between a
     #  json {lat/lon} and our internal representation.
