@@ -104,7 +104,6 @@ class RegionSubjectsView(generics.ListAPIView):
     def get_queryset(self):
         region = generics.get_object_or_404(models.Region.objects.all(),
                                             slug=self.kwargs['slug'])
-        self.check_object_permissions(self.request, region)
         subjects = models.Subject.objects.by_region(region)
         return subjects
 
