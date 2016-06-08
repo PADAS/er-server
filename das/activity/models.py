@@ -234,7 +234,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     @property
     def image_url(self):
-        return marker_icon(self.event_type, self.get_priority_display().lower())
+        return marker_icon(self.event_type, str(self.priority))
 
     @property
     def subjects(self):
