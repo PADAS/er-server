@@ -63,7 +63,7 @@ class TestEventView(BaseAPITest):
             time=DateTimeField().to_representation(timezone.now()),
             provenance=Event.PC_COMMUNITY,
             event_type=Event.ET_OTHER,
-            priority=Event.PRI_DEFAULT_VALUE,
+            priority=Event.PRI_REFERENCE,
             location=dict(longitude='40.1353', latitude='-1.891517')
             )
 
@@ -80,8 +80,9 @@ class TestEventView(BaseAPITest):
             data['event_time'] = DateTimeField().to_internal_value(
                 event_data['time'])
             del data['time']
-        data['location'] = PointField().to_internal_value(
-            data['location'])
+        if 'location' in data:
+            data['location'] = PointField().to_internal_value(
+                data['location'])
         return Event.objects.create_event(**data)
 
     def test_return_event_details(self):
@@ -98,6 +99,18 @@ class TestEventView(BaseAPITest):
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
         event_data['provenance'] = Event.PC_STAFF
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        response_data = {k:response_data[k] for k in event_data.keys()}
+        self.assertDictEqual(response_data, event_data)
+
+    def test_create_new_message_only_event(self):
+        event_data = {'message': lorem_ipsum.sentence(),
+                      }
         request = self.factory.post(self.api_base + '/events/', event_data)
         self.force_authenticate(request, self.user)
 

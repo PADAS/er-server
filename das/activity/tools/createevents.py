@@ -21,7 +21,7 @@ try:
     for x in range(0,100):
         newevents.append(
             Event(message='Test event {}'.format(x),
-                  event_type=Event.ET_SYSTEM,
+                  event_type=Event.ET_OTHER,
                   priority=Event.PRI_IMPORTANT,
                   provenance=Event.PC_SYSTEM,
                   attributes={},

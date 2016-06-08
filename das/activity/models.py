@@ -144,6 +144,8 @@ class Event(RevisionMixin, TimestampedModel):
     ET_GUNSHOT_HEARD = 'gunshot-heard'
     ET_RADIO_TEXT_MESSAGE = 'radio-text-message'
 
+    ET_DEFAULT_VALUE = ET_OTHER
+
     EVENT_TYPE_CHOICES = (
         (ET_SYSTEM, 'System'),
         (ET_PROXIMITY, 'Proximity'),
@@ -166,8 +168,6 @@ class Event(RevisionMixin, TimestampedModel):
     PRI_URGENT = 300
     PRI_IMPORTANT = 200
     PRI_REFERENCE = 100
-
-    PRI_DEFAULT_VALUE = PRI_REFERENCE
 
     PRIORITY_CHOICES = (
         (100, 'Reference'),
@@ -195,15 +195,14 @@ class Event(RevisionMixin, TimestampedModel):
 
     event_time = models.DateTimeField(default=django.utils.timezone.now)
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
-                                  default=PC_SYSTEM)
+                                  blank=True)
     event_type = models.CharField(max_length=40, choices=EVENT_TYPE_CHOICES,
-                                  default=ET_SYSTEM, db_index=True)
+                                  db_index=True, default=ET_OTHER)
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)
-    priority = models.PositiveSmallIntegerField(
-        db_column='priority',
-        default=PRI_DEFAULT_VALUE, choices=PRIORITY_CHOICES)
+    priority = models.PositiveSmallIntegerField(default=PRI_REFERENCE,
+                                                choices=PRIORITY_CHOICES)
     attributes = JSONField(default={}, blank=True)
     revision = Revision()
 

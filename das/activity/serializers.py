@@ -12,7 +12,7 @@ from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
 import rest_framework.serializers
 from rest_framework.metadata import BaseMetadata
-from rest_framework.fields import DateTimeField
+from rest_framework.fields import DateTimeField, IntegerField
 from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
@@ -344,12 +344,12 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     # Using PointField here provides the magic to convert between a
     #  json {lat/lon} and our internal representation.
     location = PointField(required=False)
-    time = DateTimeField(source='event_time')
+    time = DateTimeField(source='event_time', required=False)
     created_by_user = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault()
     )
     notes = EventNoteSerializer(many=True, required=False)
-    reported_by = ReportedByRelatedField()
+    reported_by = ReportedByRelatedField(required=False)
 
     class Meta:
         model = activity.models.Event
