@@ -170,9 +170,9 @@ class Event(RevisionMixin, TimestampedModel):
     PRI_REFERENCE = 100
 
     PRIORITY_CHOICES = (
-        (100, 'Reference'),
-        (200, 'Important'),
-        (300, 'Urgent')
+        (100, 'Low'),
+        (200, 'Medium'),
+        (300, 'High')
     )
 
     PRIORITY_LABELS_MAP = dict((x, y) for (x,y) in PRIORITY_CHOICES)
