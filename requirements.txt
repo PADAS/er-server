@@ -14,11 +14,11 @@ python-socketio==1.3
 git+https://github.com/PADAS/django-ses.git@2fae0ebdaa96ff6daaea4edaafca3c02cdda61d8
 greenlet==0.4.9
 gunicorn==19.4.5
-Django==1.9.6
+Django==1.9.7
 
 djangorestframework==3.3.3
 #drf geojson serializers
-djangorestframework-gis==0.10.1
+#djangorestframework-gis==0.10.1
 #django-spillway==0.5.1
 
 #https://github.com/mypebble/django-pgviews

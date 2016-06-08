@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from pytz import UTC
 from django.contrib.gis.geos import Point
 from django.test import TestCase
 from observations.models import Subject, Observation
@@ -27,8 +28,8 @@ class SubjectTestCase(TestCase):
     def test_subject_observations_last_days(self):
         subject = Subject.objects.get(name='Topsy')
         point = Point((0.000001, 0.000001))  # really close to Null Island
-        t1 = datetime.now() - timedelta(days=2)
-        t2 = datetime.now() - timedelta(days=20)
+        t1 = datetime.now(tz=UTC) - timedelta(days=2)
+        t2 = datetime.now(tz=UTC) - timedelta(days=20)
 
         Observation.objects.create(
             source=subject.source,
