@@ -31,7 +31,7 @@ class SuperUserSessionAuthentication(SessionAuthentication):
         if not user or not user.is_active or not user.is_superuser:
             return None
 
-        self.enforce_csrf(request)
+        #self.enforce_csrf(request)
 
         # CSRF passed with authenticated user
         return (user, None)
