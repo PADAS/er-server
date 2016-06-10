@@ -5,7 +5,7 @@ from django.contrib.gis.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.utils.translation import ugettext_lazy as _
 from django.core.mail import send_mail
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core import validators
 from django.utils import timezone
 
@@ -22,6 +22,13 @@ class UserQuerySet(models.QuerySet):
     """Don't allow users to be deleted, set them as inactive"""
     def delete(self):
         self.update(active=False)
+
+    def _filter_or_exclude(self, mapper, *args, **kwargs):
+        # 'name' is a field in your Model whose lookups you want case-insensitive by default
+        if 'username' in kwargs:
+            kwargs['username__iexact'] = kwargs['username']
+            del kwargs['username']
+        return super()._filter_or_exclude(mapper, *args, **kwargs)
 
 
 class UserManager(BaseUserManager):
@@ -54,7 +61,7 @@ class UserManager(BaseUserManager):
             raise ValueError('Superuser must have is_superuser=True.')
 
         return self._create_user(username, email, password, **extra_fields)
-
+    
     def get_queryset(self):
         return UserQuerySet(self.model, using=self._db)
 
@@ -189,3 +196,21 @@ class User(AccountsAbstractUser):
 
     def __str__(self):
         return self.get_username()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def clean(self):
+        result = super().clean()
+        """case insensitive usernames"""
+        try:
+            user = User.objects.get_by_natural_key(self.username)
+            if user.pk != self.pk:
+                raise ValidationError(
+                    {'username': ValidationError(
+                    _(''), code='invalid')})
+        except User.DoesNotExist:
+            pass
+
+        return result

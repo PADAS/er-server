@@ -21,7 +21,10 @@ from revision.manager import Revision, RevisionMixin
 
 
 def get_sentinel_user():
-    return get_user_model().objects.get_or_create(username='deleted', is_active=False)[0]
+    User = get_user_model()
+    return User.objects.get_or_create(username='deleted',
+                                      is_active=False,
+                                      password=User.objects.make_random_password())[0]
 
 
 def marker_icon(*args):

@@ -1,6 +1,9 @@
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.test import TestCase
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import Permission
+from django.utils import lorem_ipsum
+
 from accounts.models import PermissionSet, User
 
 
@@ -22,3 +25,25 @@ class PermissionSetTestCase(BaseTestCase):
         self.assertIn(some_set, all_set.children.all())
         self.assertIn(all_set.id, some_set.get_ancestor_ids())
 
+
+
+class UserModelTest(TestCase):
+    password = User.objects.make_random_password()
+
+    def test_caseinsensitive_name(self):
+
+        user = User.objects.create(username='user',
+                                   password=self.password)
+
+        with self.assertRaises(ValidationError):
+            user2 = User.objects.create(username='User',
+                                    password=self.password)
+
+    def test_get_by_username(self):
+        user = User.objects.create(username='User',
+                                   password=self.password)
+
+        user2 = User.objects.get(username='user')
+        self.assertEqual(user.pk, user2.pk)
+        user2 = User.objects.get(username='User')
+        self.assertEqual(user.pk, user2.pk)

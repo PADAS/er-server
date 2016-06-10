@@ -43,7 +43,8 @@ class SubjectPermissionsTestCase(TestCase):
 
 
     def test_user_has_view_permission(self):
-        user = User.objects.create(username='active_user')
+        user = User.objects.create(username='active_user',
+                                   password=User.objects.make_random_password())
 
         user.permission_sets.add(self.some_set)
         user.save()
@@ -72,12 +73,14 @@ class SubjectAlertTestCase(TestCase):
 
 
     def test_return_user(self):
-        user = User.objects.create(username='active_user')
+        user = User.objects.create(username='active_user',
+                                   password=User.objects.make_random_password())
         user.permission_sets.add(self.some_set)
         user.permission_sets.add(self.all_set)
         user.save()
 
-        user2 = User.objects.create(username='no_alert')
+        user2 = User.objects.create(username='no_alert',
+                                    password=User.objects.make_random_password())
 
         ele = Subject.objects.create(name="ele", additional={})
 
