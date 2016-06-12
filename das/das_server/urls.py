@@ -14,12 +14,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
 from django.conf.urls import include, url
-import django.conf.urls
 from django.contrib import admin
+import django.contrib.staticfiles.views
 from django.conf import settings
 import oauth2_provider.views as oauth2_views
+
 from das_server import views
-import django.contrib.staticfiles.views
+
 
 urlpatterns = [
     url(r'^api/v1.0/', include('accounts.urls')),
@@ -33,6 +34,7 @@ urlpatterns = [
     url(r'^api/v1.0/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     url(r'^api/v1.0/docs/', include('rest_framework_swagger.urls')),
     url(r'^admin/', include(admin.site.urls)),
+    url(r'^accounts/', include('accounts.urls_user')),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^oauth2/token$', oauth2_views.TokenView.as_view(), name="token"),
 ]

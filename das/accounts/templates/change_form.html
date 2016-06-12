@@ -1,0 +1,17 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+{% block object-tools %}
+    {% if change %}{% if not is_popup %}
+        <ul class="object-tools">
+            {# You can also give a name to that pattern and refer to it below using 'url' #}
+            <li><a href="reset-password/" class="historylink">Reset password</a></li>
+
+            <li><a href="history/" class="historylink">{% trans "History" %}</a></li>
+            {% if has_absolute_url %}
+                <li><a href="../../../r/{{ content_type_id }}/{{ object_id }}/" class="viewsitelink">
+                    {% trans "View on site" %}</a>
+                </li>
+            {% endif%}
+        </ul>
+    {% endif %}{% endif %}
+{% endblock %}
