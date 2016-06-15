@@ -21,7 +21,7 @@ def handle_subject(subject_id):
     if hasattr(settings, 'ANALYZER_SUBJECT_TYPES'):
         if subject.subject_type not in settings.ANALYZER_SUBJECT_TYPES:
             logger.debug(
-                'Subject type ignored for analysis'.format(subject.subject_type))
+                'Subject type {0} ignored for analysis'.format(subject.subject_type))
             return
 
 
