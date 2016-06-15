@@ -1,5 +1,7 @@
 import logging
 
+from django.conf import settings
+
 from analyzers.models.analyzer import NOMINAL, WARNING, CRITICAL
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.utils import get_or_create_analyzers_for_subject, latest_event_for
@@ -15,6 +17,14 @@ def handle_subject(subject_id):
     logger.info('handling subject ' + str(subject_id))
 
     subject = Subject.objects.get(id=subject_id)
+
+    if hasattr(settings, 'ANALYZER_SUBJECT_TYPES'):
+        if subject.subject_type not in settings.ANALYZER_SUBJECT_TYPES:
+            logger.debug(
+                'Subject type ignored for analysis'.format(subject.subject_type))
+            return
+
+
     track = Track.from_observations(subject.observations(last_days=3))
 
     if not track:
