@@ -9,26 +9,25 @@ import signal
 import socket
 
 from django.apps import apps
+from django.conf import settings
 from django.utils.module_loading import module_has_submodule
 from kombu import Consumer, Connection, Exchange, Queue
-from kombu.pools import producers
+from kombu.pools import producers, connections
 from kombu.utils import nested
-
-from django.conf import settings
 
 
 logger = logging.getLogger(__name__)
 
 das_exchange = Exchange('das', type='topic', durable=True)
 
-_connection = None
+_pool = None
 
 
-def get_connection():
-    if not _connection:
-        global _connection
-        _connection = Connection(settings.PUBSUB_BROKER_URL)
-    return _connection
+def get_pool():
+    if not _pool:
+        global _pool
+        _pool = Connection(settings.PUBSUB_BROKER_URL).Pool(20)
+    return _pool
 
 
 def publish(message, routing_key='das'):
@@ -49,10 +48,11 @@ def publish(message, routing_key='das'):
     # noinspection PyBroadException
     try:
         logger.debug('publish received message: {}  routing_key: {}'.format(message, routing_key))
+        with get_pool().acquire() as conn:
+            producer = conn.Producer(exchange=das_exchange)
+            producer.publish(message, routing_key=routing_key)
 
-        with producers[get_connection()].acquire(block=True) as producer:
-            producer.publish(message, routing_key=routing_key,
-                             exchange=das_exchange)
+
 
     except Exception:
         logger.exception("Unhandled exception during publish")
