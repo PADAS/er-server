@@ -11,6 +11,7 @@ import socket
 from django.apps import apps
 from django.utils.module_loading import module_has_submodule
 from kombu import Consumer, Connection, Exchange, Queue
+from kombu.pools import producers
 from kombu.utils import nested
 
 from django.conf import settings
@@ -19,8 +20,16 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 das_exchange = Exchange('das', type='topic', durable=True)
-connection = Connection(settings.PUBSUB_BROKER_URL)
-pool = connection.Pool(20)
+
+_connection = None
+
+
+def get_connection():
+    if not _connection:
+        global _connection
+        _connection = Connection(settings.PUBSUB_BROKER_URL)
+    return _connection
+
 
 def publish(message, routing_key='das'):
     """Broadcast a message.
@@ -41,10 +50,9 @@ def publish(message, routing_key='das'):
     try:
         logger.debug('publish received message: {}  routing_key: {}'.format(message, routing_key))
 
-        with pool.acquire() as conn:
-
-            producer = conn.Producer(exchange=das_exchange)
-            producer.publish(message, routing_key=routing_key)
+        with producers[get_connection()].acquire(block=True) as producer:
+            producer.publish(message, routing_key=routing_key,
+                             exchange=das_exchange)
 
     except Exception:
         logger.exception("Unhandled exception during publish")
@@ -99,13 +107,17 @@ def installed_apps_subscriptions(submodule='pubsub_registry', ignore_re='(djgeoj
         try:
             app_submodule = import_module(module_name)
             for routing_key, callback in app_submodule.PUBSUB_SUBSCRIPTIONS:
-                logger.info('registering routing key {} to {}'.format(routing_key, callback.__name__))
+                logger.info('registering routing key {} to {}'
+                            ''.format(routing_key, callback.__name__))
                 yield (routing_key, callback)
 
         except AttributeError as e:
-            logger.warning('{}.PUBSUB_SUBSCRIPTIONS should be a sequence of (routing_key, callback) sequences. {}'.format(module_name, e))
+            logger.warning('{}.PUBSUB_SUBSCRIPTIONS should be a sequence of'
+                           ' (routing_key, callback) sequences. {}'
+                           ''.format(module_name, e))
         except ImportError as e:
-            logger.debug('No pubsub registrations imported for app {}'.format(app_config.name))
+            logger.debug('No pubsub registrations imported for app {}'
+                         ''.format(app_config.name))
 
 
 def get_consumer(connection, routing_key, callback):
@@ -125,7 +137,9 @@ def get_consumer(connection, routing_key, callback):
 
 running = True
 
+
 def start_message_queue_listeners():
+    logger.debug("begin start_message_queue_listeners")
 
     def signal_handler(*args):
         logger.warning("SIGINT caught")
@@ -135,7 +149,6 @@ def start_message_queue_listeners():
     signal.signal(signal.SIGINT, signal_handler)
 
     with Connection(settings.PUBSUB_BROKER_URL) as conn:
-
         consumers = []
 
         for routing_key, callback in installed_apps_subscriptions():
@@ -143,10 +156,11 @@ def start_message_queue_listeners():
             consumers.append(consumer)
 
         with nested(*consumers):
+            logger.debug("running start_message_queue_listeners")
             while running:
                 try:
                     conn.drain_events(timeout=2)
                 except socket.timeout:
                     pass
 
-            logger.debug('Exiting')
+    logger.debug("end start_message_queue_listeners")
