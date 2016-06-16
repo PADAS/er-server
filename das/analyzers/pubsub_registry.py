@@ -15,5 +15,6 @@ def new_observations_callback(body, message):
 
 
 PUBSUB_SUBSCRIPTIONS = (
-    ('das.tracking.source.observations.new', new_observations_callback),
+    ('das.tracking.source.observations.new', new_observations_callback,
+     'analyzers.{0}'.format(new_observations_callback.__name__)),
 )

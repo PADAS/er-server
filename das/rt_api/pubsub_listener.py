@@ -89,7 +89,8 @@ def start(realtime_server):
 
         logger.debug('Starting pubsub listener')
         subscriptions = [
-            {'routing_key': 'das.tracking.source.observations.new', 'callback': new_observation_handler},
+            {'routing_key': 'das.tracking.source.observations.new',
+             'callback': new_observation_handler, },
             {'routing_key': 'das.event.new', 'callback': new_event_handler},
             {'routing_key': 'das.event.new', 'callback': count_event_handler},
             {'routing_key': 'das.event.update', 'callback': update_event_handler},
@@ -97,8 +98,9 @@ def start(realtime_server):
              'callback': delete_event_handler},
             {'routing_key': 'das.event.delete',
              'callback': count_event_handler},
-
         ]
+        for subscription in subscriptions:
+            subscription['name'] = 'rt_api.{0}'.format(subscription['callback'].__name__)
         pubsub.subscribe(subscriptions)
 
     eventlet.spawn_n(pubsub_listener)
