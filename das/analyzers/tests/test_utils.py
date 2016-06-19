@@ -6,12 +6,17 @@ from analyzers import models, utils
 from analyzers.models.analyzer import AnalyzerResult
 from mapping.models import FeatureType, LineFeature
 from observations.models import Subject
+from activity.tests.test_events import populate_event_types
+
 
 class TestAnalyzerUtils(TestCase):
 
     fixtures = [
         'observations_subject.json'
     ]
+
+    def setUp(self):
+        populate_event_types()
 
     def test_get_or_create_analyzers_for_subject(self):
         """

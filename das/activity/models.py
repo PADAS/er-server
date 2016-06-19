@@ -15,7 +15,7 @@ from utils.html import clean_user_text
 from django.utils.translation import ugettext_lazy as _
 
 
-from core.models import TimestampedModel
+from core.models import TimestampedModel, ChoicesCharField, ChainedChoicesCharField
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
 
@@ -119,6 +119,16 @@ class Event(RevisionMixin, TimestampedModel):
         (PC_COMMUNITY, 'Community'),
     )
 
+    #must have defaults, could they go somewhere else?
+    ET_SYSTEM = 'system'
+    ET_PROXIMITY = 'proximity'
+    ET_GEOFENCE = 'geofence'
+    ET_IMMOBILITY = 'immobility'
+    ET_SPEED = 'speed'
+    ET_PERIMETER_FENCE_BREACH = 'perimeter-fence-breach'
+    ET_OTHER = 'other'
+
+
     SC_NEW = 'new'
     SC_ACTIVE = 'active'
     SC_RESOLVED = 'resolved'
@@ -129,44 +139,6 @@ class Event(RevisionMixin, TimestampedModel):
         (SC_RESOLVED, 'Resolved'),
     )
 
-    ET_SYSTEM = 'system'
-    ET_PROXIMITY = 'proximity'
-    ET_GEOFENCE = 'geofence'
-    ET_IMMOBILITY = 'immobility'
-    ET_SPEED = 'speed'
-
-    ET_OTHER = 'other'
-    ET_EXCLUSION_ZONE_BREACH = 'exclusion-zone-breach'
-    ET_PERIMETER_FENCE_BREACH = 'perimeter-fence-breach'
-    ET_ELEPHANT_SIGHTING = 'elephant-sighting'
-    ET_WOUNDED_ANIMAL = 'wounded-animal'
-    ET_FIRE = 'fire'
-    ET_LIVESTOCK_THEFT = 'livestock-theft'
-    ET_CONTAINMENT_BREACH = 'containment-breach'
-    ET_FOOTPRINTS = 'footprints'
-    ET_GUNSHOT_HEARD = 'gunshot-heard'
-    ET_RADIO_TEXT_MESSAGE = 'radio-text-message'
-
-    ET_DEFAULT_VALUE = ET_OTHER
-
-    EVENT_TYPE_CHOICES = (
-        (ET_SYSTEM, 'System'),
-        (ET_PROXIMITY, 'Proximity'),
-        (ET_GEOFENCE, 'Geofence'),
-        (ET_IMMOBILITY, 'Immobility'),
-        (ET_SPEED, 'Speed'),
-        (ET_EXCLUSION_ZONE_BREACH, 'Exclusion Zone Breach'),
-        (ET_PERIMETER_FENCE_BREACH, 'Perimeter Fence Breach'),
-        (ET_ELEPHANT_SIGHTING, 'Elephant Sighting'),
-        (ET_WOUNDED_ANIMAL, 'Wounded Animal'),
-        (ET_LIVESTOCK_THEFT, 'Livestock Theft'),
-        (ET_FIRE, 'Fire'),
-        (ET_CONTAINMENT_BREACH, 'Containment Breach'),
-        (ET_FOOTPRINTS, 'Suspicious Signs'),
-        (ET_GUNSHOT_HEARD, 'Gunshot Heard'),
-        (ET_RADIO_TEXT_MESSAGE, 'Radio Text Message'),
-        (ET_OTHER, 'Other'),
-    )
 
     PRI_URGENT = 300
     PRI_IMPORTANT = 200
@@ -199,8 +171,9 @@ class Event(RevisionMixin, TimestampedModel):
     event_time = models.DateTimeField(default=django.utils.timezone.now)
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
-    event_type = models.CharField(max_length=40, choices=EVENT_TYPE_CHOICES,
-                                  db_index=True, default=ET_OTHER)
+    event_type = ChoicesCharField(max_length=40, default=ET_OTHER)
+#    event_subtype = ChainedChoicesCharField(max_length=40, blank=True,
+#                                            chained_field='event_type')
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)

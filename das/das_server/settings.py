@@ -56,7 +56,8 @@ INSTALLED_APPS = (
     'sensors',
     'mapping.apps.MappingConfig',
     'activity',
-    'rt_api.apps.RTAPIConfig'
+    'rt_api.apps.RTAPIConfig',
+    'core.apps.CoreConfig',
 )
 
 MIDDLEWARE_CLASSES = (

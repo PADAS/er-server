@@ -1,0 +1,13 @@
+- model: core.choices
+  fields:
+    model: activity.event
+    field: event_type
+    value: system
+    display: System
+
+- model: core.choices
+  fields:
+    content_type: activity.event
+    field: event_type
+    value: proximity
+    display: Proximity

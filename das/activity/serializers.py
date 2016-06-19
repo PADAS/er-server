@@ -1,7 +1,7 @@
 import logging
 from collections import OrderedDict
 
-from core.serializers import ContentTypeField
+from core.serializers import ContentTypeField, ChoiceField
 from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
 from django.core.urlresolvers import reverse
@@ -81,6 +81,7 @@ class EventJSONSchema(BaseMetadata):
         rest_framework.serializers.UUIDField: 'string',
         rest_framework.serializers.RelatedField: 'object',
         drf_extra_fields.geo_fields.PointField: 'string',
+        ChoiceField: 'string',
 
     })
     schema = {

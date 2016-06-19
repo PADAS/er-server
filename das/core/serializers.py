@@ -1,7 +1,47 @@
 import rest_framework.serializers as serializers
 from django.contrib.contenttypes.models import ContentType
-
+from django.utils.translation import ugettext_lazy as _
+from django.utils import six
 import django.contrib.gis.serializers.geojson as geojson
+
+
+class ChoiceField(serializers.Field):
+    default_error_messages = {
+        'invalid_choice': _('"{input}" is not a valid choice.')
+    }
+
+    def __init__(self, queryset=None, **kwargs):
+        self.queryset = queryset
+        self.allow_blank = kwargs.pop('allow_blank', False)
+        super().__init__(**kwargs)
+
+    @property
+    def choice_string_to_values(self):
+        grouped_choices = serializers.to_choices_dict(
+            self.queryset() if callable(self.queryset) else self.queryset)
+        choices = serializers.flatten_choices_dict(grouped_choices)
+        return {
+            six.text_type(key): key for key in choices.keys()
+        }
+
+    def to_internal_value(self, data):
+        if data == '' and self.allow_blank:
+            return ''
+
+        if not self.queryset:
+            return data
+
+        try:
+            return self.choice_strings_to_values[six.text_type(data)]
+        except KeyError:
+            self.fail('invalid_choice', input=data)
+
+    def to_representation(self, value):
+        if value in ('', None):
+            return value
+        if not self.queryset:
+            return value
+        return self.choice_strings_to_values.get(six.text_type(value), value)
 
 
 class ContentTypeField(serializers.Field):

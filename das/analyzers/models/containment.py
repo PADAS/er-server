@@ -11,6 +11,7 @@ from mapping.models import FeatureType, PolygonFeature
 
 logger = logging.getLogger(__name__)
 
+ET_PERIMETER_FENCE_BREACH = 'perimeter-fence-breach'
 
 class ContainmentAnalyzer(Analyzer):
     """ Analyzer for Track for polygon boundary crossing """
