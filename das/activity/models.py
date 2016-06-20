@@ -15,7 +15,7 @@ from utils.html import clean_user_text
 from django.utils.translation import ugettext_lazy as _
 
 
-from core.models import TimestampedModel, ChoicesCharField, ChainedChoicesCharField
+from core.models import TimestampedModel, ChoicesCharField, FilterChoicesCharField
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
 
@@ -172,8 +172,7 @@ class Event(RevisionMixin, TimestampedModel):
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
     event_type = ChoicesCharField(max_length=40, default=ET_OTHER)
-#    event_subtype = ChainedChoicesCharField(max_length=40, blank=True,
-#                                            chained_field='event_type')
+    event_subtype = ChoicesCharField(max_length=40, blank=True)
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)

@@ -62,8 +62,19 @@ class HierarchyModel(AL_Node):
 
 class ChoicesManager(models.Manager):
     def get_choices_for_field(self, model, field):
-        result = self.all().filter(model=model, field=field)
+        result = self.filter(model=model, field=field)
         return result.values_list('value', 'display')
+
+    def get_choices(self, model, field):
+        return self.filter(model=model, field=field)
+
+    def get_values(self):
+        return self.values_list('value', 'display')
+
+    def get_filtered_choices(self, parent_model, parent_field, parent_value):
+        """after calling get_choices(), filter choices by parent values"""
+        parent = self.all().get_choices(parent_model, parent_field).filter(value=parent_value)
+        return self.filter(sub_choice_of=parent)
 
 
 class Choices(models.Model):
@@ -72,6 +83,8 @@ class Choices(models.Model):
     field = models.CharField(max_length=40)
     value = models.CharField(max_length=40, blank=True)
     display = models.CharField(max_length=100, blank=True)
+    sub_choice_of = models.ManyToManyField('self', blank=True,
+                                           symmetrical=False)
 
     objects = ChoicesManager()
     class Meta:
@@ -108,6 +121,12 @@ class ChoicesCharField(models.CharField):
         setattr(self.model, 'get_%s_display' % self.name,
                 curry(self.model._get_FIELD_display, field=self))
 
+    def deconstruct(self):
+        self._return_empty_choices = True
+        result = super().deconstruct()
+        self._return_empty_choices = False
+        return result
+
     def _check_choices(self):
         #override to avoid validation of DB data
         return []
@@ -130,31 +149,31 @@ class ChoicesCharField(models.CharField):
 
 
 
-class ChainedChoicesCharField(ChoicesCharField):
+class FilterChoicesCharField(ChoicesCharField):
     def __init__(self, *args, **kwargs):
-        self.chained_field = kwargs.pop('chained_field', None)
+        self.filter_field = kwargs.pop('filter_field', None)
         super().__init__(*args, **kwargs)
 
     def check(self, **kwargs):
         errors = super().check(**kwargs)
-        errors.extend(self._check_chained_field_attribute(**kwargs))
+        errors.extend(self._check_filter_field_attribute(**kwargs))
         return errors
 
-    def _check_chained_field_attribute(self, **kwargs):
-        if self.chained_field is None:
+    def _check_filter_field_attribute(self, **kwargs):
+        if self.filter_field is None:
             return [
                 checks.Error(
-                    "ChainedChoicesCharFields must define a 'chained_field' attribute.",
+                    "FilterChoicesCharFields must define a 'filter_field' attribute.",
                     hint=None,
                     obj=self,
                     id='fields.E120',
                 )
             ]
-        elif not isinstance(self.chained_field,
-                            str) or not self.chained_field:
+        elif not isinstance(self.filter_field,
+                            str) or not self.filter_field:
             return [
                 checks.Error(
-                    "'chained_field' must be a non-empty string.",
+                    "'filter_field' must be a non-empty string.",
                     hint=None,
                     obj=self,
                     id='fields.E121',

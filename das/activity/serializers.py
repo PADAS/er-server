@@ -357,7 +357,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         read_only_fields = ('updated_at',)
         fields = (
             'id', 'location', 'time', 'message', 'provenance',
-            'event_type', 'priority', 'priority_label', 'attributes',
+            'event_type', 'event_subtype', 'priority', 'priority_label', 'attributes',
             'image_url', 'created_by_user', 'notes', 'reported_by',
             'state') + read_only_fields
 

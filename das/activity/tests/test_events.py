@@ -64,14 +64,25 @@ EVENT_TYPE_CHOICES = (
     (ET_OTHER, 'Other'),
 )
 
+
 def populate_event_types():
     model = Event._meta.label_lower
     field = 'event_type'
+    field_sub = 'event_subtype'
     for et, display in EVENT_TYPE_CHOICES:
-        Choices.objects.create(model=model,
-                               field=field,
-                               value=et,
-                               display=display)
+        parent = Choices.objects.create(model=model,
+                                        field=field,
+                                        value=et,
+                                        display=display)
+
+
+        sub = Choices.objects.create(model=model,
+                               field=field_sub,
+                               value=et + '_sub',
+                               display=display + ' SubType'
+                               )
+        sub.sub_choice_of.add(parent)
+        sub.save()
 
 class TestSourcePlugin(TestCase):
     def setUp(self):
@@ -151,6 +162,7 @@ class TestEventView(BaseAPITest):
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
         event_data['provenance'] = Event.PC_STAFF
+        event_data['event_subtype'] = event_data['event_type'] + '_sub'
         request = self.factory.post(self.api_base + '/events/', event_data)
         self.force_authenticate(request, self.user)
 
@@ -159,6 +171,17 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         response_data = {k:response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
+
+    def test_create_new_event_invalid_subtype(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        event_data['provenance'] = Event.PC_STAFF
+        event_data['event_subtype'] = 'system_sub'
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 400)
 
     def test_create_new_message_only_event(self):
         event_data = {'message': lorem_ipsum.sentence(),
