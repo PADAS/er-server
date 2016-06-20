@@ -16,12 +16,12 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='event',
             name='event_subtype',
-            field=core.models.ChoicesCharField(blank=True, max_length=40),
+            field=core.models.ChoiceCharField(blank=True, max_length=40),
         ),
         migrations.AlterField(
             model_name='event',
             name='event_type',
-            field=core.models.ChoicesCharField(default='other', max_length=40),
+            field=core.models.ChoiceCharField(default='other', max_length=40),
         ),
         migrations.AlterField(
             model_name='event',

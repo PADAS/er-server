@@ -60,7 +60,7 @@ class HierarchyModel(AL_Node):
         return [a.id for a in self.get_ancestors()]
 
 
-class ChoicesManager(models.Manager):
+class ChoiceManager(models.Manager):
     def get_choices_for_field(self, model, field):
         result = self.filter(model=model, field=field)
         return result.values_list('value', 'display')
@@ -77,7 +77,7 @@ class ChoicesManager(models.Manager):
         return self.filter(sub_choice_of=parent)
 
 
-class Choices(models.Model):
+class Choice(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     model = models.CharField(max_length=50)
     field = models.CharField(max_length=40)
@@ -86,13 +86,16 @@ class Choices(models.Model):
     sub_choice_of = models.ManyToManyField('self', blank=True,
                                            symmetrical=False)
 
-    objects = ChoicesManager()
+    objects = ChoiceManager()
     class Meta:
         unique_together = (('model', 'field', 'value'),)
 
+    def __str__(self):
+        return ', '.join((self.model, self.field, self.value, self.display))
 
-class ChoicesCharField(models.CharField):
-    """Choices are stored in a Choices database table."""
+
+class ChoiceCharField(models.CharField):
+    """Choices are stored in a Choice database table."""
     _return_empty_choices = False
 
     def __init__(self, *args, **kwargs):
@@ -136,8 +139,8 @@ class ChoicesCharField(models.CharField):
         """Returns choices with a default blank choices included, for use
         as SelectField choices for this field."""
         blank_defined = False
-        choices = Choices.objects.get_choices_for_field(self.model._meta.label_lower,
-                                                        self.name)
+        choices = Choice.objects.get_choices_for_field(self.model._meta.label_lower,
+                                                       self.name)
         for choice, __ in choices:
             if choice in ('', None):
                 blank_defined = True
@@ -149,7 +152,7 @@ class ChoicesCharField(models.CharField):
 
 
 
-class FilterChoicesCharField(ChoicesCharField):
+class FilterChoiceCharField(ChoiceCharField):
     def __init__(self, *args, **kwargs):
         self.filter_field = kwargs.pop('filter_field', None)
         super().__init__(*args, **kwargs)
@@ -163,7 +166,7 @@ class FilterChoicesCharField(ChoicesCharField):
         if self.filter_field is None:
             return [
                 checks.Error(
-                    "FilterChoicesCharFields must define a 'filter_field' attribute.",
+                    "FilterChoiceCharFields must define a 'filter_field' attribute.",
                     hint=None,
                     obj=self,
                     id='fields.E120',

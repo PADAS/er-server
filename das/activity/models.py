@@ -15,7 +15,7 @@ from utils.html import clean_user_text
 from django.utils.translation import ugettext_lazy as _
 
 
-from core.models import TimestampedModel, ChoicesCharField, FilterChoicesCharField
+from core.models import TimestampedModel, ChoiceCharField, FilterChoiceCharField
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
 
@@ -27,8 +27,9 @@ def get_sentinel_user():
                                       password=User.objects.make_random_password())[0]
 
 
-def marker_icon(*args):
-    return '/static/event-marker-{}.svg'.format('-'.join(args))
+def marker_icon(event_type, priority):
+    CONVERSION = {100:'gray', 200:'amber', 300:'red'}
+    return '/static/{0}-{1}.svg'.format(event_type, CONVERSION.get(priority, 'black'))
 
 
 class CommunityManager(models.Manager):
@@ -171,8 +172,8 @@ class Event(RevisionMixin, TimestampedModel):
     event_time = models.DateTimeField(default=django.utils.timezone.now)
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
-    event_type = ChoicesCharField(max_length=40, default=ET_OTHER)
-    event_subtype = ChoicesCharField(max_length=40, blank=True)
+    event_type = ChoiceCharField(max_length=40, default=ET_OTHER)
+    event_subtype = ChoiceCharField(max_length=40, blank=True)
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)
@@ -209,7 +210,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     @property
     def image_url(self):
-        return marker_icon(self.event_type, str(self.priority))
+        return marker_icon(self.event_type, self.priority)
 
     @property
     def subjects(self):

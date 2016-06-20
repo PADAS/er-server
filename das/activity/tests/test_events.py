@@ -11,7 +11,7 @@ from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
 from core.tests import BaseAPITest
-from core.models import Choices
+from core.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment
 from activity.models import get_sentinel_user
@@ -70,17 +70,17 @@ def populate_event_types():
     field = 'event_type'
     field_sub = 'event_subtype'
     for et, display in EVENT_TYPE_CHOICES:
-        parent = Choices.objects.create(model=model,
-                                        field=field,
-                                        value=et,
-                                        display=display)
+        parent = Choice.objects.create(model=model,
+                                       field=field,
+                                       value=et,
+                                       display=display)
 
 
-        sub = Choices.objects.create(model=model,
-                               field=field_sub,
-                               value=et + '_sub',
-                               display=display + ' SubType'
-                               )
+        sub = Choice.objects.create(model=model,
+                                    field=field_sub,
+                                    value=et + '_sub',
+                                    display=display + ' SubType'
+                                    )
         sub.sub_choice_of.add(parent)
         sub.save()
 
