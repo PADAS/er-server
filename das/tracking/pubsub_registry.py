@@ -14,3 +14,6 @@ def notify_new_tracks(source_id):
 
     except Exception:
         logger.exception('Exception while publishing message.')
+
+
+PUBSUB_SUBSCRIPTIONS = []

@@ -26,6 +26,7 @@ def start(realtime_server):
                 realtime_server.emit_new_event(event_id=str(data['event_id']), event_data=event_data)
         except Exception:
             logger.exception("Error handling new event for {0}".format(data,))
+        send_count()
 
     def update_event_handler(data, message):
         try:
@@ -39,6 +40,7 @@ def start(realtime_server):
                                                event_data=event_data)
         except Exception:
             logger.exception("Error handling new event for {0}".format(data, ))
+        send_count()
 
     def delete_event_handler(data, message):
         try:
@@ -46,14 +48,15 @@ def start(realtime_server):
                     event_id=str(data['event_id']))
         except Exception:
             logger.exception("Error handling delete event for {0}".format(data))
+        send_count()
 
-    def count_event_handler(data, message):
+    def send_count():
         try:
             count = Event.objects.new_count()
             realtime_server.emit_count_event(count)
         except Exception:
             logger.exception(
-                "Error handling count event for {0}".format(data))
+                "Error sending count")
 
     def new_observation_handler(data, message):
         try:
@@ -89,16 +92,15 @@ def start(realtime_server):
 
         logger.debug('Starting pubsub listener')
         subscriptions = [
-            {'routing_key': 'das.tracking.source.observations.new', 'callback': new_observation_handler},
+            {'routing_key': 'das.tracking.source.observations.new',
+             'callback': new_observation_handler, },
             {'routing_key': 'das.event.new', 'callback': new_event_handler},
-            {'routing_key': 'das.event.new', 'callback': count_event_handler},
             {'routing_key': 'das.event.update', 'callback': update_event_handler},
             {'routing_key': 'das.event.delete',
              'callback': delete_event_handler},
-            {'routing_key': 'das.event.delete',
-             'callback': count_event_handler},
-
         ]
+        for subscription in subscriptions:
+            subscription['name'] = 'rt_api.{0}'.format(subscription['callback'].__name__)
         pubsub.subscribe(subscriptions)
 
     eventlet.spawn_n(pubsub_listener)

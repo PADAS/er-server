@@ -26,7 +26,7 @@ def tracking_callback(body, message):
 # Now define the mapping between routing_keys and callbacks
 # This will get picked up in pubsub.start_message_queue_listeners
 PUBSUB_SUBSCRIPTIONS = (
-    ('das.event.new', event_mailer),
-    ('das.event.#', event_callback),
-    ('das.tracking.#', tracking_callback)
+    ('das.event.new', event_mailer, 'das_server.{0}'.format(event_mailer.__name__)),
+    ('das.event.#', event_callback, 'das_server.{0}'.format(event_callback.__name__)),
+    ('das.tracking.#', tracking_callback, 'das_server.{0}'.format(tracking_callback.__name__))
 )
