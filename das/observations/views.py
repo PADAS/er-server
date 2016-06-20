@@ -268,7 +268,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
         for ob in models.Observation.objects.get_source_range_observation_values(
                 sds, since, until):
             coordinates.append(ob['location'].coords)
-        times.append(ob['recorded_at'])
+            times.append(ob['recorded_at'])
 
         context['times'] = times
         context['coordinates'] = coordinates
