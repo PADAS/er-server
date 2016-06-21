@@ -31,7 +31,7 @@ class SensorObservation(generics.GenericAPIView):
 
     def post(self, request, *args, sensor_type=None, provider_key=None, **kwargs):
         if sensor_type == DasRadioAgentHandler.SENSOR_TYPE:
-            return DasRadioAgentHandler.handle_observation(request, provider_key)
+            return DasRadioAgentHandler().handle_observation(request, provider_key)
 
         # TODO: Write a validator to do this error response.
         errordata = {
