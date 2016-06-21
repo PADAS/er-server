@@ -269,7 +269,7 @@ class SubjectSourceManager(models.GeoManager):
         return sds
 
     def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None, assigned_range=None,
-                              additional=None):
+                              additional=None, subject_name=None):
 
         additional = additional or {}
 
@@ -285,7 +285,7 @@ class SubjectSourceManager(models.GeoManager):
 
             sub, created = Subject.objects.get_or_create(
                 subject_type=subject_type, subject_subtype=subject_subtype,
-                name=source.manufacturer_id,
+                name=(subject_name or source.manufacturer_id),
                 defaults=dict(additional=dict(region='', country='', rgb=random_rgb()))
             )
 
