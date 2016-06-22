@@ -33,7 +33,7 @@ class ImmobilityAnalyzer(Analyzer):
 
      """
 
-    event_type = Event.ET_IMMOBILITY
+    event_type = Event.ET_ANALYZER
 
     radius = models.FloatField(default=13.0)
     threshold_time = models.IntegerField(default=18000)

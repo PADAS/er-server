@@ -167,6 +167,14 @@
     display: Attempted Arrest
     sub_choice_of: [c4b023db-9247-4451-8a0e-38164560cfbd]
 - model: core.choice
+  pk: 60170f76-d817-46c6-9fa1-3c2a9eb0dff0
+  fields:
+    model: activity.event
+    field: event_type
+    value: analyzer
+    display: DAS Analysis
+    sub_choice_of: []
+- model: core.choice
   pk: 6f6679f6-a544-4086-97ab-ec1ef0a52cb4
   fields:
     model: activity.event

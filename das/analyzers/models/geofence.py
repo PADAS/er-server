@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class GeofenceAnalyzer(Analyzer):
     """ Analyzer for Track for geofence crossing """
 
-    event_type = Event.ET_GEOFENCE
+    event_type = Event.ET_ANALYZER
 
     fence = models.ForeignKey(
         to=LineFeature,

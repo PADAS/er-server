@@ -15,7 +15,7 @@ from utils.html import clean_user_text
 from django.utils.translation import ugettext_lazy as _
 
 
-from core.models import TimestampedModel, ChoiceCharField, FilterChoiceCharField
+from core.models import TimestampedModel, ChoiceCharField
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
 
@@ -121,12 +121,7 @@ class Event(RevisionMixin, TimestampedModel):
     )
 
     #must have defaults, could they go somewhere else?
-    ET_SYSTEM = 'system'
-    ET_PROXIMITY = 'proximity'
-    ET_GEOFENCE = 'geofence'
-    ET_IMMOBILITY = 'immobility'
-    ET_SPEED = 'speed'
-    ET_PERIMETER_FENCE_BREACH = 'perimeter-fence-breach'
+    ET_ANALYZER = 'analyzer'
     ET_OTHER = 'other'
 
 
@@ -173,7 +168,7 @@ class Event(RevisionMixin, TimestampedModel):
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
     event_type = ChoiceCharField(max_length=40, default=ET_OTHER)
-    event_subtype = ChoiceCharField(max_length=40, blank=True)
+    event_subtype = ChoiceCharField(max_length=40, blank=True, filter_field=event_type)
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)

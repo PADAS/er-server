@@ -24,7 +24,7 @@ from observations.serializers import SubjectSerializer
 
 User = django.contrib.auth.get_user_model()
 
-
+ET_ANALYZER = 'analyzer'
 ET_SYSTEM = 'system'
 ET_PROXIMITY = 'proximity'
 ET_GEOFENCE = 'geofence'
@@ -46,6 +46,7 @@ ET_RADIO_TEXT_MESSAGE = 'radio-text-message'
 ET_DEFAULT_VALUE = ET_OTHER
 
 EVENT_TYPE_CHOICES = (
+    (ET_ANALYZER, 'Analyzer'),
     (ET_SYSTEM, 'System'),
     (ET_PROXIMITY, 'Proximity'),
     (ET_GEOFENCE, 'Geofence'),
@@ -181,7 +182,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.user)
 
         response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 500)
 
     def test_create_new_message_only_event(self):
         event_data = {'message': lorem_ipsum.sentence(),

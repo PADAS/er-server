@@ -176,24 +176,41 @@ class EventJSONSchema(BaseMetadata):
             if hasattr(field, 'object_choices'):
                 object_choices = field.object_choices
                 if isinstance(object_choices, dict):
-                    field_info['enum_ext'] = {}
+                    unassigned = []
+                    enum_ext = {}
                     for group, values in object_choices.items():
-                        field_info['enum_ext'][group] = [
-                            {
-                                'value': choice_value,
-                                'title': force_text(choice_name,
+                        if isinstance(values, (list, tuple, dict)):
+                            if isinstance(values, dict):
+                                values_iter = values.items()
+                            else:
+                                values_iter = iter(values)
+                            enum_ext[group] = [
+                                {
+                                    'value': choice_value,
+                                    'title': force_text(choice_name,
+                                                        strings_only=True)
+                                }
+                                for choice_value, choice_name in values_iter
+                                ]
+                        else:
+                            unassigned.append({
+                                'value': group,
+                                'title': force_text(values,
                                                     strings_only=True)
-                            }
-                            for choice_value, choice_name in values
-                            ]
+                            })
+                    if not enum_ext:
+                        enum_ext = unassigned
                 else:
-                    field_info['enum_ext'] = [
+                    enum_ext = [
                         {
                             'value': choice_value,
                             'title': force_text(choice_name, strings_only=True)
                         }
                         for choice_value, choice_name in field.object_choices
                         ]
+                    field_info['enum'] = [v['value'] for v in
+                                          enum_ext]
+                field_info['enum_ext'] = enum_ext
             elif hasattr(field, 'choices'):
                 field_info['enum_ext'] = [
                     {
@@ -246,16 +263,10 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
 
     @property
     def object_choices(self):
-        queryset = self.get_object_queryset()
-        if queryset is None:
-            # Ensure that field.choices returns something sensible
-            # even when accessed with a read-only field.
+        if not self.choices:
             return {}
 
-        return {provenance: [(
-                                 self.to_representation(item),
-                                 self.display_value(item)) for item in values]
-                for provenance, values in queryset}
+        return self.grouped_choices
 
 
 class AttachmentRelatedField(rest_framework.serializers.RelatedField):
@@ -342,6 +353,7 @@ class EventStateSerializer(rest_framework.serializers.ModelSerializer):
 
 
 class EventSerializer(rest_framework.serializers.ModelSerializer):
+    serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
     #  json {lat/lon} and our internal representation.
     location = PointField(required=False)
@@ -351,6 +363,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     )
     notes = EventNoteSerializer(many=True, required=False)
     reported_by = ReportedByRelatedField(required=False)
+    message = rest_framework.serializers.CharField(required=True)
 
     class Meta:
         model = activity.models.Event

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class ProximityAnalyzer(Analyzer):
     """ Speed Analyzer for a Track. """
 
-    event_type = Event.ET_PROXIMITY
+    event_type = Event.ET_ANALYZER
 
     polygon = models.ForeignKey(
         to=PolygonFeature,

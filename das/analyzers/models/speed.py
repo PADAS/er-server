@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class SpeedAnalyzer(Analyzer):
     """ Speed Analyzer for a Track. """
 
-    event_type = Event.ET_SPEED
+    event_type = Event.ET_ANALYZER
 
     max_speed = models.FloatField(default=8)
     min_speed = models.FloatField(default=0)
