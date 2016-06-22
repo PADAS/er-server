@@ -14,6 +14,7 @@ GIS
 
 from datetime import datetime, timedelta
 import uuid
+import random
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
@@ -44,6 +45,8 @@ def to_rgb(color):
 
 DEFAULT_COLOR = '255,255,0'
 
+def random_rgb():
+    return ','.join([str(random.randint(0,255)) for i in range(3)])
 
 class SourceGroupManager(HierarchyManager):
     pass
@@ -266,7 +269,7 @@ class SubjectSourceManager(models.GeoManager):
         return sds
 
     def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None, assigned_range=None,
-                              additional=None):
+                              additional=None, subject_name=None):
 
         additional = additional or {}
 
@@ -282,8 +285,8 @@ class SubjectSourceManager(models.GeoManager):
 
             sub, created = Subject.objects.get_or_create(
                 subject_type=subject_type, subject_subtype=subject_subtype,
-                name=source.manufacturer_id,
-                defaults=dict(additional=dict(region='', country='', ))
+                name=(subject_name or source.manufacturer_id),
+                defaults=dict(additional=dict(region='', country='', rgb=random_rgb()))
             )
 
             if sub:

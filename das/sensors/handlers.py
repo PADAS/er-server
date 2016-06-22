@@ -1,11 +1,10 @@
 import datetime
 from datetime import timedelta
+import pytz
+from dateutil.parser import parse as parse_date
 
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
-import pytz
 from django.contrib.gis.geos import Point
 
 from observations.models import Source, SubjectSource, Subject, Source
@@ -13,9 +12,84 @@ from observations.serializers import ObservationSerializer
 from tracking.pubsub_registry import notify_new_tracks
 
 
+class DasRadioAgentHandler():
+    SENSOR_TYPE = 'dasradioagent'
+    SOURCE_TYPE = 'gps-radio'
+    DEFAULT_SUBJECT_TYPE = 'person'
+    DEFAULT_SUBJECT_SUBTYPE = 'ranger'
+
+    def _parse_location(self, o):
+        try:
+            loc = o.get('location')
+            return Point(x=float(loc.get('longitude')), y=float(loc.get('latitude')))
+        except:
+            return None
+
+    @staticmethod
+    def __str2date(d, default_tzinfo=pytz.UTC):
+        '''Parse a date and if it's naive, replace tzinfo with default_tzinfo.'''
+        dt = parse_date(d)
+        if not dt.tzinfo:
+            dt = dt.replace(tzinfo=default_tzinfo)
+        return dt
+
+    @staticmethod
+    def _default_assigned_range(d1):
+        return (d1, d1 + timedelta(days=365 * 5))
+
+    def handle_observation(self, request, provider_key):
+
+        obj = request.data
+
+        location = None
+        try:
+            location = obj.get('location')
+            lat = location.get('lat', None)
+            lon = location.get('lon', None)
+
+            location = Point(x=float(lon), y=float(lat))
+        except:
+            location = None
+
+        model_name = '{}:{}'.format(self.SENSOR_TYPE, provider_key)
+        manufacturer_id = obj.get('manufacturer_id')
+        src, created = Source.objects.ensure_source(self.SOURCE_TYPE, manufacturer_id=manufacturer_id,
+                                                    model_name=model_name)
+        # If the Source already exists, assume the SubjectSource and Subject already exist.
+        if created:
+            ss, created = SubjectSource.objects.ensure_subject_source(src,
+                                                                      timestamp=obj['recorded_at'],
+                                                                      subject_type=self.DEFAULT_SUBJECT_TYPE,
+                                                                      subject_subtype=self.DEFAULT_SUBJECT_SUBTYPE,
+                                                                      assigned_range=self._default_assigned_range(
+                                                                          obj['recorded_at']),
+                                                                      subject_name=obj.get('subject_name', manufacturer_id)
+                                                                      )
+
+        observation = {
+            'location': location,
+            'recorded_at': self.__str2date(obj['recorded_at']),
+            'source': src.id,
+            'additional': obj['additional'],
+        }
+
+        observation['additional'].update(dict((k, obj[k]) for k in obj if k not in
+                                              ('additional', 'manufacturer_id', 'location', 'recorded_at',)))
+
+        serializer = ObservationSerializer(data=observation)
+        if serializer.is_valid():
+            serializer.save()
+            notify_new_tracks(src.id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class GsatHandler():
     SENSOR_TYPE = 'gsat'
     SOURCE_TYPE = 'gps-radio'
+    DEFAULT_SUBJECT_TYPE = 'person'
+    DEFAULT_SUBJECT_SUBTYPE = 'ranger'
 
     gsat_map = {
         'manufacturer_id': lambda o: str(o.get('uniqueid')),
@@ -24,7 +98,7 @@ class GsatHandler():
         'altitude_meters': lambda o: float(o.get('alt')),
         'speed_mps': lambda o: float(o.get('speed')),
         'heading': lambda o: float(o.get('head')),
-        'is_emergency': lambda o: True if o.get('isemergency') == '1' else False,
+        'is_alarm': lambda o: True if o.get('isemergency') == '1' else False,
         'events': lambda o: o.get('events').split(',') if len(o.get('events', '')) > 0 else None,
         'sensor_type': lambda o: GsatHandler.SENSOR_TYPE
     }
@@ -46,23 +120,22 @@ class GsatHandler():
     def _default_assigned_range(d1):
         return (d1, d1 + timedelta(days=365 * 5))
 
-    @staticmethod
-    def handle_observation(request, provider_key):
+    def handle_observation(self, request, provider_key):
 
         obj = GsatHandler._parse_gsat_request(request.query_params)
 
         obj['provider_key'] = provider_key
 
         model_name = '{}:{}'.format(GsatHandler.SENSOR_TYPE, provider_key)
-        src, created = Source.objects.ensure_source(GsatHandler.SOURCE_TYPE, obj.get('manufacturer_id'),
+        src, created = Source.objects.ensure_source(self.SOURCE_TYPE, obj.get('manufacturer_id'),
                                                     model_name=model_name)
         # If the Source already exists, assume the SubjectSource and Subject already exist.
         if created:
             ss, created = SubjectSource.objects.ensure_subject_source(src,
                                                                       timestamp=obj['recorded_at'],
-                                                                      subject_type='person',
-                                                                      subject_subtype='ranger',
-                                                                      assigned_range=GsatHandler._default_assigned_range(
+                                                                      subject_type=self.DEFAULT_SUBJECT_TYPE,
+                                                                      subject_subtype=self.DEFAULT_SUBJECT_SUBTYPE,
+                                                                      assigned_range=self._default_assigned_range(
                                                                           obj['recorded_at'])
                                                                       )
 
