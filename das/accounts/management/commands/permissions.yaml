@@ -44,7 +44,18 @@ permission_sets:
       - observations.subject.view_real_time
       - observations.subject.subscribe_alerts
       - observations.subject.view_subject
-
+  - name: Add/Edit Events
+    permissions:
+      - activity.event.view_event
+      - activity.event.add_event
+      - activity.event.delete_event
+      - activity.event.change_event
+      - activity.eventattachment.add_event
+      - activity.eventattachment.delete_event
+      - activity.eventattachment.change_event
+      - activity.eventnote.add_event
+      - activity.eventnote.delete_event
+      - activity.eventnote.change_event
 subjectgroups:
   - name: All Subjects
     ps_sets: [View All Subjects, Admin All Subjects]

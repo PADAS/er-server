@@ -141,7 +141,7 @@
     field: event_subtype
     value: poaching_shooting
     display: Poaching - Shooting
-    sub_choice_of: []
+    sub_choice_of: [d7b829c0-e015-4369-8103-6365b3d639ed]
 - model: core.choice
   pk: 3acc6378-8e9a-4f82-b46b-7927b9118bc0
   fields:

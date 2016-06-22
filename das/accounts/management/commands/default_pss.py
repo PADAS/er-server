@@ -37,7 +37,7 @@ class Command(BaseCommand):
                             help='clear out the existing permission sets prior to creation')
 
     def default_file(self):
-        return os.path.join(os.path.dirname(__file__), 'permissions.yml')
+        return os.path.join(os.path.dirname(__file__), 'permissions.yaml')
 
     def add_default_permissionsets(self, file=None):
         if not file:
