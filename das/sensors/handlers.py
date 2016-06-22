@@ -31,11 +31,19 @@ class DasRadioAgentHandler():
         dt = parse_date(d)
         if not dt.tzinfo:
             dt = dt.replace(tzinfo=default_tzinfo)
+        return dt
+
+    @staticmethod
+    def _default_assigned_range(d1):
+        return (d1, d1 + timedelta(days=365 * 5))
 
     def handle_observation(self, request, provider_key):
 
+        obj = request.data
+
+        location = None
         try:
-            location = request.data.get('location')
+            location = obj.get('location')
             lat = location.get('lat', None)
             lon = location.get('lon', None)
 
@@ -43,34 +51,35 @@ class DasRadioAgentHandler():
         except:
             location = None
 
-        manufacturer_id = request.data.get('manufacturer_id', None)
-        source_type = request.data.get('source_type', None)
+        model_name = '{}:{}'.format(self.SENSOR_TYPE, provider_key)
+        manufacturer_id = obj.get('manufacturer_id')
+        src, created = Source.objects.ensure_source(self.SOURCE_TYPE, manufacturer_id=manufacturer_id,
+                                                    model_name=model_name)
+        # If the Source already exists, assume the SubjectSource and Subject already exist.
+        if created:
+            ss, created = SubjectSource.objects.ensure_subject_source(src,
+                                                                      timestamp=obj['recorded_at'],
+                                                                      subject_type=self.DEFAULT_SUBJECT_TYPE,
+                                                                      subject_subtype=self.DEFAULT_SUBJECT_SUBTYPE,
+                                                                      assigned_range=self._default_assigned_range(
+                                                                          obj['recorded_at']),
+                                                                      subject_name=obj.get('subject_name', manufacturer_id)
+                                                                      )
 
-        if not manufacturer_id or not source_type:
-            return Response(data="Missing parameters. Please provide both 'manufacturer_id' and 'source_type'.",
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        recorded_at = request.data.get('recorded_at')
-        recorded_at = self.__str2date(recorded_at)
-        src = Source.objects.ensure_source(source_type, manufacturer_id)
-        ss = SubjectSource.objects.ensure_subject_source(src, timestamp=recorded_at,
-                                                         subject_name=request.get('subject_name'))
-
-        additional = request.data.get('additional', {})
-        additional.update(dict(k,v)
-                          for k, v in request.data.items() if k not in ('location', 'recorded_at', 'additional'))
-
-        observation_data = {
+        observation = {
             'location': location,
-            'recorded_at': recorded_at,
+            'recorded_at': self.__str2date(obj['recorded_at']),
             'source': src.id,
-            'additional': request.data.get('additional', {}),
+            'additional': obj['additional'],
         }
 
+        observation['additional'].update(dict((k, obj[k]) for k in obj if k not in
+                                              ('additional', 'manufacturer_id', 'location', 'recorded_at',)))
 
-        serializer = ObservationSerializer(data=observation_data)
+        serializer = ObservationSerializer(data=observation)
         if serializer.is_valid():
             serializer.save()
+            notify_new_tracks(src.id)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
