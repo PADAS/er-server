@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class ContainmentAnalyzer(Analyzer):
     """ Analyzer for Track for polygon boundary crossing """
 
-    event_type = Event.ET_PERIMETER_FENCE_BREACH
+    event_type = Event.ET_ANALYZER
 
     polygon = models.ForeignKey(
         to=PolygonFeature,

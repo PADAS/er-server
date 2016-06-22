@@ -11,6 +11,7 @@ from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
 from core.tests import BaseAPITest
+from core.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment
 from activity.models import get_sentinel_user
@@ -23,10 +24,70 @@ from observations.serializers import SubjectSerializer
 
 User = django.contrib.auth.get_user_model()
 
+ET_ANALYZER = 'analyzer'
+ET_SYSTEM = 'system'
+ET_PROXIMITY = 'proximity'
+ET_GEOFENCE = 'geofence'
+ET_IMMOBILITY = 'immobility'
+ET_SPEED = 'speed'
+
+ET_OTHER = 'other'
+ET_EXCLUSION_ZONE_BREACH = 'exclusion-zone-breach'
+ET_PERIMETER_FENCE_BREACH = 'perimeter-fence-breach'
+ET_ELEPHANT_SIGHTING = 'elephant-sighting'
+ET_WOUNDED_ANIMAL = 'wounded-animal'
+ET_FIRE = 'fire'
+ET_LIVESTOCK_THEFT = 'livestock-theft'
+ET_CONTAINMENT_BREACH = 'containment-breach'
+ET_FOOTPRINTS = 'footprints'
+ET_GUNSHOT_HEARD = 'gunshot-heard'
+ET_RADIO_TEXT_MESSAGE = 'radio-text-message'
+
+ET_DEFAULT_VALUE = ET_OTHER
+
+EVENT_TYPE_CHOICES = (
+    (ET_ANALYZER, 'Analyzer'),
+    (ET_SYSTEM, 'System'),
+    (ET_PROXIMITY, 'Proximity'),
+    (ET_GEOFENCE, 'Geofence'),
+    (ET_IMMOBILITY, 'Immobility'),
+    (ET_SPEED, 'Speed'),
+    (ET_EXCLUSION_ZONE_BREACH, 'Exclusion Zone Breach'),
+    (ET_PERIMETER_FENCE_BREACH, 'Perimeter Fence Breach'),
+    (ET_ELEPHANT_SIGHTING, 'Elephant Sighting'),
+    (ET_WOUNDED_ANIMAL, 'Wounded Animal'),
+    (ET_LIVESTOCK_THEFT, 'Livestock Theft'),
+    (ET_FIRE, 'Fire'),
+    (ET_CONTAINMENT_BREACH, 'Containment Breach'),
+    (ET_FOOTPRINTS, 'Suspicious Signs'),
+    (ET_GUNSHOT_HEARD, 'Gunshot Heard'),
+    (ET_RADIO_TEXT_MESSAGE, 'Radio Text Message'),
+    (ET_OTHER, 'Other'),
+)
+
+
+def populate_event_types():
+    model = Event._meta.label_lower
+    field = 'event_type'
+    field_sub = 'event_subtype'
+    for et, display in EVENT_TYPE_CHOICES:
+        parent = Choice.objects.create(model=model,
+                                       field=field,
+                                       value=et,
+                                       display=display)
+
+
+        sub = Choice.objects.create(model=model,
+                                    field=field_sub,
+                                    value=et + '_sub',
+                                    display=display + ' SubType'
+                                    )
+        sub.sub_choice_of.add(parent)
+        sub.save()
 
 class TestSourcePlugin(TestCase):
     def setUp(self):
-        pass
+        populate_event_types()
 
     def test_sentinel_user(self):
         user = get_sentinel_user()
@@ -36,7 +97,7 @@ class TestSourcePlugin(TestCase):
         with transaction.atomic():
             e = Event.objects.create_event(message=lorem_ipsum.paragraph(),
                                            provenance=Event.PC_COMMUNITY,
-                                           event_type=Event.ET_LIVESTOCK_THEFT,
+                                           event_type=ET_LIVESTOCK_THEFT,
                                            priority=Event.PRI_URGENT,
                                            attributes={},
                                            )
@@ -47,6 +108,7 @@ class TestSourcePlugin(TestCase):
 class TestEventView(BaseAPITest):
     def setUp(self):
         super().setUp()
+        populate_event_types()
         self.user = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True)
         self.readonly_user = User.objects.create_user('readonly',
                                                       'readonly@test.com',
@@ -58,11 +120,13 @@ class TestEventView(BaseAPITest):
         self.staff = Subject.objects.create(name='Ranger 2', additional={})
         self.staff_rep = SubjectSerializer().to_representation(self.staff)
 
+
+
         self.event_data = dict(
             message=lorem_ipsum.paragraph(),
             time=DateTimeField().to_representation(timezone.now()),
             provenance=Event.PC_COMMUNITY,
-            event_type=Event.ET_OTHER,
+            event_type=ET_OTHER,
             priority=Event.PRI_REFERENCE,
             location=dict(longitude='40.1353', latitude='-1.891517')
             )
@@ -99,6 +163,7 @@ class TestEventView(BaseAPITest):
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
         event_data['provenance'] = Event.PC_STAFF
+        event_data['event_subtype'] = event_data['event_type'] + '_sub'
         request = self.factory.post(self.api_base + '/events/', event_data)
         self.force_authenticate(request, self.user)
 
@@ -107,6 +172,17 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         response_data = {k:response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
+
+    def test_create_new_event_invalid_subtype(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        event_data['provenance'] = Event.PC_STAFF
+        event_data['event_subtype'] = 'system_sub'
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 500)
 
     def test_create_new_message_only_event(self):
         event_data = {'message': lorem_ipsum.sentence(),
