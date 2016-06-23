@@ -55,9 +55,10 @@ class Command(BaseCommand):
                 try:
                     p = Permission.objects.get(codename=codename, content_type__app_label=app_label,
                                            content_type__model=model)
+                    permission_set.permissions.add(p)
                 except Permission.DoesNotExist:
                     logger.error('Permission does not exist: %s', p)
-                permission_set.permissions.add(p)
+
 
             if 'parent' in ps:
                 permission_set.parent = PermissionSet.objects.get(name=ps['parent'])

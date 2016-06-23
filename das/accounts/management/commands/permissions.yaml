@@ -50,12 +50,12 @@ permission_sets:
       - activity.event.add_event
       - activity.event.delete_event
       - activity.event.change_event
-      - activity.eventattachment.add_event
-      - activity.eventattachment.delete_event
-      - activity.eventattachment.change_event
-      - activity.eventnote.add_event
-      - activity.eventnote.delete_event
-      - activity.eventnote.change_event
+      - activity.eventattachment.add_eventattachment
+      - activity.eventattachment.delete_eventattachment
+      - activity.eventattachment.change_eventattachment
+      - activity.eventnote.add_eventnote
+      - activity.eventnote.delete_eventnote
+      - activity.eventnote.change_eventnote
 subjectgroups:
   - name: All Subjects
     ps_sets: [View All Subjects, Admin All Subjects]
