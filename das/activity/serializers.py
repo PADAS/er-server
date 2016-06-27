@@ -363,6 +363,21 @@ class EventStateSerializer(rest_framework.serializers.ModelSerializer):
         return instance
 
 
+class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
+    created_by_user = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault()
+    )
+
+    image = VersatileImageFieldSerializer(sizes='event_photo')
+
+    class Meta:
+        model = activity.models.EventPhoto
+        read_only_fields = ('created_at', 'updated_at')
+        write_only_fields = ('event',)
+        fields = ('id', 'created_by_user',
+                  'image') + write_only_fields + read_only_fields
+
+
 class EventSerializer(rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
@@ -375,7 +390,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     notes = EventNoteSerializer(many=True, required=False)
     reported_by = ReportedByRelatedField(required=False)
     message = rest_framework.serializers.CharField(required=True)
-
+    photos = EventPhotoSerializer(many=True, required=False)
     class Meta:
         model = activity.models.Event
         read_only_fields = ('updated_at',)
@@ -383,7 +398,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             'id', 'location', 'time', 'message', 'provenance',
             'event_type', 'event_subtype', 'priority', 'priority_label', 'attributes',
             'image_url', 'created_by_user', 'notes', 'reported_by',
-            'state') + read_only_fields
+            'state', 'photos') + read_only_fields
 
     def create(self, validated_data):
         return activity.models.Event.objects.create_event(**validated_data)
@@ -494,34 +509,3 @@ def make_feature(request, event):
 
         }
     return feature
-
-
-# class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
-#     created_by_user = rest_framework.serializers.HiddenField(
-#         default=rest_framework.serializers.CurrentUserDefault()
-#     )
-#
-#     image = VersatileImageFieldSerializer(sizes='event_photo')
-#
-#     class Meta:
-#         model = activity.models.EventPhoto
-#         fields = ('id', 'image', 'event')
-
-
-class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
-    created_by_user = rest_framework.serializers.HiddenField(
-        default=rest_framework.serializers.CurrentUserDefault()
-    )
-
-    image = VersatileImageFieldSerializer(sizes='event_photo')
-
-    class Meta:
-        model = activity.models.EventPhoto
-        read_only_fields = ('created_at', 'updated_at')
-        write_only_fields = ('event',)
-        fields = ('id', 'created_by_user',
-                  'image') + write_only_fields + read_only_fields
-
-
-
-
