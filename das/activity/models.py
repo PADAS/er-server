@@ -52,7 +52,7 @@ class EventFilteringQuerySet(models.QuerySet):
     def all_sort(self):
         # default order by is by updated_at and (new/active/resolved)
         ordering = [Event.SC_NEW, Event.SC_ACTIVE, Event.SC_RESOLVED]
-        state_ordering = models.Case(*[models.When(pk=pk, then=pos)
+        state_ordering = models.Case(*[models.When(state=pk, then=pos)
                                        for pos, pk in enumerate(ordering)])
         result = self.order_by(*[state_ordering, '-updated_at'])
 
