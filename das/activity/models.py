@@ -49,6 +49,15 @@ class Community(TimestampedModel):
 
 
 class EventFilteringQuerySet(models.QuerySet):
+    def all_sort(self):
+        # default order by is by updated_at and (new/active/resolved)
+        ordering = [Event.SC_NEW, Event.SC_ACTIVE, Event.SC_RESOLVED]
+        state_ordering = models.Case(*[models.When(pk=pk, then=pos)
+                                       for pos, pk in enumerate(ordering)])
+        result = self.order_by(*[state_ordering, '-updated_at'])
+
+        return result
+
     def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
         events = self.filter(location__within=geom).order_by(
@@ -141,6 +150,7 @@ class Event(RevisionMixin, TimestampedModel):
     PRI_URGENT = 300
     PRI_IMPORTANT = 200
     PRI_REFERENCE = 100
+    PRI_NONE = 0
 
     PRIORITY_CHOICES = (
         (100, 'Low'),

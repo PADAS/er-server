@@ -68,7 +68,7 @@ class EventsView(generics.ListCreateAPIView):
     metadata_class = EventJSONSchema
 
     def get_queryset(self):
-        queryset = Event.objects.all().order_by('-updated_at')
+        queryset = Event.objects.all_sort()
         bbox = self.request.query_params.get('bbox', None)
         if bbox:
             bbox = bbox.split(',')
