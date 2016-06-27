@@ -5,6 +5,7 @@
     field: event_type
     value: other
     display: Other
+    ordernum: 3
     sub_choice_of: []
 - model: core.choice
   pk: 045fb539-bbfc-4177-8109-6dcb72f215de
@@ -69,6 +70,7 @@
     field: event_type
     value: animal
     display: Animal
+    ordernum: 1
     sub_choice_of: []
 - model: core.choice
   pk: 1cf29d24-0f3d-4400-bd43-4a225fd3ef09
@@ -167,20 +169,13 @@
     display: Attempted Arrest
     sub_choice_of: [c4b023db-9247-4451-8a0e-38164560cfbd]
 - model: core.choice
-  pk: 60170f76-d817-46c6-9fa1-3c2a9eb0dff0
-  fields:
-    model: activity.event
-    field: event_type
-    value: analyzer
-    display: DAS Analysis
-    sub_choice_of: []
-- model: core.choice
   pk: 6f6679f6-a544-4086-97ab-ec1ef0a52cb4
   fields:
     model: activity.event
     field: event_type
     value: accident
     display: Accident
+    ordernum: 0
     sub_choice_of: []
 - model: core.choice
   pk: 70bd6b2b-be8f-45ad-8bb2-240963ab332b
@@ -269,6 +264,7 @@
     field: event_type
     value: arrest
     display: Arrest
+    ordernum: 2
     sub_choice_of: []
 - model: core.choice
   pk: d3dc1ce0-1f88-4007-a6b8-d05fe47e9820

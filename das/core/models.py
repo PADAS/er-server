@@ -66,7 +66,7 @@ class ChoiceQuerySet(models.QuerySet):
         return result.get_values()
 
     def get_choices(self, model, field):
-        return self.filter(model=model, field=field)
+        return self.filter(model=model, field=field).order_by('ordernum')
 
     def get_values(self):
         return self.values_list('value', 'display')
@@ -88,6 +88,7 @@ class Choice(models.Model):
     field = models.CharField(max_length=40)
     value = models.CharField(max_length=40, blank=True)
     display = models.CharField(max_length=100, blank=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
     sub_choice_of = models.ManyToManyField('self', blank=True,
                                            symmetrical=False)
 
