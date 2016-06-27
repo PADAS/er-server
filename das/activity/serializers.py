@@ -57,6 +57,16 @@ REPORTED_SERIALIZER_MAPPING = {
 
 }
 
+def filter_blank_choice(choices):
+    if isinstance(choices, dict):
+        choices = choices.items()
+    for value, display in choices:
+        try:
+            if display.startswith('-----'):
+                continue
+        except AttributeError:
+            pass
+        yield value,display
 
 class EventJSONSchema(BaseMetadata):
     label_lookup = ClassLookupDict({
@@ -178,7 +188,7 @@ class EventJSONSchema(BaseMetadata):
                 if isinstance(object_choices, dict):
                     unassigned = []
                     enum_ext = {}
-                    for group, values in object_choices.items():
+                    for group, values in filter_blank_choice(object_choices):
                         if isinstance(values, (list, tuple, dict)):
                             if isinstance(values, dict):
                                 values_iter = values.items()
@@ -190,7 +200,7 @@ class EventJSONSchema(BaseMetadata):
                                     'title': force_text(choice_name,
                                                         strings_only=True)
                                 }
-                                for choice_value, choice_name in values_iter
+                                for choice_value, choice_name in filter_blank_choice(values_iter)
                                 ]
                         else:
                             unassigned.append({
@@ -206,7 +216,7 @@ class EventJSONSchema(BaseMetadata):
                             'value': choice_value,
                             'title': force_text(choice_name, strings_only=True)
                         }
-                        for choice_value, choice_name in field.object_choices
+                        for choice_value, choice_name in filter_blank_choice(field.object_choices)
                         ]
                     field_info['enum'] = [v['value'] for v in
                                           enum_ext]
@@ -217,7 +227,7 @@ class EventJSONSchema(BaseMetadata):
                         'value': choice_value,
                         'title': force_text(choice_name, strings_only=True)
                     }
-                    for choice_value, choice_name in field.choices.items()
+                    for choice_value, choice_name in filter_blank_choice(field.choices)
                     ]
                 field_info['enum'] = [v['value'] for v in
                                       field_info['enum_ext']]
