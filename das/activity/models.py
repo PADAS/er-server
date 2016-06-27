@@ -324,7 +324,8 @@ def upload_to(instance, filename):
     :param filename: default filename.
     :return: relative path for storing uploaded image
     '''
-    name, extension = filename.split('.')
+    name, extension = filename.rsplit('.', 1) if '.' in filename else (filename, '')
+
     d = datetime.datetime.now().replace(tzinfo=pytz.UTC)
     file_path = 'eventphotos/{year:04}/{month:02}/{day:02}/{pk!s}.{extension}'.format(year=d.year, month=d.month,
                                                                                     day=d.day, pk=instance.id,
