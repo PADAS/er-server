@@ -1,5 +1,7 @@
 import logging
 import uuid
+import datetime, pytz
+
 
 import django.utils
 from django.core.exceptions import ValidationError
@@ -11,14 +13,14 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
 from django.utils import timezone
-from utils.html import clean_user_text
 from django.utils.translation import ugettext_lazy as _
+from versatileimagefield.fields import VersatileImageField
+from django.dispatch import receiver
 
-
+from utils.html import clean_user_text
 from core.models import TimestampedModel, ChoiceCharField
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
-
 
 def get_sentinel_user():
     User = get_user_model()
@@ -312,3 +314,37 @@ class EventNote(RevisionMixin, TimestampedModel):
 
     def __str__(self):
         return '{0}'.format(self.text[50:])
+
+
+
+def upload_to(instance, filename):
+    '''
+    This is a hook for providing a path to an EventPhoto.image.
+    :param instance: EventPhoto instance
+    :param filename: default filename.
+    :return: relative path for storing uploaded image
+    '''
+    name, extension = filename.split('.')
+    d = datetime.datetime.now().replace(tzinfo=pytz.UTC)
+    file_path = 'eventphotos/{year:04}/{month:02}/{day:02}/{pk!s}.{extension}'.format(year=d.year, month=d.month,
+                                                                                    day=d.day, pk=instance.id,
+                                                                                    extension=extension)
+    return file_path
+
+
+class EventPhoto(TimestampedModel):
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    created_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
+        null=True, blank=True, related_name='event_photos', related_query_name='event_photo')
+    image = VersatileImageField(upload_to=upload_to, null=True, max_length=512)
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='photos', related_query_name='photo')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        result = super().save(*args, **kwargs)
+        self.event.dependent_table_updated()
+        return result
+

@@ -16,6 +16,7 @@ from rest_framework.fields import DateTimeField, IntegerField
 from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
+from versatileimagefield.serializers import VersatileImageFieldSerializer
 
 import activity.models
 import utils
@@ -493,3 +494,34 @@ def make_feature(request, event):
 
         }
     return feature
+
+
+# class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
+#     created_by_user = rest_framework.serializers.HiddenField(
+#         default=rest_framework.serializers.CurrentUserDefault()
+#     )
+#
+#     image = VersatileImageFieldSerializer(sizes='event_photo')
+#
+#     class Meta:
+#         model = activity.models.EventPhoto
+#         fields = ('id', 'image', 'event')
+
+
+class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
+    created_by_user = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault()
+    )
+
+    image = VersatileImageFieldSerializer(sizes='event_photo')
+
+    class Meta:
+        model = activity.models.EventPhoto
+        read_only_fields = ('created_at', 'updated_at')
+        write_only_fields = ('event',)
+        fields = ('id', 'created_by_user',
+                  'image') + write_only_fields + read_only_fields
+
+
+
+

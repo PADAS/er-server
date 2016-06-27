@@ -1,12 +1,12 @@
 from datetime import timedelta
 
 from rest_framework.pagination import PageNumberPagination
-from rest_framework import generics
+from rest_framework import generics, status
 import rest_framework.exceptions
 
-from activity.models import Event, EventNote
+from activity.models import Event, EventNote, EventPhoto
 from activity.serializers import EventSerializer, EventNoteSerializer,\
-    EventJSONSchema, EventStateSerializer
+    EventJSONSchema, EventStateSerializer, EventPhotoSerializer
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 
@@ -130,6 +130,43 @@ class EventNoteView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         queryset = self.get_queryset()
         filters = {'id': self.kwargs['note_id']}
+
+        obj = generics.get_object_or_404(queryset, **filters)
+
+        return obj
+
+
+class EventPhotosView(generics.ListCreateAPIView):
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = EventPhotoSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def create(self, request, *args, **kwargs):
+        request.data['event'] = self.kwargs['id']
+        return super().create(request, *args, **kwargs)
+
+    def get_queryset(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['id'])
+
+        photos = EventPhoto.objects.all().filter(event=event)
+        return photos
+
+
+class EventPhotoView(generics.RetrieveUpdateAPIView):
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = EventPhotoSerializer
+
+    def get_queryset(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['id'])
+
+        photos = EventPhoto.objects.all().filter(event=event)
+        return photos
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        filters = {'id': self.kwargs['photo_id']}
 
         obj = generics.get_object_or_404(queryset, **filters)
 

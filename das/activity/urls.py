@@ -1,5 +1,5 @@
 from django.conf.urls import url, include
-from . import views
+from activity import views
 
 
 urlpatterns = [
@@ -17,5 +17,14 @@ urlpatterns = [
     url(
         r'^event/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/note/(?P<note_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.EventNoteView.as_view(), name='event-view-note'),
+
+    url(
+        r'^event/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/photos/?$',
+        views.EventPhotosView.as_view(), name='event-view-photos'),
+    url(
+        r'^event/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/photo/(?P<photo_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
+        views.EventPhotoView.as_view(), name='event-view-photo'),
+    # url(
+    #     r'^event/photos/?$', views.EventPhotoView.as_view(), name='event-photo'),
 ]
 

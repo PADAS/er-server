@@ -4,7 +4,9 @@ from django.db.models.signals import post_save, post_delete
 from django.db import transaction
 from django.dispatch import receiver
 
-from activity.models import Event, EventNote, EventAttachment
+from das_server import celery
+
+from activity.models import Event, EventNote, EventAttachment, EventPhoto
 from das_server import pubsub
 
 
@@ -25,3 +27,7 @@ def event_post_delete(sender, instance, **kwargs):
     pubsub.publish(
         {'event_id': str(instance.pk)},
         'das.event.delete')
+
+@receiver(post_save, sender=EventPhoto)
+def warm_EventPhoto_image(sender, instance, **kwargs):
+    celery.app.send_task('activity.tasks.warm_eventphotos', args=(str(instance.id),))
