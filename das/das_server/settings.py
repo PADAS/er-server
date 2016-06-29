@@ -160,75 +160,8 @@ DATABASES = {
     }
 }
 
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'syslog': {
-            'format': 'mw %(levelname)s %(processName)s %(thread)d %(name)s %(message)s'
-        },
-        'simple': {
-            'format': '%(asctime)s mw %(levelname)s %(processName)s %(thread)d %(name)s %(message)s'
-        },
-    },
-    'handlers': {
-        # 'syslog': {
-        #     'level': 'INFO',
-        #     'class': 'logging.handlers.SysLogHandler',
-        #     'address': '/dev/log',
-        #     'facility': SysLogHandler.LOG_USER,
-        #     'formatter': 'syslog'
-        # },
-        'file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': '/tmp/das.log',
-            'formatter': 'simple'
-        },
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'stream': sys.stdout,
-            'formatter': 'simple'
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'propagate': True,
-            'level': 'INFO',
-        },
-        'das_server': {
-            'handlers': ['file'],
-            'level': 'INFO',
-        },
-        'utils': {
-            'handlers': ['file'],
-            'level': 'INFO',
-        },
-        'observations': {
-            'handlers': ['file'],
-            'level': 'INFO',
-        },
-        'mapping': {
-            'handlers': ['file'],
-            'level': 'INFO',
-        },
-        'tracking': {
-            'handlers': ['file'],
-            'level': 'DEBUG',
-        },
-        'activity': {
-            'handlers': ['file'],
-            'level': 'DEBUG',
-        },
-        'rt_api': {
-            'handlers': ['file'],
-            'level': 'DEBUG',
-        }
-    }
-}
+# Do not use Django logging config
+LOGGING_CONFIG = None
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/

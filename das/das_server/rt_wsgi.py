@@ -10,6 +10,9 @@ import os
 
 import eventlet
 eventlet.monkey_patch()
+from das_server.log import init_logging
+init_logging()
+
 
 from django.core.wsgi import get_wsgi_application
 import rt_api

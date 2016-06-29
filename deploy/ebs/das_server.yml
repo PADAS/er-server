@@ -154,6 +154,7 @@ app:
                         numprocs=1
                         stdout_logfile=/opt/python/log/celery_worker.log
                         stderr_logfile=/opt/python/log/celery_worker_stderr.log
+                        redirect_stderr=true
                         autostart=true
                         autorestart=true
                         startsecs=10
@@ -168,6 +169,7 @@ app:
                         numprocs=1
                         stdout_logfile=/opt/python/log/celery_beat.log
                         stderr_logfile=/opt/python/log/celery_beat_stderr.log
+                        redirect_stderr=true
                         autostart=true
                         autorestart=true
                         startsecs=10

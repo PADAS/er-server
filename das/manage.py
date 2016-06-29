@@ -9,6 +9,9 @@ if os.environ.get('EVENTLET_SHOULDPATCH', 'false').lower() == 'true':
     else:
         eventlet.monkey_patch()
 
+from das_server.log import init_logging
+init_logging()
+
 """
 To run the local server:
 python manage.py runserver 8080

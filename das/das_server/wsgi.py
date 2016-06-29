@@ -8,8 +8,10 @@ https://docs.djangoproject.com/en/1.8/howto/deployment/wsgi/
 """
 
 import os
-
 from django.core.wsgi import get_wsgi_application
+
+from das_server.log import init_logging
+init_logging('wsgi')
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das_server.settings")
 
