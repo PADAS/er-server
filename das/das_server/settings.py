@@ -76,6 +76,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.security.SecurityMiddleware',
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
     'revision.middleware.RevisionMiddleware',
+    'utils.middleware.RequestLoggingMiddleware'
     #'django.contrib.sites.middleware.CurrentSiteMiddleware',
 )
 

@@ -39,7 +39,7 @@ DEFAULT_LOGGING = {
         'django.request': {
             'handlers': ['console'],
             'propagate': False,
-            'level': 'WARNING',
+            'level': 'INFO',
         },
         '': {
             'handlers': ['console'],
@@ -76,7 +76,7 @@ WSGI = {
         'django.request': {
             'handlers': ['file'],
             'propagate': False,
-            'level': 'WARNING',
+            'level': 'INFO',
         },
         '': {
             'handlers': ['file'],
