@@ -20,7 +20,7 @@ from django.conf import settings
 import oauth2_provider.views as oauth2_views
 
 from das_server import views
-
+import das_server.metrics
 
 urlpatterns = [
     url(r'^api/v1.0/', include('accounts.urls')),

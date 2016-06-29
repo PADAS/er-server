@@ -6,7 +6,6 @@ from django.dispatch import receiver
 logger = logging.getLogger(__name__)
 
 
-
 @receiver(django.contrib.auth.signals.user_login_failed)
 def user_login_failed(sender, credentials, **kwargs):
     message = dict(id='user_login_failure', username=credentials.get('username'))
