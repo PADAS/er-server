@@ -242,10 +242,15 @@ class Event(RevisionMixin, TimestampedModel):
             if not isinstance(self.reported_by, (get_user_model(), Subject)):
                 raise ValidationError(
                     {'reported_by': ValidationError(_('Invalid value for reported_by'), code='invalid')})
+        elif self.provenance == self.PC_COMMUNITY:
+            if not isinstance(self.reported_by, (Community,)):
+                raise ValidationError(
+                    {'reported_by': ValidationError(
+                        _('Invalid value for {0} reported_by'.format(self.PC_COMMUNITY)), code='invalid')})
         elif self.provenance and self.reported_by:
             raise ValidationError(
                 {'reported_by': ValidationError(
-                    _('Invalid value for provenance and reported_by fields'), code='invalid')})
+                    _('Invalid value for provenance {0} and reported_by fields'.format(self.provenance)), code='invalid')})
 
         self.message = clean_user_text(self.message, 'Event.message')
 

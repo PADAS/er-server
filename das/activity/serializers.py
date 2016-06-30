@@ -274,10 +274,16 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
 
     @property
     def object_choices(self):
-        if not self.choices:
+        queryset = self.get_object_queryset()
+        if queryset is None:
+            # Ensure that field.choices returns something sensible
+            # even when accessed with a read-only field.
             return {}
 
-        return self.grouped_choices
+        return {provenance: [(
+                                 self.to_representation(item),
+                                 self.display_value(item)) for item in values]
+                for provenance, values in queryset}
 
 
 class AttachmentRelatedField(rest_framework.serializers.RelatedField):
