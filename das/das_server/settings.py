@@ -97,6 +97,12 @@ TEMPLATES = [
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
+LOGIN_URL = '/login'
+LOGOUT_URL = '/logout'
+LOGIN_REDIRECT_URL = '/'
+
+# The number of days a password reset link is valid for
+PASSWORD_RESET_TIMEOUT_DAYS = 3
 WSGI_APPLICATION = 'das_server.wsgi.application'
 
 AUTH_PASSWORD_VALIDATORS = [

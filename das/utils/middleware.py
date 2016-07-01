@@ -26,7 +26,7 @@ class RequestLoggingMiddleware(object):
                 req_time = time.time() - self.start_time
             except AttributeError:
                 req_time = 0
-            content_len = len(response.content)
+            content_len = len(getattr(response, 'content', []))
             referer = request.META.get('HTTP_REFERER', '')
             agent = request.META.get('HTTP_USER_AGENT', '')
             status = response.status_code

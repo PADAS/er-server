@@ -1,5 +1,5 @@
 from django.core.exceptions import PermissionDenied
-from django.conf.urls import patterns
+from django.conf.urls import url
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.contrib import admin
@@ -36,16 +36,21 @@ class UserAdmin(DjangoUserAdmin):
         form = PasswordResetForm(data={'email': user.email})
         form.is_valid()
 
-        form.save(email_template_name='my_template.html')
+        opts = {
+            'use_https': request.is_secure(),
+            'request': request,
+            'email_template_name': 'registration/password_reset_email.html',
+        }
+
+        form.save(**opts)
         return HttpResponseRedirect('..')
 
     def get_urls(self):
         urls = super(UserAdmin, self).get_urls()
-        my_urls = patterns('',
-                           (r'^(\d+)/reset-password/$',
-                            self.admin_site.admin_view(self.reset_password)
-                            ),
-                           )
+        my_urls = [url(r'^(.+)/change/reset-password/?$',
+                   self.admin_site.admin_view(self.reset_password)
+                   ),
+                   ]
         return my_urls + urls
 
 
