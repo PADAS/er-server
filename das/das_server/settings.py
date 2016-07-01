@@ -28,8 +28,6 @@ DEBUG = False
 # running in development mode
 DEV = False
 
-ALLOWED_HOSTS = []
-
 # Application definition
 
 INSTALLED_APPS = (
@@ -190,11 +188,17 @@ SITE_ID = 1
 
 #socket.io uses the CORS_ORIGIN_WHITELIST as well
 #caveat is that socket.io matches against the whole ORIGIN ie: http://localhost
-# CORS_ALLOW_CREDENTIALS = True
-# CORS_ORIGIN_ALLOW_ALL = False
-# CORS_ORIGIN_WHITELIST = (
-#     )
-# CORS_REPLACE_HTTPS_REFERER = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_WHITELIST = (
+     )
+CORS_REPLACE_HTTPS_REFERER = True
+
+ALLOWED_HOSTS = ['*']
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+#CSRF_TRUSTED_ORIGINS = ('localhost',)
 
 SWAGGER_SETTINGS = {
     'api_version': 'v1.0',

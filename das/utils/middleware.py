@@ -6,6 +6,7 @@ from django.conf import settings
 
 class RequestLoggingMiddleware(object):
     logger = logging.getLogger('django.request')
+
     def process_request(self, request):
         self.start_time = time.time()
 
@@ -21,7 +22,10 @@ class RequestLoggingMiddleware(object):
             user_email = '-'
             if hasattr(request, 'user'):
                 user_email = getattr(request.user, 'email', '-')
-            req_time = time.time() - self.start_time
+            try:
+                req_time = time.time() - self.start_time
+            except AttributeError:
+                req_time = 0
             content_len = len(response.content)
             referer = request.META.get('HTTP_REFERER', '')
             agent = request.META.get('HTTP_USER_AGENT', '')
