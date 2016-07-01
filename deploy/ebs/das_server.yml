@@ -371,3 +371,11 @@ app:
                 DAS_ENV_NAME: 'ste'
               'aws:autoscaling:launchconfiguration':
                 InstanceType: "t2.medium"
+        # the grumeti version of the app
+        'das-server-grumeti':
+            cname_prefix: 'das-server-grumeti'
+            option_settings:
+              'aws:elasticbeanstalk:application:environment':
+                DAS_ENV_NAME: 'grumeti'
+              'aws:autoscaling:launchconfiguration':
+                InstanceType: "t2.medium"
