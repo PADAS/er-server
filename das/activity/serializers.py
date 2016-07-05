@@ -361,11 +361,13 @@ class EventStateSerializer(rest_framework.serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         dirty = False
+        update_fields = []
         for k, v in validated_data.items():
-            dirty |= getattr(instance, k) != v
-            setattr(instance, k, v)
-        if dirty:
-            instance.save()
+            if getattr(instance, k) != v:
+                setattr(instance, k, v)
+                update_fields.append(k)
+        if update_fields:
+            instance.save(update_fields=update_fields)
         return instance
 
 
@@ -390,6 +392,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     #  json {lat/lon} and our internal representation.
     location = PointField(required=False)
     time = DateTimeField(source='event_time', required=False)
+    updated_at = DateTimeField(source='sort_at', required=False)
     created_by_user = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault()
     )

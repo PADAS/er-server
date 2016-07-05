@@ -268,6 +268,7 @@ AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
+DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'event_photo': [
