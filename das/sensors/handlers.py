@@ -35,7 +35,8 @@ class DasRadioAgentHandler():
 
     @staticmethod
     def _default_assigned_range(d1):
-        return (d1, d1 + timedelta(days=365 * 5))
+        rng = (d1, d1 + timedelta(days=365 * 5))
+        return list(rng)
 
     def handle_observation(self, request, provider_key):
 
@@ -55,26 +56,30 @@ class DasRadioAgentHandler():
         manufacturer_id = obj.get('manufacturer_id')
         src, created = Source.objects.ensure_source(self.SOURCE_TYPE, manufacturer_id=manufacturer_id,
                                                     model_name=model_name)
+
+        recorded_at = self.__str2date(obj['recorded_at'])
+
         # If the Source already exists, assume the SubjectSource and Subject already exist.
         if created:
+
             ss, created = SubjectSource.objects.ensure_subject_source(src,
-                                                                      timestamp=obj['recorded_at'],
+                                                                      timestamp=recorded_at,
                                                                       subject_type=self.DEFAULT_SUBJECT_TYPE,
                                                                       subject_subtype=self.DEFAULT_SUBJECT_SUBTYPE,
                                                                       assigned_range=self._default_assigned_range(
-                                                                          obj['recorded_at']),
+                                                                          recorded_at),
                                                                       subject_name=obj.get('subject_name', manufacturer_id)
                                                                       )
 
         observation = {
             'location': location,
-            'recorded_at': self.__str2date(obj['recorded_at']),
+            'recorded_at': recorded_at,
             'source': src.id,
             'additional': obj['additional'],
         }
 
-        observation['additional'].update(dict((k, obj[k]) for k in obj if k not in
-                                              ('additional', 'manufacturer_id', 'location', 'recorded_at',)))
+        # Anything else that was included in the posted object should move into additional.
+        observation['additional'].update(dict((k, obj[k]) for k in obj if k not in observation.keys()))
 
         serializer = ObservationSerializer(data=observation)
         if serializer.is_valid():
