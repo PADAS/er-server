@@ -458,12 +458,12 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             if revision.action == AC_UPDATED:
                 field_mapping = {'message': 'Event Message',
                                  'event_time': 'Event Time',
-                                 'state': 'Event State',
-                                 'priority': 'Event Priority',
+                                 'state': 'Event State is {0}',
+                                 'priority': 'Event Priority is {0}',
                                  'location': 'Location',
                                  'provenance': 'Event Reporter',
                                  'created_by_user': 'Event Writer'}
-                fieldnames = [field_mapping[k] for k in revision.data.keys() if
+                fieldnames = [field_mapping[k].format(event.get_display_value(k, v)) for k, v in revision.data.items() if
                               k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
                                                 ', '.join(fieldnames))
