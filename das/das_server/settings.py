@@ -60,6 +60,7 @@ INSTALLED_APPS = (
     'activity',
     'rt_api.apps.RTAPIConfig',
     'core.apps.CoreConfig',
+    'vectronics'
 )
 
 MIDDLEWARE_CLASSES = (
@@ -157,7 +158,13 @@ DATABASES = {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': 'das',
         'USER': 'postgres',
-    }
+    },
+    # Optional, use to import vectroincs data into das
+    # 'vectronics': {
+    #     'ENGINE': 'django.contrib.gis.db.backends.postgis',
+    #     'NAME': 'gpsplus_wildlife',
+    #     'USER': 'vect_owner',
+    # }
 }
 
 
