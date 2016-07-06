@@ -36,6 +36,7 @@ app:
                 "/bower_components": "/opt/python/current/app/das/www/bower_components"
                 "/index.html": "/opt/python/current/app/das/www/index.html"
                 "/login": "/opt/python/current/app/das/www/index.html"
+                "/logout": "/opt/python/current/app/das/www/index.html"
                 "/page-speed": "/opt/python/current/app/das/www/index.html"
                 "/qa": "/opt/python/current/app/das/www/index.html"
                 "/robots.txt": "/opt/python/current/app/das/www/robots.txt"
@@ -154,6 +155,7 @@ app:
                         numprocs=1
                         stdout_logfile=/opt/python/log/celery_worker.log
                         stderr_logfile=/opt/python/log/celery_worker_stderr.log
+                        redirect_stderr=true
                         autostart=true
                         autorestart=true
                         startsecs=10
@@ -168,6 +170,7 @@ app:
                         numprocs=1
                         stdout_logfile=/opt/python/log/celery_beat.log
                         stderr_logfile=/opt/python/log/celery_beat_stderr.log
+                        redirect_stderr=true
                         autostart=true
                         autorestart=true
                         startsecs=10
@@ -269,7 +272,7 @@ app:
                                 remi: http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
                         commands:
                           01-install-redis:
-                            command: "yum -y --enablerepo=remi,remi-test install redis; service redis restart"
+                            command: "if [ ! -e /var/lib/redis ]; then yum -y --enablerepo=remi,remi-test install redis; service redis restart; fi"
 
               - .ebextensions/02-commands.config:
                     permissions: 0666
@@ -367,5 +370,13 @@ app:
             option_settings:
               'aws:elasticbeanstalk:application:environment':
                 DAS_ENV_NAME: 'ste'
+              'aws:autoscaling:launchconfiguration':
+                InstanceType: "t2.medium"
+        # the grumeti version of the app
+        'das-server-grumeti':
+            cname_prefix: 'das-server-grumeti'
+            option_settings:
+              'aws:elasticbeanstalk:application:environment':
+                DAS_ENV_NAME: 'grumeti'
               'aws:autoscaling:launchconfiguration':
                 InstanceType: "t2.medium"

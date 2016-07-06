@@ -1,7 +1,5 @@
-import logging
 import uuid
 import datetime, pytz
-
 
 import django.utils
 from django.core.exceptions import ValidationError
@@ -14,13 +12,14 @@ from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
+from django.utils.encoding import force_text
 from versatileimagefield.fields import VersatileImageField
-from django.dispatch import receiver
 
 from utils.html import clean_user_text
 from core.models import TimestampedModel, ChoiceCharField
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
+
 
 def get_sentinel_user():
     User = get_user_model()
@@ -51,10 +50,11 @@ class Community(TimestampedModel):
 class EventFilteringQuerySet(models.QuerySet):
     def all_sort(self):
         # default order by is by updated_at and (new/active/resolved)
-        ordering = [Event.SC_NEW, Event.SC_ACTIVE, Event.SC_RESOLVED]
+        ordering = [(0, Event.SC_NEW), (0, Event.SC_ACTIVE),
+                    (1, Event.SC_RESOLVED)]
         state_ordering = models.Case(*[models.When(state=pk, then=pos)
-                                       for pos, pk in enumerate(ordering)])
-        result = self.order_by(*[state_ordering, '-updated_at'])
+                                       for pos, pk in ordering])
+        result = self.order_by(*[state_ordering, '-sort_at'])
 
         return result
 
@@ -108,11 +108,10 @@ class EventManager(models.Manager):
         return self.filter(state=Event.SC_NEW).count()
 
 
-
 class Event(RevisionMixin, TimestampedModel):
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
-    revision_ignore_fields = ('updated_at', )
-    ordering = ['-created_at']
+    revision_ignore_fields = ('updated_at', 'sort_at')
+    ordering = ['-sort_at']
 
     '''
     An Event is something that happened. Maybe an incident, or an analyzer result, or a phone call from an informant.
@@ -135,7 +134,6 @@ class Event(RevisionMixin, TimestampedModel):
     ET_ANALYZER = 'analyzer'
     ET_OTHER = 'other'
 
-
     SC_NEW = 'new'
     SC_ACTIVE = 'active'
     SC_RESOLVED = 'resolved'
@@ -145,7 +143,6 @@ class Event(RevisionMixin, TimestampedModel):
         (SC_ACTIVE, 'Active'),
         (SC_RESOLVED, 'Resolved'),
     )
-
 
     PRI_URGENT = 300
     PRI_IMPORTANT = 200
@@ -203,6 +200,9 @@ class Event(RevisionMixin, TimestampedModel):
     reported_by = GenericForeignKey('reported_by_content_type',
                                     'reported_by_id')
 
+    sort_at = models.DateTimeField(default=django.utils.timezone.now,
+                                   blank=True)
+
     @property
     def priority_label(self):
         return self.get_priority_display()
@@ -229,10 +229,28 @@ class Event(RevisionMixin, TimestampedModel):
 
     def dependent_table_updated(self):
         self.updated_at = timezone.now()
+        self.sort_at = self.updated_at
         self.save()
 
     def save(self, *args, **kwargs):
         self.full_clean()
+        update_fields = kwargs.get('update_fields', [])
+        save_fields = set()
+
+        if (len(update_fields) == 1 and 'state' in update_fields and
+            self.state == self.SC_ACTIVE):
+                pass
+        else:
+            if self.updated_at:
+                self.sort_at = self.updated_at
+                save_fields.add('sort_at')
+
+        save_fields.add('updated_at')
+        if update_fields:
+            update_fields = set(update_fields)
+            update_fields.update(save_fields)
+            kwargs['update_fields'] = list(update_fields)
+
         return super().save(*args, **kwargs)
 
     def clean(self):
@@ -242,12 +260,24 @@ class Event(RevisionMixin, TimestampedModel):
             if not isinstance(self.reported_by, (get_user_model(), Subject)):
                 raise ValidationError(
                     {'reported_by': ValidationError(_('Invalid value for reported_by'), code='invalid')})
+        elif self.provenance == self.PC_COMMUNITY:
+            if not isinstance(self.reported_by, (Community,)):
+                raise ValidationError(
+                    {'reported_by': ValidationError(
+                        _('Invalid value for {0} reported_by'.format(self.PC_COMMUNITY)), code='invalid')})
         elif self.provenance and self.reported_by:
             raise ValidationError(
                 {'reported_by': ValidationError(
-                    _('Invalid value for provenance and reported_by fields'), code='invalid')})
+                    _('Invalid value for provenance {0} and reported_by fields'.format(self.provenance)), code='invalid')})
 
         self.message = clean_user_text(self.message, 'Event.message')
+
+    def get_display_value(self, field_name, value):
+        if hasattr(self, 'get_{0}_display'.format(field_name)):
+            field = self._meta.get_field(field_name)
+            return force_text(dict(field.flatchoices).get(value, value),
+                   strings_only=True)
+        return value
 
     def __str__(self):
         return self.message[50:]

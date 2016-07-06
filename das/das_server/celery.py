@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 import os
 from celery import Celery
+from celery.signals import setup_logging
 from django.conf import settings
 
 
@@ -18,3 +19,8 @@ app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
 def debug_task(self):
     print('Request: {0!r}'.format(self.request))
 
+
+@setup_logging.connect
+def das_server_logging(loglevel, **kwargs):
+    from das_server.log import init_logging
+    init_logging()

@@ -28,8 +28,6 @@ DEBUG = False
 # running in development mode
 DEV = False
 
-ALLOWED_HOSTS = []
-
 # Application definition
 
 INSTALLED_APPS = (
@@ -77,6 +75,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.security.SecurityMiddleware',
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
     'revision.middleware.RevisionMiddleware',
+    'utils.middleware.RequestLoggingMiddleware'
     #'django.contrib.sites.middleware.CurrentSiteMiddleware',
 )
 
@@ -99,6 +98,12 @@ TEMPLATES = [
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
+LOGIN_URL = '/login'
+LOGOUT_URL = '/logout'
+LOGIN_REDIRECT_URL = '/'
+
+# The number of days a password reset link is valid for
+PASSWORD_RESET_TIMEOUT_DAYS = 3
 WSGI_APPLICATION = 'das_server.wsgi.application'
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -167,75 +172,8 @@ DATABASES = {
     # }
 }
 
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'syslog': {
-            'format': 'mw %(levelname)s %(processName)s %(thread)d %(name)s %(message)s'
-        },
-        'simple': {
-            'format': '%(asctime)s mw %(levelname)s %(processName)s %(thread)d %(name)s %(message)s'
-        },
-    },
-    'handlers': {
-        # 'syslog': {
-        #     'level': 'INFO',
-        #     'class': 'logging.handlers.SysLogHandler',
-        #     'address': '/dev/log',
-        #     'facility': SysLogHandler.LOG_USER,
-        #     'formatter': 'syslog'
-        # },
-        'file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': '/tmp/das.log',
-            'formatter': 'simple'
-        },
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'stream': sys.stdout,
-            'formatter': 'simple'
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'propagate': True,
-            'level': 'INFO',
-        },
-        'das_server': {
-            'handlers': ['file'],
-            'level': 'INFO',
-        },
-        'utils': {
-            'handlers': ['file'],
-            'level': 'INFO',
-        },
-        'observations': {
-            'handlers': ['file'],
-            'level': 'INFO',
-        },
-        'mapping': {
-            'handlers': ['file'],
-            'level': 'INFO',
-        },
-        'tracking': {
-            'handlers': ['file'],
-            'level': 'DEBUG',
-        },
-        'activity': {
-            'handlers': ['file'],
-            'level': 'DEBUG',
-        },
-        'rt_api': {
-            'handlers': ['file'],
-            'level': 'DEBUG',
-        }
-    }
-}
+# Do not use Django logging config
+LOGGING_CONFIG = None
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
@@ -263,11 +201,17 @@ SITE_ID = 1
 
 #socket.io uses the CORS_ORIGIN_WHITELIST as well
 #caveat is that socket.io matches against the whole ORIGIN ie: http://localhost
-# CORS_ALLOW_CREDENTIALS = True
-# CORS_ORIGIN_ALLOW_ALL = False
-# CORS_ORIGIN_WHITELIST = (
-#     )
-# CORS_REPLACE_HTTPS_REFERER = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_WHITELIST = (
+     )
+CORS_REPLACE_HTTPS_REFERER = True
+
+ALLOWED_HOSTS = ['*']
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+#CSRF_TRUSTED_ORIGINS = ('localhost',)
 
 SWAGGER_SETTINGS = {
     'api_version': 'v1.0',
@@ -331,6 +275,7 @@ AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
+DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'event_photo': [

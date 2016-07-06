@@ -5,6 +5,9 @@ import sys
 import eventlet
 eventlet.monkey_patch()
 
+from das_server.log import init_logging
+init_logging()
+
 """
 To run the local server:
 python async_manage.py runserver 8080

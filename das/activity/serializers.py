@@ -274,10 +274,16 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
 
     @property
     def object_choices(self):
-        if not self.choices:
+        queryset = self.get_object_queryset()
+        if queryset is None:
+            # Ensure that field.choices returns something sensible
+            # even when accessed with a read-only field.
             return {}
 
-        return self.grouped_choices
+        return {provenance: [(
+                                 self.to_representation(item),
+                                 self.display_value(item)) for item in values]
+                for provenance, values in queryset}
 
 
 class AttachmentRelatedField(rest_framework.serializers.RelatedField):
@@ -355,11 +361,13 @@ class EventStateSerializer(rest_framework.serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         dirty = False
+        update_fields = []
         for k, v in validated_data.items():
-            dirty |= getattr(instance, k) != v
-            setattr(instance, k, v)
-        if dirty:
-            instance.save()
+            if getattr(instance, k) != v:
+                setattr(instance, k, v)
+                update_fields.append(k)
+        if update_fields:
+            instance.save(update_fields=update_fields)
         return instance
 
 
@@ -384,6 +392,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     #  json {lat/lon} and our internal representation.
     location = PointField(required=False)
     time = DateTimeField(source='event_time', required=False)
+    updated_at = DateTimeField(source='sort_at', required=False)
     created_by_user = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault()
     )
@@ -449,12 +458,12 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             if revision.action == AC_UPDATED:
                 field_mapping = {'message': 'Event Message',
                                  'event_time': 'Event Time',
-                                 'state': 'Event State',
-                                 'priority': 'Event Priority',
+                                 'state': 'Event State is {0}',
+                                 'priority': 'Event Priority is {0}',
                                  'location': 'Location',
                                  'provenance': 'Event Reporter',
                                  'created_by_user': 'Event Writer'}
-                fieldnames = [field_mapping[k] for k in revision.data.keys() if
+                fieldnames = [field_mapping[k].format(event.get_display_value(k, v)) for k, v in revision.data.items() if
                               k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
                                                 ', '.join(fieldnames))

@@ -12,7 +12,7 @@ python-socketio==1.3
 #git+https://github.com/PADAS/python-socketio.git@cba6c3ed8b8b2c777538a5a35e73f98f4ec9d4bb
 
 git+https://github.com/PADAS/django-ses.git@2fae0ebdaa96ff6daaea4edaafca3c02cdda61d8
-greenlet==0.4.9
+greenlet==0.4.10
 gunicorn==19.4.5
 Django==1.9.7
 

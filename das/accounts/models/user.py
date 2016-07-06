@@ -209,7 +209,7 @@ class User(AccountsAbstractUser):
             if user.pk != self.pk:
                 raise ValidationError(
                     {'username': ValidationError(
-                    _(''), code='invalid')})
+                    _('{0} already in use'.format(self.username)), code='invalid')})
         except User.DoesNotExist:
             pass
 

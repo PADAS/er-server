@@ -11,12 +11,13 @@ except ImportError:
 from django.contrib.gis.geos import Point, MultiPoint, Polygon, MultiPolygon, LineString, MultiLineString
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import Permission
 import pytz
 import random
 
 from accounts.models import PermissionSet, User
-from activity.models import Event, EventAttachment
+from activity.models import Event, EventAttachment, Community
 from analyzers.models import all_analyzers, ContainmentAnalyzer, SubjectAnalyzer, \
     GeofenceAnalyzer, ImmobilityAnalyzer, ProximityAnalyzer, SpeedAnalyzer
 from mapping.models import FeatureType, PolygonFeature, LineFeature, PointFeature, FeatureSet
@@ -37,18 +38,32 @@ feature_set, _ = FeatureSet.objects.get_or_create(
     description='Demo feature set description'
 )
 
+
 def delete_subject_analyzers():
     pass
 
 def get_or_create_user(username='chrisd', email='chrisdo@vulcan.com', permission_set=None):
-    user, created = User.objects.get_or_create(username=username, defaults=dict(mail=email))
+    password = User.objects.make_random_password()
+    try:
+        created = False
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        created = True
+        user = User.objects.create(username=username,
+                                   password=password,
+                                   email=email)
+
+    if not user.password:
+        user.set_password(password)
     if permission_set:
         user.permission_sets.add(permission_set)
     user.save()
     return user
 
+
 def varypoint(p):
     return [p[0]+random.random()*0.01, p[1]+random.random()* 0.01]
+
 
 def load_track_geojson(name):
     filename = os.path.join(os.path.dirname(__file__), 'track_data/{0}.geojson'.format(name))
@@ -57,8 +72,6 @@ def load_track_geojson(name):
 
 group = None
 def create_actors():
-
-
     # (163, 'Permission to subscribe to an alert on this Subject.'),
     permission = Permission.objects.get(pk=163)
     permission_set = PermissionSet.objects.get_or_create(name='Demo PermissionSet')[0]
@@ -71,6 +84,9 @@ def create_actors():
 
     for username, email in users:
         get_or_create_user(username=username, email=email, permission_set=permission_set)
+
+
+    Community.objects.get_or_create(id='9ec20ec8-516c-40bd-a4a3-9a2b49f5ea40', name='Informant')
 
     global group
     group, created = SubjectGroup.objects.get_or_create(name='demo_group')
@@ -261,6 +277,10 @@ def store_event(evt, subject, t):
         event.location = Point(*evt['center'])
 
     for k,v in evt.items():
+        if k == 'reported_by':
+            event.reported_by_content_type = ContentType.objects.get_by_natural_key(*v['content_type'].split('.'))
+            event.reported_by_id = v['id']
+            continue
         if hasattr(event, k):
             setattr(event, k, v)
     event.save()

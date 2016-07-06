@@ -96,7 +96,7 @@ class TestSourcePlugin(TestCase):
     def test_create_event_with_attachment(self):
         with transaction.atomic():
             e = Event.objects.create_event(message=lorem_ipsum.paragraph(),
-                                           provenance=Event.PC_COMMUNITY,
+                                           provenance=Event.PC_SYSTEM,
                                            event_type=ET_LIVESTOCK_THEFT,
                                            priority=Event.PRI_URGENT,
                                            attributes={},
@@ -125,7 +125,7 @@ class TestEventView(BaseAPITest):
         self.event_data = dict(
             message=lorem_ipsum.paragraph(),
             time=DateTimeField().to_representation(timezone.now()),
-            provenance=Event.PC_COMMUNITY,
+            provenance=Event.PC_SYSTEM,
             event_type=ET_OTHER,
             priority=Event.PRI_REFERENCE,
             location=dict(longitude='40.1353', latitude='-1.891517')
