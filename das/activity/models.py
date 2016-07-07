@@ -30,7 +30,7 @@ def get_sentinel_user():
 
 def marker_icon(event_type, priority):
     CONVERSION = {100:'gray', 200:'amber', 300:'red'}
-    return '/static/{0}-{1}.svg'.format(event_type, CONVERSION.get(priority, 'black'))
+    return '/static/{0}-{1}.svg'.format(event_type.value, CONVERSION.get(priority, 'black'))
 
 
 class CommunityManager(models.Manager):
@@ -45,6 +45,32 @@ class Community(TimestampedModel):
 
     def __str__(self):
         return self.name
+
+
+class EventTypeManager(models.Manager):
+    def get_by_value(self, value):
+        return self.get(value=value)
+
+    def all_sort(self):
+        # default order ordernum
+        result = self.order_by('ordernum')
+
+        return result
+
+    def create_type(self, **values):
+        return self.create(**values)
+
+
+class EventType(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    value = models.CharField(max_length=40, unique=True)
+    display = models.CharField(max_length=100, blank=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    objects = EventTypeManager()
+
+    def __str__(self):
+        return self.display
 
 
 class EventFilteringQuerySet(models.QuerySet):
@@ -130,10 +156,6 @@ class Event(RevisionMixin, TimestampedModel):
         (PC_COMMUNITY, 'Community'),
     )
 
-    #must have defaults, could they go somewhere else?
-    ET_ANALYZER = 'analyzer'
-    ET_OTHER = 'other'
-
     SC_NEW = 'new'
     SC_ACTIVE = 'active'
     SC_RESOLVED = 'resolved'
@@ -176,8 +198,7 @@ class Event(RevisionMixin, TimestampedModel):
     event_time = models.DateTimeField(default=django.utils.timezone.now)
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
-    event_type = ChoiceCharField(max_length=40, default=ET_OTHER)
-    event_subtype = ChoiceCharField(max_length=40, blank=True, filter_field=event_type)
+    event_type = models.ForeignKey(EventType, on_delete=models.PROTECT)
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)
@@ -217,7 +238,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     @property
     def image_url(self):
-        return marker_icon(self.event_type, self.priority)
+        return marker_icon(self.event_type.value, self.priority)
 
     @property
     def subjects(self):

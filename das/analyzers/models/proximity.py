@@ -4,7 +4,7 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 from django.core.exceptions import ObjectDoesNotExist
 
-from activity.models import Event
+from activity.models import EventType
 from .analyzer import Analyzer, AnalyzerResult, CRITICAL
 from .utils import distance_to_exterior_point
 from mapping.models import FeatureType, PolygonFeature
@@ -15,7 +15,9 @@ logger = logging.getLogger(__name__)
 class ProximityAnalyzer(Analyzer):
     """ Speed Analyzer for a Track. """
 
-    event_type = Event.ET_ANALYZER
+    @property
+    def event_type(self):
+        return EventType.objects.get_by_value('analyzer_proximity')
 
     polygon = models.ForeignKey(
         to=PolygonFeature,

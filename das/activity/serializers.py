@@ -297,6 +297,26 @@ class AttachmentRelatedField(rest_framework.serializers.RelatedField):
         return mapping['serializer']().to_representation(value)
 
 
+class EventTypeRelatedField(rest_framework.serializers.RelatedField):
+    def get_queryset(self):
+        return activity.models.EventType.objects.all_sort()
+
+    def to_representation(self, value):
+        return value.value
+
+    def to_internal_value(self, data):
+        if data:
+            return activity.models.EventType.objects.get_by_value(data)
+        return None
+
+    @property
+    def choices(self):
+        result = []
+        for row in self.get_queryset():
+            result.append((row.value, row.display))
+        return result
+
+
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
     target = AttachmentRelatedField(read_only=True)
 
@@ -400,12 +420,14 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     reported_by = ReportedByRelatedField(required=False)
     message = rest_framework.serializers.CharField(required=True)
     photos = EventPhotoSerializer(many=True, required=False)
+    event_type = EventTypeRelatedField()
+
     class Meta:
         model = activity.models.Event
         read_only_fields = ('updated_at',)
         fields = (
             'id', 'location', 'time', 'message', 'provenance',
-            'event_type', 'event_subtype', 'priority', 'priority_label', 'attributes',
+            'event_type', 'priority', 'priority_label', 'attributes',
             'image_url', 'created_by_user', 'notes', 'reported_by',
             'state', 'photos') + read_only_fields
 

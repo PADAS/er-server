@@ -4,7 +4,7 @@ import logging
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point as DjangoPoint
 
-from activity.models import Event
+from activity.models import EventType
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, WARNING, CRITICAL
 from ..exceptions import InsufficientDataAnalyzerException
 
@@ -33,7 +33,9 @@ class ImmobilityAnalyzer(Analyzer):
 
      """
 
-    event_type = Event.ET_ANALYZER
+    @property
+    def event_type(self):
+        return EventType.objects.get_by_value('analyzer_immobility')
 
     radius = models.FloatField(default=13.0)
     threshold_time = models.IntegerField(default=18000)

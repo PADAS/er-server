@@ -4,7 +4,7 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point, LineString, MultiLineString
 from django.core.exceptions import ObjectDoesNotExist
 
-from activity.models import Event
+from activity.models import EventType
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
 from ..exceptions import InsufficientDataAnalyzerException
 from mapping.models import FeatureType, LineFeature
@@ -16,7 +16,9 @@ logger = logging.getLogger(__name__)
 class GeofenceAnalyzer(Analyzer):
     """ Analyzer for Track for geofence crossing """
 
-    event_type = Event.ET_ANALYZER
+    @property
+    def event_type(self):
+        return EventType.objects.get_by_value('analyzer_geofence')
 
     fence = models.ForeignKey(
         to=LineFeature,
