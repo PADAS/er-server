@@ -47,6 +47,32 @@ class Community(TimestampedModel):
         return self.name
 
 
+class EventTypeManager(models.Manager):
+    def get_by_value(self, value):
+        return self.get(value=value)
+
+    def all_sort(self):
+        # default order ordernum
+        result = self.order_by('ordernum')
+
+        return result
+
+    def create_type(self, **values):
+        return self.create(**values)
+
+
+class EventType(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    value = models.CharField(max_length=40, unique=True)
+    display = models.CharField(max_length=100, blank=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    objects = EventTypeManager()
+
+    def __str__(self):
+        return self.display
+
+
 class EventFilteringQuerySet(models.QuerySet):
     def all_sort(self):
         # default order by is by updated_at and (new/active/resolved)
@@ -130,10 +156,6 @@ class Event(RevisionMixin, TimestampedModel):
         (PC_COMMUNITY, 'Community'),
     )
 
-    #must have defaults, could they go somewhere else?
-    ET_ANALYZER = 'analyzer'
-    ET_OTHER = 'other'
-
     SC_NEW = 'new'
     SC_ACTIVE = 'active'
     SC_RESOLVED = 'resolved'
@@ -176,8 +198,7 @@ class Event(RevisionMixin, TimestampedModel):
     event_time = models.DateTimeField(default=django.utils.timezone.now)
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
-    event_type = ChoiceCharField(max_length=40, default=ET_OTHER)
-    event_subtype = ChoiceCharField(max_length=40, blank=True, filter_field=event_type)
+    event_type = models.ForeignKey(EventType, on_delete=models.PROTECT)
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)
@@ -217,7 +238,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     @property
     def image_url(self):
-        return marker_icon(self.event_type, self.priority)
+        return marker_icon(self.event_type.value, self.priority)
 
     @property
     def subjects(self):
@@ -273,10 +294,13 @@ class Event(RevisionMixin, TimestampedModel):
         self.message = clean_user_text(self.message, 'Event.message')
 
     def get_display_value(self, field_name, value):
+        field = self._meta.get_field(field_name)
         if hasattr(self, 'get_{0}_display'.format(field_name)):
-            field = self._meta.get_field(field_name)
             return force_text(dict(field.flatchoices).get(value, value),
                    strings_only=True)
+        if field_name == 'event_type':
+            return force_text(EventType.objects.get(pk=value).display,
+                              strings_only=True)
         return value
 
     def __str__(self):
@@ -373,7 +397,7 @@ def upload_to(instance, filename):
     return file_path
 
 
-class EventPhoto(TimestampedModel):
+class EventPhoto(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     created_by_user = models.ForeignKey(
@@ -382,6 +406,8 @@ class EventPhoto(TimestampedModel):
     image = VersatileImageField(upload_to=upload_to, null=True, max_length=512)
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='photos', related_query_name='photo')
+
+    revision = Revision()
 
     def save(self, *args, **kwargs):
         self.full_clean()

@@ -4,7 +4,7 @@ import django
 django.setup()
 from django.contrib.gis.geos import Point
 
-from activity.models import Event
+from activity.models import Event, EventType
 
 def gen_random_point():
     # Generate random point within Vulcan PA.
@@ -21,7 +21,7 @@ try:
     for x in range(0,100):
         newevents.append(
             Event(message='Test event {}'.format(x),
-                  event_type=Event.ET_OTHER,
+                  event_type=EventType.objects.get_by_value('other'),
                   priority=Event.PRI_IMPORTANT,
                   provenance=Event.PC_SYSTEM,
                   attributes={},

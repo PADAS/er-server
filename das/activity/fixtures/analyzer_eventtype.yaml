@@ -1,0 +1,35 @@
+- model: activity.eventtype
+  pk: ee5a674e-05fe-486f-9d03-0dcd1d459010
+  fields:
+    value: analyzer_containment
+    display: Containment Breach
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
+  pk: 489c88a9-55c6-4bc7-9edd-b9eed4f685e5
+  fields:
+    value: analyzer_geofence
+    display: Geofence
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
+  pk: 7d399f7b-6e4d-436e-ada2-0804fa624f85
+  fields:
+    value: analyzer_immobility
+    display: Immobility
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
+  pk: e122e4c6-3f3a-471d-a493-f5bae757c73f
+  fields:
+    value: analyzer_proximity
+    display: Proximity
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
+  pk: 70f4138c-37f7-465f-a650-f19da4a33a0b
+  fields:
+    value: analyzer_speed
+    display: Speed
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
