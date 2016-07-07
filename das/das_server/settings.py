@@ -172,6 +172,11 @@ DATABASES = {
     # }
 }
 
+DATABASE_ROUTERS = [
+    'vectronics.db_routing.routers.PositionRouter',
+    'vectronics.db_routing.routers.MigrationRouter'
+]
+
 # Do not use Django logging config
 LOGGING_CONFIG = None
 

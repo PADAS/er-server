@@ -61,14 +61,3 @@ class GpsPlusPositions(models.Model):
         managed = False
         db_table = 'gps_plus_positions'
         unique_together = (('id_collar', 'acquisition_time', 'origin_code'),)
-
-class PositionRouter(object):
-    def db_for_read(self, model, **hints):
-        if model._meta.app_label == 'vectronics':
-            return 'vectronics'
-        return None
-
-    def db_for_write(self, model, **hints):
-        if model._meta.app_label == 'vectronics':
-            return 'vectronics'
-        return None
