@@ -397,7 +397,7 @@ def upload_to(instance, filename):
     return file_path
 
 
-class EventPhoto(TimestampedModel):
+class EventPhoto(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     created_by_user = models.ForeignKey(
@@ -406,6 +406,8 @@ class EventPhoto(TimestampedModel):
     image = VersatileImageField(upload_to=upload_to, null=True, max_length=512)
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='photos', related_query_name='photo')
+
+    revision = Revision()
 
     def save(self, *args, **kwargs):
         self.full_clean()

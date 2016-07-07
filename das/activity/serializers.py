@@ -433,6 +433,27 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
         fields = ('id', 'created_by_user',
                   'image') + write_only_fields + read_only_fields
 
+    def to_representation(self, photo):
+        rep = super().to_representation(photo)
+        rep['updates'] = self.render_updates(photo)
+        return rep
+
+    def render_updates(self, note):
+        def get_action(revision):
+            return revision.get_action_display()
+
+        return [
+            dict(message='Photo {action} by {user}'.format(
+                action=get_action(revision),
+                user=get_user_display(revision.user)),
+                time=revision.revision_at.isoformat(),
+                text=revision.data.get('text', ''),
+                user=UserDisplaySerializer().to_representation(revision.user),
+                type=get_update_type(revision),
+            )
+            for revision in note.revision.all()
+            ]
+
 
 class EventSerializer(rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
@@ -499,6 +520,8 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
 
         updates = self.render_updates(event)
         for note in rep['notes']:
+            updates.extend(note['updates'])
+        for photo in rep['photos']:
             updates.extend(note['updates'])
         rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
         return rep
