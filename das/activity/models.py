@@ -30,7 +30,7 @@ def get_sentinel_user():
 
 def marker_icon(event_type, priority):
     CONVERSION = {100:'gray', 200:'amber', 300:'red'}
-    return '/static/{0}-{1}.svg'.format(event_type.value, CONVERSION.get(priority, 'black'))
+    return '/static/{0}-{1}.svg'.format(event_type, CONVERSION.get(priority, 'black'))
 
 
 class CommunityManager(models.Manager):
