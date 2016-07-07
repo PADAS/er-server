@@ -1,3 +1,5 @@
+-- Run this file on the vectronics database to create the trigger function and notification that DAS will listen for
+
 CREATE OR REPLACE FUNCTION positions_trigger_function() RETURNS TRIGGER AS
 $gps_plus_positions$
 BEGIN

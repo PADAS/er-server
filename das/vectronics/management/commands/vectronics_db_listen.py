@@ -7,7 +7,7 @@ class Command(BaseCommand):
 
     help = 'Start vectronics database listener'
 
-    if not hasattr(settings, 'DATABASES') or not hasattr(settings.DATABASES, 'vectronics'):
+    if not hasattr(settings, 'DATABASES') or 'vectronics' not in settings.DATABASES:
         raise ConnectionError('Connection information for vectronics database not specified')
 
     def handle(self, *args, **options):
