@@ -252,6 +252,9 @@ app:
                         # Start/Restart realtime socketio api server
                         /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart realtime
 
+                        # Start/Restart message_queue_listeners
+                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart message_queue_listeners
+
               - .ebextensions/01-install_dependencies.config:
                     permissions: 0777
                     yaml:
