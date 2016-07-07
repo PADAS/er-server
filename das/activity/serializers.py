@@ -311,10 +311,8 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
 
     @property
     def choices(self):
-        result = []
-        for row in self.get_queryset():
-            result.append((row.value, row.display))
-        return result
+        return OrderedDict(((row.value, row.display)
+                            for row in self.get_queryset()))
 
 
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
@@ -323,6 +321,36 @@ class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventAttachment
         fields = ('target', 'reason', 'id')
+
+
+def get_update_type(revision, previous_revisions=[]):
+    field_mapping = (('location','update_location'), ('message','update_message'),
+                     ('event_time','update_datetime'), ('reported_by', 'update_reported_by'),
+                     ('state', 'update_event_state'), ('priority', 'update_event_priority'),
+                     ('event_type', 'update_event_type'))
+    model_name = revision._meta.model_name
+    action = revision.action
+    data = revision.data
+    if action == 'added':
+        return 'add_{0}'.format(model_name.replace('revision', ''))
+    elif action == 'updated':
+        event_state = data.get('state', None)
+        if event_state:
+            if event_state == activity.models.Event.SC_RESOLVED:
+                return activity.models.Event.SC_RESOLVED
+            if event_state == activity.models.Event.SC_NEW:
+                return 'mark_as_new'
+            for row in previous_revisions:
+                if row.data.get('state', None):
+                    if row.data.get('state') == activity.models.Event.SC_RESOLVED:
+                        return 'unresolved'
+                    break
+
+        for k, v in field_mapping:
+            if data.get(k, None):
+                return v
+    return 'other'
+
 
 
 class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
@@ -368,7 +396,8 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
                 user=get_user_display(revision.user)),
                 time=revision.revision_at.isoformat(),
                 text=revision.data.get('text', ''),
-                user=UserDisplaySerializer().to_representation(revision.user)
+                user=UserDisplaySerializer().to_representation(revision.user),
+                type=get_update_type(revision),
             )
             for revision in note.revision.all()
             ]
@@ -380,7 +409,6 @@ class EventStateSerializer(rest_framework.serializers.ModelSerializer):
         fields = ('state',)
 
     def update(self, instance, validated_data):
-        dirty = False
         update_fields = []
         for k, v in validated_data.items():
             if getattr(instance, k) != v:
@@ -484,20 +512,26 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
                                  'priority': 'Event Priority is {0}',
                                  'location': 'Location',
                                  'provenance': 'Event Reporter',
-                                 'created_by_user': 'Event Writer'}
+                                 'event_type': 'Event Type is {0}',
+                                 'created_by_user': 'Event Writer',}
                 fieldnames = [field_mapping[k].format(event.get_display_value(k, v)) for k, v in revision.data.items() if
                               k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
                                                 ', '.join(fieldnames))
             return revision.get_action_display()
 
-        return [dict(message='Event {action} by {user}'.format(
+        result = []
+        revisions = [v for v in event.revision.all()]
+        while revisions:
+            revision = revisions.pop()
+            result.append(dict(message='Event {action} by {user}'.format(
             action=get_action(revision),
             user=self.get_user_display(revision.user, event)
         ), time=revision.revision_at.isoformat(),
-            user=self.get_revision_user(revision.user, event))
-                for revision in event.revision.all()
-                ]
+            user=self.get_revision_user(revision.user, event),
+            type=get_update_type(revision, revisions))
+            )
+        return result
 
     def get_user_display(self, user, event):
         if user:

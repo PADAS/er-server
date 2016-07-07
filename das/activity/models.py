@@ -294,10 +294,13 @@ class Event(RevisionMixin, TimestampedModel):
         self.message = clean_user_text(self.message, 'Event.message')
 
     def get_display_value(self, field_name, value):
+        field = self._meta.get_field(field_name)
         if hasattr(self, 'get_{0}_display'.format(field_name)):
-            field = self._meta.get_field(field_name)
             return force_text(dict(field.flatchoices).get(value, value),
                    strings_only=True)
+        if field_name == 'event_type':
+            return force_text(EventType.objects.get(pk=value).display,
+                              strings_only=True)
         return value
 
     def __str__(self):
