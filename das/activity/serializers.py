@@ -438,7 +438,7 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
         rep['updates'] = self.render_updates(photo)
         return rep
 
-    def render_updates(self, note):
+    def render_updates(self, photo):
         def get_action(revision):
             return revision.get_action_display()
 
@@ -451,7 +451,7 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
                 user=UserDisplaySerializer().to_representation(revision.user),
                 type=get_update_type(revision),
             )
-            for revision in note.revision.all()
+            for revision in photo.revision.all()
             ]
 
 
@@ -522,7 +522,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         for note in rep['notes']:
             updates.extend(note['updates'])
         for photo in rep['photos']:
-            updates.extend(note['updates'])
+            updates.extend(photo['updates'])
         rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
         return rep
 
