@@ -83,6 +83,7 @@ class RevisionAdapter(object):
                                  + opts.local_many_to_many)
         fields = (opts.get_field(field) for field in fields
                   if not field in self.exclude)
+
         for field in fields:
             if field.remote_field:
                 yield field.name
@@ -100,8 +101,13 @@ class RevisionAdapter(object):
         return data
 
     def get_data_copy(self, obj):
-        return {k: copy.deepcopy(getattr(obj, k)) for
-                k in list(self.get_fieldnames())}
+        result = {}
+        for k in list(self.get_fieldnames()):
+            try:
+                result[k] = copy.deepcopy(getattr(obj, k))
+            except models.ObjectDoesNotExist:
+                logger.info('Getting revision data_copy for %s', obj._meta.label)
+        return result
 
     def get_serialized_data(self, obj):
         return self._serialize(obj, list(self.get_fieldnames()))
