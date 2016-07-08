@@ -1,211 +1,7 @@
 - model: activity.eventtype
-  pk: 02943c51-0661-478e-b4a8-c57264bb721a
-  fields:
-    value: other
-    display: Other
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-    ordernum: 3
-- model: activity.eventtype
-  pk: 045fb539-bbfc-4177-8109-6dcb72f215de
-  fields:
-    value: civil_unrest
-    display: Civil Unrest
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 04fa430a-25c9-4ce4-a867-1d91d6ee91ff
-  fields:
-    value: armed_men
-    display: Armed Men
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 08119fff-8df5-4ed6-b912-db7e4729224b
-  fields:
-    value: road_banditry
-    display: Road Banditry
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 0d695b39-7e81-4868-919f-1c372d8fbe93
-  fields:
-    value: injury
-    display: Injury
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: b3ac2f12-0795-4a1a-bb50-eb1e79b66af3
-  fields:
-    value: threat
-    display: Threat
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 0da4f2f1-9a7b-4eac-ac3d-41cdb55fefdd
-  fields:
-    value: criminal
-    display: Criminal
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 151c5119-a3fe-49b3-bb06-104903b31f03
-  fields:
-    value: charcoal_burning
-    display: Charcoal burning
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 1cf29d24-0f3d-4400-bd43-4a225fd3ef09
-  fields:
-    value: hostile
-    display: Hostile
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 1e1f1574-161a-44ab-a73b-bd9cf882ce44
-  fields:
-    value: tusks_recovered
-    display: Tusks recovered
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 1e29c4ef-c74c-47f4-9ee9-29ad58566c09
-  fields:
-    value: government_complaint
-    display: Government Complaint
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 28e81fa5-b7ba-498f-a33b-dd98a4d6f386
-  fields:
-    value: weapons_recovered
-    display: Weapons recovered
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 2c31a146-8d3c-485a-ab1c-78f3309dcbf3
-  fields:
-    value: stock_theft
-    display: Stock Theft
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 3059040c-3537-4ab7-8384-f89360487ada
-  fields:
-    value: illegal_grazing
-    display: Illegal grazing
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 30e385f7-1fe2-4837-813d-b82c13d7835f
-  fields:
-    value: community_complaint
-    display: Community Complaint
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 311dd961-a4c5-4540-903a-ddcbf0c3f58f
-  fields:
-    value: poaching_speared
-    display: Poaching - Speared
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 32101f87-db64-4999-88ed-797a30f50fac
-  fields:
-    value: poaching_shooting
-    display: Poaching - Shooting
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 3acc6378-8e9a-4f82-b46b-7927b9118bc0
-  fields:
-    value: tribal_conflict
-    display: Tribal Conflict
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 3f162461-a6ae-44d4-80c8-341262389d34
-  fields:
-    value: poaching_snare
-    display: Poaching - Snare
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 4eeefcd1-6e60-476a-9b24-5728cf7623d2
-  fields:
-    value: arrest_attempted_arrest
-    display: Attempted Arrest
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 6f6679f6-a544-4086-97ab-ec1ef0a52cb4
-  fields:
-    value: accident
-    display: Accident
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 7a4d3403-02ec-4ca6-9fe6-dcd8cf369ec2
-  fields:
-    value: animal
-    display: Animal
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 70bd6b2b-be8f-45ad-8bb2-240963ab332b
-  fields:
-    value: livestock_movements
-    display: Livestock movements
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 8687188e-ed0b-49c3-9d95-0313130ef7af
-  fields:
-    value: gunshot
-    display: Shots heard
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 909dcf4d-f1a1-4ac3-a20c-64a50d9b609e
-  fields:
-    value: hostile_confiscation
-    display: Confiscation
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 9329108b-43d7-4c53-be60-e740ae553528
-  fields:
-    value: theft
-    display: Theft
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: 970e1e8a-e5ce-4f1d-9143-d70c76b4c6f9
-  fields:
-    value: illegal_activity_illegal_logging
-    display: Illegal logging
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: a95ed47c-665a-42fa-8e1d-5d2486672361
-  fields:
-    value: animal_carcass
-    display: Carcass
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: ac284302-6352-4626-be87-233c70058bc6
-  fields:
-    value: hostile_kidnap
-    display: Kidnap
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
   pk: b4688c0e-ac08-4656-a6ec-b0b3aecf332c
   fields:
-    value: accident_animal_accident
+    value: animal_accident
     display: Animal Accident
     created_at: 2016-07-07T1:00:00.000000+00:00
     updated_at: 2016-07-07T1:00:00.000000+00:00
@@ -213,7 +9,7 @@
 - model: activity.eventtype
   pk: c4135735-aacf-484f-83c2-8fdad9c63018
   fields:
-    value: accident_drowning
+    value: drowning
     display: Drowning
     created_at: 2016-07-07T1:00:00.000000+00:00
     updated_at: 2016-07-07T1:00:00.000000+00:00
@@ -221,65 +17,30 @@
 - model: activity.eventtype
   pk: ab37e077-b4dd-4221-a3a2-baa5cc99d020
   fields:
-    value: accident_vehicle_accident
+    value: vehicle_accident
     display: Vehicle Accident
     created_at: 2016-07-07T1:00:00.000000+00:00
     updated_at: 2016-07-07T1:00:00.000000+00:00
     ordernum: 2
 - model: activity.eventtype
-  pk: c4b023db-9247-4451-8a0e-38164560cfbd
-  fields:
-    value: arrest
-    display: Arrest
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: d3dc1ce0-1f88-4007-a6b8-d05fe47e9820
-  fields:
-    value: poaching_poison
-    display: Poaching - Poison
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: d48c8ad7-ce76-4ac7-8dd9-666cf552a429
-  fields:
-    value: hostile_shooting
-    display: Shooting
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: d4afb3fa-67a2-4515-97e5-ae2d3f97fb42
-  fields:
-    value: illegal_activity_illegal_fishing
-    display: Illegal fishing
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: d7b829c0-e015-4369-8103-6365b3d639ed
-  fields:
-    value: poaching
-    display: Poaching
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
-  pk: e265a68c-1441-41dd-ad9c-2406ab31b9ea
-  fields:
-    value: illegal_activity_cattle_rustling
-    display: Cattle Rustling
-    created_at: 2016-07-07T1:00:00.000000+00:00
-    updated_at: 2016-07-07T1:00:00.000000+00:00
-- model: activity.eventtype
   pk: ea2ee557-6b98-4914-a3ff-44497d518900
   fields:
-    value: accident_fire
+    value: fire
     display: Fire
     created_at: 2016-07-07T1:00:00.000000+00:00
     updated_at: 2016-07-07T1:00:00.000000+00:00
 - model: activity.eventtype
-  pk: ef3fc479-452c-4b8d-a11e-18ab596c7bf7
+  pk: a95ed47c-665a-42fa-8e1d-5d2486672361
   fields:
-    value: animal_animal_observations
-    display: Animal observations
+    value: carcass
+    display: Carcass
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
+  pk: 045fb539-bbfc-4177-8109-6dcb72f215de
+  fields:
+    value: civil_unrest
+    display: Civil Unrest
     created_at: 2016-07-07T1:00:00.000000+00:00
     updated_at: 2016-07-07T1:00:00.000000+00:00
 - model: activity.eventtype
@@ -290,12 +51,55 @@
     created_at: 2016-07-07T1:00:00.000000+00:00
     updated_at: 2016-07-07T1:00:00.000000+00:00
 - model: activity.eventtype
-  pk: f97e4a6e-937f-4707-ab55-680cab9ce271
+  pk: 1cf29d24-0f3d-4400-bd43-4a225fd3ef09
   fields:
-    value: complaint_private_complaint
-    display: Private Complaint
+    value: hostile
+    display: Hostile
     created_at: 2016-07-07T1:00:00.000000+00:00
     updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
+  pk: d7b829c0-e015-4369-8103-6365b3d639ed
+  fields:
+    value: poaching
+    display: Poaching
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
+  pk: 8687188e-ed0b-49c3-9d95-0313130ef7af
+  fields:
+    value: gunshot
+    display: Gunshot
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
+  pk: b3ac2f12-0795-4a1a-bb50-eb1e79b66af3
+  fields:
+    value: threat
+    display: Threat
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
+  pk: 4a56ec72-6616-4e7c-b228-cafd1d04cc98
+  fields:
+    value: trespass
+    display: Trespass
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
+  pk: 3acc6378-8e9a-4f82-b46b-7927b9118bc0
+  fields:
+    value: tribal_conflict
+    display: Tribal Conflict
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
+  pk: 02943c51-0661-478e-b4a8-c57264bb721a
+  fields:
+    value: other
+    display: Other
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+    ordernum: 3
 - model: activity.eventtype
   pk: fcba2f9c-01fb-4142-ba26-02041e30c323
   fields:
