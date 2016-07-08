@@ -262,9 +262,8 @@ class Event(RevisionMixin, TimestampedModel):
             self.state == self.SC_ACTIVE):
                 pass
         else:
-            if self.updated_at:
-                self.sort_at = self.updated_at
-                save_fields.add('sort_at')
+            self.sort_at = timezone.now()
+            save_fields.add('sort_at')
 
         save_fields.add('updated_at')
         if update_fields:

@@ -3,8 +3,10 @@
 {% block object-tools %}
     {% if change %}{% if not is_popup %}
         <ul class="object-tools">
+            {% if app_label == 'accounts' and opts.object_name == 'User' %}
             {# You can also give a name to that pattern and refer to it below using 'url' #}
             <li><a href="reset-password/" class="historylink">Reset password</a></li>
+            {% endif %}
 
             <li><a href="history/" class="historylink">{% trans "History" %}</a></li>
             {% if has_absolute_url %}
