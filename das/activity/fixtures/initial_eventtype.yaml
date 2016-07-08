@@ -37,6 +37,13 @@
     created_at: 2016-07-07T1:00:00.000000+00:00
     updated_at: 2016-07-07T1:00:00.000000+00:00
 - model: activity.eventtype
+  pk: c4b023db-9247-4451-8a0e-38164560cfbd
+  fields:
+    value: arrest
+    display: Arrest
+    created_at: 2016-07-07T1:00:00.000000+00:00
+    updated_at: 2016-07-07T1:00:00.000000+00:00
+- model: activity.eventtype
   pk: 045fb539-bbfc-4177-8109-6dcb72f215de
   fields:
     value: civil_unrest
