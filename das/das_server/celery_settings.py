@@ -69,3 +69,8 @@ CELERYBEAT_SCHEDULE = {
 }
 
 
+try:
+    from das_server.local_celery_settings import *
+except ImportError:
+    pass
+
