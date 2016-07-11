@@ -143,6 +143,7 @@ class EventPhotosView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         request.data['event'] = self.kwargs['id']
+        request.data['image'] = request.stream.FILES['image']
         return super().create(request, *args, **kwargs)
 
     def get_queryset(self):
