@@ -110,7 +110,6 @@ class BasePermissionTest(BaseAPITest):
         self.realtime_view_user.permission_sets.add(self.subject_view_realtime_set)
         self.realtime_view_user.save()
 
-
 class SubjectViewPermissionsTest(BasePermissionTest):
     def setUp(self):
         super().setUp()
@@ -180,3 +179,29 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         response = views.SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         self.assertFalse([s for s in response.data if s['id'] == str(self.ranger.id) ])
+
+
+class SubjectGroupViewTest(BasePermissionTest):
+    def setUp(self):
+        super().setUp()
+
+    def test_user_return_subject_groups(self):
+        request = self.factory.get(
+            API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.delayed_view_user)
+
+        response = views.SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+
+class SourceGroupViewTest(BasePermissionTest):
+    def setUp(self):
+        super().setUp()
+
+    def test_user_return_source_groups(self):
+        request = self.factory.get(
+            API_BASE + '/sourcegroups')
+        self.force_authenticate(request, self.delayed_view_user)
+
+        response = views.SourceGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)

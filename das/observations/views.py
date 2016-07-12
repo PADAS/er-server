@@ -14,8 +14,8 @@ from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 from rest_framework.response import Response
 from rest_framework.filters import DjangoObjectPermissionsFilter
 
-from observations.filters import SubjectObjectPermissionsFilter
-from observations.permissions import SubjectObjectPermissions
+from observations.filters import SubjectObjectPermissionsFilter, GroupPermissionsFilter
+from observations.permissions import StandardObjectPermissions, ModelPermissions
 from observations import models
 import observations.serializers as serializers
 
@@ -45,19 +45,6 @@ def dateparse(date_str, default_tz=pytz.utc):
     return dt
 
 
-class StatusView(generics.RetrieveAPIView):
-    """
-    What is the server status and current api version.
-    ---
-
-    """
-    permission_classes = (AllowAny,)
-    serializer_class = serializers.VersionSerializer
-
-    def get_object(self):
-        return {'version': 'v1.0'} #request.version}
-
-
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
     queryset = models.Region.objects.all()
@@ -78,9 +65,8 @@ class SubjectsView(generics.ListAPIView):
         example: bbox=14.24, .41, 15.45, 1.66
     """
     serializer_class = serializers.SubjectSerializer
-    permission_classes = (SubjectObjectPermissions,)
+    permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
-
 
     def get_queryset(self):
         queryset = models.Subject.objects.all()
@@ -94,11 +80,37 @@ class SubjectsView(generics.ListAPIView):
         return queryset
 
 
+class SubjectGroupsView(generics.ListAPIView):
+    """
+    Returns all subjectgroups in the system.
+    """
+    serializer_class = serializers.SubjectGroupSerializer
+    permission_classes = (StandardObjectPermissions,)
+    filter_backends = (GroupPermissionsFilter,)
+
+    def get_queryset(self):
+        queryset = models.SubjectGroup.objects.all()
+        return queryset
+
+
+
+class SourceGroupsView(generics.ListAPIView):
+    """
+    Returns all sourcegroups in the system.
+    """
+    serializer_class = serializers.SourceGroupSerializer
+    permission_classes = (StandardObjectPermissions,)
+    filter_backends = (GroupPermissionsFilter,)
+
+    def get_queryset(self):
+        queryset = models.SourceGroup.objects.all()
+        return queryset
+
 
 class RegionSubjectsView(generics.ListAPIView):
     lookup_field = 'slug'
     serializer_class = serializers.SubjectSerializer
-    permission_classes = (SubjectObjectPermissions,)
+    permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
 
     def get_queryset(self):
@@ -114,7 +126,7 @@ class RegionSubjectsView(generics.ListAPIView):
 
 
 class SubjectView(generics.RetrieveAPIView):
-    permission_classes = (SubjectObjectPermissions,)
+    permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.SubjectSerializer
     queryset = models.Subject.objects.all()
     lookup_field = 'id'
@@ -179,7 +191,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()
-    permission_classes = (SubjectObjectPermissions,)
+    permission_classes = (StandardObjectPermissions,)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -214,7 +226,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
 
 class SubjectTracksView(generics.RetrieveAPIView):
-    permission_classes = (SubjectObjectPermissions,)
+    permission_classes = (StandardObjectPermissions,)
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()

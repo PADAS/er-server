@@ -7,14 +7,35 @@ import utils.json
 from utils import add_base_url
 
 
-class VersionSerializer(rest_framework.serializers.Serializer):
-    version = rest_framework.serializers.CharField(read_only=True)
-
-
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = models.Region
         fields = ('slug', 'region', 'country')
+
+
+class SubjectGroupSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = models.SubjectGroup
+        fields = ('name', 'id', )
+
+    def to_representation(self, instance):
+        result = super().to_representation(instance)
+        subjects = [SubjectSerializer().to_representation(subject) for subject in instance.get_all_subjects()]
+        result['subjects'] = subjects
+        return result
+
+
+class SourceGroupSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = models.SourceGroup
+        fields = ('name', 'id')
+
+    def to_representation(self, instance):
+        result = super().to_representation(instance)
+        sources = [SourceSerializer().to_representation(source) for source in
+                    instance.get_all_sources()]
+        result['sources'] = sources
+        return result
 
 
 class SubjectSerializer(rest_framework.serializers.ModelSerializer):
