@@ -333,7 +333,6 @@ app:
                             command: "cp celeryconfig.conf /opt/python/etc/"
                           06-realtimeconfig:
                             command: "cp realtime.conf /opt/python/etc/"
-                          07-vectronics_db_
                           07-installcelerybeat:
                             command: "cp 99_supervisord_celeryconfig.sh /opt/elasticbeanstalk/hooks/appdeploy/post/"
                           08-installceleryconfig:
