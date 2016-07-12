@@ -8,7 +8,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0027_photorevision'),
+        ('activity', '0028_eventphoto_filename'),
     ]
 
     operations = [
