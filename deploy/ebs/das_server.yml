@@ -383,3 +383,11 @@ app:
                 DAS_ENV_NAME: 'grumeti'
               'aws:autoscaling:launchconfiguration':
                 InstanceType: "t2.medium"
+        # the bomassa version of the app
+        'das-server-bomassa':
+            cname_prefix: 'das-server-bomassa'
+            option_settings:
+              'aws:elasticbeanstalk:application:environment':
+                DAS_ENV_NAME: 'bomassa'
+              'aws:autoscaling:launchconfiguration':
+                InstanceType: "t2.medium"
