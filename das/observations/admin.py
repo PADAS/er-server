@@ -1,11 +1,11 @@
 from django.contrib import admin
-from django.utils.html import linebreaks
 from django.utils.translation import ugettext_lazy as _
 
 import observations.models as models
 import observations.forms
 from observations.forms import SubjectForm
 from core.admin import HierarchyModelAdmin
+from utils.html import make_html_list
 
 
 @admin.register(models.Subject)
