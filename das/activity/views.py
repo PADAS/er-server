@@ -143,6 +143,15 @@ class EventPhotosView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         request.data['event'] = self.kwargs['id']
+
+        # TODO: This conditional is to handle the case where a file is uploaded via XHR. Figure out why.
+        if 'image' not in request.data:
+            try:
+                # Ajax request.
+                request.data['image'] = request.stream.FILES['image']
+            except KeyError:
+                pass
+
         return super().create(request, *args, **kwargs)
 
     def get_queryset(self):
