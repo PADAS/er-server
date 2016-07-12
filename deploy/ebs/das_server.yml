@@ -191,6 +191,20 @@ app:
                         priority=20
                         killasgroup=true
 
+                        [program:vectronics_db_listener]
+                        command=/opt/python/run/venv/bin/python manage.py vectronics_db_listen
+                        directory=/opt/python/current/app/das
+                        environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
+                        user=wsgi
+                        numprocs=1
+                        stdout_logfile=/opt/python/log/vectronic_db_listener.log
+                        stderr_logfile=/opt/python/log/vectronics_db_listener_stderr.log
+                        autostart=true
+                        autorestart=true
+                        startsecs=10
+                        priority=20
+                        killasgroup=true
+
               - realtime.conf:
                     permissions: 0644
                     content: |
@@ -255,6 +269,9 @@ app:
                         # Start/Restart message_queue_listeners
                         /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart message_queue_listeners
 
+                        # Start/Restart vectronics_db_listen
+                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart vectronics_db_listen
+
               - .ebextensions/01-install_dependencies.config:
                     permissions: 0777
                     yaml:
@@ -316,6 +333,7 @@ app:
                             command: "cp celeryconfig.conf /opt/python/etc/"
                           06-realtimeconfig:
                             command: "cp realtime.conf /opt/python/etc/"
+                          07-vectronics_db_
                           07-installcelerybeat:
                             command: "cp 99_supervisord_celeryconfig.sh /opt/elasticbeanstalk/hooks/appdeploy/post/"
                           08-installceleryconfig:
