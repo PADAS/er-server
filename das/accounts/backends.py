@@ -33,9 +33,9 @@ class AccountsModelBackend(ModelBackend):
                     obj_ps_ids = obj.get_obj_permission_set_ids()
                     intersect_ids = user_ps_ids & obj_ps_ids
 
-                    perms = Permission.objects.filter(permissionset__in=intersect_ids)
+                    perms = Permission.objects.filter(permission_sets__in=intersect_ids)
                 else:
-                    perms = Permission.objects.filter(permissionset__in=user_ps_ids)
+                    perms = Permission.objects.filter(permission_sets__in=user_ps_ids)
 
             perms = perms.values_list('content_type__app_label', 'codename').order_by()
             user_obj._group_perm_cache = set(["%s.%s" % (ct, name) for ct, name in perms])

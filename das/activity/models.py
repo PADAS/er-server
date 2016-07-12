@@ -43,6 +43,9 @@ class Community(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80)
 
+    class Meta:
+        verbose_name_plural = _('communities')
+
     def __str__(self):
         return self.name
 
@@ -348,8 +351,8 @@ class EventAttachment(RevisionMixin, models.Model):
 
 
 class EventNoteManager(models.Manager):
-    def create_note(self, *args, **kwargs):
-        return self.create(*args, **kwargs)
+    def create_note(self, **kwargs):
+        return self.create(**kwargs)
 
 
 class EventNote(RevisionMixin, TimestampedModel):

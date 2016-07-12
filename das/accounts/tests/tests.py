@@ -14,7 +14,6 @@ class BaseTestCase(TestCase):
         self.some_set = PermissionSet.objects.create(name='some')
 
         self.all_set.children.add(self.some_set)
-        self.all_set.save()
 
 
 class PermissionSetTestCase(BaseTestCase):

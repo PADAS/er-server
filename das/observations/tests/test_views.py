@@ -41,7 +41,7 @@ class BasePermissionTest(BaseAPITest):
         self.view_delayed_name = 'view_delayed'
         self.view_delayed = Permission.objects.get(codename=self.view_delayed_name)
 
-        self.subject_view_last_set.parent = self.subject_set
+        self.subject_set.children.add(self.subject_view_last_set)
         self.subject_view_last_set.permissions.add(self.view_last_position)
         self.subject_view_last_set.permissions.add(self.view_subject)
         self.subject_view_last_set.save()
@@ -59,17 +59,16 @@ class BasePermissionTest(BaseAPITest):
         self.all_group = SubjectGroup.objects.create(name='all_group')
 
         self.ele = Subject.objects.create(name="ele", additional={})
-        self.ele_group = SubjectGroup.objects.create(name='ele_group',
-                                                     parent=self.all_group)
-        self.ele.group = self.ele_group
-        self.ele.save()
+        self.ele_group = SubjectGroup.objects.create(name='ele_group')
+        self.all_group.children.add(self.ele_group)
+
+        self.ele.groups.add(self.ele_group)
 
         self.ranger = Subject.objects.create(name="ranger", additional={})
-        self.ranger_group = SubjectGroup.objects.create(name='ranger_group',
-                                                        parent=self.all_group)
-        self.ranger.group = self.ranger_group
-        self.ranger.save()
+        self.ranger_group = SubjectGroup.objects.create(name='ranger_group')
+        self.all_group.children.add(self.ranger_group)
 
+        self.ranger.groups.add(self.ranger_group)
 
 
         DEFAULT_DATE_RANGE = (

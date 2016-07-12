@@ -26,7 +26,21 @@ class AuditableModel(TimestampedModel):
         abstract = True
 
 
-class HierarchyManager(AL_NodeManager):
+class HierarchyManager(models.Manager):
+    def get_ancestors(self, child):
+        for parent in child.parents():
+            yield parent
+            for gparent in self.get_ancestors(parent):
+                yield gparent
+
+    def get_descendants(self, node):
+        for f in node.children.all():
+            yield f
+            for gchild in self.get_descendants(f):
+                yield gchild
+
+
+class HierarchQuerySet(models.QuerySet):
     def get_decendants(self, qs):
         """
         Returns all nodes AND descendant nodes for the list of nodes
@@ -45,16 +59,30 @@ class HierarchyManager(AL_NodeManager):
         return all_nodes
 
 
-class HierarchyModel(AL_Node):
+class HierarchyModel(models.Model):
     """
-    Establish an adjacency list for a table and provide some access functions.
-    These access functions are user by other Hierarchy Mixins.
+    Provides a recursive hierarchy on self.
+    A child can have multiple parents.
+    These access functions are used by other recursive Mixins.
     """
     class Meta:
         abstract = True
 
-    node_order_by = ['name']
-    parent = models.ForeignKey('self', null=True, blank=True, related_name='children')
+    objects = HierarchyManager()
+
+    children = models.ManyToManyField('self', blank=True,
+                                      symmetrical=False,
+                                      related_name='_parents',
+                                      )
+
+    def parents(self):
+        return self.__class__.objects.filter(children=self)
+
+    def get_ancestors(self):
+        return self.__class__.objects.get_ancestors(self)
+
+    def get_descendants(self):
+        return self.__class__.objects.get_descendants(self)
 
     def get_ancestor_ids(self):
         return [a.id for a in self.get_ancestors()]

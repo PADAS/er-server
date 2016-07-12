@@ -16,14 +16,13 @@ class SubjectGroupTestCase(TestCase):
         some_set.save()
 
     def test_subject_in_group(self):
-        ele = Subject.objects.create(name='ele', additional={})
+        ele = Subject.objects.create_subject(name='ele', additional={})
         ele_group = SubjectGroup.objects.create(name='ele_group')
 
-        ele.group = ele_group
-        ele.save()
+        ele.groups.add(ele_group)
 
         ele = Subject.objects.get(name='ele')
-        self.assertEquals(ele.group, ele_group)
+        self.assertIn(ele_group, ele.groups.all())
 
 
 class SubjectPermissionsTestCase(TestCase):
@@ -43,20 +42,17 @@ class SubjectPermissionsTestCase(TestCase):
 
 
     def test_user_has_view_permission(self):
-        user = User.objects.create(username='active_user',
+        user = User.objects.create_user(username='active_user',
                                    password=User.objects.make_random_password())
 
         user.permission_sets.add(self.some_set)
-        user.save()
 
-        ele = Subject.objects.create(name="ele", additional={})
+        ele = Subject.objects.create_subject(name="ele", additional={})
 
         ele_group = SubjectGroup.objects.create(name='ele_group')
-        ele.group = ele_group
-        ele.save()
+        ele.groups.add(ele_group)
 
         ele_group.permission_sets.add(self.some_set)
-        ele_group.save()
 
         self.assertTrue(user.has_perm(make_perm(self.view_last_position), ele))
 
@@ -73,23 +69,21 @@ class SubjectAlertTestCase(TestCase):
 
 
     def test_return_user(self):
-        user = User.objects.create(username='active_user',
+        user = User.objects.create_user(username='active_user',
                                    password=User.objects.make_random_password())
         user.permission_sets.add(self.some_set)
         user.permission_sets.add(self.all_set)
         user.save()
 
-        user2 = User.objects.create(username='no_alert',
+        user2 = User.objects.create_user(username='no_alert',
                                     password=User.objects.make_random_password())
 
-        ele = Subject.objects.create(name="ele", additional={})
+        ele = Subject.objects.create_subject(name="ele", additional={})
 
         ele_group = SubjectGroup.objects.create(name='ele_group')
-        ele.group = ele_group
-        ele.save()
+        ele.groups.add(ele_group)
 
         ele_group.permission_sets.add(self.some_set)
-        ele_group.save()
 
         self.assertIn(user, ele.get_users_to_notify())
         self.assertNotIn(user2, ele.get_users_to_notify())
