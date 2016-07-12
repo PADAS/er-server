@@ -43,6 +43,9 @@ class Community(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80)
 
+    class Meta:
+        verbose_name_plural = _('communities')
+
     def __str__(self):
         return self.name
 

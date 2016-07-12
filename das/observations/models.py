@@ -562,7 +562,7 @@ class Subject(models.Model, PermissionSetGroupMixin):
             return users
 
     def __str__(self):
-        return '%s, %s' % (self.name,self.subject_type)
+        return '%s, %s, %s' % (self.name, self.subject_type, self.subject_subtype)
 
 
 class RegionManager(models.Manager):

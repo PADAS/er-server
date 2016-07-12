@@ -6,13 +6,23 @@ from django.contrib import admin
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin as DjangoGroupAdmin
 from django.utils.translation import ugettext_lazy as _
+from django.utils.html import linebreaks
 import django.contrib.auth.models
 
 from accounts.models import User, PermissionSet
 
 
 class PermissionSetAdmin(DjangoGroupAdmin):
-    pass
+    list_display = ('name', 'all_permissions')
+    filter_horizontal = ('permissions', 'children')
+
+    def all_permissions(self, instance):
+        permissions = instance.permissions.all()
+        display = '\n'.join((permission.name for permission in permissions))
+        return linebreaks(display)
+
+    all_permissions.short_description = 'Permissions'
+    all_permissions.allow_tags = True
 
 
 class UserAdmin(DjangoUserAdmin):
@@ -26,20 +36,23 @@ class UserAdmin(DjangoUserAdmin):
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
     )
 
-    list_display = ('get_display_name', 'get_all_permission_sets', 'is_email_alert', 'is_sms_alert')
+    list_display = ('display_name', 'all_permission_sets', 'is_email_alert', 'is_sms_alert')
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'permission_sets')
     filter_horizontal = ('permission_sets',)
 
-    def get_display_name(self, instance):
+    def display_name(self, instance):
         full_name = instance.get_full_name()
         if not full_name:
             full_name = instance.username
         return full_name
 
-    def get_all_permission_sets(self, instance):
+    def all_permission_sets(self, instance):
         pss = instance.get_all_permission_sets()
         display = '\n'.join((ps.name for ps in pss))
-        return display
+        return linebreaks(display)
+
+    all_permission_sets.short_description = 'Permission Sets'
+    all_permission_sets.allow_tags = True
 
     def reset_password(self, request, user_id):
         if not self.has_change_permission(request):

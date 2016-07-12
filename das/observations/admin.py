@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.utils.html import linebreaks
+from django.utils.translation import ugettext_lazy as _
 
 import observations.models as models
 import observations.forms
@@ -9,11 +11,12 @@ from core.admin import HierarchyModelAdmin
 @admin.register(models.Subject)
 class SubjectAdmin(admin.ModelAdmin):
 
-    list_display = ['id', 'name', 'subject_type', 'subject_subtype',
-                    'additional', 'groups']
-    search_fields=['name', 'subject_subtype']
+    list_display = ('id', 'name', 'subject_type', 'subject_subtype',
+                    'additional', 'groups')
+    search_fields = ('name', 'subject_subtype')
 
     fields = ('id', 'name', 'additional', 'groups', SubjectForm.SUBTYPE_FIELD)
+#    filter_horizontal = ('groups',)
 
     def queryset(self, request):
         """Limit Subjects to those this person can administer"""
@@ -50,6 +53,7 @@ class SubjectAdmin(admin.ModelAdmin):
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
     list_display = ['id', 'source_type', 'manufacturer_id', 'model_name', 'additional']
+#    filter_horizontal = ('groups',)
 
 
 @admin.register(models.SubjectSource)
@@ -69,9 +73,17 @@ class RegionAdmin(admin.ModelAdmin):
 class SubjectGroupAdmin(HierarchyModelAdmin):
     search_fields = ('name',)
     ordering = ('name',)
+    fieldsets = (
+        (None, {'fields': ('name', 'id')}),
+        (_('Subjects in Group'),
+         {'fields': ('subjects',)}),
+        (_('Permissions'), {'fields': ('permission_sets',)}),
+        (_('Member Subject Groups'), {'fields': ('children',)}),
+    )
+    filter_horizontal = ('children', 'permission_sets', 'subjects')
 
 
-class SubjecGroupChangeForm(object):
+class SubjectGroupChangeForm(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['groups'].queryset = models.SubjectGroup.objects.exclude(
@@ -82,5 +94,13 @@ class SubjecGroupChangeForm(object):
 class SourceGroupAdmin(HierarchyModelAdmin):
     search_fields = ('name',)
     ordering = ('name',)
+    fieldsets = (
+        (None, {'fields': ('name', 'id')}),
+        (_('Sources in Group'),
+         {'fields': ('sources',)}),
+        (_('Permissions'), {'fields': ('permission_sets',)}),
+        (_('Member Source Groups'), {'fields': ('children',)}),
+    )
+    filter_horizontal = ('children', 'permission_sets', 'sources')
 
 
