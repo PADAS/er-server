@@ -4,7 +4,7 @@ import django.db.models as models
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth.models import Permission
 
-from core.models import HierarchyModel, HierarchyManager
+from core.models import HierarchyModel, HierarchyManager, TimestampedModel
 
 
 class PermissionSetManager(HierarchyManager):
@@ -13,20 +13,23 @@ class PermissionSetManager(HierarchyManager):
     """
     use_in_migrations = True
 
+    def get_by_natural_key(self, name):
+        return self.get(**{name: name})
 
-class PermissionSet(HierarchyModel):
+
+class PermissionSet(HierarchyModel, TimestampedModel):
     """
     PermissionSets are a generic way of categorizing users to apply permissions, or
     some other label, to those users. A user can belong to any number of
     groups.
 
-    A user in a group automatically has all the permissions granted to that
-    group. For example, if the group Site editors has the permission
-    can_edit_home_page, any user in that group will have that permission.
+    A user in a permissionset automatically has all the permissions granted to that
+    set. For example, if the group Site editors has the permission
+    can_edit_home_page, any user in that set will have that permission.
 
     Beyond permissions, PermissionSets are a convenient way to categorize users to
     apply some label, or extended functionality, to them. For example, you
-    could create a group 'Special users', and you could write code that would
+    could create a set 'Special users', and you could write code that would
     grant special rights -- such as giving them access to a
     members-only portion of your site, or sending them members-only email
     messages.
@@ -36,9 +39,13 @@ class PermissionSet(HierarchyModel):
     permissions = models.ManyToManyField(
         Permission,
         blank=True,
+        related_name='permission_sets',
     )
 
     objects = PermissionSetManager()
+
+    def natural_key(self):
+        return (self.name,)
 
     class Meta:
         verbose_name = _('permission set')

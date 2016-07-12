@@ -16,6 +16,7 @@ class PermissionSetAdmin(DjangoGroupAdmin):
 
 
 class UserAdmin(DjangoUserAdmin):
+    ordering = ('last_name', 'first_name', 'username')
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         (_('Personal info'), {'fields': ('first_name', 'last_name', 'email', 'phone')}),
@@ -25,8 +26,20 @@ class UserAdmin(DjangoUserAdmin):
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
     )
 
+    list_display = ('get_display_name', 'get_all_permission_sets', 'is_email_alert', 'is_sms_alert')
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'permission_sets')
     filter_horizontal = ('permission_sets',)
+
+    def get_display_name(self, instance):
+        full_name = instance.get_full_name()
+        if not full_name:
+            full_name = instance.username
+        return full_name
+
+    def get_all_permission_sets(self, instance):
+        pss = instance.get_all_permission_sets()
+        display = '\n'.join((ps.name for ps in pss))
+        return display
 
     def reset_password(self, request, user_id):
         if not self.has_change_permission(request):

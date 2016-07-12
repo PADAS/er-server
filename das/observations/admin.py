@@ -5,14 +5,15 @@ import observations.forms
 from observations.forms import SubjectForm
 from core.admin import HierarchyModelAdmin
 
+
 @admin.register(models.Subject)
 class SubjectAdmin(admin.ModelAdmin):
 
     list_display = ['id', 'name', 'subject_type', 'subject_subtype',
-                    'additional', 'group']
+                    'additional', 'groups']
     search_fields=['name', 'subject_subtype']
 
-    fields = ('id', 'name', 'additional', 'group', SubjectForm.SUBTYPE_FIELD)
+    fields = ('id', 'name', 'additional', 'groups', SubjectForm.SUBTYPE_FIELD)
 
     def queryset(self, request):
         """Limit Subjects to those this person can administer"""
@@ -63,14 +64,22 @@ class RegionAdmin(admin.ModelAdmin):
     def __str__(self):
         return self.slug
 
+
 @admin.register(models.SubjectGroup)
 class SubjectGroupAdmin(HierarchyModelAdmin):
     search_fields = ('name',)
     ordering = ('name',)
 
 
+class SubjecGroupChangeForm(object):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['groups'].queryset = models.SubjectGroup.objects.exclude(
+            id__exact=self.instance.id)
+
+
 @admin.register(models.SourceGroup)
-class SubjectGroupAdmin(HierarchyModelAdmin):
+class SourceGroupAdmin(HierarchyModelAdmin):
     search_fields = ('name',)
     ordering = ('name',)
 

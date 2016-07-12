@@ -1,10 +1,9 @@
 from django.contrib import admin
-from treebeard.admin import TreeAdmin
 # Register your models here.
 from core.models import Choice
 
 
-class HierarchyModelAdmin(TreeAdmin):
+class HierarchyModelAdmin(admin.ModelAdmin):
     pass
 
 

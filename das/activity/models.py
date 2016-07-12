@@ -348,8 +348,8 @@ class EventAttachment(RevisionMixin, models.Model):
 
 
 class EventNoteManager(models.Manager):
-    def create_note(self, *args, **kwargs):
-        return self.create(*args, **kwargs)
+    def create_note(self, **kwargs):
+        return self.create(**kwargs)
 
 
 class EventNote(RevisionMixin, TimestampedModel):

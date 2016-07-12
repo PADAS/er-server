@@ -27,8 +27,7 @@ import pytz
 
 from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
-from .track import Track
-from core.models import HierarchyManager, HierarchyModel
+from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 
 
 SOURCE_TYPES = (
@@ -45,14 +44,20 @@ def to_rgb(color):
 
 DEFAULT_COLOR = '255,255,0'
 
+
 def random_rgb():
     return ','.join([str(random.randint(0,255)) for i in range(3)])
 
+
 class SourceGroupManager(HierarchyManager):
-    pass
+    def get_default(self):
+        return self.get(id=DEFAULT_SOURCE_GROUP_ID)
+
+    def get_by_natural_key(self, name):
+        return self.get(**{name: name})
 
 
-class SourceGroup(HierarchyModel, PermissionSetHierarchyMixin):
+class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
     """
     Manage Groups of sources so that we can easily set permissions on a group
     rather than each individual Source. Additionally there are requests to
@@ -62,14 +67,22 @@ class SourceGroup(HierarchyModel, PermissionSetHierarchyMixin):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_('name'), max_length=80, unique=True)
+    sources = models.ManyToManyField('Source', related_name='groups',
+                                     blank=True)
     objects = SourceGroupManager()
+
+    def natural_key(self):
+        return (self.name,)
+
+    class Meta:
+        verbose_name = _('source group')
+        verbose_name_plural = _('source groups')
 
     def __str__(self):
         return self.name
 
 
 class SourceManager(models.Manager):
-
     # Helper functions for hydrating Source and Subject for the given message.
     def ensure_source(self, source_type, manufacturer_id=None, model_name=None, additional=None):
 
@@ -80,6 +93,11 @@ class SourceManager(models.Manager):
                                                               'additional': additional})
 
         return src, created
+
+    def create_source(self, **kwargs):
+        source = super().create(**kwargs)
+        source.groups.set((SourceGroup.objects.get_default(),))
+        return source
 
 
 class Source(models.Model):
@@ -94,6 +112,12 @@ class Source(models.Model):
                                        null=True)
     model_name = models.CharField('device model name', max_length=100, null=True)
     additional = JSONField('additional data')
+
+    class Meta:
+        permissions = (
+            ('view_source',
+             'Permission to view a source'),
+        )
 
     def __str__(self):
         return '%s:%s' % (self.manufacturer_id, self.model_name)
@@ -257,8 +281,6 @@ class Observation(models.Model):
         )
 
 
-
-
 class SubjectSourceManager(models.GeoManager):
     def get_subject_sources(self, subject):
         sds = SubjectSource.objects.filter(subject_id=subject.id)
@@ -314,14 +336,19 @@ class SubjectSource(models.Model):
                                  self.assigned_range.lower, self.assigned_range.upper)
 
 
-DEFAULT_SUBJECT_GROUP_ID = '3a4a6a0f-6e1a-4b0f-8fd4-ce865355501c'
+DEFAULT_SUBJECT_GROUP_ID = 'b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057'
+DEFAULT_SOURCE_GROUP_ID = '654e592c-fc5a-436d-98dd-fd1b36436a85'
 
 
 class SubjectGroupManager(HierarchyManager):
-    pass
+    def get_default(self):
+        return self.get(id=DEFAULT_SUBJECT_GROUP_ID)
+
+    def get_by_natural_key(self, name):
+        return self.get(**{name: name})
 
 
-class SubjectGroup(HierarchyModel, PermissionSetHierarchyMixin):
+class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
     """
     Manage Groups of subjects so that we can easily set permissions on a group
     rather than each individual Subject. Additionally there are requests to
@@ -331,13 +358,28 @@ class SubjectGroup(HierarchyModel, PermissionSetHierarchyMixin):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_('name'), max_length=80, unique=True)
+    subjects = models.ManyToManyField('Subject', related_name='groups',
+                                      blank=True)
     objects = SubjectGroupManager()
+
+    def natural_key(self):
+        return (self.name,)
+
+    class Meta:
+        verbose_name = _('subject group')
+        verbose_name_plural = _('subject groups')
 
     def __str__(self):
         return self.name
 
 
 class SubjectManager(models.Manager):
+    def create_subject(self, **kwargs):
+        #all subjects are added to the default subject group
+        subject = super().create(**kwargs)
+        subject.groups.set((SubjectGroup.objects.get_default(),))
+        return subject
+
     def by_region(self, region, **kwargs):
         subjects = self.filter(additional__region=region.region)
         subjects.filter(additional__country=region.country, **kwargs)
@@ -363,7 +405,7 @@ class SubjectManager(models.Manager):
             sg_all.add(sg)
             sg_all.update(sg.get_descendants())
 
-        return Subject.objects.all().filter(group__in=sg_all)
+        return Subject.objects.all().filter(groups__in=sg_all)
 
     def get_staff(self):
         return self.all().filter(subject_type=Subject.TYPE_PERSON)
@@ -437,15 +479,12 @@ class Subject(models.Model, PermissionSetGroupMixin):
     SUBTYPE_CHOICES = [(item['name'], item['subtypes']) for item in TYPES_HIERARCHIES]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField('name', max_length=100)
+    name = models.CharField(_('name'), max_length=100)
 
     subject_type = models.CharField('subject type', max_length=100, default=TYPE_WILDLIFE, choices=TYPE_CHOICES)
     subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_ELEPHANT,
                                        choices=SUBTYPE_CHOICES)
-
     additional = JSONField('additional data')
-    group = models.ForeignKey(SubjectGroup, on_delete=models.SET_NULL, null=True, blank=True)
-
     objects = SubjectManager()
 
     class Meta:
@@ -462,7 +501,7 @@ class Subject(models.Model, PermissionSetGroupMixin):
 
     VIEW_POSITION_PERMS = ('observations.view_last_position', 'observations.view_real_time')
     VIEW_DELAYED_PERMS = ('observations.view_delayed',)
-    VIEW_SUBJECT_PERMS = ('observations.view_subject',)
+    VIEW_SUBJECT_PERMS = ('observations.view_subject',) + VIEW_DELAYED_PERMS + VIEW_POSITION_PERMS
 
     @property
     def color(self):
@@ -513,11 +552,11 @@ class Subject(models.Model, PermissionSetGroupMixin):
         return a queryset of all users to be notified for this subject
         :return:
         """
-        if not self.group:
+        if not self.groups:
             return []
         else:
             users = set()
-            ps_ids = self.group.get_obj_permission_set_ids()
+            ps_ids = self.get_obj_permission_set_ids()
             for ps in PermissionSet.objects.filter(id__in=ps_ids):
                  users.update(ps.user_set.all())
             return users
