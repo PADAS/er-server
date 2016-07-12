@@ -403,6 +403,7 @@ class EventPhoto(RevisionMixin, TimestampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
         null=True, blank=True, related_name='event_photos', related_query_name='event_photo')
     image = VersatileImageField(upload_to=upload_to, null=True, max_length=512)
+    filename = models.TextField(verbose_name='Name of uploaded image file.', default='noname')
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='photos', related_query_name='photo')
 
@@ -414,3 +415,6 @@ class EventPhoto(RevisionMixin, TimestampedModel):
         self.event.dependent_table_updated()
         return result
 
+    def clean(self):
+        self.filename = self.image.name
+        super().clean()
