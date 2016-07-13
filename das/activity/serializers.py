@@ -347,7 +347,7 @@ def get_update_type(revision, previous_revisions=[]):
                     break
 
         for k, v in field_mapping:
-            if data.get(k, None):
+            if k in data:
                 return v
     return 'other'
 
