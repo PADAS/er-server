@@ -6,23 +6,31 @@ from django.contrib import admin
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin as DjangoGroupAdmin
 from django.utils.translation import ugettext_lazy as _
-from django.utils.html import linebreaks
+from utils.html import make_html_list
 import django.contrib.auth.models
 
 from accounts.models import User, PermissionSet
 
 
 class PermissionSetAdmin(DjangoGroupAdmin):
-    list_display = ('name', 'all_permissions')
+    list_display = ('name', 'all_permissions', 'all_users')
     filter_horizontal = ('permissions', 'children')
 
     def all_permissions(self, instance):
         permissions = instance.permissions.all()
         display = '\n'.join((permission.name for permission in permissions))
-        return linebreaks(display)
+        return make_html_list(display)
 
     all_permissions.short_description = 'Permissions'
     all_permissions.allow_tags = True
+
+    def all_users(self, instance):
+        users = instance.user_set.all()
+        display = '\n'.join((user.get_full_name() for user in users))
+        return make_html_list(display)
+
+    all_users.short_description = 'Users'
+    all_users.allow_tags = True
 
 
 class UserAdmin(DjangoUserAdmin):
@@ -36,7 +44,8 @@ class UserAdmin(DjangoUserAdmin):
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
     )
 
-    list_display = ('display_name', 'all_permission_sets', 'is_email_alert', 'is_sms_alert')
+    list_display = ('display_name', 'member_permission_sets',
+                    'all_permission_sets', 'is_email_alert', 'is_sms_alert')
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'permission_sets')
     filter_horizontal = ('permission_sets',)
 
@@ -48,11 +57,19 @@ class UserAdmin(DjangoUserAdmin):
 
     def all_permission_sets(self, instance):
         pss = instance.get_all_permission_sets()
-        display = '\n'.join((ps.name for ps in pss))
-        return linebreaks(display)
+        display = '\n'.join(sorted(ps.name for ps in pss))
+        return make_html_list(display)
 
-    all_permission_sets.short_description = 'Permission Sets'
+    all_permission_sets.short_description = 'All Permission Sets'
     all_permission_sets.allow_tags = True
+
+    def member_permission_sets(self, instance):
+        pss = instance.permission_sets.all()
+        display = '\n'.join(sorted(ps.name for ps in pss))
+        return make_html_list(display)
+
+    member_permission_sets.short_description = 'Member Permission Sets'
+    member_permission_sets.allow_tags = True
 
     def reset_password(self, request, user_id):
         if not self.has_change_permission(request):

@@ -7,15 +7,15 @@ from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 from django.http import Http404
 from django.contrib.auth import get_user_model
-
 from rest_framework import generics
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 from rest_framework.response import Response
 from rest_framework.filters import DjangoObjectPermissionsFilter
 
-from observations.filters import SubjectObjectPermissionsFilter
-from observations.permissions import SubjectObjectPermissions
+from utils.drf import StandardResultsSetPagination
+from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
+from observations.permissions import StandardObjectPermissions
 from observations import models
 import observations.serializers as serializers
 
@@ -45,19 +45,6 @@ def dateparse(date_str, default_tz=pytz.utc):
     return dt
 
 
-class StatusView(generics.RetrieveAPIView):
-    """
-    What is the server status and current api version.
-    ---
-
-    """
-    permission_classes = (AllowAny,)
-    serializer_class = serializers.VersionSerializer
-
-    def get_object(self):
-        return {'version': 'v1.0'} #request.version}
-
-
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
     queryset = models.Region.objects.all()
@@ -78,9 +65,9 @@ class SubjectsView(generics.ListAPIView):
         example: bbox=14.24, .41, 15.45, 1.66
     """
     serializer_class = serializers.SubjectSerializer
-    permission_classes = (SubjectObjectPermissions,)
+    permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
-
+    #pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         queryset = models.Subject.objects.all()
@@ -93,12 +80,54 @@ class SubjectsView(generics.ListAPIView):
             queryset = models.Subject.objects.by_bbox(bbox, last_days=LAST_DAYS)
         return queryset
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['render_last_location'] = False
+        return context
+
+
+class SubjectGroupsView(generics.ListAPIView):
+    """
+    Returns all subjectgroups in the system.
+    """
+    serializer_class = serializers.create_sg_serializer('subjectgs', models.SubjectGroup,
+                                                        serializers.SubjectSerializer)
+    permission_classes = (StandardObjectPermissions,)
+    filter_backends = (create_gp_filter_class('subjectgf',
+                                              ('observations.view_subjectgroup',),
+                                              models.SubjectGroup),)
+
+    def get_queryset(self):
+        queryset = models.SubjectGroup.objects.filter(_parents=None)
+        return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['render_last_location'] = False
+        return context
+
+
+class SourceGroupsView(generics.ListAPIView):
+    """
+    Returns all sourcegroups in the system.
+    """
+    serializer_class = serializers.create_sg_serializer('sourcegs',
+                                                        models.SourceGroup,
+                                                        serializers.SourceSerializer)
+    permission_classes = (StandardObjectPermissions,)
+    filter_backends = (create_gp_filter_class('sourcegf',
+                                              ('observations.view_sourcegroup',),
+                                              models.SourceGroup),)
+
+    def get_queryset(self):
+        queryset = models.SourceGroup.objects.filter(_parents=None)
+        return queryset
 
 
 class RegionSubjectsView(generics.ListAPIView):
     lookup_field = 'slug'
     serializer_class = serializers.SubjectSerializer
-    permission_classes = (SubjectObjectPermissions,)
+    permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
 
     def get_queryset(self):
@@ -107,38 +136,12 @@ class RegionSubjectsView(generics.ListAPIView):
         subjects = models.Subject.objects.by_region(region)
         return subjects
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['show_last_position_date'] = True
-        return context
-
 
 class SubjectView(generics.RetrieveAPIView):
-    permission_classes = (SubjectObjectPermissions,)
+    permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.SubjectSerializer
     queryset = models.Subject.objects.all()
     lookup_field = 'id'
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        subject = self.get_object()
-
-        if self.request.user.has_any_perms(subject.VIEW_POSITION_PERMS, subject):
-            last_position = models.Observation.objects.get_last_observation(subject)
-        elif self.request.user.has_any_perms(subject.VIEW_DELAYED_PERMS, subject):
-            last_position = models.Observation.objects.get_delayed_observation(subject)
-        else:
-            last_position = None
-
-        if last_position:
-            first_position = models.Observation.objects.get_first_observation(subject)
-            context = dict(first_position=first_position,
-                           last_position=last_position,
-                           request=self.request,
-                           tracks_available=True,)
-        else:
-            context['tracks_available'] = False
-        return context
 
 
 class SubjectSourcesView(generics.ListAPIView):
@@ -149,8 +152,8 @@ class SubjectSourcesView(generics.ListAPIView):
         if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
-        self.subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
-        sources = models.Source.objects.filter(pk__in=self.subject_sources.values('source'))
+        subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
+        sources = models.Source.objects.filter(pk__in=subject_sources.values('source'))
         return sources
 
 
@@ -162,9 +165,7 @@ class SubjectSourceView(generics.RetrieveAPIView):
         if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
-        self.subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
-        sources = models.Source.objects.all()
-        return sources
+        return models.Source.objects.all()
 
     def get_object(self):
         queryset = self.get_queryset()
@@ -179,7 +180,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()
-    permission_classes = (SubjectObjectPermissions,)
+    permission_classes = (StandardObjectPermissions,)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -214,7 +215,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
 
 class SubjectTracksView(generics.RetrieveAPIView):
-    permission_classes = (SubjectObjectPermissions,)
+    permission_classes = (StandardObjectPermissions,)
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()

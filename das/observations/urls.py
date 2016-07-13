@@ -19,7 +19,6 @@ from observations import views
 
 
 urlpatterns = [
-    url(r'^status/?$', views.StatusView.as_view()),
     url(r'^regions/?$', views.RegionsView.as_view()),
     url(r'^region/(?P<slug>[a-z0-9-]+)/?$', views.RegionView.as_view()),
     url(r'^region/(?P<slug>[a-z0-9-]+)/subjects/?$', views.RegionSubjectsView.as_view()),
@@ -31,6 +30,8 @@ urlpatterns = [
     url(r'^subject/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/source/(?P<source_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/tracks/?$', views.SubjectSourceTrackView.as_view()),
     url(r'^source/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.SourceView.as_view()),
     url(r'^observation/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.ObservationView.as_view()),
+    url(r'^subjectgroups/?$', views.SubjectGroupsView.as_view()),
+    url(r'^sourcegroups/?$', views.SourceGroupsView.as_view()),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

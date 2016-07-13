@@ -7,14 +7,6 @@ from django.core.management import call_command
 from django.contrib.auth.management import create_permissions
 
 
-def populate_default_groups(apps, schema_editor):
-    #initial data references permissions
-    apps.models_module = True
-    create_permissions(apps, verbosity=0)
-    apps.models_module = None
-    call_command('loaddata', 'initial_groups')
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -22,5 +14,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(populate_default_groups),
+
     ]

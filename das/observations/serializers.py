@@ -7,14 +7,38 @@ import utils.json
 from utils import add_base_url
 
 
-class VersionSerializer(rest_framework.serializers.Serializer):
-    version = rest_framework.serializers.CharField(read_only=True)
-
-
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = models.Region
         fields = ('slug', 'region', 'country')
+
+
+class RecursiveSerializer(rest_framework.serializers.Serializer):
+    def to_representation(self, instance):
+        serializer = self.parent.parent.__class__(instance, context=self.context)
+        return serializer.data
+
+def create_sg_serializer(name, model, serializer):
+    contained_field = '{0}s'.format(serializer.Meta.model._meta.model_name)
+    meta = type('Meta', (object,), dict(model=model,
+                                        fields=('name', 'id', contained_field, 'subgroups')))
+    subgroups = RecursiveSerializer(many=True, read_only=True, source='children')
+    return type(name, (GroupSerializer,), dict(serializer=serializer, Meta=meta,
+                                               subgroups=subgroups,
+                                               contained_field=contained_field))
+
+
+class GroupSerializer(rest_framework.serializers.ModelSerializer):
+
+    def to_representation(self, instance):
+        data_serializer = self.serializer(context=self.context)
+        contained_field= self.contained_field
+
+        rep = super().to_representation(instance)
+        data = [data_serializer.to_representation(s)
+                for s in getattr(instance, 'get_all_{0}'.format(contained_field))()]
+        rep[contained_field] = data
+        return rep
 
 
 class SubjectSerializer(rest_framework.serializers.ModelSerializer):
@@ -33,16 +57,30 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
         return super().to_internal_value(data)
 
     def to_representation(self, instance):
+        user = getattr(self.context.get('request', None), 'user', None)
+        render_last_location = self.context.get('render_last_location', True)
+        model = self.Meta.model
+
         rep = super(SubjectSerializer, self).to_representation(instance)
         additional = instance.additional
         additional = {k: additional[k] for k in self.additional_fields
                       if k in additional}
         rep.update(additional)
-        if self.context and 'tracks_available' in self.context:
-            rep['tracks_available'] = self.context['tracks_available']
-            if 'last_position' in self.context:
-                last_position = self.context['last_position']
-                first_position = self.context['first_position']
+
+        if user and render_last_location:
+            if user.has_any_perms(model.VIEW_POSITION_PERMS, instance):
+                last_position = models.Observation.objects.get_last_observation(instance)
+            elif user.has_any_perms(model.VIEW_DELAYED_PERMS, instance):
+                last_position = models.Observation.objects.get_delayed_observation(instance)
+            else:
+                last_position = None
+
+            first_position = None
+            if last_position:
+                first_position = models.Observation.objects.get_first_observation(instance)
+
+            rep['tracks_available'] = bool(last_position)
+            if last_position:
                 rep['last_position_date'] = last_position.recorded_at
                 rep['last_position'] = make_feature(self.context['request'],
                                                     last_position.location,
@@ -50,15 +88,6 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
                                                     time=last_position.recorded_at)
                 rep['tracks_range'] = (first_position.recorded_at,
                                        last_position.recorded_at)
-        elif self.context and self.context.get('show_last_position_date', None):
-            last_position = instance.last_observation
-            if last_position:
-                rep['tracks_available'] = True
-                rep['last_position_date'] = last_position.recorded_at
-                rep['last_position'] = make_feature(self.context['request'],
-                                                        last_position.location,
-                                                        instance,
-                                                        time=last_position.recorded_at)
         return rep
 
 

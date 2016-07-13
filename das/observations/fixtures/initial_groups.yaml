@@ -9,6 +9,7 @@
     - [subscribe_alerts, observations, subject]
     - [view_real_time, observations, subject]
     - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
 - model: accounts.permissionset
   pk: 7220dfb8-312c-4897-bc6f-96ca2647f9f1
   fields:
@@ -20,6 +21,7 @@
     - [subscribe_alerts, observations, subject]
     - [view_real_time, observations, subject]
     - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
 - model: accounts.permissionset
   pk: a3f39486-8efe-4183-abbf-695e1012379d
   fields:
@@ -31,6 +33,7 @@
     - [subscribe_alerts, observations, subject]
     - [view_real_time, observations, subject]
     - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
 - model: accounts.permissionset
   pk: b1481c72-0c7e-4dde-a8f7-39af72028d79
   fields:
@@ -44,6 +47,10 @@
     - [change_subject, observations, subject]
     - [change_view, observations, subject]
     - [delete_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+    - [add_subjectgroup, observations, subjectgroup]
+    - [delete_subjectgroup, observations, subjectgroup]
+    - [change_subjectgroup, observations, subjectgroup]
 - model: accounts.permissionset
   pk: b86eb3f3-1292-4af5-a6b4-011513cdb08c
   fields:
@@ -54,6 +61,7 @@
     permissions:
     - [view_delayed, observations, subject]
     - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
 - model: accounts.permissionset
   pk: e13c354b-295c-4c43-80bf-b1ee10af6930
   fields:
@@ -64,6 +72,7 @@
     permissions:
     - [view_last_position, observations, subject]
     - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
 - model: accounts.permissionset
   pk: 1bd2c209-c7b0-4ba7-8fb3-ec5f208bf587
   fields:
@@ -76,6 +85,7 @@
     - [change_source, observations, source]
     - [view_source, observations, source]
     - [delete_source, observations, source]
+    - [view_sourcegroup, observations, sourcegroup]
 
 - model: observations.subjectgroup
   pk: 5bf8761c-0c87-4756-8282-23fa11d72433

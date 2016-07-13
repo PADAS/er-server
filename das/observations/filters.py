@@ -21,3 +21,39 @@ class SubjectObjectPermissionsFilter(BaseFilterBackend):
 
     def get_user_subjects(self, user):
         return Subject.objects.by_user_subjects(user)
+
+
+def create_gp_filter_class(name, perms, model):
+    return type(name, (GroupPermissionsFilter,), {'perms': perms, 'model': model})
+
+
+class GroupPermissionsFilter(BaseFilterBackend):
+    """
+    Filter the list of groups to what the user is allowed to view
+    """
+    def filter_queryset(self, request, queryset, view):
+        user = request.user
+
+        if user.is_superuser:
+            return queryset
+
+        root_ids = set()
+        for group in queryset:
+            result = self.first_descendant_with_permission(user, self.perms, group)
+            if result:
+                root_ids.add(result.id)
+
+        return queryset.model.objects.filter(id__in=list(root_ids))
+
+    def first_descendant_with_permission(self, user, perms, group):
+        if not group:
+            return None
+
+        if user.has_any_perms(perms, group):
+            return group
+        for child in group.children.all():
+            result = self.first_descendant_with_permission(user, perms, child)
+            if result:
+                return result
+
+

@@ -71,12 +71,24 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
                                      blank=True)
     objects = SourceGroupManager()
 
+    def get_all_sources(self):
+        """Including descendant group sources"""
+        subgroups = self.get_descendants()
+        sources = set(iter(self.sources.all()))
+        for group in subgroups:
+            sources.update(iter(group.sources.all()))
+        return list(sources)
+
     def natural_key(self):
         return (self.name,)
 
     class Meta:
         verbose_name = _('source group')
         verbose_name_plural = _('source groups')
+        permissions = (
+            ('view_sourcegroup',
+             'Permission to view a source group'),
+        )
 
     def __str__(self):
         return self.name
@@ -362,12 +374,24 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
                                       blank=True)
     objects = SubjectGroupManager()
 
+    def get_all_subjects(self):
+        """Including descendant group subjects"""
+        subgroups = self.get_descendants()
+        subjects = set(iter(self.subjects.all()))
+        for group in subgroups:
+            subjects.update(iter(group.subjects.all()))
+        return list(subjects)
+
     def natural_key(self):
         return (self.name,)
 
     class Meta:
         verbose_name = _('subject group')
         verbose_name_plural = _('subject groups')
+        permissions = (
+            ('view_subjectgroup',
+             'Permission to view a subject group'),
+        )
 
     def __str__(self):
         return self.name
