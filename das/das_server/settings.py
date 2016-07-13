@@ -285,8 +285,8 @@ DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'event_photo': [
         ('original', 'url'),
-        ('large', 'crop__800x600'),
-        ('small_square', 'crop__75x75')
+        ('thumbnail', 'thumbnail__150x150'), # Resize to fit within
+        ('large', 'thumbnail__800x800') # Resize to fit within
     ],
 }
 
@@ -330,5 +330,5 @@ VERSATILEIMAGEFIELD_SETTINGS = {
     'image_key_post_processor': None,
     # Whether to create progressive JPEGs. Read more about progressive JPEGs
     # here: https://optimus.io/support/progressive-jpeg/
-    'progressive_jpeg': False
+    'progressive_jpeg': True
 }
