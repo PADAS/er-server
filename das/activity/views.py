@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-from rest_framework.pagination import PageNumberPagination
 from rest_framework import generics, status
 import rest_framework.exceptions
 
@@ -9,15 +8,9 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
+from utils.drf import StandardResultsSetPagination
 
 LAST_DAYS = timedelta(days=3)
-
-
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 25
-    page_size_query_param = 'page_size'
-    max_page_size = 100
-
 
 class EventSchemaView(generics.ListCreateAPIView):
     permission_classes = (EventObjectPermissions,)

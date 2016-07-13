@@ -24,7 +24,8 @@ class AccountsModelBackend(ModelBackend):
         if not user_obj.is_active or user_obj.is_anonymous():
             return set()
 
-        if not hasattr(user_obj, '_group_perm_cache'):
+        can_cache = user_obj.is_superuser or not(obj and hasattr(obj, 'get_obj_permission_set_ids'))
+        if not can_cache or not hasattr(user_obj, '_group_perm_cache'):
             if user_obj.is_superuser:
                 perms = Permission.objects.all()
             else:
@@ -38,7 +39,10 @@ class AccountsModelBackend(ModelBackend):
                     perms = Permission.objects.filter(permission_sets__in=user_ps_ids)
 
             perms = perms.values_list('content_type__app_label', 'codename').order_by()
-            user_obj._group_perm_cache = set(["%s.%s" % (ct, name) for ct, name in perms])
+            perms = set(["%s.%s" % (ct, name) for ct, name in perms])
+            if not can_cache:
+                return perms
+            user_obj._group_perm_cache = perms
         return user_obj._group_perm_cache
 
     def get_all_permissions(self, user_obj, obj=None):
