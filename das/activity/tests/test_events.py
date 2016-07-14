@@ -46,15 +46,16 @@ class TestSourcePlugin(TestCase):
 
 
 class TestEventView(BaseAPITest):
+    user_const = dict(last_name='last', first_name='first')
     def setUp(self):
         super().setUp()
-        self.user = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True)
+        self.user = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True, **self.user_const)
         self.readonly_user = User.objects.create_user('readonly',
                                                       'readonly@test.com',
-                                                      'readonly')
+                                                      'readonly', **self.user_const)
         self.no_perms_user = User.objects.create_user('noperms',
                                                       'noperms@test.com',
-                                                      'noperms')
+                                                      'noperms', **self.user_const)
         self.user_rep = UserDisplaySerializer().to_representation(self.user)
         self.staff = Subject.objects.create(name='Ranger 2', additional={})
         self.staff_rep = SubjectSerializer().to_representation(self.staff)

@@ -18,12 +18,13 @@ API_BASE = '/api/v1.0'
 class BasePermissionTest(BaseAPITest):
     def setUp(self):
         super().setUp()
-        self.superuser = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True)
-        self.last_view_user = User.objects.create_user('last_view_joe', 'last_joe@test.com', 'last_view_joe')
-        self.realtime_view_user = User.objects.create_user('realtime_joe', 'realtimejoe@test.com', 'realtime_view_joe')
-        self.delayed_view_user = User.objects.create_user('delayed_view_joe', 'jerry@test.com', 'delayed_view_joe')
-        self.no_view_user = User.objects.create_user('no_view_john', 'john@test.com', 'no_view_john')
-        self.source_admin_user = User.objects.create_user('john_the_source_admin', 'john.source@test.com', 'john_the_source_admin')
+        user_const = dict(last_name='last', first_name='first')
+        self.superuser = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True, **user_const)
+        self.last_view_user = User.objects.create_user('last_view_joe', 'last_joe@test.com', 'last_view_joe', **user_const)
+        self.realtime_view_user = User.objects.create_user('realtime_joe', 'realtimejoe@test.com', 'realtime_view_joe', **user_const)
+        self.delayed_view_user = User.objects.create_user('delayed_view_joe', 'jerry@test.com', 'delayed_view_joe', **user_const)
+        self.no_view_user = User.objects.create_user('no_view_john', 'john@test.com', 'no_view_john', **user_const)
+        self.source_admin_user = User.objects.create_user('john_the_source_admin', 'john.source@test.com', 'john_the_source_admin', **user_const)
 
         self.source_set = PermissionSet.objects.create(name='source')
         self.source_set.permissions.add(Permission.objects.get_by_natural_key(
