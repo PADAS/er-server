@@ -7,8 +7,8 @@ class HierarchyModelAdmin(admin.ModelAdmin):
     pass
 
 
-@admin.register(Choice)
-class ChoiceAdmin(admin.ModelAdmin):
-    pass
+# @admin.register(Choice)
+# class ChoiceAdmin(admin.ModelAdmin):
+#     pass
 
 

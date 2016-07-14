@@ -24,3 +24,15 @@ class EventAdmin(admin.OSMGeoAdmin):
 @admin.register(models.Community)
 class CommunityAdmin(admin.ModelAdmin):
     pass
+
+
+@admin.register(models.EventType)
+class EventTypeAdmin(admin.ModelAdmin):
+    ordering = ('ordernum', 'display',)
+    list_display = ('display', 'ordernum',)
+    fieldsets = (
+        (None, {
+            'fields': ('display', 'value', 'ordernum',
+                       )}
+         ),
+    )

@@ -14,6 +14,8 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 import os
 import sys
 
+from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TCP
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -32,6 +34,7 @@ DEV = False
 
 INSTALLED_APPS = (
     'accounts.apps.AccountsConfig',
+    #'suit',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -95,6 +98,10 @@ TEMPLATES = [
         },
     },
 ]
+
+# TEMPLATE_CONTEXT_PROCESSORS = TCP + [
+#     'django.core.context_processors.request',
+# ]
 
 AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = '/login'
