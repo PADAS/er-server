@@ -12,9 +12,17 @@ import django.contrib.auth.models
 from accounts.models import User, PermissionSet
 
 
+class UsersInline(admin.StackedInline):
+
+    model = PermissionSet.user_set.through
+    verbose_name = 'User'
+    verbose_name_plural = 'Users'
+
+
 class PermissionSetAdmin(DjangoGroupAdmin):
     list_display = ('name', 'all_permissions', 'all_users')
     filter_horizontal = ('permissions', 'children')
+    inlines = (UsersInline,)
 
     def all_permissions(self, instance):
         permissions = instance.permissions.all()
@@ -46,6 +54,8 @@ class UserAdmin(DjangoUserAdmin):
 
     list_display = ('display_name', 'member_permission_sets',
                     'all_permission_sets', 'is_email_alert', 'is_sms_alert')
+    list_editable = ('is_email_alert', 'is_sms_alert')
+    list_display_links = ('display_name', )
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'permission_sets')
     filter_horizontal = ('permission_sets',)
 
