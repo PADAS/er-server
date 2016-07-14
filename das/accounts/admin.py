@@ -85,11 +85,11 @@ class UserAdmin(DjangoUserAdmin):
                        'is_superuser',)}),
     )
 
-    list_display = ('display_name', 'username', 'email', 'member_permission_sets',
+    list_display = ('display_name', 'member_permission_sets',
                     'all_permission_sets', 'is_email_alert', 'is_sms_alert')
     list_editable = ('is_email_alert', 'is_sms_alert')
     list_display_links = ('display_name', )
-    list_filter = ('is_staff', 'is_superuser', 'is_active', 'permission_sets')
+    list_filter = ('is_staff', 'permission_sets')
     filter_horizontal = ('permission_sets',)
 
     add_form = CustomUserCreationForm
