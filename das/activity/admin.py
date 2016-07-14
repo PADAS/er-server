@@ -20,10 +20,6 @@ class EventAdmin(admin.OSMGeoAdmin):
 
     # list_display = ['id', 'plugin_class', 'plugin_name', 'created_at', 'updated_at', 'configuration']
 
-@admin.register(models.EventAttachment)
-class EventAttachmentAdmin(admin.ModelAdmin):
-    pass
-
 
 @admin.register(models.Community)
 class CommunityAdmin(admin.ModelAdmin):

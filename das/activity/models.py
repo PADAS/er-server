@@ -23,7 +23,8 @@ from revision.manager import Revision, RevisionMixin
 
 def get_sentinel_user():
     User = get_user_model()
-    return User.objects.get_or_create(username='deleted',
+    return User.objects.get_or_create(username='deleted', last_name='account', first_name='deleted',
+                                      email='deleted@test.com',
                                       is_active=False,
                                       password=User.objects.make_random_password())[0]
 

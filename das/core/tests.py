@@ -12,10 +12,11 @@ User = django.contrib.auth.get_user_model()
 
 class BaseAPITest(TestCase):
     def setUp(self):
+        user_const = dict(last_name='last', first_name='first')
         self.api_base = '/api/v1.0'
         self.app_user = User.objects.create_user('app-user', 'app-user@test.com',
                                              'app-user', is_superuser=False,
-                                             is_staff=True)
+                                             is_staff=True, **user_const)
 
         self.application = Application(
         name="Test Application",

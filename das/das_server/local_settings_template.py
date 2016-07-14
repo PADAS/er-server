@@ -73,3 +73,13 @@ CACHES = {
 }
 
 
+#MIDDLEWARE_CLASSES = MIDDLEWARE_CLASSES + ('django_ses',)
+
+EMAIL_BACKEND = 'django_ses.SESBackend'
+# can use console output for email in dev
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+AWS_SES_REGION_NAME = 'us-west-2'
+AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
+# the address to send notification emails from
+FROM_EMAIL = 'notifications@pamdas.org'
+DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'

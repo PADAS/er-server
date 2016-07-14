@@ -26,6 +26,7 @@ class SubjectGroupTestCase(TestCase):
 
 
 class SubjectPermissionsTestCase(TestCase):
+    user_const = dict(last_name='last', first_name='first')
     def setUp(self):
         self.all_set = PermissionSet.objects.create(name='all')
         self.some_set = PermissionSet.objects.create(name='some')
@@ -37,13 +38,15 @@ class SubjectPermissionsTestCase(TestCase):
         self.some_set.permissions.add(Permission.objects.get(codename=self.view_last_position_name))
         self.some_set.save()
 
-        self.superuser = User.objects.create_superuser('admin', 'admin@test.com', 'admin')
-        self.user = User.objects.create_user('joe', 'joe@example.com', 'joe')
+
+        self.superuser = User.objects.create_superuser('admin', 'admin@test.com', 'admin', **self.user_const)
+        self.user = User.objects.create_user('joe', 'joe@example.com', 'joe', **self.user_const)
 
 
     def test_user_has_view_permission(self):
-        user = User.objects.create_user(username='active_user',
-                                   password=User.objects.make_random_password())
+        user = User.objects.create_user(username='active_user', email='active_user@test.com',
+                                   password=User.objects.make_random_password(),
+                                   **self.user_const)
 
         user.permission_sets.add(self.some_set)
 
@@ -60,6 +63,7 @@ class SubjectPermissionsTestCase(TestCase):
 
 
 class SubjectAlertTestCase(TestCase):
+    user_const = dict(last_name='last', first_name='first')
     def setUp(self):
         self.all_set = PermissionSet.objects.create(name='all')
         self.some_set = PermissionSet.objects.create(name='some')
@@ -69,14 +73,16 @@ class SubjectAlertTestCase(TestCase):
 
 
     def test_return_user(self):
-        user = User.objects.create_user(username='active_user',
-                                   password=User.objects.make_random_password())
+        user = User.objects.create_user(username='active_user', email='active_user@test.com',
+                                   password=User.objects.make_random_password(),
+                                        **self.user_const)
         user.permission_sets.add(self.some_set)
         user.permission_sets.add(self.all_set)
         user.save()
 
-        user2 = User.objects.create_user(username='no_alert',
-                                    password=User.objects.make_random_password())
+        user2 = User.objects.create_user(username='no_alert', email='active@test.com',
+                                    password=User.objects.make_random_password(),
+                                         **self.user_const)
 
         ele = Subject.objects.create_subject(name="ele", additional={})
 
