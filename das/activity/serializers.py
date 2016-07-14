@@ -436,6 +436,9 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
     def to_representation(self, photo):
         rep = super().to_representation(photo)
         rep['updates'] = self.render_updates(photo)
+        rep['url'] = utils.add_base_url(self.context['request'],
+                                        reverse('event-view-photo',
+                                                args=[photo.event.id, photo.id ]))
         return rep
 
     def render_updates(self, photo):

@@ -86,7 +86,9 @@ class ExtendedJSONRenderer(JSONRenderer):
 class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
     def render(self, data, *args, **kwargs):
         response = args[1]['response']
-        if 'status' not in data:
+
+        # Some responses will have data=None (Ex. 204 No Content)
+        if not data or 'status' not in data:
             data = {'data': data,
                     'status': {'code': response.status_code,
                                'message': response.status_text}}
