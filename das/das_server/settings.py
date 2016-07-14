@@ -39,7 +39,6 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
-    'django_ses',
     #'django.contrib.sites',
     'versatileimagefield',
     'storages',
@@ -272,15 +271,11 @@ MAPPING = {'MBTILES': {'root': r'\tmp',}}
 REALTIME_BROKER_URL = 'redis://localhost:6379/2'
 PUBSUB_BROKER_URL = 'redis://localhost:6379/1'
 
-EMAIL_BACKEND = 'django_ses.SESBackend'
-# can use console output for email in dev
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-AWS_SES_REGION_NAME = 'us-west-2'
-AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
-
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
 DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
+#Used by password reset email
+EMAIL_HOST_USER = 'info@pamdas.org'
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'event_photo': [

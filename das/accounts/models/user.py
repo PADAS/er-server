@@ -106,9 +106,9 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
             'unique': _("A user with that username already exists."),
         },
     )
-    first_name = models.CharField(_('first name'), max_length=30, blank=True)
-    last_name = models.CharField(_('last name'), max_length=30, blank=True)
-    email = models.EmailField(_('email address'), blank=True)
+    first_name = models.CharField(_('first name'), max_length=30)
+    last_name = models.CharField(_('last name'), max_length=30)
+    email = models.EmailField(_('email address'), unique=True)
     phone = models.CharField(validators=[phone_regex], max_length=15,
                              blank=True)  # validators should be a list
     is_email_alert = models.BooleanField(

@@ -3,9 +3,11 @@ from django.conf.urls import url
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.contrib import admin
-from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.auth.forms import PasswordResetForm, UserCreationForm
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin as DjangoGroupAdmin
 from django.utils.translation import ugettext_lazy as _
+from django.utils.crypto import get_random_string
+from django import forms
 from utils.html import make_html_list
 import django.contrib.auth.models
 
@@ -13,8 +15,8 @@ from accounts.models import User, PermissionSet
 
 
 class UsersInline(admin.StackedInline):
-
     model = PermissionSet.user_set.through
+
     verbose_name = 'User'
     verbose_name_plural = 'Users'
 
@@ -41,23 +43,70 @@ class PermissionSetAdmin(DjangoGroupAdmin):
     all_users.allow_tags = True
 
 
+class CustomUserCreationForm(UserCreationForm):
+    first_name = forms.CharField(required=True)
+    last_name = forms.CharField(required=True)
+    email = forms.EmailField(required=True)
+    phone = forms.CharField(required=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['password1'].required = False
+        self.fields['password2'].required = False
+        self.fields['password1'].widget.attrs['autocomplete'] = 'off'
+        self.fields['password2'].widget.attrs['autocomplete'] = 'off'
+
+    class Meta:
+        model = User
+        fields = ('first_name', 'last_name', 'email', 'phone',
+                  'is_email_alert', 'is_sms_alert',
+                  'username')
+
+    def clean_password2(self):
+        password1 = self.cleaned_data.get("password1")
+        password2 = self.cleaned_data.get('password2')
+        if password1 or password2:
+            password2 = super().clean_password2()
+        return password2
+
+
 class UserAdmin(DjangoUserAdmin):
     ordering = ('last_name', 'first_name', 'username')
     fieldsets = (
-        (None, {'fields': ('username', 'password')}),
-        (_('Personal info'), {'fields': ('first_name', 'last_name', 'email', 'phone')}),
-        (_('Alerting'), {'fields': ('is_email_alert', 'is_sms_alert')}),
-        (_('Permissions'), {'fields': ('is_active', 'is_staff', 'is_superuser',
-                                       'permission_sets')}),
-        (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
+        (None, {
+            'fields': ('first_name', 'last_name',
+                       'email', 'phone',
+                       'is_email_alert', 'is_sms_alert',
+                       'username', 'password',
+                       )}
+         ),
+        (_('Permissions'), {
+            'fields': ('permission_sets', 'is_active', 'is_staff',
+                       'is_superuser',)}),
     )
 
-    list_display = ('display_name', 'member_permission_sets',
+    list_display = ('display_name', 'username', 'email', 'member_permission_sets',
                     'all_permission_sets', 'is_email_alert', 'is_sms_alert')
     list_editable = ('is_email_alert', 'is_sms_alert')
     list_display_links = ('display_name', )
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'permission_sets')
     filter_horizontal = ('permission_sets',)
+
+    add_form = CustomUserCreationForm
+    add_fieldsets = (
+        (None, {
+            'fields': ('first_name', 'last_name',
+                       'email', 'phone',
+                       'is_email_alert', 'is_sms_alert',
+                       'username',
+                       )}
+         ),
+        (_('Password'), {
+            'description': (_('Optionally enter user\'s password,'
+                              ' otherwise a password reset email is sent to the user')),
+            'fields': ('password1', 'password2',)}),
+        (_('Permissions'), {'fields': ('permission_sets',)}),
+    )
 
     def display_name(self, instance):
         full_name = instance.get_full_name()
@@ -85,18 +134,36 @@ class UserAdmin(DjangoUserAdmin):
         if not self.has_change_permission(request):
             raise PermissionDenied
         user = get_object_or_404(self.model, pk=user_id)
+        self.send_reset_email(request, user)
+        return HttpResponseRedirect('..')
 
+    def save_model(self, request, obj, form, change):
+        if (not change and (not form.cleaned_data['password1']
+                            or not obj.has_usable_password())):
+            # Django's PasswordResetForm won't let us reset an unusable
+            # password. We set it above super() so we don't have to save twice.
+            obj.set_password(get_random_string())
+            should_reset_password = True
+        else:
+            should_reset_password = False
+
+        super(UserAdmin, self).save_model(request, obj, form, change)
+
+        if should_reset_password:
+            self.send_reset_email(request, obj)
+
+    def send_reset_email(self, request, user):
         form = PasswordResetForm(data={'email': user.email})
-        form.is_valid()
+        assert form.is_valid()
 
         opts = {
             'use_https': request.is_secure(),
             'request': request,
+            'subject_template_name': 'registration/password_reset_subject.txt',
             'email_template_name': 'registration/password_reset_email.html',
         }
 
         form.save(**opts)
-        return HttpResponseRedirect('..')
 
     def get_urls(self):
         urls = super(UserAdmin, self).get_urls()
