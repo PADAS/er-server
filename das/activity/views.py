@@ -155,7 +155,7 @@ class EventPhotosView(generics.ListCreateAPIView):
         return photos
 
 
-class EventPhotoView(generics.RetrieveUpdateAPIView):
+class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (EventObjectPermissions,)
     serializer_class = EventPhotoSerializer
 

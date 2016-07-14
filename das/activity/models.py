@@ -421,3 +421,10 @@ class EventPhoto(RevisionMixin, TimestampedModel):
     def clean(self):
         self.filename = self.image.name
         super().clean()
+
+    def delete(self, using=None, keep_parents=False):
+        result = super().delete(using, keep_parents)
+        self.event.dependent_table_updated()
+        return result
+
+
