@@ -429,7 +429,7 @@ class EventPhoto(RevisionMixin, TimestampedModel):
         result = super().delete(using, keep_parents)
         self.event.dependent_table_updated()
         self.id = myid
-        relation_deleted.send(sender=Event, relation=self, instance=self.event)
+        relation_deleted.send(sender=Event, relation=self, instance=self.event, related_query_name='photo')
 
         return result
 

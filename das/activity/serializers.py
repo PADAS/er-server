@@ -542,7 +542,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
                                                 ', '.join(fieldnames))
             elif revision.action == AC_RELATION_DELETED:
                 field_mapping = {'message': 'Event Message',
-                                 'relation_model': '{}'
+                                 'related_query_name': '{}'
                                  }
                 fieldnames = [field_mapping[k].format(revision.data[k]) for k, v in revision.data.items() if
                               k in field_mapping]

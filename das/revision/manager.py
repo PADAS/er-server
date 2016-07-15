@@ -22,7 +22,7 @@ from observations.models import Subject
 logger = logging.getLogger(__name__)
 
 import django.dispatch
-relation_deleted = django.dispatch.Signal(providing_args=['relation', 'instance'])
+relation_deleted = django.dispatch.Signal(providing_args=['relation', 'instance', 'related_query_name'])
 
 class RevisionManager(models.Manager):
     def __init__(self, model, instance = None, ):
@@ -156,9 +156,10 @@ class Revision(object):
             data = {}
         elif action == AC_RELATION_DELETED:
             relation=kwargs.get('relation')
+            related_query_name=kwargs.get('related_query_name')
             relation_model = '.'.join((relation._meta.app_label, relation._meta.object_name))
             # relation_name = kwargs.get('related_query_name')
-            data = {'relation_id': str(relation.id), 'relation_model': relation_model}
+            data = {'relation_id': str(relation.id), 'relation_model': relation_model, 'related_query_name': related_query_name}
         else:
             data = adapter.get_serialized_data_diff(instance,
                                                     instance.revision_original)
@@ -185,7 +186,7 @@ class Revision(object):
         self.create_revision(instance, AC_DELETED)
 
     def relation_deleted(self, relation, instance, **kwargs):
-        self.create_revision(instance, AC_RELATION_DELETED, relation=relation)
+        self.create_revision(instance, AC_RELATION_DELETED, relation=relation, **kwargs)
 
     def post_init(self, instance, **kwargs):
         manager = getattr(instance, self.manager_name)
