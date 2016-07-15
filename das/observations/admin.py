@@ -78,9 +78,15 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
         (_('Subjects in Group'),
          {'fields': ('subjects',)}),
         (_('Permissions'), {'fields': ('permission_sets',)}),
-        (_('Member Subject Groups'), {'fields': ('children',)}),
+        (_('Subgroups of this Group'), {'fields': ('children',)}),
     )
     filter_horizontal = ('children', 'permission_sets', 'subjects')
+
+
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        if db_field.name == 'children':
+            db_field.verbose_name = 'subgroups'
+        return super().formfield_for_dbfield(db_field, **kwargs)
 
 
 class SubjectGroupChangeForm(object):
