@@ -3,6 +3,7 @@ from django.conf.urls import url
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.contrib import admin
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.forms import PasswordResetForm, UserCreationForm
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin as DjangoGroupAdmin
 from django.utils.translation import ugettext_lazy as _
@@ -21,10 +22,43 @@ class UsersInline(admin.StackedInline):
     verbose_name_plural = 'Users'
 
 
+class PermissionSetAdminForm(forms.ModelForm):
+    filter_horizontal = ('permissions', 'children')
+    users = forms.ModelMultipleChoiceField(
+        queryset=User.objects.all(),
+        required=False,
+        widget=FilteredSelectMultiple(
+            verbose_name=_('Users'),
+            is_stacked=False
+        )
+    )
+
+    class Meta:
+        model = PermissionSet
+        fields = ('name', 'permissions', 'children')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.instance and self.instance.pk:
+            self.fields['users'].initial = self.instance.user_set.all()
+
+    def save(self, commit=True):
+        ps = super().save(commit=False)
+
+        if commit:
+            ps.save()
+        if ps.pk:
+            ps.users = self.cleaned_data['users']
+            self.save_m2m()
+        return ps
+
+
+@admin.register(PermissionSet)
 class PermissionSetAdmin(DjangoGroupAdmin):
+    form = PermissionSetAdminForm
     list_display = ('name', 'all_permissions', 'all_users')
     filter_horizontal = ('permissions', 'children')
-    inlines = (UsersInline,)
 
     def all_permissions(self, instance):
         permissions = instance.permissions.all()
@@ -177,4 +211,3 @@ class UserAdmin(DjangoUserAdmin):
 admin.site.register(User, UserAdmin)
 if admin.site.is_registered(django.contrib.auth.models.Group):
     admin.site.unregister(django.contrib.auth.models.Group)
-admin.site.register(PermissionSet, PermissionSetAdmin)
