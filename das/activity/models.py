@@ -141,6 +141,7 @@ class EventManager(models.Manager):
 class Event(RevisionMixin, TimestampedModel):
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
     revision_ignore_fields = ('updated_at', 'sort_at')
+    revision_follow_relations = ('activity.EventPhoto',)
     ordering = ['-sort_at']
 
     '''
@@ -400,6 +401,7 @@ def upload_to(instance, filename):
     return file_path
 
 
+from revision.manager import relation_deleted
 class EventPhoto(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -424,8 +426,12 @@ class EventPhoto(RevisionMixin, TimestampedModel):
         super().clean()
 
     def delete(self, using=None, keep_parents=False):
+        myid = self.id
         result = super().delete(using, keep_parents)
         self.event.dependent_table_updated()
+        self.id = myid
+        relation_deleted.send(sender=Event, relation=self, instance=self.event, related_query_name='photo')
+
         return result
 
 
