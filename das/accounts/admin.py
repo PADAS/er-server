@@ -15,13 +15,6 @@ import django.contrib.auth.models
 from accounts.models import User, PermissionSet
 
 
-class UsersInline(admin.StackedInline):
-    model = PermissionSet.user_set.through
-
-    verbose_name = 'User'
-    verbose_name_plural = 'Users'
-
-
 class PermissionSetAdminForm(forms.ModelForm):
     filter_horizontal = ('permissions', 'children')
     users = forms.ModelMultipleChoiceField(
@@ -59,6 +52,12 @@ class PermissionSetAdmin(DjangoGroupAdmin):
     form = PermissionSetAdminForm
     list_display = ('name', 'all_permissions', 'all_users')
     filter_horizontal = ('permissions', 'children')
+
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        if db_field.name == 'children':
+            db_field.verbose_name = 'subgroups'
+        return super().formfield_for_dbfield(db_field, **kwargs)
+
 
     def all_permissions(self, instance):
         permissions = instance.permissions.all()
