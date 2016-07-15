@@ -22,7 +22,7 @@ import activity.models
 import utils
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from observations.serializers import SubjectSerializer, SourceSerializer
-from revision.manager import AC_UPDATED
+from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
 logger = logging.getLogger(__name__)
 
@@ -428,10 +428,6 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = activity.models.EventPhoto
-        # read_only_fields = ('created_at', 'updated_at')
-        # write_only_fields = ('event',)
-        # fields = ('id', 'created_by_user',
-        #           'image') + write_only_fields + read_only_fields
 
     def to_representation(self, photo):
         rep = super().to_representation(photo)
@@ -544,6 +540,15 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
                               k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
                                                 ', '.join(fieldnames))
+            elif revision.action == AC_RELATION_DELETED:
+                field_mapping = {'message': 'Event Message',
+                                 'relation_model': '{}'
+                                 }
+                fieldnames = [field_mapping[k].format(revision.data[k]) for k, v in revision.data.items() if
+                              k in field_mapping]
+                return '{0} fields: {1}'.format(revision.get_action_display(),
+                                                ', '.join(fieldnames))
+
             return revision.get_action_display()
 
         result = []
