@@ -52,10 +52,19 @@ class PermissionSetAdmin(DjangoGroupAdmin):
     form = PermissionSetAdminForm
     list_display = ('name', 'all_permissions', 'all_users')
     filter_horizontal = ('permissions', 'children')
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'permissions',
+                       )}
+         ),
+        (_('Members'), {
+            'fields': ('children', 'users')}),
+    )
+
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == 'children':
-            db_field.verbose_name = 'subgroups'
+            db_field.verbose_name = 'permission sets'
         return super().formfield_for_dbfield(db_field, **kwargs)
 
 
