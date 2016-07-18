@@ -1,9 +1,10 @@
-import sys
+
 import logging
 import eventlet
+from rt_api.rest_api_interface.dummy_request import DummyRequest
 from django.contrib.auth import authenticate
 from django.db import close_old_connections
-from oauthlib.common import Request
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,15 +14,23 @@ def create_realtime_handler(sios):
 
         @sios.on('connect', namespace='/')
         def on_connect(sid, socket, *args):
-            # Mark the connection as unauthenticated
+            # When the user authenticates, we'll track that here. For now mark it
+            # None to represent an unauthenticated state.
             socket['user'] = None
 
-            # Drop the connection if the client hasn't authenticated within one second
             def confirm_authed(sid, socket):
                 if socket['user'] is None:
+                    logger.info("Disconnecting unauthenticated socket connection")
                     sios.server.disconnect(sid)
 
+            # Make sure the connection authenticates immediately
             eventlet.spawn_after(1.0, confirm_authed, sid, socket)
+
+        @sios.on('disconnect', namespace='/')
+        def on_disconnect(sid, *args):
+            logger.debug("Handling disconnect event for socket {0}".format(sid))
+            if sid in sios.server.environ:
+                del sios.server.environ[sid]
 
         @sios.on('authorization', namespace='/das')
         def on_authenticate(sid, data):
@@ -42,14 +51,15 @@ def create_realtime_handler(sios):
 
                 # If the token checks out, mark the connection as authenticated and put it into the chat rooms
                 if user is not None:
+                    logger.info("Socket {0} user authenticted successfully".format(sid))
                     sios.server.environ[sid]['user'] = user
                     sios.server.manager.enter_room(sid, 'all_clients', '/das')
+                    sios.server.manager.enter_room(sid, sid, '/das')
                     sios.emit('resp_authorization',
                               {'type': 'resp_authorization', 'resp_id': data['id'],
                                'status': {'code': 200, 'message': 'OK'}},
                               room=str(sid),
                               namespace='/das')
-
 
                 else:
                     sios.emit('resp_authorization',
@@ -142,19 +152,8 @@ def create_realtime_handler(sios):
 
                 logger.error("Error emitting event over socket", ex)
 
+        @staticmethod
+        def connected_clients():
+            return sios.server.environ
+
     return RealtimeServices
-
-class DummyRequest(Request):
-    _request = None
-    def __init__(self, uri='/dummy', http_method='POST', body={}, headers=None, encoding='utf-8'):
-        self.method = http_method
-        self.META = headers
-        self.POST = body
-        self._request = self
-        Request.__init__(self, uri, http_method, body, headers, encoding)
-
-    def get_full_path(self):
-        return self.uri
-
-    def build_absolute_uri(self, url):
-        return url

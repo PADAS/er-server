@@ -36,7 +36,7 @@
                 socket.on('echo_resp', function(msg){
                     $('#log').append('<br>Received #' + msg.resp_id + ': ' + msg.message);
                 })
-                socket.on('subject_update', function(msg) {
+                socket.on('subject_position_update', function(msg) {
                     $('#log').append('<br>Received #' + msg);
                 })
 

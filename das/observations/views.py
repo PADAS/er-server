@@ -256,13 +256,22 @@ class SubjectTracksView(generics.RetrieveAPIView):
         until = self.request.query_params.get('until', None)
         if until:
             until = dateparse(until)
+        if not until:
+            until = datetime.datetime.now(tz=pytz.UTC)
+
+        if not since and not until:
+            since = datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS
+
+        if self.request.user.has_any_perms(models.Subject.VIEW_POSITION_PERMS, subject):
+            pass
+        elif self.request.user.has_any_perms(models.Subject.VIEW_DELAYED_PERMS, subject):
+            until = min(until, datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(hours=24))
+        else:
+            return None
 
         sds = models.SubjectSource.objects.filter(subject=subject)
         if not sds:
             raise Http404
-
-        if not since and not until:
-            since = datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS
 
         coordinates = []
         times = []
