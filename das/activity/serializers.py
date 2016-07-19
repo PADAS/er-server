@@ -1,4 +1,5 @@
 import logging
+import traceback
 from collections import OrderedDict
 
 from core.serializers import ContentTypeField, ChoiceField
@@ -437,7 +438,8 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
                                         reverse('event-view-photo',
                                                 args=[photo.event.id, photo.id ]))
         else:
-            logger.warn('missing request in EventPhotoSerializer context')
+            logger.warn('missing request in EventPhotoSerializer context: %s',
+                        traceback.format_stack())
 
         return rep
 
