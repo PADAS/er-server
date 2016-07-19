@@ -479,6 +479,11 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             'image_url', 'created_by_user', 'notes', 'reported_by',
             'state', 'photos') + read_only_fields
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['photos']._context.update(self.context)
+
+
     def create(self, validated_data):
         return activity.models.Event.objects.create_event(**validated_data)
 
