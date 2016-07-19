@@ -41,6 +41,9 @@ DEFAULT_LOGGING = {
             'propagate': False,
             'level': 'INFO',
         },
+        'rt_api': {
+            'level': 'WARN',
+        },
         '': {
             'handlers': ['console'],
             'level': 'DEBUG',
@@ -77,6 +80,9 @@ WSGI = {
             'handlers': ['file'],
             'propagate': False,
             'level': 'INFO',
+        },
+        'rt_api': {
+            'level': 'WARN',
         },
         '': {
             'handlers': ['file'],

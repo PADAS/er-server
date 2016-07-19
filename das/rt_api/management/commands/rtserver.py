@@ -25,6 +25,7 @@ logger = logging.getLogger('rt_api')
 
 MAX_GREEN_THREADS = 20
 
+
 class Command(runserver.Command):
 
     def inner_run(self, *args, **options):
@@ -54,7 +55,9 @@ class Command(runserver.Command):
                 error_text = ERRORS[e.errno]
             except KeyError:
                 error_text = force_text(e)
-            self.stderr.write("Error: %s" % error_text)
+            message = 'Error: %s' % error_text
+            logger.error(message)
+            self.stderr.write(message)
             # Need to use an, OS exit because sys.exit doesn't work in a thread
             os._exit(1)
         except KeyboardInterrupt:
