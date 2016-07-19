@@ -199,7 +199,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
         if not sds:
             raise Http404
 
-        if not since and not until:
+        if since is None:
             since = datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS
 
         coordinates = []
@@ -259,7 +259,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
         if not until:
             until = datetime.datetime.now(tz=pytz.UTC)
 
-        if not since and not until:
+        if since is None:
             since = datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS
 
         if self.request.user.has_any_perms(models.Subject.VIEW_POSITION_PERMS, subject):
