@@ -432,9 +432,13 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
     def to_representation(self, photo):
         rep = super().to_representation(photo)
         rep['updates'] = self.render_updates(photo)
-        rep['url'] = utils.add_base_url(self.context['request'],
+        if 'request' in self.context:
+            rep['url'] = utils.add_base_url(self.context['request'],
                                         reverse('event-view-photo',
                                                 args=[photo.event.id, photo.id ]))
+        else:
+            logger.warn('missing request in EventPhotoSerializer context')
+
         return rep
 
     def render_updates(self, photo):
@@ -481,8 +485,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['photos']._context.update(self.context)
-
+        self.fields['photos'].context.update(self.context)
 
     def create(self, validated_data):
         return activity.models.Event.objects.create_event(**validated_data)
