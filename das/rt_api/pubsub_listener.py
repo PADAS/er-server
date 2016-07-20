@@ -11,33 +11,32 @@ from rt_api.rest_api_interface.dummy_request import DummyRequest
 
 logger = logging.getLogger(__name__)
 
+
+def get_context():
+    return {'request': DummyRequest(uri='', http_method='GET')}
+
+
 def start(realtime_server):
 
-    def new_event_handler(data, message):
+    def _new_update_event_handler(data, emit, update=False):
         try:
             event = Event.objects.get(id=data['event_id'])
             if event:
-                serializer = EventSerializer(event)
-                serializer.context = {'request': DummyRequest(uri='', http_method='GET')}
+                serializer = EventSerializer(event, context=get_context())
                 event_data = serializer.data
-                realtime_server.emit_new_event(event_id=str(data['event_id']), event_data=event_data)
+                emit(event_id=str(data['event_id']),
+                     event_data=event_data)
         except Exception:
-            logger.exception("Error handling new event for {0}".format(data,))
+            logger.exception("Error handling {0} event for {1}".format(
+                'update' if update else 'new', data))
         send_count()
 
+    def new_event_handler(data, message):
+        _new_update_event_handler(data, realtime_server.emit_new_event)
+
     def update_event_handler(data, message):
-        try:
-            event = Event.objects.get(id=data['event_id'])
-            if event:
-                serializer = EventSerializer(event)
-                serializer.context = {
-                    'request': DummyRequest(uri='', http_method='GET')}
-                event_data = serializer.data
-                realtime_server.emit_update_event(event_id=str(data['event_id']),
-                                               event_data=event_data)
-        except Exception:
-            logger.exception("Error handling new event for {0}".format(data, ))
-        send_count()
+        _new_update_event_handler(data, realtime_server.emit_update_event,
+                                  update=True)
 
     def delete_event_handler(data, message):
         try:
