@@ -48,8 +48,9 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = models.Subject
+        readonly_fields = ('image_url', 'color')
         fields = ('id', 'name', 'subject_type', 'subject_subtype',
-                  'content_type')
+                  'content_type') + readonly_fields
 
     def to_internal_value(self, data):
         if 'id' in data:
