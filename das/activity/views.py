@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from rest_framework import generics, status
+from django.db.models import Prefetch
 import rest_framework.exceptions
 
 from activity.models import Event, EventNote, EventPhoto
@@ -75,6 +76,10 @@ class EventsView(generics.ListCreateAPIView):
         event_type = self.request.query_params.getlist('event_type', None)
         if event_type:
             queryset = queryset.by_event_type(event_type)
+        queryset = queryset.prefetch_related(Prefetch('attachments'))
+        queryset = queryset.prefetch_related(Prefetch('event_type'))
+        queryset = queryset.prefetch_related(Prefetch('created_by_user'))
+        queryset = queryset.prefetch_related(Prefetch('reported_by'))
         return queryset
 
 

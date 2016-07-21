@@ -400,7 +400,7 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
                 user=UserDisplaySerializer().to_representation(revision.user),
                 type=get_update_type(revision),
             )
-            for revision in note.revision.all()
+            for revision in note.revision.all_user()
             ]
 
 
@@ -456,7 +456,7 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
                 user=UserDisplaySerializer().to_representation(revision.user),
                 type=get_update_type(revision),
             )
-            for revision in photo.revision.all()
+            for revision in photo.revision.all_user()
             ]
 
 
@@ -508,24 +508,20 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             geodata = make_feature(self.context['request'], event)
             rep['geojson'] = geodata
 
-        subject_attachment = event.attachments.filter(reason='target')
-
-        if subject_attachment:
-            try:
-                # TODO: Fix this so it can handle different types of attachments.
-                subject_attachment = subject_attachment[0]
-                rep['subject'] = SubjectSerializer().to_representation(
-                    subject_attachment.target)
-            except:
-                pass
-
         attachments = []
+        subject_attachment = None
         for attach in event.attachments.all():
-            attachments.append(EventAttachmentSerializer()
-                               .to_representation(attach))
+            attach_rep = EventAttachmentSerializer(context=self.context)\
+                .to_representation(attach)
+            if attach.reason == 'target':
+                subject_attachment = attach_rep
+            attachments.append(attach_rep)
 
         if attachments:
             rep['attachments'] = attachments
+
+        if subject_attachment:
+            rep['subject'] = subject_attachment
 
         updates = self.render_updates(event)
         for note in rep['notes']:
@@ -562,7 +558,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             return revision.get_action_display()
 
         result = []
-        revisions = [v for v in event.revision.all()]
+        revisions = [v for v in event.revision.all_user()]
         while revisions:
             revision = revisions.pop()
             result.append(dict(message='Event {action} by {user}'.format(

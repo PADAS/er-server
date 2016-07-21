@@ -6,6 +6,7 @@ import simplejson as json
 from django.core import serializers
 from django.conf import settings
 import django.db.transaction as transaction
+from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
@@ -24,8 +25,9 @@ logger = logging.getLogger(__name__)
 import django.dispatch
 relation_deleted = django.dispatch.Signal(providing_args=['relation', 'instance', 'related_query_name'])
 
+
 class RevisionManager(models.Manager):
-    def __init__(self, model, instance = None, ):
+    def __init__(self, model, instance=None):
         super().__init__()
         self.model = model
         self.instance = instance
@@ -35,8 +37,15 @@ class RevisionManager(models.Manager):
             return super(RevisionManager, self).get_queryset()
 
         f = {'object_id': self.instance.pk}
-        return super(RevisionManager, self).get_queryset().filter(**f)\
+        queryset = super(RevisionManager, self).get_queryset().filter(**f)\
             .order_by('sequence')
+        return queryset
+
+    def all_user(self):
+        """prefetch user"""
+        queryset = self.all()
+        queryset = queryset.prefetch_related(Prefetch('user'))
+        return queryset
 
 
 class RevisionDescriptor(object):
@@ -103,12 +112,7 @@ class RevisionAdapter(object):
         return data
 
     def get_data_copy(self, obj):
-        result = {}
-        for k in list(self.get_fieldnames()):
-            try:
-                result[k] = copy.deepcopy(getattr(obj, k))
-            except models.ObjectDoesNotExist:
-                logger.info('Getting revision data_copy for %s', obj._meta.label)
+        result = self._serialize(obj, list(self.get_fieldnames()))
         return result
 
     def get_serialized_data(self, obj):
@@ -116,11 +120,13 @@ class RevisionAdapter(object):
 
     def get_serialized_data_diff(self, obj, original):
         fields = list(self.get_fieldnames())
-        fields_diff = [key for key in fields if original.get(key, None) != getattr(obj, key)]
+        obj_data = self._serialize(obj, fields)
+        fields_diff = [key for key in fields if
+                       original.get(key, None) != obj_data.get(key, None)]
         if fields_diff:
             if not set(fields_diff) ^ set(self.ignore_fields):
                 return None
-        return self._serialize(obj, fields_diff)
+        return {k:v for k,v in obj_data.items() if k in fields_diff}
 
 
 AC_ADDED = 'added'
@@ -194,11 +200,10 @@ class Revision(object):
         if instance.id:
             adapter = RevisionAdapter(type(instance))
             instance.revision_original = adapter.get_data_copy(instance)
-            sequences = manager.all().filter(
-                object_id=instance.id)
+            sequences = manager.all()
             sequences = sequences.order_by('-sequence')
-            for sequence in sequences.values('sequence'):
-                instance.revision_sequence = sequence['sequence']
+            for sequence in sequences.values_list('sequence', flat=True):
+                instance.revision_sequence = sequence
                 break
 
     def finalize(self, sender, **kwargs):

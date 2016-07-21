@@ -18,7 +18,7 @@ class RevisionMiddleware(object):
                                      weak=False)
 
     def process_response(self, request, response):
-        signals.post_save.disconnect(dispatch_uid=(self.__class__, request,))
+        signals.pre_save.disconnect(dispatch_uid=(self.__class__, request,))
         return response
 
     def _pre_save_info(self, user, sender, instance, **kwargs):
