@@ -40,6 +40,7 @@ app:
                 "/page-speed": "/opt/python/current/app/das/www/index.html"
                 "/qa": "/opt/python/current/app/das/www/index.html"
                 "/robots.txt": "/opt/python/current/app/das/www/robots.txt"
+                "/version.txt": "/opt/python/current/app/das/www/version.txt"
                 "/favicon.ico": "/opt/python/current/app/das/www/favicon.ico"
                 "/docs": "/opt/python/current/app/das/docs"
 
