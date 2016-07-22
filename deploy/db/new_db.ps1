@@ -1,9 +1,9 @@
 Param(
   [string]$db_name = $(""),
   [string]$db_host = "at-db.cuts0lhpybwu.us-west-2.rds.amazonaws.com",
-  [string]$user = "postgres"
-  [string]$type = "dev"
-  [string]$ownerpw = "dasdb_owner"
+  [string]$user = "postgres",
+  [string]$type = "dev",
+  [string]$ownerpw = "dasdb_owner",
   [string]$userpw = "dasdb_user"
 )
 
