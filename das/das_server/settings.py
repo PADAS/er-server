@@ -14,6 +14,8 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 import os
 import sys
 
+from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TCP
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -32,6 +34,7 @@ DEV = False
 
 INSTALLED_APPS = (
     'accounts.apps.AccountsConfig',
+    #'suit',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -39,7 +42,6 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
-    'django_ses',
     #'django.contrib.sites',
     'versatileimagefield',
     'storages',
@@ -58,6 +60,7 @@ INSTALLED_APPS = (
     'activity',
     'rt_api.apps.RTAPIConfig',
     'core.apps.CoreConfig',
+    'vectronics'
 )
 
 MIDDLEWARE_CLASSES = (
@@ -96,7 +99,17 @@ TEMPLATES = [
     },
 ]
 
+# TEMPLATE_CONTEXT_PROCESSORS = TCP + [
+#     'django.core.context_processors.request',
+# ]
+
 AUTH_USER_MODEL = 'accounts.User'
+LOGIN_URL = '/login'
+LOGOUT_URL = '/logout'
+LOGIN_REDIRECT_URL = '/'
+
+# The number of days a password reset link is valid for
+PASSWORD_RESET_TIMEOUT_DAYS = 3
 WSGI_APPLICATION = 'das_server.wsgi.application'
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -156,8 +169,19 @@ DATABASES = {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': 'das',
         'USER': 'postgres',
-    }
+    },
+    # Optional, use to import vectroincs data into das
+    # 'vectronics': {
+    #     'ENGINE': 'django.contrib.gis.db.backends.postgis',
+    #     'NAME': 'gpsplus_wildlife',
+    #     'USER': 'vect_owner',
+    # }
 }
+
+DATABASE_ROUTERS = [
+    'vectronics.db_routing.routers.PositionRouter',
+    'vectronics.db_routing.routers.MigrationRouter'
+]
 
 # Do not use Django logging config
 LOGGING_CONFIG = None
@@ -254,20 +278,17 @@ MAPPING = {'MBTILES': {'root': r'\tmp',}}
 REALTIME_BROKER_URL = 'redis://localhost:6379/2'
 PUBSUB_BROKER_URL = 'redis://localhost:6379/1'
 
-EMAIL_BACKEND = 'django_ses.SESBackend'
-# can use console output for email in dev
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-AWS_SES_REGION_NAME = 'us-west-2'
-AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
-
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
+DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
+#Used by password reset email
+EMAIL_HOST_USER = 'info@pamdas.org'
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'event_photo': [
         ('original', 'url'),
-        ('large', 'crop__800x600'),
-        ('small_square', 'crop__75x75')
+        ('thumbnail', 'thumbnail__150x150'), # Resize to fit within
+        ('large', 'thumbnail__800x800') # Resize to fit within
     ],
 }
 
@@ -311,5 +332,5 @@ VERSATILEIMAGEFIELD_SETTINGS = {
     'image_key_post_processor': None,
     # Whether to create progressive JPEGs. Read more about progressive JPEGs
     # here: https://optimus.io/support/progressive-jpeg/
-    'progressive_jpeg': False
+    'progressive_jpeg': True
 }

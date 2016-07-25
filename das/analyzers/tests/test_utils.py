@@ -1,12 +1,12 @@
 from django.contrib.gis.geos import Point, LineString, MultiLineString
 from django.test import TestCase
+from django.core.management import call_command
 
 from activity.models import EventAttachment
 from analyzers import models, utils
 from analyzers.models.analyzer import AnalyzerResult
 from mapping.models import FeatureType, LineFeature
 from observations.models import Subject
-from activity.tests.test_events import populate_event_types
 
 
 class TestAnalyzerUtils(TestCase):
@@ -16,7 +16,7 @@ class TestAnalyzerUtils(TestCase):
     ]
 
     def setUp(self):
-        populate_event_types()
+        call_command('loaddata', 'analyzer_eventtype')
 
     def test_get_or_create_analyzers_for_subject(self):
         """

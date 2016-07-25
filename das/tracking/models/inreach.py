@@ -50,10 +50,11 @@ class InreachClient(BasicAuthClient):
         conn = http.client.HTTPSConnection('explore.delorme.com')
 
         start_ts = kwargs.get('after', (datetime.datetime.now() - timedelta(days=31)))
+        end_ts = start_ts + timedelta(days=60)
         payload = {
             'IMEIs': imei,
             'Start': start_ts.strftime('%Y-%m-%dT%H:%M:%S'),
-            'End': datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+            'End': end_ts.strftime('%Y-%m-%dT%H:%M:%S')
         }
 
         qs = urllib.parse.urlencode(payload)
@@ -155,9 +156,110 @@ class InreachPlugin(TrackingPlugin):
                    additional=side_data)
 
 
+
+    def _maintenance(self):
+
+        # cur = observations.models.Subject.objects.all()
+        #
+        # for sub in cur:
+        #     sub.additional['rgb'] = gen_random_rgb()
+        #     sub.save()
+
+        self._sync_unit_info()
+
+    def _sync_unit_info(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        u = self.additional['account_username']
+        p = self.additional['account_password']
+        ac = InreachAccountClient(username=u, password=p)
+
+        for dev in ac.fetch_devices():
+            print(dev)
+            try:
+                src = ensure_source(dev)
+
+                ensure_source_plugin(src, self)
+                ts = str2date(dev['ActivationDate'])
+                ensure_subject_source(src, ts, dev['DeviceName'])
+
+            except Exception as e:
+                self.logger.exception('Error in maintenance')
+
+
+import random
+def gen_random_rgb():
+    return ','.join([str(random.randint(0, 255)) for i in range(3)])
+
+from observations.models import Subject, SubjectSource, Source
+from django.contrib.contenttypes.models import ContentType
+from tracking.models import SourcePlugin
+
+def str2date(d, default_tzinfo=pytz.UTC):
+    '''Parse a date and if it's naive, replace tzinfo with default_tzinfo.'''
+    dt = parse_date(d)
+    if not dt.tzinfo:
+        dt = dt.replace(tzinfo=default_tzinfo)
+    return dt
+
+# Helper functions for hydrating Source and Subject for the given message.
+def ensure_source(inreach_device):
+    src, created = Source.objects.get_or_create(source_type='gps-radio',
+                                   manufacturer_id=inreach_device['IMEI'],
+                                   defaults={'model_name':'type:{}, product:{}'.format(inreach_device['Type'], inreach_device['Product']),
+                                             'additional': {'note': 'Created automatically during maintenance.'}})
+
+    return src
+
+def ensure_source_plugin(source, tracking_plugin):
+
+    defaults = dict(
+        status='enabled',
+        # cursor_data={}
+    )
+
+
+    plugin_type = ContentType.objects.get_for_model(tracking_plugin)
+    v, created = SourcePlugin.objects.get_or_create(defaults=defaults,
+                                          source=source,
+                                          plugin_id=tracking_plugin.id,
+                                                       plugin_type=plugin_type)
+
+    return v
+
+def ensure_subject_source(source, event_time, subject_name=None):
+    # get the most recent Subject for this Source
+    subject_source = SubjectSource \
+                        .objects \
+                        .filter(source=source, assigned_range__contains=event_time)\
+                        .order_by('assigned_range')\
+                        .reverse()\
+                        .first()
+
+    if not subject_source:
+
+        subject_name = subject_name or 'sky-{}'.format(source.manufacturer_id)
+
+        sub, created = Subject.objects.get_or_create(
+            subject_type='wildlife', subject_subtype='elephant',
+            name=subject_name,
+            defaults=dict(additional=dict(region='', country='', ))
+        )
+
+        d1 = event_time - timedelta(days=30)
+        d2 = d1 + timedelta(days=5*365)
+        if sub:
+            subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
+                                                                 defaults=dict(assigned_range=(d1, d2), additional={
+                                                                     'note': 'Created automatically during feed sync.'}))
+
+    return subject_source
+
+
+
 class InreachAccountClient(BasicAuthClient):
 
-    def __init__(self, host=None, username=None, password=None):
+    def __init__(self, username=None, password=None, host='account-api.delorme.com'):
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self.host = host
@@ -209,3 +311,5 @@ class InreachAccountClient(BasicAuthClient):
             data = data.decode('utf-8') if hasattr(data, 'decode') else data
             res = json.loads(data)
             yield from res['Users']
+
+

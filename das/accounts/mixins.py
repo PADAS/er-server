@@ -8,14 +8,18 @@ from accounts.models.permissionset import PermissionSet
 
 
 class PermissionSetGroupMixin(object):
-    group_attr_name = 'group'
+    groups_attr_name = 'groups'
 
     def get_obj_permission_set_ids(self):
         """
         Returns a set of permission set ids of all permission sets
         assigned to this object
         """
-        return getattr(self, self.group_attr_name).get_obj_permission_set_ids()
+        groups = getattr(self, self.groups_attr_name)
+        ps_ids = set()
+        for group in groups.all():
+            ps_ids.update(group.get_obj_permission_set_ids())
+        return ps_ids
 
 
 class PermissionSetMixin(models.Model):

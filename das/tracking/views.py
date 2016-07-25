@@ -15,7 +15,7 @@ from django.db import transaction
 from observations.models import Observation, Source, SubjectSource, Subject
 from observations.serializers import ObservationSerializer
 from activity.models import Event, EventAttachment
-from activity.serializers import EventSerializer
+
 
 try:
     hours = int(settings.TRBONET_TIME_OFFSET)
@@ -71,7 +71,6 @@ def observation_list(request):
             'source': src.id,
             'additional': request.data.get('additional', {"note":"default"}),
         }
-
 
         serializer = ObservationSerializer(data=observation_data)
         if serializer.is_valid():
@@ -144,7 +143,6 @@ def message_list(request):
             event_attachment = EventAttachment.objects.create_attachment(
                 event=event, target=ss.subject, reason=EventAttachment.TARGET)
 
-        serializer = EventSerializer(event)
         return Response({'event_id': str(event.id)},
                          status=status.HTTP_201_CREATED)
     elif request.method == 'GET':

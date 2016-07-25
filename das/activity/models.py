@@ -1,7 +1,5 @@
-import logging
 import uuid
 import datetime, pytz
-
 
 import django.utils
 from django.core.exceptions import ValidationError
@@ -14,17 +12,19 @@ from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
+from django.utils.encoding import force_text
 from versatileimagefield.fields import VersatileImageField
-from django.dispatch import receiver
 
 from utils.html import clean_user_text
 from core.models import TimestampedModel, ChoiceCharField
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
 
+
 def get_sentinel_user():
     User = get_user_model()
-    return User.objects.get_or_create(username='deleted',
+    return User.objects.get_or_create(username='deleted', last_name='account', first_name='deleted',
+                                      email='deleted@test.com',
                                       is_active=False,
                                       password=User.objects.make_random_password())[0]
 
@@ -44,17 +44,47 @@ class Community(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80)
 
+    class Meta:
+        verbose_name_plural = _('communities')
+
     def __str__(self):
         return self.name
+
+
+class EventTypeManager(models.Manager):
+    def get_by_value(self, value):
+        return self.get(value=value)
+
+    def all_sort(self):
+        # default order ordernum
+        result = self.order_by('ordernum')
+
+        return result
+
+    def create_type(self, **values):
+        return self.create(**values)
+
+
+class EventType(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    value = models.CharField(max_length=40, unique=True)
+    display = models.CharField(max_length=100, blank=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    objects = EventTypeManager()
+
+    def __str__(self):
+        return self.display
 
 
 class EventFilteringQuerySet(models.QuerySet):
     def all_sort(self):
         # default order by is by updated_at and (new/active/resolved)
-        ordering = [Event.SC_NEW, Event.SC_ACTIVE, Event.SC_RESOLVED]
+        ordering = [(0, Event.SC_NEW), (0, Event.SC_ACTIVE),
+                    (1, Event.SC_RESOLVED)]
         state_ordering = models.Case(*[models.When(state=pk, then=pos)
-                                       for pos, pk in enumerate(ordering)])
-        result = self.order_by(*[state_ordering, '-updated_at'])
+                                       for pos, pk in ordering])
+        result = self.order_by(*[state_ordering, '-sort_at'])
 
         return result
 
@@ -108,11 +138,11 @@ class EventManager(models.Manager):
         return self.filter(state=Event.SC_NEW).count()
 
 
-
 class Event(RevisionMixin, TimestampedModel):
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
-    revision_ignore_fields = ('updated_at', )
-    ordering = ['-created_at']
+    revision_ignore_fields = ('updated_at', 'sort_at')
+    revision_follow_relations = ('activity.EventPhoto',)
+    ordering = ['-sort_at']
 
     '''
     An Event is something that happened. Maybe an incident, or an analyzer result, or a phone call from an informant.
@@ -131,11 +161,6 @@ class Event(RevisionMixin, TimestampedModel):
         (PC_COMMUNITY, 'Community'),
     )
 
-    #must have defaults, could they go somewhere else?
-    ET_ANALYZER = 'analyzer'
-    ET_OTHER = 'other'
-
-
     SC_NEW = 'new'
     SC_ACTIVE = 'active'
     SC_RESOLVED = 'resolved'
@@ -145,7 +170,6 @@ class Event(RevisionMixin, TimestampedModel):
         (SC_ACTIVE, 'Active'),
         (SC_RESOLVED, 'Resolved'),
     )
-
 
     PRI_URGENT = 300
     PRI_IMPORTANT = 200
@@ -179,8 +203,7 @@ class Event(RevisionMixin, TimestampedModel):
     event_time = models.DateTimeField(default=django.utils.timezone.now)
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
-    event_type = ChoiceCharField(max_length=40, default=ET_OTHER)
-    event_subtype = ChoiceCharField(max_length=40, blank=True, filter_field=event_type)
+    event_type = models.ForeignKey(EventType, on_delete=models.PROTECT)
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)
@@ -203,6 +226,9 @@ class Event(RevisionMixin, TimestampedModel):
     reported_by = GenericForeignKey('reported_by_content_type',
                                     'reported_by_id')
 
+    sort_at = models.DateTimeField(default=django.utils.timezone.now,
+                                   blank=True)
+
     @property
     def priority_label(self):
         return self.get_priority_display()
@@ -217,7 +243,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     @property
     def image_url(self):
-        return marker_icon(self.event_type, self.priority)
+        return marker_icon(self.event_type.value, self.priority)
 
     @property
     def subjects(self):
@@ -229,10 +255,27 @@ class Event(RevisionMixin, TimestampedModel):
 
     def dependent_table_updated(self):
         self.updated_at = timezone.now()
+        self.sort_at = self.updated_at
         self.save()
 
     def save(self, *args, **kwargs):
         self.full_clean()
+        update_fields = kwargs.get('update_fields', [])
+        save_fields = set()
+
+        if (len(update_fields) == 1 and 'state' in update_fields and
+            self.state == self.SC_ACTIVE):
+                pass
+        else:
+            self.sort_at = timezone.now()
+            save_fields.add('sort_at')
+
+        save_fields.add('updated_at')
+        if update_fields:
+            update_fields = set(update_fields)
+            update_fields.update(save_fields)
+            kwargs['update_fields'] = list(update_fields)
+
         return super().save(*args, **kwargs)
 
     def clean(self):
@@ -253,6 +296,16 @@ class Event(RevisionMixin, TimestampedModel):
                     _('Invalid value for provenance {0} and reported_by fields'.format(self.provenance)), code='invalid')})
 
         self.message = clean_user_text(self.message, 'Event.message')
+
+    def get_display_value(self, field_name, value):
+        field = self._meta.get_field(field_name)
+        if hasattr(self, 'get_{0}_display'.format(field_name)):
+            return force_text(dict(field.flatchoices).get(value, value),
+                   strings_only=True)
+        if field_name == 'event_type':
+            return force_text(EventType.objects.get(pk=value).display,
+                              strings_only=True)
+        return value
 
     def __str__(self):
         return self.message[50:]
@@ -300,8 +353,8 @@ class EventAttachment(RevisionMixin, models.Model):
 
 
 class EventNoteManager(models.Manager):
-    def create_note(self, *args, **kwargs):
-        return self.create(*args, **kwargs)
+    def create_note(self, **kwargs):
+        return self.create(**kwargs)
 
 
 class EventNote(RevisionMixin, TimestampedModel):
@@ -348,19 +401,37 @@ def upload_to(instance, filename):
     return file_path
 
 
-class EventPhoto(TimestampedModel):
+from revision.manager import relation_deleted
+class EventPhoto(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     created_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
         null=True, blank=True, related_name='event_photos', related_query_name='event_photo')
     image = VersatileImageField(upload_to=upload_to, null=True, max_length=512)
+    filename = models.TextField(verbose_name='Name of uploaded image file.', default='noname')
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='photos', related_query_name='photo')
+
+    revision = Revision()
 
     def save(self, *args, **kwargs):
         self.full_clean()
         result = super().save(*args, **kwargs)
         self.event.dependent_table_updated()
         return result
+
+    def clean(self):
+        self.filename = self.image.name
+        super().clean()
+
+    def delete(self, using=None, keep_parents=False):
+        myid = self.id
+        result = super().delete(using, keep_parents)
+        self.event.dependent_table_updated()
+        self.id = myid
+        relation_deleted.send(sender=Event, relation=self, instance=self.event, related_query_name='photo')
+
+        return result
+
 

@@ -36,9 +36,11 @@ app:
                 "/bower_components": "/opt/python/current/app/das/www/bower_components"
                 "/index.html": "/opt/python/current/app/das/www/index.html"
                 "/login": "/opt/python/current/app/das/www/index.html"
+                "/logout": "/opt/python/current/app/das/www/index.html"
                 "/page-speed": "/opt/python/current/app/das/www/index.html"
                 "/qa": "/opt/python/current/app/das/www/index.html"
                 "/robots.txt": "/opt/python/current/app/das/www/robots.txt"
+                "/version.txt": "/opt/python/current/app/das/www/version.txt"
                 "/favicon.ico": "/opt/python/current/app/das/www/favicon.ico"
                 "/docs": "/opt/python/current/app/das/docs"
 
@@ -190,6 +192,20 @@ app:
                         priority=20
                         killasgroup=true
 
+                        [program:vectronics_db_listener]
+                        command=/opt/python/run/venv/bin/python manage.py vectronics_db_listen
+                        directory=/opt/python/current/app/das
+                        environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
+                        user=wsgi
+                        numprocs=1
+                        stdout_logfile=/opt/python/log/vectronic_db_listener.log
+                        stderr_logfile=/opt/python/log/vectronics_db_listener_stderr.log
+                        autostart=true
+                        autorestart=true
+                        startsecs=10
+                        priority=20
+                        killasgroup=true
+
               - realtime.conf:
                     permissions: 0644
                     content: |
@@ -250,6 +266,12 @@ app:
 
                         # Start/Restart realtime socketio api server
                         /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart realtime
+
+                        # Start/Restart message_queue_listeners
+                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart message_queue_listeners
+
+                        # Start/Restart vectronics_db_listen
+                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart vectronics_db_listen
 
               - .ebextensions/01-install_dependencies.config:
                     permissions: 0777

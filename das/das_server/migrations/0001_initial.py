@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 from django.db import models, migrations
 from django.contrib.auth import get_user_model
-from django.utils import six, timezone
+from django.utils import six, timezone, crypto
 from oauth2_provider.models import Application
 
 def load_default_clients(apps, schema_editor):
@@ -13,7 +13,9 @@ def load_default_clients(apps, schema_editor):
     if not User.objects.filter(username='das_oauth_act').exists():
         user = User(username='das_oauth_act',
              email='das_oauth_act@das.org',
-             password='das_2015',
+             first_name='das',
+             last_name='oauth',
+             password=crypto.get_random_string(),
              is_active=False,
              last_login=timezone.now())
         user.save()

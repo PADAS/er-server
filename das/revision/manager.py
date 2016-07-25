@@ -6,6 +6,7 @@ import simplejson as json
 from django.core import serializers
 from django.conf import settings
 import django.db.transaction as transaction
+from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
@@ -21,9 +22,12 @@ from observations.models import Subject
 
 logger = logging.getLogger(__name__)
 
+import django.dispatch
+relation_deleted = django.dispatch.Signal(providing_args=['relation', 'instance', 'related_query_name'])
+
 
 class RevisionManager(models.Manager):
-    def __init__(self, model, instance = None, ):
+    def __init__(self, model, instance=None):
         super().__init__()
         self.model = model
         self.instance = instance
@@ -33,8 +37,15 @@ class RevisionManager(models.Manager):
             return super(RevisionManager, self).get_queryset()
 
         f = {'object_id': self.instance.pk}
-        return super(RevisionManager, self).get_queryset().filter(**f)\
+        queryset = super(RevisionManager, self).get_queryset().filter(**f)\
             .order_by('sequence')
+        return queryset
+
+    def all_user(self):
+        """prefetch user"""
+        queryset = self.all()
+        queryset = queryset.prefetch_related(Prefetch('user'))
+        return queryset
 
 
 class RevisionDescriptor(object):
@@ -83,6 +94,7 @@ class RevisionAdapter(object):
                                  + opts.local_many_to_many)
         fields = (opts.get_field(field) for field in fields
                   if not field in self.exclude)
+
         for field in fields:
             if field.remote_field:
                 yield field.name
@@ -100,29 +112,33 @@ class RevisionAdapter(object):
         return data
 
     def get_data_copy(self, obj):
-        return {k: copy.deepcopy(getattr(obj, k)) for
-                k in list(self.get_fieldnames())}
+        result = self._serialize(obj, list(self.get_fieldnames()))
+        return result
 
     def get_serialized_data(self, obj):
         return self._serialize(obj, list(self.get_fieldnames()))
 
     def get_serialized_data_diff(self, obj, original):
         fields = list(self.get_fieldnames())
-        fields_diff = [key for key in fields if original.get(key, None) != getattr(obj, key)]
+        obj_data = self._serialize(obj, fields)
+        fields_diff = [key for key in fields if
+                       original.get(key, None) != obj_data.get(key, None)]
         if fields_diff:
             if not set(fields_diff) ^ set(self.ignore_fields):
                 return None
-        return self._serialize(obj, fields_diff)
+        return {k:v for k,v in obj_data.items() if k in fields_diff}
 
 
 AC_ADDED = 'added'
 AC_UPDATED = 'updated'
 AC_DELETED = 'deleted'
+AC_RELATION_DELETED = 'rel-del'
 
 ACTION_CHOICES = (
     (AC_ADDED, 'Added'),
     (AC_UPDATED, 'Updated'),
     (AC_DELETED, 'Deleted'),
+    (AC_RELATION_DELETED, 'Relation Deleted')
 )
 
 
@@ -133,7 +149,7 @@ class Revision(object):
         self.manager_name = name
         models.signals.class_prepared.connect(self.finalize, sender=cls)
 
-    def create_revision(self, instance, action):
+    def create_revision(self, instance, action, **kwargs):
         user = getattr(instance, 'revision_user', None)
         manager = getattr(instance, self.manager_name)
         adapter = RevisionAdapter(type(instance))
@@ -144,6 +160,12 @@ class Revision(object):
             data = adapter.get_serialized_data(instance)
         elif action == AC_DELETED:
             data = {}
+        elif action == AC_RELATION_DELETED:
+            relation=kwargs.get('relation')
+            related_query_name=kwargs.get('related_query_name')
+            relation_model = '.'.join((relation._meta.app_label, relation._meta.object_name))
+            # relation_name = kwargs.get('related_query_name')
+            data = {'relation_id': str(relation.id), 'relation_model': relation_model, 'related_query_name': related_query_name}
         else:
             data = adapter.get_serialized_data_diff(instance,
                                                     instance.revision_original)
@@ -169,17 +191,19 @@ class Revision(object):
     def post_delete(self, instance, **kwargs):
         self.create_revision(instance, AC_DELETED)
 
+    def relation_deleted(self, relation, instance, **kwargs):
+        self.create_revision(instance, AC_RELATION_DELETED, relation=relation, **kwargs)
+
     def post_init(self, instance, **kwargs):
         manager = getattr(instance, self.manager_name)
         instance.revision_sequence = 0
         if instance.id:
             adapter = RevisionAdapter(type(instance))
             instance.revision_original = adapter.get_data_copy(instance)
-            sequences = manager.all().filter(
-                object_id=instance.id)
+            sequences = manager.all()
             sequences = sequences.order_by('-sequence')
-            for sequence in sequences.values('sequence'):
-                instance.revision_sequence = sequence['sequence']
+            for sequence in sequences.values_list('sequence', flat=True):
+                instance.revision_sequence = sequence
                 break
 
     def finalize(self, sender, **kwargs):
@@ -188,9 +212,11 @@ class Revision(object):
         models.signals.post_save.connect(self.post_save, sender = sender, weak = False)
         models.signals.post_delete.connect(self.post_delete, sender = sender, weak = False)
         models.signals.post_init.connect(self.post_init, sender=sender, weak=False)
+        relation_deleted.connect(self.relation_deleted, sender=sender, weak=False)
 
         descriptor = RevisionDescriptor(revision_model, self.manager_class, self.manager_name)
         setattr(sender, self.manager_name, descriptor)
+
 
     def get_table_fields(self, model):
         rel_name = '_%s_revision'%model._meta.object_name.lower()
@@ -245,3 +271,4 @@ class RevisionMixin(object):
     def save(self, *args, **kwargs):
         with transaction.atomic():
             return super().save(*args, **kwargs)
+

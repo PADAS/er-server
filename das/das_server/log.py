@@ -41,6 +41,9 @@ DEFAULT_LOGGING = {
             'propagate': False,
             'level': 'INFO',
         },
+        'rt_api': {
+            'level': 'WARN',
+        },
         '': {
             'handlers': ['console'],
             'level': 'DEBUG',
@@ -78,6 +81,9 @@ WSGI = {
             'propagate': False,
             'level': 'INFO',
         },
+        'rt_api': {
+            'level': 'WARN',
+        },
         '': {
             'handlers': ['file'],
             'level': 'DEBUG',
@@ -92,7 +98,7 @@ has_initialized = False
 def init_logging(service=None):
     global has_initialized
     if has_initialized:
-        logger.warning('das_server logging already initialized, not loading %s /n %s',
+        logger.debug('das_server logging already initialized, not loading %s /n %s',
                        service,
                        traceback.format_stack())
         return

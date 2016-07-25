@@ -1,4 +1,5 @@
 import logging
+import traceback
 from collections import OrderedDict
 
 from core.serializers import ContentTypeField, ChoiceField
@@ -22,7 +23,7 @@ import activity.models
 import utils
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from observations.serializers import SubjectSerializer, SourceSerializer
-from revision.manager import AC_UPDATED
+from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
 logger = logging.getLogger(__name__)
 
@@ -297,12 +298,60 @@ class AttachmentRelatedField(rest_framework.serializers.RelatedField):
         return mapping['serializer']().to_representation(value)
 
 
+class EventTypeRelatedField(rest_framework.serializers.RelatedField):
+    def get_queryset(self):
+        return activity.models.EventType.objects.all_sort()
+
+    def to_representation(self, value):
+        return value.value
+
+    def to_internal_value(self, data):
+        if data:
+            return activity.models.EventType.objects.get_by_value(data)
+        return None
+
+    @property
+    def choices(self):
+        return OrderedDict(((row.value, row.display)
+                            for row in self.get_queryset()))
+
+
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
     target = AttachmentRelatedField(read_only=True)
 
     class Meta:
         model = activity.models.EventAttachment
         fields = ('target', 'reason', 'id')
+
+
+def get_update_type(revision, previous_revisions=[]):
+    field_mapping = (('location','update_location'), ('message','update_message'),
+                     ('event_time','update_datetime'), ('reported_by', 'update_reported_by'),
+                     ('state', 'update_event_state'), ('priority', 'update_event_priority'),
+                     ('event_type', 'update_event_type'))
+    model_name = revision._meta.model_name
+    action = revision.action
+    data = revision.data
+    if action == 'added':
+        return 'add_{0}'.format(model_name.replace('revision', ''))
+    elif action == 'updated':
+        event_state = data.get('state', None)
+        if event_state:
+            if event_state == activity.models.Event.SC_RESOLVED:
+                return activity.models.Event.SC_RESOLVED
+            if event_state == activity.models.Event.SC_NEW:
+                return 'mark_as_new'
+            for row in previous_revisions:
+                if row.data.get('state', None):
+                    if row.data.get('state') == activity.models.Event.SC_RESOLVED:
+                        return 'unresolved'
+                    break
+
+        for k, v in field_mapping:
+            if k in data:
+                return v
+    return 'other'
+
 
 
 class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
@@ -348,9 +397,10 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
                 user=get_user_display(revision.user)),
                 time=revision.revision_at.isoformat(),
                 text=revision.data.get('text', ''),
-                user=UserDisplaySerializer().to_representation(revision.user)
+                user=UserDisplaySerializer().to_representation(revision.user),
+                type=get_update_type(revision),
             )
-            for revision in note.revision.all()
+            for revision in note.revision.all_user()
             ]
 
 
@@ -360,12 +410,13 @@ class EventStateSerializer(rest_framework.serializers.ModelSerializer):
         fields = ('state',)
 
     def update(self, instance, validated_data):
-        dirty = False
+        update_fields = []
         for k, v in validated_data.items():
-            dirty |= getattr(instance, k) != v
-            setattr(instance, k, v)
-        if dirty:
-            instance.save()
+            if getattr(instance, k) != v:
+                setattr(instance, k, v)
+                update_fields.append(k)
+        if update_fields:
+            instance.save(update_fields=update_fields)
         return instance
 
 
@@ -378,10 +429,35 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = activity.models.EventPhoto
-        read_only_fields = ('created_at', 'updated_at')
-        write_only_fields = ('event',)
-        fields = ('id', 'created_by_user',
-                  'image') + write_only_fields + read_only_fields
+
+    def to_representation(self, photo):
+        rep = super().to_representation(photo)
+        rep['updates'] = self.render_updates(photo)
+        if 'request' in self.context:
+            rep['url'] = utils.add_base_url(self.context['request'],
+                                        reverse('event-view-photo',
+                                                args=[photo.event.id, photo.id ]))
+        else:
+            logger.warn('missing request in EventPhotoSerializer context: %s',
+                        traceback.format_stack())
+
+        return rep
+
+    def render_updates(self, photo):
+        def get_action(revision):
+            return revision.get_action_display()
+
+        return [
+            dict(message='Photo {action} by {user}'.format(
+                action=get_action(revision),
+                user=get_user_display(revision.user)),
+                time=revision.revision_at.isoformat(),
+                text=revision.data.get('text', ''),
+                user=UserDisplaySerializer().to_representation(revision.user),
+                type=get_update_type(revision),
+            )
+            for revision in photo.revision.all_user()
+            ]
 
 
 class EventSerializer(rest_framework.serializers.ModelSerializer):
@@ -390,6 +466,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     #  json {lat/lon} and our internal representation.
     location = PointField(required=False)
     time = DateTimeField(source='event_time', required=False)
+    updated_at = DateTimeField(source='sort_at', required=False)
     created_by_user = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault()
     )
@@ -397,14 +474,27 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     reported_by = ReportedByRelatedField(required=False)
     message = rest_framework.serializers.CharField(required=True)
     photos = EventPhotoSerializer(many=True, required=False)
+    event_type = EventTypeRelatedField()
+
     class Meta:
         model = activity.models.Event
         read_only_fields = ('updated_at',)
         fields = (
             'id', 'location', 'time', 'message', 'provenance',
-            'event_type', 'event_subtype', 'priority', 'priority_label', 'attributes',
+            'event_type', 'priority', 'priority_label', 'attributes',
             'image_url', 'created_by_user', 'notes', 'reported_by',
             'state', 'photos') + read_only_fields
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.context.get('include_photos', True):
+            self.fields['photos'].context.update(self.context)
+        else:
+            self.fields.pop('photos')
+        if self.context.get('include_notes', True):
+            self.fields['notes'].context.update(self.context)
+        else:
+            self.fields.pop('notes')
 
     def create(self, validated_data):
         return activity.models.Event.objects.create_event(**validated_data)
@@ -425,29 +515,28 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             geodata = make_feature(self.context['request'], event)
             rep['geojson'] = geodata
 
-        subject_attachment = event.attachments.filter(reason='target')
-
-        if subject_attachment:
-            try:
-                # TODO: Fix this so it can handle different types of attachments.
-                subject_attachment = subject_attachment[0]
-                rep['subject'] = SubjectSerializer().to_representation(
-                    subject_attachment.target)
-            except:
-                pass
-
         attachments = []
+        subject_attachment = None
         for attach in event.attachments.all():
-            attachments.append(EventAttachmentSerializer()
-                               .to_representation(attach))
+            attach_rep = EventAttachmentSerializer(context=self.context)\
+                .to_representation(attach)
+            if attach.reason == 'target':
+                subject_attachment = attach_rep
+            attachments.append(attach_rep)
 
         if attachments:
             rep['attachments'] = attachments
 
-        updates = self.render_updates(event)
-        for note in rep['notes']:
-            updates.extend(note['updates'])
-        rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
+        if subject_attachment:
+            rep['subject'] = subject_attachment
+
+        if self.context.get('include_updates', True):
+            updates = self.render_updates(event)
+            for note in rep.get('notes', []):
+                updates.extend(note['updates'])
+            for photo in rep.get('photos', []):
+                updates.extend(photo['updates'])
+            rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
         return rep
 
     def render_updates(self, event):
@@ -455,24 +544,39 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             if revision.action == AC_UPDATED:
                 field_mapping = {'message': 'Event Message',
                                  'event_time': 'Event Time',
-                                 'state': 'Event State',
-                                 'priority': 'Event Priority',
+                                 'state': 'Event State is {0}',
+                                 'priority': 'Event Priority is {0}',
                                  'location': 'Location',
                                  'provenance': 'Event Reporter',
-                                 'created_by_user': 'Event Writer'}
-                fieldnames = [field_mapping[k] for k in revision.data.keys() if
+                                 'event_type': 'Event Type is {0}',
+                                 'created_by_user': 'Event Writer',}
+                fieldnames = [field_mapping[k].format(event.get_display_value(k, v)) for k, v in revision.data.items() if
                               k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
                                                 ', '.join(fieldnames))
+            elif revision.action == AC_RELATION_DELETED:
+                field_mapping = {'message': 'Event Message',
+                                 'related_query_name': '{}'
+                                 }
+                fieldnames = [field_mapping[k].format(revision.data[k]) for k, v in revision.data.items() if
+                              k in field_mapping]
+                return '{0} fields: {1}'.format(revision.get_action_display(),
+                                                ', '.join(fieldnames))
+
             return revision.get_action_display()
 
-        return [dict(message='Event {action} by {user}'.format(
+        result = []
+        revisions = [v for v in event.revision.all_user()]
+        while revisions:
+            revision = revisions.pop()
+            result.append(dict(message='Event {action} by {user}'.format(
             action=get_action(revision),
             user=self.get_user_display(revision.user, event)
         ), time=revision.revision_at.isoformat(),
-            user=self.get_revision_user(revision.user, event))
-                for revision in event.revision.all()
-                ]
+            user=self.get_revision_user(revision.user, event),
+            type=get_update_type(revision, revisions))
+            )
+        return result
 
     def get_user_display(self, user, event):
         if user:

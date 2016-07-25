@@ -14,7 +14,6 @@ class BaseTestCase(TestCase):
         self.some_set = PermissionSet.objects.create(name='some')
 
         self.all_set.children.add(self.some_set)
-        self.all_set.save()
 
 
 class PermissionSetTestCase(BaseTestCase):
@@ -29,19 +28,26 @@ class PermissionSetTestCase(BaseTestCase):
 
 class UserModelTest(TestCase):
     password = User.objects.make_random_password()
+    user_const = dict(last_name='last', first_name='first')
 
     def test_caseinsensitive_name(self):
 
         user = User.objects.create(username='user',
-                                   password=self.password)
+                                   password=self.password,
+                                   email='user@test.com',
+                                   **self.user_const)
 
         with self.assertRaises(ValidationError):
             user2 = User.objects.create(username='User',
-                                    password=self.password)
+                                    email='user2@test.com',
+                                    password=self.password,
+                                    **self.user_const)
 
     def test_get_by_username(self):
         user = User.objects.create(username='User',
-                                   password=self.password)
+                                   email='user3@test.com',
+                                   password=self.password,
+                                   **self.user_const)
 
         user2 = User.objects.get(username='user')
         self.assertEqual(user.pk, user2.pk)

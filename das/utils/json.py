@@ -86,7 +86,9 @@ class ExtendedJSONRenderer(JSONRenderer):
 class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
     def render(self, data, *args, **kwargs):
         response = args[1]['response']
-        if 'status' not in data:
+
+        # Some responses will have data=None (Ex. 204 No Content)
+        if not data or 'status' not in data:
             data = {'data': data,
                     'status': {'code': response.status_code,
                                'message': response.status_text}}
@@ -103,6 +105,16 @@ def dumps(obj, **kwargs):
 
 def loads(s,**kwargs):
     return json.loads(s, **kwargs)
+
+
+def parse_bool(text):
+    """Return a boolean from the passed in text"""
+    TRUE_VALUES = ['true', '1', 'yes', 'ok', 'okay']
+    if isinstance(text, bool):
+        return text
+    if isinstance(text, str) and text.lower() in TRUE_VALUES:
+        return True
+    return False
 
 
 def json_string(objects, pretty_output=False):

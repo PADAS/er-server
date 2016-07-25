@@ -3,7 +3,7 @@ import logging
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point as DjangoPoint
 
-from activity.models import Event
+from activity.models import EventType
 from .analyzer import Analyzer, AnalyzerResult, CRITICAL
 from ..exceptions import InsufficientDataAnalyzerException
 
@@ -13,7 +13,9 @@ logger = logging.getLogger(__name__)
 class SpeedAnalyzer(Analyzer):
     """ Speed Analyzer for a Track. """
 
-    event_type = Event.ET_ANALYZER
+    @property
+    def event_type(self):
+        return EventType.objects.get_by_value('analyzer_speed')
 
     max_speed = models.FloatField(default=8)
     min_speed = models.FloatField(default=0)

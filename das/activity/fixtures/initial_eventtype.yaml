@@ -1,0 +1,134 @@
+- model: activity.eventtype
+  pk: b4688c0e-ac08-4656-a6ec-b0b3aecf332c
+  fields:
+    value: animal_accident
+    display: Animal Accident
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    ordernum: 0
+- model: activity.eventtype
+  pk: c4135735-aacf-484f-83c2-8fdad9c63018
+  fields:
+    value: drowning
+    display: Drowning
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    ordernum: 1
+- model: activity.eventtype
+  pk: ab37e077-b4dd-4221-a3a2-baa5cc99d020
+  fields:
+    value: vehicle_accident
+    display: Vehicle Accident
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    ordernum: 2
+- model: activity.eventtype
+  pk: ea2ee557-6b98-4914-a3ff-44497d518900
+  fields:
+    value: fire
+    display: Fire
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: activity.eventtype
+  pk: a95ed47c-665a-42fa-8e1d-5d2486672361
+  fields:
+    value: carcass
+    display: Carcass
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: activity.eventtype
+  pk: c4b023db-9247-4451-8a0e-38164560cfbd
+  fields:
+    value: arrest
+    display: Arrest
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: activity.eventtype
+  pk: 045fb539-bbfc-4177-8109-6dcb72f215de
+  fields:
+    value: civil_unrest
+    display: Civil Unrest
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: activity.eventtype
+  pk: f2e0b4ee-2cc5-424b-bb28-bb7a28321b9e
+  fields:
+    value: complaint
+    display: Complaint
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: activity.eventtype
+  pk: 1cf29d24-0f3d-4400-bd43-4a225fd3ef09
+  fields:
+    value: hostile
+    display: Hostile
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: activity.eventtype
+  pk: d7b829c0-e015-4369-8103-6365b3d639ed
+  fields:
+    value: poaching
+    display: Poaching
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: activity.eventtype
+  pk: 8687188e-ed0b-49c3-9d95-0313130ef7af
+  fields:
+    value: gunshot
+    display: Gunshot
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: activity.eventtype
+  pk: b3ac2f12-0795-4a1a-bb50-eb1e79b66af3
+  fields:
+    value: threat
+    display: Threat
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: activity.eventtype
+  pk: 4a56ec72-6616-4e7c-b228-cafd1d04cc98
+  fields:
+    value: trespass
+    display: Trespass
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: activity.eventtype
+  pk: 3acc6378-8e9a-4f82-b46b-7927b9118bc0
+  fields:
+    value: tribal_conflict
+    display: Tribal Conflict
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: activity.eventtype
+  pk: 02943c51-0661-478e-b4a8-c57264bb721a
+  fields:
+    value: other
+    display: Other
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    ordernum: 3
+- model: activity.eventtype
+  pk: fcba2f9c-01fb-4142-ba26-02041e30c323
+  fields:
+    value: illegal_activity
+    display: Illegal Activity
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+- model: accounts.permissionset
+  pk: 6e48768d-ca66-498d-9d33-a90a3293676e
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: Add/Edit Events
+    children: []
+    permissions:
+    - [add_event, activity, event]
+    - [change_event, activity, event]
+    - [delete_event, activity, event]
+    - [view_event, activity, event]
+    - [add_eventattachment, activity, eventattachment]
+    - [change_eventattachment, activity, eventattachment]
+    - [delete_eventattachment, activity, eventattachment]
+    - [add_eventnote, activity, eventnote]
+    - [change_eventnote, activity, eventnote]
+    - [delete_eventnote, activity, eventnote]

@@ -18,7 +18,7 @@ if sys.version_info <= (3, 4):
     print(error, file=sys.stderr)
     sys.exit(1)
 
-from das import VERSION, __version__
+from das.das_server import VERSION, __version__
 
 if VERSION[-1] == 'final':
     STATUS = ['Development Status :: 5 - Production/Stable']

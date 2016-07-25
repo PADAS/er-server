@@ -126,10 +126,10 @@ class DemoDriver():
             additional=subadd,
             subject_type=self.subject_type,
             subject_subtype=self.subject_subtype,
-            group=self.group
             )
         self.source.save()
         self.subject.save()
+        self.group.children.add(self.subject)
 
         self.subject_source = SubjectSource.objects.create(
             assigned_range=self.DEFAULT_DATE_RANGE,
