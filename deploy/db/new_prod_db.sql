@@ -4,8 +4,8 @@ DROP USER IF EXISTS dasdb_owner;
 DROP USER IF EXISTS dasdb_user;
 
 -- Create the users and the database
-CREATE USER dasdb_owner WITH PASSWORD ':ownerpw';
-CREATE USER dasdb_user WITH PASSWORD ':userpw';
+CREATE USER dasdb_owner WITH PASSWORD :ownerpw;
+CREATE USER dasdb_user WITH PASSWORD :userpw;
 CREATE DATABASE :db_name ENCODING 'utf8' OWNER dasdb_owner;
 
 -- switch over into the new database

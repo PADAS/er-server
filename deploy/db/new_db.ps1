@@ -12,7 +12,7 @@ if($db_name -like $("")){
     }
 
 if($db_type -eq "prod") {
-    psql -h $db_host -U $user -v ownerpw="$ownerpw" -v userpw="$userpw" -v db_name="$db_name" -f .\new_prod_db.sql --set ON_ERROR_STOP=on
+    psql -h $db_host -U $user -v ownerpw="'$ownerpw'" -v userpw="'$userpw'" -v db_name="$db_name" -f .\new_prod_db.sql --set ON_ERROR_STOP=on
 }
 else {
     psql -h $db_host -U $user -v db_name="$db_name" -f .\new_db.sql --set ON_ERROR_STOP=on
