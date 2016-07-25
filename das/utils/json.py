@@ -107,6 +107,16 @@ def loads(s,**kwargs):
     return json.loads(s, **kwargs)
 
 
+def parse_bool(text):
+    """Return a boolean from the passed in text"""
+    TRUE_VALUES = ['true', '1', 'yes', 'ok', 'okay']
+    if isinstance(text, bool):
+        return text
+    if isinstance(text, str) and text.lower() in TRUE_VALUES:
+        return True
+    return False
+
+
 def json_string(objects, pretty_output=False):
     """Encode python objects into a json string.
     The encoder is: date and mongo object aware.
