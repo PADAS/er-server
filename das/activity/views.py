@@ -70,9 +70,9 @@ class EventsView(generics.ListCreateAPIView):
     def get_serializer_context(self):
         query_params = self.request.query_params
         context = super().get_serializer_context()
-        context['include_updates'] = parse_bool(query_params.get('include_updates', False))
-        context['include_notes'] = parse_bool(query_params.get('include_notes', False))
-        context['include_photos'] = parse_bool(query_params.get('include_photos', False))
+        context['include_updates'] = parse_bool(query_params.get('include_updates', True))
+        context['include_notes'] = parse_bool(query_params.get('include_notes', True))
+        context['include_photos'] = parse_bool(query_params.get('include_photos', True))
         return context
 
     def get_queryset(self):
