@@ -17,7 +17,7 @@ import pytz
 import random
 
 from accounts.models import PermissionSet, User
-from activity.models import Event, EventAttachment, Community
+from activity.models import Event, EventAttachment, Community, EventType
 from analyzers.models import all_analyzers, ContainmentAnalyzer, SubjectAnalyzer, \
     GeofenceAnalyzer, ImmobilityAnalyzer, ProximityAnalyzer, SpeedAnalyzer
 from mapping.models import FeatureType, PolygonFeature, LineFeature, PointFeature, FeatureSet
@@ -42,7 +42,9 @@ feature_set, _ = FeatureSet.objects.get_or_create(
 def delete_subject_analyzers():
     pass
 
-def get_or_create_user(username='chrisd', email='chrisdo@vulcan.com', permission_set=None):
+
+def get_or_create_user(username='chrisd', email='chrisdo@vulcan.com', permission_set=None,
+                       last_name='D', first_name='Chris'):
     password = User.objects.make_random_password()
     try:
         created = False
@@ -51,10 +53,16 @@ def get_or_create_user(username='chrisd', email='chrisdo@vulcan.com', permission
         created = True
         user = User.objects.create(username=username,
                                    password=password,
-                                   email=email)
+                                   email=email,
+                                   last_name=last_name,
+                                   first_name=first_name)
 
     if not user.password:
         user.set_password(password)
+    if not user.first_name:
+        user.first_name = first_name
+    if not user.last_name:
+        user.last_name = last_name
     if permission_set:
         user.permission_sets.add(permission_set)
     user.save()
@@ -78,12 +86,13 @@ def create_actors():
     permission_set.permissions.add(permission)
 
     users = (
-        ('demouser', 'josephs@vulcan.com'),
-        ('chrisd', 'chrisdo@vulcan.com'),
+        ('demouser', 'josephs@vulcan.com', 'Demo', 'User'),
+        ('chrisd', 'chrisdo@vulcan.com', 'D', 'Chris'),
     )
 
-    for username, email in users:
-        get_or_create_user(username=username, email=email, permission_set=permission_set)
+    for username, email, last_name, first_name in users:
+        get_or_create_user(username=username, email=email, permission_set=permission_set,
+                           last_name=last_name, first_name=first_name)
 
 
     Community.objects.get_or_create(id='9ec20ec8-516c-40bd-a4a3-9a2b49f5ea40', name='Informant')
@@ -129,7 +138,7 @@ class DemoDriver():
             )
         self.source.save()
         self.subject.save()
-        self.group.children.add(self.subject)
+        self.group.subjects.add(self.subject)
 
         self.subject_source = SubjectSource.objects.create(
             assigned_range=self.DEFAULT_DATE_RANGE,
@@ -271,12 +280,14 @@ def add_demo_data(subject=None):
             store_event(evt, subject, next(times))
 
 def store_event(evt, subject, t):
-    event = Event(message=evt['message'])
+    event = Event(message=evt['message'], event_type= EventType.objects.get(id=evt['event_type']))
     event.event_time = t
     if evt.get('center', None):
         event.location = Point(*evt['center'])
 
     for k,v in evt.items():
+        if k == 'event_type':
+            continue
         if k == 'reported_by':
             event.reported_by_content_type = ContentType.objects.get_by_natural_key(*v['content_type'].split('.'))
             event.reported_by_id = v['id']
