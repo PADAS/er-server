@@ -3,6 +3,7 @@ from datetime import timedelta
 from rest_framework import generics, status
 from django.db.models import Prefetch
 import rest_framework.exceptions
+from rest_framework_extensions.etag.decorators import etag
 
 from activity.models import Event, EventNote, EventPhoto
 from activity.serializers import EventSerializer, EventNoteSerializer,\
@@ -10,8 +11,10 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
+from utils.json import parse_bool
 
 LAST_DAYS = timedelta(days=3)
+
 
 class EventSchemaView(generics.ListCreateAPIView):
     permission_classes = (EventObjectPermissions,)
@@ -51,6 +54,11 @@ class EventsView(generics.ListCreateAPIView):
     Optional query-params:
     bbox, where bbox is the (west, south, east, north) lon,lat pairs.
         example: bbox=14.24, .41, 15.45, 1.66
+    event_type
+    state
+    include_updates, true to include event updates
+    include_photos, true to include photos
+    include_notes, true to include notes
     page, page number
     page_size, (default is {page_size}, max is {max_page_size})
     """.format(page_size=StandardResultsSetPagination.page_size,
@@ -61,8 +69,17 @@ class EventsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
 
+    def get_serializer_context(self):
+        query_params = self.request.query_params
+        context = super().get_serializer_context()
+        context['include_updates'] = parse_bool(query_params.get('include_updates', True))
+        context['include_notes'] = parse_bool(query_params.get('include_notes', True))
+        context['include_photos'] = parse_bool(query_params.get('include_photos', True))
+        return context
+
     def get_queryset(self):
         queryset = Event.objects.all_sort()
+        query_params = self.request.query_params
         bbox = self.request.query_params.get('bbox', None)
         if bbox:
             bbox = bbox.split(',')
@@ -80,7 +97,16 @@ class EventsView(generics.ListCreateAPIView):
         queryset = queryset.prefetch_related(Prefetch('event_type'))
         queryset = queryset.prefetch_related(Prefetch('created_by_user'))
         queryset = queryset.prefetch_related(Prefetch('reported_by'))
+        if parse_bool(query_params.get('include_notes', False)):
+            queryset = queryset.prefetch_related(Prefetch('notes'))
+        if parse_bool(query_params.get('include_photos', False)):
+            queryset = queryset.prefetch_related(Prefetch('photos'))
         return queryset
+
+
+def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
+    instance = view_instance.get_object()
+    return str(hash(instance.updated_at))
 
 
 class EventView(generics.RetrieveUpdateAPIView):
@@ -88,6 +114,18 @@ class EventView(generics.RetrieveUpdateAPIView):
     serializer_class = EventSerializer
     queryset = Event.objects.all()
     lookup_field = 'id'
+
+    @etag(etag_func=calculate_event_etag)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get_serializer_context(self):
+        query_params = self.request.query_params
+        context = super().get_serializer_context()
+        context['include_updates'] = parse_bool(query_params.get('include_updates', True))
+        context['include_notes'] = parse_bool(query_params.get('include_notes', True))
+        context['include_photos'] = parse_bool(query_params.get('include_photos', True))
+        return context
 
 
 class EventStateView(generics.RetrieveUpdateAPIView):

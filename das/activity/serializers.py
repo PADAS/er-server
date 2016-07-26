@@ -487,7 +487,14 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['photos'].context.update(self.context)
+        if self.context.get('include_photos', True):
+            self.fields['photos'].context.update(self.context)
+        else:
+            self.fields.pop('photos')
+        if self.context.get('include_notes', True):
+            self.fields['notes'].context.update(self.context)
+        else:
+            self.fields.pop('notes')
 
     def create(self, validated_data):
         return activity.models.Event.objects.create_event(**validated_data)
@@ -523,12 +530,13 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         if subject_attachment:
             rep['subject'] = subject_attachment
 
-        updates = self.render_updates(event)
-        for note in rep['notes']:
-            updates.extend(note['updates'])
-        for photo in rep['photos']:
-            updates.extend(photo['updates'])
-        rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
+        if self.context.get('include_updates', True):
+            updates = self.render_updates(event)
+            for note in rep.get('notes', []):
+                updates.extend(note['updates'])
+            for photo in rep.get('photos', []):
+                updates.extend(photo['updates'])
+            rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
         return rep
 
     def render_updates(self, event):

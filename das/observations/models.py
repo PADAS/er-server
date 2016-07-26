@@ -197,11 +197,12 @@ class ObservationManager(models.GeoManager):
         since = datetime.now(tz=pytz.UTC) - last_days
         return self.get_source_range_observations(subject_sources, since=since)
 
-    def add_observation(self, observation):
+    def add_observation(self, observation, force=False):
         '''
         Add an observation for the given source.
         :param source:
         :param observation: An object with attributes: source, latitude, longitude, recorded_at, additional
+        :param force: if True, will insert a potentially redundant record.
         :return: The new Observation
         '''
 
@@ -212,9 +213,16 @@ class ObservationManager(models.GeoManager):
         location = Point(x=observation.longitude, y=observation.latitude)
 
         additional = observation.additional or {}
-        obs = Observation.objects.create(source_id=observation.source.id, location=location,
-                                         recorded_at=observation.recorded_at,
-                                         additional=additional)
+
+        if force:
+            obs = Observation.objects.create(source_id=observation.source.id, location=location,
+                                             recorded_at=observation.recorded_at,
+                                             additional=additional)
+        else:
+            obs, created = Observation.objects.get_or_create(source_id=observation.source.id,
+                                                recorded_at=observation.recorded_at,
+                                                defaults=dict(location=location,
+                                                              additional=additional))
 
         return Observation.objects.get(id=obs.id)
 
@@ -315,6 +323,8 @@ class SubjectSourceManager(models.GeoManager):
                             .reverse()\
                             .first()
 
+        created = False
+
         if not subject_source:
 
             sub, created = Subject.objects.get_or_create(
@@ -327,7 +337,7 @@ class SubjectSourceManager(models.GeoManager):
                 subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
                                                                      defaults=dict(assigned_range=assigned_range,
                                                                                    additional=additional))
-
+                
         return subject_source, created
 
 

@@ -21,6 +21,7 @@ djangorestframework==3.4.0
 #drf geojson serializers
 #djangorestframework-gis==0.10.1
 #django-spillway==0.5.1
+drf-extensions==0.2.8
 
 #https://github.com/mypebble/django-pgviews
 django-pgviews==0.1.0
