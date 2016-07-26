@@ -342,12 +342,13 @@ def get_update_type(revision, previous_revisions=[]):
             if event_state == activity.models.Event.SC_NEW:
                 return 'mark_as_new'
             for row in previous_revisions:
-                if row.data.get('state', None):
-                    if row.data.get('state') == activity.models.Event.SC_RESOLVED:
+                prev_state = row.data.get('state', None)
+                if prev_state:
+                    if prev_state == activity.models.Event.SC_RESOLVED:
                         return 'unresolved'
-                    break
-            if event_state == activity.models.Event.SC_ACTIVE:
-                return activity.models.Event.SC_ACTIVE
+                    if (prev_state == activity.models.Event.SC_NEW
+                        and  event_state == activity.models.Event.SC_ACTIVE):
+                        return 'read'
         for k, v in field_mapping:
             if k in data:
                 return v
@@ -578,7 +579,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
                 time=revision.revision_at.isoformat(),
                 user=self.get_revision_user(revision.user, event),
                 type=get_update_type(revision, revisions))
-            if record['type'] in (activity.models.Event.SC_ACTIVE,):
+            if record['type'] in ('read',):
                 continue
             result.append(record)
         return result
