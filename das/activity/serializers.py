@@ -346,7 +346,8 @@ def get_update_type(revision, previous_revisions=[]):
                     if row.data.get('state') == activity.models.Event.SC_RESOLVED:
                         return 'unresolved'
                     break
-
+            if event_state == activity.models.Event.SC_ACTIVE:
+                return activity.models.Event.SC_ACTIVE
         for k, v in field_mapping:
             if k in data:
                 return v
@@ -569,13 +570,17 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         revisions = [v for v in event.revision.all_user()]
         while revisions:
             revision = revisions.pop()
-            result.append(dict(message='Event {action} by {user}'.format(
-            action=get_action(revision),
-            user=self.get_user_display(revision.user, event)
-        ), time=revision.revision_at.isoformat(),
-            user=self.get_revision_user(revision.user, event),
-            type=get_update_type(revision, revisions))
-            )
+            record = dict(
+                message='Event {action} by {user}'.format(
+                    action=get_action(revision),
+                    user=self.get_user_display(revision.user, event)
+                    ),
+                time=revision.revision_at.isoformat(),
+                user=self.get_revision_user(revision.user, event),
+                type=get_update_type(revision, revisions))
+            if record['type'] in (activity.models.Event.SC_ACTIVE,):
+                continue
+            result.append(record)
         return result
 
     def get_user_display(self, user, event):

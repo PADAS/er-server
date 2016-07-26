@@ -178,7 +178,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     PRIORITY_CHOICES = (
         (100, 'Low'),
-        (200, 'Medium'),
+        (200, 'Normal'),
         (300, 'High')
     )
 
