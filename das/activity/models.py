@@ -303,8 +303,11 @@ class Event(RevisionMixin, TimestampedModel):
             return force_text(dict(field.flatchoices).get(value, value),
                    strings_only=True)
         if field_name == 'event_type':
-            return force_text(EventType.objects.get(pk=value).display,
+            try:
+                return force_text(EventType.objects.get(pk=value).display,
                               strings_only=True)
+            except EventType.DoesNotExist:
+                pass
         return value
 
     def __str__(self):
