@@ -27,6 +27,16 @@ DATABASES = {
         'USER': 'postgres',
         'HOST': 'localhost',
         #'PASSWORD': '',
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
+    },
+    'vectronics': {
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': 'gpsplus_wildlife',
+        'USER': 'vect_owner',
+        'HOST': 'localhost',
+        #'PASSWORD': '',
     }
 }
 
