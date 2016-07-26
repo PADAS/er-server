@@ -159,6 +159,7 @@ class TestEventView(BaseAPITest):
         event = self.create_event(self.event_data)
 
         update_data = copy.deepcopy(self.event_data)
+        update_data['id'] = event.id
         update_data['message'] = 'A completely different message'
 
         request = self.factory.patch(

@@ -343,12 +343,13 @@ def get_update_type(revision, previous_revisions=[]):
                 return 'mark_as_new'
             for row in previous_revisions:
                 prev_state = row.data.get('state', None)
-                if prev_state:
+                if prev_state:# and prev_state != event_state:
                     if prev_state == activity.models.Event.SC_RESOLVED:
                         return 'unresolved'
                     if (prev_state == activity.models.Event.SC_NEW
-                        and  event_state == activity.models.Event.SC_ACTIVE):
+                        and event_state == activity.models.Event.SC_ACTIVE):
                         return 'read'
+                    break
         for k, v in field_mapping:
             if k in data:
                 return v
@@ -505,7 +506,8 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         update_fields = []
         for k, v in validated_data.items():
             setattr(instance, k, v)
-            update_fields.append(k)
+            if k not in ('id',):
+                update_fields.append(k)
         instance.save(update_fields=update_fields)
         return instance
 
@@ -570,7 +572,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             return revision.get_action_display()
 
         result = []
-        revisions = [v for v in event.revision.all_user()]
+        revisions = [v for v in event.revision.all_user().order_by('-sequence')]
         while revisions:
             revision = revisions.pop()
             record = dict(
