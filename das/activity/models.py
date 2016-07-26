@@ -263,8 +263,13 @@ class Event(RevisionMixin, TimestampedModel):
         update_fields = kwargs.get('update_fields', [])
         save_fields = set()
 
+        try:
+            prev_state = self.revision_original.get('state', None)
+        except AttributeError:
+            prev_state = None
+
         if (len(update_fields) == 1 and 'state' in update_fields and
-            self.state == self.SC_ACTIVE):
+            self.state == self.SC_ACTIVE and prev_state == self.SC_NEW):
                 pass
         else:
             self.sort_at = timezone.now()

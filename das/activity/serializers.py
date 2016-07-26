@@ -502,9 +502,11 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         return activity.models.Event.objects.create_event(**validated_data)
 
     def update(self, instance, validated_data):
+        update_fields = []
         for k, v in validated_data.items():
             setattr(instance, k, v)
-        instance.save()
+            update_fields.append(k)
+        instance.save(update_fields=update_fields)
         return instance
 
     def to_representation(self, event):
