@@ -315,6 +315,8 @@ class SubjectSourceManager(models.GeoManager):
                             .reverse()\
                             .first()
 
+        created = False
+
         if not subject_source:
 
             sub, created = Subject.objects.get_or_create(
@@ -327,7 +329,7 @@ class SubjectSourceManager(models.GeoManager):
                 subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
                                                                      defaults=dict(assigned_range=assigned_range,
                                                                                    additional=additional))
-
+                
         return subject_source, created
 
 

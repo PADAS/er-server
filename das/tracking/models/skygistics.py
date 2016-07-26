@@ -44,7 +44,14 @@ def str2date(d, default_tzinfo=pytz.UTC):
         dt = dt.replace(tzinfo=default_tzinfo)
     return dt
 
+
+# This is a fudge factor for querying Skygistic's API. Dates used for querying will be interpreted as
+# Africa/Johannesburg timezone.
+SKYGISTICS_SERVICE_TIMEZONE = pytz.timezone('Africa/Johannesburg')
+
+
 class SkygisticsSatelliteClient(SkygisticsClient):
+
     def __init__(self, username=None, password=None, service_url='http://skyq1.skygistics.com'):
         self.username = username
         self.password = password
@@ -114,6 +121,11 @@ class SkygisticsSatelliteClient(SkygisticsClient):
         :param end_date:
         :return:
         """
+
+        # Skygistics service will interpret date query parameters in timezone of server, so we adjust here.
+        start_date = start_date.astimezone(SKYGISTICS_SERVICE_TIMEZONE)
+        end_date = end_date.astimezone(SKYGISTICS_SERVICE_TIMEZONE)
+
         if not self.session_id or self.session_id == '0':
             raise SkygisticsLoginError('Client does not have a valid session_id.')
         # todo:  the username and password are in the clear here ...
