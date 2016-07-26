@@ -3,6 +3,7 @@ from datetime import timedelta
 from rest_framework import generics, status
 from django.db.models import Prefetch
 import rest_framework.exceptions
+from rest_framework_extensions.etag.decorators import etag
 
 from activity.models import Event, EventNote, EventPhoto
 from activity.serializers import EventSerializer, EventNoteSerializer,\
@@ -13,6 +14,7 @@ from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool
 
 LAST_DAYS = timedelta(days=3)
+
 
 class EventSchemaView(generics.ListCreateAPIView):
     permission_classes = (EventObjectPermissions,)
@@ -102,11 +104,20 @@ class EventsView(generics.ListCreateAPIView):
         return queryset
 
 
+def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
+    instance = view_instance.get_object()
+    return str(hash(instance.updated_at))
+
+
 class EventView(generics.RetrieveUpdateAPIView):
     permission_classes = (EventObjectPermissions,)
     serializer_class = EventSerializer
     queryset = Event.objects.all()
     lookup_field = 'id'
+
+    @etag(etag_func=calculate_event_etag)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
     def get_serializer_context(self):
         query_params = self.request.query_params
