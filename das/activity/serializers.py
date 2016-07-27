@@ -507,8 +507,12 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         for k, v in validated_data.items():
             if getattr(instance, k) != v:
                 setattr(instance, k, v)
-                if k not in ('id',):
+                if k == 'reported_by':
+                    update_fields.append('reported_by_id')
+                    update_fields.append('reported_by_content_type_id')
+                elif k not in ('id',):
                     update_fields.append(k)
+
         if update_fields:
             instance.save(update_fields=update_fields)
         return instance
