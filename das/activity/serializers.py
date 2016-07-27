@@ -326,7 +326,7 @@ class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
 
 def get_update_type(revision, previous_revisions=[]):
     field_mapping = (('location','update_location'), ('message','update_message'),
-                     ('event_time','update_datetime'), ('reported_by', 'update_reported_by'),
+                     ('event_time','update_datetime'), ('reported_by_id', 'update_reported_by'),
                      ('state', 'update_event_state'), ('priority', 'update_event_priority'),
                      ('event_type', 'update_event_type'))
     model_name = revision._meta.model_name
@@ -559,6 +559,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
                                  'state': 'Event State is {0}',
                                  'priority': 'Event Priority is {0}',
                                  'location': 'Location',
+                                 'reported_by_id': 'Reported By',
                                  'provenance': 'Event Reporter',
                                  'event_type': 'Event Type is {0}',
                                  'created_by_user': 'Event Writer',}
