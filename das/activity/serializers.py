@@ -343,7 +343,7 @@ def get_update_type(revision, previous_revisions=[]):
                 return 'mark_as_new'
             for row in previous_revisions:
                 prev_state = row.data.get('state', None)
-                if prev_state:# and prev_state != event_state:
+                if prev_state:
                     if prev_state == activity.models.Event.SC_RESOLVED:
                         return 'unresolved'
                     if (prev_state == activity.models.Event.SC_NEW
@@ -505,10 +505,12 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     def update(self, instance, validated_data):
         update_fields = []
         for k, v in validated_data.items():
-            setattr(instance, k, v)
-            if k not in ('id',):
-                update_fields.append(k)
-        instance.save(update_fields=update_fields)
+            if getattr(instance, k) != v:
+                setattr(instance, k, v)
+                if k not in ('id',):
+                    update_fields.append(k)
+        if update_fields:
+            instance.save(update_fields=update_fields)
         return instance
 
     def to_representation(self, event):
