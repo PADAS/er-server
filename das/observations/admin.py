@@ -12,11 +12,12 @@ from utils.html import make_html_list
 class SubjectAdmin(admin.ModelAdmin):
 
     list_display = ('id', 'name', 'subject_type', 'subject_subtype',
-                    'additional', 'groups')
-    search_fields = ('name', 'subject_subtype')
+                    'is_active', 'additional', 'groups')
+    search_fields = ('name', 'subject_subtype', 'is_active')
 
     fields = ('id', 'name', 'additional', 'groups', SubjectForm.SUBTYPE_FIELD)
-#    filter_horizontal = ('groups',)
+    list_filter = ('is_active', 'subject_type',)
+    list_editable = ('is_active',)
 
     def queryset(self, request):
         """Limit Subjects to those this person can administer"""

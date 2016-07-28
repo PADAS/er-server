@@ -128,7 +128,7 @@ class EventManager(models.Manager):
             for obj in get_user_model().objects.all().filter(
                     is_active=True):
                 yield obj
-            for obj in Subject.objects.get_staff():
+            for obj in Subject.objects.all().get_staff():
                 yield obj
         elif Event.PC_COMMUNITY == provenance:
             for obj in Community.objects.all():

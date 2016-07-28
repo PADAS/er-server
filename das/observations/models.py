@@ -71,7 +71,7 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
                                      blank=True)
     objects = SourceGroupManager()
 
-    def get_all_sources(self):
+    def get_all_sources(self, user=None, active=None):
         """Including descendant group sources"""
         subgroups = self.get_descendants()
         sources = set(iter(self.sources.all()))
@@ -394,13 +394,16 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
                                       blank=True)
     objects = SubjectGroupManager()
 
-    def get_all_subjects(self):
+    def get_all_subjects(self, user=None, active=None):
         """Including descendant group subjects"""
-        subgroups = self.get_descendants()
-        subjects = set(iter(self.subjects.all()))
-        for group in subgroups:
-            subjects.update(iter(group.subjects.all()))
-        return list(subjects)
+        sg_all = set(self.get_descendants())
+        sg_all.add(self)
+
+        subjects = Subject.objects.all()
+        if active is not None:
+            subjects = subjects.by_is_active(active=active)
+        subjects = subjects.filter(groups__in=sg_all)
+        return subjects
 
     def natural_key(self):
         return (self.name,)
@@ -417,29 +420,10 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
         return self.name
 
 
-class SubjectManager(models.Manager):
-    def create_subject(self, **kwargs):
-        #all subjects are added to the default subject group
-        subject = super().create(**kwargs)
-        subject.groups.set((SubjectGroup.objects.get_default(),))
-        return subject
-
+class SubjectQuerySet(models.QuerySet):
     def by_region(self, region, **kwargs):
         subjects = self.filter(additional__region=region.region)
         subjects.filter(additional__country=region.country, **kwargs)
-        return subjects
-
-    def by_bbox(self, bbox, last_days=None):
-        geom = Polygon.from_bbox(bbox)
-        sources = Observation.objects.filter(location__within=geom)
-        if last_days:
-            lt = datetime.now(tz=pytz.UTC)
-            gt = lt - last_days
-            sources = sources.filter(recorded_at__range=(gt, lt))
-        sources = sources.values('source').annotate(models.Count('source')).values('source')
-        subject_sources = SubjectSource.objects.filter(source__in=sources)
-        subjects = subject_sources.values('subject')
-        subjects = Subject.objects.filter(pk__in=subjects)
         return subjects
 
     def by_user_subjects(self, user):
@@ -449,10 +433,37 @@ class SubjectManager(models.Manager):
             sg_all.add(sg)
             sg_all.update(sg.get_descendants())
 
-        return Subject.objects.all().filter(groups__in=sg_all)
+        return self.filter(groups__in=sg_all)
+
+    def by_bbox(self, bbox, last_days=None):
+        geom = Polygon.from_bbox(bbox)
+        sources = Observation.objects.filter(location__within=geom)
+        if last_days:
+            lt = datetime.now(tz=pytz.UTC)
+            gt = lt - last_days
+            sources = sources.filter(recorded_at__range=(gt, lt))
+        sources = sources.values('source').annotate(models.Count('source')).values(
+            'source')
+        subject_sources = SubjectSource.objects.filter(source__in=sources)
+        subjects = subject_sources.values('subject')
+        return self.filter(pk__in=subjects)
 
     def get_staff(self):
-        return self.all().filter(subject_type=Subject.TYPE_PERSON)
+        return self.filter(subject_type=Subject.TYPE_PERSON)
+
+    def by_group(self, subject_group_id):
+        return self.filter(groups__id=subject_group_id)
+
+    def by_is_active(self, active=True):
+        return self.filter(is_active=active)
+
+
+class SubjectManager(models.Manager):
+    def create_subject(self, **kwargs):
+        #all subjects are added to the default subject group
+        subject = super().create(**kwargs)
+        subject.groups.set((SubjectGroup.objects.get_default(),))
+        return subject
 
 
 class Subject(models.Model, PermissionSetGroupMixin):
@@ -529,7 +540,14 @@ class Subject(models.Model, PermissionSetGroupMixin):
     subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_ELEPHANT,
                                        choices=SUBTYPE_CHOICES)
     additional = JSONField('additional data')
-    objects = SubjectManager()
+    is_active = models.BooleanField(
+        _('active'),
+        default=True,
+        help_text=_(
+            'This subject is actively shown in visualizations.'
+        ),
+    )
+    objects = SubjectManager.from_queryset(SubjectQuerySet)()
 
     class Meta:
         permissions = (

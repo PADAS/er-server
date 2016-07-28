@@ -57,35 +57,6 @@ class RegionView(generics.RetrieveAPIView):
     serializer_class = serializers.RegionSerializer
 
 
-class SubjectsView(generics.ListAPIView):
-    """
-    Returns all subjects in the system.
-    Optional qparam of:
-    bbox, where bbox is the (west, south, east, north) lon,lat pairs.
-        example: bbox=14.24, .41, 15.45, 1.66
-    """
-    serializer_class = serializers.SubjectSerializer
-    permission_classes = (StandardObjectPermissions,)
-    filter_backends = (SubjectObjectPermissionsFilter,)
-    #pagination_class = StandardResultsSetPagination
-
-    def get_queryset(self):
-        queryset = models.Subject.objects.all()
-        bbox = self.request.query_params.get('bbox', None)
-        if bbox:
-            bbox = bbox.split(',')
-            bbox = [float(v) for v in bbox]
-            if len(bbox) != 4:
-                raise ValueError("invalid bbox param")
-            queryset = models.Subject.objects.by_bbox(bbox, last_days=LAST_DAYS)
-        return queryset
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['render_last_location'] = False
-        return context
-
-
 class SubjectGroupsView(generics.ListAPIView):
     """
     Returns all subjectgroups in the system.
@@ -100,6 +71,24 @@ class SubjectGroupsView(generics.ListAPIView):
     def get_queryset(self):
         queryset = models.SubjectGroup.objects.filter(_parents=None)
         return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['render_last_location'] = False
+        return context
+
+
+class SubjectGroupView(generics.ListAPIView):
+    """
+    Returns a single SubjectGroup
+    """
+    serializer_class = serializers.create_sg_serializer('subjectgs', models.SubjectGroup,
+                                                        serializers.SubjectSerializer)
+    permission_classes = (StandardObjectPermissions,)
+    lookup_field = 'id'
+    filter_backends = (create_gp_filter_class('subjectgf',
+                                              ('observations.view_subjectgroup',),
+                                              models.SubjectGroup),)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -135,6 +124,39 @@ class RegionSubjectsView(generics.ListAPIView):
                                             slug=self.kwargs['slug'])
         subjects = models.Subject.objects.by_region(region)
         return subjects
+
+
+class SubjectsView(generics.ListAPIView):
+    """
+    Returns all subjects in the system.
+    Optional qparam of:
+    bbox, where bbox is the (west, south, east, north) lon,lat pairs.
+        example: bbox=14.24, .41, 15.45, 1.66
+    """
+    serializer_class = serializers.SubjectSerializer
+    permission_classes = (StandardObjectPermissions,)
+    filter_backends = (SubjectObjectPermissionsFilter,)
+    #pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        queryset = models.Subject.objects.all()
+        queryset = queryset.by_is_active()
+        bbox = self.request.query_params.get('bbox', None)
+        if bbox:
+            bbox = bbox.split(',')
+            bbox = [float(v) for v in bbox]
+            if len(bbox) != 4:
+                raise ValueError("invalid bbox param")
+            queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS)
+        subject_group = self.request.query_params.get('subject_group', None)
+        if subject_group:
+            queryset = queryset.by_user_subjects(self.request.user)
+        return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['render_last_location'] = False
+        return context
 
 
 class SubjectView(generics.RetrieveAPIView):
