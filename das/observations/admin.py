@@ -1,5 +1,7 @@
 from django.contrib import admin
+from django import forms
 from django.utils.translation import ugettext_lazy as _
+from django.contrib.admin.widgets import FilteredSelectMultiple
 
 import observations.models as models
 import observations.forms
@@ -12,8 +14,8 @@ from utils.html import make_html_list
 class SubjectAdmin(admin.ModelAdmin):
 
     list_display = ('id', 'name', 'subject_type', 'subject_subtype',
-                    'is_active', 'additional', 'groups')
-    search_fields = ('name', 'subject_subtype', 'is_active')
+                    'is_active', 'additional', 'all_groups')
+    search_fields = ('name', 'subject_subtype')
 
     fields = ('id', 'name', 'additional', 'groups', SubjectForm.SUBTYPE_FIELD)
     list_filter = ('is_active', 'subject_type',)
@@ -38,6 +40,14 @@ class SubjectAdmin(admin.ModelAdmin):
         form = super().get_form(request, obj=obj, **kwargs)
         form.base_fields[SubjectForm.SUBTYPE_FIELD].initial = self.type_subtype_view(obj)
         return form
+
+    def all_groups(self, instance):
+        groups = instance.groups.all()
+        display = '\n'.join(sorted(group.name for group in groups))
+        return make_html_list(display)
+
+    all_groups.short_description = 'Groups'
+    all_groups.allow_tags = True
 
     def save_model(self, request, obj, form, change):
         '''
@@ -70,8 +80,30 @@ class RegionAdmin(admin.ModelAdmin):
         return self.slug
 
 
+class SubjectGroupChangeForm(forms.ModelForm):
+    filter_horizontal = ('children', 'permission_sets', 'subjects')
+    subjects = forms.ModelMultipleChoiceField(
+        queryset=models.Subject.objects.by_is_active(True),
+        required=False,
+        widget=FilteredSelectMultiple(
+            verbose_name=_('Subjects'),
+            is_stacked=False
+        )
+    )
+
+    class Meta:
+        model = models.SubjectGroup
+        fields = ('name', 'id', 'subjects', 'children', 'permission_sets')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['children'].queryset = models.SubjectGroup.objects.exclude(
+            id__exact=self.instance.id)
+
+
 @admin.register(models.SubjectGroup)
 class SubjectGroupAdmin(HierarchyModelAdmin):
+    form = SubjectGroupChangeForm
     search_fields = ('name',)
     ordering = ('name',)
     fieldsets = (
@@ -82,18 +114,10 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
     )
     filter_horizontal = ('children', 'permission_sets', 'subjects')
 
-
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == 'children':
             db_field.verbose_name = 'groups'
         return super().formfield_for_dbfield(db_field, **kwargs)
-
-
-class SubjectGroupChangeForm(object):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['groups'].queryset = models.SubjectGroup.objects.exclude(
-            id__exact=self.instance.id)
 
 
 @admin.register(models.SourceGroup)
