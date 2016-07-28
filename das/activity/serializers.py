@@ -341,7 +341,7 @@ def get_update_type(revision, previous_revisions=[]):
                 return activity.models.Event.SC_RESOLVED
             if event_state == activity.models.Event.SC_NEW:
                 return 'mark_as_new'
-            for row in previous_revisions:
+            for row in reversed(previous_revisions):
                 prev_state = row.data.get('state', None)
                 if prev_state:
                     if prev_state == activity.models.Event.SC_RESOLVED:
@@ -579,7 +579,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             return revision.get_action_display()
 
         result = []
-        revisions = [v for v in event.revision.all_user().order_by('-sequence')]
+        revisions = list(iter(event.revision.all_user().order_by('sequence')))
         while revisions:
             revision = revisions.pop()
             record = dict(
