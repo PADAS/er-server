@@ -231,11 +231,14 @@ class ObservationManager(models.GeoManager):
         r = Observation.objects.filter(source=source).aggregate(Max('recorded_at'))
         return r.get('recorded_at__max')
 
-    def get_last_observation(self, subject):
+    def get_last_observation(self, subject, newer_than=None):
         """get the last recorded observation of the subject
+        subject: subject to get observation for
+        newer_than: provide a range to look in
         :returns Observation
         """
-        return self._get_observation(subject, first=False)
+        return self._get_observation(subject, first=False,
+                                     newer_than=newer_than)
 
     def get_delayed_observation(self, subject, older_than=None):
         """get the delayed last recorded observation of the subject
@@ -251,7 +254,7 @@ class ObservationManager(models.GeoManager):
         """
         return self._get_observation(subject, first=True)
 
-    def _get_observation(self, subject=None, first=False, subject_sources=None, older_than=None):
+    def _get_observation(self, subject=None, first=False, subject_sources=None, older_than=None, newer_than=None):
         field = '-recorded_at'
         if first:
             field = 'recorded_at'
@@ -271,9 +274,16 @@ class ObservationManager(models.GeoManager):
             r = r.exclude(location=EMPTY_POINT)
             r = r.filter(recorded_at__gt=ssource.assigned_range.lower)
             upper_range = ssource.assigned_range.upper
+            lower_range = ssource.assigned_range.lower
+            if newer_than and newer_than > upper_range:
+                continue
+            if older_than and lower_range > older_than:
+                continue
             if older_than and older_than < upper_range:
                 upper_range = older_than
             r = r.filter(recorded_at__lt=upper_range)
+            if newer_than:
+                r = r.filter(recorded_at__gt=newer_than)
             r = r.order_by(field)[:1]
             if r:
                 return r[0]
