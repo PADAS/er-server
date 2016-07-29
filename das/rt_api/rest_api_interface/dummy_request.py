@@ -3,7 +3,7 @@ from oauthlib.common import Request
 
 class DummyRequest(Request):
     _request = None
-    def __init__(self, uri='/dummy', http_method='POST', body={}, headers=None, encoding='utf-8'):
+    def __init__(self, uri='/dummy', http_method='POST', body={}, headers={}, encoding='utf-8'):
         self.method = http_method
         self.META = headers
         self.POST = body
