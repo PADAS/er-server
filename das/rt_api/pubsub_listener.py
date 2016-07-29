@@ -3,7 +3,8 @@ import eventlet
 import logging
 
 from activity.models import Event
-from activity.serializers import EventSerializer
+from activity.views import EventView
+# from activity.serializers import EventSerializer
 from das_server import pubsub
 from datetime import datetime, timedelta
 from observations.views import SubjectTracksView
@@ -18,43 +19,68 @@ def get_context():
 
 def start(realtime_server):
 
-    def _new_update_event_handler(data, emit, update=False):
+    def _event_handler(data, emit, type=None):
         try:
-            event = Event.objects.get(id=data['event_id'])
-            if event:
-                serializer = EventSerializer(event, context=get_context())
-                event_data = serializer.data
-                emit(event_id=str(data['event_id']),
-                     event_data=event_data)
+            connected_clients = realtime_server.connected_clients()
+            event_id = data['event_id']
+            view = EventView.as_view()
+
+            # Loop over all connected clients because they may have different event permissions
+            for socket_id in connected_clients:
+                try:
+                    # Create a dummy request with the user's info so we get the permission enforcement for free
+                    request = DummyRequest(uri='/event/', http_method='GET')
+                    request.user = connected_clients[socket_id]['user']
+                    request._force_auth_user = request.user
+                    result = view(request, id=event_id)
+
+                    # if we get location data, package it up and send it out
+                    if result.status_code == 200 and result.data:
+                        emit(event_id=str(data['event_id']),
+                             event_data=result.data,
+                             user=socket_id)
+
+                    send_count(socket_id)
+
+                except Exception as ex:
+                    logger.exception(
+                        'Error creating custom payload for event: %s' % (data,),
+                        ex)
+
         except Exception:
             logger.exception("Error handling {0} event for {1}".format(
-                'update' if update else 'new', data))
-        send_count()
+                type, data))
+
+    def _new_event_handler(data, message):
+        logger.info("Handling new event: %s", data)
+        _event_handler(data, realtime_server.emit_new_event, type='new')
 
     def new_event_handler(data, message):
-        _new_update_event_handler(data, realtime_server.emit_new_event)
+        eventlet.spawn_n(_new_event_handler, data, message)
+
+    def _update_event_handler(data, message):
+        logger.info("Handling update event: %s", data)
+        _event_handler(data, realtime_server.emit_update_event, type='update')
 
     def update_event_handler(data, message):
-        _new_update_event_handler(data, realtime_server.emit_update_event,
-                                  update=True)
+        eventlet.spawn_n(_update_event_handler, data, message)
+
+    def _delete_event_handler(data, message):
+        logger.info("Handling delete event: %s", data)
+        _event_handler(data, realtime_server.emit_delete_event, type='delete')
 
     def delete_event_handler(data, message):
-        try:
-                realtime_server.emit_delete_event(
-                    event_id=str(data['event_id']))
-        except Exception:
-            logger.exception("Error handling delete event for {0}".format(data))
-        send_count()
+        eventlet.spawn_n(_delete_event_handler, data, message)
 
-    def send_count():
+    def send_count(user):
         try:
             count = Event.objects.new_count()
-            realtime_server.emit_count_event(count)
+            realtime_server.emit_count_event(count, user=user)
         except Exception:
             logger.exception(
                 "Error sending count")
 
-    def new_observation_handler(data, message):
+    def _new_observation_handler(data, message):
         try:
             logger.info("Handling new observation: %s", data)
             connected_clients = realtime_server.connected_clients()
@@ -66,7 +92,7 @@ def start(realtime_server):
                 try:
                     # Create a dummy request with the user's info so we get the permission enforcement for free
                     request = DummyRequest(uri='/subject/{0}/'.format(subject_id), headers={},
-                                           body={'since':datetime.now() - timedelta(days=3)}, http_method='GET')
+                                           body={'since':datetime.now() - timedelta(days=30)}, http_method='GET')
                     request.user = connected_clients[socket_id]['user']
                     request._force_auth_user = request.user
                     result = view(request, id=subject_id)
@@ -74,6 +100,10 @@ def start(realtime_server):
                     # if we get location data, package it up and send it out
                     if 'features' in result.data and len(result.data['features']) > 0:
                         geojson_data = result.data['features'][0]
+
+                        # If there are no coordinates the user is allowed to see, no reason to send a notification
+                        if len(geojson_data['geometry']['coordinates']) == 0:
+                            continue
 
                         # only want the latest 2 observations
                         geojson_data['properties']['coordinateProperties']['times'] = \
@@ -88,6 +118,9 @@ def start(realtime_server):
 
         except Exception as ex:
             logger.exception('Error handling new observation message: %s' % (data,), ex)
+
+    def new_observation_handler(data, message):
+        eventlet.spawn_n(_new_observation_handler, data, message)
 
     def pubsub_listener():
 

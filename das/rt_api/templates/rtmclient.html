@@ -35,10 +35,23 @@
 
                 socket.on('echo_resp', function(msg){
                     $('#log').append('<br>Received #' + msg.resp_id + ': ' + msg.message);
-                })
+                });
+
                 socket.on('subject_position_update', function(msg) {
-                    $('#log').append('<br>Received #' + msg);
-                })
+                    $('#log').append('<br>Received position update:  ' + msg);
+                });
+
+                socket.on('new_event', function(msg) {
+                    $('#log').append('<br>Received new event:  ' + msg);
+                });
+
+                socket.on('update_event', function(msg) {
+                    $('#log').append('<br>Received update event:  ' + msg);
+                });
+
+                socket.on('delete_event', function(msg) {
+                    $('#log').append('<br>Received delete event:  ' + msg);
+                });
 
                 socket.on('disconnect', function() {
                      $('#log').append('<br>Disconnected');
