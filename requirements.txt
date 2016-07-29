@@ -11,12 +11,12 @@ python-socketio==1.4.2
 #master python-socketio project took our last update
 #git+https://github.com/PADAS/python-socketio.git@cba6c3ed8b8b2c777538a5a35e73f98f4ec9d4bb
 
-#git+https://github.com/PADAS/django-ses.git@2fae0ebdaa96ff6daaea4edaafca3c02cdda61d8
-django-ses==0.8.0
 greenlet==0.4.10
 gunicorn==19.6.0
 Django==1.9.7
 
+#git+https://github.com/PADAS/django-ses.git@2fae0ebdaa96ff6daaea4edaafca3c02cdda61d8
+django-ses==0.8.0
 djangorestframework==3.4.0
 #drf geojson serializers
 #djangorestframework-gis==0.10.1
@@ -63,6 +63,7 @@ django-treebeard==4.0.1
 django-extra-fields==0.7
 gevent==1.1.2
 django-storages==1.4.1
+drf-extensions==0.2.8
 #django-versatileimagefield==1.5
 git+https://github.com/VulcanTechnologies/django-versatileimagefield.git@751767afb611890921c6705f1a69fa69381ea103
 

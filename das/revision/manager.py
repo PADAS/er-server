@@ -37,8 +37,8 @@ class RevisionManager(models.Manager):
             return super(RevisionManager, self).get_queryset()
 
         f = {'object_id': self.instance.pk}
-        queryset = super(RevisionManager, self).get_queryset().filter(**f)\
-            .order_by('sequence')
+        queryset = super(RevisionManager, self).get_queryset().filter(**f)
+
         return queryset
 
     def all_user(self):
@@ -216,7 +216,6 @@ class Revision(object):
 
         descriptor = RevisionDescriptor(revision_model, self.manager_class, self.manager_name)
         setattr(sender, self.manager_name, descriptor)
-
 
     def get_table_fields(self, model):
         rel_name = '_%s_revision'%model._meta.object_name.lower()

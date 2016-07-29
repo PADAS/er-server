@@ -10,6 +10,9 @@ class RequestLoggingMiddleware(object):
     def process_request(self, request):
         self.start_time = time.time()
 
+    def process_exception(self, request, exception):
+        self.logger.exception('Exception handling %s', request.get_full_path)
+
     def process_response(self, request, response):
         try:
             result = {}

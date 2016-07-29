@@ -2,16 +2,21 @@
 Code found here:
 Allow a superuser to browse the DRF api.
 """
+import logging
+
 import django.views.defaults
 from django.http import Http404, JsonResponse
 from django.utils.translation import ugettext_lazy as _
 import rest_framework
+from rest_framework import exceptions
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.compat import set_rollback
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 from rest_framework.pagination import PageNumberPagination
 
+
+logger = logging.getLogger('django.request')
 
 
 class SuperUserSessionAuthentication(SessionAuthentication):
@@ -68,6 +73,8 @@ def api_exception_handler(exc, context):
     """
     Our custom error handler, that returns payload as JSON
     """
+    if not isinstance(exc, (exceptions.PermissionDenied,)):
+        logger.exception('Exception handling %s', context['request'].get_full_path)
     response = exception_handler(exc, context)
     if not response:
         message = str(_('Internal Server Error'))
@@ -77,6 +84,7 @@ def api_exception_handler(exc, context):
         response = Response(data,
                             status=rest_framework.status.HTTP_500_INTERNAL_SERVER_ERROR)
     return fixup_api_response(response)
+
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 25

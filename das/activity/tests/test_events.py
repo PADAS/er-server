@@ -159,6 +159,7 @@ class TestEventView(BaseAPITest):
         event = self.create_event(self.event_data)
 
         update_data = copy.deepcopy(self.event_data)
+        update_data['id'] = event.id
         update_data['message'] = 'A completely different message'
 
         request = self.factory.patch(
@@ -198,6 +199,23 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         self.assertEqual(response.status_code, 403)
 
+    def test_add_reported_by(self):
+        event = self.create_event(self.event_data)
+        update_data = {}
+        update_data['reported_by'] = self.user_rep
+        update_data['provenance'] = Event.PC_STAFF
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}'.format(str(event.id)),
+            update_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventView.as_view()(request,
+                                             id=str(event.id))
+        self.assertEqual(response.status_code, 200)
+        response_data = response.data
+        self.assertEqual(response_data['reported_by']['id'],
+                         update_data['reported_by']['id'])
 
     def test_update_event_state_active(self):
         event = self.create_event(self.event_data)
