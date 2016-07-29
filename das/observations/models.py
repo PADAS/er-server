@@ -102,7 +102,8 @@ class SourceManager(models.Manager):
         src, created = Source.objects.get_or_create(source_type=source_type,
                                                     manufacturer_id=manufacturer_id,
                                                     defaults={'model_name': model_name,
-                                                              'additional': additional})
+                                                              'additional': additional
+                                                              })
 
         return src, created
 
@@ -349,6 +350,11 @@ class SubjectSourceManager(models.GeoManager):
                                                                                    additional=additional))
                 
         return subject_source, created
+
+    def get_for_source_at_time(self, source, at_time):
+        subject_sources = SubjectSource.objects.filter(source=source, assigned_range__contains=at_time)
+        if subject_sources:
+            return subject_sources[0]
 
 
 class SubjectSource(models.Model):
@@ -625,6 +631,50 @@ class Subject(models.Model, PermissionSetGroupMixin):
 
     def __str__(self):
         return '%s, %s, %s' % (self.name, self.subject_type, self.subject_subtype)
+
+
+class SubjectStatusManager(models.Manager):
+
+    def update_from_observation(self, observation):
+
+        ss = SubjectSource.objects.get_for_source_at_time(source=observation.source, at_time=observation.recorded_at)
+
+        if not ss: # Coding error
+            raise ValueError('No SubjectSource exists for observation {}'.format(observation))
+
+        last = Observation.objects.get_last_observation(ss.subject)
+        delayed = Observation.objects.get_delayed_observation(ss.subject)
+
+        try:
+            substatus = SubjectStatus.objects.get(subject=ss.subject)
+        except SubjectStatus.DoesNotExist:
+            substatus = SubjectStatus(subject=ss.subject, additional={})
+
+        if last:
+            substatus.location = last.location
+            substatus.location_at = last.recorded_at
+        else:
+            substatus.location = EMPTY_POINT
+            substatus.location_at = datetime.datetime(1970,1,1, tzinfo=pytz.utc)
+
+        if delayed:
+            substatus.delayed_location = delayed.location
+            substatus.delayed_location_at = delayed.recorded_at
+        else:
+            substatus.delayed_location = EMPTY_POINT
+            substatus.delayed_location_at = datetime.datetime(1970,1,1,tzinfo=pytz.utc)
+        substatus.save()
+
+
+class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
+    subject = models.ForeignKey('Subject', on_delete=models.CASCADE)
+    additional = JSONField('additional')
+    location = models.PointField('location')
+    location_at = models.DateTimeField('location at')
+    delayed_location = models.PointField('delayed location')
+    delayed_location_at = models.DateTimeField('delayed location at')
+
+    objects = SubjectStatusManager()
 
 
 class RegionManager(models.Manager):
