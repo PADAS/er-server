@@ -26,12 +26,6 @@ def create_realtime_handler(sios):
             # Make sure the connection authenticates immediately
             eventlet.spawn_after(1.0, confirm_authed, sid, socket)
 
-        @sios.on('disconnect', namespace='/')
-        def on_disconnect(sid, *args):
-            logger.debug("Handling disconnect event for socket {0}".format(sid))
-            if sid in sios.server.environ:
-                del sios.server.environ[sid]
-
         @sios.on('authorization', namespace='/das')
         def on_authenticate(sid, data):
             try:
