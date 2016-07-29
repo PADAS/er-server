@@ -730,3 +730,6 @@ MARKER_ICONS = {
 def googlemarkericon(subject_type):
     url = MARKER_ICONS.get(subject_type, '/static/truck.png')
     return url
+
+
+import observations.signals
