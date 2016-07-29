@@ -19,7 +19,7 @@ import random
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.db.models import Q
-from django.db.models import Max
+from django.db.models import Max, F, Case, When
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
@@ -635,46 +635,49 @@ class Subject(models.Model, PermissionSetGroupMixin):
 
 class SubjectStatusManager(models.Manager):
 
-    def update_from_observation(self, observation):
+    def update_from_observation(self, observation, delay_hours=0):
 
         ss = SubjectSource.objects.get_for_source_at_time(source=observation.source, at_time=observation.recorded_at)
 
         if not ss: # Coding error
             raise ValueError('No SubjectSource exists for observation {}'.format(observation))
 
-        last = Observation.objects.get_last_observation(ss.subject)
-        delayed = Observation.objects.get_delayed_observation(ss.subject)
-
-        try:
-            substatus = SubjectStatus.objects.get(subject=ss.subject)
-        except SubjectStatus.DoesNotExist:
-            substatus = SubjectStatus(subject=ss.subject, additional={})
-
-        if last:
-            substatus.location = last.location
-            substatus.location_at = last.recorded_at
+        if not delay_hours:
+            observation = Observation.objects.get_last_observation(ss.subject)
         else:
-            substatus.location = EMPTY_POINT
-            substatus.location_at = datetime.datetime(1970,1,1, tzinfo=pytz.utc)
+            ts = datetime.now(tz=pytz.UTC) - timedelta(hours=delay_hours)
+            observation = Observation.objects.get_delayed_observation(ss.subject, older_than=ts)
 
-        if delayed:
-            substatus.delayed_location = delayed.location
-            substatus.delayed_location_at = delayed.recorded_at
+        if not observation:
+            return
+
+        substatus, created = SubjectStatus.objects.get_or_create(subject=ss.subject, delay_hours=delay_hours,
+                                                        defaults=dict(recorded_at=observation.recorded_at,
+                                                                      location=observation.location,
+                                                                      additional={}))
+
+        if created or substatus.recorded_at >= observation.recorded_at:
+            pass
         else:
-            substatus.delayed_location = EMPTY_POINT
-            substatus.delayed_location_at = datetime.datetime(1970,1,1,tzinfo=pytz.utc)
-        substatus.save()
+            substatus.recorded_at = observation.recorded_at
+            substatus.location = observation.location
+            substatus.save()
+
+        return substatus
 
 
 class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
     subject = models.ForeignKey('Subject', on_delete=models.CASCADE)
-    additional = JSONField('additional')
     location = models.PointField('location')
-    location_at = models.DateTimeField('location at')
-    delayed_location = models.PointField('delayed location')
-    delayed_location_at = models.DateTimeField('delayed location at')
+    recorded_at = models.DateTimeField('location at')
+    delay_hours = models.IntegerField('delay in hours')
+    additional = JSONField('additional')
 
     objects = SubjectStatusManager()
+
+    class Meta:
+        verbose_name = _('Subject Status')
+        unique_together = ('subject', 'delay_hours')
 
 
 class RegionManager(models.Manager):
