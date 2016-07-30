@@ -134,3 +134,11 @@ class SourceGroupAdmin(HierarchyModelAdmin):
     filter_horizontal = ('children', 'permission_sets', 'sources')
 
 
+@admin.register(models.SubjectStatus)
+class SubjectStatusAdmin(admin.ModelAdmin):
+    search_fields = ('subject__name',)
+    ordering = ('-recorded_at',)
+
+    list_display= ('subject', 'delay_hours', 'recorded_at', 'location')
+
+    list_filter = ('delay_hours',)
