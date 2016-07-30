@@ -19,7 +19,7 @@ import random
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.db.models import Q
-from django.db.models import Max
+from django.db.models import Max, F, Case, When
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
@@ -102,7 +102,8 @@ class SourceManager(models.Manager):
         src, created = Source.objects.get_or_create(source_type=source_type,
                                                     manufacturer_id=manufacturer_id,
                                                     defaults={'model_name': model_name,
-                                                              'additional': additional})
+                                                              'additional': additional
+                                                              })
 
         return src, created
 
@@ -349,6 +350,11 @@ class SubjectSourceManager(models.GeoManager):
                                                                                    additional=additional))
                 
         return subject_source, created
+
+    def get_for_source_at_time(self, source, at_time):
+        subject_sources = SubjectSource.objects.filter(source=source, assigned_range__contains=at_time)
+        if subject_sources:
+            return subject_sources[0]
 
 
 class SubjectSource(models.Model):
@@ -627,6 +633,53 @@ class Subject(models.Model, PermissionSetGroupMixin):
         return '%s, %s, %s' % (self.name, self.subject_type, self.subject_subtype)
 
 
+class SubjectStatusManager(models.Manager):
+
+    def update_from_observation(self, observation, delay_hours=0):
+
+        ss = SubjectSource.objects.get_for_source_at_time(source=observation.source, at_time=observation.recorded_at)
+
+        if not ss: # Coding error
+            raise ValueError('No SubjectSource exists for observation {}'.format(observation))
+
+        if not delay_hours:
+            observation = Observation.objects.get_last_observation(ss.subject)
+        else:
+            ts = datetime.now(tz=pytz.UTC) - timedelta(hours=delay_hours)
+            observation = Observation.objects.get_delayed_observation(ss.subject, older_than=ts)
+
+        if not observation:
+            return
+
+        substatus, created = SubjectStatus.objects.get_or_create(subject=ss.subject, delay_hours=delay_hours,
+                                                        defaults=dict(recorded_at=observation.recorded_at,
+                                                                      location=observation.location,
+                                                                      additional={}))
+
+        if created or substatus.recorded_at >= observation.recorded_at:
+            pass
+        else:
+            substatus.recorded_at = observation.recorded_at
+            substatus.location = observation.location
+            substatus.save()
+
+        return substatus
+
+
+class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
+    subject = models.ForeignKey('Subject', on_delete=models.CASCADE)
+    location = models.PointField('location')
+    recorded_at = models.DateTimeField('location at')
+    delay_hours = models.IntegerField('delay in hours')
+    additional = JSONField('additional')
+
+    objects = SubjectStatusManager()
+
+    class Meta:
+        verbose_name = _('Subject Status')
+        unique_together = ('subject', 'delay_hours')
+
+
 class RegionManager(models.Manager):
     pass
 
@@ -677,3 +730,6 @@ MARKER_ICONS = {
 def googlemarkericon(subject_type):
     url = MARKER_ICONS.get(subject_type, '/static/truck.png')
     return url
+
+
+import observations.signals
