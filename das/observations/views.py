@@ -6,6 +6,7 @@ import pytz
 from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 from django.http import Http404
+from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
 from rest_framework import generics
 from rest_framework.exceptions import PermissionDenied
@@ -74,7 +75,7 @@ class SubjectGroupsView(generics.ListAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['render_last_location'] = False
+        context['render_last_location'] = True
         return context
 
 
@@ -92,7 +93,7 @@ class SubjectGroupView(generics.ListAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['render_last_location'] = False
+        context['render_last_location'] = True
         return context
 
 
@@ -151,19 +152,24 @@ class SubjectsView(generics.ListAPIView):
         subject_group = self.request.query_params.get('subject_group', None)
         if subject_group:
             queryset = queryset.by_user_subjects(self.request.user)
+        queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
         return queryset
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['render_last_location'] = False
+        context['render_last_location'] = True
         return context
 
 
 class SubjectView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.SubjectSerializer
-    queryset = models.Subject.objects.all()
     lookup_field = 'id'
+
+    def get_queryset(self):
+        queryset = models.Subject.objects.all()
+        queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
+        return queryset
 
 
 class SubjectSourcesView(generics.ListAPIView):

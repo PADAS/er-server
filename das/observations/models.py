@@ -405,11 +405,12 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
         sg_all = set(self.get_descendants())
         sg_all.add(self)
 
-        subjects = Subject.objects.all()
+        queryset = Subject.objects.all()
         if active is not None:
-            subjects = subjects.by_is_active(active=active)
-        subjects = subjects.filter(groups__in=sg_all)
-        return subjects
+            queryset = queryset.by_is_active(active=active)
+        queryset = queryset.prefetch_related(models.Prefetch('subjectstatus_set'))
+        queryset = queryset.filter(groups__in=sg_all)
+        return queryset
 
     def natural_key(self):
         return (self.name,)
@@ -633,6 +634,20 @@ class Subject(models.Model, PermissionSetGroupMixin):
         return '%s, %s, %s' % (self.name, self.subject_type, self.subject_subtype)
 
 
+OBSERVATION_DELAY_HRS = 24
+
+class SubjectStatusQuerySet(models.QuerySet):
+    def get_last(self):
+        for row in self:
+            if row.delay_hours == 0:
+                return row
+
+    def get_delayed(self):
+        for row in self:
+            if row.delay_hours == OBSERVATION_DELAY_HRS:
+                return row
+
+
 class SubjectStatusManager(models.Manager):
 
     def update_from_observation(self, observation, delay_hours=0):
@@ -673,7 +688,7 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
     delay_hours = models.IntegerField('delay in hours')
     additional = JSONField('additional')
 
-    objects = SubjectStatusManager()
+    objects = SubjectStatusManager.from_queryset(SubjectStatusQuerySet)()
 
     class Meta:
         verbose_name = _('Subject Status')
