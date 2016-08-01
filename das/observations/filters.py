@@ -20,7 +20,7 @@ class SubjectObjectPermissionsFilter(BaseFilterBackend):
         return queryset.filter(id__in=values)
 
     def get_user_subjects(self, user):
-        return Subject.objects.by_user_subjects(user)
+        return Subject.objects.all().by_user_subjects(user)
 
 
 def create_gp_filter_class(name, perms, model):

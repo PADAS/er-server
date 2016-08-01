@@ -2,8 +2,8 @@
 DROP USER IF EXISTS dasdb_owner;
 DROP USER IF EXISTS dasdb_user;
 
-CREATE USER dasdb_owner WITH PASSWORD 'dasdb_owner';
-CREATE USER dasdb_user WITH PASSWORD 'dasdb_user';
+CREATE USER dasdb_owner WITH PASSWORD :ownerpw;
+CREATE USER dasdb_user WITH PASSWORD :userpw;
 
 ALTER DATABASE :db_name OWNER TO dasdb_owner;
 

@@ -17,7 +17,8 @@ from accounts.models import User, PermissionSet
 
 class PermissionSetAdminForm(forms.ModelForm):
     filter_horizontal = ('permissions', 'children')
-    users = forms.ModelMultipleChoiceField(
+    user_set = forms.ModelMultipleChoiceField(
+        label='Users',
         queryset=User.objects.all(),
         required=False,
         widget=FilteredSelectMultiple(
@@ -28,23 +29,18 @@ class PermissionSetAdminForm(forms.ModelForm):
 
     class Meta:
         model = PermissionSet
-        fields = ('name', 'permissions', 'children')
+        fields = ('name', 'permissions', 'children', 'user_set')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         if self.instance and self.instance.pk:
-            self.fields['users'].initial = self.instance.user_set.all()
+            self.fields['user_set'].initial = self.instance.user_set.all()
 
-    def save(self, commit=True):
-        ps = super().save(commit=False)
-
-        if commit:
-            ps.save()
-        if ps.pk:
-            ps.users = self.cleaned_data['users']
-            self.save_m2m()
-        return ps
+    def _save_m2m(self):
+        users = self.cleaned_data['user_set']
+        self.instance.user_set.set(users)
+        return super()._save_m2m()
 
 
 @admin.register(PermissionSet)
@@ -58,7 +54,7 @@ class PermissionSetAdmin(DjangoGroupAdmin):
                        )}
          ),
         (_('Members'), {
-            'fields': ('children', 'users')}),
+            'fields': ('children', 'user_set')}),
     )
 
 

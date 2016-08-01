@@ -169,6 +169,9 @@ DATABASES = {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': 'das',
         'USER': 'postgres',
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
     },
     # Optional, use to import vectroincs data into das
     # 'vectronics': {

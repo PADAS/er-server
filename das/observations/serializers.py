@@ -18,10 +18,11 @@ class RecursiveSerializer(rest_framework.serializers.Serializer):
         serializer = self.parent.parent.__class__(instance, context=self.context)
         return serializer.data
 
+
 def create_sg_serializer(name, model, serializer):
     contained_field = '{0}s'.format(serializer.Meta.model._meta.model_name)
     meta = type('Meta', (object,), dict(model=model,
-                                        fields=('name', 'id', contained_field, 'subgroups')))
+                                        fields=('name', 'id', 'subgroups')))
     subgroups = RecursiveSerializer(many=True, read_only=True, source='children')
     return type(name, (GroupSerializer,), dict(serializer=serializer, Meta=meta,
                                                subgroups=subgroups,
@@ -31,12 +32,16 @@ def create_sg_serializer(name, model, serializer):
 class GroupSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, instance):
+        user = getattr(self.context.get('request', None), 'user', None)
         data_serializer = self.serializer(context=self.context)
         contained_field= self.contained_field
 
+        queryset = getattr(instance, 'get_all_{0}'.format(contained_field))(
+            user=user, active=True)
+
         rep = super().to_representation(instance)
         data = [data_serializer.to_representation(s)
-                for s in getattr(instance, 'get_all_{0}'.format(contained_field))()]
+                for s in queryset]
         rep[contained_field] = data
         return rep
 
