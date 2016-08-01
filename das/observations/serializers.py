@@ -74,16 +74,15 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
         rep.update(additional)
 
         if user and render_last_location:
+            last_position = None
             if user.has_any_perms(model.VIEW_POSITION_PERMS, instance):
-                last_position = models.Observation.objects.get_last_observation(instance)
+                last_position = instance.subjectstatus_set.get_last()
             elif user.has_any_perms(model.VIEW_DELAYED_PERMS, instance):
-                last_position = models.Observation.objects.get_delayed_observation(instance)
-            else:
-                last_position = None
+                last_position = instance.subjectstatus_set.get_delayed()
 
             first_position = None
             if last_position:
-                first_position = models.Observation.objects.get_first_observation(instance)
+                first_position = instance.subjectstatus_set.get_delayed()
 
             rep['tracks_available'] = bool(last_position)
             if last_position:
@@ -92,8 +91,9 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
                                                     last_position.location,
                                                     instance,
                                                     time=last_position.recorded_at)
-                rep['tracks_range'] = (first_position.recorded_at,
-                                       last_position.recorded_at)
+                if first_position:
+                    rep['tracks_range'] = (first_position.recorded_at,
+                                           last_position.recorded_at)
         return rep
 
 
@@ -153,12 +153,6 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
     }
     properties = feature['properties']
     if hasattr(subject, 'color'):
-        feature['style'] = {
-            "color": subject.color,
-            "iconUrl": image_url,
-            "opacity": 1,
-            "deprecating": "use https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0"
-        }
         #see https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0
         properties['stroke'] = subject.color
         properties['stroke-opacity'] = 1.0
