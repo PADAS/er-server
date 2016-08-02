@@ -745,7 +745,7 @@ MARKER_ICONS = {
     'lion-male': '/static/Lion_Male.png',
     'lion-female': '/static/Lion_Female.png',
     'ranger': '/static/ranger_team-black.svg',
-    'ranger-online': '/static/ranger_team-blue.svg',
+    'ranger-online': '/static/ranger_team-green.svg',
     'ranger-offline': '/static/ranger_team-gray.svg',
     'ranger-alarm': '/static/ranger_team-red.svg',
     'vehicle': '/static/truck.png',
