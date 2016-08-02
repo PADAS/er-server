@@ -676,6 +676,7 @@ class SubjectStatusManager(models.Manager):
         else:
             substatus.recorded_at = observation.recorded_at
             substatus.location = observation.location
+            substatus.additional = observation.additional
             substatus.save()
 
         return substatus
@@ -692,6 +693,7 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
 
     class Meta:
         verbose_name = _('Subject Status')
+        verbose_name_plural = _('Subject Statuses')
         unique_together = ('subject', 'delay_hours')
 
 
