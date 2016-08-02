@@ -616,6 +616,23 @@ class Subject(models.Model, PermissionSetGroupMixin):
 
         return googlemarkericon(key.lower())
 
+    def get_last_position_image_url(self):
+        key = self.subject_subtype
+        sex = self.additional.get('sex', None)
+        if sex:
+            key = '-'.join((key, sex))
+
+        if self.subject_subtype == 'ranger':
+            status = self.subjectstatus_set.filter(delay_hours=0)
+
+            if status:
+                status = status[0]
+                if 'state' in status.additional:
+                    key = '-'.join((key, status.additional.get('state')))
+
+        return googlemarkericon(key.lower())
+
+
     def get_users_to_notify(self):
         """
         return a queryset of all users to be notified for this subject
@@ -727,7 +744,10 @@ MARKER_ICONS = {
     'forest elephant-female': '/static/elephant-black-female.svg',
     'lion-male': '/static/Lion_Male.png',
     'lion-female': '/static/Lion_Female.png',
-    'ranger': '/static/patrol_team-black.svg',
+    'ranger': '/static/ranger_team-black.svg',
+    'ranger-online': '/static/ranger_team-blue.svg',
+    'ranger-offline': '/static/ranger_team-gray.svg',
+    'ranger-alarm': '/static/ranger_team-red.svg',
     'vehicle': '/static/truck.png',
     'cow': '',
     'cheetah': '',
