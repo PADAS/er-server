@@ -608,20 +608,20 @@ class Subject(models.Model, PermissionSetGroupMixin):
 
     @property
     def image_url(self):
+        key = self._image_key()
+        return googlemarkericon(key.lower())
+
+    def _image_key(self):
         # TODO: This is a bit kludgy, so fix it to use subject type and subtype after March demo.
         key = self.subject_subtype
         sex = self.additional.get('sex', None)
         if sex:
             key = '-'.join((key, sex))
-
-        return googlemarkericon(key.lower())
+        return key
 
     def get_last_position_image_url(self):
-        key = self.subject_subtype
-        sex = self.additional.get('sex', None)
-        if sex:
-            key = '-'.join((key, sex))
 
+        key = self._image_key()
         if self.subject_subtype == 'ranger':
             status = self.subjectstatus_set.filter(delay_hours=0)
 
