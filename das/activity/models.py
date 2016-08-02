@@ -287,11 +287,11 @@ class Event(RevisionMixin, TimestampedModel):
         super().clean()
         """validate reported_by based on provenance"""
         if self.provenance == self.PC_STAFF:
-            if not isinstance(self.reported_by, (get_user_model(), Subject)):
+            if self.reported_by and not isinstance(self.reported_by, (get_user_model(), Subject)):
                 raise ValidationError(
                     {'reported_by': ValidationError(_('Invalid value for reported_by'), code='invalid')})
         elif self.provenance == self.PC_COMMUNITY:
-            if not isinstance(self.reported_by, (Community,)):
+            if self.reported_by and not isinstance(self.reported_by, (Community,)):
                 raise ValidationError(
                     {'reported_by': ValidationError(
                         _('Invalid value for {0} reported_by'.format(self.PC_COMMUNITY)), code='invalid')})
