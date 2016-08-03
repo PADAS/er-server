@@ -608,13 +608,30 @@ class Subject(models.Model, PermissionSetGroupMixin):
 
     @property
     def image_url(self):
+        key = self._image_key()
+        return googlemarkericon(key.lower())
+
+    def _image_key(self):
         # TODO: This is a bit kludgy, so fix it to use subject type and subtype after March demo.
         key = self.subject_subtype
         sex = self.additional.get('sex', None)
         if sex:
             key = '-'.join((key, sex))
+        return key
+
+    def get_last_position_image_url(self):
+
+        key = self._image_key()
+        if self.subject_subtype == 'ranger':
+            status = self.subjectstatus_set.filter(delay_hours=0)
+
+            if status:
+                status = status[0]
+                if 'state' in status.additional:
+                    key = '-'.join((key, status.additional.get('state')))
 
         return googlemarkericon(key.lower())
+
 
     def get_users_to_notify(self):
         """
@@ -676,6 +693,7 @@ class SubjectStatusManager(models.Manager):
         else:
             substatus.recorded_at = observation.recorded_at
             substatus.location = observation.location
+            substatus.additional = observation.additional
             substatus.save()
 
         return substatus
@@ -692,6 +710,7 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
 
     class Meta:
         verbose_name = _('Subject Status')
+        verbose_name_plural = _('Subject Statuses')
         unique_together = ('subject', 'delay_hours')
 
 
@@ -725,7 +744,10 @@ MARKER_ICONS = {
     'forest elephant-female': '/static/elephant-black-female.svg',
     'lion-male': '/static/Lion_Male.png',
     'lion-female': '/static/Lion_Female.png',
-    'ranger': '/static/patrol_team-black.svg',
+    'ranger': '/static/ranger_team-black.svg',
+    'ranger-online': '/static/ranger_team-green.svg',
+    'ranger-offline': '/static/ranger_team-gray.svg',
+    'ranger-alarm': '/static/ranger_team-red.svg',
     'vehicle': '/static/truck.png',
     'cow': '',
     'cheetah': '',

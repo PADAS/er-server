@@ -11,6 +11,7 @@ class DummyRequest(Request):
         self.encoding = encoding
         self._request = self
         self.query_params = {}
+        self.successful_authenticator = 'dummy_authentication'
         Request.__init__(self, uri, http_method, body, headers, encoding)
 
     def get_full_path(self):

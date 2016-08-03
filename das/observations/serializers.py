@@ -72,11 +72,11 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
         additional = {k: additional[k] for k in self.additional_fields
                       if k in additional}
         rep.update(additional)
-
         if user and render_last_location:
             last_position = None
             if user.has_any_perms(model.VIEW_POSITION_PERMS, instance):
                 last_position = instance.subjectstatus_set.get_last()
+                rep['image_url'] = instance.get_last_position_image_url()
             elif user.has_any_perms(model.VIEW_DELAYED_PERMS, instance):
                 last_position = instance.subjectstatus_set.get_delayed()
 
@@ -90,7 +90,8 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
                 rep['last_position'] = make_feature(self.context['request'],
                                                     last_position.location,
                                                     instance,
-                                                    time=last_position.recorded_at)
+                                                    time=last_position.recorded_at,
+                                                    image_url=rep['image_url'])
                 if first_position:
                     rep['tracks_range'] = (first_position.recorded_at,
                                            last_position.recorded_at)
@@ -119,9 +120,10 @@ class TrackSerializer(rest_framework.serializers.Serializer):
 
     def to_representation(self, instance):
 
+        image_url = instance.get_last_position_image_url()
         feature = make_feature(self.context['request'],
                                self.context['coordinates'], instance,
-                               self.context['times'])
+                               self.context['times'], image_url=image_url)
         rep = utils.json.empty_geojson_featurecollection()
         rep['features'].append(feature)
         return rep
@@ -135,9 +137,9 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
         geo_field = 'location'
 
 
-def make_feature(request, coordinates, subject, coordinate_times=None, time=None):
+def make_feature(request, coordinates, subject, coordinate_times=None, time=None, image_url=None):
     is_point = isinstance(coordinates, Point)
-    image_url = add_base_url(request, subject.image_url)
+    image_url = add_base_url(request, image_url or subject.image_url)
     feature = {
         'geometry': {
             'type': 'LineString' if not is_point else 'Point',
