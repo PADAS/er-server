@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from django.contrib.gis.geos import Point
 
-from observations.models import Source, SubjectSource, Subject, Source
+from observations.models import Source, SubjectSource, Subject, Source, Observation
 from observations.serializers import ObservationSerializer
 from tracking.pubsub_registry import notify_new_tracks
 
@@ -58,6 +58,10 @@ class DasRadioAgentHandler():
                                                     model_name=model_name)
 
         recorded_at = self.__str2date(obj['recorded_at'])
+
+        # Short-circuit if we already have this observation.
+        if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
+            return Response({}, status=status.HTTP_201_CREATED)
 
         # If the Source already exists, assume the SubjectSource and Subject already exist.
         if created:
@@ -134,6 +138,7 @@ class GsatHandler():
         model_name = '{}:{}'.format(GsatHandler.SENSOR_TYPE, provider_key)
         src, created = Source.objects.ensure_source(self.SOURCE_TYPE, obj.get('manufacturer_id'),
                                                     model_name=model_name)
+
         # If the Source already exists, assume the SubjectSource and Subject already exist.
         if created:
             ss, created = SubjectSource.objects.ensure_subject_source(src,
