@@ -62,7 +62,6 @@ class FeatureSetListJsonView(APIView):
         for featureset in featuresets:
             response_data['features'].append({
                 'name': featureset.name,
-                'type': featureset.type.name,
                 'description': featureset.description if featureset.description else '',
                 'geojson_url': reverse('mapping-featureset-geojson', args=[featureset.id.hex]),
             })

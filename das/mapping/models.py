@@ -76,11 +76,10 @@ class FeatureSet(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
-    type = models.ForeignKey(to=FeatureType)
+    types = models.ManyToManyField(to=FeatureType, related_name='featuresets')
 
     description = models.TextField(null=True, blank=True)
 
-    # todo:  perhaps type and name?
     def __str__(self):
         return u"{0}".format(self.name)
 
