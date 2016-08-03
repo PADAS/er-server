@@ -17,7 +17,7 @@ class TileLayerAdmin(admin.ModelAdmin):
 
 @admin.register(models.FeatureSet)
 class FeatureSetAdmin(admin.ModelAdmin):
-    pass
+    filter_horizontal = ('types',)
 
 
 @admin.register(models.PolygonFeature)
