@@ -148,6 +148,6 @@ def create_realtime_handler(sios):
 
         @staticmethod
         def connected_clients():
-            return sios.server.environ
+            return sios.server.environ.copy()
 
     return RealtimeServices
