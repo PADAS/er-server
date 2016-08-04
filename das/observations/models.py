@@ -198,12 +198,11 @@ class ObservationManager(models.GeoManager):
         since = datetime.now(tz=pytz.UTC) - last_days
         return self.get_source_range_observations(subject_sources, since=since)
 
-    def add_observation(self, observation, force=False):
+    def add_observation(self, observation):
         '''
         Add an observation for the given source.
         :param source:
         :param observation: An object with attributes: source, latitude, longitude, recorded_at, additional
-        :param force: if True, will insert a potentially redundant record.
         :return: The new Observation
         '''
 
@@ -215,17 +214,18 @@ class ObservationManager(models.GeoManager):
 
         additional = observation.additional or {}
 
-        if force:
+
+        # Check for matching observation already recorded.
+        obs = Observation.objects \
+            .filter(source_id=observation.source.id, recorded_at=observation.recorded_at) \
+            .first()
+
+        if not obs:
             obs = Observation.objects.create(source_id=observation.source.id, location=location,
                                              recorded_at=observation.recorded_at,
                                              additional=additional)
-        else:
-            obs, created = Observation.objects.get_or_create(source_id=observation.source.id,
-                                                recorded_at=observation.recorded_at,
-                                                defaults=dict(location=location,
-                                                              additional=additional))
 
-        return Observation.objects.get(id=obs.id)
+        return obs
 
     def get_max_recorded_at(self, source):
         '''Get the latest recorded timestamp for the source.'''

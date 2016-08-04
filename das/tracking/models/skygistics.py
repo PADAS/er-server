@@ -121,11 +121,6 @@ class SkygisticsSatelliteClient(SkygisticsClient):
         :param end_date:
         :return:
         """
-
-        # Skygistics service will interpret date query parameters in timezone of server, so we adjust here.
-        start_date = start_date.astimezone(SKYGISTICS_SERVICE_TIMEZONE)
-        end_date = end_date.astimezone(SKYGISTICS_SERVICE_TIMEZONE)
-
         if not self.session_id or self.session_id == '0':
             raise SkygisticsLoginError('Client does not have a valid session_id.')
         # todo:  the username and password are in the clear here ...
@@ -207,7 +202,10 @@ class SkygisticsSatelliteClient(SkygisticsClient):
         :return: generator, yielding individual records.
         """
 
-        end_date = timezone.now()
+        # Skygistics service will interpret date query parameters in timezone of server, so we adjust here.
+        start_date = start_date.astimezone(SKYGISTICS_SERVICE_TIMEZONE)
+        end_date = end_date.astimezone(SKYGISTICS_SERVICE_TIMEZONE)
+
         # todo: batch calls based on _get_replay_data_count?
         skip = 0
         # if not batching, get total available
@@ -264,19 +262,24 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
         client.begin_session()
 
         try:
-            st = parse_date(self.cursor_data['latest_timestamp'])
+            # Given a latest-timestamp, reach back another 12-hours to fill in any gaps.
+            st = parse_date(self.cursor_data['latest_timestamp']) - timedelta(hours=12)
         except Exception as e:
             st = datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
 
-
+        end_time = datetime.now(tz=pytz.utc)
 
         observation = None
         for unit_info in client.fetch_observations(imei=source.manufacturer_id,
-                                                        start_date=st):
-            observation = self._transform(source, unit_info)
+                                                   start_date=st,
+                                                   end_date=end_time):
 
-            if self._pass_filter(observation):
-                yield observation
+            try:
+                observation = self._transform(source, unit_info)
+                if self._pass_filter(observation):
+                    yield observation
+            except Exception as e:
+                self.logger.exception('processing unit_info.')
 
         # TODO: this could be set too far in the future.
         if observation:
@@ -302,27 +305,30 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
         :param: item:  a tuple of a Source object and dictionary of Skygistics data
         :return: Source, Observation tuple (similar to param item)
         """
-        observation = {
-            'imei': unit_info[('{0}IMEI'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
-            'latitude': unit_info[('{0}Latitude'.format(SKYGISTICS_API_XMLNS))][0][
-                '_text'],
-            'longitude': unit_info[('{0}Longitude'.format(SKYGISTICS_API_XMLNS))][0][
-                '_text'],
-            'voltage': unit_info[('{0}Voltage'.format(SKYGISTICS_API_XMLNS))][0][
-                '_text'],
-            'location': unit_info[('{0}Location'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
-            'temperature': unit_info[('{0}Temperature'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
-            'recorded_at': timezone.make_aware(datetime.strptime(unit_info[('{0}Time'.format(SKYGISTICS_API_XMLNS))][0][
-                '_text'], SKYGISTICS_DATETIME_FORMAT), timezone.utc),
-            # add T and Z to string timestamp so UTC is obvious.
-            'received_time':
-                timezone.make_aware(datetime.strptime(unit_info[('{0}ReceivedTime'.format(SKYGISTICS_API_XMLNS))][0][
-                    '_text'], SKYGISTICS_DATETIME_FORMAT), timezone.utc).strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT),
-        }
-
-        return Obs(source=source, recorded_at=observation['recorded_at'],
-                                  longitude=float(observation['longitude']), latitude=float(observation['latitude']),
-                                  additional=dict((k,observation.get(k)) for k in ('imei', 'voltage', 'received_at', 'temperature', 'location')))
+        try:
+            observation = {
+                'imei': unit_info[('{0}IMEI'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
+                'latitude': unit_info[('{0}Latitude'.format(SKYGISTICS_API_XMLNS))][0][
+                    '_text'],
+                'longitude': unit_info[('{0}Longitude'.format(SKYGISTICS_API_XMLNS))][0][
+                    '_text'],
+                'voltage': unit_info[('{0}Voltage'.format(SKYGISTICS_API_XMLNS))][0][
+                    '_text'],
+                'location': unit_info[('{0}Location'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
+                'temperature': unit_info[('{0}Temperature'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
+                'recorded_at': timezone.make_aware(datetime.strptime(unit_info[('{0}Time'.format(SKYGISTICS_API_XMLNS))][0][
+                    '_text'], SKYGISTICS_DATETIME_FORMAT), timezone.utc),
+                # add T and Z to string timestamp so UTC is obvious.
+                'received_time':
+                    timezone.make_aware(datetime.strptime(unit_info[('{0}ReceivedTime'.format(SKYGISTICS_API_XMLNS))][0][
+                        '_text'], SKYGISTICS_DATETIME_FORMAT), timezone.utc).strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT),
+            }
+        except Exception as e:
+            self.logger.exception('Transforming skygistics unit_info for source: {}'.format(source.manufacturer_id))
+        else:
+            return Obs(source=source, recorded_at=observation['recorded_at'],
+                                      longitude=float(observation['longitude']), latitude=float(observation['latitude']),
+                                      additional=dict((k,observation.get(k)) for k in ('imei', 'voltage', 'received_at', 'temperature', 'location')))
 
 
     def _maintenance(self):
