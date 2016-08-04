@@ -1,6 +1,7 @@
 import simplejson as json
 import logging
 from itertools import chain
+import hashlib
 
 from django.core.serializers import serialize
 from django.core.urlresolvers import reverse
@@ -10,6 +11,7 @@ from rest_framework import generics
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser
+from rest_framework_extensions.etag.decorators import etag
 
 from mapping.models import PolygonFeature, LineFeature, PointFeature, FeatureSet
 from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError, Map
@@ -68,12 +70,24 @@ class FeatureSetListJsonView(APIView):
         return HttpResponse(json.dumps(response_data), content_type='application/json')
 
 
+def calculate_featureset_etag(view_instance, view_method, request, args, kwargs):
+    featureset = FeatureSet.objects.get(id=kwargs['id'])
+    objects = chain(PolygonFeature.objects.filter(featureset=featureset),
+               LineFeature.objects.filter(featureset=featureset),
+               PointFeature.objects.filter(featureset=featureset))
+    etag = ','.join((str(f.updated_at) for f in objects))
+    etag += str(featureset.updated_at)
+    return hashlib.md5(etag.encode('utf-8')).hexdigest()
+
+
 class FeatureSetGeoJsonView(APIView):
     parser_classes = (JSONParser,)
+    lookup_field = 'id'
 
-    def get(self, request, featureset_id):
+    @etag(etag_func=calculate_featureset_etag)
+    def get(self, request, **kwargs):
         # todo:  better 404 handling, what to do with empty featureset
-        featureset = FeatureSet.objects.get(id=featureset_id)
+        featureset = FeatureSet.objects.get(id=kwargs['id'])
         feature = serialize('geojson',
                             list(chain(PolygonFeature.objects.filter(featureset=featureset),
                                        LineFeature.objects.filter(featureset=featureset),
