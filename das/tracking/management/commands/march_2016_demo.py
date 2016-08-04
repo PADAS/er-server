@@ -31,14 +31,6 @@ def gen_random_rgb():
 # For observations, animal and ranger movements, this is how far we'll go back to start.
 HISTORY_HOURS=24
 
-feature_type, _ = FeatureType.objects.get_or_create(name='wat')
-feature_set, _ = FeatureSet.objects.get_or_create(
-    type=feature_type,
-    name='Demo feature set name',
-    description='Demo feature set description'
-)
-
-
 def delete_subject_analyzers():
     pass
 
@@ -302,6 +294,12 @@ def store_event(evt, subject, t):
 
 
 def import_geojson():
+    feature_type, _ = FeatureType.objects.get_or_create(name='wat')
+    feature_set, _ = FeatureSet.objects.get_or_create(
+        types=(feature_type,),
+        name='Demo feature set name',
+        description='Demo feature set description'
+    )
     data_pattern = os.path.join(os.path.dirname(__file__), 'march_2016_demo_data/*.geojson')
 
     for data_file in glob.glob(data_pattern):
@@ -366,7 +364,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
 
-        import_geojson()
+        #import_geojson()
 
         create_actors()
         drivers = []
