@@ -29,9 +29,7 @@ def start(realtime_server):
             for socket_id in connected_clients:
                 try:
                     # Create a dummy request with the user's info so we get the permission enforcement for free
-                    request = DummyRequest(uri='/event/', http_method='GET')
-                    request.user = connected_clients[socket_id]['user']
-                    request._force_auth_user = request.user
+                    request = DummyRequest(uri='/event/', http_method='GET', user=connected_clients[socket_id]['user'])
                     result = view(request, id=event_id)
 
                     # if we get location data, package it up and send it out
