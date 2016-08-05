@@ -558,10 +558,10 @@ class Subject(models.Model, PermissionSetGroupMixin):
 
     class Meta:
         permissions = (
-            ('view_last_position', 'Allow the user to view the last reported position of a Subject.'),
-            ('view_real_time', 'Access to updated observations as they become available, includes view_last_position.'),
-            ('view_delayed', 'Access to a time dated observation feed. The delay is 24 hours, i.e. can only see yesterday and older observations. No real-time or last position.'),
-            ('view_subject', 'Permission to view a subject, does not include permission to see location'),
+            ('view_last_position', 'Permission to view the last reported position of a Subject only.'),
+            ('view_real_time', 'Access to real-time observations.'),
+            ('view_delayed', 'Access to a 24 hour delayed observation feed. No real-time or last reported position.'),
+            ('view_subject', 'Permission to view subject information excluding location'),
             ('subscribe_alerts', 'Permission to subscribe to an alert on this Subject.'),
             ('change_alerts', 'Permission to configure alerts for subject, includes setting geofences, proximity and immobility settings.'),
             ('change_view', 'An admin permission to change which users can view a Subject and their view permission.'),
