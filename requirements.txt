@@ -63,7 +63,6 @@ django-treebeard==4.0.1
 django-extra-fields==0.7
 gevent==1.1.2
 django-storages==1.4.1
-drf-extensions==0.2.8
 #django-versatileimagefield==1.5
 git+https://github.com/VulcanTechnologies/django-versatileimagefield.git@751767afb611890921c6705f1a69fa69381ea103
 
