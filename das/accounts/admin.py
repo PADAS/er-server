@@ -157,7 +157,7 @@ class UserAdmin(DjangoUserAdmin):
         display = '\n'.join(sorted(ps.name for ps in pss))
         return make_html_list(display)
 
-    all_permission_sets.short_description = 'All Permission Sets'
+    all_permission_sets.short_description = 'Effective Permission Sets'
     all_permission_sets.allow_tags = True
 
     def member_permission_sets(self, instance):

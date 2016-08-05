@@ -28,12 +28,12 @@ class FeatureListJsonView(APIView):
 
     def get(self, request):
         # todo:  add api docs
-        response_data = {'das_api_stuff': 'goes_here', 'features': []}
+        response_data = {'features': []}
         features = list(chain(PolygonFeature.objects.all(), LineFeature.objects.all(), PointFeature.objects.all()))
         for feature in features:
             response_data['features'].append({
                 'name': feature.name,
-                'type': feature.type.name,
+                'type': dict(name=feature.type.name,id=str(feature.type.id)),
                 'description': feature.description if feature.description else '',
                 'geojson_url': reverse('mapping-feature-geojson', args=[feature.id.hex]),
             })
@@ -58,12 +58,17 @@ class FeatureSetListJsonView(APIView):
     """
 
     def get(self, request):
-        # todo:  add api docs
+        def feature_types(featureset):
+            for t in featureset.types.all():
+                yield dict(name=t.name, id=str(t.id))
+
         response_data = {'features': []}
         featuresets = FeatureSet.objects.all()
         for featureset in featuresets:
             response_data['features'].append({
                 'name': featureset.name,
+                'id': str(featureset.id),
+                'types': list(feature_types(featureset)),
                 'description': featureset.description if featureset.description else '',
                 'geojson_url': reverse('mapping-featureset-geojson', args=[featureset.id.hex]),
             })

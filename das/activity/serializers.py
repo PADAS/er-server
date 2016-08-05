@@ -519,10 +519,11 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, event):
         rep = super().to_representation(event)
-        rep['url'] = utils.add_base_url(self.context['request'],
+        request = self.context['request']
+        rep['url'] = utils.add_base_url(request,
                                         reverse('event-view',
                                                 args=[event.id, ]))
-
+        rep['image_url'] = utils.add_base_url(request, event.image_url)
         if event.location is not None:
             geodata = make_feature(self.context['request'], event)
             rep['geojson'] = geodata
@@ -622,7 +623,7 @@ def make_feature(request, event):
         'message': event.message,
         'datetime': event.time if isinstance(event.time,
                                              str) else event.time.isoformat(),
-        'image': event.image_url
+        'image': image_url
     }
 
     properties = feature['properties']
