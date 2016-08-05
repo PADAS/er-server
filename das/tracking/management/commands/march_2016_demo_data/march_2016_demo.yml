@@ -17,7 +17,7 @@ events:
     reported_by:
       id: 9ec20ec8-516c-40bd-a4a3-9a2b49f5ea40
       content_type: activity.community
-    event_type: b4688c0e-ac08-4656-a6ec-b0b3aecf332c
+    event_type: ec962845-c661-4c00-8e41-860fe0658f96
     priority: 200
     center: [37.5241474,0.2792556]
 
@@ -26,7 +26,7 @@ events:
     reported_by:
       id: 9ec20ec8-516c-40bd-a4a3-9a2b49f5ea40
       content_type: activity.community
-    event_type: fcba2f9c-01fb-4142-ba26-02041e30c323
+    event_type: 1e083826-af30-4c78-a487-eecb7c753888
     priority: 300
     center: [37.510911,0.2572556]
 
@@ -35,7 +35,7 @@ events:
     reported_by:
       id: 276600ae-06de-4fca-be79-58bb29695f5c
       content_type: observations.subject
-    event_type: fcba2f9c-01fb-4142-ba26-02041e30c323
+    event_type: 1e083826-af30-4c78-a487-eecb7c753888
     priority: 200
     center: [37.4941474,0.2392556]
 
@@ -44,7 +44,7 @@ events:
     reported_by:
       id: 276600ae-06de-4fca-be79-58bb29695f5c
       content_type: observations.subject
-    event_type: 02943c51-0661-478e-b4a8-c57264bb721a
+    event_type: ec962845-c661-4c00-8e41-860fe0658f96
     priority: 100
     center: [37.1241474,0.2492556]
 
@@ -53,7 +53,7 @@ events:
     reported_by:
       id: 276600ae-06de-4fca-be79-58bb29695f5c
       content_type: observations.subject
-    event_type: fcba2f9c-01fb-4142-ba26-02041e30c323
+    event_type: cb9bc9f0-fce3-4c33-830f-0a26e444d6b4
     priority: 300
     center: [37.1441474,0.2372556]
 
@@ -62,7 +62,7 @@ events:
     reported_by:
       id: 276600ae-06de-4fca-be79-58bb29695f5c
       content_type: observations.subject
-    event_type: b4688c0e-ac08-4656-a6ec-b0b3aecf332c
+    event_type: 1e083826-af30-4c78-a487-eecb7c753888
     priority: 300
     center: [37.1841474,0.2692556]
 
@@ -71,7 +71,7 @@ events:
     reported_by:
       id: 276600ae-06de-4fca-be79-58bb29695f5c
       content_type: observations.subject
-    event_type: fcba2f9c-01fb-4142-ba26-02041e30c323
+    event_type: 1e083826-af30-4c78-a487-eecb7c753888
     priority: 300
     center: [37.1941474,0.2812556]
 
