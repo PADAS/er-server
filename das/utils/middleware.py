@@ -19,12 +19,11 @@ class RequestLoggingMiddleware(object):
 
             logname = '-'
             remote_addr = request.META.get('REMOTE_ADDR')
-            if remote_addr in getattr(settings, 'INTERNAL_IPS', []):
-                remote_addr = request.META.get(
+            remote_addr = request.META.get(
                     'HTTP_X_FORWARDED_FOR') or remote_addr
-            user_email = '-'
+            user_id = '-'
             if hasattr(request, 'user'):
-                user_email = getattr(request.user, 'email', '-')
+                user_id = getattr(request.user, 'id', '-')
             try:
                 req_time = time.time() - self.start_time
             except AttributeError:
@@ -40,7 +39,7 @@ class RequestLoggingMiddleware(object):
             request_info = '{0} {1} {2}'.format(method, path, protocol)
 
             self.logger.info('%s %s %s [] "%s" %s %s "%s" "%s" (%.02f seconds)' % (
-            remote_addr, logname, user_email, request_info,
+            remote_addr, logname, user_id, request_info,
             status, content_len, referer, agent, req_time))
 
         except Exception as e:
