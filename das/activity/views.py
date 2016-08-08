@@ -78,6 +78,8 @@ class EventsView(generics.ListCreateAPIView):
         return context
 
     def get_queryset(self):
+
+        # TODO: Update to allow passing last_days constraint.
         queryset = Event.objects.all_sort()
         query_params = self.request.query_params
         bbox = self.request.query_params.get('bbox', None)
@@ -86,7 +88,8 @@ class EventsView(generics.ListCreateAPIView):
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
-            queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS)
+
+            queryset = queryset.by_bbox(bbox)
         state = self.request.query_params.getlist('state', None)
         if state:
             queryset = queryset.by_state(state)

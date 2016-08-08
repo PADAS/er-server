@@ -84,6 +84,9 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
             if last_position:
                 first_position = instance.subjectstatus_set.get_delayed()
 
+                if 'state' in last_position.additional:
+                    rep['state'] = last_position.additional['state']
+
             rep['tracks_available'] = bool(last_position)
             if last_position:
                 rep['last_position_date'] = last_position.recorded_at
