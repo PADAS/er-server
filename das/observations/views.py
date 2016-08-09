@@ -305,8 +305,10 @@ class SubjectTracksView(generics.RetrieveAPIView):
         else:
             return None
 
-        if last_state:
+        try:
             context['subject_state'] = last_state.additional['state']
+        except:
+            pass
 
         sds = models.SubjectSource.objects.filter(subject=subject)
         if not sds:
