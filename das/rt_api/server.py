@@ -34,7 +34,7 @@ def create_realtime_handler(sios):
                     if param not in data:
                         sios.emit('resp_authorization',
                                   {'resp_id': data['id'],
-                                   'status': {'code': 400, 'message': 'Required fields: "type", "authorization", "id"'}},
+                                       'status': {'code': 400, 'message': 'Required fields: "type", "authorization", "id"'}},
                                   room=str(sid),
                                   namespace='/das')
                         sios.server.disconnect(sid)
@@ -99,10 +99,12 @@ def create_realtime_handler(sios):
 
 
         @staticmethod
-        def emit_subject_update(subjectid, geo_json=None, user=None):
+        def emit_subject_update(subjectid, geo_json=None, user=None, state=None):
             data = {'type': 'subject_position_update', 'subject_id': subjectid}
             if geo_json is not None:
                 data['geo_json'] = geo_json
+            if state is not None:
+                data['state'] = state
             RealtimeServices.emit('subject_position_update', data, user)
 
         @staticmethod

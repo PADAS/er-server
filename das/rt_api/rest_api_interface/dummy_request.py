@@ -14,7 +14,6 @@ class DummyRequest(Request):
         self._request = self
         self.query_params = {}
         self.successful_authenticator = 'dummy_authentication'
-        self._authenticator = 'dummy_authenticatior'
         self.user = user
         self._force_auth_user = user
 

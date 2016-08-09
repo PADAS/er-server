@@ -89,8 +89,10 @@ def start(realtime_server):
             for socket_id in connected_clients:
                 try:
                     # Create a dummy request with the user's info so we get the permission enforcement for free
-                    request = DummyRequest(uri='/subject/{0}/'.format(subject_id), headers={},
-                                           body={'since':datetime.now() - timedelta(days=30)}, http_method='GET')
+                    request = DummyRequest(
+                        uri='/subject/{0}/'.format(subject_id), headers={},
+                        body={'since': datetime.now() - timedelta(days=30)},
+                        http_method='GET')
                     request.user = connected_clients[socket_id]['user']
                     request._force_auth_user = request.user
                     result = view(request, id=subject_id)
@@ -108,8 +110,16 @@ def start(realtime_server):
                             geojson_data['properties']['coordinateProperties']['times'][:2]
                         geojson_data['geometry']['coordinates'] = \
                             geojson_data['geometry']['coordinates'][:2]
+
+                        # also need to send subject status if it exists
+                        if 'subject_state' in result.data.serializer.context:
+                            state = result.data.serializer.context['subject_state']
+                        else:
+                            state = None
+
+                        # ok, now the object is ready to send
                         realtime_server.emit_subject_update(subjectid=str(subject_id),
-                                                            geo_json=geojson_data, user=socket_id)
+                                                            geo_json=geojson_data, user=socket_id, state=state)
 
                 except Exception as ex:
                     logger.exception('Error creating custom payload for subject position update: %s' % (data,), ex)
