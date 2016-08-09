@@ -9,6 +9,7 @@ from das_server import pubsub
 from datetime import datetime, timedelta
 from observations.views import SubjectTracksView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
+from observations.models import SubjectSource
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,13 @@ def start(realtime_server):
         try:
             logger.info("Handling new observation: %s", data)
             connected_clients = realtime_server.connected_clients()
-            subject_id = data['subject_id']
+            if 'subject_id' in data:
+                subject_id = data['subject_id']
+            elif 'source_id' in data:
+                # get the most recent Subject for this Source
+                subject_source = SubjectSource.objects.filter(source=data['source_id']) \
+                    .order_by('assigned_range').reverse().first()
+                subject_id = subject_source.subject_id
             view = SubjectTracksView.as_view()
 
             # Loop over all connected clients because they may have different permissions for this subject
