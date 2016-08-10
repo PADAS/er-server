@@ -29,8 +29,12 @@ def start(realtime_server):
             # Loop over all connected clients because they may have different event permissions
             for socket_id in connected_clients:
                 try:
+                    user = connected_clients[socket_id]['user']
+                    if not user:
+                        continue
+
                     # Create a dummy request with the user's info so we get the permission enforcement for free
-                    request = DummyRequest(uri='/event/', http_method='GET', user=connected_clients[socket_id]['user'])
+                    request = DummyRequest(uri='/event/', http_method='GET', user=user)
                     result = view(request, id=event_id)
 
                     # if we get location data, package it up and send it out
@@ -95,13 +99,16 @@ def start(realtime_server):
             # Loop over all connected clients because they may have different permissions for this subject
             for socket_id in connected_clients:
                 try:
+
+                    user = connected_clients[socket_id]['user']
+                    if not user:
+                        continue
+
                     # Create a dummy request with the user's info so we get the permission enforcement for free
                     request = DummyRequest(
                         uri='/subject/{0}/'.format(subject_id), headers={},
                         body={'since': datetime.now() - timedelta(days=30)},
-                        http_method='GET')
-                    request.user = connected_clients[socket_id]['user']
-                    request._force_auth_user = request.user
+                        http_method='GET', user=user)
                     result = view(request, id=subject_id)
 
                     # if we get location data, package it up and send it out
