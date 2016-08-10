@@ -1,16 +1,25 @@
 import threading
 from das_server import pubsub
 
-interval = 30.0
+interval = 15.0
 count = 0
+
+subject_id = '776e320a-bd92-48b5-9899-724105b7033c'
+event_id = 'c570d6db-9d45-4db3-95ae-855d4cf562da'
 
 def test_update_loop():
     global count
     count += 1
-    if count % 2 == 0:
-        pubsub.publish({'subject_id': '254fb6ef-d8f3-40ef-806b-ebecfb92913d'}, 'das.tracking.source.observations.new')
+    count %= 4
+    if count == 0:
+        pubsub.publish({'subject_id': subject_id}, 'das.tracking.source.observations.new')
+    elif count == 1:
+        pubsub.publish({'event_id': event_id}, 'das.event.new')
+    elif count == 2:
+        pubsub.publish({'event_id': event_id}, 'das.event.update')
     else:
-        pubsub.publish({'event_id': '4eabc0dc-f5b8-4701-bfb7-b56b99e4f35f'}, 'das.event.new')
+        pubsub.publish({'event_id': event_id}, 'das.event.delete')
+
     threading.Timer(interval, test_update_loop, []).start()
 
 started = False
