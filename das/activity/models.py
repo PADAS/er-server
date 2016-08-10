@@ -30,7 +30,7 @@ def get_sentinel_user():
 
 
 def marker_icon(event_type, priority, state):
-    CONVERSION = {100:'gray', 200:'green', 300:'red'}
+    CONVERSION = {100:'gray', 200:'med_green', 300:'red'}
     color = CONVERSION.get(priority, 'black')
     if state == Event.SC_RESOLVED:
         color = 'lt_gray'
