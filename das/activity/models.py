@@ -29,9 +29,12 @@ def get_sentinel_user():
                                       password=User.objects.make_random_password())[0]
 
 
-def marker_icon(event_type, priority):
-    CONVERSION = {100:'gray', 200:'amber', 300:'red'}
-    return '/static/{0}-{1}.svg'.format(event_type, CONVERSION.get(priority, 'black'))
+def marker_icon(event_type, priority, state):
+    CONVERSION = {100:'gray', 200:'med_green', 300:'red'}
+    color = CONVERSION.get(priority, 'black')
+    if state == Event.SC_RESOLVED:
+        color = 'lt_gray'
+    return '/static/{0}-{1}.svg'.format(event_type, color)
 
 
 class CommunityManager(models.Manager):
@@ -243,7 +246,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     @property
     def image_url(self):
-        return marker_icon(self.event_type.value, self.priority)
+        return marker_icon(self.event_type.value, self.priority, self.state)
 
     @property
     def subjects(self):

@@ -291,11 +291,24 @@ class SubjectTracksView(generics.RetrieveAPIView):
             since = datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS
 
         if self.request.user.has_any_perms(models.Subject.VIEW_POSITION_PERMS, subject):
-            pass
+            context['subject'] = subject
+            try:
+                last_state = subject.subjectstatus_set.get_last()
+            except Exception as ex:
+                logger.warn('error getting subject state while serializing tracks', ex)
         elif self.request.user.has_any_perms(models.Subject.VIEW_DELAYED_PERMS, subject):
             until = min(until, datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(hours=24))
+            try:
+                last_state = subject.subjectstatus_set.get_delayed()
+            except Exception as ex:
+                logger.warn('error getting subject state while serializing tracks', ex)
         else:
             return None
+
+        try:
+            context['subject_state'] = last_state.additional['state']
+        except:
+            pass
 
         sds = models.SubjectSource.objects.filter(subject=subject)
         if not sds:

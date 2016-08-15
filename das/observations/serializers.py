@@ -123,12 +123,16 @@ class TrackSerializer(rest_framework.serializers.Serializer):
 
     def to_representation(self, instance):
 
-        image_url = instance.get_last_position_image_url()
+        # TODO: Review with Shawn, wrt to recent changes in SubjectTracksView.
+        image_url = (self.context.get('subject') or instance).get_last_position_image_url()
+
         feature = make_feature(self.context['request'],
                                self.context['coordinates'], instance,
                                self.context['times'], image_url=image_url)
         rep = utils.json.empty_geojson_featurecollection()
         rep['features'].append(feature)
+
+
         return rep
 
 

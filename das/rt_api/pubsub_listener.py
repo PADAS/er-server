@@ -9,6 +9,7 @@ from das_server import pubsub
 from datetime import datetime, timedelta
 from observations.views import SubjectTracksView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
+from observations.models import SubjectSource
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,12 @@ def start(realtime_server):
             # Loop over all connected clients because they may have different event permissions
             for socket_id in connected_clients:
                 try:
+                    user = connected_clients[socket_id]['user']
+                    if not user:
+                        continue
+
                     # Create a dummy request with the user's info so we get the permission enforcement for free
-                    request = DummyRequest(uri='/event/', http_method='GET', user=connected_clients[socket_id]['user'])
+                    request = DummyRequest(uri='/event/', http_method='GET', user=user)
                     result = view(request, id=event_id)
 
                     # if we get location data, package it up and send it out
@@ -82,17 +87,28 @@ def start(realtime_server):
         try:
             logger.info("Handling new observation: %s", data)
             connected_clients = realtime_server.connected_clients()
-            subject_id = data['subject_id']
+            if 'subject_id' in data:
+                subject_id = data['subject_id']
+            elif 'source_id' in data:
+                # get the most recent Subject for this Source
+                subject_source = SubjectSource.objects.filter(source=data['source_id']) \
+                    .order_by('assigned_range').reverse().first()
+                subject_id = subject_source.subject_id
             view = SubjectTracksView.as_view()
 
             # Loop over all connected clients because they may have different permissions for this subject
             for socket_id in connected_clients:
                 try:
+
+                    user = connected_clients[socket_id]['user']
+                    if not user:
+                        continue
+
                     # Create a dummy request with the user's info so we get the permission enforcement for free
-                    request = DummyRequest(uri='/subject/{0}/'.format(subject_id), headers={},
-                                           body={'since':datetime.now() - timedelta(days=30)}, http_method='GET')
-                    request.user = connected_clients[socket_id]['user']
-                    request._force_auth_user = request.user
+                    request = DummyRequest(
+                        uri='/subject/{0}/'.format(subject_id), headers={},
+                        body={'since': datetime.now() - timedelta(days=30)},
+                        http_method='GET', user=user)
                     result = view(request, id=subject_id)
 
                     # if we get location data, package it up and send it out
@@ -108,8 +124,16 @@ def start(realtime_server):
                             geojson_data['properties']['coordinateProperties']['times'][:2]
                         geojson_data['geometry']['coordinates'] = \
                             geojson_data['geometry']['coordinates'][:2]
+
+                        # also need to send subject status if it exists
+                        if 'subject_state' in result.data.serializer.context:
+                            state = result.data.serializer.context['subject_state']
+                        else:
+                            state = None
+
+                        # ok, now the object is ready to send
                         realtime_server.emit_subject_update(subjectid=str(subject_id),
-                                                            geo_json=geojson_data, user=socket_id)
+                                                            geo_json=geojson_data, user=socket_id, state=state)
 
                 except Exception as ex:
                     logger.exception('Error creating custom payload for subject position update: %s' % (data,), ex)
