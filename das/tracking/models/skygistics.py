@@ -276,7 +276,7 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
 
             try:
                 observation = self._transform(source, unit_info)
-                if self._pass_filter(observation):
+                if observation and self._pass_filter(observation):
                     yield observation
             except Exception as e:
                 self.logger.exception('processing unit_info.')
