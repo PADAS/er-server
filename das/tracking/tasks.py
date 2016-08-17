@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 @celery.app.task(bind=True)
-def run_all_source_plugins(self):
+def run_all_source_plugins(self, force=False):
     '''
     Run all SourcePlugins that are enabled.
     :return:
@@ -16,7 +16,11 @@ def run_all_source_plugins(self):
     splist = SourcePlugin.objects.filter(status=SourcePlugin.STATUS_ENABLED)
 
     for sp in splist:
-        run_source_plugin.delay(str(sp.id))
+        if force or sp.should_run():
+            logger.debug('running source_plugin {0}'.format(sp))
+            run_source_plugin.delay(str(sp.id))
+        else:
+            logger.debug('not running source_plugin {0}'.format(sp))
 
 @celery.app.task(bind=True)
 def run_source_plugin(self, source_plugin_id):

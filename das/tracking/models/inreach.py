@@ -115,6 +115,25 @@ class InreachPlugin(TrackingPlugin):
                                         help_text='the ip-address or host-name for the InReach API service.')
 
     DEFAULT_START_OFFSET = timedelta(days=31)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=10)
+
+    def should_run(self, source_plugin):
+
+        # Don't bother running now if less than 20 minutes has passed since the latest fix.
+        try:
+            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
+            print('latest_timestamp: {}'.format(latest_timestamp))
+            if not latest_timestamp:
+                return True
+            latest_timestamp = parse_date(latest_timestamp)
+
+            if (datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
+                return True
+
+        except Exception as e:
+            return True
+        else:
+            return False
 
     def fetch(self, source, cursor_data=None):
 

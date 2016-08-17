@@ -141,6 +141,27 @@ class InreachKMLPlugin(TrackingPlugin):
     service_username = models.CharField(max_length=50,
                                         help_text='Username for InReach KML share.')
 
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=10)
+
+    def should_run(self, source_plugin):
+
+        # Don't bother running now if less than 20 minutes has passed since the latest fix.
+        try:
+            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
+            print('latest_timestamp: {}'.format(latest_timestamp))
+            if not latest_timestamp:
+                return True
+            latest_timestamp = parse_date(latest_timestamp)
+
+            if (datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
+                return True
+
+        except Exception as e:
+            return True
+        else:
+            return False
+
+
     def fetch(self, source, cursor_data=None):
 
         self.logger = logging.getLogger(self.__class__.__name__)

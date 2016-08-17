@@ -22,7 +22,7 @@ SKYGISTICS_PLUGIN_DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 
 SKYGISTICS_API_XMLNS = '{http://www.skygistics.com/SkygisticsAPI}'
 SKYGISTICS_API_ENDPOINT = '/SkygisticsAPI/SkygisticsAPI.asmx'
-DEFAULT_START_OFFSET = timedelta(days=14)
+
 
 def _qualify(s):
     return '{}{}'.format(SKYGISTICS_API_XMLNS, s)
@@ -239,6 +239,7 @@ class SkygisticsSatelliteClient(SkygisticsClient):
 class SkygisticsSatellitePlugin(TrackingPlugin):
 
     DEFAULT_START_OFFSET = timedelta(days=14)
+    DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
 
     service_username = models.CharField(max_length=50,
                                        help_text='The username for Skygistics API.')
@@ -247,6 +248,23 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
     service_api_url = models.CharField(max_length=50,
                                        help_text='API endpoint for Skygistics service.',
                                        default='http://skyq1.skygistics.com')
+
+    def should_run(self, source_plugin):
+
+        # Don't bother running now if less than one hour has passed since the latest fix.
+        try:
+            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
+            print('latest_timestamp: {}'.format(latest_timestamp))
+            if not latest_timestamp:
+                return True
+            latest_timestamp = parse_date(latest_timestamp)
+
+            if (datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
+                return True
+        except Exception as e:
+            return True
+        else:
+            return False
 
     def fetch(self, source, cursor_data=None):
 
@@ -281,7 +299,6 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
             except Exception as e:
                 self.logger.exception('processing unit_info.')
 
-        # TODO: this could be set too far in the future.
         if observation:
             self.cursor_data['latest_timestamp'] = observation.recorded_at.isoformat()
 

@@ -118,6 +118,8 @@ class SourcePlugin(TimestampedModel):
     def maintenance(self, target=None):
         raise NotImplementedError('maintenance is not yet implemented')
 
+    def should_run(self):
+        return self.plugin.should_run(self)
 
 
 
@@ -143,6 +145,9 @@ class TrackingPlugin(TimestampedModel):
 
     class Meta:
         abstract = True
+
+    def should_run(self, source_plugin):
+        return True
 
 class PluginTarget(object):
     '''

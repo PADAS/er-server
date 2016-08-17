@@ -1,4 +1,5 @@
 import copy
+import datetime
 from datetime import timedelta
 from ftplib import FTP
 from django.contrib.gis.geos import Polygon, Point, MultiPolygon
@@ -127,13 +128,21 @@ class FirmsClient(object):
 
 class FirmsPlugin(TrackingPlugin):
 
-    DEFAULT_START_OFFSET = timedelta(days=14)
+    DEFAULT_START_OFFSET = timedelta(days=3)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=20)
 
     service_username = models.CharField(max_length=50,
                                        help_text='The username for accessing FIRMS ftp site.')
     service_password = models.CharField(max_length=50,
                                         help_text='The password for accessing FIRMS ftp site.')
 
+    def should_run(self, source_plugin):
+
+        # Don't bother running now if less than 20 minutes has passed since the latest fix.
+        try:
+            return (datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > source_plugin.last_run
+        except:
+            return True
 
     def fetch(self, source, cursor_data=None):
 

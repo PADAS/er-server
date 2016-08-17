@@ -672,7 +672,8 @@ class SubjectStatusManager(models.Manager):
         ss = SubjectSource.objects.get_for_source_at_time(source=observation.source, at_time=observation.recorded_at)
 
         if not ss: # Coding error
-            raise ValueError('No SubjectSource exists for observation {}'.format(observation))
+            return
+            # raise ValueError('No SubjectSource exists for observation {}'.format(observation))
 
         if not delay_hours:
             observation = Observation.objects.get_last_observation(ss.subject)

@@ -34,7 +34,6 @@ class SavannaClient(object):
         self.password = password
         self.host = host
 
-
     def fetch_observations(self, collar_id, start_time, end_time=None):
         '''
         Fetch observations from Savannah data-source for a particular collar.
@@ -89,6 +88,7 @@ class SavannahPlugin(TrackingPlugin):
     Fetch data from Savannah Tracking API.
     '''
     DEFAULT_START_OFFSET = timedelta(days=14)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=30)
 
     service_username = models.CharField(max_length=50,
                                        help_text='The username for querying the Savannah Tracking service.')
@@ -96,6 +96,22 @@ class SavannahPlugin(TrackingPlugin):
                                         help_text='The password for querying the Savannah Tracking service.')
     service_api_host = models.CharField(max_length=50,
                                         help_text='the ip-address or host-name for the Savannah Tracking service.')
+
+    def should_run(self, source_plugin):
+
+        # Don't bother running now if less than 30 minutes has passed since the latest fix.
+        try:
+            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
+            if not latest_timestamp:
+                return True
+            latest_timestamp = parse_date(latest_timestamp)
+
+            if (datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
+                return True
+        except:
+            return True
+
+        return False
 
     def fetch(self, source, cursor_data=None):
 
