@@ -7,6 +7,7 @@ from activity.views import EventView
 # from activity.serializers import EventSerializer
 from das_server import pubsub
 from datetime import datetime, timedelta
+import pytz
 from observations.views import SubjectTracksView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from observations.models import SubjectSource
@@ -107,7 +108,7 @@ def start(realtime_server):
                     # Create a dummy request with the user's info so we get the permission enforcement for free
                     request = DummyRequest(
                         uri='/subject/{0}/'.format(subject_id), headers={},
-                        body={'since': datetime.now() - timedelta(days=30)},
+                        body={'since': datetime.now(tz=pytz.UTC) - timedelta(days=30)},
                         http_method='GET', user=user)
                     result = view(request, id=subject_id)
 
