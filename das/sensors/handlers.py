@@ -1,5 +1,6 @@
 import datetime
 from datetime import timedelta
+import logging
 import pytz
 from dateutil.parser import parse as parse_date
 
@@ -17,6 +18,9 @@ class DasRadioAgentHandler():
     SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_TYPE = 'person'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
+
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def _parse_location(self, o):
         try:
@@ -103,7 +107,8 @@ class GsatHandler():
     gsat_map = {
         'manufacturer_id': lambda o: str(o.get('uniqueid')),
         'location': lambda o: GsatHandler._parse_location(o.get('lat'), o.get('lng')),
-        'recorded_at': lambda o: datetime.datetime.fromtimestamp(int(o.get('time')), tz=pytz.UTC),
+        # 'recorded_at': lambda o: datetime.datetime.fromtimestamp(int(o.get('time')), tz=pytz.UTC),
+        'recorded_at': lambda o: GsatHandler._parse_gsat_timestamp(o),
         'altitude_meters': lambda o: float(o.get('alt')),
         'speed_mps': lambda o: float(o.get('speed')),
         'heading': lambda o: float(o.get('head')),
@@ -111,6 +116,9 @@ class GsatHandler():
         'events': lambda o: o.get('events').split(',') if len(o.get('events', '')) > 0 else None,
         'sensor_type': lambda o: GsatHandler.SENSOR_TYPE
     }
+
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     @staticmethod
     def _parse_location(lat, lon):
@@ -126,11 +134,20 @@ class GsatHandler():
         return r
 
     @staticmethod
+    def _parse_gsat_timestamp(obj):
+        try:
+            return datetime.datetime.fromtimestamp(int(obj.get('time')), tz=pytz.UTC)
+        except:
+            return datetime.datetime.now(tz=pytz.UTC)
+
+
+    @staticmethod
     def _default_assigned_range(d1):
         return (d1, d1 + timedelta(days=365 * 5))
 
     def handle_observation(self, request, provider_key):
 
+        self.logger.info('Gsat request: {}'.format(request.query_params))
         obj = GsatHandler._parse_gsat_request(request.query_params)
 
         obj['provider_key'] = provider_key
