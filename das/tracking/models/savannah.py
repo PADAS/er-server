@@ -67,7 +67,7 @@ class SavannaClient(object):
                 saveline = line
         else:
             msg = 'Failed to get data from Savannah Tracking API.'
-            self.logger.exception(msg)
+            self.logger.error(msg)
             raise DasPluginFetchError(msg)
 
     @classmethod
