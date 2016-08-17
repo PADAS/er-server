@@ -21,5 +21,5 @@ def warm_eventphotos(self, event_photo_id):
         num_created, failed_to_create = warmer.warm()
         logger.info('Warmed images for event_photo_id=%s', event_photo_id)
     except Exception as e:
-        print(e)
+        logger.exception('Failed when warming images for event_photo_id {}'.format(event_photo_id))
 
