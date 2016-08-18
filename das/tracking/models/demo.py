@@ -94,6 +94,8 @@ class DemoSourcePlugin(TrackingPlugin):
     '''
     range_polygon = models.ForeignKey(mapping.models.PolygonFeature, null=True)
 
+    def should_run(self, source_plugin):
+        return True
 
     def fetch(self, source, cursor_data=None):
 

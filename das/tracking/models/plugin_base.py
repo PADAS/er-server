@@ -119,8 +119,8 @@ class SourcePlugin(TimestampedModel):
         raise NotImplementedError('maintenance is not yet implemented')
 
     def should_run(self):
-        return self.plugin.should_run(self)
-
+        # Defer decision to associated Plugin if possible.
+        return self.plugin.should_run(self) if hasattr(self.plugin, 'should_run') else True
 
 
 class TrackingPlugin(TimestampedModel):
