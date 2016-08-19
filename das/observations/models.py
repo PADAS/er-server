@@ -630,6 +630,12 @@ class Subject(models.Model, PermissionSetGroupMixin):
                 if 'state' in status.additional:
                     key = '-'.join((key, status.additional.get('state')))
 
+                    # TODO: Refactor status (maybe) convey gps-status.
+                    if status.additional['state'] == 'online' \
+                        and False == status.additional.get('gps_fix', True):
+                        key = '-'.join((key, 'nogps'))
+
+
         return googlemarkericon(key.lower())
 
 
@@ -747,6 +753,7 @@ MARKER_ICONS = {
     'lion-female': '/static/Lion_Female.png',
     'ranger': '/static/ranger_team-black.svg',
     'ranger-online': '/static/ranger_team-green.svg',
+    'ranger-online-nogps': '/static/ranger_team-blue.svg',
     'ranger-offline': '/static/ranger_team-gray.svg',
     'ranger-alarm': '/static/ranger_team-red.svg',
     'vehicle': '/static/truck.png',
