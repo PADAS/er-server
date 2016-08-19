@@ -109,10 +109,10 @@ class GsatHandler():
         'location': lambda o: GsatHandler._parse_location(o.get('lat'), o.get('lng')),
         # 'recorded_at': lambda o: datetime.datetime.fromtimestamp(int(o.get('time')), tz=pytz.UTC),
         'recorded_at': lambda o: GsatHandler._parse_gsat_timestamp(o),
-        'altitude_meters': lambda o: float(o.get('alt')),
-        'speed_mps': lambda o: float(o.get('speed')),
-        'heading': lambda o: float(o.get('head')),
-        'is_alarm': lambda o: True if o.get('isemergency') == '1' else False,
+        'altitude_meters': lambda o: float(o.get('alt', 0)),
+        'speed_mps': lambda o: float(o.get('speed', 0)),
+        'heading': lambda o: float(o.get('head', 0)),
+        'is_alarm': lambda o: True if o.get('emer') == '1' else False,
         'events': lambda o: o.get('events').split(',') if len(o.get('events', '')) > 0 else None,
         'sensor_type': lambda o: GsatHandler.SENSOR_TYPE
     }
@@ -145,10 +145,36 @@ class GsatHandler():
     def _default_assigned_range(d1):
         return (d1, d1 + timedelta(days=365 * 5))
 
+    REQUIRED_KEYS = ('uniqueid', 'lat', 'lng', 'time',)
+    @staticmethod
+    def _validate_template_request(qp):
+        template = {
+            'uniqueid': '{uniqueid}',
+            'lat': '{lat}',
+            'lng': '{lng}',
+            'time': '{time}',
+            'alt': '{altitude}',
+            'head': '{heading}',
+            'speed': '{speed}',
+            'emer': '{isemergency}'
+        }
+
+        if all (qp[k] == template[k] for k in qp) \
+            and all(_ in qp for _ in GsatHandler.REQUIRED_KEYS):
+            return True
+
     def handle_observation(self, request, provider_key):
 
         self.logger.info('Gsat request: {}'.format(request.query_params))
-        obj = GsatHandler._parse_gsat_request(request.query_params)
+
+        try:
+            obj = GsatHandler._parse_gsat_request(request.query_params)
+        # except ValueError as ve:
+        except Exception as e:
+            if self._validate_template_request(request.query_params):
+                return Response({'data': 'That looks like a valid template request'})
+            else:
+                return Response({'data': 'Check query parameters and try again.'}, status=status.HTTP_400_BAD_REQUEST)
 
         obj['provider_key'] = provider_key
 
