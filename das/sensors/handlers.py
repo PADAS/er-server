@@ -107,7 +107,6 @@ class GsatHandler():
     gsat_map = {
         'manufacturer_id': lambda o: str(o.get('uniqueid')),
         'location': lambda o: GsatHandler._parse_location(o.get('lat'), o.get('lng')),
-        # 'recorded_at': lambda o: datetime.datetime.fromtimestamp(int(o.get('time')), tz=pytz.UTC),
         'recorded_at': lambda o: GsatHandler._parse_gsat_timestamp(o),
         'altitude_meters': lambda o: float(o.get('alt', 0)),
         'speed_mps': lambda o: float(o.get('speed', 0)),
@@ -145,7 +144,9 @@ class GsatHandler():
     def _default_assigned_range(d1):
         return (d1, d1 + timedelta(days=365 * 5))
 
-    REQUIRED_KEYS = ('uniqueid', 'lat', 'lng', 'time',)
+    REQUIRED_PARAMS = ('uniqueid', 'lat', 'lng', 'time',)
+    OPTIONAL_PARAMS = ('alt', 'head', 'speed', 'emer',)
+
     @staticmethod
     def _validate_template_request(qp):
         template = {
@@ -160,9 +161,10 @@ class GsatHandler():
         }
 
         if all (qp[k] == template[k] for k in qp) \
-            and all(_ in qp for _ in GsatHandler.REQUIRED_KEYS):
+            and all(_ in qp for _ in GsatHandler.REQUIRED_PARAMS):
             return True
 
+    @staticmethod
     def handle_observation(self, request, provider_key):
 
         self.logger.info('Gsat request: {}'.format(request.query_params))
