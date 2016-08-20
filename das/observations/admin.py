@@ -14,7 +14,7 @@ from utils.html import make_html_list
 class SubjectAdmin(admin.ModelAdmin):
 
     list_display = ('id', 'name', 'subject_type', 'subject_subtype',
-                    'is_active', 'additional', 'all_groups')
+                    'is_active', 'additional', 'all_groups', 'all_sources')
     search_fields = ('name', 'subject_subtype')
 
     fields = ('id', 'name', 'additional', 'groups', SubjectForm.SUBTYPE_FIELD)
@@ -48,6 +48,18 @@ class SubjectAdmin(admin.ModelAdmin):
 
     all_groups.short_description = 'Groups'
     all_groups.allow_tags = True
+
+    def all_sources(self, instance):
+        subjectsources = models.SubjectSource \
+            .objects \
+            .filter(subject_id=instance.pk) \
+            .order_by('-assigned_range')
+
+        display = '\n'.join(sorted('{} {}'.format(str(ss.assigned_range.upper), str(ss.source_id)) for ss in subjectsources))
+        return make_html_list(display)
+
+    all_sources.short_description = 'Sources'
+    all_sources.allow_tags = True
 
     def save_model(self, request, obj, form, change):
         '''

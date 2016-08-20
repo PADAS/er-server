@@ -71,6 +71,7 @@ class SubjectGroupsView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = models.SubjectGroup.objects.filter(_parents=None)
+        queryset = queryset.order_by('name')
         return queryset
 
     def get_serializer_context(self):
