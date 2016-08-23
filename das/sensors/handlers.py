@@ -164,7 +164,6 @@ class GsatHandler():
             and all(_ in qp for _ in GsatHandler.REQUIRED_PARAMS):
             return True
 
-    @staticmethod
     def handle_observation(self, request, provider_key):
 
         self.logger.info('Gsat request: {}'.format(request.query_params))
