@@ -124,7 +124,7 @@ class GsatHandler():
         try:
             return Point(x=float(lon), y=float(lat))
         except:
-            return None
+            raise
 
     @staticmethod
     def _parse_gsat_request(o):
@@ -160,7 +160,7 @@ class GsatHandler():
             'emer': '{isemergency}'
         }
 
-        if all (qp[k] == template[k] for k in qp) \
+        if all (qp[k] == template[k] for k in qp if k in template) \
             and all(_ in qp for _ in GsatHandler.REQUIRED_PARAMS):
             return True
 
