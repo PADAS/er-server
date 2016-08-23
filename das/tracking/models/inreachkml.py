@@ -153,7 +153,7 @@ class InreachKMLPlugin(TrackingPlugin):
                 return True
             latest_timestamp = parse_date(latest_timestamp)
 
-            if (datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
+            if (datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
                 return True
 
         except Exception as e:
