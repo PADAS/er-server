@@ -157,3 +157,5 @@ das/celerybeat.pid
 das/das_server/grumeti_settings.py
 
 das/das_server/local_celery_settings.py
+**/lewa_safaricom.py
+**/lab_demo_settings.py
