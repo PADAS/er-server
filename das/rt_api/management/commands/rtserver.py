@@ -10,16 +10,12 @@ import os
 import socket
 import logging
 
-from django.conf import settings
 import django.core.management.commands.runserver as runserver
 from django.utils import autoreload
 from django.utils.encoding import force_text
 import eventlet
 
-import utils.json
-import rt_api.server
-from rt_api.socketio import RTSocketIO
-import rt_api.pubsub_listener
+from rt_api.sios import create_rt_socketio
 
 logger = logging.getLogger('rt_api')
 
@@ -35,13 +31,7 @@ class Command(runserver.Command):
 
         try:
             wsgi_handler = self.get_handler(*args, **options)
-            sios = RTSocketIO(app=wsgi_handler,
-                              message_queue=settings.REALTIME_BROKER_URL,
-                              json=utils.json,
-                              logger=logger,
-                              engineio_logger=logger)
-            realtime_services = rt_api.server.create_realtime_handler(sios)
-            rt_api.pubsub_listener.start(realtime_services)
+            sios = create_rt_socketio(wsgi_handler)
             self.run_socket(self.addr, int(self.port), sios.wsgi_app)
 
         except socket.error as e:

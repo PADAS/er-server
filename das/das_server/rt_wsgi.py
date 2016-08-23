@@ -10,16 +10,17 @@ import os
 
 import eventlet
 eventlet.monkey_patch()
+
 from das_server.log import init_logging
 init_logging()
 
 
 from django.core.wsgi import get_wsgi_application
-import rt_api
+from rt_api.sios import create_rt_socketio
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das_server.settings")
 
-
 app = get_wsgi_application()
-application = rt_api.sios.init_app(app).wsgi_app
+sios = create_rt_socketio(app)
+application = sios.wsgi_app
 
