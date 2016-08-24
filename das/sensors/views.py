@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 from sensors.handlers import GsatHandler, DasRadioAgentHandler
-
+from observations.serializers import ObservationSerializer
 class AllowAnyGet(BasePermission):
 
     def has_permission(self, request, view):
@@ -14,7 +14,7 @@ class AllowAnyGet(BasePermission):
 class SensorObservation(generics.GenericAPIView):
 
     permission_classes = (AllowAnyGet, )
-
+    serializer_class = ObservationSerializer
     def get(self, request, *args, sensor_type=None, provider_key=None, **kwargs):
 
         if sensor_type == GsatHandler.SENSOR_TYPE:
