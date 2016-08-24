@@ -122,7 +122,6 @@ class InreachPlugin(TrackingPlugin):
         # Don't bother running now if less than 20 minutes has passed since the latest fix.
         try:
             latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
-            print('latest_timestamp: {}'.format(latest_timestamp))
             if not latest_timestamp:
                 return True
             latest_timestamp = parse_date(latest_timestamp)
