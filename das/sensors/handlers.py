@@ -104,18 +104,6 @@ class GsatHandler():
     DEFAULT_SUBJECT_TYPE = 'person'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
 
-    gsat_map = {
-        'manufacturer_id': lambda o: str(o.get('uniqueid')),
-        'location': lambda o: GsatHandler._parse_location(o.get('lat'), o.get('lng')),
-        'recorded_at': lambda o: GsatHandler._parse_gsat_timestamp(o),
-        'altitude_meters': lambda o: float(o.get('alt', 0)),
-        'speed_mps': lambda o: float(o.get('speed', 0)),
-        'heading': lambda o: float(o.get('head', 0)),
-        'is_alarm': lambda o: True if o.get('emer') == '1' else False,
-        'events': lambda o: o.get('events').split(',') if len(o.get('events', '')) > 0 else None,
-        'sensor_type': lambda o: GsatHandler.SENSOR_TYPE
-    }
-
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -129,7 +117,32 @@ class GsatHandler():
     @staticmethod
     def _parse_gsat_request(o):
 
-        r = dict((k, v(o)) for k, v in GsatHandler.gsat_map.items())
+        r = {}
+        r['manufacturer_id'] = str(o.get('uniqueid'))
+        r['location'] = GsatHandler._parse_location(o.get('lat'), o.get('lng'))
+        r['recorded_at'] = GsatHandler._parse_gsat_timestamp(o)
+
+        try:
+            r['altitude_meters'] = float(o.get('alt'))
+        except:
+            pass
+
+        try:
+            r['speed_mps'] = float(o.get('speed'))
+        except:
+            pass
+
+        try:
+            r['heading'] = float(o.get('head'))
+        except:
+            pass
+
+        r['is_alarm'] = o.get('emer') == '1'
+
+        r['events'] = o.get('events').split(',') if len(o.get('events', '')) > 0 else None
+
+        r['sensor_type'] = GsatHandler.SENSOR_TYPE
+
         return r
 
     @staticmethod
@@ -142,7 +155,8 @@ class GsatHandler():
 
     @staticmethod
     def _default_assigned_range(d1):
-        return (d1, d1 + timedelta(days=365 * 5))
+        d2 = datetime.datetime.max.replace(tzinfo=pytz.utc)
+        return (d1, d2)
 
     REQUIRED_PARAMS = ('uniqueid', 'lat', 'lng', 'time',)
     OPTIONAL_PARAMS = ('alt', 'head', 'speed', 'emer',)
