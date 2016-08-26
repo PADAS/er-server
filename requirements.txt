@@ -7,9 +7,8 @@ pytz==2016.6.1
 python-dateutil==2.5.3
 requests==2.10.0
 python-engineio==0.9.2
-python-socketio==1.4.2
 #master python-socketio project took our last update
-#git+https://github.com/PADAS/python-socketio.git@cba6c3ed8b8b2c777538a5a35e73f98f4ec9d4bb
+git+https://github.com/PADAS/python-socketio.git@2b3aef928e5f78c90e03daf28ee29e1b893c8c32
 
 greenlet==0.4.10
 gunicorn==19.6.0
@@ -17,7 +16,7 @@ Django==1.9.9
 
 #git+https://github.com/PADAS/django-ses.git@2fae0ebdaa96ff6daaea4edaafca3c02cdda61d8
 django-ses==0.8.0
-djangorestframework==3.4.0
+djangorestframework==3.4.6
 #drf geojson serializers
 #djangorestframework-gis==0.10.1
 #django-spillway==0.5.1
@@ -25,7 +24,7 @@ drf-extensions==0.2.8
 
 #https://github.com/mypebble/django-pgviews
 django-pgviews==0.1.0
-django-model-utils==2.5
+django-model-utils==2.5.2
 #django-extensions==1.5.7
 #see https://github.com/ottoyiu/django-cors-headers
 django-cors-headers==1.1.0

@@ -28,7 +28,8 @@ _pool = None
 def get_pool():
     global _pool
     if not _pool:
-        _pool = Connection(settings.PUBSUB_BROKER_URL).Pool(20)
+        _pool = Connection(settings.PUBSUB_BROKER_URL,
+                           transport_options=settings.PUBSUB_BROKER_OPTIONS).Pool(20)
     return _pool
 
 
@@ -75,7 +76,8 @@ def subscribe(subscription_list, loop_forever=True):
     This function will block, but can be run in a thread
     """
 
-    with Connection(settings.PUBSUB_BROKER_URL) as conn:
+    with Connection(settings.PUBSUB_BROKER_URL,
+                    transport_options=settings.PUBSUB_BROKER_OPTIONS) as conn:
 
         consumers = []
 
@@ -161,7 +163,8 @@ def start_message_queue_listeners():
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    with Connection(settings.PUBSUB_BROKER_URL) as conn:
+    with Connection(settings.PUBSUB_BROKER_URL,
+                    transport_options=settings.PUBSUB_BROKER_OPTIONS) as conn:
         consumers = []
 
         for routing_key, callback, name in installed_apps_subscriptions():

@@ -19,10 +19,8 @@ from rt_api.sios import create_rt_socketio
 
 logger = logging.getLogger('rt_api')
 
-#The Kombu redis transport has a max of 10 redis connections
-#keep green threads below this to avoid maxing out redis connections
-MAX_GREEN_THREADS = 9
-
+#allow 50 or so socket connections
+MAX_GREEN_THREADS = 50
 
 class Command(runserver.Command):
 
