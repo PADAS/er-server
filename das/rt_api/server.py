@@ -1,12 +1,17 @@
 
-import logging
 import eventlet
-from rt_api.rest_api_interface.dummy_request import DummyRequest
+import json
+import logging
+import redis
+
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.db import close_old_connections
+from rt_api.rest_api_interface.dummy_request import DummyRequest
 
 logger = logging.getLogger(__name__)
-
+redis_client = redis.StrictRedis(settings.REALTIME_DATA_STORAGE['host'],
+                                 db=settings.REALTIME_DATA_STORAGE['db'])
 
 def create_realtime_handler(sios):
 
@@ -14,17 +19,20 @@ def create_realtime_handler(sios):
 
         @sios.on('connect', namespace='/')
         def on_connect(sid, socket, *args):
-            # When the user authenticates, we'll track that here. For now mark it
-            # None to represent an unauthenticated state.
-            socket['user'] = None
-
+            # Drop the user if they don't authenticate immediately
+            socket['authed'] = False
             def confirm_authed(sid, socket):
-                if socket['user'] is None:
+                if not redis_client.hexists('realtime_connections', str(sid)):
                     logger.info("Disconnecting unauthenticated socket connection")
                     sios.server.disconnect(sid)
 
             # Make sure the connection authenticates immediately
-            eventlet.spawn_after(1.0, confirm_authed, sid, socket)
+            eventlet.spawn_after(settings.REALTIME_AUTH_TIMEOUT_SECONDS,
+                                 confirm_authed, sid, socket)
+
+        @sios.on('disconnect', namespace='/')
+        def on_disconnect(sid, *args):
+            redis_client.hdel('realtime_connections', str(sid))
 
         @sios.on('authorization', namespace='/das')
         def on_authenticate(sid, data):
@@ -39,16 +47,24 @@ def create_realtime_handler(sios):
                                   namespace='/das')
                         sios.server.disconnect(sid)
 
-                # to authenticate the token, we need to create a fake http request for oauth to authenticate
+                # To authenticate the token, we need to create a fake http request for oauth to authenticate
                 request = DummyRequest(headers={'Authorization': data['authorization']})
                 user = authenticate(**{'request': request})
 
-                # If the token checks out, mark the connection as authenticated and put it into the chat rooms
+                # The token checks out
                 if user is not None:
                     logger.info("Socket {0} user authenticted successfully".format(sid))
-                    sios.server.environ[sid]['user'] = user
+
+                    # Put the user into redis
+                    redis_client.hset('realtime_connections', str(sid), user.username)
+                    # TODO: handle expiration better
+                    redis_client.expire('realtime_connection', 300)  # 5 minutes
+
+                    # Put the connection into the correct rooms
                     sios.server.manager.enter_room(sid, 'all_clients', '/das')
                     sios.server.manager.enter_room(sid, sid, '/das')
+
+                    # tell the user that they've been authenticated
                     sios.emit('resp_authorization',
                               {'type': 'resp_authorization', 'resp_id': data['id'],
                                'status': {'code': 200, 'message': 'OK'}},
@@ -105,7 +121,7 @@ def create_realtime_handler(sios):
                 data['geo_json'] = geo_json
             if state is not None:
                 data['state'] = state
-            RealtimeServices.emit('subject_position_update', data, user)
+            return RealtimeServices.emit('subject_position_update', data, user)
 
         @staticmethod
         def emit_new_event(event_id, event_data=None, user=None):
@@ -114,7 +130,7 @@ def create_realtime_handler(sios):
                 data['event_data'] = event_data
 
             logger.info("Emitting new event. %s", event_id)
-            RealtimeServices.emit('new_event', data, user)
+            return RealtimeServices.emit('new_event', data, user)
 
         @staticmethod
         def emit_update_event(event_id, event_data=None, user=None):
@@ -123,33 +139,35 @@ def create_realtime_handler(sios):
                 data['event_data'] = event_data
 
             logger.info("Emitting update event. %s", event_id)
-            RealtimeServices.emit('update_event', data, user)
+            return RealtimeServices.emit('update_event', data, user)
 
         @staticmethod
         def emit_delete_event(event_id, event_data=None, user=None):
             data = {'type': 'delete_event', 'event_id': event_id}
             logger.info("Emitting delete event. %s", event_id)
-            RealtimeServices.emit('delete_event', data, user)
+            return RealtimeServices.emit('delete_event', data, user)
 
         @staticmethod
         def emit_count_event(count, user=None):
             data = {'type': 'count_event', 'count': count}
             logger.info("Emitting count event change. %s", count)
-            RealtimeServices.emit('count_event', data, user)
+            return RealtimeServices.emit('count_event', data, user)
 
         @staticmethod
         def emit(message_type, data, user=None):
             try:
                 if user is None:
                     sios.emit(message_type, data, namespace='/das')
-                else:
+                elif user in sios.server.environ:
                     sios.emit(message_type, data, room=str(user), namespace='/das')
-            except Exception as ex:
+                else:
+                    return False
 
+                return True
+
+            except Exception as ex:
                 logger.error("Error emitting event over socket", ex)
 
-        @staticmethod
-        def connected_clients():
-            return sios.server.environ.copy()
+            return False
 
     return RealtimeServices

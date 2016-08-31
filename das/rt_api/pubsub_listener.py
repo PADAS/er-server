@@ -1,19 +1,22 @@
 
 import eventlet
 import logging
+import pytz
+import redis
 
+from accounts.models.user import User
 from activity.models import Event
 from activity.views import EventView
-# from activity.serializers import EventSerializer
 from das_server import pubsub
 from datetime import datetime, timedelta
-import pytz
+from django.conf import settings
 from observations.views import SubjectTracksView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from observations.models import SubjectSource
 
 logger = logging.getLogger(__name__)
-
+redis_client = redis.StrictRedis(settings.REALTIME_DATA_STORAGE['host'],
+                                 db=settings.REALTIME_DATA_STORAGE['db'])
 
 def get_context():
     return {'request': DummyRequest(uri='', http_method='GET')}
@@ -23,35 +26,42 @@ def start(realtime_server):
 
     def _event_handler(data, emit, type=None):
         try:
-            connected_clients = realtime_server.connected_clients()
             event_id = data['event_id']
             view = EventView.as_view()
 
-            # Loop over all connected clients because they may have different event permissions
-            for socket_id in connected_clients:
+            connected_sids = redis_client.hkeys('realtime_connections')
+            for connected_sid in connected_sids:
                 try:
-                    user = connected_clients[socket_id]['user']
+                    connected_sid = connected_sid.decode('UTF-8')
+                    username = redis_client.hget('realtime_connections', connected_sid).decode('UTF-8')
+                    user = User.objects.filter(username=username).first()
                     if not user:
+                        # Probably shouldn't get here, but maybe the user got
+                        # deleted just now?
+                        redis_client.hdel('realtime_connections', connected_sid)
                         continue
 
                     # Create a dummy request with the user's info so we get the permission enforcement for free
                     request = DummyRequest(uri='/event/', http_method='GET', user=user)
                     result = view(request, id=event_id)
 
-                    # if we get location data, package it up and send it out
-                    if result.status_code == 200 and result.data:
-                        emit(event_id=str(data['event_id']),
-                             event_data=result.data,
-                             user=socket_id)
+                    # If there's nothing to send, no need to send it
+                    if result.status_code != 200 or not result.data:
+                        continue
 
-                    send_count(socket_id)
+                    # If the first send is successful, send the count.
+                    if emit(event_id=str(data['event_id']), event_data=result.data, user=connected_sid):
+                        send_count(connected_sid)
+                    # Otherwise, don't bother sending to this client in the future
+                    else:
+                        redis_client.hdel('realtime_connections', connected_sid)
 
                 except Exception as ex:
                     logger.exception(
                         'Error creating custom payload for event: %s' % (data,),
                         ex)
 
-        except Exception:
+        except Exception as ex:
             logger.exception("Error handling {0} event for {1}".format(
                 type, data))
 
@@ -87,7 +97,6 @@ def start(realtime_server):
     def _new_observation_handler(data, message):
         try:
             logger.info("Handling new observation: %s", data)
-            connected_clients = realtime_server.connected_clients()
             if 'subject_id' in data:
                 subject_id = data['subject_id']
             elif 'source_id' in data:
@@ -98,11 +107,17 @@ def start(realtime_server):
             view = SubjectTracksView.as_view()
 
             # Loop over all connected clients because they may have different permissions for this subject
-            for socket_id in connected_clients:
+            connected_sids = redis_client.hkeys('realtime_connections')
+            for connected_sid in connected_sids:
                 try:
-
-                    user = connected_clients[socket_id]['user']
+                    connected_sid = connected_sid.decode('UTF-8')
+                    username = redis_client.hget('realtime_connections',
+                                                 connected_sid).decode('UTF-8')
+                    user = User.objects.filter(username=username).first()
                     if not user:
+                        # Probably shouldn't get here, but maybe the user got
+                        # deleted just now?
+                        redis_client.hdel('realtime_connections', connected_sid)
                         continue
 
                     # Create a dummy request with the user's info so we get the permission enforcement for free
@@ -133,8 +148,14 @@ def start(realtime_server):
                             state = None
 
                         # ok, now the object is ready to send
-                        realtime_server.emit_subject_update(subjectid=str(subject_id),
-                                                            geo_json=geojson_data, user=socket_id, state=state)
+                        if not realtime_server.emit_subject_update(
+                                subjectid=str(subject_id),
+                                geo_json=geojson_data,
+                                user=connected_sid,
+                                state=state):
+                            redis_client.hdel('realtime_connections',
+                                              connected_sid)
+
 
                 except Exception as ex:
                     logger.exception('Error creating custom payload for subject position update: %s' % (data,), ex)
