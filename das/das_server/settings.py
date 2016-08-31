@@ -278,7 +278,7 @@ DATA_INPUT_PLUGINS = {
 #would want to set this to where you might have some MBTiles maps
 MAPPING = {'MBTILES': {'root': r'\tmp',}}
 
-REALTIME_DATA_STORAGE = {'host': 'pr-d1.corp.vnw.com', 'db': 2}
+REALTIME_DATA_STORAGE = {'host': 'localhost', 'db': 2}
 REALTIME_BROKER_URL = 'redis://localhost:6379/2'
 REALTIME_BROKER_OPTIONS = {'max_connections': 200}
 PUBSUB_BROKER_URL = 'redis://localhost:6379/1'
