@@ -273,6 +273,10 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
             return get_user_display(instance)
         return super().display_value(instance)
 
+    def get_choices(self, cutoff=None):
+        '''get_choices does not work for this complicated field, see object_choices'''
+        return OrderedDict()
+
     @property
     def object_choices(self):
         queryset = self.get_object_queryset()
