@@ -115,7 +115,7 @@ def create_realtime_handler(sios):
 
         @staticmethod
         def emit_subject_update(subjectid, geo_json=None, user=None, state=None):
-            data = {'type': 'subject_position_update', 'subject_id': subjectid}
+            data = {'type': 'subject_position_update', 'id': subjectid}
             if geo_json is not None:
                 data['geo_json'] = geo_json
             if state is not None:
@@ -124,7 +124,7 @@ def create_realtime_handler(sios):
 
         @staticmethod
         def emit_new_event(event_id, event_data=None, user=None):
-            data = {'type': 'new_event', 'event_id': event_id}
+            data = {'type': 'new_event', 'id': event_id}
             if event_data is not None:
                 data['event_data'] = event_data
 
@@ -133,7 +133,7 @@ def create_realtime_handler(sios):
 
         @staticmethod
         def emit_update_event(event_id, event_data=None, user=None):
-            data = {'type': 'update_event', 'event_id': event_id}
+            data = {'type': 'update_event', 'id': event_id}
             if event_data is not None:
                 data['event_data'] = event_data
 
@@ -142,7 +142,7 @@ def create_realtime_handler(sios):
 
         @staticmethod
         def emit_delete_event(event_id, event_data=None, user=None):
-            data = {'type': 'delete_event', 'event_id': event_id}
+            data = {'type': 'delete_event', 'id': event_id}
             logger.info("Emitting delete event. %s", event_id)
             return RealtimeServices.emit('delete_event', data, user)
 
