@@ -1,21 +1,23 @@
+import logging
+from datetime import datetime, timedelta
 
 import eventlet
-import logging
 import pytz
 import redis
+from django.conf import settings
+from django.db import close_old_connections
 
 from accounts.models.user import User
 from activity.models import Event
 from activity.views import EventView
 from das_server import pubsub
-from datetime import datetime, timedelta
-from django.conf import settings
 from observations.views import SubjectTracksView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from observations.models import SubjectSource
 
 logger = logging.getLogger(__name__)
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
+
 
 def get_context():
     return {'request': DummyRequest(uri='', http_method='GET')}
@@ -63,6 +65,8 @@ def start(realtime_server):
         except Exception as ex:
             logger.exception("Error handling {0} event for {1}".format(
                 type, data))
+        finally:
+            close_old_connections()
 
     def _new_event_handler(data, message):
         logger.info("Handling new event: %s", data)
@@ -92,6 +96,8 @@ def start(realtime_server):
         except Exception:
             logger.exception(
                 "Error sending count")
+        finally:
+            close_old_connections()
 
     def _new_observation_handler(data, message):
         try:
@@ -161,6 +167,8 @@ def start(realtime_server):
 
         except Exception as ex:
             logger.exception('Error handling new observation message: %s' % (data,), ex)
+        finally:
+            close_old_connections()
 
     def new_observation_handler(data, message):
         eventlet.spawn_n(_new_observation_handler, data, message)
