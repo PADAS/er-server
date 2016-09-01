@@ -15,8 +15,7 @@ from rt_api.rest_api_interface.dummy_request import DummyRequest
 from observations.models import SubjectSource
 
 logger = logging.getLogger(__name__)
-redis_client = redis.StrictRedis(settings.REALTIME_DATA_STORAGE['host'],
-                                 db=settings.REALTIME_DATA_STORAGE['db'])
+redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
 
 def get_context():
     return {'request': DummyRequest(uri='', http_method='GET')}
