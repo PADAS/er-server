@@ -16,6 +16,9 @@ def create_realtime_handler(sios):
 
     class RealtimeServices():
 
+        supported_message_types = ['new_event', 'update_event', 'delete_event',
+                                   'count_event', 'subject_position_update']
+
         @sios.on('connect', namespace='/')
         def on_connect(sid, socket, *args):
             # Drop the user if they don't authenticate immediately
@@ -114,59 +117,25 @@ def create_realtime_handler(sios):
 
 
         @staticmethod
-        def emit_subject_update(subjectid, geo_json=None, user=None, state=None):
-            data = {'type': 'subject_position_update', 'id': subjectid}
-            if geo_json is not None:
-                data['geo_json'] = geo_json
-            if state is not None:
-                data['state'] = state
-            return RealtimeServices.emit('subject_position_update', data, user)
-
-        @staticmethod
-        def emit_new_event(event_id, event_data=None, user=None):
-            data = {'type': 'new_event', 'id': event_id}
-            if event_data is not None:
-                data['event_data'] = event_data
-
-            logger.info("Emitting new event. %s", event_id)
-            return RealtimeServices.emit('new_event', data, user)
-
-        @staticmethod
-        def emit_update_event(event_id, event_data=None, user=None):
-            data = {'type': 'update_event', 'id': event_id}
-            if event_data is not None:
-                data['event_data'] = event_data
-
-            logger.info("Emitting update event. %s", event_id)
-            return RealtimeServices.emit('update_event', data, user)
-
-        @staticmethod
-        def emit_delete_event(event_id, event_data=None, user=None):
-            data = {'type': 'delete_event', 'id': event_id}
-            logger.info("Emitting delete event. %s", event_id)
-            return RealtimeServices.emit('delete_event', data, user)
-
-        @staticmethod
-        def emit_count_event(count, user=None):
-            data = {'type': 'count_event', 'count': count}
-            logger.info("Emitting count event change. %s", count)
-            return RealtimeServices.emit('count_event', data, user)
-
-        @staticmethod
         def emit(message_type, data, user=None):
             try:
                 if user is None:
                     sios.emit(message_type, data, namespace='/das')
-                elif user in sios.server.environ:
-                    sios.emit(message_type, data, room=str(user), namespace='/das')
                 else:
-                    return False
-
-                return True
+                    sios.emit(message_type, data, room=str(user), namespace='/das')
 
             except Exception as ex:
+                redis_client.hdel('realtime_connections', str(user))
                 logger.error("Error emitting event over socket", ex)
 
-            return False
+        @staticmethod
+        def send_realtime_message(message_data):
+            if message_data['type'] in RealtimeServices.supported_message_types:
+                RealtimeServices.emit(message_data['type'],
+                                      message_data['data'],
+                                      message_data['sid'])
+            else:
+                logger.error('Realtime server received invald message type',
+                             message_data['type'])
 
     return RealtimeServices
