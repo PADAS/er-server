@@ -18,6 +18,8 @@ from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from versatileimagefield.serializers import VersatileImageFieldSerializer
+import jsonschema
+import jsonschema.exceptions
 
 import activity.models
 import utils
@@ -26,6 +28,27 @@ from observations.serializers import SubjectSerializer, SourceSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
 logger = logging.getLogger(__name__)
+
+
+class EventAttributesField(rest_framework.serializers.JSONField):
+    def __init__(self, event_type, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.schema = None
+        if event_type:
+            self.schema = event_type.schema
+
+    def to_representation(self, value):
+        return value
+
+    def to_internal_value(self, data):
+        if not self.schema and data:
+            rest_framework.serializers.ValidationError(
+                'Schema not set for Event.Attributes')
+        try:
+            jsonschema.validate(data, self.schema)
+        except jsonschema.exceptions.ValidationError as ex:
+            raise rest_framework.serializers.ValidationError(ex.message)
+        return data
 
 
 class CommunitySerializer(rest_framework.serializers.ModelSerializer):
@@ -59,6 +82,7 @@ REPORTED_SERIALIZER_MAPPING = {
 
 }
 
+
 def filter_blank_choice(choices):
     if isinstance(choices, dict):
         choices = choices.items()
@@ -70,8 +94,10 @@ def filter_blank_choice(choices):
             pass
         yield value,display
 
+
 class EventJSONSchema(BaseMetadata):
     label_lookup = ClassLookupDict({
+        rest_framework.serializers.Field: 'object',
         rest_framework.serializers.BooleanField: 'boolean',
         rest_framework.serializers.NullBooleanField: 'boolean',
         rest_framework.serializers.CharField: 'string',
@@ -85,13 +111,18 @@ class EventJSONSchema(BaseMetadata):
         rest_framework.serializers.DateField: 'string',
         rest_framework.serializers.DateTimeField: 'string',
         rest_framework.serializers.TimeField: 'string',
-        rest_framework.serializers.ChoiceField: 'string',
+        rest_framework.serializers.FileField: 'string',
+        rest_framework.serializers.ChoiceField: 'enum',
         rest_framework.serializers.MultipleChoiceField: 'string',
         rest_framework.serializers.ListField: 'array',
         rest_framework.serializers.DictField: 'object',
         rest_framework.serializers.Serializer: 'object',
+        rest_framework.serializers.PrimaryKeyRelatedField: 'string',
+        rest_framework.serializers.SlugRelatedField: 'enum',
         rest_framework.serializers.UUIDField: 'string',
         rest_framework.serializers.RelatedField: 'object',
+        rest_framework.serializers.HyperlinkedRelatedField: 'string',
+        rest_framework.serializers.HyperlinkedIdentityField: 'string',
         drf_extra_fields.geo_fields.PointField: 'string',
         ChoiceField: 'string',
 
@@ -106,11 +137,11 @@ class EventJSONSchema(BaseMetadata):
 
     def determine_metadata(self, request, view):
         metadata = OrderedDict(self.schema)
-        metadata['description'] = view.get_view_description()
+
         if hasattr(view, 'get_serializer'):
             properties = self.determine_properties(request, view)
             metadata['properties'] = properties
-
+        metadata['description'] = view.get_view_description()
         return metadata
 
     def determine_properties(self, request, view):
@@ -502,6 +533,10 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             self.fields['notes'].context.update(self.context)
         else:
             self.fields.pop('notes')
+
+    def to_internal_value(self, data):
+        internal_value = super().to_internal_value(data)
+        attributes_field = EventAttributesField(data)
 
     def create(self, validated_data):
         return activity.models.Event.objects.create_event(**validated_data)

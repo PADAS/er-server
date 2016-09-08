@@ -73,6 +73,7 @@ class EventType(TimestampedModel):
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
+    schema = JSONField(default={}, blank=True)
 
     objects = EventTypeManager()
 

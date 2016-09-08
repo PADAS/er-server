@@ -14,6 +14,7 @@ from rest_framework.compat import set_rollback
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.metadata import BaseMetadata
 
 
 logger = logging.getLogger('django.request')
@@ -90,3 +91,8 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_size = 25
     page_size_query_param = 'page_size'
     max_page_size = 100
+
+
+class NoMetaData(BaseMetadata):
+    def determine_metadata(self, request, view):
+        return None
