@@ -61,7 +61,7 @@ def _event_handler(event_id, type):
                     'type': type,
                     'sid': connected_sid,
                     'object_id': event_id,
-                    'data': result.data
+                    'data': {'event_data': result.data}
                 }
                 count_data = {
                     'type': 'count_event',
