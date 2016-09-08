@@ -118,6 +118,10 @@ def create_realtime_handler(sios):
 
         @staticmethod
         def emit(message_type, data, user=None):
+            if user not in sios.server.environ:
+                redis_client.hdel('realtime_connections', str(user))
+                logger.warn('Tried to send a message to a disconnected client')
+                return
             try:
                 if user is None:
                     sios.emit(message_type, data, namespace='/das')
