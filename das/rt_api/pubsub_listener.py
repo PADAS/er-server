@@ -4,6 +4,7 @@ import json
 import logging
 
 from das_server import pubsub, celery
+from observations.models import SubjectSource
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,16 @@ def start(realtime_server):
                              args=(data['event_id'],))
 
     def new_observation_handler(data, message):
-        celery.app.send_task('rt_api.tasks.handle_new_subject_observation',
-                             args=(data['subject_id'],))
+        if 'subject_id' in data:
+            celery.app.send_task('rt_api.tasks.handle_new_subject_observation',
+                                 args=(data['subject_id'],))
+        elif 'source_id' in data:
+            # get the most recent Subject for this Source
+            subject_source = SubjectSource.objects.filter(
+                source=data['source_id']) \
+                .order_by('assigned_range').reverse().first()
+            celery.app.send_task('rt_api.tasks.handle_new_subject_observation',
+                                 args=(subject_source.subject_id,))
 
     def emit_handler(data, message):
         message_data = json.loads(data)
