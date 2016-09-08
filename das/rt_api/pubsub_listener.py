@@ -33,7 +33,7 @@ def start(realtime_server):
                 source=data['source_id']) \
                 .order_by('assigned_range').reverse().first()
             celery.app.send_task('rt_api.tasks.handle_new_subject_observation',
-                                 args=(subject_source.subject_id,))
+                                 args=(str(subject_source.subject_id),))
 
     def emit_handler(data, message):
         message_data = json.loads(data)
