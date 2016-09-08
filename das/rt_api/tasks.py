@@ -114,17 +114,17 @@ def _observation_handler(subject_id):
                 if len(geojson_data['geometry']['coordinates']) == 0:
                     continue
 
+                payload = {'geo_json': geojson_data}
+
                 # also need to send subject status if it exists
                 if 'subject_state' in result.data.serializer.context:
-                    state = result.data.serializer.context['subject_state']
-                else:
-                    state = None
+                    payload['state'] = result.data.serializer.context['subject_state']
 
                 emit_data = {
                     'type': 'subject_position_update',
                     'sid': connected_sid,
                     'object_id': subject_id,
-                    'data': {'geo_json': geojson_data, 'state': state}
+                    'data': payload
                 }
 
                 pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
