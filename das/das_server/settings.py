@@ -58,7 +58,7 @@ INSTALLED_APPS = (
     'sensors',
     'mapping.apps.MappingConfig',
     'activity',
-    'rt_api.apps.RTAPIConfig',
+    'rt_api',
     'core.apps.CoreConfig',
     'vectronics'
 )
