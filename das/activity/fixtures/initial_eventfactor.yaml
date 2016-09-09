@@ -1,0 +1,106 @@
+- model: activity.eventclass
+  pk: f37d0312-22fc-4e34-9eec-a8b5793f7783
+  fields:
+    value: std_report
+    display: Standard Reporting
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 0
+- model: activity.eventclass
+  pk: 98f390e1-59fb-4807-82e1-c1b3c4b26132
+  fields:
+    value: trespass
+    display: Trespass
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 1
+- model: activity.eventclass
+  pk: 1b46f66b-04bf-43b4-a20e-ceea6323c86a
+  fields:
+    value: aai
+    display: "Arrests Accident Incident"
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 2
+- model: activity.eventclass
+  pk: f565643a-7647-40c9-aa9e-496d62dd87aa
+  fields:
+    value: hwcpb
+    display: "HWC Poaching Bush meat"
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 3
+- model: activity.eventclass
+  pk: 5ada91ec-757b-454b-ab4e-8b733b54e824
+  fields:
+    value: theft_hostility
+    display: "Theft Hostility"
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 4
+- model: activity.eventclass
+  pk: bc85e416-6791-4d78-98b7-ed49d0c81ee0
+  fields:
+    value: staff_tourist
+    display: "Staff Tourist Community"
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 5
+- model: activity.eventclass
+  pk: 023d0961-5306-4b7b-aebc-cc366164357c
+  fields:
+    value: rhino_elephant
+    display: "Rhino Elephant"
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 6
+
+- model: activity.eventfactor
+  pk: 16b9acc6-ad7a-42a5-aa61-4fb18abcdbdf
+  fields:
+    value: third_party
+    display: "3rd party reporting unconfirmed"
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 1
+- model: activity.eventfactor
+  pk: a550b9be-664c-44f3-a712-b47b3ac7794f
+  fields:
+    value: confirmed_external
+    display: "Confirmed report (external)"
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 2
+- model: activity.eventfactor
+  pk: b30d2ae5-4211-473c-a10c-2a2e1b7ef1d1
+  fields:
+    value: confirmed_internal
+    display: "Confirmed report (internal)"
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 3
+- model: activity.eventfactor
+  pk: 01c9b065-d0b7-4fac-a184-95a36f811262
+  fields:
+    value: gunshots
+    display: "Gunshots"
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 4
+- model: activity.eventfactor
+  pk: e8702b5f-8a45-4fa1-bae5-2682e3e14bdc
+  fields:
+    value: weapons
+    display: "Weapons Confirmed"
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 5
+- model: activity.eventfactor
+  pk: a327c283-710b-4451-bf55-9e3f0847fed6
+  fields:
+    value: loss_of_life
+    display: "Loss of life"
+    created_at: "2016-09-08T1:00:00.000000+00:00"
+    updated_at: "2016-09-08T1:00:00.000000+00:00"
+    ordernum: 6
+

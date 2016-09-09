@@ -641,3 +641,13 @@ def make_feature(request, event):
 
         }
     return feature
+
+
+class EventClassSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventClass
+
+
+class EventFactorSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventFactor

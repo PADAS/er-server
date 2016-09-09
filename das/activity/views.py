@@ -5,9 +5,10 @@ from django.db.models import Prefetch
 import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 
-from activity.models import Event, EventNote, EventPhoto
+from activity.models import Event, EventNote, EventPhoto, EventClass, EventFactor
 from activity.serializers import EventSerializer, EventNoteSerializer,\
-    EventJSONSchema, EventStateSerializer, EventPhotoSerializer
+    EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
+    EventClassSerializer, EventFactorSerializer
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
@@ -32,14 +33,33 @@ class EventSchemaView(generics.ListCreateAPIView):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
 
 
-class EventsCountView(generics.ListAPIView):
+class EventClassesView(generics.ListAPIView):
+    serializer_class = EventClassSerializer
+    queryset = EventClass.objects.all()
+
+
+class EventFactorsView(generics.ListAPIView):
+    serializer_class = EventFactorSerializer
+    queryset = EventFactor.objects.all()
+
+
+class EventClassFactorsView(generics.ListAPIView):
+    def get(self, request, *args, **kwargs):
+        data = []
+        for c in EventClass.objects.all():
+            for f in EventFactor.objects.all():
+                data.append(dict(class_value=c.value,
+                                 factor_value=f.value,
+                                 priority=Event.PRI_IMPORTANT,
+                                 priority_label=Event.PRIORITY_LABELS_MAP[Event.PRI_IMPORTANT]))
+
+        return generics.views.Response(data)
+
+
+class EventCountView(generics.ListAPIView):
     __doc__ = """
     Returns the count of New Events.
     """
-    permission_classes = (EventObjectPermissions,)
-    serializer_class = EventSerializer
-    pagination_class = StandardResultsSetPagination
-    metadata_class = EventJSONSchema
     queryset = Event.objects.all()
 
     def get(self, request, *args, **kwargs):
