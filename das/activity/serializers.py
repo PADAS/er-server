@@ -646,8 +646,10 @@ def make_feature(request, event):
 class EventClassSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventClass
+        fields = ('value', 'display', 'ordernum')
 
 
 class EventFactorSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventFactor
+        fields = ('value', 'display', 'ordernum')

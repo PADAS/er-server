@@ -48,10 +48,12 @@ class EventClassFactorsView(generics.ListAPIView):
         data = []
         for c in EventClass.objects.all():
             for f in EventFactor.objects.all():
-                data.append(dict(class_value=c.value,
-                                 factor_value=f.value,
-                                 priority=Event.PRI_IMPORTANT,
-                                 priority_label=Event.PRIORITY_LABELS_MAP[Event.PRI_IMPORTANT]))
+                data.append(dict(
+                    value='{0}_{1}'.format(c.value, f.value),
+                    class_value=c.value,
+                    factor_value=f.value,
+                    priority=Event.PRI_IMPORTANT,
+                    priority_label=Event.PRIORITY_LABELS_MAP[Event.PRI_IMPORTANT]))
 
         return generics.views.Response(data)
 
