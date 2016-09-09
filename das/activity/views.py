@@ -60,6 +60,7 @@ class EventCountView(generics.ListAPIView):
     __doc__ = """
     Returns the count of New Events.
     """
+    permission_classes = (EventObjectPermissions,)
     queryset = Event.objects.all()
 
     def get(self, request, *args, **kwargs):
