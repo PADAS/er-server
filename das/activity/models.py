@@ -470,3 +470,19 @@ class EventPhoto(RevisionMixin, TimestampedModel):
         return result
 
 
+class EventClassFactor(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    eventclass = models.ForeignKey(EventClass, on_delete=models.CASCADE)
+    eventfactor = models.ForeignKey(EventFactor, on_delete=models.CASCADE)
+    priority = models.PositiveSmallIntegerField(default=Event.PRI_REFERENCE,
+                                                choices=Event.PRIORITY_CHOICES)
+
+    class Meta:
+        unique_together = (('eventclass', 'eventfactor'),)
+
+    @property
+    def value(self):
+        return '{0}_{1}'.format(self.eventclass.value, self.eventfactor.value)
+
+    def __str__(self):
+        return self.value

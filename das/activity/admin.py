@@ -36,3 +36,25 @@ class EventTypeAdmin(admin.ModelAdmin):
                        )}
          ),
     )
+
+
+@admin.register(models.EventClass)
+class EventClassAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(models.EventFactor)
+class EventFactorAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(models.EventClassFactor)
+class EventClassFactorAdmin(admin.ModelAdmin):
+    list_display = ('class_display', 'factor_display', 'priority')
+    ordering = ('eventclass__ordernum', 'eventfactor__ordernum')
+
+    def class_display(self, instance):
+        return instance.eventclass.display
+
+    def factor_display(self, instance):
+        return instance.eventfactor.display

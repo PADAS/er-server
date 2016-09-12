@@ -4,13 +4,6 @@ from __future__ import unicode_literals
 import uuid
 
 from django.db import migrations, models
-from django.core.management import call_command
-
-
-def populate_eventfactor(apps, schema_editor):
-    #initial data references permissions
-    apps.models_module = None
-    call_command('loaddata', 'initial_eventfactor')
 
 
 class Migration(migrations.Migration):
@@ -48,5 +41,5 @@ class Migration(migrations.Migration):
                 'abstract': False,
             },
         ),
-        migrations.RunPython(populate_eventfactor),
+
     ]
