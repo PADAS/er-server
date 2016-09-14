@@ -536,7 +536,8 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         internal_value = super().to_internal_value(data)
-        attributes_field = EventAttributesField(data)
+        #attributes_field = EventAttributesField(data)
+        return internal_value
 
     def create(self, validated_data):
         return activity.models.Event.objects.create_event(**validated_data)

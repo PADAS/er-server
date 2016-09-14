@@ -13,7 +13,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
-from utils.json import parse_bool
+from utils.json import parse_bool, loads
 
 LAST_DAYS = timedelta(days=3)
 
@@ -29,6 +29,53 @@ class EventSchemaView(generics.ListCreateAPIView):
         meta = self.metadata_class()
         data = meta.determine_metadata(request, self)
         return generics.views.Response(data)
+
+    def post(self, request, *args, **kwargs):
+        raise rest_framework.exceptions.MethodNotAllowed('For Schema')
+
+
+class EventTypeSchemaView(generics.ListCreateAPIView):
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = EventSerializer
+    pagination_class = StandardResultsSetPagination
+    metadata_class = EventJSONSchema
+    queryset = Event.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        data = """
+        {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "id": "http://localhost/api/v1.0/activity/events/schema/hwc",
+    "title": "EventType Test Data",
+    "type": "object",
+    "properties": {
+        "animal_involved": {
+            "type": "string",
+            "title": "Animal Involved"
+        },
+        "injuries": {
+            "type": "string",
+            "title": "Injuries"
+        },
+        "property_damage": {
+            "type": "boolean",
+            "title": "Property Damage"
+        },
+        "livestock_killed": {
+            "type": "number",
+            "title": "Livestock Killed"
+        },
+        "type_of_contact": {
+            "type": "string",
+            "title": "Type of Contact",
+            "enum": [ "Crop", "Livestock", "Human"]
+        }
+    },
+    "required": ["animal_involved"]
+
+}
+        """
+        return generics.views.Response(loads(data))
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
