@@ -144,10 +144,20 @@ REST_FRAMEWORK = {
         'utils.json.ExtendedJSONRenderer',
         'utils.json.ExtendedBrowsableAPIRenderer',
     ),
+    'DEFAULT_METADATA_CLASS': 'utils.drf.NoMetaData',
     'EXCEPTION_HANDLER': 'utils.drf.api_exception_handler',
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
     #'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
     #'DEFAULT_VERSION': 'v1.0',
+    'SECURITY_DEFINITIONS': {
+            'oauth2': {
+                'type': 'oauth2',
+                'name': '',
+                'authorizationUrl': 'http://swagger.io/api/oauth/dialog',
+                'flow': 'password',
+                'in': 'header',
+            }
+        },
 }
 
 AUTHENTICATION_BACKENDS = (
