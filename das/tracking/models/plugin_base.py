@@ -23,23 +23,29 @@ from core.models import TimestampedModel
 
 import observations
 
+from tracking.pubsub_registry import notify_new_tracks
+
+
 logger = logging.getLogger(__name__)
 
-class DasPluginConfigurationError(Exception):
+class DasPluginException(Exception):
     pass
 
-class DasPluginConnectionError(Exception):
+class DasPluginConfigurationError(DasPluginException):
     pass
 
-class DasPluginFetchError(Exception):
+class DasPluginConnectionError(DasPluginException):
+    pass
+
+class DasPluginFetchError(DasPluginException):
     pass
 
 
-class DasPluginTransformationError(Exception):
+class DasPluginTransformationError(DasPluginException):
     pass
 
 
-class DasPluginInsertError(Exception):
+class DasPluginInsertError(DasPluginException):
     pass
 
 
@@ -79,7 +85,8 @@ class SourcePlugin(TimestampedModel):
         models.Q(app_label='tracking', model='awthttpplugin') | \
         models.Q(app_label='tracking', model='inreachkmlplugin') | \
         models.Q(app_label='tracking', model='skygisticssatelliteplugin') | \
-        models.Q(app_label='tracking', model='firmsplugin')
+        models.Q(app_label='tracking', model='firmsplugin') | \
+        models.Q(app_label='tracking', model='spidertracksplugin')
 
     # Generic foreign key to plugin
     plugin_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
@@ -100,20 +107,22 @@ class SourcePlugin(TimestampedModel):
         Run basic logic to fetch new observations for the associated source.
         :return:
         '''
-        result = SourcePluginResult()
-        result.plugin_type = self.plugin_type
-        result.source_id = self.source_id
+        if self.should_run:
+            result = SourcePluginResult()
+            result.plugin_type = self.plugin_type
+            result.source_id = self.source_id
 
-        with target or DasDefaultTarget() as target:
-            for x in self.plugin.fetch(self.source, self.cursor_data):
-                target.send(x)
-                result.count += 1
-        self.last_run = datetime.datetime.now(tz=pytz.UTC)
-        self.cursor_data = self.plugin.cursor_data
-        self.save()
+            with target or DasDefaultTarget() as t:
+                for observation in self.plugin.fetch(self.source, self.cursor_data):
+                    t.send(observation)
+                    result.count += 1
+            self.last_run = datetime.datetime.now(tz=pytz.UTC)
+            self.cursor_data = self.plugin.cursor_data
+            self.save()
 
-        return result
-
+            if result.count > 0:
+                notify_new_tracks(str(self.source.id))
+            return result
 
     def maintenance(self, target=None):
         raise NotImplementedError('maintenance is not yet implemented')
@@ -146,8 +155,28 @@ class TrackingPlugin(TimestampedModel):
     class Meta:
         abstract = True
 
+    @property
+    def run_source_plugins(self):
+        return True
+
     def should_run(self, source_plugin):
         return True
+
+    def execute(self):
+        '''
+        By default, delegate to each SourcePlugin instance to execute.
+        '''
+        for sp in self.source_plugins.all():
+            try:
+                logger.debug('Running plugin {} for source {}'.format(sp, sp.source))
+                result = sp.execute()
+                if result.count > 0:
+                    notify_new_tracks(result.source_id)
+                logger.debug(
+                    'Finished running plugin {} for source {} with result.count={}'.format(sp, sp.source, result.count))
+            except DasPluginException as dpe:
+                logger.exception('Running plugin {} for source {}'.format(sp, sp.source))
+
 
 class PluginTarget(object):
     '''

@@ -38,6 +38,10 @@ class SkygisticsSatelliteAdmin(admin.ModelAdmin):
 class FirmsPluginAdmin(admin.ModelAdmin):
     pass
 
+@admin.register(models.SpiderTracksPlugin)
+class SpiderTracksPluginAdmin(admin.ModelAdmin):
+    pass
+
 
 
 
