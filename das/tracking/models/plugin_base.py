@@ -107,20 +107,22 @@ class SourcePlugin(TimestampedModel):
         Run basic logic to fetch new observations for the associated source.
         :return:
         '''
-        result = SourcePluginResult()
-        result.plugin_type = self.plugin_type
-        result.source_id = self.source_id
+        if self.should_run:
+            result = SourcePluginResult()
+            result.plugin_type = self.plugin_type
+            result.source_id = self.source_id
 
-        with target or DasDefaultTarget() as t:
-            for observation in self.plugin.fetch(self.source, self.cursor_data):
-                t.send(observation)
-                result.count += 1
-        self.last_run = datetime.datetime.now(tz=pytz.UTC)
-        self.cursor_data = self.plugin.cursor_data
-        self.save()
+            with target or DasDefaultTarget() as t:
+                for observation in self.plugin.fetch(self.source, self.cursor_data):
+                    t.send(observation)
+                    result.count += 1
+            self.last_run = datetime.datetime.now(tz=pytz.UTC)
+            self.cursor_data = self.plugin.cursor_data
+            self.save()
 
-        return result
-
+            if result.count > 0:
+                notify_new_tracks(str(self.source.id))
+            return result
 
     def maintenance(self, target=None):
         raise NotImplementedError('maintenance is not yet implemented')
@@ -152,6 +154,10 @@ class TrackingPlugin(TimestampedModel):
 
     class Meta:
         abstract = True
+
+    @property
+    def run_source_plugins(self):
+        return True
 
     def should_run(self, source_plugin):
         return True

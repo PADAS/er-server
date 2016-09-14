@@ -249,6 +249,8 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
                                        help_text='API endpoint for Skygistics service.',
                                        default='http://skyq1.skygistics.com')
 
+
+
     def should_run(self, source_plugin):
 
         # Don't bother running now if less than one hour has passed since the latest fix.
@@ -323,21 +325,19 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
         """
         try:
             observation = {
-                'imei': unit_info[('{0}IMEI'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
-                'latitude': unit_info[('{0}Latitude'.format(SKYGISTICS_API_XMLNS))][0][
-                    '_text'],
-                'longitude': unit_info[('{0}Longitude'.format(SKYGISTICS_API_XMLNS))][0][
-                    '_text'],
-                'voltage': unit_info[('{0}Voltage'.format(SKYGISTICS_API_XMLNS))][0][
-                    '_text'],
-                'location': unit_info[('{0}Location'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
-                'temperature': unit_info[('{0}Temperature'.format(SKYGISTICS_API_XMLNS))][0]['_text'],
-                'recorded_at': timezone.make_aware(datetime.strptime(unit_info[('{0}Time'.format(SKYGISTICS_API_XMLNS))][0][
-                    '_text'], SKYGISTICS_DATETIME_FORMAT), timezone.utc),
+                'imei': unit_info[_qualify('IMEI')][0]['_text'],
+                'latitude': unit_info[_qualify('Latitude')][0]['_text'],
+                'longitude': unit_info[_qualify('Longitude')][0]['_text'],
+                'voltage': unit_info[_qualify('Voltage')][0].get('_text'),
+                'location': unit_info[_qualify('Location')][0].get('_text'),
+                'temperature': unit_info[_qualify('Temperature')][0].get('_text'),
+                'recorded_at': timezone.make_aware(datetime.strptime(unit_info[_qualify('Time')][0]['_text'],
+                                                                     SKYGISTICS_DATETIME_FORMAT), timezone.utc),
                 # add T and Z to string timestamp so UTC is obvious.
                 'received_time':
-                    timezone.make_aware(datetime.strptime(unit_info[('{0}ReceivedTime'.format(SKYGISTICS_API_XMLNS))][0][
-                        '_text'], SKYGISTICS_DATETIME_FORMAT), timezone.utc).strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT),
+                    timezone.make_aware(datetime.strptime(unit_info[_qualify('ReceivedTime')][0]['_text'],
+                                                          SKYGISTICS_DATETIME_FORMAT),
+                                        timezone.utc).strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT),
             }
         except Exception as e:
             self.logger.exception('Transforming skygistics unit_info for source: {}'.format(source.manufacturer_id))

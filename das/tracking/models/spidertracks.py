@@ -127,6 +127,10 @@ class SpiderTracksPlugin(TrackingPlugin):
     service_api = models.CharField(max_length=100,
                                         help_text='The API endpoint for the SpiderTracks web-service.')
 
+    @property
+    def run_source_plugins(self):
+        return False
+
     def execute(self):
 
         notify_these = set()
