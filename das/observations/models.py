@@ -35,7 +35,7 @@ SOURCE_TYPES = (
     ('trap', 'Trap'),
     ('seismic', 'Seismic sensor'),
     ('firms', 'FIRMS data'),
-    ('gps-radio', 'gps radio')
+    ('gps-radio', 'gps radio'),
 )
 
 
@@ -96,11 +96,12 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
 
 class SourceManager(models.Manager):
     # Helper functions for hydrating Source and Subject for the given message.
-    def ensure_source(self, source_type, manufacturer_id=None, model_name=None, additional=None):
+    def ensure_source(self, source_type, provider_name=None, manufacturer_id=None, model_name=None, additional=None):
 
         additional = additional or {}
         src, created = Source.objects.get_or_create(source_type=source_type,
                                                     manufacturer_id=manufacturer_id,
+                                                    provider_name=provider_name,
                                                     defaults={'model_name': model_name,
                                                               'additional': additional
                                                               })
@@ -113,7 +114,7 @@ class SourceManager(models.Manager):
         return source
 
 
-class Source(models.Model):
+class Source(TimestampedModel):
 
     objects = SourceManager()
 
@@ -121,6 +122,8 @@ class Source(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     source_type = models.CharField('type of data expected', max_length=100,
                                    null=True, choices=SOURCE_TYPES)
+
+    provider_name = models.CharField('unique name for data provider', max_length=100, null='False', default='default')
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
     model_name = models.CharField('device model name', max_length=100, null=True)
@@ -131,6 +134,7 @@ class Source(models.Model):
             ('view_source',
              'Permission to view a source'),
         )
+        unique_together = ('provider_name', 'manufacturer_id')
 
     def __str__(self):
         return '%s:%s' % (self.manufacturer_id, self.model_name)
@@ -316,6 +320,8 @@ class Observation(models.Model):
             ['source', 'recorded_at']
         )
 
+DEFAULT_ASSIGNED_RANGE = list((datetime(1970,1,1, tzinfo=pytz.utc),
+                               datetime.max.replace(tzinfo=pytz.utc)))
 
 class SubjectSourceManager(models.GeoManager):
     def get_subject_sources(self, subject):
@@ -326,7 +332,7 @@ class SubjectSourceManager(models.GeoManager):
         sds = SubjectSource.objects.filter(subject_id=subject.id, source_id=source_id)
         return sds
 
-    def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None, assigned_range=None,
+    def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None,
                               additional=None, subject_name=None):
 
         additional = additional or {}
@@ -351,7 +357,7 @@ class SubjectSourceManager(models.GeoManager):
 
             if sub:
                 subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
-                                                                     defaults=dict(assigned_range=assigned_range,
+                                                                     defaults=dict(assigned_range=DEFAULT_ASSIGNED_RANGE,
                                                                                    additional=additional))
                 
         return subject_source, created
@@ -381,6 +387,7 @@ class SubjectSource(models.Model):
 
 DEFAULT_SUBJECT_GROUP_ID = 'b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057'
 DEFAULT_SOURCE_GROUP_ID = '654e592c-fc5a-436d-98dd-fd1b36436a85'
+
 
 
 class SubjectGroupManager(HierarchyManager):
@@ -478,7 +485,7 @@ class SubjectManager(models.Manager):
         return subject
 
 
-class Subject(models.Model, PermissionSetGroupMixin):
+class Subject(TimestampedModel, PermissionSetGroupMixin):
     """Person, Animal, Vehicle, etc"""
 
     def clean_fields(self, exclude=None):
@@ -488,6 +495,7 @@ class Subject(models.Model, PermissionSetGroupMixin):
     TYPE_PERSON = 'person'
     TYPE_VEHICLE = 'vehicle'
     TYPE_STATIONARY_OBJECT = 'stationary-object'
+    TYPE_AIRCRAFT = 'aircraft'
 
     SUBTYPE_ELEPHANT = 'elephant'
     SUBTYPE_ZEBRA = 'zebra'
@@ -502,6 +510,9 @@ class Subject(models.Model, PermissionSetGroupMixin):
     SUBTYPE_RANGER = 'ranger'
     SUBTYPE_MANAGER = 'manager'
     SUBTYPE_DRIVER = 'driver'
+
+    SUBTYPE_PLANE = 'plane'
+    SUBTYPE_HELICOPTER = 'helicopter'
 
     TYPES_HIERARCHIES = [
         {
@@ -538,6 +549,14 @@ class Subject(models.Model, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_CAMERA_TRAP, 'Camera Trap'),
                 (SUBTYPE_WEATHER_STATION, 'Weather Sensor'),
+            )
+        },
+        {
+            'value': TYPE_AIRCRAFT,
+            'name': 'Aircraft',
+            'subtypes': (
+                (SUBTYPE_PLANE, 'Plane'),
+                (SUBTYPE_HELICOPTER, 'Helicopter'),
             )
         }
     ]

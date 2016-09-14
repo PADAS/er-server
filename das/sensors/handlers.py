@@ -37,11 +37,6 @@ class DasRadioAgentHandler():
             dt = dt.replace(tzinfo=default_tzinfo)
         return dt
 
-    @staticmethod
-    def _default_assigned_range(d1):
-        rng = (d1, d1 + timedelta(days=365 * 5))
-        return list(rng)
-
     def handle_observation(self, request, provider_key):
 
         obj = request.data
@@ -58,7 +53,9 @@ class DasRadioAgentHandler():
 
         model_name = '{}:{}'.format(self.SENSOR_TYPE, provider_key)
         manufacturer_id = obj.get('manufacturer_id')
-        src, created = Source.objects.ensure_source(self.SOURCE_TYPE, manufacturer_id=manufacturer_id,
+        src, created = Source.objects.ensure_source(self.SOURCE_TYPE,
+                                                    provider_name=provider_key,
+                                                    manufacturer_id=manufacturer_id,
                                                     model_name=model_name)
 
         recorded_at = self.__str2date(obj['recorded_at'])
@@ -74,8 +71,6 @@ class DasRadioAgentHandler():
                                                                       timestamp=recorded_at,
                                                                       subject_type=self.DEFAULT_SUBJECT_TYPE,
                                                                       subject_subtype=self.DEFAULT_SUBJECT_SUBTYPE,
-                                                                      assigned_range=self._default_assigned_range(
-                                                                          recorded_at),
                                                                       subject_name=obj.get('subject_name', manufacturer_id)
                                                                       )
 
@@ -153,11 +148,6 @@ class GsatHandler():
             return datetime.datetime.now(tz=pytz.UTC)
 
 
-    @staticmethod
-    def _default_assigned_range(d1):
-        d2 = datetime.datetime.max.replace(tzinfo=pytz.utc)
-        return (d1, d2)
-
     REQUIRED_PARAMS = ('uniqueid', 'lat', 'lng', 'time',)
     OPTIONAL_PARAMS = ('alt', 'head', 'speed', 'emer',)
 
@@ -194,7 +184,9 @@ class GsatHandler():
         obj['provider_key'] = provider_key
 
         model_name = '{}:{}'.format(GsatHandler.SENSOR_TYPE, provider_key)
-        src, created = Source.objects.ensure_source(self.SOURCE_TYPE, obj.get('manufacturer_id'),
+        src, created = Source.objects.ensure_source(self.SOURCE_TYPE,
+                                                    provider_name=provider_key,
+                                                    manufacturer_id=obj.get('manufacturer_id'),
                                                     model_name=model_name)
 
         # If the Source already exists, assume the SubjectSource and Subject already exist.
@@ -202,9 +194,7 @@ class GsatHandler():
             ss, created = SubjectSource.objects.ensure_subject_source(src,
                                                                       timestamp=obj['recorded_at'],
                                                                       subject_type=self.DEFAULT_SUBJECT_TYPE,
-                                                                      subject_subtype=self.DEFAULT_SUBJECT_SUBTYPE,
-                                                                      assigned_range=self._default_assigned_range(
-                                                                          obj['recorded_at'])
+                                                                      subject_subtype=self.DEFAULT_SUBJECT_SUBTYPE
                                                                       )
 
         obj['additional'] = dict((k, obj[k]) for k in obj if k not in ('manufacturer_id', 'location', 'recorded_at',))
