@@ -141,9 +141,8 @@ EMPTY_POINT = Point(0,0)
 
 class ObservationManager(models.GeoManager):
     def get_source_range_observations(self, subject_sources, since=None, until=None):
-        """get observations for a set of sources and date ranges.
-        An animal may switch source devices based on a date range.
-        """
+        # Get observations for a set of sources and date ranges. An animal may
+        # switch source devices based on a date range.
         subject_sources = sorted(subject_sources,
                                  key=lambda ss: ss.assigned_range.lower,
                                  reverse=True)
@@ -165,10 +164,11 @@ class ObservationManager(models.GeoManager):
         return []
 
     def get_source_range_observation_values(self, subject_sources, since=None,
-                                      until=None):
+                                      until=None, order_by=None, limit=None):
         """get observations for a set of sources and date ranges.
         An animal may switch source devices based on a date range.
         """
+
         subject_sources = sorted(subject_sources,
                                  key=lambda ss: ss.assigned_range.lower,
                                  reverse=True)
@@ -185,7 +185,12 @@ class ObservationManager(models.GeoManager):
                 result = result.filter(Q(recorded_at__gt=since))
             if until:
                 result = result.filter(Q(recorded_at__lte=until))
-            result = result.order_by('-recorded_at')
+
+            if limit:
+                result = result.order_by('-recorded_at')[:limit]
+            else:
+                result = result.order_by('-recorded_at')
+
             for observation in result.values('location', 'recorded_at'):
                 if observation['location'] != EMPTY_POINT:
                     yield observation

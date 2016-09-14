@@ -676,3 +676,34 @@ def make_feature(request, event):
 
         }
     return feature
+
+
+class EventClassSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventClass
+        fields = ('value', 'display', 'ordernum')
+
+
+class EventFactorSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventFactor
+        fields = ('value', 'display', 'ordernum')
+
+
+class EventClassFactorSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventClassFactor
+        fields = ('value', 'display')
+
+    def to_representation(self, instance):
+        c = instance.eventclass
+        f = instance.eventfactor
+        rep = dict(
+                value=instance.value,
+                class_value=c.value,
+                factor_value=f.value,
+                priority=instance.priority,
+                priority_label=instance.get_priority_display())
+
+        return rep
+

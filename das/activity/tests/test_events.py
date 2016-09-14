@@ -186,7 +186,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.get(self.api_base + '/events/count')
         self.force_authenticate(request, self.user)
 
-        response = views.EventsCountView.as_view()(request)
+        response = views.EventCountView.as_view()(request)
         response_data = response.data
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_data['count'], Event.objects.count())
@@ -195,7 +195,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.get(self.api_base + '/events/count')
         self.force_authenticate(request, self.no_perms_user)
 
-        response = views.EventsCountView.as_view()(request)
+        response = views.EventCountView.as_view()(request)
         response_data = response.data
         self.assertEqual(response.status_code, 403)
 
