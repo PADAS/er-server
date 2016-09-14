@@ -59,8 +59,8 @@ CELERY_DEFAULT_ROUTING_KEY = 'default'
 # Defining scheduled tasks.
 CELERYBEAT_SCHEDULE = {
     'plugins': {
-      'task': 'tracking.tasks.run_all_source_plugins',
-        'schedule': timedelta(minutes=29),
+      'task': 'tracking.tasks.run_plugins',
+        'schedule': timedelta(minutes=5),
     },
     'demo-plugins': {
       'task': 'tracking.tasks.run_demo_plugins',
