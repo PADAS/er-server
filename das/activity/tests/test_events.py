@@ -116,6 +116,19 @@ class TestEventView(BaseAPITest):
         response_data = {k:response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
+    def test_create_matrix_event(self):
+        event_data = {'priority': Event.PRI_REFERENCE,
+                      }
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        response_data = {k: response_data[k] for k in event_data.keys()}
+        self.assertDictEqual(response_data, event_data)
+
     def test_create_new_message_only_event(self):
         event_data = {'message': lorem_ipsum.sentence(),
                       'event_type': ET_OTHER,

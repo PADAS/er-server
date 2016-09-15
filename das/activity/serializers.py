@@ -338,7 +338,7 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
         return activity.models.EventType.objects.all_sort()
 
     def to_representation(self, value):
-        return value.value
+        return value.value if value else None
 
     def to_internal_value(self, data):
         if data:
@@ -510,9 +510,9 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     )
     notes = EventNoteSerializer(many=True, required=False)
     reported_by = ReportedByRelatedField(required=False)
-    message = rest_framework.serializers.CharField(required=True)
+    message = rest_framework.serializers.CharField(required=False)
     photos = EventPhotoSerializer(many=True, required=False)
-    event_type = EventTypeRelatedField()
+    event_type = EventTypeRelatedField(required=False)
 
     class Meta:
         model = activity.models.Event
