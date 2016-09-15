@@ -231,7 +231,8 @@ class Event(RevisionMixin, TimestampedModel):
     event_time = models.DateTimeField(default=django.utils.timezone.now)
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
-    event_type = models.ForeignKey(EventType, on_delete=models.PROTECT)
+    event_type = models.ForeignKey(EventType, on_delete=models.PROTECT,
+                                   blank=True, null=True)
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)
@@ -271,7 +272,8 @@ class Event(RevisionMixin, TimestampedModel):
 
     @property
     def image_url(self):
-        return marker_icon(self.event_type.value, self.priority, self.state)
+        if self.event_type:
+            return marker_icon(self.event_type.value, self.priority, self.state)
 
     @property
     def subjects(self):
