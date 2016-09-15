@@ -659,6 +659,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                         and False == status.additional.get('gps_fix', True):
                         key = '-'.join((key, 'nogps'))
 
+        if self.subject_type == 'aircraft':
+            key = '{}-{}'.format(self.subject_type, self.subject_subtype)
 
         return googlemarkericon(key.lower())
 
@@ -775,6 +777,7 @@ MARKER_ICONS = {
     'forest elephant-female': '/static/elephant-black-female.svg',
     'lion-male': '/static/Lion_Male.png',
     'lion-female': '/static/Lion_Female.png',
+    'aircraft-airplane': '/static/aircraft-airplane-black.svg',
     'ranger': '/static/ranger_team-black.svg',
     'ranger-online': '/static/ranger_team-green.svg',
     'ranger-online-nogps': '/static/ranger_team-blue.svg',
