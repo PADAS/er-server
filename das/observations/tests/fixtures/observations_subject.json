@@ -1,12 +1,16 @@
 [
   {
-    "pk": "00000000-0000-0000-0000-000000000000",
-    "model": "observations.subject",
     "fields": {
+      "additional": {
+        "note": "demo animal"
+      },
+      "created_at": "2015-11-01T00:00:00+00:00",
+      "updated_at": "2015-11-01T00:00:00+00:00",
       "name": "Topsy",
-      "subject_type": "wildlife",
       "subject_subtype": "elephant",
-      "additional": {"note": "demo animal"}
-    }
+      "subject_type": "wildlife"
+    },
+    "pk": "00000000-0000-0000-0000-000000000000",
+    "model": "observations.subject"
   }
 ]
