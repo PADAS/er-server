@@ -83,12 +83,12 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
 class EventClassesView(generics.ListAPIView):
     serializer_class = EventClassSerializer
-    queryset = EventClass.objects.all()
+    queryset = EventClass.objects.all().order_by('ordernum')
 
 
 class EventFactorsView(generics.ListAPIView):
     serializer_class = EventFactorSerializer
-    queryset = EventFactor.objects.all()
+    queryset = EventFactor.objects.all().order_by('ordernum')
 
 
 class EventClassFactorsView(generics.ListAPIView):
