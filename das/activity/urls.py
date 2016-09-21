@@ -5,7 +5,8 @@ from activity import views
 urlpatterns = [
     url(r'^events/?$', views.EventsView.as_view()),
     url(r'^events/schema/?$', views.EventSchemaView.as_view()),
-    url(r'^events/schema/eventtype/(?P<eventtype>[a-z0-9-_]+)?$', views.EventTypeSchemaView.as_view()),
+    url(r'^events/schema/eventtype/(?P<eventtype>[a-z0-9-_]+)?$',
+        views.EventTypeSchemaView.as_view(), name='event-schema-eventtype'),
     url(r'^events/count/?$', views.EventCountView.as_view()),
     url(r'^events/classes/?$', views.EventClassesView.as_view()),
     url(r'^events/factors/?$', views.EventFactorsView.as_view()),

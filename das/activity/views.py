@@ -2,11 +2,12 @@ from datetime import timedelta
 
 from rest_framework import generics, status
 from django.db.models import Prefetch
+from django.core.urlresolvers import reverse
 import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 
 from activity.models import Event, EventNote, EventPhoto, EventClass,\
-    EventFactor, EventClassFactor
+    EventFactor, EventClassFactor, EventType
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer
@@ -14,6 +15,7 @@ from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
+import utils
 
 LAST_DAYS = timedelta(days=3)
 
@@ -42,40 +44,19 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
     queryset = Event.objects.all()
 
     def get(self, request, *args, **kwargs):
-        data = """
-        {
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "id": "http://localhost/api/v1.0/activity/events/schema/hwc",
-    "title": "EventType Test Data",
-    "type": "object",
-    "properties": {
-        "animal_involved": {
-            "type": "string",
-            "title": "Animal Involved"
-        },
-        "injuries": {
-            "type": "string",
-            "title": "Injuries"
-        },
-        "property_damage": {
-            "type": "boolean",
-            "title": "Property Damage"
-        },
-        "livestock_killed": {
-            "type": "number",
-            "title": "Livestock Killed"
-        },
-        "type_of_contact": {
-            "type": "string",
-            "title": "Type of Contact",
-            "enum": [ "Crop", "Livestock", "Human"]
-        }
-    },
-    "required": ["animal_involved"]
+        value = kwargs['eventtype']
+        eventtype = generics.get_object_or_404(EventType.objects.all(),
+                                           value=self.kwargs['eventtype'])
+        schema = None
+        if eventtype.schema:
+            schema = loads(eventtype.schema)
+            url = utils.add_base_url(request,
+                               reverse('event-schema-eventtype',
+                                       args=[eventtype.value, ]))
+            #url = 'activity/events/schema/eventtype/{0}'.format(eventtype.value)
+            schema['id'] = url
 
-}
-        """
-        return generics.views.Response(loads(data))
+        return generics.views.Response(schema)
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
