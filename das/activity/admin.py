@@ -32,7 +32,7 @@ class EventTypeAdmin(admin.ModelAdmin):
     list_display = ('display', 'ordernum',)
     fieldsets = (
         (None, {
-            'fields': ('display', 'value', 'ordernum',
+            'fields': ('display', 'value', 'ordernum', 'schema',
                        )}
          ),
     )
