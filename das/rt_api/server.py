@@ -34,6 +34,7 @@ def create_realtime_handler(sios):
 
         @sios.on('disconnect', namespace='/')
         def on_disconnect(sid, *args):
+            logger.debug('Got a disconnection event from {0}'.format(str(sid)))
             redis_client.hdel('realtime_connections', str(sid))
 
         @sios.on('authorization', namespace='/das')
@@ -59,8 +60,6 @@ def create_realtime_handler(sios):
 
                     # Put the user into redis
                     redis_client.hset('realtime_connections', str(sid), user.username)
-                    # TODO: handle expiration better
-                    redis_client.expire('realtime_connection', 300)  # 5 minutes
 
                     # Put the connection into the correct rooms
                     sios.server.manager.enter_room(sid, 'all_clients', '/das')
@@ -120,7 +119,7 @@ def create_realtime_handler(sios):
         def emit(message_type, data, user=None):
             if user not in sios.server.environ:
                 redis_client.hdel('realtime_connections', str(user))
-                logger.warn('Tried to send a message to a disconnected client')
+                logger.warn('Tried to send a message to a disconnected client: {0}'.format(str(user)))
                 return
             try:
                 if user is None:
