@@ -1,0 +1,3 @@
+DAS event {{event}} has been updated with these changes:
+
+{{updates}}

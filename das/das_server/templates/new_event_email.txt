@@ -1,0 +1,9 @@
+DAS Event
+
+{{event_id}}
+
+{{priority}}
+
+{{time}}
+
+{{created_by}}

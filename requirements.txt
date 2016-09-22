@@ -35,6 +35,7 @@ django-leaflet==0.18.1
 numpy==1.11.0
 django-raster==0.2
 git+https://github.com/Julian/jsonschema.git@20ff43fe6b6ec047acfe71c75838323ea9185051
+django-sendsms
 
 GDAL==1.11.2
 pyproj==1.9.5

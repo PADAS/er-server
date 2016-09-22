@@ -1,45 +1,94 @@
 import logging
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.template.loader import render_to_string
-
-from activity.models import Event
-
 
 logger = logging.getLogger(__name__)
 
+sms_separator_string = '{0}: {1}'
+email_separator_string = '{0} updated to: {1}'
 
-def send_event_mail(event, user):
+ignore_fields = ['sort_at', 'updated_at']
 
 
-    if event.priority < Event.PRI_IMPORTANT:
-        logger.debug("Event wasn't high enough priority to mail out")
-        return
+def send_new_event_mail(event, user):
+    priority_str = event.get_display_value('priority', event.priority)
+    subject_str = 'DAS {0} alert'.format(priority_str)
 
-    subjects = event.subjects
-
-    if subjects:
-        summary = '({})'.format(', '.join([s.name for s in subjects]))
-    else:
-        summary = ''
-
-    try:
-        priority_str = [x[1] for x in  Event.PRIORITY_CHOICES if x[0] == event.priority][0]
-    except IndexError:
-        priority_str = ''
-
-    subject = 'DAS Event: [{}] {}'.format(priority_str, summary)
     parameters = {
-        'event': 'Id: {}'.format(event.pk),
-        'time': 'Time: {}'.format(event.time.isoformat()),
-        'summary': summary,
-        'message': event.message,
-        'location': event.location and 'Location: {}'.format(event.location) or 'n/a',
-        'content': ''
+        'event_id': event.id,
+        'time': event.time,
+        'priority': priority_str,
+        'created_by': 'unknown'
     }
+    if event.reported_by is not None:
+        parameters['created_by'] = event.reported_by['name']
 
-    body = render_to_string('templates/mailer_new_event.txt', parameters)
+    body = render_to_string('new_event_email.txt', parameters)
     logger.info('emailing {} from {}'.format(user.email, settings.FROM_EMAIL))
 
-    send_mail(subject, body, settings.FROM_EMAIL, [user.email])
+    user.email_user(subject_str, body, settings.FROM_EMAIL)
+
+
+def send_new_event_sms(event, user):
+    priority_str = event.get_display_value('priority', event.priority)
+
+    parameters = {
+        'event_id': event.id,
+        'time': event.time,
+        'priority': priority_str,
+        'created_by': 'unknown'
+    }
+    if event.reported_by is not None:
+        parameters['created_by'] = event.reported_by['name']
+
+    body = render_to_string('new_event_sms.txt', parameters)
+    logger.info('Sending new event sms to {0}'.format(user.phone))
+
+    user.send_sms(body, None)
+
+
+def send_update_event_mail(event, changes, user):
+    updates = []
+    for key, value in changes.data.items():
+        if key in ignore_fields:
+            continue
+        display_value = event.get_display_value(key, value)
+        update_str = email_separator_string.format(key, display_value)
+        if update_str is not None:
+            updates.append(update_str)
+
+    parameters = {
+        'event': changes.object_id,
+        'user': changes.user,
+        'updates': updates
+    }
+
+    priority_str = event.get_display_value('priority', event.priority)
+    subject_str = 'DAS P{0} event {1} updated'.format(priority_str, event.id)
+
+    body = render_to_string('update_event_email.txt', parameters)
+    logger.info('emailing {} from {}'.format(user.email, settings.FROM_EMAIL))
+    user.email_user(subject_str, body, settings.FROM_EMAIL)
+
+
+def send_update_event_sms(event, changes, user):
+    updates = []
+    for key, value in changes.data.items():
+        if key in ignore_fields:
+            continue
+        display_value = event.get_display_value(key, value)
+        update_str = sms_separator_string.format(key, display_value)
+        updates.append(update_str)
+
+    parameters = {
+        'event': changes.object_id,
+        'user': changes.user,
+        'updates': updates
+    }
+
+    body = render_to_string('update_event_sms.txt', parameters)[:100]
+    logger.info('Sending new event sms to {0}'.format(user.phone))
+    user.send_sms(body, None)
+
+

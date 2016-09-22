@@ -99,6 +99,7 @@ TEMPLATES = [
     },
 ]
 
+
 # TEMPLATE_CONTEXT_PROCESSORS = TCP + [
 #     'django.core.context_processors.request',
 # ]
@@ -299,6 +300,10 @@ DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
 #Used by password reset email
 EMAIL_HOST_USER = 'info@pamdas.org'
 
+SENDSMS_BACKEND='utils.smsbackend.TwilioSmsBackend'
+SENDSMS_TWILIO_ACCOUNT_SID=''
+SENDSMS_TWILIO_AUTH_TOKEN=''
+
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'event_photo': [
         ('original', 'url'),
@@ -351,3 +356,7 @@ VERSATILEIMAGEFIELD_SETTINGS = {
 }
 
 REALTIME_AUTH_TIMEOUT_SECONDS = 1.0
+
+NOTIFY_HIGH_PRIORITY_EVENT=None
+NOTIFY_MEDIUM_PRIORITY_EVENT=None
+NOTIFY_LOW_PRIORITY_EVENT=None
