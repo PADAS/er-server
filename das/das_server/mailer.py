@@ -2,13 +2,16 @@ import logging
 
 from django.conf import settings
 from django.template.loader import render_to_string
+from activity.serializers import EventSerializer
+from rt_api.rest_api_interface.dummy_request import DummyRequest
 
 logger = logging.getLogger(__name__)
 
 sms_separator_string = '{0}: {1}'
-email_separator_string = '{0} updated to: {1}'
+email_separator_string = '{0}: {1}'
 
-ignore_fields = ['sort_at', 'updated_at']
+raw_ignore_fields = ['sort_at', 'updated_at', ]
+serialized_ignore_fields = ['sort_at', 'updated_at', 'updates', 'image_url', 'priority', ]
 
 
 def send_new_event_mail(event, user):
@@ -49,25 +52,39 @@ def send_new_event_sms(event, user):
 
 
 def send_update_event_mail(event, changes, user):
-    updates = []
-    for key, value in changes.data.items():
-        if key in ignore_fields:
+    updated_fields = []
+    for key in changes.data.keys():
+        if key in raw_ignore_fields:
             continue
-        display_value = event.get_display_value(key, value)
+        updated_fields.append(key)
+
+    all_fields_and_values = []
+    serializer = EventSerializer()
+    serializer.context['request'] = DummyRequest()
+    all_event_fields = serializer.to_representation(event)
+    for i, (key, value) in enumerate(all_event_fields.items()):
+        if key in serialized_ignore_fields or value is None:
+            continue
+        try:
+            display_value = event.get_display_value(key, value)
+        except Exception as ex:
+            display_value = value
         update_str = email_separator_string.format(key, display_value)
         if update_str is not None:
-            updates.append(update_str)
+            all_fields_and_values.append(update_str)
 
     parameters = {
         'event': changes.object_id,
         'user': changes.user,
-        'updates': updates
+        'updated_fields_names': updated_fields,
+        'all_fields_and_values': all_fields_and_values
     }
 
     priority_str = event.get_display_value('priority', event.priority)
     subject_str = 'DAS P{0} event {1} updated'.format(priority_str, event.id)
 
     body = render_to_string('update_event_email.txt', parameters)
+    print(body)
     logger.info('emailing {} from {}'.format(user.email, settings.FROM_EMAIL))
     user.email_user(subject_str, body, settings.FROM_EMAIL)
 
@@ -75,7 +92,7 @@ def send_update_event_mail(event, changes, user):
 def send_update_event_sms(event, changes, user):
     updates = []
     for key, value in changes.data.items():
-        if key in ignore_fields:
+        if key in raw_ignore_fields:
             continue
         display_value = event.get_display_value(key, value)
         update_str = sms_separator_string.format(key, display_value)
