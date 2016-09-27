@@ -300,7 +300,13 @@ DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
 #Used by password reset email
 EMAIL_HOST_USER = 'info@pamdas.org'
 
-SENDSMS_BACKEND='utils.smsbackend.TwilioSmsBackend'
+SENDSMS_BACKEND='utils.smsbackend.AfricasTalkingBackend'
+
+# use these when you want to send SMS from kenya
+SENDSMS_AFRICAS_TALKING_USERNAME=''
+SENDSMS_AFRICAS_TALKING_API_KEY=''
+
+# use these when you don't want to send SMS from kenya
 SENDSMS_TWILIO_ACCOUNT_SID=''
 SENDSMS_TWILIO_AUTH_TOKEN=''
 
