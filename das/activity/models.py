@@ -64,6 +64,9 @@ class EventTypeManager(models.Manager):
 
         return result
 
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
     def create_type(self, **values):
         return self.create(**values)
 
@@ -79,6 +82,9 @@ class EventClass(TimestampedModel):
     def __str__(self):
         return self.display
 
+    def natural_key(self):
+        return (self.value,)
+
 
 class EventFactor(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -91,11 +97,30 @@ class EventFactor(TimestampedModel):
     def __str__(self):
         return self.display
 
+    def natural_key(self):
+        return (self.value,)
+
+
+class EventCategory(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    value = models.CharField(max_length=40, unique=True)
+    display = models.CharField(max_length=100, blank=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+    objects = EventTypeManager()
+
+    def __str__(self):
+        return self.display
+
+    def natural_key(self):
+        return (self.value,)
+
 
 class EventType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
+    category = models.ForeignKey(EventCategory, null=True,
+                                 on_delete=models.PROTECT)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     schema = models.TextField(blank=True)
 
@@ -103,6 +128,9 @@ class EventType(TimestampedModel):
 
     def __str__(self):
         return self.display
+
+    def natural_key(self):
+        return (self.value,)
 
 
 class EventFilteringQuerySet(models.QuerySet):
@@ -129,6 +157,9 @@ class EventFilteringQuerySet(models.QuerySet):
 
     def by_state(self, state):
         return self._by_field('state', state)
+
+    def by_category(self, category):
+        return self._by_field('event_type__category__value', category)
 
     def by_event_type(self, event_type):
         return self._by_field('event_type', event_type)

@@ -7,6 +7,7 @@ from django.utils import lorem_ipsum
 from django.test import TestCase
 from django.utils import timezone
 from django.contrib.auth.models import Permission
+from django.core.management import call_command
 from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
@@ -25,9 +26,11 @@ from observations.serializers import SubjectSerializer
 User = django.contrib.auth.get_user_model()
 ET_OTHER = 'other'
 
+
 class TestSourcePlugin(TestCase):
     def setUp(self):
         super().setUp()
+        call_command('loaddata', 'initial_eventtype')
 
     def test_sentinel_user(self):
         user = get_sentinel_user()
@@ -49,6 +52,7 @@ class TestEventView(BaseAPITest):
     user_const = dict(last_name='last', first_name='first')
     def setUp(self):
         super().setUp()
+        call_command('loaddata', 'initial_eventtype')
         self.user = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True, **self.user_const)
         self.readonly_user = User.objects.create_user('readonly',
                                                       'readonly@test.com',
@@ -118,6 +122,10 @@ class TestEventView(BaseAPITest):
 
     def test_create_matrix_event(self):
         event_data = {'priority': Event.PRI_REFERENCE,
+                      'attributes': {
+                            'event_class': 'trespass',
+                            'event_factor': 'loss_of_life',
+                          },
                       }
 
         request = self.factory.post(self.api_base + '/events/', event_data)
@@ -194,6 +202,22 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         self.assertEqual(response.status_code, 200)
         self.assertIn('provenance', response_data['properties'])
+
+    def test_event_feed(self):
+        request = self.factory.get(self.api_base + '/events')
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+
+    def test_event_feed_category(self):
+        request = self.factory.get(self.api_base + '/events?event_category=standard&event_category=security')
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
 
     def test_event_count(self):
         request = self.factory.get(self.api_base + '/events/count')

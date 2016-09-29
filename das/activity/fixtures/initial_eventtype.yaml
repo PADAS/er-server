@@ -6,6 +6,7 @@
     created_at: "2016-07-07T1:00:00.000000+00:00"
     updated_at: "2016-07-07T1:00:00.000000+00:00"
     ordernum: 3
+    category: [security]
     schema: |
         {
             "$schema": "http://json-schema.org/draft-04/schema#",
@@ -46,6 +47,52 @@
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
     ordernum: 0
+    category: [security]
+    schema: |
+        {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "id": "http://localhost/api/v1.0/activity/events/schema/security_common",
+                "title": "EventType Test Data",
+
+
+
+
+                "type": "object",
+                "properties": {
+                        "test_enum": {
+                          "type":"string",
+                          "title": "Test Enum",
+                          "enum": ["one", "two", "three"],
+                          "enumNames": {"one":"The One", "two":"The Two", "three":"The Three"}
+                        },
+                    "conservancy": {
+                        "type": "string",
+                        "title": "Conservancy",
+                        "enum": [ "--- select ---", "Lewa", "NRT", "Borana" , "other" ]
+                    },
+                    "billing_address": 	{ "$ref": "#/definitions/address " },
+                    "shipping_address": { "$ref": "#/definitions/address " },
+                    "area": {
+                        "type": "string",
+                        "title": "Area"
+
+                    }
+                }
+            },
+            "definition": {
+                "address": {
+                    "type": "object",
+                    "properties": {
+                        "street_address": 	{ "type": "string"},
+                        "city":				{ "type": "string"},
+                        "state": 			{ "type": "string"}
+
+                    },
+                    "required": ["street_address", "city", "state"]
+                }
+            }
+        }
 - model: activity.eventtype
   pk: 1e083826-af30-4c78-a487-eecb7c753888
   fields:
@@ -54,6 +101,28 @@
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
     ordernum: 1
+    category: [security]
+    schema: |
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "EventType Test Data",
+
+          "type": "object",
+
+          "properties": {
+            "name": { "type": "string" },
+            "credit_card": { "type": "number" }
+          },
+
+            "dependencies": {
+            "credit_card": {
+              "properties": {
+                "billing_address": { "type": "string" }
+              }
+
+            }
+          }
+        }
 - model: activity.eventtype
   pk: 62d680c8-1b2c-4522-85a9-40ead4db179b
   fields:
@@ -62,6 +131,65 @@
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
     ordernum: 2
+    category: [security]
+    schema: |
+        {
+          "schema": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "id": "http://localhost/api/v1.0/activity/events/schema/security_common",
+            "title": "EventType Test Data",
+            "type": "object",
+            "properties": {
+                "conservancy": {
+                    "type": "string",
+                    "title": "Conservancy",
+                    "enum": [ "--- select ---", "Lewa", "NRT", "Borana" , "other" ]
+                },
+                "general_area": {
+                    "type": "string",
+                    "title": "Section/Area",
+                    "enum": [ "--- select ---", "Annermerz", "Mawingu", "Pigos" , "Junction Tano", "Corner Safi", "many others" ]
+                },
+                "teams": {
+                    "type": "string",
+                    "title": "Teams"
+                },
+                "time_of_incident": {
+                    "type": "string",
+                   "title": "Time of Incident"
+                },
+                "end_of_incident": {
+                    "type": "string",
+                    "title": "End of Incident"
+                },
+                "results_and_findings": {
+                    "type": "string",
+                    "title": "Results and Findings"
+                },
+                "action_items": {
+                    "type": "string",
+                    "title": "Action Items"
+                }
+            }
+          },
+          "definition": [
+            "conservancy",
+            "general_area",
+            "teams",
+            {
+              "key": "time_of_incident",
+              "fieldHtmlClass": "date-time-picker json-schema",
+              "readonly": false
+            },
+            {
+              "key": "end_of_incident",
+              "fieldHtmlClass": "date-time-picker json-schema",
+              "readonly": false
+            },
+            "results_and_findings",
+            "action_items"
+          ]
+        }
 - model: activity.eventtype
   pk: c9f877e7-4a4d-4f16-841b-1244f49ae67e
   fields:
@@ -69,6 +197,7 @@
     display: Medevac request
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
+    category: [security]
 - model: activity.eventtype
   pk: 09bd865d-2782-46c7-9a73-14dca78622a2
   fields:
@@ -76,6 +205,7 @@
     display: Carcass
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
+    category: [security]
 - model: activity.eventtype
   pk: 822366db-11ef-4708-ba11-b0f7d8aae3ba
   fields:
@@ -83,6 +213,7 @@
     display: Arrest
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
+    category: [security]
 - model: activity.eventtype
   pk: 786e25e1-805e-4866-a153-1787ca7e52d2
   fields:
@@ -90,6 +221,7 @@
     display: TRAF-REP
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
+    category: [security]
 - model: activity.eventtype
   pk: df787d9d-bd4f-4e53-a382-c0e3f67a119f
   fields:
@@ -97,6 +229,7 @@
     display: MIST
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
+    category: [security]
 - model: activity.eventtype
   pk: 19afb1f3-695b-44c7-aea0-cef6d338da87
   fields:
@@ -104,6 +237,7 @@
     display: Snare
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
+    category: [security]
 - model: activity.eventtype
   pk: ec962845-c661-4c00-8e41-860fe0658f96
   fields:
@@ -111,6 +245,7 @@
     display: Wildlife sighting
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
+    category: [security]
 - model: activity.eventtype
   pk: cb9bc9f0-fce3-4c33-830f-0a26e444d6b4
   fields:
@@ -118,6 +253,7 @@
     display: Spoor
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
+    category: [security]
 - model: activity.eventtype
   pk: 2b7ebc3e-fc53-4bbf-8cf0-788f79a61cb6
   fields:
@@ -125,6 +261,7 @@
     display: Ranger SHOT-REP
     created_at: "2016-08-05T1:00:00.000000+00:00"
     updated_at: "2016-08-05T1:00:00.000000+00:00"
+    category: [security]
 - model: accounts.permissionset
   pk: 6e48768d-ca66-498d-9d33-a90a3293676e
   fields:

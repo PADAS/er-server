@@ -590,6 +590,9 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             for photo in rep.get('photos', []):
                 updates.extend(photo['updates'])
             rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
+
+        if event.event_type and event.event_type.category:
+            rep['event_category'] = event.event_type.category.value
         return rep
 
     def render_updates(self, event):

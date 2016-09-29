@@ -1,0 +1,17 @@
+- model: activity.eventcategory
+  pk: 268772c6-c039-43e4-b1d0-f2c9da08d2e4
+  fields:
+    value: standard
+    display: Standard Reporting
+    created_at: "2016-09-29T1:00:00.000000+00:00"
+    updated_at: "2016-09-29T1:00:00.000000+00:00"
+    ordernum: 1
+
+- model: activity.eventcategory
+  pk: 61d279a3-95fd-421f-bdb0-604ae8731761
+  fields:
+    value: security
+    display: Security Incident
+    created_at: "2016-09-29T1:00:00.000000+00:00"
+    updated_at: "2016-09-29T1:00:00.000000+00:00"
+    ordernum: 1

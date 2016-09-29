@@ -139,9 +139,15 @@ class EventsView(generics.ListCreateAPIView):
         state = self.request.query_params.getlist('state', None)
         if state:
             queryset = queryset.by_state(state)
+
         event_type = self.request.query_params.getlist('event_type', None)
         if event_type:
             queryset = queryset.by_event_type(event_type)
+
+        event_category = self.request.query_params.getlist('event_category', None)
+        if event_category:
+            queryset = queryset.by_category(event_category)
+
         queryset = queryset.prefetch_related(Prefetch('attachments'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))
         queryset = queryset.prefetch_related(Prefetch('created_by_user'))
