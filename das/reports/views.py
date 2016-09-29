@@ -28,7 +28,7 @@ class SitRepReport(TemplateView):
     response_class = TemplateResponse
     content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
-    template_engine = 'jinja2-docx'
+    template_engine = 'docx_template'
     template_name = 'lewa_sitrep_template.docx'
 
     def get_context_data(self, **kwargs):

@@ -99,21 +99,20 @@ TEMPLATES = [
         },
     },
     {
-        'NAME': 'jinja2-docx',
+        'NAME': 'docx_template',
         'BACKEND': 'reports.backends.DocxBackend',
-        'DIRS': [BASE_DIR, '/Users/chris/padas/das/das/reports/templates',],
+        'DIRS': [BASE_DIR, ],
         'APP_DIRS': True,
         'OPTIONS': {'environment': 'reports.environment.Environment',
                     'optimized': False},
     },
-    {
-        'BACKEND': 'django.template.backends.jinja2.Jinja2',
-        'NAME': 'jinja2',
-        # 'DIRS': [BASE_DIR, '/Users/chris/padas/das/das/reports/templates', ],
-        'DIRS': ['/Users/chris/padas/das/das/reports/templates',],
-        'APP_DIRS': True,
-        'OPTIONS': {'environment': 'jinja2.Environment', },
-    },
+    # {
+    #     'BACKEND': 'django.template.backends.jinja2.Jinja2',
+    #     'NAME': 'jinja2',
+    #     'DIRS': [BASE_DIR, ],
+    #     'APP_DIRS': True,
+    #     'OPTIONS': {'environment': 'jinja2.Environment', },
+    # },
 ]
 
 

@@ -6,4 +6,8 @@ class TestReports(TestCase):
         response = self.client.get('/api/v1.0/reports/sitrep', follow=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'lewa_sitrep_template.html')
+
+        self.assertEqual(response.using, 'docx_template')
+
+        print(dir(response))
+        self.assertTemplateUsed(response, 'lewa_sitrep_template.docx')

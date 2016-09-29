@@ -19,7 +19,7 @@ from reports.loaders import DocxFileSystemLoader
 
 class DocxBackend(BaseEngine):
 
-    app_dirname = 'jinja2-docx'
+    app_dirname = 'docx_template'
 
     def __init__(self, params):
         params = params.copy()
@@ -42,7 +42,9 @@ class DocxBackend(BaseEngine):
 
     def get_template(self, template_name):
         try:
-            return Template(self.env.get_template(template_name))
+
+            template = self.env.get_template(template_name)
+            return Template(template)
         except jinja2.TemplateNotFound as exc:
             six.reraise(
                 TemplateDoesNotExist,
@@ -53,7 +55,8 @@ class DocxBackend(BaseEngine):
             new = TemplateSyntaxError(exc.args)
             new.template_debug = get_exception_info(exc)
             six.reraise(TemplateSyntaxError, new, sys.exc_info()[2])
-
+        except Exception as e:
+            raise
 import io
 class Template(object):
 
