@@ -71,7 +71,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
             # If there are no dynamic fields, then it's super simple
             else:
-                schema = eventtype.schema
+                schema = loads(eventtype.schema)
 
             # 'activity/events/schema/eventtype/{0}'.format(eventtype.value)
             url = utils.add_base_url(request, reverse('event-schema-eventtype',
