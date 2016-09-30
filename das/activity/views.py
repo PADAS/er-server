@@ -3,6 +3,11 @@ from datetime import timedelta
 from rest_framework import generics, status
 from django.db.models import Prefetch
 from django.core.urlresolvers import reverse
+from django.template import Template, Context
+from django.template.base import VariableNode
+
+from core.models import Choice
+
 import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 
@@ -14,7 +19,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
-from utils.json import parse_bool, loads
+from utils.json import parse_bool, loads, dumps
 import utils
 
 LAST_DAYS = timedelta(days=3)
@@ -46,20 +51,66 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
     def get(self, request, *args, **kwargs):
         value = kwargs['eventtype']
         eventtype = generics.get_object_or_404(EventType.objects.all(),
-                                           value=self.kwargs['eventtype'])
+                                               value=self.kwargs['eventtype'])
         schema = None
         if eventtype.schema:
-            schema = loads(eventtype.schema)
-            url = utils.add_base_url(request,
-                               reverse('event-schema-eventtype',
-                                       args=[eventtype.value, ]))
-            #url = 'activity/events/schema/eventtype/{0}'.format(eventtype.value)
-            schema['id'] = url
+            template = Template(eventtype.schema)
+            dynamic_fields = self._generate_render_field_list(template)
+
+            # If there are dynamic fields in this schema, we need to
+            # generate values and render it before it's usable
+            if len(dynamic_fields) > 0:
+                parameters = {}
+                for dynamic_field in dynamic_fields:
+                    parameters[dynamic_field] = self._generate_choice_list(
+                        dynamic_field)
+
+                rendered_template = template.render(Context(parameters,
+                                                            autoescape=False))
+                schema = loads(rendered_template)
+
+            # If there are no dynamic fields, then it's super simple
+            else:
+                schema = eventtype.schema
+
+            # 'activity/events/schema/eventtype/{0}'.format(eventtype.value)
+            url = utils.add_base_url(request, reverse('event-schema-eventtype',
+                                     args=[eventtype.value, ]))
+            schema['schema']['id'] = url
 
         return generics.views.Response(schema)
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
+
+    def _generate_render_field_list(self, template):
+        render_fields = []
+        for node in template.nodelist:
+            if type(node) is VariableNode:
+                render_fields.append(node.token.contents)
+
+        return render_fields
+
+    def _generate_choice_list(self, field_name):
+        field_details = field_name.split('___')
+
+        if len(field_details) == 1:
+            choices = Choice.objects.filter(model='activity.event',
+                                            field=field_name)
+        elif len(field_details) == 2:
+            choices = Choice.objects.filter(model='activity.event',
+                                            field=field_details[0])
+        else:
+            raise NameError('Incorrect event render tag: ' + field_name)
+
+        options = {}
+        for choice in choices:
+            options[choice.value] = choice.display
+
+        if len(field_details) == 2 and field_details[1] == 'names':
+            return dumps(options)
+
+        return dumps(list(options.keys()))
 
 
 class EventClassesView(generics.ListAPIView):
