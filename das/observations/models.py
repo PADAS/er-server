@@ -15,6 +15,8 @@ GIS
 from datetime import datetime, timedelta
 import uuid
 import random
+from collections import namedtuple
+from django.contrib.staticfiles.storage import staticfiles_storage
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
@@ -44,10 +46,40 @@ def to_rgb(color):
 
 DEFAULT_COLOR = '255,255,0'
 
+STATUS_COLORS = {'online': 'green', 'offline': 'gray', 'alarm': 'red'}
+def get_radio_color(state, additional):
+    color = STATUS_COLORS.get(state, 'black')
+    if state == 'online' \
+            and False == additional.get('gps_fix', True):
+        color = 'blue'
+    return color
+
 
 def random_rgb():
     return ','.join([str(random.randint(0,255)) for i in range(3)])
 
+
+class StaticImageFinder(object):
+    image_cache = {}
+    IMAGE_TYPES = ('svg', 'png', 'jpg')
+    StaticImage = namedtuple('StaticImage', ('exists', 'path'))
+    image_format = '/static/{key}.{type}'
+
+    def get_marker_icon(self, keys):
+        for key in keys:
+            static_image = self.image_cache.get(key, None)
+            if static_image:
+                if static_image.exists:
+                    return static_image.path
+                continue
+            for t in self.IMAGE_TYPES:
+                path = self.image_format.format(dict(key=key, type=t))
+                if staticfiles_storage.exists(path):
+                    self.image_cache[key] = self.StaticImage(True, path)
+                    return path
+            self.image_cache[key] = self.StaticImage(False, None)
+
+static_image_finder = StaticImageFinder()
 
 class SourceGroupManager(HierarchyManager):
     def get_default(self):
@@ -504,10 +536,12 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     SUBTYPE_SECURITY = 'security'
     SUBTYPE_RESEARCH = 'research'
+    SUBTYPE_MOTORCYCLE = 'motorcycle'
     SUBTYPE_CAMERA_TRAP = 'camera-trap'
     SUBTYPE_WEATHER_STATION = 'weather-station'
 
     SUBTYPE_RANGER = 'ranger'
+    SUBTYPE_RANGER_TEAM = 'ranger_team'
     SUBTYPE_MANAGER = 'manager'
     SUBTYPE_DRIVER = 'driver'
 
@@ -531,6 +565,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             'name': 'Person',
             'subtypes': (
                 (SUBTYPE_RANGER, 'Ranger'),
+                (SUBTYPE_RANGER_TEAM, 'Ranger Team'),
                 (SUBTYPE_DRIVER, 'Driver'),
                 (SUBTYPE_MANAGER, 'Manager'),
             )
@@ -541,6 +576,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_SECURITY, 'Security Vehicle'),
                 (SUBTYPE_RESEARCH, 'Research Vehicle'),
+                (SUBTYPE_MOTORCYCLE, 'Motorcycle'),
             )
         },
         {
@@ -632,37 +668,26 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     @property
     def image_url(self):
-        key = self._image_key()
-        return googlemarkericon(key.lower())
+        image_url = static_image_finder.get_marker_icon(self._image_keys())
+        if not image_url:
+            image_url = '/static/truck.png'
+        return image_url
 
-    def _image_key(self):
-        # TODO: This is a bit kludgy, so fix it to use subject type and subtype after March demo.
-        key = self.subject_subtype
+    def _image_keys(self):
+        """return the preferred key first"""
+        key = self.subject_subtype.lower()
         sex = self.additional.get('sex', None)
         if sex:
-            key = '-'.join((key, sex))
-        return key
+            yield '-'.join((key, sex.lower()))
+        status = self.subjectstatus_set.filter(delay_hours=0)
+        if status:
+            status = status[0]
+            if 'state' in status.additional:
+                color = get_radio_color(status.additional['state'],
+                                        status.additional)
+                yield '-'.join((key, color))
 
-    def get_last_position_image_url(self):
-
-        key = self._image_key()
-        if self.subject_subtype == 'ranger':
-            status = self.subjectstatus_set.filter(delay_hours=0)
-
-            if status:
-                status = status[0]
-                if 'state' in status.additional:
-                    key = '-'.join((key, status.additional.get('state')))
-
-                    # TODO: Refactor status (maybe) convey gps-status.
-                    if status.additional['state'] == 'online' \
-                        and False == status.additional.get('gps_fix', True):
-                        key = '-'.join((key, 'nogps'))
-
-        if self.subject_type == self.TYPE_AIRCRAFT:
-            key = '{}-{}'.format(self.subject_type, self.subject_subtype)
-
-        return googlemarkericon(key.lower())
+        yield key
 
 
     def get_users_to_notify(self):
@@ -769,39 +794,34 @@ class Region(models.Model):
 
 
 MARKER_ICONS = {
-    'elephant': '/static/elephant-black-male.svg',
-    'elephant-male': '/static/elephant-black-male.svg',
-    'elephant-female': '/static/elephant-black-female.svg',
-    'forest elephant': '/static/elephant-black-male.svg',
-    'forest elephant-male': '/static/elephant-black-male.svg',
-    'forest elephant-female': '/static/elephant-black-female.svg',
-    'lion-male': '/static/Lion_Male.png',
+    'elephant': '/static/elephant-male.svg',
+    'elephant-male': '/static/elephant-male.svg',
+    'elephant-female': '/static/elephant-female.svg',
+    'forest elephant': '/static/elephant-male.svg',
+    'forest elephant-male': '/static/elephant-male.svg',
+    'forest elephant-female': '/static/elephant-female.svg',
+    'lion-male': '/static/lion-male.png',
     'lion-female': '/static/Lion_Female.png',
-    'aircraft-plane': '/static/aircraft-plane-black.svg',
-    'ranger': '/static/ranger_team-black.svg',
+    'aircraft-plane': '/static/aircraft.svg',
+    'ranger': '/static/manager-black.svg',
     'ranger-online': '/static/ranger_team-green.svg',
-    'ranger-online-nogps': '/static/ranger_team-blue.svg',
-    'ranger-offline': '/static/ranger_team-gray.svg',
+    'ranger-online-nogps': '/static/manager-blue.svg',
+    'ranger-offline': '/static/manager-gray.svg',
     'ranger-alarm': '/static/ranger_team-red.svg',
     'vehicle': '/static/truck.png',
     'cow': '',
     'cheetah': '',
     'expedition': 'http://maps.google.com/mapfiles/kml/shapes/triangle.png',
-    'zebra-male': '/static/GrevysZebra_Male.png',
-    'zebra-female': '/static/GrevysZebra_Female.png',
+    'zebra-male': '/static/zebra-male.png',
+    'zebra-female': '/static/zebra-female.png',
     'goat': '',
-    'sable-male': '/static/SableAntelopeGraphicMale.png',
-    'sable-female': '/static/SableAntelopeGraphicFemale.png',
-    'rhino-male': '/static/Rhino_Male.png',
-    'rhino-female': '/static/Rhino_Female.png',
+    'sable-male': '/static/antelope-sable-male.png',
+    'sable-female': '/static/antelope-sable-female.png',
+    'rhino-male': '/static/rhino-male.png',
+    'rhino-female': '/static/rhino-female.png',
     'white rhino': '',
     'black rhino': '',
 }
-
-
-def googlemarkericon(subject_type):
-    url = MARKER_ICONS.get(subject_type, '/static/truck.png')
-    return url
 
 
 import observations.signals
