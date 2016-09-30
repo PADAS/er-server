@@ -48,6 +48,10 @@ class EventFactorAdmin(admin.ModelAdmin):
     pass
 
 
+@admin.register(models.EventCategory)
+class EventCategoryAdmin(admin.ModelAdmin):
+    pass
+
 @admin.register(models.EventClassFactor)
 class EventClassFactorAdmin(admin.ModelAdmin):
     list_display = ('class_display', 'factor_display', 'priority')
