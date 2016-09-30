@@ -63,7 +63,8 @@ class StaticImageFinder(object):
     image_cache = {}
     IMAGE_TYPES = ('svg', 'png', 'jpg')
     StaticImage = namedtuple('StaticImage', ('exists', 'path'))
-    image_format = '/static/{key}.{type}'
+    web_path = '/static/{0}'
+    file_format = '{key}.{type}'
 
     def get_marker_icon(self, keys):
         for key in keys:
@@ -73,8 +74,9 @@ class StaticImageFinder(object):
                     return static_image.path
                 continue
             for t in self.IMAGE_TYPES:
-                path = self.image_format.format(dict(key=key, type=t))
-                if staticfiles_storage.exists(path):
+                file = self.file_format.format(**dict(key=key, type=t))
+                if staticfiles_storage.exists(file):
+                    path = self.web_path.format(file)
                     self.image_cache[key] = self.StaticImage(True, path)
                     return path
             self.image_cache[key] = self.StaticImage(False, None)
@@ -791,37 +793,6 @@ class Region(models.Model):
 
     def _____str__(self):
         return '%s, %s' % (self.region, self.country)
-
-
-MARKER_ICONS = {
-    'elephant': '/static/elephant-male.svg',
-    'elephant-male': '/static/elephant-male.svg',
-    'elephant-female': '/static/elephant-female.svg',
-    'forest elephant': '/static/elephant-male.svg',
-    'forest elephant-male': '/static/elephant-male.svg',
-    'forest elephant-female': '/static/elephant-female.svg',
-    'lion-male': '/static/lion-male.png',
-    'lion-female': '/static/Lion_Female.png',
-    'aircraft-plane': '/static/aircraft.svg',
-    'ranger': '/static/manager-black.svg',
-    'ranger-online': '/static/ranger_team-green.svg',
-    'ranger-online-nogps': '/static/manager-blue.svg',
-    'ranger-offline': '/static/manager-gray.svg',
-    'ranger-alarm': '/static/ranger_team-red.svg',
-    'vehicle': '/static/truck.png',
-    'cow': '',
-    'cheetah': '',
-    'expedition': 'http://maps.google.com/mapfiles/kml/shapes/triangle.png',
-    'zebra-male': '/static/zebra-male.png',
-    'zebra-female': '/static/zebra-female.png',
-    'goat': '',
-    'sable-male': '/static/antelope-sable-male.png',
-    'sable-female': '/static/antelope-sable-female.png',
-    'rhino-male': '/static/rhino-male.png',
-    'rhino-female': '/static/rhino-female.png',
-    'white rhino': '',
-    'black rhino': '',
-}
 
 
 import observations.signals
