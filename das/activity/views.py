@@ -50,9 +50,9 @@ class EventTypesView(generics.ListAPIView):
         query_params = self.request.query_params
         queryset = EventType.objects.all_sort()
 
-        event_category = query_params.getlist('event_category', None)
-        if event_category:
-            queryset = queryset.by_category(event_category)
+        category = query_params.getlist('category', None)
+        if category:
+            queryset = queryset.by_category(category)
         return queryset
 
 
