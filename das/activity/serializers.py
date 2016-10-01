@@ -353,9 +353,15 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
 class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventType
-        read_only_fields = ('value', 'display', 'ordernum',
-                            'category')
+        read_only_fields = ('value', 'display', 'ordernum')
         fields = read_only_fields
+
+    def to_representation(self, obj):
+        rep = super().to_representation(obj)
+        if obj.category:
+            rep['category'] = dict(value=obj.category.value,
+                                   display=obj.category.display)
+        return rep
 
 
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
