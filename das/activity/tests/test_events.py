@@ -219,6 +219,14 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         self.assertEqual(response.status_code, 200)
 
+    def test_event_type_category(self):
+        request = self.factory.get(self.api_base + '/events/eventtypes?event_category=standard&event_category=security')
+        self.force_authenticate(request, self.user)
+
+        response = views.EventTypesView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+
     def test_event_count(self):
         request = self.factory.get(self.api_base + '/events/count')
         self.force_authenticate(request, self.user)

@@ -15,7 +15,8 @@ from activity.models import Event, EventNote, EventPhoto, EventClass,\
     EventFactor, EventClassFactor, EventType
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
-    EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer
+    EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
+    EventTypeSerializer
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
@@ -39,6 +40,20 @@ class EventSchemaView(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
+
+
+class EventTypesView(generics.ListAPIView):
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = EventTypeSerializer
+
+    def get_queryset(self):
+        query_params = self.request.query_params
+        queryset = EventType.objects.all_sort()
+
+        event_category = query_params.getlist('event_category', None)
+        if event_category:
+            queryset = queryset.by_category(event_category)
+        return queryset
 
 
 class EventTypeSchemaView(generics.ListCreateAPIView):
@@ -179,7 +194,7 @@ class EventsView(generics.ListCreateAPIView):
         # TODO: Update to allow passing last_days constraint.
         queryset = Event.objects.all_sort()
         query_params = self.request.query_params
-        bbox = self.request.query_params.get('bbox', None)
+        bbox = query_params.get('bbox', None)
         if bbox:
             bbox = bbox.split(',')
             bbox = [float(v) for v in bbox]
@@ -187,15 +202,15 @@ class EventsView(generics.ListCreateAPIView):
                 raise ValueError("invalid bbox param")
 
             queryset = queryset.by_bbox(bbox)
-        state = self.request.query_params.getlist('state', None)
+        state = query_params.getlist('state', None)
         if state:
             queryset = queryset.by_state(state)
 
-        event_type = self.request.query_params.getlist('event_type', None)
+        event_type = query_params.getlist('event_type', None)
         if event_type:
             queryset = queryset.by_event_type(event_type)
 
-        event_category = self.request.query_params.getlist('event_category', None)
+        event_category = query_params.getlist('event_category', None)
         if event_category:
             queryset = queryset.by_category(event_category)
 

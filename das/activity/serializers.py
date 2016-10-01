@@ -350,6 +350,13 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
         return OrderedDict(((row.value, row.display)
                             for row in self.get_queryset()))
 
+class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventType
+        read_only_fields = ('value', 'display', 'ordernum',
+                            'category')
+        fields = read_only_fields
+
 
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
     target = AttachmentRelatedField(read_only=True)
