@@ -252,3 +252,48 @@ class ChoiceCharField(models.CharField):
                 code='invalid_choice',
                 params={'value': value},
             )
+
+class Conservancy(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    order = models.IntegerField(blank=True)
+
+class Behavior(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    order = models.IntegerField(blank=True)
+
+class Station(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    order = models.IntegerField(blank=True)
+
+class Color(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    order = models.IntegerField(blank=True)
+
+class Health(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    order = models.IntegerField(blank=True)
+
+class Species(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    order = models.IntegerField(blank=True)
+
+class CauseOfDeath(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    order = models.IntegerField(blank=True)
+
+class FenceSection(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    order = models.IntegerField(blank=True)
+
+class ActionTaken(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    order = models.IntegerField(blank=True)
