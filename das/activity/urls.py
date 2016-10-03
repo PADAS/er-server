@@ -10,6 +10,7 @@ urlpatterns = [
     url(r'^events/count/?$', views.EventCountView.as_view()),
     url(r'^events/classes/?$', views.EventClassesView.as_view()),
     url(r'^events/factors/?$', views.EventFactorsView.as_view()),
+    url(r'^events/eventtypes/?$', views.EventTypesView.as_view()),
     url(r'^events/classfactors/?$', views.EventClassFactorsView.as_view()),
     url(r'^event/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.EventView.as_view(), name='event-view'),

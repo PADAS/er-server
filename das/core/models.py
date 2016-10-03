@@ -109,6 +109,14 @@ class ChoiceQuerySet(models.QuerySet):
         parent = self.all().get_choices(parent_model, parent_field).filter(value=parent_value)
         return self.filter(sub_choice_of=parent)
 
+class DynamicChoice(models.Model):
+    id = models.CharField(max_length=100, primary_key=True)
+    model_name = models.CharField(max_length=100, verbose_name='Model lookup')
+    criteria = models.CharField(max_length=100, verbose_name='Criteria')
+    value_col = models.CharField(max_length=100, verbose_name='Value column')
+    display_col = models.CharField(max_length=100,
+                                   verbose_name='Display column')
+
 
 class Choice(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)

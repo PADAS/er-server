@@ -350,6 +350,19 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
         return OrderedDict(((row.value, row.display)
                             for row in self.get_queryset()))
 
+class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventType
+        read_only_fields = ('value', 'display', 'ordernum')
+        fields = read_only_fields
+
+    def to_representation(self, obj):
+        rep = super().to_representation(obj)
+        if obj.category:
+            rep['category'] = dict(value=obj.category.value,
+                                   display=obj.category.display)
+        return rep
+
 
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
     target = AttachmentRelatedField(read_only=True)
@@ -590,6 +603,9 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             for photo in rep.get('photos', []):
                 updates.extend(photo['updates'])
             rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
+
+        if event.event_type and event.event_type.category:
+            rep['event_category'] = event.event_type.category.value
         return rep
 
     def render_updates(self, event):
@@ -694,7 +710,7 @@ class EventFactorSerializer(rest_framework.serializers.ModelSerializer):
 class EventClassFactorSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventClassFactor
-        fields = ('value', 'display')
+        fields = ('value',)
 
     def to_representation(self, instance):
         c = instance.eventclass

@@ -54,7 +54,7 @@ class Community(TimestampedModel):
         return self.name
 
 
-class EventTypeManager(models.Manager):
+class EventBaseManager(models.Manager):
     def get_by_value(self, value):
         return self.get(value=value)
 
@@ -64,8 +64,8 @@ class EventTypeManager(models.Manager):
 
         return result
 
-    def create_type(self, **values):
-        return self.create(**values)
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
 
 
 class EventClass(TimestampedModel):
@@ -74,10 +74,13 @@ class EventClass(TimestampedModel):
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
-    objects = EventTypeManager()
+    objects = EventBaseManager()
 
     def __str__(self):
         return self.display
+
+    def natural_key(self):
+        return (self.value,)
 
 
 class EventFactor(TimestampedModel):
@@ -86,26 +89,73 @@ class EventFactor(TimestampedModel):
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
-    objects = EventTypeManager()
+    objects = EventBaseManager()
 
     def __str__(self):
         return self.display
+
+    def natural_key(self):
+        return (self.value,)
+
+
+class EventCategory(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    value = models.CharField(max_length=40, unique=True)
+    display = models.CharField(max_length=100, blank=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+    objects = EventBaseManager()
+
+    def __str__(self):
+        return self.display
+
+    def natural_key(self):
+        return (self.value,)
+
+
+class FilterFieldMixin(object):
+    def filter_field(self, field_name, field_data):
+        if not field_data:
+            return self
+
+        if isinstance(field_data, (list, tuple)):
+            field_q = None
+            for value in field_data:
+                field_q = field_q | models.Q(**{field_name: value}) if field_q\
+                    else models.Q(**{field_name: value})
+        else:
+            field_q = models.Q(**{field_name: field_data})
+        return self.filter(field_q)
+
+
+class EventTypeFilteringQuerySet(models.QuerySet, FilterFieldMixin):
+    def by_category(self, category):
+        return self.filter_field('category__value', category)
+
+
+class EventTypeManager(EventBaseManager):
+    def create_type(self, **values):
+        return self.create(**values)
 
 
 class EventType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
+    category = models.ForeignKey(EventCategory, null=True,
+                                 on_delete=models.PROTECT)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     schema = models.TextField(blank=True)
 
-    objects = EventTypeManager()
+    objects = EventTypeManager.from_queryset(EventTypeFilteringQuerySet)()
 
     def __str__(self):
         return self.display
 
+    def natural_key(self):
+        return (self.value,)
 
-class EventFilteringQuerySet(models.QuerySet):
+
+class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def all_sort(self):
         # default order by is by updated_at and (new/active/resolved)
         ordering = [(0, Event.SC_NEW), (0, Event.SC_ACTIVE),
@@ -128,23 +178,13 @@ class EventFilteringQuerySet(models.QuerySet):
         return events
 
     def by_state(self, state):
-        return self._by_field('state', state)
+        return self.filter_field('state', state)
+
+    def by_category(self, category):
+        return self.filter_field('event_type__category__value', category)
 
     def by_event_type(self, event_type):
-        return self._by_field('event_type', event_type)
-
-    def _by_field(self, field_name, field_data):
-        if not field_data:
-            return self
-
-        if isinstance(field_data, (list, tuple)):
-            field_q = None
-            for value in field_data:
-                field_q = field_q | models.Q(**{field_name: value}) if field_q\
-                    else models.Q(**{field_name: value})
-        else:
-            field_q = models.Q(**{field_name: field_data})
-        return self.filter(field_q)
+        return self.filter_field('event_type', event_type)
 
 
 class EventManager(models.Manager):
