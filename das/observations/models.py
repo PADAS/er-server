@@ -690,6 +690,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 yield '-'.join((key, color))
 
         yield key
+        yield '-'.join((key, 'black'))
 
 
     def get_users_to_notify(self):
