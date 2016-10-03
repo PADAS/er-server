@@ -710,7 +710,7 @@ class EventFactorSerializer(rest_framework.serializers.ModelSerializer):
 class EventClassFactorSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventClassFactor
-        fields = ('value', 'display')
+        fields = ('value',)
 
     def to_representation(self, instance):
         c = instance.eventclass
