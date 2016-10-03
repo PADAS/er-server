@@ -30,10 +30,12 @@ def get_sentinel_user():
 
 
 def marker_icon(event_type, priority, state):
-    CONVERSION = {0: 'gray', 100:'med_green', 200:'amber', 300:'red'}
+    CONVERSION = {0: 'gray', 100: 'med_green', 200: 'amber', 300: 'red'}
     color = CONVERSION.get(priority, 'black')
     if state == Event.SC_RESOLVED:
         color = 'lt_gray'
+    if not event_type:
+        event_type = 'other'
     return '/static/{0}-{1}.svg'.format(event_type, color)
 
 
@@ -313,8 +315,8 @@ class Event(RevisionMixin, TimestampedModel):
 
     @property
     def image_url(self):
-        if self.event_type:
-            return marker_icon(self.event_type.value, self.priority, self.state)
+        return marker_icon(self.event_type.value if self.event_type else None,
+                           self.priority, self.state)
 
     @property
     def subjects(self):
