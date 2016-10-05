@@ -30,10 +30,12 @@ def get_sentinel_user():
 
 
 def marker_icon(event_type, priority, state):
-    CONVERSION = {100:'gray', 200:'med_green', 300:'red'}
+    CONVERSION = {0: 'gray', 100: 'med_green', 200: 'amber', 300: 'red'}
     color = CONVERSION.get(priority, 'black')
     if state == Event.SC_RESOLVED:
         color = 'lt_gray'
+    if not event_type:
+        event_type = 'other'
     return '/static/{0}-{1}.svg'.format(event_type, color)
 
 
@@ -245,9 +247,10 @@ class Event(RevisionMixin, TimestampedModel):
     PRI_NONE = 0
 
     PRIORITY_CHOICES = (
-        (100, 'Low'),
-        (200, 'Normal'),
-        (300, 'High')
+        (0, 'None'),
+        (100, 'Green'),
+        (200, 'Amber'),
+        (300, 'Red')
     )
 
     PRIORITY_LABELS_MAP = dict((x, y) for (x,y) in PRIORITY_CHOICES)
@@ -276,7 +279,7 @@ class Event(RevisionMixin, TimestampedModel):
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)
-    priority = models.PositiveSmallIntegerField(default=PRI_REFERENCE,
+    priority = models.PositiveSmallIntegerField(default=PRI_NONE,
                                                 choices=PRIORITY_CHOICES)
     attributes = JSONField(default={}, blank=True)
     revision = Revision()
@@ -312,8 +315,8 @@ class Event(RevisionMixin, TimestampedModel):
 
     @property
     def image_url(self):
-        if self.event_type:
-            return marker_icon(self.event_type.value, self.priority, self.state)
+        return marker_icon(self.event_type.value if self.event_type else None,
+                           self.priority, self.state)
 
     @property
     def subjects(self):

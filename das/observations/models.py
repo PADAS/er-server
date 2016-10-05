@@ -672,7 +672,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def image_url(self):
         image_url = static_image_finder.get_marker_icon(self._image_keys())
         if not image_url:
-            image_url = '/static/truck.png'
+            image_url = '/static/triangle.png'
         return image_url
 
     def _image_keys(self):
@@ -680,7 +680,9 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         key = self.subject_subtype.lower()
         sex = self.additional.get('sex', None)
         if sex:
+            yield '-'.join((key, 'black', sex.lower()))
             yield '-'.join((key, sex.lower()))
+
         status = self.subjectstatus_set.filter(delay_hours=0)
         if status:
             status = status[0]
@@ -690,6 +692,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 yield '-'.join((key, color))
 
         yield key
+        yield '-'.join((key, 'black'))
 
 
     def get_users_to_notify(self):

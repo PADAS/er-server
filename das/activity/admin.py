@@ -29,7 +29,7 @@ class CommunityAdmin(admin.ModelAdmin):
 @admin.register(models.EventType)
 class EventTypeAdmin(admin.ModelAdmin):
     ordering = ('category','ordernum', 'display',)
-    list_display = ('display', 'ordernum', 'category')
+    list_display = ('display', 'value', 'ordernum', 'category')
     fieldsets = (
         (None, {
             'fields': ('display', 'value', 'ordernum', 'schema', 'category'
