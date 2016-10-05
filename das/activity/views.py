@@ -75,7 +75,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
             # If there are dynamic fields in this schema, we need to
             # generate values and render it before it's usable
-            if len(enum_fields) + len(query_fields) > 0:
+            if len(enum_fields) + len(query_fields) + len(table_fields) > 0:
                 parameters = {}
                 for enum_field in enum_fields:
                     parameters[enum_field['tag']] = self._generate_enum_choice_list(
