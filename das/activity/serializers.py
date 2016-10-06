@@ -595,7 +595,15 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         return internal_value
 
     def create(self, validated_data):
-        return activity.models.Event.objects.create_event(**validated_data)
+        details_data = {}
+
+        if 'event_details' in validated_data:
+            details_data['event_details'] = validated_data['event_details']
+            del validated_data['event_details']
+
+        new_event = activity.models.Event.objects.create_event(**validated_data)
+        EventDetailsSerializer().update(new_event, details_data)
+        return new_event
 
     def update(self, instance, validated_data):
         update_fields = []
