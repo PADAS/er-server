@@ -69,8 +69,8 @@ def _event_handler(event_id, type):
                     'data': Event.objects.new_count()
                 }
 
-                pubsub.publish(json.dumps(emit_data), 'das.realtime.emit')
-                pubsub.publish(json.dumps(count_data), 'das.realtime.emit')
+                pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
+                pubsub.publish(json.dumps(count_data, default=dumps_helper), 'das.realtime.emit')
 
             except Exception as ex:
                 logger.exception('Error creating custom payload for event: %s' %
@@ -93,6 +93,7 @@ def _observation_handler(subject_id):
                 username = redis_client.hget('realtime_connections',
                                              connected_sid).decode('UTF-8')
                 user = User.objects.filter(username=username).first()
+
                 if not user:
                     # Probably shouldn't get here, but maybe the user got
                     # deleted just now?
