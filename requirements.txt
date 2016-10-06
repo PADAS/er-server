@@ -1,9 +1,9 @@
 # to install requirements using pip
 # pip install -r requirements.txt --find-links wheelhouse
 #
-psycopg2==2.6.1
+psycopg2==2.6.2
 simplejson==3.8.2
-pytz==2016.6.1
+pytz==2016.7
 python-dateutil==2.5.3
 requests==2.11.1
 python-engineio==1.0.3
@@ -16,18 +16,18 @@ Django==1.9.10
 
 #git+https://github.com/PADAS/django-ses.git@2fae0ebdaa96ff6daaea4edaafca3c02cdda61d8
 django-ses==0.8.0
-djangorestframework==3.4.6
+djangorestframework==3.4.7
 #drf geojson serializers
 #djangorestframework-gis==0.10.1
 #django-spillway==0.5.1
-drf-extensions==0.2.8
+drf-extensions==0.3.1
 
 #https://github.com/mypebble/django-pgviews
-django-pgviews==0.1.0
-django-model-utils==2.5.2
+django-pgviews==0.2.0
+django-model-utils==2.6
 #django-extensions==1.5.7
 #see https://github.com/ottoyiu/django-cors-headers
-django-cors-headers==1.1.0
+django-cors-headers==1.2.1
 django-oauth-toolkit==0.10.0
 django-rest-swagger==0.3.7
 django-leaflet==0.18.1
@@ -37,7 +37,7 @@ django-raster==0.2
 git+https://github.com/Julian/jsonschema.git@20ff43fe6b6ec047acfe71c75838323ea9185051
 django-sendsms
 
-GDAL==1.11.2
+GDAL==1.11.4
 pyproj==1.9.5
 # Under windows add appropriate path'ed Environment Variables
 #GDAL_DATA=C:\projects\das\dasvir\Lib\site-packages\osgeo\data\gdal
@@ -61,14 +61,14 @@ bleach==1.4.3
 eventlet==0.19.0
 django-mptt==0.8.3
 django-treebeard==4.0.1
-django-extra-fields==0.7
+django-extra-fields==0.8
 gevent==1.1.2
-django-storages==1.4.1
-#django-versatileimagefield==1.5
+django-storages==1.5.1
+#django-versatileimagefield==1.6
 git+https://github.com/VulcanTechnologies/django-versatileimagefield.git@751767afb611890921c6705f1a69fa69381ea103
 
 boto==2.42.0
 
-PyYAML==3.11
+PyYAML==3.12
 
-Pillow==3.3.0
+Pillow==3.4.0
