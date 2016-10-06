@@ -5,11 +5,20 @@ from django.template.response import TemplateResponse
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from django.views.generic.base import TemplateResponseMixin, ContextMixin
 
-class ReportView(APIView, TemplateView):
+class ReportView(APIView, TemplateResponseMixin, ContextMixin, ):
 
 
     permission_classes = (IsAuthenticated,)
+
+    """
+    A view that renders a template.  This view will also pass into the context
+    any keyword arguments passed by the URLconf.
+    """
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        return self.render_to_response(context)
 
     def render_to_response(self, context, **response_kwargs):
 
