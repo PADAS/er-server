@@ -526,10 +526,12 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         current_details = self.get_attribute(instance)
 
         # Save a new details object if there have been changes
-        if current_details.data != validated_data:
+        if not current_details or current_details.data != validated_data:
             activity.models.EventDetails.objects.create_event_details(**{'event': instance, 'data': validated_data})
 
     def to_representation(self, event_details):
+        if not event_details:
+            return OrderedDict()
         ret = OrderedDict(event_details.data['event_details'])
         return ret
 
