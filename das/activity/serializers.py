@@ -529,6 +529,9 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         if not current_details or current_details.data != validated_data:
             activity.models.EventDetails.objects.create_event_details(**{'event': instance, 'data': validated_data})
 
+    def to_internal_value(self, data):
+        return data
+
     def to_representation(self, event_details):
         if not event_details:
             return OrderedDict()
