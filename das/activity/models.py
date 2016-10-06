@@ -465,6 +465,23 @@ class EventNote(RevisionMixin, TimestampedModel):
         return '{0}'.format(self.text[50:])
 
 
+class EventDetailsManager(models.Manager):
+    def create_event_details(self, **kwargs):
+        return self.create(**kwargs)
+
+class EventDetails(RevisionMixin, TimestampedModel):
+    objects = EventDetailsManager()
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE,
+                              related_name='event_details',
+                              related_query_name='event_details')
+    data = JSONField()
+
+    def save(self, *args, **kwargs):
+        result = super().save(*args, **kwargs)
+        self.event.dependent_table_updated()
+        return result
+
 
 def upload_to(instance, filename):
     '''

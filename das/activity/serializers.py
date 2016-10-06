@@ -350,6 +350,7 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
         return OrderedDict(((row.value, row.display)
                             for row in self.get_queryset()))
 
+
 class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventType
@@ -510,6 +511,34 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
             for revision in photo.revision.all_user()
             ]
 
+class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
+
+    class Meta:
+        model = activity.models.EventDetails
+        read_only_fields = ('created_at', 'updated_at')
+        fields = ('id', 'event', 'data') + read_only_fields
+
+    def create(self, validated_data):
+        return activity.models.EventDetails.objects.create_event_details(**validated_data)
+
+    def update(self, instance, validated_data):
+        # Get the current details object
+        current_details = self.get_attribute(instance)
+
+        # Save a new details object if there have been changes
+        if current_details.data != validated_data:
+            activity.models.EventDetails.objects.create_event_details(**{'event': instance, 'data': validated_data})
+
+    def to_representation(self, event_details):
+        ret = OrderedDict(event_details.data['event_details'])
+        return ret
+
+    def is_valid(self, raise_exception=False):
+        return super().is_valid(raise_exception=raise_exception)
+
+    def get_attribute(self, instance):
+        return activity.models.EventDetails.objects.filter(event=instance).order_by('created_at').last()
+
 
 class EventSerializer(rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
@@ -526,6 +555,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     message = rest_framework.serializers.CharField(required=False)
     photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
+    event_details = EventDetailsSerializer(required=False, default={})
 
     class Meta:
         model = activity.models.Event
@@ -534,18 +564,25 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             'id', 'location', 'time', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes',
             'image_url', 'created_by_user', 'notes', 'reported_by',
-            'state', 'photos') + read_only_fields
+            'state', 'photos', 'event_details') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         if self.context.get('include_photos', True):
             self.fields['photos'].context.update(self.context)
         else:
             self.fields.pop('photos')
+
         if self.context.get('include_notes', True):
             self.fields['notes'].context.update(self.context)
         else:
             self.fields.pop('notes')
+
+        if self.context.get('include_details', True):
+            self.fields['event_details'].context.update(self.context)
+        else:
+            self.fields.pop('event_details')
 
     def to_internal_value(self, data):
         internal_value = super().to_internal_value(data)
@@ -558,6 +595,11 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     def update(self, instance, validated_data):
         update_fields = []
         for k, v in validated_data.items():
+            # details don't get saved in the same table as the rest of the
+            # event data, so hand this off and pretend we never saw it
+            if k == 'event_details':
+                EventDetailsSerializer().update(instance, {k: v})
+                continue
             if getattr(instance, k) != v:
                 setattr(instance, k, v)
                 if k == 'reported_by':
