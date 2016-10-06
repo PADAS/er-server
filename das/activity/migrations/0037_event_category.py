@@ -10,10 +10,6 @@ from django.core.management import call_command
 from django.contrib.auth.management import create_permissions
 
 
-def populate_eventcategory(apps, schema_editor):
-    apps.models_module = None
-    call_command('loaddata', 'initial_eventcategory')
-
 
 class Migration(migrations.Migration):
 
@@ -36,7 +32,6 @@ class Migration(migrations.Migration):
                 'abstract': False,
             },
         ),
-        migrations.RunPython(populate_eventcategory),
         migrations.AddField(
             model_name='eventtype',
             name='category',

@@ -66,7 +66,7 @@ class Command(BaseCommand):
     def import_layer(self, featureset, featuretype, layer):
         logger.debug('Importing layer: %s, type: %s, fields: %s', layer.name, layer.geom_type, layer.fields)
         for feature in layer:
-            external_id = '-'.join((layer.name, feature['Name'].name))
+            external_id = '-'.join((layer.name, feature['Name'].value))
             fields = {}
             for name in feature.fields:
                 name = name.decode('utf8')
@@ -88,6 +88,7 @@ class Command(BaseCommand):
 
             feature_record.feature_geometry = feature_geometry
             feature_record.fields = fields
+            feature_record.name = feature['Name'].value
             feature_record.save()
 
     def make_multi(self, geom_type, model_field):

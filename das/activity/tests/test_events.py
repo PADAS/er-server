@@ -8,6 +8,8 @@ from django.test import TestCase
 from django.utils import timezone
 from django.contrib.auth.models import Permission
 from django.core.management import call_command
+from django.contrib.staticfiles.storage import staticfiles_storage
+from django.contrib.staticfiles import finders
 from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
@@ -15,7 +17,7 @@ from core.tests import BaseAPITest
 from core.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType
-from activity.models import get_sentinel_user
+from activity.models import get_sentinel_user, marker_icon
 from activity.serializers import ATTACHMENT_SERIALIZER_MAPPING
 from activity import views
 from observations.models import Subject
@@ -95,6 +97,16 @@ class TestEventView(BaseAPITest):
             data['location'] = PointField().to_internal_value(
                 data['location'])
         return Event.objects.create_event(**data)
+
+    def test_find_all_event_type_icons(self):
+        for et in EventType.objects.all():
+            for p in Event.PRIORITY_CHOICES:
+                for s in Event.STATE_CHOICES:
+                    image = marker_icon(et.value,
+                        p[0], s[0])
+                    image = image[8:]
+                    self.assertTrue(finders.find(image), 'Failed to find image: {0}'.format(image))
+
 
     def test_return_event_details(self):
         request = self.factory.get(self.api_base + '/event/')

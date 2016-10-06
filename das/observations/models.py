@@ -16,8 +16,8 @@ from datetime import datetime, timedelta
 import uuid
 import random
 from collections import namedtuple
-from django.contrib.staticfiles.storage import staticfiles_storage
 
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.db.models import Q
@@ -678,7 +678,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def _image_keys(self):
         """return the preferred key first"""
         key = self.subject_subtype.lower()
-        sex = self.additional.get('sex', None)
+        sex = self.additional.get('sex', 'male')
         if sex:
             yield '-'.join((key, 'black', sex.lower()))
             yield '-'.join((key, sex.lower()))

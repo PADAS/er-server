@@ -8,11 +8,6 @@ import django.db.models.deletion
 from django.core.management import call_command
 
 
-def populate_eventfactor(apps, schema_editor):
-    apps.models_module = None
-    call_command('loaddata', 'initial_eventfactor')
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -38,6 +33,5 @@ class Migration(migrations.Migration):
             name='eventclassfactor',
             unique_together=set([('eventclass', 'eventfactor')]),
         ),
-        migrations.RunPython(populate_eventfactor),
 
     ]
