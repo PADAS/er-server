@@ -19,7 +19,9 @@ from reports import views
 
 
 urlpatterns = [
-    url(r'^sitrep/?$', views.SitRepReport.as_view()),
+    # url(r'^sitrep/?$', views.ReportView.as_view(template_engine = 'docx_template',
+    #                                             template_name = 'lewa_sitrep_template.docx')),
+    url(r'^sitrep/?$', views.ReportView.as_view())
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
