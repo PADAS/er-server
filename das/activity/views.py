@@ -67,8 +67,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         if not eventtype.schema:
             return generics.views.Response(None)
 
-        template = Template(eventtype.schema)
-        schema_fields = schema_utils.get_fields_in_schema(template)
+        schema_fields = schema_utils.get_fields_in_schema(eventtype.schema)
 
         parameters = {}
         for schema_field in schema_fields:
@@ -80,6 +79,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
                 parameters[schema_field['tag']] = schema_utils.get_table_choices(schema_field)
 
         if len(parameters) > 0:
+            template = Template(eventtype.schema)
             rendered_template = template.render(Context(parameters, autoescape=False))
             schema = loads(rendered_template)
         else:

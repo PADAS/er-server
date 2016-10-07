@@ -38,6 +38,7 @@ urlpatterns = [
     url(r'^accounts/', include('accounts.urls_user')),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^oauth2/token$', oauth2_views.TokenView.as_view(), name="token"),
+    url(r'^api/v1.0/reports/', include('reports.urls', namespace='reports')),
 ]
 
 
