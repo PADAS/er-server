@@ -16,7 +16,7 @@ from django.utils.encoding import force_text
 from versatileimagefield.fields import VersatileImageField
 
 from utils.html import clean_user_text
-from core.models import TimestampedModel, ChoiceCharField
+from core.models import TimestampedModel
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
 
@@ -549,3 +549,5 @@ class EventClassFactor(TimestampedModel):
 
     def __str__(self):
         return self.value
+
+

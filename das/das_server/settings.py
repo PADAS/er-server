@@ -60,7 +60,8 @@ INSTALLED_APPS = (
     'activity',
     'rt_api',
     'core.apps.CoreConfig',
-    'vectronics'
+    'vectronics',
+    'choices'
 )
 
 MIDDLEWARE_CLASSES = (

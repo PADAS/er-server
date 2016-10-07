@@ -2,7 +2,8 @@ import logging
 import traceback
 from collections import OrderedDict
 
-from core.serializers import ContentTypeField, ChoiceField
+from core.serializers import ContentTypeField
+from choices.serializers import ChoiceField
 from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
 from django.core.urlresolvers import reverse

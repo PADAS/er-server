@@ -1,5 +1,5 @@
 
-from core.models import Choice, DynamicChoice
+from choices.models import Choice, DynamicChoice
 from django.apps import apps
 from django.template import Template
 from django.template.base import VariableNode
@@ -68,7 +68,7 @@ def get_enum_choices(field_details, as_string=True):
 def get_table_choices(field_details, as_string=True):
 
     options = {}
-    model = apps.get_model('core.{0}'.format(field_details['field']))
+    model = apps.get_model('choices.{0}'.format(field_details['field']))
 
     for row in model.objects.all():
         options[str(row.id)] = str(row.name)

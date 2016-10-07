@@ -1,16 +1,7 @@
 import rest_framework.serializers as serializers
 from django.contrib.contenttypes.models import ContentType
-from django.utils.translation import ugettext_lazy as _
-from django.utils import six
 import django.contrib.gis.serializers.geojson as geojson
 
-
-class ChoiceField(serializers.ChoiceField):
-    @property
-    def object_choices(self):
-        if not self.grouped_choices:
-            return {}
-        return self.grouped_choices
 
 class ContentTypeField(serializers.Field):
     def to_representation(self, value):

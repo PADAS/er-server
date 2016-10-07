@@ -14,7 +14,7 @@ from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
 from core.tests import BaseAPITest
-from core.models import Choice
+from choices.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType
 from activity.models import get_sentinel_user, marker_icon
