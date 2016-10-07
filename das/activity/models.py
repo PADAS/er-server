@@ -476,6 +476,7 @@ class EventDetails(RevisionMixin, TimestampedModel):
                               related_name='event_details',
                               related_query_name='event_details')
     data = JSONField()
+    revision = Revision()
 
     def save(self, *args, **kwargs):
         result = super().save(*args, **kwargs)
