@@ -62,6 +62,7 @@ INSTALLED_APPS = (
     'core.apps.CoreConfig',
     'vectronics',
     'choices'
+    'reports',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -98,6 +99,21 @@ TEMPLATES = [
             ],
         },
     },
+    {
+        'NAME': 'docx_template',
+        'BACKEND': 'reports.backends.DocxBackend',
+        'DIRS': [BASE_DIR, ],
+        'APP_DIRS': True,
+        'OPTIONS': {'environment': 'reports.environment.Environment',
+                    'optimized': False},
+    },
+    # {
+    #     'BACKEND': 'django.template.backends.jinja2.Jinja2',
+    #     'NAME': 'jinja2',
+    #     'DIRS': [BASE_DIR, ],
+    #     'APP_DIRS': True,
+    #     'OPTIONS': {'environment': 'jinja2.Environment', },
+    # },
 ]
 
 
