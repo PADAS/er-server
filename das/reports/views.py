@@ -1,23 +1,52 @@
-import datetime, pytz
+import pytz, datetime
+from collections import Counter
+
+from django.utils import timezone
 from django.shortcuts import render
 from django.views.generic import TemplateView
 from django.template.response import TemplateResponse
+from rest_framework import status
+from rest_framework.response import Response
 
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import serializers, views, permissions
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
+from reports.reports import get_events, get_conservancies
 
-class ReportView(APIView, TemplateResponseMixin, ContextMixin, ):
+
+class ReportDateParameters(serializers.Serializer):
+    since = serializers.DateTimeField(default=None)
+    before = serializers.DateTimeField(default=None)
 
 
-    permission_classes = (IsAuthenticated,)
+class ReportView(views.APIView):
+    def dispatch(self, request, report_key, *args, **kwargs):
+        print(args, kwargs)
+        if report_key == 'sitrep':
+            return SituationReportView().dispatch(request, *args, **kwargs)
 
-    """
-    A view that renders a template.  This view will also pass into the context
-    any keyword arguments passed by the URLconf.
-    """
+
+class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    response_class = TemplateResponse
+    # content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    # template_engine = 'docx_template'
+    # template_name = 'lewa_sitrep_template.docx'
+
     def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
+
+        qs = ReportDateParameters(data=request.query_params)
+        if not qs.is_valid():
+            return Response(data=qs.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = qs.validated_data
+        now = timezone.now()
+        since = qs.get('since') or  (now - datetime.timedelta(hours=24))
+        before = qs.get('before') or now
+
+
+        context = self.get_context_data(since=since, before=before, **kwargs)
         return self.render_to_response(context)
 
     def render_to_response(self, context, **response_kwargs):
@@ -26,54 +55,60 @@ class ReportView(APIView, TemplateResponseMixin, ContextMixin, ):
         response['Content-Disposition'] = 'attachement; filename={}'.format(context['report_filename'])
         return response
 
-    response_class = TemplateResponse
-    content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    def get_context_data(self, since, before, **kwargs):
+        '''
+        This applies brute-force the the events, marching through the various sections of a Sit Rep and filling in the
+        blanks.
+        :param kwargs:
+        :return:
+        '''
+        conservancies = get_conservancies()
 
-    template_engine = 'docx_template'
-    template_name = 'lewa_sitrep_template.docx'
-
-    def get_context_data(self, **kwargs):
-        return self.build_context()
-
-
-    def build_context(self):
-        report_date = pytz.utc.localize(datetime.datetime.utcnow())
+        report_date = timezone.now()
         report_date_str = report_date.strftime('%Y-%m-%d %H:%M:%S %Z')
+
+
+        events= get_events(since, before)
+
+        # black_rhino_sightings = list(map(lambda e: (e.attributes['conservancy'], e.event_type),
+        #                             [x for x in events if x.event_type.value in ('black_rhino_sighting',)]))
+        #
+        # white_rhino_sightings = list(map(lambda e: (e.attributes['conservancy'], e.event_type),
+        #                             [x for x in events if x.event_type.value in ('white_rhino_sighting',)]))
+
+
+
+        wildlife_sightings = [
+            {'conservancy': conservancy['name'],
+                  'total_rhino_black': -1,
+                  'total_rhino_white': -1,
+                  'total_sightings': len([_ for _ in events if _.event_type.value in ('black_rhino_sighting', 'white_rhino_sighting')
+                                          and _.attributes.get('conservancy') == str(conservancy['id'])]),
+                  'rhino_sightings': [
+                      {'type': 'Black Rhino',
+                       'count': len([_ for _ in events if _.event_type.value == 'black_rhino_sighting'
+                                     and _.attributes.get('conservancy') == str(conservancy['id'])])
+                       },
+                      {'type': 'White Rhino',
+                       'count': len([_ for _ in events if _.event_type.value == 'white_rhino_sighting'
+                                     and _.attributes.get('conservancy') == str(conservancy['id'])])
+                       },
+                      ]
+                  }
+            for conservancy in conservancies]
+
         context = {
             'report_filename': 'sitrep_report-{}.docx'.format(report_date.strftime('%Y-%m-%d')),
             'report_date': report_date.astimezone(pytz.timezone('Africa/Nairobi')).strftime(
-                '%d-%b-%y %Z'),
+                '%-d %B %Y %Z'),
+            'report_daterange_text': 'Including events from: {} to: {}'.format(since.isoformat(), before.isoformat()),
             'footer_text': 'Report generated by DAS user {username} at {report_date}'.format(report_date=report_date_str,
                                                                                          username=self.request.user.get_username()),
-            'wildlife_sightings': [
-                {'convervancy': 'Lewa',
-                 'total_rhino_black': 62,
-                 'total_rhino_white': 66,
-                 'rhino_sightings': [
-                     {'type': 'Black Rhino', 'count': 53},
-                     {'type': 'White Rhino', 'count': 61}
-                 ],
-                 'total_sightings': 114
-                 },
-                {'convervancy': 'Borana',
-                 'total_rhino_black': 21,
-                 'total_rhino_white': 0,
-                 'total_sightings': 11,
-                 'rhino_sightings': [
-                     {'type': 'Black Rhino', 'count': 11},
-                     {'type': 'White Rhino', 'count': 0}
-                 ]},
-                {'convervancy': 'Sera',
-                 'total_rhino_black': 10,
-                 'total_rhino_white': 0,
-                 'total_sightings': 8,
-                 'rhino_sightings': [
-                     {'type': 'Black Rhino', 'count': 8},
-                     {'type': 'White Rhino', 'count': 0}
-                 ]},
-            ],
 
-            # 'rhino_births':
+            'wildlife_sightings': wildlife_sightings,
+
+
+            'rhino_births': [],
 
             'rhino_missing': [
                 {'name': 'Folly', 'value': 4},
