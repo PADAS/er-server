@@ -67,8 +67,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         report_date = timezone.now()
         report_date_str = report_date.strftime('%Y-%m-%d %H:%M:%S %Z')
 
-
-        events= get_events(since, before)
+        events = get_events(since, before)
 
         # black_rhino_sightings = list(map(lambda e: (e.attributes['conservancy'], e.event_type),
         #                             [x for x in events if x.event_type.value in ('black_rhino_sighting',)]))

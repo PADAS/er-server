@@ -35,7 +35,7 @@ class TestReports(TestCase):
         self.assertTrue(body['access_token'] is not None)
 
         extras = dict(Authorization='Bearer {}'.format(body['access_token']))
-        response = self.client.get('/api/v1.0/reports/sitrep', follow=True, **extras)
+        response = self.client.get('/api/v1.0/reports/sitrep.docx', follow=True, **extras)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.using, 'docx_template')
