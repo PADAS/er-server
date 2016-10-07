@@ -9,15 +9,17 @@ from django.core.urlresolvers import reverse
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from django.http import Http404
+
 from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
 import rest_framework.serializers
 from rest_framework.metadata import BaseMetadata
-from rest_framework.fields import DateTimeField, IntegerField
+from rest_framework.fields import DateTimeField
 from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from versatileimagefield.serializers import VersatileImageFieldSerializer
+
 import jsonschema
 import jsonschema.exceptions
 
@@ -26,6 +28,8 @@ import utils
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from observations.serializers import SubjectSerializer, SourceSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
+
+from activity import schema_utils
 
 logger = logging.getLogger(__name__)
 
@@ -530,7 +534,33 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
             activity.models.EventDetails.objects.create_event_details(**{'event': instance, 'data': validated_data})
 
     def to_internal_value(self, data):
-        return data
+        schema = self.root.instance.event_type.schema
+
+        if not schema:
+            return super().to_internal_value(data)
+
+        schema_fields = schema_utils.get_fields_in_schema(schema)
+
+        parameters = {}
+        for schema_field in schema_fields:
+            # No need to get values, only need value to name mapping
+            if schema_field['type'] != 'names':
+                continue
+
+            if schema_field['lookup'] == 'enum':
+                parameters[schema_field['field']] = schema_utils.get_enum_choices(schema_field, as_string=False)
+            elif schema_field['lookup'] == 'query':
+                parameters[schema_field['field']] = schema_utils.get_dynamic_choices(schema_field, as_string=False)
+            elif schema_field['lookup'] == 'table':
+                parameters[schema_field['field']] = schema_utils.get_table_choices(schema_field, as_string=False)
+
+        # Append field information to the data we're getting so we know how to get back to the source
+        ret = {}
+        for k, v in data.items():
+            if k in parameters and v in parameters[k]:
+                ret[k] = {'name': parameters[k][v],
+                          'value': v}
+        return ret
 
     def to_representation(self, event_details):
         if not event_details:

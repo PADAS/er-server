@@ -4,10 +4,6 @@ from rest_framework import generics, status
 from django.db.models import Prefetch
 from django.core.urlresolvers import reverse
 from django.template import Template, Context
-from django.template.base import VariableNode
-from django.apps import apps
-
-from core.models import Choice, DynamicChoice
 
 import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
@@ -21,8 +17,9 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
-from utils.json import parse_bool, loads, dumps
+from utils.json import parse_bool, loads
 import utils
+from activity import schema_utils
 
 LAST_DAYS = timedelta(days=3)
 
@@ -65,117 +62,35 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
     queryset = Event.objects.all()
 
     def get(self, request, *args, **kwargs):
-        value = kwargs['eventtype']
         eventtype = generics.get_object_or_404(EventType.objects.all(),
                                                value=self.kwargs['eventtype'])
-        schema = None
-        if eventtype.schema:
-            template = Template(eventtype.schema)
-            enum_fields, query_fields, table_fields = self._generate_field_lists(template)
+        if not eventtype.schema:
+            return generics.views.Response(None)
 
-            # If there are dynamic fields in this schema, we need to
-            # generate values and render it before it's usable
-            if len(enum_fields) + len(query_fields) + len(table_fields) > 0:
-                parameters = {}
-                for enum_field in enum_fields:
-                    parameters[enum_field['tag']] = self._generate_enum_choice_list(
-                        enum_field)
+        template = Template(eventtype.schema)
+        schema_fields = schema_utils.get_fields_in_schema(template)
 
-                for query_field in query_fields:
-                    parameters[query_field['tag']] = self._generate_query_choice_list(
-                        query_field)
+        parameters = {}
+        for schema_field in schema_fields:
+            if schema_field['lookup'] == 'enum':
+                parameters[schema_field['tag']] = schema_utils.get_enum_choices(schema_field)
+            elif schema_field['lookup'] == 'query':
+                parameters[schema_field['tag']] = schema_utils.get_dynamic_choices(schema_field)
+            elif schema_field['lookup'] == 'table':
+                parameters[schema_field['tag']] = schema_utils.get_table_choices(schema_field)
 
-                for table_field in table_fields:
-                    parameters[table_field['tag']] = self._generate_table_choice_list(
-                        table_field)
+        if len(parameters) > 0:
+            rendered_template = template.render(Context(parameters, autoescape=False))
+            schema = loads(rendered_template)
+        else:
+            schema = loads(eventtype.schema)
 
-
-                rendered_template = template.render(Context(parameters,
-                                                            autoescape=False))
-                schema = loads(rendered_template)
-
-            # If there are no dynamic fields, then it's super simple
-            else:
-                schema = loads(eventtype.schema)
-
-            # 'activity/events/schema/eventtype/{0}'.format(eventtype.value)
-            url = utils.add_base_url(request, reverse('event-schema-eventtype',
-                                     args=[eventtype.value, ]))
-            schema['schema']['id'] = url
+        schema['schema']['id'] = utils.add_base_url(request, reverse('event-schema-eventtype', args=[eventtype.value, ]))
 
         return generics.views.Response(schema)
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
-
-    def _generate_field_lists(self, template):
-        enum_fields = []
-        query_fields = []
-        table_fields = []
-        for node in template.nodelist:
-            if type(node) is VariableNode:
-                field_tag = node.token.contents
-                field_details = field_tag.split('___')
-                if len(field_details) != 3:
-                    raise NameError('Incorrect event render tag: ' + field_tag)
-
-                details = {'field': field_details[1],
-                           'type': field_details[2],
-                           'tag': node.token.contents}
-
-                if field_details[0] == 'enum':
-                    enum_fields.append(details)
-                elif field_details[0] == 'query':
-                    query_fields.append(details)
-                elif field_details[0] == 'table':
-                    table_fields.append(details)
-                else:
-                    raise NameError('Incorrect event render tag: ' + field_tag)
-
-        return enum_fields, query_fields, table_fields
-
-    def _generate_query_choice_list(self, field_details):
-        dynamic_choice = DynamicChoice.objects.filter(id=field_details['field']).first()
-
-        model = apps.get_model(dynamic_choice.model_name)
-        objects = model.objects.filter(loads(dynamic_choice.criteria))
-
-        options = {}
-        for object in objects:
-            value = getattr(object, dynamic_choice.value_col, None)
-            display = getattr(object, dynamic_choice.display_col, None)
-            options[str(value)] = str(display)
-
-        if field_details['type'] == 'names':
-            return dumps(options)
-
-        return dumps(list(options.keys()))
-
-    def _generate_enum_choice_list(self, field_details):
-
-        choices = Choice.objects.filter(model='activity.event',
-                                        field=field_details['field'])
-        options = {}
-        for choice in choices:
-            options[choice.value] = choice.display
-
-        if field_details['type'] == 'names':
-            return dumps(options)
-
-        return dumps(list(options.keys()))
-
-    def _generate_table_choice_list(self, field_details):
-        model = apps.get_model('core.{0}'.format(field_details['field']))
-        objects = model.objects.all()
-
-        options = {}
-        for object in objects:
-            options[str(object.id)] = str(object.name)
-
-        if field_details['type'] == 'names':
-            return dumps(options)
-
-        return dumps(list(options.keys()))
 
 
 class EventClassesView(generics.ListAPIView):
