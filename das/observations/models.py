@@ -616,6 +616,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             'This subject is actively shown in visualizations.'
         ),
     )
+    common_name = models.ForeignKey('CommonName', on_delete=models.PROTECT,
+                                    null=True)
     objects = SubjectManager.from_queryset(SubjectQuerySet)()
 
     class Meta:
@@ -760,6 +762,25 @@ class SubjectStatusManager(models.Manager):
             substatus.save()
 
         return substatus
+
+
+class CommonNameManager(models.Manager):
+    def get_by_natural_key(self, value):
+        return self.get(**{value: value})
+
+
+class CommonName(TimestampedModel):
+    """Common name for an animal, could stretch this to other subtypes as well.
+    """
+    #value = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    subject_subtype = models.CharField(max_length=100,
+                                       choices=Subject.SUBTYPE_CHOICES)
+    value = models.CharField(primary_key=True, max_length=100)
+    display = models.CharField(max_length=100)
+    objects = CommonNameManager()
+
+    def __str__(self):
+        return self.display
 
 
 class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
