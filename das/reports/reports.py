@@ -3,7 +3,7 @@ import pytz
 import json
 from django.db.models import *
 from activity.models import Event
-from core.models import Conservancy
+from choices.models import Conservancy
 
 def get_events(start, end):
     events = Event.objects.filter(event_time__range=[start,end]).prefetch_related('event_type', 'reported_by')
