@@ -76,3 +76,4 @@ Pillow==3.4.0
 # Docx and Docx Template are used for generating reports as Word documents.
 docxtpl==0.2.3
 python-docx==0.8.6
+lxml==3.6.4

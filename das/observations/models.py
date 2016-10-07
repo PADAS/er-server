@@ -535,6 +535,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_ZEBRA = 'zebra'
     SUBTYPE_RHINO = 'rhino'
     SUBTYPE_LION = 'lion'
+    SUBTYPE_GIRAFFE = 'giraffe'
 
     SUBTYPE_SECURITY = 'security'
     SUBTYPE_RESEARCH = 'research'
@@ -559,6 +560,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 (SUBTYPE_ZEBRA, 'Zebra'),
                 (SUBTYPE_RHINO, 'Rhino'),
                 (SUBTYPE_LION, 'Lion'),
+                (SUBTYPE_GIRAFFE, 'Giraffe'),
             )
 
         },

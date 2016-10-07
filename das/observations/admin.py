@@ -15,10 +15,10 @@ class SubjectAdmin(admin.ModelAdmin):
 
     list_display = ('id', 'name', 'subject_type', 'subject_subtype',
                     'is_active', 'additional', 'all_groups', 'all_sources')
-    search_fields = ('name', 'subject_subtype')
+    search_fields = ('name', 'subject_subtype', 'common_name')
 
     fields = ('id', 'name', 'common_name', 'additional', 'groups', SubjectForm.SUBTYPE_FIELD)
-    list_filter = ('is_active', 'subject_type',)
+    list_filter = ('is_active', 'subject_type', 'subject_subtype', 'common_name')
     list_editable = ('is_active',)
 
     def queryset(self, request):
