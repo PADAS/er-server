@@ -61,7 +61,7 @@ INSTALLED_APPS = (
     'rt_api',
     'core.apps.CoreConfig',
     'vectronics',
-    'choices'
+    'choices',
     'reports',
 )
 
