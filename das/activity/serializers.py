@@ -529,7 +529,8 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
     def update(self, instance, validated_data):
 
         # it's possibile that we weren't able to validate event data earlier, so do it now
-        if validated_data['event_details'] == {}:
+        if '_internal_validated' in validated_data['event_details'] and not validated_data['event_details']['_internal_validated']:
+            del(validated_data['event_details']['_internal_validated'])
             validated_data = {'event_details': self._to_internal_value_inner(instance, validated_data['event_details'])}
 
         # Get the current details object
@@ -546,7 +547,8 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
 
     def _to_internal_value_inner(self, instance, data):
         if instance is None:
-            return {}
+            data['_internal_validated'] = False
+            return data
 
         schema = instance.event_type.schema
 
