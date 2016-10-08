@@ -27,11 +27,10 @@ def get_fields_in_schema(schema):
 
 def get_dynamic_choices(field_details, as_string=True):
     dynamic_choice = DynamicChoice.objects.filter(id=field_details['field']).first()
-
     model_to_filter = apps.get_model(dynamic_choice.model_name)
 
     options = {}
-    for row in model_to_filter.objects.filter(loads(dynamic_choice.criteria)):
+    for row in model_to_filter.objects.filter(*loads(dynamic_choice.criteria)):
         value = getattr(row, dynamic_choice.value_col, None)
         display = getattr(row, dynamic_choice.display_col, None)
         options[str(value)] = str(display)
