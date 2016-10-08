@@ -531,18 +531,14 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         # Get the current details object
         current_details = self.get_attribute(instance)
 
-        if not current_details or current_details.data != validated_data:
+        if not current_details:
+            current_details = activity.models.EventDetails.objects.create(**{'event': instance, 'data': validated_data})
+
+        elif current_details.data != validated_data:
             current_details.data = validated_data
             current_details.save()
 
         return current_details
-
-        # # Get the current details object
-        # current_details = self.get_attribute(instance)
-        #
-        # # Save a new details object if there have been changes
-        # if not current_details or current_details.data != validated_data:
-        #     activity.models.EventDetails.objects.create_event_details(**{'event': instance, 'data': validated_data})
 
     def to_internal_value(self, data):
         schema = self.root.instance.event_type.schema
