@@ -541,6 +541,9 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         return current_details
 
     def to_internal_value(self, data):
+        if self.root.instance is None:
+            return {}
+
         schema = self.root.instance.event_type.schema
 
         if not schema:
