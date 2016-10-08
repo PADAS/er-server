@@ -528,6 +528,10 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
 
+        # it's possibile that we weren't able to validate event data earlier, so do it now
+        if validated_data == {}:
+            validated_data = self._to_internal_value_inner(instance, validated_data)
+
         # Get the current details object
         current_details = self.get_attribute(instance)
 
@@ -540,11 +544,11 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
 
         return current_details
 
-    def to_internal_value(self, data):
-        if self.root.instance is None:
-            return {}
+    def _to_internal_value_inner(self, instance, data):
+        if instance is None:
+            return data
 
-        schema = self.root.instance.event_type.schema
+        schema = instance.event_type.schema
 
         if not schema:
             return super().to_internal_value(data)
@@ -571,6 +575,10 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                 ret[k] = {'name': parameters[k][v],
                           'value': v}
         return ret
+
+
+    def to_internal_value(self, data):
+        return self._to_internal_value_inner(self.root.instance, data)
 
     def to_representation(self, event_details):
         if not event_details:
