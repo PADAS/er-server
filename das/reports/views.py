@@ -25,6 +25,13 @@ class ReportView(views.APIView):
             return SituationReportView().dispatch(request, *args, **kwargs)
 
 
+def coroutine(f):
+    def wrapper(*args, **kwargs):
+        c = f(*args, **kwargs)
+        c.send(None)
+        return c
+    return wrapper
+
 class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
     permission_classes = (permissions.IsAuthenticated,)
@@ -62,49 +69,90 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         :param kwargs:
         :return:
         '''
-        conservancies = get_conservancies()
-
-        report_date = timezone.now()
-        report_date_str = report_date.strftime('%Y-%m-%d %H:%M:%S %Z')
+        # conservancies = get_conservancies()
+        report_time = timezone.now()
 
         events = get_events(since, before)
 
-        # black_rhino_sightings = list(map(lambda e: (e.attributes['conservancy'], e.event_type),
-        #                             [x for x in events if x.event_type.value in ('black_rhino_sighting',)]))
+        CONSERVANCY_UNSPECIFIED = '&lt;unspecified&gt;'
+        def get_conservancy(event):
+            ed = event.event_details.all().order_by('-created_at').first()
+            if ed:
+                try:
+                    return ed.data['event_details']['conservancy']['name']
+                except Exception as e:
+                    print(e)
+                    pass
+            return CONSERVANCY_UNSPECIFIED
+
+        @coroutine
+        def total_rhino_black():
+            value = 0
+            while True:
+                try:
+                    event = yield value
+                    if event and event.event_type.value == 'black_rhino_sighting':
+                        value += 1
+                except Exception as e:
+                    print(e)
+
+        f = total_rhino_black()
+        val = 0
+        for event in events:
+            val = f.send(event)
+
+        print('Val: %s' % (f.send(None),))
+
         #
-        # white_rhino_sightings = list(map(lambda e: (e.attributes['conservancy'], e.event_type),
-        #                             [x for x in events if x.event_type.value in ('white_rhino_sighting',)]))
+        # Populate wildlife_sightings for the first portion of the report.
+        #
+        # TODO: The schema changed for rhino sightings, to include a list of rhinos. So update here to reflect this.
+        conservancy_census = [('Lewa', 62, 66), ('Borana', 21, 0), ('Sera', 10, 0), (CONSERVANCY_UNSPECIFIED, 0, 0)]
+        conservancy_census = dict(
+            (k.lower(), {'conservancy':k, 'total_rhino_black': b, 'total_rhino_white': w}) for (k,b,w) in conservancy_census)
+
+        def default_conservancy_ws(conservancy):
+            c = {'total_sightings': 0,
+                 'rhino_sightings': [
+                     {'type': 'Black Rhino',
+                      'event_type': 'black_rhino_sighting',
+                      'count': 0},
+                     {'type': 'White Rhino',
+                      'event_type': 'white_rhino_sighting',
+                      'count': 0}
+                 ]}
+            c.update(conservancy_census.get(conservancy.lower(), {}))
+            return c
+
+        wildlife_sightings_per_conservancy = {}
+        for event in events:
+            if 'rhino_sighting' not in event.event_type.value:
+                continue
+
+            conservancy = get_conservancy(event)
+            conservancy = wildlife_sightings_per_conservancy.setdefault(conservancy, default_conservancy_ws(conservancy))
+
+            conservancy['total_sightings'] += 1
+            for item in conservancy['rhino_sightings']:
+                if item['event_type'] == event.event_type.value:
+                    item['count'] += 1
+
+        #
+        # Populuate rhino births.
+        #
 
 
 
-        wildlife_sightings = [
-            {'conservancy': conservancy['name'],
-                  'total_rhino_black': -1,
-                  'total_rhino_white': -1,
-                  'total_sightings': len([_ for _ in events if _.event_type.value in ('black_rhino_sighting', 'white_rhino_sighting')
-                                          and _.attributes.get('conservancy') == str(conservancy['id'])]),
-                  'rhino_sightings': [
-                      {'type': 'Black Rhino',
-                       'count': len([_ for _ in events if _.event_type.value == 'black_rhino_sighting'
-                                     and _.attributes.get('conservancy') == str(conservancy['id'])])
-                       },
-                      {'type': 'White Rhino',
-                       'count': len([_ for _ in events if _.event_type.value == 'white_rhino_sighting'
-                                     and _.attributes.get('conservancy') == str(conservancy['id'])])
-                       },
-                      ]
-                  }
-            for conservancy in conservancies]
 
         context = {
-            'report_filename': 'sitrep_report-{}.docx'.format(report_date.strftime('%Y-%m-%d')),
-            'report_date': report_date.astimezone(pytz.timezone('Africa/Nairobi')).strftime(
+            'report_filename': 'sitrep_report-{}.docx'.format(report_time.strftime('%Y-%m-%d')),
+            'report_time': report_time.astimezone(pytz.timezone('Africa/Nairobi')).strftime(
                 '%-d %B %Y %Z'),
             'report_daterange_text': 'Including events from: {} to: {}'.format(since.isoformat(), before.isoformat()),
-            'footer_text': 'Report generated by DAS user {username} at {report_date}'.format(report_date=report_date_str,
+            'footer_text': 'Report generated by DAS user {username} at {report_time}'.format(report_time=report_time.strftime('%Y-%m-%d %H:%M:%S %Z'),
                                                                                          username=self.request.user.get_username()),
 
-            'wildlife_sightings': wildlife_sightings,
+            'wildlife_sightings': wildlife_sightings_per_conservancy.values(),
 
 
             'rhino_births': [],
