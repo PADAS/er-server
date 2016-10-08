@@ -372,13 +372,6 @@ app:
                 DAS_ENV_NAME: 'odzala'
               'aws:autoscaling:launchconfiguration':
                 InstanceType: "t2.medium"
-        'das-server-lewa':
-            cname_prefix: 'das-server-lewa'
-            option_settings:
-              'aws:elasticbeanstalk:application:environment':
-                DAS_ENV_NAME: 'lewa'
-              'aws:autoscaling:launchconfiguration':
-                InstanceType: "t2.medium"
         # the demo version of the app
         'das-server-demo':
             cname_prefix: 'das-server-demo'
@@ -415,5 +408,4 @@ app:
             option_settings:
               'aws:elasticbeanstalk:application:environment':
                 DAS_ENV_NAME: 'demo-akagera'
-              'aws:autoscaling:launchconfiguration':
-                InstanceType: "t2.small"
+
