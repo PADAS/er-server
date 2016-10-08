@@ -293,7 +293,7 @@ app:
                                 remi: http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
                         commands:
                           01-install-redis:
-                            command: "if [ -e /var/lib/redis ]; service redis stop; fi"
+                            command: "if [ -e /var/lib/redis ]; then service redis stop; fi"
 
               - .ebextensions/02-commands.config:
                     permissions: 0666
