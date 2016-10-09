@@ -298,9 +298,9 @@
       \n    \"results_and_findings\",\r\n    \"action_items\"\r\n  ]\r\n}"}
 - model: activity.eventtype
   pk: 09bd865d-2782-46c7-9a73-14dca78622a2
-  fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
-      01:03:57.066518+00:00', value: road_banditry, display: Road banditry, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
-    ordernum: 220, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
+  fields: {created_at: !!timestamp '2016-09-28 22:43:29.160427+00:00', updated_at: !!timestamp '2016-10-08
+      01:03:44.707954+00:00', value: carcass, display: Carcass, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+    ordernum: 210, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
       : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
       \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
       properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
@@ -321,73 +321,70 @@
       : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
       \ and Findings\"\r\n        },\r\n        \"action_items\": {\r\n          \
       \  \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n    \
-      \    },\r\n        \"vehicles\": {\r\n            \"type\": \"string\",\r\n\
-      \            \"title\": \"Were vehicles involved?\",\r\n            \"enum\"\
-      : [ \"Yes\", \"No\", \"Unknown\" ]\r\n        },\r\n\t\"number_of_vehicles\"\
-      : {\r\n            \"type\": \"number\",\r\n            \"title\": \"Number\
-      \ of vehicles involved\",\r\n            \"minimum\": 0\r\n        },\r\n  \
-      \      \"number_of_people\": {\r\n            \"type\": \"number\",\r\n    \
-      \        \"title\": \"Number of people involved\",\r\n            \"minimum\"\
-      : 0\r\n        }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    \"conservancy\"\
-      ,\r\n    {\r\n        \"key\": \"sectionArea\",\r\n        \"fieldHtmlClass\"\
-      : \"multiple-select\"\r\n    },\r\n    {\r\n        \"key\": \"team\",\r\n \
-      \       \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n     \
-      \ \"key\": \"beginning_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
-      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    {\r\n      \"\
-      key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
-      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    \"details\",\r\
-      \n    \"results_and_findings\",\r\n    \"action_items\",\r\n    \"vehicles\"\
-      ,\r\n    \"number_of_vehicles\",\r\n    \"number_of_people\"\r\n  ]\r\n}"}
+      \    },\r\n        \"species\": {\r\n\t    \"type\":\"string\",\r\n\t    \"\
+      title\": \"Species\",\r\n\t    \"enum\": {{table___species___values}},\r\n\t\
+      \    \"enumNames\": {{table___species___names}}\r\n        },\r\n        \"\
+      name\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"\
+      Name of animal\"\r\n        },\r\n\t\"sex\": {\r\n            \"type\": \"string\"\
+      ,\r\n            \"title\": \"Sex of animal\",\r\n            \"enum\": [ \"\
+      Male\", \"Female\", \"Unknown\" ]\r\n        },\r\n\t\"age_of_carcass\": {\r\
+      \n            \"type\": \"number\",\r\n            \"title\": \"Age of carcass\"\
+      ,\r\n            \"minimum\": 0\r\n        },\r\n        \"age_of_animal\":\
+      \ {\r\n            \"type\": \"number\",\r\n            \"title\": \"Age of\
+      \ animal\",\r\n            \"minimum\": 0\r\n        },\r\n    \t\"trophy_status\"\
+      : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Trophy\
+      \ status\",\r\n            \"enum\": [ \"Present\", \"Taken\", \"Damaged\" ]\r\
+      \n        },\r\n        \"causeOfDeath\": {\r\n\t    \"type\":\"string\",\r\n\
+      \t    \"title\": \"Cause of death\",\r\n\t    \"enum\": {{table___causeOfDeath___values}},\r\
+      \n\t    \"enumNames\": {{table___causeOfDeath___names}}\r\n        }\r\n   \
+      \ }\r\n  },\r\n  \"definition\": [\r\n    \"conservancy\",\r\n    {\r\n    \
+      \    \"key\": \"sectionArea\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\
+      \r\n    },\r\n    {\r\n        \"key\": \"team\",\r\n        \"fieldHtmlClass\"\
+      : \"multiple-select\"\r\n    },\r\n    {\r\n      \"key\": \"beginning_of_incident\"\
+      ,\r\n      \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"\
+      readonly\": false\r\n    },\r\n    {\r\n      \"key\": \"end_of_incident\",\r\
+      \n      \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"readonly\"\
+      : false\r\n    },\r\n    \"details\",\r\n    \"results_and_findings\",\r\n \
+      \   \"action_items\",\r\n    \"species\",\r\n    \"name\",\r\n    \"sex\",\r\
+      \n    \"age_of_carcass\",\r\n    \"age_of_animal\",\r\n    \"trophy_status\"\
+      ,\r\n    \"causeOfDeath\"\r\n  ]\r\n}"}
 - model: activity.eventtype
   pk: 19afb1f3-695b-44c7-aea0-cef6d338da87
-  fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
-      00:56:44.386480+00:00', value: human_wildlife_conflict, display: Human wildlife
-      contact, category: 61d279a3-95fd-421f-bdb0-604ae8731761, ordernum: 280, schema: "{\r\
-      \n    \"schema\": \r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
-      ,\r\n        \"title\": \"EventType Test Data\",\r\n      \r\n        \"type\"\
-      : \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n            \"\
-      conservancy\": {\r\n                \"type\":\"string\",\r\n               \
-      \ \"title\": \"Conservancy\",\r\n                \"enum\": {{table___conservancy___values}},\r\
-      \n                \"enumNames\": {{table___conservancy___names}}\r\n       \
-      \     },\r\n\t\"sectionArea\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\"\
-      : \"Section/Area\",\r\n\t\t\"enum\": {{table___sectionArea___values}},\r\n\t\
-      \t\"enumNames\": {{table___sectionArea___names}}\r\n\t},\t\t\t\r\n\t\"team\"\
-      : {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Teams\",\r\n\t\t\"enum\"\
-      : {{table___team___values}},\r\n\t\t\"enumNames\": {{table___team___names}}\r\
-      \n\t},\r\n        \"beginning_of_incident\": {\r\n            \"type\": \"string\"\
-      ,\r\n            \"title\": \"Beginning of Incident\"\r\n        },\r\n    \
-      \    \"end_of_incident\": {\r\n            \"type\": \"string\",\r\n       \
-      \     \"title\": \"End of Incident\"\r\n        },\r\n        \"details\": {\r\
-      \n\t    \"type\": \"string\",\r\n\t    \"title\": \"Details\"\r\n        },\r\
-      \n        \"results_and_findings\": {\r\n            \"type\": \"string\",\r\
-      \n            \"title\": \"Results and Findings\"\r\n        },\r\n        \"\
-      action_items\": {\r\n            \"type\": \"string\",\r\n            \"title\"\
-      : \"Action Items\"\r\n        },\r\n\t\"species\": {\r\n\t    \"type\":\"string\"\
-      ,\r\n\t    \"title\": \"Species\",\r\n\t    \"enum\": {{table___species___values}},\r\
-      \n\t    \"enumNames\": {{table___species___names}}\r\n        },\r\n       \
-      \ \"injuries\": {\r\n            \"type\": \"string\",\r\n            \"title\"\
-      : \"Type of injuries\"\r\n        },\r\n        \"property_damage\": {\r\n \
-      \           \"type\": \"string\",\r\n            \"title\": \"Property damage\"\
-      \r\n        },\r\n\t\"livestock\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"\
-      title\": \"Type of livestock killed\",\r\n\t\t\"enum\": {{table___livestock___values}},\r\
-      \n\t\t\"enumNames\": {{table___livestock___names}}\r\n\t},\r\n\t\"number_livestock_killed\"\
-      : {\r\n            \"type\": \"number\",\r\n            \"title\": \"Number\
-      \ of livestock killed\",\r\n            \"minimum\": 0\r\n        },\r\n   \
-      \     \"contactType\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Type\
-      \ of contact\",\r\n\t\t\"enum\": {{table___contactType___values}},\r\n\t\t\"\
-      enumNames\": {{table___contactType___names}}\r\n\t}\r\n    }\r\n  },\r\n  \"\
-      definition\": [\r\n    \"conservancy\",\r\n    {\r\n        \"key\": \"sectionArea\"\
-      ,\r\n        \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n\
-      \        \"key\": \"team\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\
+  fields: {created_at: !!timestamp '2016-10-04 18:18:10.334441+00:00', updated_at: !!timestamp '2016-10-08
+      00:48:41.243291+00:00', value: snare, display: Snare, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+    ordernum: 310, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
+      : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
+      \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
+      properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
+      \      \"type\":\"string\",\r\n                \"title\": \"Conservancy\",\r\
+      \n                \"enum\": {{table___conservancy___values}},\r\n          \
+      \      \"enumNames\": {{table___conservancy___names}}\r\n            },\r\n\t\
+      \"sectionArea\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Section/Area\"\
+      ,\r\n\t\t\"enum\": {{table___sectionArea___values}},\r\n\t\t\"enumNames\": {{table___sectionArea___names}}\r\
+      \n\t},\t\t\t\r\n\t\"team\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\"\
+      : \"Teams\",\r\n\t\t\"enum\": {{table___team___values}},\r\n\t\t\"enumNames\"\
+      : {{table___team___names}}\r\n\t},\r\n        \"beginning_of_incident\": {\r\
+      \n            \"type\": \"string\",\r\n            \"title\": \"Beginning of\
+      \ Incident\"\r\n        },\r\n        \"end_of_incident\": {\r\n           \
+      \ \"type\": \"string\",\r\n            \"title\": \"End of Incident\"\r\n  \
+      \      },\r\n        \"details\": {\r\n\t    \"type\": \"string\",\r\n\t   \
+      \ \"title\": \"Details\"\r\n        },\r\n        \"results_and_findings\":\
+      \ {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
+      \ and Findings\"\r\n        },\r\n        \"action_items\": {\r\n          \
+      \  \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n    \
+      \    },\r\n\t\"number_snares\": {\r\n            \"type\": \"number\",\r\n \
+      \           \"title\": \"Number of snares\",\r\n            \"minimum\":0\r\n\
+      \        },\r\n        \"intention\": {\r\n            \"type\": \"string\"\
+      ,\r\n            \"title\": \"Intention\"\r\n        }\r\n    }\r\n  },\r\n\
+      \  \"definition\": [\r\n    \"conservancy\",\r\n    {\r\n        \"key\": \"\
+      sectionArea\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\
+      \n    {\r\n        \"key\": \"team\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\
       \r\n    },\r\n    {\r\n      \"key\": \"beginning_of_incident\",\r\n      \"\
       fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\
       \n    },\r\n    {\r\n      \"key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\"\
       : \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
       \n    \"details\",\r\n    \"results_and_findings\",\r\n    \"action_items\"\
-      ,\r\n    {\r\n                \"key\": \"contactType\",\r\n                \"\
-      fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    \"species\",\r\n    \"\
-      injuries\",\r\n    \"property_damage\",\r\n    \"livestock\",\r\n    \"number_livestock_killed\"\
-      \r\n  ]\r\n}"}
+      ,\r\n    \"number_snares\",\r\n    \"intention\"\r\n  ]\r\n}"}
 - model: activity.eventtype
   pk: 1e083826-af30-4c78-a487-eecb7c753888
   fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
@@ -500,6 +497,58 @@
       \  \"key\": \"tribe\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\r\n\
       \    },\r\n    \"number_individuals\",\r\n    \"weapons\",\r\n    \"number_killed\"\
       ,\r\n    \"number_injured\"\r\n  ]\r\n}"}
+- model: activity.eventtype
+  pk: 2c63eab5-5792-455a-a867-3278591abc75
+  fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
+      01:03:57.066518+00:00', value: road_banditry, display: Road banditry, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+    ordernum: 220, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
+      : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
+      \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
+      properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
+      \      \"type\":\"string\",\r\n                \"title\": \"Conservancy\",\r\
+      \n                \"enum\": {{table___conservancy___values}},\r\n          \
+      \      \"enumNames\": {{table___conservancy___names}}\r\n            },\r\n\t\
+      \t\t\"sectionArea\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\"\
+      : \"Section/Area\",\r\n\t\t\t\t\"enum\": {{table___sectionArea___values}},\r\
+      \n\t\t\t\t\"enumNames\": {{table___sectionArea___names}}\r\n\t\t\t},\t\t\t\r\
+      \n\t\t\t\"team\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"\
+      Teams\",\r\n\t\t\t\t\"enum\": {{table___team___values}},\r\n\t\t\t\t\"enumNames\"\
+      : {{table___team___names}}\r\n\t\t\t},\r\n        \"beginning_of_incident\"\
+      : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Beginning\
+      \ of Incident\"\r\n        },\r\n        \"end_of_incident\": {\r\n        \
+      \    \"type\": \"string\",\r\n            \"title\": \"End of Incident\"\r\n\
+      \        },\r\n        \"details\": {\r\n\t    \"type\": \"string\",\r\n\t \
+      \   \"title\": \"Details\"\r\n        },\r\n        \"results_and_findings\"\
+      : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
+      \ and Findings\"\r\n        },\r\n        \"action_items\": {\r\n          \
+      \  \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n    \
+      \    },\r\n        \"vehicles\": {\r\n            \"type\": \"string\",\r\n\
+      \            \"title\": \"Were vehicles involved?\",\r\n            \"enum\"\
+      : [ \"Yes\", \"No\", \"Unknown\" ]\r\n        },\r\n\t\"number_of_vehicles\"\
+      : {\r\n            \"type\": \"number\",\r\n            \"title\": \"Number\
+      \ of vehicles involved\",\r\n            \"minimum\": 0\r\n        },\r\n  \
+      \      \"number_of_people\": {\r\n            \"type\": \"number\",\r\n    \
+      \        \"title\": \"Number of people involved\",\r\n            \"minimum\"\
+      : 0\r\n        }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    \"conservancy\"\
+      ,\r\n    {\r\n        \"key\": \"sectionArea\",\r\n        \"fieldHtmlClass\"\
+      : \"multiple-select\"\r\n    },\r\n    {\r\n        \"key\": \"team\",\r\n \
+      \       \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n     \
+      \ \"key\": \"beginning_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
+      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    {\r\n      \"\
+      key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
+      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    \"details\",\r\
+      \n    \"results_and_findings\",\r\n    \"action_items\",\r\n    \"vehicles\"\
+      ,\r\n    \"number_of_vehicles\",\r\n    \"number_of_people\"\r\n  ]\r\n}"}
+- model: activity.eventtype
+  pk: 2e5d73dc-147b-4586-a70f-ddce3dc06e61
+  fields: {created_at: !!timestamp '2016-10-08 00:26:25.815266+00:00', updated_at: !!timestamp '2016-10-08
+      00:30:21.985380+00:00', value: shawn_temp, display: _shawn, category: 268772c6-c039-43e4-b1d0-f2c9da08d2e4,
+    ordernum: null, schema: "{\r\n  \"schema\": \r\n  {\r\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
+      ,\r\n    \"title\": \"EventType Test Data\",\r\n    \"type\": \"object\",\r\n\
+      \    \"properties\": {\r\n      \"rhinoMother\": {\r\n        \"type\": \"string\"\
+      ,\r\n        \"title\": \"Mother\",\r\n        \"enum\": {{query___femaleRhinos___values}},\r\
+      \n        \"enumNames\": {{query___femaleRhinos___names}}\r\n      }\r\n   \
+      \ }\r\n  },\r\n  \"definition\": [\r\n    \"rhinoMother\"\r\n  ]\r\n}"}
 - model: activity.eventtype
   pk: 2fd8d9fa-ff9f-482c-b938-1ae1887e00ac
   fields: {created_at: !!timestamp '2016-09-23 16:49:42.572550+00:00', updated_at: !!timestamp '2016-10-08
@@ -615,43 +664,6 @@
       ,\r\n    \"number_trophies\",\r\n    \"number_weight\",\r\n    \"number_age_trophies\"\
       \r\n  ]\r\n}"}
 - model: activity.eventtype
-  pk: 37857ffe-0b24-4c66-8fe1-ca0a5bdcf821
-  fields: {created_at: !!timestamp '2016-10-04 18:21:00.979292+00:00', updated_at: !!timestamp '2016-10-08
-      00:44:57.561432+00:00', value: arrest, display: Arrest, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
-    ordernum: 320, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
-      : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
-      \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
-      properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
-      \      \"type\":\"string\",\r\n                \"title\": \"Conservancy\",\r\
-      \n                \"enum\": {{table___conservancy___values}},\r\n          \
-      \      \"enumNames\": {{table___conservancy___names}}\r\n            },\r\n\t\
-      \"sectionArea\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Section/Area\"\
-      ,\r\n\t\t\"enum\": {{table___sectionArea___values}},\r\n\t\t\"enumNames\": {{table___sectionArea___names}}\r\
-      \n\t},\t\t\t\r\n\t\"team\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\"\
-      : \"Teams\",\r\n\t\t\"enum\": {{table___team___values}},\r\n\t\t\"enumNames\"\
-      : {{table___team___names}}\r\n\t},\r\n        \"beginning_of_incident\": {\r\
-      \n            \"type\": \"string\",\r\n            \"title\": \"Beginning of\
-      \ Incident\"\r\n        },\r\n        \"end_of_incident\": {\r\n           \
-      \ \"type\": \"string\",\r\n            \"title\": \"End of Incident\"\r\n  \
-      \      },\r\n        \"details\": {\r\n\t    \"type\": \"string\",\r\n\t   \
-      \ \"title\": \"Details\"\r\n        },\r\n        \"results_and_findings\":\
-      \ {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
-      \ and Findings\"\r\n        },\r\n        \"action_items\": {\r\n          \
-      \  \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n    \
-      \    },\r\n\t\"number_arrested\": {\r\n            \"type\": \"number\",\r\n\
-      \            \"title\": \"Number of people arrested\",\r\n            \"minimum\"\
-      :0\r\n        },\r\n        \"people\": {\r\n            \"type\": \"string\"\
-      ,\r\n            \"title\": \"People (??)\"\r\n        }\r\n    }\r\n  },\r\n\
-      \  \"definition\": [\r\n    \"conservancy\",\r\n    {\r\n        \"key\": \"\
-      sectioArea\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\
-      \n    {\r\n        \"key\": \"team\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\
-      \r\n    },\r\n    {\r\n      \"key\": \"beginning_of_incident\",\r\n      \"\
-      fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\
-      \n    },\r\n    {\r\n      \"key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\"\
-      : \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
-      \n    \"details\",\r\n    \"results_and_findings\",\r\n    \"action_items\"\
-      ,\r\n    \"number_arrested\",\r\n    \"people\"\r\n  ]\r\n}"}
-- model: activity.eventtype
   pk: 3d012d1b-b6ce-460e-871e-50e023b2e502
   fields: {created_at: !!timestamp '2016-09-28 22:44:07.319207+00:00', updated_at: !!timestamp '2016-10-07
       18:12:59.097783+00:00', value: loss_of_animal_life, display: Loss of animal
@@ -679,10 +691,10 @@
       : \"reporting_time\",\r\n\t      \"fieldHtmlClass\": \"date-time-picker json-schema\"\
       ,\r\n\t      \"readonly\": false\r\n        }\r\n        ]\r\n}"}
 - model: activity.eventtype
-  pk: 6a2e2716-4951-4916-a9a1-91a78dbd59aa
-  fields: {created_at: !!timestamp '2016-09-28 22:43:29.160427+00:00', updated_at: !!timestamp '2016-10-08
-      01:03:44.707954+00:00', value: carcass, display: Carcass, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
-    ordernum: 210, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
+  pk: 4371e5b9-5666-42ac-8295-553ef9e54fd4
+  fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
+      00:49:51.498670+00:00', value: tourist_attack, display: Tourist attack, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+    ordernum: 290, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
       : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
       \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
       properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
@@ -694,42 +706,112 @@
       \n\t\t\t\t\"enumNames\": {{table___sectionArea___names}}\r\n\t\t\t},\t\t\t\r\
       \n\t\t\t\"team\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"\
       Teams\",\r\n\t\t\t\t\"enum\": {{table___team___values}},\r\n\t\t\t\t\"enumNames\"\
-      : {{table___team___names}}\r\n\t\t\t},\r\n        \"beginning_of_incident\"\
-      : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Beginning\
-      \ of Incident\"\r\n        },\r\n        \"end_of_incident\": {\r\n        \
-      \    \"type\": \"string\",\r\n            \"title\": \"End of Incident\"\r\n\
-      \        },\r\n        \"details\": {\r\n\t    \"type\": \"string\",\r\n\t \
-      \   \"title\": \"Details\"\r\n        },\r\n        \"results_and_findings\"\
-      : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
+      : {{table___team___names}}\r\n\t\t\t},        \"beginning_of_incident\": {\r\
+      \n            \"type\": \"string\",\r\n            \"title\": \"Beginning of\
+      \ Incident\"\r\n        },\r\n        \"end_of_incident\": {\r\n           \
+      \ \"type\": \"string\",\r\n            \"title\": \"End of Incident\"\r\n  \
+      \      },\r\n        \"details\": {\r\n\t    \"type\": \"string\",\r\n\t   \
+      \ \"title\": \"Details\"\r\n        },\r\n        \"results_and_findings\":\
+      \ {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
       \ and Findings\"\r\n        },\r\n        \"action_items\": {\r\n          \
       \  \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n    \
-      \    },\r\n        \"species\": {\r\n\t    \"type\":\"string\",\r\n\t    \"\
-      title\": \"Species\",\r\n\t    \"enum\": {{table___species___values}},\r\n\t\
-      \    \"enumNames\": {{table___species___names}}\r\n        },\r\n        \"\
-      name\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"\
-      Name of animal\"\r\n        },\r\n\t\"sex\": {\r\n            \"type\": \"string\"\
-      ,\r\n            \"title\": \"Sex of animal\",\r\n            \"enum\": [ \"\
-      Male\", \"Female\", \"Unknown\" ]\r\n        },\r\n\t\"age_of_carcass\": {\r\
-      \n            \"type\": \"number\",\r\n            \"title\": \"Age of carcass\"\
-      ,\r\n            \"minimum\": 0\r\n        },\r\n        \"age_of_animal\":\
-      \ {\r\n            \"type\": \"number\",\r\n            \"title\": \"Age of\
-      \ animal\",\r\n            \"minimum\": 0\r\n        },\r\n    \t\"trophy_status\"\
-      : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Trophy\
-      \ status\",\r\n            \"enum\": [ \"Present\", \"Taken\", \"Damaged\" ]\r\
-      \n        },\r\n        \"causeOfDeath\": {\r\n\t    \"type\":\"string\",\r\n\
-      \t    \"title\": \"Cause of death\",\r\n\t    \"enum\": {{table___causeOfDeath___values}},\r\
-      \n\t    \"enumNames\": {{table___causeOfDeath___names}}\r\n        }\r\n   \
-      \ }\r\n  },\r\n  \"definition\": [\r\n    \"conservancy\",\r\n    {\r\n    \
-      \    \"key\": \"sectionArea\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\
-      \r\n    },\r\n    {\r\n        \"key\": \"team\",\r\n        \"fieldHtmlClass\"\
-      : \"multiple-select\"\r\n    },\r\n    {\r\n      \"key\": \"beginning_of_incident\"\
-      ,\r\n      \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"\
-      readonly\": false\r\n    },\r\n    {\r\n      \"key\": \"end_of_incident\",\r\
-      \n      \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"readonly\"\
-      : false\r\n    },\r\n    \"details\",\r\n    \"results_and_findings\",\r\n \
-      \   \"action_items\",\r\n    \"species\",\r\n    \"name\",\r\n    \"sex\",\r\
-      \n    \"age_of_carcass\",\r\n    \"age_of_animal\",\r\n    \"trophy_status\"\
-      ,\r\n    \"causeOfDeath\"\r\n  ]\r\n}"}
+      \    },\r\n\t\"number_tourists\": {\r\n            \"type\": \"number\",\r\n\
+      \            \"title\": \"Number of tourists\",\r\n            \"minimum\":0\r\
+      \n        },\r\n\t\"number_deaths\": {\r\n            \"type\": \"number\",\r\
+      \n            \"title\": \"Number of deaths\",\r\n            \"minimum\":0\r\
+      \n        },\r\n\t\"number_injuries\": {\r\n            \"type\": \"number\"\
+      ,\r\n            \"title\": \"Number of injuries\",\r\n            \"minimum\"\
+      :0\r\n        },\r\n        \"nationality\": {\r\n            \"type\": \"string\"\
+      ,\r\n            \"title\": \"Nationality\"\r\n        },\r\n        \"personal_info\"\
+      : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Personal\
+      \ info\"\r\n        },\r\n        \"tourist_operator\": {\r\n            \"\
+      type\": \"string\",\r\n            \"title\": \"Tourist operator\"\r\n     \
+      \   }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    \"conservancy\",\r\n  \
+      \  {\r\n        \"key\": \"sectionArea\",\r\n        \"fieldHtmlClass\": \"\
+      multiple-select\"\r\n    },\r\n    {\r\n        \"key\": \"team\",\r\n     \
+      \   \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n      \"key\"\
+      : \"beginning_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
+      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    {\r\n      \"\
+      key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
+      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    \"details\",\r\
+      \n    \"results_and_findings\",\r\n    \"action_items\",\r\n    \"number_tourists\"\
+      ,\r\n    \"number_deaths\",\r\n    \"number_injuries\",\r\n    \"nationality\"\
+      ,\r\n    \"personal_info\",\r\n    \"tourist_operator\"\r\n  ]\r\n}"}
+- model: activity.eventtype
+  pk: 62d680c8-1b2c-4522-85a9-40ead4db179b
+  fields: {created_at: !!timestamp '2016-10-04 18:25:27.180244+00:00', updated_at: !!timestamp '2016-10-08
+      00:19:09.320145+00:00', value: shot_rep, display: Gunshot, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+    ordernum: 390, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
+      : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
+      \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
+      properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
+      \      \"type\":\"string\",\r\n                \"title\": \"Conservancy\",\r\
+      \n                \"enum\": {{table___conservancy___values}},\r\n          \
+      \      \"enumNames\": {{table___conservancy___names}}\r\n            },\r\n\t\
+      \"sectionArea\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Section/Area\"\
+      ,\r\n\t\t\"enum\": {{table___sectionArea___values}},\r\n\t\t\"enumNames\": {{table___sectionArea___names}}\r\
+      \n\t},\r\n\t\"team\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Teams\"\
+      ,\r\n\t\t\"enum\": {{table___team___values}},\r\n\t\t\"enumNames\": {{table___team___names}}\r\
+      \n\t},\r\n        \"beginning_of_incident\": {\r\n            \"type\": \"string\"\
+      ,\r\n            \"title\": \"Beginning of Incident\"\r\n        },\r\n    \
+      \    \"end_of_incident\": {\r\n            \"type\": \"string\",\r\n       \
+      \     \"title\": \"End of Incident\"\r\n        },\r\n        \"details\": {\r\
+      \n\t    \"type\": \"string\",\r\n\t    \"title\": \"Details\"\r\n        },\r\
+      \n        \"results_and_findings\": {\r\n            \"type\": \"string\",\r\
+      \n            \"title\": \"Results and Findings\"\r\n        },\r\n        \"\
+      action_items\": {\r\n            \"type\": \"string\",\r\n            \"title\"\
+      : \"Action Items\"\r\n        },\r\n\t\"number_shots\": {\r\n            \"\
+      type\": \"number\",\r\n            \"title\": \"Number of shots\",\r\n     \
+      \       \"minimum\":0\r\n        },\r\n\t\"direction\": {\r\n            \"\
+      type\": \"string\",\r\n            \"title\": \"Direction\"\r\n        },\r\n\
+      \    \t\"weather\": {\r\n            \"type\": \"string\",\r\n            \"\
+      title\": \"Weather\"\r\n        },\r\n        \"day_night\": {\r\n\t    \"type\"\
+      : \"string\",\r\n\t    \"title\": \"Day or night\",\r\n\t    \"enum\": [ \"\
+      Day\", \"Night\" ]\r\n        }\r\n    }\r\n  },\r\n  \"definition\": [\r\n\
+      \    \"conservancy\",\r\n    {\r\n        \"key\": \"sectionArea\",\r\n    \
+      \    \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n        \"\
+      key\": \"team\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\
+      \n    {\r\n      \"key\": \"beginning_of_incident\",\r\n      \"fieldHtmlClass\"\
+      : \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
+      \n    {\r\n      \"key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\":\
+      \ \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
+      \n    \"details\",\r\n    \"results_and_findings\",\r\n    \"action_items\"\
+      ,\r\n    \"number_shots\",\r\n    \"direction\",\r\n    \"weather\",\r\n   \
+      \ \"day_night\"\r\n  ]\r\n}"}
+- model: activity.eventtype
+  pk: 6644aa09-6c40-425e-ad28-0ec8bf6e6665
+  fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
+      00:08:03.062421+00:00', value: rhino_territorial_movement, display: Rhino territorial
+      movement, category: 268772c6-c039-43e4-b1d0-f2c9da08d2e4, ordernum: 140, schema: "{\r\
+      \n  \"schema\": {\r\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
+      ,\r\n    \"id\": \"http://localhost/api/v1.0/activity/events/schema/security_common\"\
+      ,\r\n    \"title\": \"EventType Test Data\",\r\n    \"type\": \"object\",\r\n\
+      \    \"properties\": {\r\n        \"rhinoTerritorialMovement\": {\r\n      \
+      \     \"type\":\"string\",\r\n           \"title\": \"[Need clarification on\
+      \ this]\"\r\n        },\r\n        \"color\": {\r\n           \"type\":\"string\"\
+      ,\r\n           \"title\": \"Color\",\r\n           \"enum\": {{table___color___values}},\r\
+      \n           \"enumNames\": {{table___color___names}}\r\n        },\r\n\t\"\
+      rhinos\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"All Rhino Names\"\
+      ,\r\n\t\t\"enum\": {{query___rhinos___values}},\r\n\t\t\"enumNames\": {{query___rhinos___names}}\r\
+      \n\t},\r\n        \"health\": {\r\n            \"type\":\"string\",\r\n    \
+      \        \"title\": \"Health\",\r\n            \"enum\": {{table___health___values}},\r\
+      \n            \"enumNames\": {{table___health___names}}\r\n        },\r\n  \t\
+      \"behavior\": {\r\n\t    \"type\":\"string\",\r\n\t    \"title\": \"Behavior\"\
+      ,\r\n\t    \"enum\": {{table___behavior___values}},\r\n\t    \"enumNames\":\
+      \ {{table___behavior___names}}\r\n\t},        \r\n\t\"conservancy\": {\r\n \
+      \               \"type\":\"string\",\r\n                \"title\": \"Conservancy\"\
+      ,\r\n                \"enum\": {{table___conservancy___values}},\r\n       \
+      \         \"enumNames\": {{table___conservancy___names}}\r\n        },\r\n \
+      \       \"station\": {\r\n  \t    \"type\": \"string\",\r\n\t    \"title\":\
+      \ \"Reporting Station\",\r\n\t    \"enum\": {{table___station___values}},\r\n\
+      \t    \"enumNames\": {{table___station___names}}\r\n\t},\r\n\t\"reporting_time\"\
+      :{\r\n\t    \"type\": \"string\",\r\n\t    \"title\": \"Reporting Time\"\r\n\
+      \t}\r\n    }\r\n  },\r\n  \"definition\": [        \r\n  \t{\r\n\t        \"\
+      key\": \"rhinos\",\r\n\t        \"fieldHtmlClass\": \"multiple-select\"\r\n\
+      \    \t},\r\n    \t\"color\", \"animalName\", \"health\", \"behavior\", \"conservancy\"\
+      , \"station\", \r\n  \t{\r\n\t      \"key\": \"reporting_time\",\r\n\t     \
+      \ \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n\t      \"readonly\"\
+      : false\r\n        }\r\n        ]\r\n}"}
 - model: activity.eventtype
   pk: 78157e73-158e-4edb-9b61-109f31a6f1d6
   fields: {created_at: !!timestamp '2016-09-28 22:45:09.459816+00:00', updated_at: !!timestamp '2016-10-09
@@ -770,45 +852,6 @@
       \           \"reported_by\", \r\n              \"actionTaken\", \r\n       \
       \       {\r\n                \"key\": \"feedback\",\r\n                \"fieldHtmlClass\"\
       : \"json-schema-textarea\"\r\n              } \r\n            ]\r\n}"}
-- model: activity.eventtype
-  pk: 786e25e1-805e-4866-a153-1787ca7e52d2
-  fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
-      00:49:01.564845+00:00', value: spoor, display: Spoor, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
-    ordernum: 300, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
-      : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
-      \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
-      properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
-      \      \"type\":\"string\",\r\n                \"title\": \"Conservancy\",\r\
-      \n                \"enum\": {{table___conservancy___values}},\r\n          \
-      \      \"enumNames\": {{table___conservancy___names}}\r\n            },\r\n\t\
-      \"sectionArea\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Section/Area\"\
-      ,\r\n\t\t\"enum\": {{table___sectionArea___values}},\r\n\t\t\"enumNames\": {{table___sectionArea___names}}\r\
-      \n\t},\t\t\t\r\n\t\"team\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\"\
-      : \"Teams\",\r\n\t\t\"enum\": {{table___team___values}},\r\n\t\t\"enumNames\"\
-      : {{table___team___names}}\r\n\t},\r\n        \"beginning_of_incident\": {\r\
-      \n            \"type\": \"string\",\r\n            \"title\": \"Beginning of\
-      \ Incident\"\r\n        },\r\n        \"end_of_incident\": {\r\n           \
-      \ \"type\": \"string\",\r\n            \"title\": \"End of Incident\"\r\n  \
-      \      },\r\n        \"details\": {\r\n\t    \"type\": \"string\",\r\n\t   \
-      \ \"title\": \"Details\"\r\n        },\r\n        \"results_and_findings\":\
-      \ {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
-      \ and Findings\"\r\n        },\r\n        \"action_items\": {\r\n          \
-      \  \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n    \
-      \    },\r\n\t\"number_tracks\": {\r\n            \"type\": \"number\",\r\n \
-      \           \"title\": \"Number of separate tracks\",\r\n            \"minimum\"\
-      :0\r\n        },\r\n\t\"direction\": {\r\n            \"type\": \"string\",\r\
-      \n            \"title\": \"Direction\"\r\n        },\r\n        \"presumed_intentions\"\
-      : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Presumed\
-      \ intentions\"\r\n        }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    \"\
-      conservancy\",\r\n    {\r\n        \"key\": \"sectionArea\",\r\n        \"fieldHtmlClass\"\
-      : \"multiple-select\"\r\n    },\r\n    {\r\n        \"key\": \"team\",\r\n \
-      \       \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n     \
-      \ \"key\": \"beginning_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
-      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    {\r\n      \"\
-      key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
-      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    \"details\",\r\
-      \n    \"results_and_findings\",\r\n    \"action_items\",\r\n    \"number_tracks\"\
-      ,\r\n    \"direction\",\r\n    \"presumed_intentions\"\r\n  ]\r\n}"}
 - model: activity.eventtype
   pk: 7ce2a821-b2f4-4691-94ad-70fda2000cf4
   fields: {created_at: !!timestamp '2016-10-04 18:23:06.743001+00:00', updated_at: !!timestamp '2016-10-08
@@ -897,38 +940,41 @@
       people_involved\"\r\n  ]\r\n}"}
 - model: activity.eventtype
   pk: 822366db-11ef-4708-ba11-b0f7d8aae3ba
-  fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
-      00:08:03.062421+00:00', value: rhino_territorial_movement, display: Rhino territorial
-      movement, category: 268772c6-c039-43e4-b1d0-f2c9da08d2e4, ordernum: 140, schema: "{\r\
-      \n  \"schema\": {\r\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
-      ,\r\n    \"id\": \"http://localhost/api/v1.0/activity/events/schema/security_common\"\
-      ,\r\n    \"title\": \"EventType Test Data\",\r\n    \"type\": \"object\",\r\n\
-      \    \"properties\": {\r\n        \"rhinoTerritorialMovement\": {\r\n      \
-      \     \"type\":\"string\",\r\n           \"title\": \"[Need clarification on\
-      \ this]\"\r\n        },\r\n        \"color\": {\r\n           \"type\":\"string\"\
-      ,\r\n           \"title\": \"Color\",\r\n           \"enum\": {{table___color___values}},\r\
-      \n           \"enumNames\": {{table___color___names}}\r\n        },\r\n\t\"\
-      rhinos\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"All Rhino Names\"\
-      ,\r\n\t\t\"enum\": {{query___rhinos___values}},\r\n\t\t\"enumNames\": {{query___rhinos___names}}\r\
-      \n\t},\r\n        \"health\": {\r\n            \"type\":\"string\",\r\n    \
-      \        \"title\": \"Health\",\r\n            \"enum\": {{table___health___values}},\r\
-      \n            \"enumNames\": {{table___health___names}}\r\n        },\r\n  \t\
-      \"behavior\": {\r\n\t    \"type\":\"string\",\r\n\t    \"title\": \"Behavior\"\
-      ,\r\n\t    \"enum\": {{table___behavior___values}},\r\n\t    \"enumNames\":\
-      \ {{table___behavior___names}}\r\n\t},        \r\n\t\"conservancy\": {\r\n \
-      \               \"type\":\"string\",\r\n                \"title\": \"Conservancy\"\
-      ,\r\n                \"enum\": {{table___conservancy___values}},\r\n       \
-      \         \"enumNames\": {{table___conservancy___names}}\r\n        },\r\n \
-      \       \"station\": {\r\n  \t    \"type\": \"string\",\r\n\t    \"title\":\
-      \ \"Reporting Station\",\r\n\t    \"enum\": {{table___station___values}},\r\n\
-      \t    \"enumNames\": {{table___station___names}}\r\n\t},\r\n\t\"reporting_time\"\
-      :{\r\n\t    \"type\": \"string\",\r\n\t    \"title\": \"Reporting Time\"\r\n\
-      \t}\r\n    }\r\n  },\r\n  \"definition\": [        \r\n  \t{\r\n\t        \"\
-      key\": \"rhinos\",\r\n\t        \"fieldHtmlClass\": \"multiple-select\"\r\n\
-      \    \t},\r\n    \t\"color\", \"animalName\", \"health\", \"behavior\", \"conservancy\"\
-      , \"station\", \r\n  \t{\r\n\t      \"key\": \"reporting_time\",\r\n\t     \
-      \ \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n\t      \"readonly\"\
-      : false\r\n        }\r\n        ]\r\n}"}
+  fields: {created_at: !!timestamp '2016-10-04 18:21:00.979292+00:00', updated_at: !!timestamp '2016-10-08
+      00:44:57.561432+00:00', value: arrest, display: Arrest, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+    ordernum: 320, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
+      : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
+      \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
+      properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
+      \      \"type\":\"string\",\r\n                \"title\": \"Conservancy\",\r\
+      \n                \"enum\": {{table___conservancy___values}},\r\n          \
+      \      \"enumNames\": {{table___conservancy___names}}\r\n            },\r\n\t\
+      \"sectionArea\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Section/Area\"\
+      ,\r\n\t\t\"enum\": {{table___sectionArea___values}},\r\n\t\t\"enumNames\": {{table___sectionArea___names}}\r\
+      \n\t},\t\t\t\r\n\t\"team\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\"\
+      : \"Teams\",\r\n\t\t\"enum\": {{table___team___values}},\r\n\t\t\"enumNames\"\
+      : {{table___team___names}}\r\n\t},\r\n        \"beginning_of_incident\": {\r\
+      \n            \"type\": \"string\",\r\n            \"title\": \"Beginning of\
+      \ Incident\"\r\n        },\r\n        \"end_of_incident\": {\r\n           \
+      \ \"type\": \"string\",\r\n            \"title\": \"End of Incident\"\r\n  \
+      \      },\r\n        \"details\": {\r\n\t    \"type\": \"string\",\r\n\t   \
+      \ \"title\": \"Details\"\r\n        },\r\n        \"results_and_findings\":\
+      \ {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
+      \ and Findings\"\r\n        },\r\n        \"action_items\": {\r\n          \
+      \  \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n    \
+      \    },\r\n\t\"number_arrested\": {\r\n            \"type\": \"number\",\r\n\
+      \            \"title\": \"Number of people arrested\",\r\n            \"minimum\"\
+      :0\r\n        },\r\n        \"people\": {\r\n            \"type\": \"string\"\
+      ,\r\n            \"title\": \"People (??)\"\r\n        }\r\n    }\r\n  },\r\n\
+      \  \"definition\": [\r\n    \"conservancy\",\r\n    {\r\n        \"key\": \"\
+      sectioArea\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\
+      \n    {\r\n        \"key\": \"team\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\
+      \r\n    },\r\n    {\r\n      \"key\": \"beginning_of_incident\",\r\n      \"\
+      fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\
+      \n    },\r\n    {\r\n      \"key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\"\
+      : \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
+      \n    \"details\",\r\n    \"results_and_findings\",\r\n    \"action_items\"\
+      ,\r\n    \"number_arrested\",\r\n    \"people\"\r\n  ]\r\n}"}
 - model: activity.eventtype
   pk: 9a97d0fb-74f9-4ed9-8785-25fe4270b883
   fields: {created_at: !!timestamp '2016-10-04 18:25:07.818963+00:00', updated_at: !!timestamp '2016-10-08
@@ -1035,8 +1081,8 @@
 - model: activity.eventtype
   pk: b413783b-c162-447f-8541-e3f51cd341e8
   fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
-      01:04:29.867869+00:00', value: robbery_theft, display: Robbery/ Theft, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
-    ordernum: 250, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
+      00:57:39.310560+00:00', value: contact, display: Contact, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+    ordernum: 270, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
       : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
       \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
       properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
@@ -1057,21 +1103,73 @@
       : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
       \ and Findings\"\r\n        },\r\n        \"action_items\": {\r\n          \
       \  \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n    \
-      \    },\r\n        \"item_stolen\": {\r\n            \"type\": \"string\",\r\
-      \n            \"title\": \"Item(s) stolen\"\r\n        },\r\n\t\"number_items_stolen\"\
-      : {\r\n            \"type\": \"number\",\r\n            \"title\": \"Quantity\"\
-      ,\r\n            \"minimum\":0\r\n        },\r\n        \"victim_name\": {\r\
-      \n            \"type\": \"string\",\r\n            \"title\": \"Name(s) of Victim(s)\"\
-      \r\n        }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    \"conservancy\"\
-      ,\r\n    {\r\n        \"key\": \"sectionArea\",\r\n        \"fieldHtmlClass\"\
-      : \"multiple-select\"\r\n    },\r\n    {\r\n        \"key\": \"team\",\r\n \
-      \       \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n     \
-      \ \"key\": \"beginning_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
-      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    {\r\n      \"\
-      key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
-      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    \"details\",\r\
-      \n    \"results_and_findings\",\r\n    \"action_items\",\r\n    \"item_stolen\"\
-      ,\r\n    \"number_items_stolen\",\r\n    \"victim_name\"\r\n  ]\r\n}"}
+      \    },\r\n\t\"friendly_killed\": {\r\n            \"type\": \"number\",\r\n\
+      \            \"title\": \"Friendly forces killed\",\r\n            \"minimum\"\
+      :0\r\n        },\r\n        \"others_killed\": {\r\n\t            \"type\":\
+      \ \"number\",\r\n\t            \"title\": \"Others killed\",\r\n\t         \
+      \   \"minimum\":0\r\n        },\r\n        \"friendly_injured\": {\r\n\t   \
+      \         \"type\": \"number\",\r\n\t            \"title\": \"Friendly forces\
+      \ injured\",\r\n\t            \"minimum\":0\r\n        }\r\n    }\r\n  },\r\n\
+      \  \"definition\": [\r\n    \"conservancy\",\r\n    {\r\n        \"key\": \"\
+      sectionArea\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\
+      \n    {\r\n        \"key\": \"team\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\
+      \r\n    },\r\n    {\r\n      \"key\": \"beginning_of_incident\",\r\n      \"\
+      fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\
+      \n    },\r\n    {\r\n      \"key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\"\
+      : \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
+      \n    \"details\",\r\n    \"results_and_findings\",\r\n    \"action_items\"\
+      ,\r\n    \"friendly_killed\",\r\n    \"others_killed\",\r\n    \"friendly_injured\"\
+      \r\n  ]\r\n}"}
+- model: activity.eventtype
+  pk: bd9e56b6-3ce4-4dbf-8dc8-e05e024a1fd4
+  fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
+      00:56:44.386480+00:00', value: human_wildlife_conflict, display: Human wildlife
+      contact, category: 61d279a3-95fd-421f-bdb0-604ae8731761, ordernum: 280, schema: "{\r\
+      \n    \"schema\": \r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
+      ,\r\n        \"title\": \"EventType Test Data\",\r\n      \r\n        \"type\"\
+      : \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n            \"\
+      conservancy\": {\r\n                \"type\":\"string\",\r\n               \
+      \ \"title\": \"Conservancy\",\r\n                \"enum\": {{table___conservancy___values}},\r\
+      \n                \"enumNames\": {{table___conservancy___names}}\r\n       \
+      \     },\r\n\t\"sectionArea\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\"\
+      : \"Section/Area\",\r\n\t\t\"enum\": {{table___sectionArea___values}},\r\n\t\
+      \t\"enumNames\": {{table___sectionArea___names}}\r\n\t},\t\t\t\r\n\t\"team\"\
+      : {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Teams\",\r\n\t\t\"enum\"\
+      : {{table___team___values}},\r\n\t\t\"enumNames\": {{table___team___names}}\r\
+      \n\t},\r\n        \"beginning_of_incident\": {\r\n            \"type\": \"string\"\
+      ,\r\n            \"title\": \"Beginning of Incident\"\r\n        },\r\n    \
+      \    \"end_of_incident\": {\r\n            \"type\": \"string\",\r\n       \
+      \     \"title\": \"End of Incident\"\r\n        },\r\n        \"details\": {\r\
+      \n\t    \"type\": \"string\",\r\n\t    \"title\": \"Details\"\r\n        },\r\
+      \n        \"results_and_findings\": {\r\n            \"type\": \"string\",\r\
+      \n            \"title\": \"Results and Findings\"\r\n        },\r\n        \"\
+      action_items\": {\r\n            \"type\": \"string\",\r\n            \"title\"\
+      : \"Action Items\"\r\n        },\r\n\t\"species\": {\r\n\t    \"type\":\"string\"\
+      ,\r\n\t    \"title\": \"Species\",\r\n\t    \"enum\": {{table___species___values}},\r\
+      \n\t    \"enumNames\": {{table___species___names}}\r\n        },\r\n       \
+      \ \"injuries\": {\r\n            \"type\": \"string\",\r\n            \"title\"\
+      : \"Type of injuries\"\r\n        },\r\n        \"property_damage\": {\r\n \
+      \           \"type\": \"string\",\r\n            \"title\": \"Property damage\"\
+      \r\n        },\r\n\t\"livestock\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"\
+      title\": \"Type of livestock killed\",\r\n\t\t\"enum\": {{table___livestock___values}},\r\
+      \n\t\t\"enumNames\": {{table___livestock___names}}\r\n\t},\r\n\t\"number_livestock_killed\"\
+      : {\r\n            \"type\": \"number\",\r\n            \"title\": \"Number\
+      \ of livestock killed\",\r\n            \"minimum\": 0\r\n        },\r\n   \
+      \     \"contactType\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Type\
+      \ of contact\",\r\n\t\t\"enum\": {{table___contactType___values}},\r\n\t\t\"\
+      enumNames\": {{table___contactType___names}}\r\n\t}\r\n    }\r\n  },\r\n  \"\
+      definition\": [\r\n    \"conservancy\",\r\n    {\r\n        \"key\": \"sectionArea\"\
+      ,\r\n        \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n\
+      \        \"key\": \"team\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\
+      \r\n    },\r\n    {\r\n      \"key\": \"beginning_of_incident\",\r\n      \"\
+      fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\
+      \n    },\r\n    {\r\n      \"key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\"\
+      : \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
+      \n    \"details\",\r\n    \"results_and_findings\",\r\n    \"action_items\"\
+      ,\r\n    {\r\n                \"key\": \"contactType\",\r\n                \"\
+      fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    \"species\",\r\n    \"\
+      injuries\",\r\n    \"property_damage\",\r\n    \"livestock\",\r\n    \"number_livestock_killed\"\
+      \r\n  ]\r\n}"}
 - model: activity.eventtype
   pk: c1531fe1-90cd-4fd2-bc46-18ae7f9c0899
   fields: {created_at: !!timestamp '2016-09-28 22:44:37.759898+00:00', updated_at: !!timestamp '2016-10-07
@@ -1142,96 +1240,8 @@
 - model: activity.eventtype
   pk: cb9bc9f0-fce3-4c33-830f-0a26e444d6b4
   fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
-      00:49:51.498670+00:00', value: tourist_attack, display: Tourist attack, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
-    ordernum: 290, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
-      : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
-      \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
-      properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
-      \      \"type\":\"string\",\r\n                \"title\": \"Conservancy\",\r\
-      \n                \"enum\": {{table___conservancy___values}},\r\n          \
-      \      \"enumNames\": {{table___conservancy___names}}\r\n            },\r\n\t\
-      \t\t\"sectionArea\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\"\
-      : \"Section/Area\",\r\n\t\t\t\t\"enum\": {{table___sectionArea___values}},\r\
-      \n\t\t\t\t\"enumNames\": {{table___sectionArea___names}}\r\n\t\t\t},\t\t\t\r\
-      \n\t\t\t\"team\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"\
-      Teams\",\r\n\t\t\t\t\"enum\": {{table___team___values}},\r\n\t\t\t\t\"enumNames\"\
-      : {{table___team___names}}\r\n\t\t\t},        \"beginning_of_incident\": {\r\
-      \n            \"type\": \"string\",\r\n            \"title\": \"Beginning of\
-      \ Incident\"\r\n        },\r\n        \"end_of_incident\": {\r\n           \
-      \ \"type\": \"string\",\r\n            \"title\": \"End of Incident\"\r\n  \
-      \      },\r\n        \"details\": {\r\n\t    \"type\": \"string\",\r\n\t   \
-      \ \"title\": \"Details\"\r\n        },\r\n        \"results_and_findings\":\
-      \ {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
-      \ and Findings\"\r\n        },\r\n        \"action_items\": {\r\n          \
-      \  \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n    \
-      \    },\r\n\t\"number_tourists\": {\r\n            \"type\": \"number\",\r\n\
-      \            \"title\": \"Number of tourists\",\r\n            \"minimum\":0\r\
-      \n        },\r\n\t\"number_deaths\": {\r\n            \"type\": \"number\",\r\
-      \n            \"title\": \"Number of deaths\",\r\n            \"minimum\":0\r\
-      \n        },\r\n\t\"number_injuries\": {\r\n            \"type\": \"number\"\
-      ,\r\n            \"title\": \"Number of injuries\",\r\n            \"minimum\"\
-      :0\r\n        },\r\n        \"nationality\": {\r\n            \"type\": \"string\"\
-      ,\r\n            \"title\": \"Nationality\"\r\n        },\r\n        \"personal_info\"\
-      : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Personal\
-      \ info\"\r\n        },\r\n        \"tourist_operator\": {\r\n            \"\
-      type\": \"string\",\r\n            \"title\": \"Tourist operator\"\r\n     \
-      \   }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    \"conservancy\",\r\n  \
-      \  {\r\n        \"key\": \"sectionArea\",\r\n        \"fieldHtmlClass\": \"\
-      multiple-select\"\r\n    },\r\n    {\r\n        \"key\": \"team\",\r\n     \
-      \   \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n      \"key\"\
-      : \"beginning_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
-      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    {\r\n      \"\
-      key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
-      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    \"details\",\r\
-      \n    \"results_and_findings\",\r\n    \"action_items\",\r\n    \"number_tourists\"\
-      ,\r\n    \"number_deaths\",\r\n    \"number_injuries\",\r\n    \"nationality\"\
-      ,\r\n    \"personal_info\",\r\n    \"tourist_operator\"\r\n  ]\r\n}"}
-- model: activity.eventtype
-  pk: ccf1b0d6-2e67-47f5-9e65-725cd48a2b8e
-  fields: {created_at: !!timestamp '2016-10-04 18:25:27.180244+00:00', updated_at: !!timestamp '2016-10-08
-      00:19:09.320145+00:00', value: shot_rep, display: Gunshot, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
-    ordernum: 390, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
-      : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
-      \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
-      properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
-      \      \"type\":\"string\",\r\n                \"title\": \"Conservancy\",\r\
-      \n                \"enum\": {{table___conservancy___values}},\r\n          \
-      \      \"enumNames\": {{table___conservancy___names}}\r\n            },\r\n\t\
-      \"sectionArea\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Section/Area\"\
-      ,\r\n\t\t\"enum\": {{table___sectionArea___values}},\r\n\t\t\"enumNames\": {{table___sectionArea___names}}\r\
-      \n\t},\r\n\t\"team\": {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Teams\"\
-      ,\r\n\t\t\"enum\": {{table___team___values}},\r\n\t\t\"enumNames\": {{table___team___names}}\r\
-      \n\t},\r\n        \"beginning_of_incident\": {\r\n            \"type\": \"string\"\
-      ,\r\n            \"title\": \"Beginning of Incident\"\r\n        },\r\n    \
-      \    \"end_of_incident\": {\r\n            \"type\": \"string\",\r\n       \
-      \     \"title\": \"End of Incident\"\r\n        },\r\n        \"details\": {\r\
-      \n\t    \"type\": \"string\",\r\n\t    \"title\": \"Details\"\r\n        },\r\
-      \n        \"results_and_findings\": {\r\n            \"type\": \"string\",\r\
-      \n            \"title\": \"Results and Findings\"\r\n        },\r\n        \"\
-      action_items\": {\r\n            \"type\": \"string\",\r\n            \"title\"\
-      : \"Action Items\"\r\n        },\r\n\t\"number_shots\": {\r\n            \"\
-      type\": \"number\",\r\n            \"title\": \"Number of shots\",\r\n     \
-      \       \"minimum\":0\r\n        },\r\n\t\"direction\": {\r\n            \"\
-      type\": \"string\",\r\n            \"title\": \"Direction\"\r\n        },\r\n\
-      \    \t\"weather\": {\r\n            \"type\": \"string\",\r\n            \"\
-      title\": \"Weather\"\r\n        },\r\n        \"day_night\": {\r\n\t    \"type\"\
-      : \"string\",\r\n\t    \"title\": \"Day or night\",\r\n\t    \"enum\": [ \"\
-      Day\", \"Night\" ]\r\n        }\r\n    }\r\n  },\r\n  \"definition\": [\r\n\
-      \    \"conservancy\",\r\n    {\r\n        \"key\": \"sectionArea\",\r\n    \
-      \    \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n        \"\
-      key\": \"team\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\
-      \n    {\r\n      \"key\": \"beginning_of_incident\",\r\n      \"fieldHtmlClass\"\
-      : \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
-      \n    {\r\n      \"key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\":\
-      \ \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
-      \n    \"details\",\r\n    \"results_and_findings\",\r\n    \"action_items\"\
-      ,\r\n    \"number_shots\",\r\n    \"direction\",\r\n    \"weather\",\r\n   \
-      \ \"day_night\"\r\n  ]\r\n}"}
-- model: activity.eventtype
-  pk: d74d36a3-1b39-4066-9e59-e69fe3c6c86a
-  fields: {created_at: !!timestamp '2016-10-04 18:18:10.334441+00:00', updated_at: !!timestamp '2016-10-08
-      00:48:41.243291+00:00', value: snare, display: Snare, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
-    ordernum: 310, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
+      00:49:01.564845+00:00', value: spoor, display: Spoor, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+    ordernum: 300, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
       : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
       \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
       properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
@@ -1251,24 +1261,26 @@
       \ {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
       \ and Findings\"\r\n        },\r\n        \"action_items\": {\r\n          \
       \  \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n    \
-      \    },\r\n\t\"number_snares\": {\r\n            \"type\": \"number\",\r\n \
-      \           \"title\": \"Number of snares\",\r\n            \"minimum\":0\r\n\
-      \        },\r\n        \"intention\": {\r\n            \"type\": \"string\"\
-      ,\r\n            \"title\": \"Intention\"\r\n        }\r\n    }\r\n  },\r\n\
-      \  \"definition\": [\r\n    \"conservancy\",\r\n    {\r\n        \"key\": \"\
-      sectionArea\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\
-      \n    {\r\n        \"key\": \"team\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\
-      \r\n    },\r\n    {\r\n      \"key\": \"beginning_of_incident\",\r\n      \"\
-      fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\
-      \n    },\r\n    {\r\n      \"key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\"\
-      : \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
-      \n    \"details\",\r\n    \"results_and_findings\",\r\n    \"action_items\"\
-      ,\r\n    \"number_snares\",\r\n    \"intention\"\r\n  ]\r\n}"}
+      \    },\r\n\t\"number_tracks\": {\r\n            \"type\": \"number\",\r\n \
+      \           \"title\": \"Number of separate tracks\",\r\n            \"minimum\"\
+      :0\r\n        },\r\n\t\"direction\": {\r\n            \"type\": \"string\",\r\
+      \n            \"title\": \"Direction\"\r\n        },\r\n        \"presumed_intentions\"\
+      : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Presumed\
+      \ intentions\"\r\n        }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    \"\
+      conservancy\",\r\n    {\r\n        \"key\": \"sectionArea\",\r\n        \"fieldHtmlClass\"\
+      : \"multiple-select\"\r\n    },\r\n    {\r\n        \"key\": \"team\",\r\n \
+      \       \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n     \
+      \ \"key\": \"beginning_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
+      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    {\r\n      \"\
+      key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
+      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    \"details\",\r\
+      \n    \"results_and_findings\",\r\n    \"action_items\",\r\n    \"number_tracks\"\
+      ,\r\n    \"direction\",\r\n    \"presumed_intentions\"\r\n  ]\r\n}"}
 - model: activity.eventtype
-  pk: df787d9d-bd4f-4e53-a382-c0e3f67a119f
+  pk: d9a491c3-dfee-47bf-a0e9-96cec4b98a64
   fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
-      00:57:39.310560+00:00', value: contact, display: Contact, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
-    ordernum: 270, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
+      01:04:29.867869+00:00', value: robbery_theft, display: Robbery/ Theft, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+    ordernum: 250, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
       : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
       \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
       properties\": \r\n        {\r\n            \"conservancy\": {\r\n          \
@@ -1289,23 +1301,72 @@
       : {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results\
       \ and Findings\"\r\n        },\r\n        \"action_items\": {\r\n          \
       \  \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n    \
-      \    },\r\n\t\"friendly_killed\": {\r\n            \"type\": \"number\",\r\n\
-      \            \"title\": \"Friendly forces killed\",\r\n            \"minimum\"\
-      :0\r\n        },\r\n        \"others_killed\": {\r\n\t            \"type\":\
-      \ \"number\",\r\n\t            \"title\": \"Others killed\",\r\n\t         \
-      \   \"minimum\":0\r\n        },\r\n        \"friendly_injured\": {\r\n\t   \
-      \         \"type\": \"number\",\r\n\t            \"title\": \"Friendly forces\
-      \ injured\",\r\n\t            \"minimum\":0\r\n        }\r\n    }\r\n  },\r\n\
-      \  \"definition\": [\r\n    \"conservancy\",\r\n    {\r\n        \"key\": \"\
-      sectionArea\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\
-      \n    {\r\n        \"key\": \"team\",\r\n        \"fieldHtmlClass\": \"multiple-select\"\
-      \r\n    },\r\n    {\r\n      \"key\": \"beginning_of_incident\",\r\n      \"\
-      fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\
-      \n    },\r\n    {\r\n      \"key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\"\
-      : \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
-      \n    \"details\",\r\n    \"results_and_findings\",\r\n    \"action_items\"\
-      ,\r\n    \"friendly_killed\",\r\n    \"others_killed\",\r\n    \"friendly_injured\"\
-      \r\n  ]\r\n}"}
+      \    },\r\n        \"item_stolen\": {\r\n            \"type\": \"string\",\r\
+      \n            \"title\": \"Item(s) stolen\"\r\n        },\r\n\t\"number_items_stolen\"\
+      : {\r\n            \"type\": \"number\",\r\n            \"title\": \"Quantity\"\
+      ,\r\n            \"minimum\":0\r\n        },\r\n        \"victim_name\": {\r\
+      \n            \"type\": \"string\",\r\n            \"title\": \"Name(s) of Victim(s)\"\
+      \r\n        }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    \"conservancy\"\
+      ,\r\n    {\r\n        \"key\": \"sectionArea\",\r\n        \"fieldHtmlClass\"\
+      : \"multiple-select\"\r\n    },\r\n    {\r\n        \"key\": \"team\",\r\n \
+      \       \"fieldHtmlClass\": \"multiple-select\"\r\n    },\r\n    {\r\n     \
+      \ \"key\": \"beginning_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
+      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    {\r\n      \"\
+      key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker\
+      \ json-schema\",\r\n      \"readonly\": false\r\n    },\r\n    \"details\",\r\
+      \n    \"results_and_findings\",\r\n    \"action_items\",\r\n    \"item_stolen\"\
+      ,\r\n    \"number_items_stolen\",\r\n    \"victim_name\"\r\n  ]\r\n}"}
+- model: activity.eventtype
+  pk: e7ee797c-77e8-48c1-83fb-c81952e65443
+  fields: {created_at: !!timestamp '2016-10-07 18:22:55.252424+00:00', updated_at: !!timestamp '2016-10-08
+      00:42:39.614257+00:00', value: _dynamic, display: _dynamic, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+    ordernum: 500, schema: "{\r\n\t\"schema\": \r\n\t{\r\n\t\t\"$schema\": \"http://json-schema.org/draft-04/schema#\"\
+      ,\r\n\t\t\"title\": \"EventType Test Data\",\r\n\t\t\"type\": \"object\",\r\n\
+      \t\t\"properties\": {\r\n\t\t\t\"blackRhinos\": {\r\n\t\t\t\t\"type\": \"string\"\
+      ,\r\n\t\t\t\t\"title\": \"Black Rhino Names\",\r\n\t\t                \"enum\"\
+      : {{query___blackRhinos___values}},\r\n\t\t                \"enumNames\": {{query___blackRhinos___names}}\r\
+      \n\t\t\t},\r\n\t\t\t\"whiteRhinos\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\
+      \t\t\t\"title\": \"White Rhino Names\",\r\n\t\t                \"enum\": {{query___whiteRhinos___values}},\r\
+      \n\t\t                \"enumNames\": {{query___whiteRhinos___names}}\r\n\t\t\
+      \t},\r\n\t\t\t\"rhinos\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\"\
+      : \"All Rhino Names\",\r\n\t\t                \"enum\": {{query___rhinos___values}},\r\
+      \n\t\t                \"enumNames\": {{query___rhinos___names}}\r\n\t\t\t},\t\
+      \t\t\r\n\t\t\t\"rhinoMother\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\
+      \"title\": \"Mother\",\r\n\t\t\t\t\"enum\": [ \r\n\t\t\t\t\t\"Lucy\", \r\n\t\
+      \t\t\t\t\"Ethel\" \r\n\t\t\t\t\t]\r\n\t\t\t},\r\n\t\t\t\"sectionArea\": {\r\n\
+      \t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Section/Area\",\r\n\t\t\
+      \t\t\"enum\": {{table___sectionArea___values}},\r\n\t\t\t\t\"enumNames\": {{table___sectionArea___names}}\r\
+      \n\t\t\t},\r\n\t\t\t\"station\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\
+      \t\"title\": \"Station\",\r\n\t\t\t\t\"enum\": {{table___station___values}},\r\
+      \n\t\t\t\t\"enumNames\": {{table___station___names}}\r\n\t\t\t},\t\t\t\r\n\t\
+      \t\t\"team\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Teams\"\
+      ,\r\n\t\t\t\t\"enum\": {{table___team___values}},\r\n\t\t\t\t\"enumNames\":\
+      \ {{table___team___names}}\r\n\t\t\t},\r\n\t\t\t\"poachingMean\": {\r\n\t\t\t\
+      \t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Poaching means\",\r\n\t\t\t\t\
+      \"enum\": {{table___poachingMean___values}},\r\n\t\t\t\t\"enumNames\": {{table___poachingMean___names}}\r\
+      \n\t\t\t},\r\n\t\t\t\"tribe\": { \r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\
+      \t\"title\": \"Tribes\",\r\n\t\t\t\t\"enum\": {{table___tribe___values}},\r\n\
+      \t\t\t\t\"enumNames\": {{table___tribe___names}}\r\n\t\t\t},\r\n\t\t\t\"illegalActivity\"\
+      : {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Type of activity\"\
+      ,\r\n\t\t\t\t\"enum\": {{table___illegalActivity___values}},\r\n\t\t\t\t\"enumNames\"\
+      : {{table___illegalActivity___names}}\r\n\t\t\t},\r\n\t\t\t\"livestock\": {\r\
+      \n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Type of livestock\"\
+      ,\r\n\t\t\t\t\"enum\": {{table___livestock___values}},\r\n\t\t\t\t\"enumNames\"\
+      : {{table___livestock___names}}\r\n\t\t\t},\r\n\t\t\t\"contactType\": {\r\n\t\
+      \t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Type of contact\",\r\n\t\
+      \t\t\t\"enum\": {{table___contactType___values}},\r\n\t\t\t\t\"enumNames\":\
+      \ {{table___contactType___names}}\r\n\t\t\t},\r\n\t\t\t\"trophyStatus\": {\r\
+      \n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Trophy status\",\r\n\
+      \t\t\t\t\"enum\": {{table___trophyStatus___values}},\r\n\t\t\t\t\"enumNames\"\
+      : {{table___trophyStatus___names}}\r\n\t\t\t},\r\n\t\t\t\"wildlifeGap\": {\r\
+      \n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Wildlife Gap\",\r\n\t\
+      \t\t\t\"enum\": {{table___wildlifeGap___values}},\r\n\t\t\t\t\"enumNames\":\
+      \ {{table___wildlifeGap___names}}\r\n\t\t\t}\r\n\t\t}\r\n\t},\r\n\t\"definition\"\
+      : [\r\n\t\t\"blackRhinos\",\r\n\t\t\"whiteRhinos\",\r\n\t\t\"rhinos\",\r\n\t\
+      \t\"rhinoMother\",\r\n\t\t\"sectionArea\",\r\n\t\t\"station\",\r\n\t\t\"team\"\
+      ,\r\n\t\t\"poachingMean\",\r\n\t\t\"tribes\",\r\n\t\t\"illegalActivity\",\r\n\
+      \t\t\"livestock\",\r\n\t\t\"contactType\",\r\n\t\t\"trophyStatus\",\r\n\t\t\"\
+      wildlifeGap\"\r\n\t]\r\n}"}
 - model: activity.eventtype
   pk: ec962845-c661-4c00-8e41-860fe0658f96
   fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-07
