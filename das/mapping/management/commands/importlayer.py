@@ -70,6 +70,8 @@ class Command(BaseCommand):
             fields = {}
             for name in feature.fields:
                 name = name.decode('utf8')
+                if name.lower() in ('name', 'description'):
+                    continue
                 fields[name] = feature[name].value
 
 
@@ -89,6 +91,10 @@ class Command(BaseCommand):
             feature_record.feature_geometry = feature_geometry
             feature_record.fields = fields
             feature_record.name = feature['Name'].value
+            try:
+                feature_record.description = feature['Description'].value
+            except KeyError:
+                pass
             feature_record.save()
 
     def make_multi(self, geom_type, model_field):
