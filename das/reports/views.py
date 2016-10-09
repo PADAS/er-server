@@ -11,7 +11,7 @@ from rest_framework.response import Response
 
 from rest_framework import serializers, views, permissions
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
-from reports.reports import get_events, get_conservancies
+from reports.reports import get_events, get_conservancies, get_rhino_sightings, get_rhinos
 from reports.accumulator import accumulator, broadcast
 
 class ReportDateParameters(serializers.Serializer):
@@ -76,9 +76,10 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         :param kwargs:
         :return:
         '''
-        # conservancies = get_conservancies()
         report_time = timezone.now()
 
+        # Get the events we're interested in. We just need this list once and we'll run it through a set of
+        # accumulotors that take whatever they need to hydrate the sit-rep report.
         events = get_events(since, before)
 
         CONSERVANCY_UNSPECIFIED = '&lt;unspecified&gt;'
@@ -316,13 +317,35 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         gap_movement = gap_movement.send(None)
         rainfall = rainfall.send(None)
         fence_breakage = fence_breakage.send(None)
-
-        #
-        # Populate wildlife_sightings for the first portion of the report.
-        #
-        # TODO: The schema changed for rhino sightings, to include a list of rhinos. So update here to reflect this.
         wildlife_sightings_per_conservancy = rhino_sightings.send(None)
 
+        #
+        # Query for rhino sightings over the last 7 days, to determine which rhinos are 'missing' for
+        # an inordinate time.
+        #
+        near_threshold = before - datetime.timedelta(days=3)
+        far_threshold = before - datetime.timedelta(days=7)
+        rhino_sighting_events = get_rhino_sightings(before - datetime.timedelta(days=7), before)
+        missing_rhinos = dict((str(r.id), {'name': escape(r.name), 'days_ago': 1000000}) for r in get_rhinos())
+
+        for event in rhino_sighting_events:
+            ed = event.event_details.first()
+            if not ed:
+                continue
+            ed = ed.data['event_details']
+            rhino_id = ed['blackRhinos']['value'] if 'blackRhinos' in ed else ed['whiteRhinos']['value'] if 'whiteRhinos' in ed else None
+            if rhino_id:
+                if event.event_time > near_threshold:
+                     missing_rhinos.pop(rhino_id, None)
+                else:
+                    missing_rhinos[rhino_id]['days_ago'] = (before - event.event_time).days
+
+        for r in missing_rhinos.values():
+            r['days_ago'] = '> 7' if r['days_ago'] > 7 else str(r['days_ago'])
+
+        missing_rhinos = list(missing_rhinos.values())
+
+        print(missing_rhinos)
         REPORT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S %Z'
         since_text = since.astimezone(timezone.get_current_timezone()).strftime(REPORT_TIMESTAMP_FORMAT)
         before_text = before.astimezone(timezone.get_current_timezone()).strftime(REPORT_TIMESTAMP_FORMAT)
@@ -336,15 +359,9 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             'wildlife_sightings': wildlife_sightings_per_conservancy.values(),
 
-
             'rhino_births': rhino_births,
 
-            'rhino_missing': [
-                {'name': 'Folly', 'value': 4},
-                {'name': 'Elvis', 'value': 3},
-                {'name': 'Muturi', 'value': 4},
-                {'name': 'Seneiya + calf 1', 'value': 3},
-            ],
+            'missing_rhinos': missing_rhinos,
 
             'rhino_territorial_movement': rhino_territorial_movement,
 
