@@ -501,16 +501,6 @@
       \    },\r\n    \"number_individuals\",\r\n    \"weapons\",\r\n    \"number_killed\"\
       ,\r\n    \"number_injured\"\r\n  ]\r\n}"}
 - model: activity.eventtype
-  pk: 2e5d73dc-147b-4586-a70f-ddce3dc06e61
-  fields: {created_at: !!timestamp '2016-10-08 00:26:25.815266+00:00', updated_at: !!timestamp '2016-10-08
-      00:30:21.985380+00:00', value: shawn_temp, display: _shawn, category: 268772c6-c039-43e4-b1d0-f2c9da08d2e4,
-    ordernum: null, schema: "{\r\n  \"schema\": \r\n  {\r\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
-      ,\r\n    \"title\": \"EventType Test Data\",\r\n    \"type\": \"object\",\r\n\
-      \    \"properties\": {\r\n      \"rhinoMother\": {\r\n        \"type\": \"string\"\
-      ,\r\n        \"title\": \"Mother\",\r\n        \"enum\": {{query___femaleRhinos___values}},\r\
-      \n        \"enumNames\": {{query___femaleRhinos___names}}\r\n      }\r\n   \
-      \ }\r\n  },\r\n  \"definition\": [\r\n    \"rhinoMother\"\r\n  ]\r\n}"}
-- model: activity.eventtype
   pk: 2fd8d9fa-ff9f-482c-b938-1ae1887e00ac
   fields: {created_at: !!timestamp '2016-09-23 16:49:42.572550+00:00', updated_at: !!timestamp '2016-10-08
       01:04:05.581000+00:00', value: stock_theft, display: Stock theft, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
@@ -1316,57 +1306,6 @@
       \n    \"details\",\r\n    \"results_and_findings\",\r\n    \"action_items\"\
       ,\r\n    \"friendly_killed\",\r\n    \"others_killed\",\r\n    \"friendly_injured\"\
       \r\n  ]\r\n}"}
-- model: activity.eventtype
-  pk: e7ee797c-77e8-48c1-83fb-c81952e65443
-  fields: {created_at: !!timestamp '2016-10-07 18:22:55.252424+00:00', updated_at: !!timestamp '2016-10-08
-      00:42:39.614257+00:00', value: _dynamic, display: _dynamic, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
-    ordernum: 500, schema: "{\r\n\t\"schema\": \r\n\t{\r\n\t\t\"$schema\": \"http://json-schema.org/draft-04/schema#\"\
-      ,\r\n\t\t\"title\": \"EventType Test Data\",\r\n\t\t\"type\": \"object\",\r\n\
-      \t\t\"properties\": {\r\n\t\t\t\"blackRhinos\": {\r\n\t\t\t\t\"type\": \"string\"\
-      ,\r\n\t\t\t\t\"title\": \"Black Rhino Names\",\r\n\t\t                \"enum\"\
-      : {{query___blackRhinos___values}},\r\n\t\t                \"enumNames\": {{query___blackRhinos___names}}\r\
-      \n\t\t\t},\r\n\t\t\t\"whiteRhinos\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\
-      \t\t\t\"title\": \"White Rhino Names\",\r\n\t\t                \"enum\": {{query___whiteRhinos___values}},\r\
-      \n\t\t                \"enumNames\": {{query___whiteRhinos___names}}\r\n\t\t\
-      \t},\r\n\t\t\t\"rhinos\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\"\
-      : \"All Rhino Names\",\r\n\t\t                \"enum\": {{query___rhinos___values}},\r\
-      \n\t\t                \"enumNames\": {{query___rhinos___names}}\r\n\t\t\t},\t\
-      \t\t\r\n\t\t\t\"rhinoMother\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\
-      \"title\": \"Mother\",\r\n\t\t\t\t\"enum\": [ \r\n\t\t\t\t\t\"Lucy\", \r\n\t\
-      \t\t\t\t\"Ethel\" \r\n\t\t\t\t\t]\r\n\t\t\t},\r\n\t\t\t\"sectionArea\": {\r\n\
-      \t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Section/Area\",\r\n\t\t\
-      \t\t\"enum\": {{table___sectionArea___values}},\r\n\t\t\t\t\"enumNames\": {{table___sectionArea___names}}\r\
-      \n\t\t\t},\r\n\t\t\t\"station\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\
-      \t\"title\": \"Station\",\r\n\t\t\t\t\"enum\": {{table___station___values}},\r\
-      \n\t\t\t\t\"enumNames\": {{table___station___names}}\r\n\t\t\t},\t\t\t\r\n\t\
-      \t\t\"team\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Teams\"\
-      ,\r\n\t\t\t\t\"enum\": {{table___team___values}},\r\n\t\t\t\t\"enumNames\":\
-      \ {{table___team___names}}\r\n\t\t\t},\r\n\t\t\t\"poachingMean\": {\r\n\t\t\t\
-      \t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Poaching means\",\r\n\t\t\t\t\
-      \"enum\": {{table___poachingMean___values}},\r\n\t\t\t\t\"enumNames\": {{table___poachingMean___names}}\r\
-      \n\t\t\t},\r\n\t\t\t\"tribe\": { \r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\
-      \t\"title\": \"Tribes\",\r\n\t\t\t\t\"enum\": {{table___tribe___values}},\r\n\
-      \t\t\t\t\"enumNames\": {{table___tribe___names}}\r\n\t\t\t},\r\n\t\t\t\"illegalActivity\"\
-      : {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Type of activity\"\
-      ,\r\n\t\t\t\t\"enum\": {{table___illegalActivity___values}},\r\n\t\t\t\t\"enumNames\"\
-      : {{table___illegalActivity___names}}\r\n\t\t\t},\r\n\t\t\t\"livestock\": {\r\
-      \n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Type of livestock\"\
-      ,\r\n\t\t\t\t\"enum\": {{table___livestock___values}},\r\n\t\t\t\t\"enumNames\"\
-      : {{table___livestock___names}}\r\n\t\t\t},\r\n\t\t\t\"contactType\": {\r\n\t\
-      \t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Type of contact\",\r\n\t\
-      \t\t\t\"enum\": {{table___contactType___values}},\r\n\t\t\t\t\"enumNames\":\
-      \ {{table___contactType___names}}\r\n\t\t\t},\r\n\t\t\t\"trophyStatus\": {\r\
-      \n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Trophy status\",\r\n\
-      \t\t\t\t\"enum\": {{table___trophyStatus___values}},\r\n\t\t\t\t\"enumNames\"\
-      : {{table___trophyStatus___names}}\r\n\t\t\t},\r\n\t\t\t\"wildlifeGap\": {\r\
-      \n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Wildlife Gap\",\r\n\t\
-      \t\t\t\"enum\": {{table___wildlifeGap___values}},\r\n\t\t\t\t\"enumNames\":\
-      \ {{table___wildlifeGap___names}}\r\n\t\t\t}\r\n\t\t}\r\n\t},\r\n\t\"definition\"\
-      : [\r\n\t\t\"blackRhinos\",\r\n\t\t\"whiteRhinos\",\r\n\t\t\"rhinos\",\r\n\t\
-      \t\"rhinoMother\",\r\n\t\t\"sectionArea\",\r\n\t\t\"station\",\r\n\t\t\"team\"\
-      ,\r\n\t\t\"poachingMean\",\r\n\t\t\"tribes\",\r\n\t\t\"illegalActivity\",\r\n\
-      \t\t\"livestock\",\r\n\t\t\"contactType\",\r\n\t\t\"trophyStatus\",\r\n\t\t\"\
-      wildlifeGap\"\r\n\t]\r\n}"}
 - model: activity.eventtype
   pk: ec962845-c661-4c00-8e41-860fe0658f96
   fields: {created_at: !!timestamp '2016-08-05 01:00:00+00:00', updated_at: !!timestamp '2016-10-07
