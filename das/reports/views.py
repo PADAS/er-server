@@ -2,6 +2,7 @@ import pytz, datetime
 from collections import Counter
 
 from django.utils import timezone
+from django.utils.html import escape
 from django.shortcuts import render
 from django.views.generic import TemplateView
 from django.template.response import TemplateResponse
@@ -11,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework import serializers, views, permissions
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
 from reports.reports import get_events, get_conservancies
-
+from reports.accumulator import accumulator, broadcast
 
 class ReportDateParameters(serializers.Serializer):
     since = serializers.DateTimeField(default=None)
@@ -25,12 +26,17 @@ class ReportView(views.APIView):
             return SituationReportView().dispatch(request, *args, **kwargs)
 
 
-def coroutine(f):
-    def wrapper(*args, **kwargs):
-        c = f(*args, **kwargs)
-        c.send(None)
-        return c
-    return wrapper
+
+def safe_get(val, keys, default=None):
+
+    try:
+        for k in keys:
+            val = val[k]
+        if isinstance(val, str):
+            return escape(val)
+    except KeyError:
+        pass
+    return default
 
 class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
@@ -59,7 +65,8 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
     def render_to_response(self, context, **response_kwargs):
 
         response = super().render_to_response(context, **response_kwargs)
-        response['Content-Disposition'] = 'attachement; filename={}'.format(context['report_filename'])
+        if 'openxmlformats' in self.content_type:
+            response['Content-Disposition'] = 'attachement; filename={}'.format(context['report_filename'])
         return response
 
     def get_context_data(self, since, before, **kwargs):
@@ -85,32 +92,12 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     pass
             return CONSERVANCY_UNSPECIFIED
 
-        @coroutine
-        def total_rhino_black():
-            value = 0
-            while True:
-                try:
-                    event = yield value
-                    if event and event.event_type.value == 'black_rhino_sighting':
-                        value += 1
-                except Exception as e:
-                    print(e)
 
-        f = total_rhino_black()
-        val = 0
-        for event in events:
-            val = f.send(event)
-
-        print('Val: %s' % (f.send(None),))
-
-        #
-        # Populate wildlife_sightings for the first portion of the report.
-        #
-        # TODO: The schema changed for rhino sightings, to include a list of rhinos. So update here to reflect this.
         conservancy_census = [('Lewa', 62, 66), ('Borana', 21, 0), ('Sera', 10, 0), (CONSERVANCY_UNSPECIFIED, 0, 0)]
         conservancy_census = dict(
             (k.lower(), {'conservancy':k, 'total_rhino_black': b, 'total_rhino_white': w}) for (k,b,w) in conservancy_census)
 
+        # Convenience method to initialize a 'wildlife_sightings' block for a single conservancy.
         def default_conservancy_ws(conservancy):
             c = {'total_sightings': 0,
                  'rhino_sightings': [
@@ -124,25 +111,181 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             c.update(conservancy_census.get(conservancy.lower(), {}))
             return c
 
-        wildlife_sightings_per_conservancy = {}
-        for event in events:
+
+        # Accumulator for the 'Wildlife Sightings' portion of report.
+        def rhino_sightings(accum, event):
+
             if 'rhino_sighting' not in event.event_type.value:
-                continue
+                return
 
             conservancy = get_conservancy(event)
-            conservancy = wildlife_sightings_per_conservancy.setdefault(conservancy, default_conservancy_ws(conservancy))
+            conservancy = accum.setdefault(conservancy, default_conservancy_ws(conservancy))
 
             conservancy['total_sightings'] += 1
             for item in conservancy['rhino_sightings']:
                 if item['event_type'] == event.event_type.value:
                     item['count'] += 1
+        rhino_sightings = accumulator({}, rhino_sightings)
+
+        # Accumulator for 'Rhino Births'
+        def rhino_births(accum, event):
+            if event.event_type.value != 'rhino_birth':
+                return
+
+            conservancy = get_conservancy(event)
+            ed = event.event_details.first()
+            ed = ed.data['event_details']
+            new_birth = {'conservancy': conservancy,
+                         'color': safe_get(ed, ('color', 'name'), 'unspecified'),
+                         'mother': safe_get(ed, ('femaleRhinos', 'name'), 'unspecified'),
+                         'health': safe_get(ed, ('health', 'name'), 'unspecified'),
+                         }
+            accum.append(new_birth)
+        rhino_births = accumulator([], rhino_births)
+
+        # Accumulaotor for 'Rhino territorial movement'
+        def rhino_territorial_movement(accum, event):
+            if event.event_type.value != 'rhino_territorial_movement':
+                return
+
+            conservancy = get_conservancy(event)
+            ed = event.event_details.first()
+            if not ed:
+                return
+            ed = ed.data['event_details']
+
+            accum.append(
+                {'conservancy': conservancy,
+                  'color': safe_get(ed, ('color', 'name'), 'unspecified'),
+                  'rhinos': safe_get(ed, ('rhinos', 'name'), 'unspecified'),
+                  'health': safe_get(ed, ('health', 'name'), 'unspecified'),
+                  'station': safe_get(ed, ('station', 'name'), 'unspecified'),
+                  'behavior': safe_get(ed, ('behavior', 'name'), 'unspecified'),
+                })
+
+        rhino_territorial_movement = accumulator([], rhino_territorial_movement)
+
+        # Accumulator for 'other wildlife sightings' per Conservancy
+        def other_wildlife_sightings(accum, event):
+            if event.event_type.value != 'other_wildlife_sightings':
+                return
+
+            conservancy = get_conservancy(event)
+            conservancy = accum.setdefault(conservancy.lower(), {'conservancy': conservancy,
+                                                                 'total_sightings': 0,
+                                                                 'sightings': [] })
+
+            ed = event.event_details.first()
+            if not ed:
+                return
+            ed = ed.data['event_details']
+
+            species = safe_get(ed, ('species', 'name'), None)
+            if not species:
+                return
+
+            conservancy['total_sightings'] += ed.get('numberAnimals', 0)
+
+            for s in conservancy['sightings']:
+                if s['species'] == species:
+                    s['count'] += 1
+                    break
+            else:
+                conservancy['sightings'].append({'species':species, 'count': ed.get('numberAnimals', 0)})
+
+        other_wildlife_sightings = accumulator({}, other_wildlife_sightings)
+
+        def carcass(accum, event):
+            if event.event_type.value != 'loss_of_animal_life':
+                return
+            ed = event.event_details.first()
+            if not ed:
+                return
+            ed = ed.data['event_details']
+
+            accum.append(
+                {'conservancy': safe_get(ed, ('conservancy', 'name'), 'unspecified'),
+                 'species': safe_get(ed, ('species', 'name'), 'unspecified'),
+                 'cause_of_death': safe_get(ed, ('causeOfDeath', 'name'), 'unspecified'),
+                 'station': safe_get(ed, ('station', 'name'), 'unspecified'),
+                 'number_animals': ed.get('number_animals', 0),
+                 })
+
+        carcass = accumulator([], carcass)
+
+        # Accumulator for 'movement through gaps'
+        def gap_movement(accum, event):
+            if event.event_type.value != 'wildlife_gap_movement':
+                return
+
+            ed = event.event_details.first()
+            if not ed:
+                return
+            ed = ed.data['event_details']
+
+            gap = safe_get(ed, ('wildlifeGap', 'name'), None)
+            species = safe_get(ed, ('species', 'name'), 'unspecified')
+            if not gap: return
+
+            for sum in accum:
+                if sum['gap_name'] == gap and sum['species']  == species:
+                    sum['total_in'] += ed['number_in']
+                    sum['total_out'] += ed['number_out']
+                    break
+            else:
+                accum.append({'gap_name': gap,
+                              'species': species,
+                              'total_in': ed['number_in'],
+                              'total_out': ed['number_out']})
+
+        gap_movement = accumulator([], gap_movement)
+
+
+        # TODO: Accumulate human wildlife conflict (security events)
+
+        # Accumulator for 'Rainfall'
+        def rainfall(accum, event):
+            if event.event_type.value != 'rainfall_report':
+                return
+            ed = event.event_details.first()
+            if not ed:
+                return
+            ed = ed.data['event_details']
+
+            conservancy = safe_get(ed, ('conservancy', 'name'), 'unspecified')
+            station = safe_get(ed, ('station', 'name'), 'unspecified')
+            mm = ed.get('number_rainfall', 0)
+
+            c = accum.setdefault(conservancy, {'conservancy': conservancy,
+                                               'rainfall': []})
+
+            for sum in c['rainfall']:
+                if sum['station'] == station:
+                    sum['total_mm'] += mm
+                    break
+            else:
+                c['rainfall'].append({'station': station, 'total_mm': mm})
+
+        rainfall = accumulator({}, rainfall)
+
+
+        b = broadcast((rhino_sightings, rhino_births, rhino_territorial_movement, other_wildlife_sightings, carcass,
+                       gap_movement, rainfall))
+        for event in events:
+            b.send(event)
+
+        rhino_births = rhino_births.send(None)
+        rhino_territorial_movement = rhino_territorial_movement.send(None)
+        other_wildlife_sightings = other_wildlife_sightings.send(None)
+        carcass = carcass.send(None)
+        gap_movement = gap_movement.send(None)
+        rainfall = rainfall.send(None)
 
         #
-        # Populuate rhino births.
+        # Populate wildlife_sightings for the first portion of the report.
         #
-
-
-
+        # TODO: The schema changed for rhino sightings, to include a list of rhinos. So update here to reflect this.
+        wildlife_sightings_per_conservancy = rhino_sightings.send(None)
 
         context = {
             'report_filename': 'sitrep_report-{}.docx'.format(report_time.strftime('%Y-%m-%d')),
@@ -155,7 +298,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             'wildlife_sightings': wildlife_sightings_per_conservancy.values(),
 
 
-            'rhino_births': [],
+            'rhino_births': rhino_births,
 
             'rhino_missing': [
                 {'name': 'Folly', 'value': 4},
@@ -164,37 +307,15 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 {'name': 'Seneiya + calf 1', 'value': 3},
             ],
 
-            'rhino_territorial_movement': [
+            'rhino_territorial_movement': rhino_territorial_movement,
 
-            ],
+            'other_sightings': other_wildlife_sightings.values(),
 
-            'other_sightings': [
-                {'conservancy': 'Lewa',
-                 'total_sightings': 125,
-                 'sightings': [
-                     {'species': 'elephant', 'count': 50},
-                     {'species': 'buffalo', 'count': 75},
-                 ]
-                 },
-                {'conservancy': 'Borana',
-                 'total_sightings': 170,
-                 'sightings': [
-                     {'species': 'elephant', 'count': 118},
-                     {'species': 'buffalo', 'count': 52},
-                 ]
-                 },
+            'carcass': carcass,
 
-            ],
+            'gap_movement': gap_movement,
 
-            'gap_counts': [
-                {'gap_name': 'Leparua 2 Gap', 'species': 'elephant', 'total_in': 4, 'total_out': 0},
-            ],
-
-            'rainfall': [
-                {'conservancy_name': 'Lewa'},
-                {'conservancy_name': 'Borana'},
-                {'conservancy_name': 'Sera'},
-            ],
+            'rainfall': rainfall.values(),
 
         }
 
