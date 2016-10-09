@@ -66,7 +66,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         response = super().render_to_response(context, **response_kwargs)
         if 'openxmlformats' in self.content_type:
-            response['Content-Disposition'] = 'attachement; filename={}'.format(context['report_filename'])
+            response['Content-Disposition'] = 'attachment; filename={}'.format(context['report_filename'])
         return response
 
     def get_context_data(self, since, before, **kwargs):
@@ -149,7 +149,10 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             conservancy = get_conservancy(event)
             ed = event.event_details.first()
+            if not ed or not ed.data or not 'event_details' in ed.data:
+                return
             ed = ed.data['event_details']
+
             new_birth = {'conservancy': conservancy,
                          'color': safe_get(ed, ('color', 'name'), 'unspecified'),
                          'mother': safe_get(ed, ('femaleRhinos', 'name'), 'unspecified'),
@@ -165,7 +168,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             conservancy = get_conservancy(event)
             ed = event.event_details.first()
-            if not ed:
+            if not ed or not ed.data or 'event_details' not in ed.data:
                 return
             ed = ed.data['event_details']
 
@@ -191,7 +194,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                                                                  'sightings': [] })
 
             ed = event.event_details.first()
-            if not ed:
+            if not ed or not ed.data or 'event_details' not in ed.data:
                 return
             ed = ed.data['event_details']
 
@@ -214,7 +217,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             if event.event_type.value != 'loss_of_animal_life':
                 return
             ed = event.event_details.first()
-            if not ed:
+            if not ed or not ed.data or 'event_details' not in ed.data:
                 return
             ed = ed.data['event_details']
 
@@ -234,7 +237,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 return
 
             ed = event.event_details.first()
-            if not ed:
+            if not ed or not ed.data or 'event_details' not in ed.data:
                 return
             ed = ed.data['event_details']
 
@@ -263,7 +266,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             if event.event_type.value != 'rainfall_report':
                 return
             ed = event.event_details.first()
-            if not ed:
+            if not ed or not ed.data or 'event_details' not in ed.data:
                 return
             ed = ed.data['event_details']
 
@@ -288,7 +291,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             if event.event_type.value != 'fence_breakage':
                 return
             ed = event.event_details.first()
-            if not ed:
+            if not ed or not ed.data or 'event_details' not in ed.data:
                 return
             ed = ed.data['event_details']
 
@@ -325,12 +328,12 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         #
         near_threshold = before - datetime.timedelta(days=3)
         far_threshold = before - datetime.timedelta(days=7)
-        rhino_sighting_events = get_rhino_sightings(before - datetime.timedelta(days=7), before)
+        rhino_sighting_events = get_rhino_sightings(far_threshold, before)
         missing_rhinos = dict((str(r.id), {'name': escape(r.name), 'days_ago': 1000000}) for r in get_rhinos())
 
         for event in rhino_sighting_events:
             ed = event.event_details.first()
-            if not ed:
+            if not ed or not ed.data or 'event_details' not in ed.data:
                 continue
             ed = ed.data['event_details']
             rhino_id = ed['blackRhinos']['value'] if 'blackRhinos' in ed else ed['whiteRhinos']['value'] if 'whiteRhinos' in ed else None
@@ -338,8 +341,10 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 if event.event_time > near_threshold:
                      missing_rhinos.pop(rhino_id, None)
                 else:
-                    missing_rhinos[rhino_id]['days_ago'] = (before - event.event_time).days
+                    missing_rhinos[rhino_id]['days_ago'] = min(missing_rhinos[rhino_id]['days_ago'],
+                                                               (before - event.event_time).days)
 
+        # Post-process missing rhinos.
         for r in missing_rhinos.values():
             r['days_ago'] = '> 7' if r['days_ago'] > 7 else str(r['days_ago'])
 
