@@ -95,7 +95,13 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         conservancy_census = [('Lewa', 62, 66), ('Borana', 21, 0), ('Sera', 10, 0), (CONSERVANCY_UNSPECIFIED, 0, 0)]
         conservancy_census = dict(
-            (k.lower(), {'conservancy':k, 'total_rhino_black': b, 'total_rhino_white': w}) for (k,b,w) in conservancy_census)
+            (k.lower(), {'conservancy':k,
+                         'total_rhino_black': b,
+                         'total_rhino_white': w,
+                         'denominator': {
+                             'black_rhino_sighting': b,
+                             'white_rhino_sighting': w,
+                         'total': b+w}}) for (k,b,w) in conservancy_census)
 
         # Convenience method to initialize a 'wildlife_sightings' block for a single conservancy.
         def default_conservancy_ws(conservancy):
@@ -103,10 +109,12 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                  'rhino_sightings': [
                      {'type': 'Black Rhino',
                       'event_type': 'black_rhino_sighting',
-                      'count': 0},
+                      'count': 0,
+                      'percentage': 0},
                      {'type': 'White Rhino',
                       'event_type': 'white_rhino_sighting',
-                      'count': 0}
+                      'count': 0,
+                      'percentage': 0}
                  ]}
             c.update(conservancy_census.get(conservancy.lower(), {}))
             return c
@@ -122,9 +130,15 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             conservancy = accum.setdefault(conservancy, default_conservancy_ws(conservancy))
 
             conservancy['total_sightings'] += 1
+            denominator = conservancy['denominator'].get('total')
+
+            conservancy['percentage'] = '%d%%' % (100 * conservancy['total_sightings'] / denominator, ) if denominator else '-%'
             for item in conservancy['rhino_sightings']:
+
                 if item['event_type'] == event.event_type.value:
                     item['count'] += 1
+                    denominator = conservancy['denominator'].get(event.event_type.value)
+                    item['percentage'] = '%d%%' % (100 * item['count'] / denominator,) if denominator else '-%'
         rhino_sightings = accumulator({}, rhino_sightings)
 
         # Accumulator for 'Rhino Births'
