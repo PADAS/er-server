@@ -325,6 +325,12 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         def security_events(accum, event):
             if event.event_type.category.value != 'security':
                 return
+
+            # Special case: exclude human_wildlife_conflict events which are to be included in another section of
+            #               this report.
+            if event.event_type.value == 'human_wildlife_conflict':
+                return
+
             ed = event.event_details.first()
             if not ed or not ed.data or 'event_details' not in ed.data:
                 return
@@ -338,21 +344,25 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         security_events = accumulator([], security_events)
 
-        # def human_wildlife_conflict(accum, event):
-        #     if event.event_type.value != 'human_wildlife_conflict':
-        #         return
-        #     ed = event.event_details.first()
-        #     if not ed or not ed.data or 'event_details' not in ed.data:
-        #         return
-        #     ed = ed.data['event_details']
-        #
-        #     item = {}
-        #     accum.append(item)
-        #
-        #
+        # Accumulator for 'human wildlife conflict'
+        def human_wildlife_conflict(accum, event):
+            if event.event_type.value != 'human_wildlife_conflict':
+                return
+            ed = event.event_details.first()
+            if not ed or not ed.data or 'event_details' not in ed.data:
+                return
+            ed = ed.data['event_details']
+            accum.append({'message': escape(event.message),
+                    'event_name': escape(event.event_type.display),
+                    'event_time': event.event_time.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
+                    'attributes': extract_details(ed)
+                    })
 
+
+        human_wildlife_conflict = accumulator([], human_wildlife_conflict)
         b = broadcast((rhino_sightings, rhino_births, rhino_territorial_movement, other_wildlife_sightings, carcass,
-                       gap_movement, rainfall, fence_breakage, security_events))
+                       gap_movement, rainfall, fence_breakage, security_events, human_wildlife_conflict))
+
         for event in events:
             b.send(event)
 
@@ -365,6 +375,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         fence_breakage = fence_breakage.send(None)
         wildlife_sightings_per_conservancy = rhino_sightings.send(None)
         security_events = security_events.send(None)
+        human_wildlife_conflict = human_wildlife_conflict.send(None)
 
         #
         # Query for rhino sightings over the last 7 days, to determine which rhinos are 'missing' for
@@ -424,6 +435,8 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             'fence_breakage': fence_breakage,
 
             'security_events': security_events,
+
+            'human_wildlife_conflict': human_wildlife_conflict,
 
         }
 
