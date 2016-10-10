@@ -546,11 +546,17 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         return current_details
 
     def _to_internal_value_inner(self, instance, data):
+
         if instance is None:
             data['_internal_validated'] = False
             return data
 
-        schema = instance.event_type.schema
+        event_type = instance.event_type
+        new_event_type = self.context['request'].data['event_type']
+        if new_event_type and new_event_type != instance.event_type.value:
+            event_type = activity.models.EventType.objects.get(value=new_event_type)
+
+        schema = event_type.schema
 
         if not schema:
             return super().to_internal_value(data)
