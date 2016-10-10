@@ -579,9 +579,10 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         # Append field information to the data we're getting so we know how to get back to the source
         ret = {}
         for k, v in data.items():
-            if k in parameters and v in parameters[k]:
-                ret[k] = {'name': parameters[k][v],
-                          'value': v}
+            if type(v) == dict and k in parameters and v['value'] in parameters[k]:
+                ret[k] = {'name': parameters[k][v['value']], 'value': v['value']}
+            elif type(v) == str and k in parameters and v in parameters[k]:
+                ret[k] = {'name': parameters[k][v], 'value': v}
             else:
                 ret[k] = v
         return ret
