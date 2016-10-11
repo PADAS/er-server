@@ -1,12 +1,14 @@
+import logging
 
 from choices.models import Choice, DynamicChoice
 from django.apps import apps
-from django.template import Template
+from django.template import Template, Context
 from django.template.base import VariableNode
 from utils.json import loads, dumps
 
+logger = logging.getLogger(__name__)
 
-def get_fields_in_schema(schema):
+def get_replacement_fields_in_schema(schema):
     template = Template(schema)
 
     fields = []
@@ -23,6 +25,26 @@ def get_fields_in_schema(schema):
                            'tag': node.token.contents})
 
     return fields
+
+def get_all_fields(schema):
+    try:
+        template = Template(schema)
+
+        empty_params = {}
+        for node in template.nodelist:
+            if type(node) is VariableNode:
+                empty_params[node.token.contents] = []
+
+        if len(empty_params) > 0:
+            rendered_schema = template.render(Context(empty_params, autoescape=False))
+            schema_json = loads(rendered_schema)
+        else:
+            schema_json = loads(schema)
+
+        return schema_json['schema']['properties'].keys()
+    except Exception as ex:
+        logger.error("Error rendering schema with empty data", ex)
+        return []
 
 
 def get_dynamic_choices(field_details, as_string=True):

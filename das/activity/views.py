@@ -67,7 +67,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         if not eventtype.schema:
             return generics.views.Response(None)
 
-        schema_fields = schema_utils.get_fields_in_schema(eventtype.schema)
+        schema_fields = schema_utils.get_replacement_fields_in_schema(eventtype.schema)
 
         parameters = {}
         for schema_field in schema_fields:

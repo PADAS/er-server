@@ -23,6 +23,7 @@ from versatileimagefield.serializers import VersatileImageFieldSerializer
 
 import jsonschema
 import jsonschema.exceptions
+from utils.json import loads
 
 import activity.models
 import utils
@@ -561,24 +562,28 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         if not schema:
             return super().to_internal_value(data)
 
-        schema_fields = schema_utils.get_fields_in_schema(schema)
+        replacement_fields = schema_utils.get_replacement_fields_in_schema(schema)
 
         parameters = {}
-        for schema_field in schema_fields:
+        for replacement_field in replacement_fields:
             # No need to get values, only need value to name mapping
-            if schema_field['type'] != 'names':
+            if replacement_field['type'] != 'names':
                 continue
 
-            if schema_field['lookup'] == 'enum':
-                parameters[schema_field['field']] = schema_utils.get_enum_choices(schema_field, as_string=False)
-            elif schema_field['lookup'] == 'query':
-                parameters[schema_field['field']] = schema_utils.get_dynamic_choices(schema_field, as_string=False)
-            elif schema_field['lookup'] == 'table':
-                parameters[schema_field['field']] = schema_utils.get_table_choices(schema_field, as_string=False)
+            if replacement_field['lookup'] == 'enum':
+                parameters[replacement_field['field']] = schema_utils.get_enum_choices(replacement_field, as_string=False)
+            elif replacement_field['lookup'] == 'query':
+                parameters[replacement_field['field']] = schema_utils.get_dynamic_choices(replacement_field, as_string=False)
+            elif replacement_field['lookup'] == 'table':
+                parameters[replacement_field['field']] = schema_utils.get_table_choices(replacement_field, as_string=False)
+
+        all_schema_fields = schema_utils.get_all_fields(schema)
 
         # Append field information to the data we're getting so we know how to get back to the source
         ret = {}
         for k, v in data.items():
+            if k not in all_schema_fields:
+                continue
             if type(v) == dict and k in parameters and v['value'] in parameters[k]:
                 ret[k] = {'name': parameters[k][v['value']], 'value': v['value']}
             elif type(v) == str and k in parameters and v in parameters[k]:
