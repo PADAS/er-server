@@ -220,7 +220,8 @@ class GsatHandler():
         except:
             pass
 
-        r['is_alarm'] = o.get('emer') == '1'
+       # Calculate state, that will be recorded in SubjectStatus.
+        r['state'] = 'alarm' if o.get('emer', 0) == '1' else 'default'
 
         r['events'] = o.get('events').split(',') if len(o.get('events', '')) > 0 else None
 

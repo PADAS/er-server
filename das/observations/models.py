@@ -46,7 +46,7 @@ def to_rgb(color):
 
 DEFAULT_COLOR = '255,255,0'
 
-STATUS_COLORS = {'online': 'green', 'offline': 'gray', 'alarm': 'red'}
+STATUS_COLORS = {'online': 'green', 'offline': 'gray', 'alarm': 'red', 'default': 'black'}
 def get_radio_color(state, additional):
     color = STATUS_COLORS.get(state, 'black')
     if state == 'online' \
