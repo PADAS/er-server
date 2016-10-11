@@ -79,6 +79,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         response = super().render_to_response(context, **response_kwargs)
         if 'openxmlformats' in self.content_type:
             response['Content-Disposition'] = 'attachment; filename={}'.format(context['report_filename'])
+            response['x-das-download-filename'] = context['report_filename']
         return response
 
     def get_context_data(self, since, before, **kwargs):
