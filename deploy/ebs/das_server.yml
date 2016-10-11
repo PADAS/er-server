@@ -142,6 +142,8 @@ app:
                         <IfModule mod_headers.c>
                           # Make sure proxies don't deliver the wrong content
                           Header append Vary User-Agent env=!dont-vary
+                          # Allow browser to see custom header, for downloading reports.
+                          Header append Access-Control-Expose-Headers x-das-download-filename
                         </IfModule>
                         </IfModule>
 
