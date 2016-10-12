@@ -63,10 +63,24 @@ class Command(BaseCommand):
             return models.PointFeature
         raise KeyError('DAS Feature class not found for {0}'.format(name))
 
-    def import_layer(self, featureset, featuretype, layer):
-        logger.debug('Importing layer: %s, type: %s, fields: %s', layer.name, layer.geom_type, layer.fields)
+    def contains_unique_keys_in_layer(self, layer):
+        seen = {}
         for feature in layer:
             external_id = '-'.join((layer.name, feature['Name'].value))
+            if external_id in seen:
+                logger.info('External_id=%s not unique to layer', external_id)
+                return False
+
+
+    def import_layer(self, featureset, featuretype, layer):
+        logger.debug('Importing layer: %s, type: %s, fields: %s', layer.name, layer.geom_type, layer.fields)
+        has_unique_keys = self.contains_unique_keys_in_layer(layer)
+        i = 0
+        for feature in layer:
+            i+=1
+            external_id = '-'.join((layer.name, feature['Name'].value))
+            if not has_unique_keys:
+                external_id = external_id + '-' + str(i)
             fields = {}
             for name in feature.fields:
                 name = name.decode('utf8')
@@ -79,7 +93,7 @@ class Command(BaseCommand):
             model_fieldname = 'feature_geometry'
             model_field = feature_model._meta.get_field(model_fieldname)
             feature_geometry = self.verify_geom(feature.geom, model_field)
-            defaults = {'feature_geometry': feature_geometry}
+            defaults = {'feature_geometry': feature_geometry, 'fields': fields}
             feature_record, created = feature_model.objects.get_or_create(
                 defaults=defaults,
                 featureset=featureset,

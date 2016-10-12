@@ -619,6 +619,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         ),
     )
     common_name = models.ForeignKey('CommonName', on_delete=models.PROTECT,
+                                    blank=True,
                                     null=True)
     objects = SubjectManager.from_queryset(SubjectQuerySet)()
 

@@ -109,7 +109,7 @@ class Feature(TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=80)
     type = models.ForeignKey(to=FeatureType)
 
     description = models.TextField(null=True, blank=True)
