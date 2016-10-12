@@ -47,7 +47,18 @@ def extract_details(details):
             yield {'name': k, 'value': str(v)}
         elif isinstance(v, str):
             yield {'name': k, 'value': escape(v)}
+        elif isinstance(v, list):
+            yield {'name': k, 'value': escape(', '.join([_.get('name') for _ in v if  isinstance(_, dict) and _.get('name') is not None]))}
 
+def _listify(o):
+
+    if o is None:
+        return []
+    if isinstance(o, dict):
+        return [o,]
+    if isinstance(o, list):
+        return o
+    return []
 
 EVENT_LIST_TIMESTAMP_FORMAT = '%-d-%b %H:%M'
 class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
@@ -185,10 +196,11 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 return
             ed = ed.data['event_details']
 
+            rhino_names = ', '.join([_['name'] for _ in _listify(ed.get('rhino'))])
             accum.append(
                 {'conservancy': conservancy,
                   'color': safe_get(ed, ('color', 'name'), 'unspecified'),
-                  'rhinos': safe_get(ed, ('rhinos', 'name'), 'unspecified'),
+                  'rhinos': escape(rhino_names),
                   'health': safe_get(ed, ('health', 'name'), 'unspecified'),
                   'station': safe_get(ed, ('station', 'name'), 'unspecified'),
                   'behavior': safe_get(ed, ('behavior', 'name'), 'unspecified'),
@@ -356,7 +368,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             accum.append({'message': escape(event.message),
                     'event_name': escape(event.event_type.display),
                     'event_time': event.event_time.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
-                    'attributes': extract_details(ed)
+                    'attributes': list(extract_details(ed))
                     })
 
 
@@ -392,13 +404,17 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             if not ed or not ed.data or 'event_details' not in ed.data:
                 continue
             ed = ed.data['event_details']
-            rhino_id = ed['blackRhinos']['value'] if 'blackRhinos' in ed else ed['whiteRhinos']['value'] if 'whiteRhinos' in ed else None
-            if rhino_id:
-                if event.event_time > near_threshold:
-                     missing_rhinos.pop(rhino_id, None)
-                else:
-                    missing_rhinos[rhino_id]['days_ago'] = min(missing_rhinos[rhino_id]['days_ago'],
-                                                               (before - event.event_time).days)
+
+            rhinos_in_event = _listify(ed.get('blackRhinos')) + _listify(ed.get('whiteRhinos'))
+            rhino_ids_in_event = [_.get('value') for _ in rhinos_in_event]
+
+            for rhino_id in rhino_ids_in_event:
+                if rhino_id:
+                    if event.event_time > near_threshold:
+                         missing_rhinos.pop(rhino_id, None)
+                    else:
+                        missing_rhinos[rhino_id]['days_ago'] = min(missing_rhinos[rhino_id]['days_ago'],
+                                                                   (before - event.event_time).days)
 
         # Post-process missing rhinos.
         for r in missing_rhinos.values():
