@@ -586,6 +586,16 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                 continue
             if type(v) == dict and k in parameters and v['value'] in parameters[k]:
                 ret[k] = {'name': parameters[k][v['value']], 'value': v['value']}
+            elif type(v) == list and k in parameters:
+                all_values = []
+                for value in v:
+                    if value in parameters[k]:
+                        all_values.append({
+                            'value': value,
+                            'name': parameters[k][value]
+                        })
+                if len(all_values) > 0:
+                    ret[k] = all_values
             elif type(v) == str and k in parameters and v in parameters[k]:
                 ret[k] = {'name': parameters[k][v], 'value': v}
             else:
