@@ -161,3 +161,5 @@ das/das_server/local_celery_settings.py
 **/lab_demo_settings.py
 
 das/reports/docx_template/~$wa_sitrep_template.docx
+
+das/das_server/unittest_settings.py
