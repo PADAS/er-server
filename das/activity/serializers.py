@@ -568,7 +568,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         parameters = {}
         for replacement_field in replacement_fields:
             # No need to get values, only need value to name mapping
-            if replacement_field['type'] != 'names':
+            if replacement_field['type'] not in ['names', 'map']:
                 continue
 
             if replacement_field['lookup'] == 'enum':
@@ -590,11 +590,9 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
             elif type(v) == list and k in parameters:
                 all_values = []
                 for value in v:
-                    if value in parameters[k]:
-                        all_values.append({
-                            'value': value,
-                            'name': parameters[k][value]
-                        })
+                    matches = [d for d in parameters[k] if d['value'] == value]
+                    if len(matches) > 0:
+                        all_values.append(matches[0])
                 if len(all_values) > 0:
                     ret[k] = all_values
             elif type(v) == str and k in parameters and v in parameters[k]:
