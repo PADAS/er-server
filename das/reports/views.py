@@ -413,14 +413,16 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     if event.event_time > near_threshold:
                          missing_rhinos.pop(rhino_id, None)
                     else:
+                        # Use Math.ceil(timedelta) to indicate 'days ago'. Ex. 3 days 5 hours => 4 days ago.
                         missing_rhinos[rhino_id]['days_ago'] = min(missing_rhinos[rhino_id]['days_ago'],
-                                                                   (before - event.event_time).days)
+                                                                   (before - event.event_time).days + 1)
 
         # Post-process missing rhinos.
-        for r in missing_rhinos.values():
+        missing_rhinos = sorted(missing_rhinos.values(), key=lambda _: _['days_ago'], reverse=True)
+        for r in missing_rhinos:
             r['days_ago'] = '> 7' if r['days_ago'] > 7 else str(r['days_ago'])
 
-        missing_rhinos = list(missing_rhinos.values())
+        # missing_rhinos = list(missing_rhinos.values())
 
         REPORT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S %Z'
         since_text = since.astimezone(timezone.get_current_timezone()).strftime(REPORT_TIMESTAMP_FORMAT)
