@@ -60,6 +60,13 @@ def get_dynamic_choices(field_details, as_string=True):
 
     if field_details['type'] == 'names':
         return_val = options
+    elif field_details['type'] == 'map':
+        return_val = []
+        for k, v in options.items():
+            return_val.append({
+                'value': k,
+                'name': v
+            })
     else:
         return_val = list(options.keys())
 
@@ -77,6 +84,13 @@ def get_enum_choices(field_details, as_string=True):
 
     if field_details['type'] == 'names':
         return_val = options
+    elif field_details['type'] == 'map':
+        return_val = []
+        for k, v in options.items():
+            return_val.append({
+                'value': k,
+                'name': v
+            })
     else:
         return_val = list(options.keys())
 
@@ -96,6 +110,13 @@ def get_table_choices(field_details, as_string=True):
 
     if field_details['type'] == 'names':
         return_val = options
+    elif field_details['type'] == 'map':
+        return_val = []
+        for k, v in options.items():
+            return_val.append({
+                'value': k,
+                'name': v
+            })
     else:
         return_val = list(options.keys())
 
