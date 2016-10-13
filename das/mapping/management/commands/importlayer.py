@@ -27,12 +27,13 @@ class Command(BaseCommand):
 
         logger.debug('Data Source: %s, layercount %s', datasource.name, datasource.layer_count)
 
-        if datasource.layer_count > 1:
+        if datasource.layer_count > 1 and options['layer'] is None:
             logger.warn('multiple layers not supported...')
             return
 
+        layer_num = 0 if options['layer'] is None else options['layer']
         try:
-            self.import_layer(featureset, featuretype, datasource[0])
+            self.import_layer(featureset, featuretype, datasource[layer_num])
         finally:
             datasource = None
 
@@ -44,6 +45,8 @@ class Command(BaseCommand):
                             help='FeatureSet')
         parser.add_argument('featuretype', type=str,
                             help='FeatureSet')
+        parser.add_argument('--layer', type=int,
+                            help='Layer to import')
 
     def datasource_from_file(self, filename):
         if filename.endswith('kmz'):
@@ -70,7 +73,7 @@ class Command(BaseCommand):
             if external_id in seen:
                 logger.info('External_id=%s not unique to layer', external_id)
                 return False
-
+        return True
 
     def import_layer(self, featureset, featuretype, layer):
         logger.debug('Importing layer: %s, type: %s, fields: %s', layer.name, layer.geom_type, layer.fields)
