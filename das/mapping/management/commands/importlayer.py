@@ -137,7 +137,7 @@ class Command(BaseCommand):
 
         if self.make_multi(geom.geom_type, model_field):
             # Constructing a multi-geometry type to contain the single geometry
-            multi_type = self.MULTI_TYPES[geom.geom_type.num]
+            multi_type = layermapping.LayerMapping.MULTI_TYPES[geom.geom_type.num]
             g = OGRGeometry(multi_type)
             g.add(geom)
         else:
