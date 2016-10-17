@@ -1,6 +1,7 @@
 import logging
 
 from choices.models import Choice, DynamicChoice
+from collections import OrderedDict
 from django.apps import apps
 from django.template import Template, Context
 from django.template.base import VariableNode
@@ -51,8 +52,8 @@ def get_dynamic_choices(field_details, as_string=True):
     dynamic_choice = DynamicChoice.objects.filter(id=field_details['field']).first()
     model_to_filter = apps.get_model(dynamic_choice.model_name)
 
-    options = {}
-    for row in model_to_filter.objects.filter(*loads(dynamic_choice.criteria)):
+    options = OrderedDict()
+    for row in model_to_filter.objects.filter(*loads(dynamic_choice.criteria)).order_by('ordernum'):
         value = getattr(row, dynamic_choice.value_col, None)
         display = getattr(row, dynamic_choice.display_col, None)
         options[str(value)] = str(display)
@@ -102,10 +103,10 @@ def get_enum_choices(field_details, as_string=True):
 
 def get_table_choices(field_details, as_string=True):
 
-    options = {}
+    options = OrderedDict()
     model = apps.get_model('choices.{0}'.format(field_details['field']))
 
-    for row in model.objects.all():
+    for row in model.objects.all().order_by('ordernum'):
         options[str(row.id)] = str(row.name)
 
     if field_details['type'] == 'names':
