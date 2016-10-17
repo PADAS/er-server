@@ -53,7 +53,7 @@ def get_dynamic_choices(field_details, as_string=True):
     model_to_filter = apps.get_model(dynamic_choice.model_name)
 
     options = OrderedDict()
-    for row in model_to_filter.objects.filter(*loads(dynamic_choice.criteria)).order_by('ordernum'):
+    for row in model_to_filter.objects.filter(*loads(dynamic_choice.criteria)).order_by(dynamic_choice.display_col):
         value = getattr(row, dynamic_choice.value_col, None)
         display = getattr(row, dynamic_choice.display_col, None)
         options[str(value)] = str(display)
@@ -79,8 +79,8 @@ def get_dynamic_choices(field_details, as_string=True):
 
 def get_enum_choices(field_details, as_string=True):
 
-    options = {}
-    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']):
+    options = OrderedDict()
+    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).order_by('ordernum'):
         options[choice.value] = choice.display
 
     if field_details['type'] == 'names':
