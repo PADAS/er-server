@@ -16,10 +16,6 @@ logger = logging.getLogger(__name__)
 @receiver(post_save, sender=Event)
 def event_post_save(sender, instance, created, **kwargs):
 
-    # disable the handler during fixture loading
-    if kwargs['raw']:
-        return
-
     logger.info("saved event {}, created={}".format(instance.pk, str(created)))
     transaction.on_commit(lambda: pubsub.publish(
         {'event_id': str(instance.pk)},

@@ -14,9 +14,15 @@ from django.views.generic.base import TemplateResponseMixin, ContextMixin
 from reports.reports import get_events, get_conservancies, get_rhino_sightings, get_rhinos, get_security_event
 from reports.accumulator import accumulator, broadcast
 
-class ReportDateParameters(serializers.Serializer):
+class ReportQueryParameters(serializers.Serializer):
     since = serializers.DateTimeField(default=None)
-    before = serializers.DateTimeField(default=None)
+    before = serializers.DateTimeField(default=serializers.CreateOnlyDefault(timezone.now))
+
+
+    def validate(self, attrs):
+        if self.since >= self.before:
+            raise serializers.ValidationError('since must not be greater than before.')
+        return attrs
 
 
 class ReportView(views.APIView):
@@ -72,15 +78,14 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
     def get(self, request, *args, **kwargs):
 
-        qs = ReportDateParameters(data=request.query_params)
+        qs = ReportQueryParameters(data=request.query_params)
         if not qs.is_valid():
             return Response(data=qs.errors, status=status.HTTP_400_BAD_REQUEST)
 
         qs = qs.validated_data
         now = timezone.now()
-        since = qs.get('since') or  (now - datetime.timedelta(hours=24))
         before = qs.get('before') or now
-
+        since = qs.get('since') or  (before - datetime.timedelta(hours=24))
 
         context = self.get_context_data(since=since, before=before, **kwargs)
         return self.render_to_response(context)

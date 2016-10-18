@@ -56,3 +56,13 @@ class TestReports(TestCase):
         self.assertEqual(response.using, 'jinja2')
         self.assertTemplateUsed('lewa_sitrep_template.html')
 
+
+    def test_params_serializer(self):
+        from reports.views import ReportQueryParameters
+        from datetime import datetime, timedelta
+        import pytz
+
+        since = pytz.utc.localize(datetime(2016, 10, 13))
+        p = ReportQueryParameters(data={'since': '2016-13-13T18:00:00+03:00'})
+
+        self.assertTrue(p.is_valid(), msg='Parameters are not valid.')
