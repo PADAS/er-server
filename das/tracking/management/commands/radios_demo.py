@@ -231,7 +231,7 @@ class DemoDriver():
         self.delete_subject()
         self.delete_source()
         self.delete_observations()
-        self.delete_events()
+        # self.delete_events()
         self.hydrate()
         self.create_analyzers()
 
