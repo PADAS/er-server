@@ -15,6 +15,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import Permission
 import pytz
 import random
+import time
 
 from accounts.models import PermissionSet, User
 from activity.models import Event, EventAttachment, Community, EventType
@@ -29,7 +30,7 @@ def gen_random_rgb():
     return ','.join([str(random.randint(50,200)) for i in range(3)])
 
 # For observations, animal and ranger movements, this is how far we'll go back to start.
-HISTORY_HOURS=1
+HISTORY_HOURS=2
 
 def delete_subject_analyzers():
     pass
@@ -163,16 +164,16 @@ class DemoDriver():
         # SpeedAnalyzer.objects.create(subject=self.subject, max_speed=10000000)
 
 
-    def drive(self):
+    def drive(self, history_hours=HISTORY_HOURS):
 
-        begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
+        begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=history_hours)
         self.delete_driven_events(begin_time)
 
         # Outer loop is for restarting the whole thing.
         while True:
             self.delete_observations()
 
-            t0 = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
+            t0 = datetime.now(tz=pytz.UTC) - timedelta(hours=history_hours)
 
             tracks = load_track_geojson(self.manufacturer_id)
             points = tracks['features'][0]['geometry']['coordinates']
@@ -196,8 +197,8 @@ class DemoDriver():
                 yield
 
     @staticmethod
-    def get_time():
-        last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS*2)
+    def get_time(history_hours=HISTORY_HOURS):
+        last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=history_hours*2)
         time_increment = timedelta(minutes=30)
         while True:
             last_time = last_time + time_increment
@@ -257,20 +258,20 @@ def generate_events():
     demo_data = read_demo_data()
     yield from demo_data['events']
 
-def inject_random_events():
+def inject_random_events(history_hours=HISTORY_HOURS):
 
-    times = DemoDriver.get_time()
+    times = DemoDriver.get_time(history_hours=history_hours)
     while True:
         for e in sorted(list(generate_events()), key=lambda x: random.random()):
             store_event(e, None, next(times))
             yield
 
-def add_demo_data(subject=None):
+def add_demo_data(subject=None, history_hours=HISTORY_HOURS):
 
     #yes, twice
     for _ in range(2):
 
-        times = DemoDriver.get_time()
+        times = DemoDriver.get_time(history_hours=history_hours)
 
         for evt in generate_events():
             # store_event(evt, subject, next(times))
@@ -364,12 +365,29 @@ def import_geojson():
 
 class Command(BaseCommand):
 
-    help = 'Run the March 2016 demo track'
+    help = 'Run radios around based on track_data files.'
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '-i', '--interval',
+            action='store',
+            dest='interval',
+            default=0,
+            help='Number of seconds to wait between updates. Default is 0, meaning wait for keyboard input.',
+        )
+
+        parser.add_argument(
+            '-t', '--time-travel',
+            action='store',
+            dest='history_hours',
+            default=2,
+            help='Number of hours to go back in time, to start track events. Default is 2 hours.',
+        )
 
     def handle(self, *args, **options):
 
-        #import_geojson()
-
+        interval = int(options['interval'])
+        history_hours = int(options['history_hours'])
         create_actors()
         drivers = []
         for sub in read_demo_data()['subjects']:
@@ -381,15 +399,19 @@ class Command(BaseCommand):
         # We have some canned events that are associated with the first RADIO.
         add_demo_data(subject=drivers[0].subject)
 
-        generators = list(driver.drive() for driver in drivers)
+        generators = list(driver.drive(history_hours=history_hours) for driver in drivers)
         # prime the DB with an observation
         for g in generators:
             next(g)
             next(g)
 
-        input('removed old data. load web app and press enter to continue')
+        if interval > 0:
+            print('Load DAS in a browser now. This script will send updates every %s seconds' % (interval,))
+            time.sleep(10)
+        else:
+            input('removed old data. load web app and press enter to continue')
 
-        randomevents = inject_random_events()
+        randomevents = inject_random_events(history_hours=history_hours)
         # next(randomevents)
         while True:
             for g in generators:
@@ -400,4 +422,7 @@ class Command(BaseCommand):
             # if 0.4 > random.random():
             #     next(randomevents)
 
-            input('press enter to continue')
+            if interval > 0:
+                time.sleep(interval)
+            else:
+                input('press enter to continue')
