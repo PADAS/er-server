@@ -164,17 +164,17 @@ class DemoDriver():
         # SpeedAnalyzer.objects.create(subject=self.subject, max_speed=10000000)
 
 
-    def drive(self, history_hours=HISTORY_HOURS):
+    def drive(self):
 
-        begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=history_hours)
+        begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
         self.delete_driven_events(begin_time)
 
         # Outer loop is for restarting the whole thing.
         while True:
             self.delete_observations()
 
-            t0 = datetime.now(tz=pytz.UTC) - timedelta(hours=history_hours)
 
+            td = timedelta(minutes=15)
             tracks = load_track_geojson(self.manufacturer_id)
             points = tracks['features'][0]['geometry']['coordinates']
             states = tracks['features'][0]['properties']
@@ -183,8 +183,8 @@ class DemoDriver():
 
             plist = [varypoint(p) for p in points]
             for i, point in enumerate(plist):
-                dt = timedelta(minutes=i*30)
-                t = t0 + dt
+
+                t = pytz.utc.localize(datetime.utcnow()) - td
 
                 _ = Observation.objects.create(
                     source_id=self.source.id,
@@ -197,8 +197,8 @@ class DemoDriver():
                 yield
 
     @staticmethod
-    def get_time(history_hours=HISTORY_HOURS):
-        last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=history_hours*2)
+    def get_time():
+        last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS*2)
         time_increment = timedelta(minutes=30)
         while True:
             last_time = last_time + time_increment
@@ -213,10 +213,10 @@ class DemoDriver():
     def delete_observations(self):
         Observation.objects.filter(source_id=self.source_id).delete()
 
-    def delete_events(self):
-        # EventAttachment.objects.filter(target_id=self.subject.id).delete()
-        EventAttachment.objects.all().delete()
-        Event.objects.all().delete()
+    # def delete_events(self):
+    #     # EventAttachment.objects.filter(target_id=self.subject.id).delete()
+    #     EventAttachment.objects.all().delete()
+    #     Event.objects.all().delete()
 
     def delete_driven_events(self, time):
         Event.objects.filter(event_time__gt=time).delete()
@@ -258,20 +258,20 @@ def generate_events():
     demo_data = read_demo_data()
     yield from demo_data['events']
 
-def inject_random_events(history_hours=HISTORY_HOURS):
+def inject_random_events():
 
-    times = DemoDriver.get_time(history_hours=history_hours)
+    times = DemoDriver.get_time()
     while True:
         for e in sorted(list(generate_events()), key=lambda x: random.random()):
             store_event(e, None, next(times))
             yield
 
-def add_demo_data(subject=None, history_hours=HISTORY_HOURS):
+def add_demo_data(subject=None):
 
     #yes, twice
     for _ in range(2):
 
-        times = DemoDriver.get_time(history_hours=history_hours)
+        times = DemoDriver.get_time()
 
         for evt in generate_events():
             # store_event(evt, subject, next(times))
@@ -376,18 +376,9 @@ class Command(BaseCommand):
             help='Number of seconds to wait between updates. Default is 0, meaning wait for keyboard input.',
         )
 
-        parser.add_argument(
-            '-t', '--time-travel',
-            action='store',
-            dest='history_hours',
-            default=2,
-            help='Number of hours to go back in time, to start track events. Default is 2 hours.',
-        )
-
     def handle(self, *args, **options):
 
         interval = int(options['interval'])
-        history_hours = int(options['history_hours'])
         create_actors()
         drivers = []
         for sub in read_demo_data()['subjects']:
@@ -399,7 +390,7 @@ class Command(BaseCommand):
         # We have some canned events that are associated with the first RADIO.
         add_demo_data(subject=drivers[0].subject)
 
-        generators = list(driver.drive(history_hours=history_hours) for driver in drivers)
+        generators = list(driver.drive() for driver in drivers)
         # prime the DB with an observation
         for g in generators:
             next(g)
@@ -411,7 +402,7 @@ class Command(BaseCommand):
         else:
             input('removed old data. load web app and press enter to continue')
 
-        randomevents = inject_random_events(history_hours=history_hours)
+        randomevents = inject_random_events()
         # next(randomevents)
         while True:
             for g in generators:
