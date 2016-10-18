@@ -164,7 +164,7 @@ class DemoDriver():
         # SpeedAnalyzer.objects.create(subject=self.subject, max_speed=10000000)
 
 
-    def drive(self):
+    def drive(self, delay=0):
 
         begin_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS)
         self.delete_driven_events(begin_time)
@@ -174,7 +174,7 @@ class DemoDriver():
             self.delete_observations()
 
 
-            td = timedelta(minutes=15)
+            td = timedelta(minutes=delay)
             tracks = load_track_geojson(self.manufacturer_id)
             points = tracks['features'][0]['geometry']['coordinates']
             states = tracks['features'][0]['properties']
@@ -258,13 +258,6 @@ def generate_events():
     demo_data = read_demo_data()
     yield from demo_data['events']
 
-def inject_random_events():
-
-    times = DemoDriver.get_time()
-    while True:
-        for e in sorted(list(generate_events()), key=lambda x: random.random()):
-            store_event(e, None, next(times))
-            yield
 
 def add_demo_data(subject=None):
 
@@ -376,9 +369,19 @@ class Command(BaseCommand):
             help='Number of seconds to wait between updates. Default is 0, meaning wait for keyboard input.',
         )
 
+        parser.add_argument(
+            '--delay',
+            action='store',
+            dest='delay',
+            default=0,
+            help='Number of minutes to delay the recorded_at time for observations. Default is zero.',
+        )
+
     def handle(self, *args, **options):
 
         interval = int(options['interval'])
+        delay = int(options['delay'])
+
         create_actors()
         drivers = []
         for sub in read_demo_data()['subjects']:
@@ -390,7 +393,7 @@ class Command(BaseCommand):
         # We have some canned events that are associated with the first RADIO.
         add_demo_data(subject=drivers[0].subject)
 
-        generators = list(driver.drive() for driver in drivers)
+        generators = list(driver.drive(delay=delay) for driver in drivers)
         # prime the DB with an observation
         for g in generators:
             next(g)
@@ -398,20 +401,15 @@ class Command(BaseCommand):
 
         if interval > 0:
             print('Load DAS in a browser now. This script will send updates every %s seconds' % (interval,))
+            print('Delay is set to {} minutes.'.format(delay))
             time.sleep(10)
         else:
             input('removed old data. load web app and press enter to continue')
 
-        randomevents = inject_random_events()
-        # next(randomevents)
         while True:
             for g in generators:
                 if 0.7 > random.random():
                     next(g)
-
-            # # Inject a random event occasionally.
-            # if 0.4 > random.random():
-            #     next(randomevents)
 
             if interval > 0:
                 time.sleep(interval)
