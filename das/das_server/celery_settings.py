@@ -21,6 +21,10 @@ CELERYD_PREFETCH_MULTIPLIER = 1
 # Enables error emails.
 CELERY_SEND_TASK_ERROR_EMAILS = False
 
+CELERY_DEFAULT_QUEUE = 'default'
+CELERY_DEFAULT_EXCHANGE = 'default'
+CELERY_DEFAULT_ROUTING_KEY = 'default'
+
 # Name and email addresses of recipients
 ADMINS = (
     ("Chris Doehring", "chrisdo@vulcan.com"),
@@ -38,22 +42,24 @@ BROKER_TRANSPORT_OPTIONS = {
     'fanout_prefix': True
 }
 
+default_exchange = Exchange(CELERY_DEFAULT_EXCHANGE)
 
 # Defining queues
 CELERY_QUEUES = (
-    Queue('default', Exchange('default')),
+    Queue(CELERY_DEFAULT_QUEUE, default_exchange, routing_key=CELERY_DEFAULT_ROUTING_KEY),
+    Queue('realtime_p1', default_exchange, routing_key='realtime.tasks.p1'),
+    Queue('realtime_p2', default_exchange, routing_key='realtime.tasks.p2'),
+    Queue('realtime_p3', default_exchange, routing_key='realtime.tasks.p3'),
 )
 
-# CELERY_ROUTES = {
-#     'activity.celery.debug_task': {'routing_key': 'default'},
-#     'data_input.tasks.source_update_task': {
-#         'routing_key': 'observations.update',
-#     }
-# }
-
-CELERY_DEFAULT_QUEUE = 'default'
-CELERY_DEFAULT_EXCHANGE = 'default'
-CELERY_DEFAULT_ROUTING_KEY = 'default'
+CELERY_ROUTES = {
+    'rt_api.tasks.handle_emit_data': {'routing_key': 'realtime.tasks.p1'},
+    'rt_api.tasks.handle_new_event': {'routing_key': 'realtime.tasks.p2'},
+    'rt_api.tasks.handle_update_event': {'routing_key': 'realtime.tasks.p2'},
+    'rt_api.tasks.handle_delete_event': {'routing_key': 'realtime.tasks.p3'},
+    'rt_api.tasks.handle_new_source_observation': {'routing_key': 'realtime.tasks.p3'},
+    'rt_api.tasks.handle_new_subject_observation': {'routing_key': 'realtime.tasks.p3'},
+}
 
 
 # Defining scheduled tasks.
