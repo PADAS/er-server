@@ -163,3 +163,7 @@ das/das_server/local_celery_settings.py
 das/reports/docx_template/~$wa_sitrep_template.docx
 
 das/das_server/unittest_settings.py
+
+das/das_server/akagera_settings.py
+
+das/das_server/demo_akagera_settings.py
