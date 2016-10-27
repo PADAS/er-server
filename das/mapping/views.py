@@ -80,7 +80,7 @@ def calculate_featureset_etag(view_instance, view_method, request, args, kwargs)
     objects = chain(PolygonFeature.objects.filter(featureset=featureset),
                LineFeature.objects.filter(featureset=featureset),
                PointFeature.objects.filter(featureset=featureset))
-    etag = ','.join((str(f.updated_at) for f in objects))
+    etag = ','.join((str(f.updated_at) + str(f.type.updated_at) for f in objects))
     etag += str(featureset.updated_at)
     return hashlib.md5(etag.encode('utf-8')).hexdigest()
 
