@@ -1,6 +1,14 @@
 from django.contrib import admin
 from choices.models import Choice, DynamicChoice, Conservancy, Behavior, Station, Color, Health, Species, CauseOfDeath, FenceSection, ActionTaken, SectionArea, Team, PoachingMean, Tribe, IllegalActivity, Livestock, ContactType, TrophyStatus, WildlifeGap
 
+
+class BaseChoiceAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+    list_fields = ('name', 'ordernum')
+    list_editable = ('name',)
+
+
 @admin.register(Choice)
 class ChoiceAdmin(admin.ModelAdmin):
     pass
@@ -12,75 +20,75 @@ class DynamicChoiceAdmin(admin.ModelAdmin):
 
 
 @admin.register(Conservancy)
-class ConservancyAdmin(admin.ModelAdmin):
+class ConservancyAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(Behavior)
-class BehaviorAdmin(admin.ModelAdmin):
+class BehaviorAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(Station)
-class StationAdmin(admin.ModelAdmin):
+class StationAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(Color)
-class ColorAdmin(admin.ModelAdmin):
+class ColorAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(Health)
-class HealthAdmin(admin.ModelAdmin):
+class HealthAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(Species)
-class SpeciesAdmin(admin.ModelAdmin):
+class SpeciesAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(CauseOfDeath)
-class CauseOfDeathAdmin(admin.ModelAdmin):
+class CauseOfDeathAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(FenceSection)
-class FenceSectionAdmin(admin.ModelAdmin):
+class FenceSectionAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(ActionTaken)
-class ActionTakenAdmin(admin.ModelAdmin):
+class ActionTakenAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(SectionArea)
-class SectionAreaAdmin(admin.ModelAdmin):
+class SectionAreaAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(Team)
-class TeamAdmin(admin.ModelAdmin):
+class TeamAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(PoachingMean)
-class PoachingMeanAdmin(admin.ModelAdmin):
+class PoachingMeanAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(Tribe)
-class TribeAdmin(admin.ModelAdmin):
+class TribeAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(IllegalActivity)
-class IllegalActivityAdmin(admin.ModelAdmin):
+class IllegalActivityAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(Livestock)
-class LivestockAdmin(admin.ModelAdmin):
+class LivestockAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(ContactType)
-class ContactTypeAdmin(admin.ModelAdmin):
+class ContactTypeAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(TrophyStatus)
-class TrophyStatusAdmin(admin.ModelAdmin):
+class TrophyStatusAdmin(BaseChoiceAdmin):
     pass
 
 @admin.register(WildlifeGap)
-class WildlifeGapAdmin(admin.ModelAdmin):
+class WildlifeGapAdmin(BaseChoiceAdmin):
     pass
 
 

@@ -25,7 +25,6 @@ class FeatureListJsonView(APIView):
     """
     A simple list of vector layers available to the clients
     """
-
     def get(self, request):
         # todo:  add api docs
         response_data = {'features': []}
@@ -41,12 +40,13 @@ class FeatureListJsonView(APIView):
 
 
 class FeatureGeoJsonView(APIView):
-    def get(self, request, feature_id):
+    def get(self, request, id):
         feature = serialize('geojson',
-                            list(chain(PolygonFeature.objects.filter(id=feature_id),
-                                       LineFeature.objects.filter(id=feature_id),
-                                       PointFeature.objects.filter(id=feature_id))),
-                            properties={'name': 'title', 'image_url': 'image'},
+                            list(chain(PolygonFeature.objects.filter(id=id),
+                                       LineFeature.objects.filter(id=id),
+                                       PointFeature.objects.filter(id=id))),
+                            properties={'name': 'title', 'image_url': 'image',
+                                        'default_presentation': 'presentation'},
                             geometry_field='feature_geometry'
                             )
         return HttpResponse(feature, content_type='application/json')
@@ -97,7 +97,8 @@ class FeatureSetGeoJsonView(APIView):
                             list(chain(PolygonFeature.objects.filter(featureset=featureset),
                                        LineFeature.objects.filter(featureset=featureset),
                                        PointFeature.objects.filter(featureset=featureset))),
-                            properties={'name': 'title', 'image_url': 'image'},
+                            properties={'name': 'title', 'image_url': 'image',
+                                        'default_presentation': 'presentation'},
                             geometry_field='feature_geometry'
                             )
 

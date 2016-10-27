@@ -27,6 +27,9 @@ class Serializer(geojson.Serializer):
             if name in self._current:
                 self._current[new_name] = self._current[name]
                 del self._current[name]
+            elif hasattr(obj, name):
+                self._current[new_name] = getattr(obj, name)
+
         field_name = 'presentation'
         if field_name in self._current:
             self._current.update(self._current[field_name])

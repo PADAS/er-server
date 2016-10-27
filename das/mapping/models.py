@@ -67,6 +67,7 @@ class FeatureType(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
+    presentation = JSONField(default={})
     objects = FeatureTypeManager()
 
     def __str__(self):
@@ -122,6 +123,14 @@ class Feature(TimestampedModel):
     # the feature set with which this feature is being grouped.
     # todo:  evaluate whether many-to-many might be a better approach or stick with this simple approach
     featureset = models.ForeignKey(to=FeatureSet, null=True)  # probably should be spelled feature_set
+
+    @property
+    def default_presentation(self):
+        if self.presentation:
+            return self.presentation
+        if self.type.presentation:
+            return self.type.presentation
+        return {}
 
     class Meta:
         abstract = True

@@ -21,7 +21,12 @@
   fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Paths}
 - model: mapping.featuretype
   pk: 788224b7-d0d6-4a68-a14c-24c80744d236
-  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Conservancy}
+  fields:
+    created_at: "2016-08-04T1:00:00.000000+00:00"
+    updated_at: "2016-08-04T1:00:00.000000+00:00"
+    name: Conservancy
+    presentation: |
+        {"fill": "#00FF00", "fill-opacity": 0.4, "stroke": "#87CEFA",  "stroke-width": 3, "stroke-opacity": 0.7}
 - model: mapping.featuretype
   pk: 8212bbab-36bd-40d4-9ea1-868d07ea2705
   fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Villages}
@@ -48,7 +53,12 @@
   fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Geography}
 - model: mapping.featuretype
   pk: f912c5b4-48c9-4f2f-b52b-207c9ce450de
-  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Community Conservancy}
+  fields:
+    created_at: "2016-08-04T1:00:00.000000+00:00"
+    updated_at: "2016-08-04T1:00:00.000000+00:00"
+    name: Community Conservancy
+    presentation: |
+        {"fill": "#CCFFCC", "fill-opacity": 0.4, "stroke": "#FFC0CB",  "stroke-width": 3, "stroke-opacity": 0.7}
 - model: mapping.featuretype
   pk: faae49f3-bd6e-4400-a6b6-f1924fededfd
   fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Aviation}
@@ -79,7 +89,7 @@
     created_at: "2016-08-04T1:00:00.000000+00:00"
     updated_at: "2016-08-04T1:00:00.000000+00:00"
     name: Boundaries
-    description: Demo feature set description
+    description: ''
     types: [1b01837e-6d4e-416f-b837-6f2b54654355, 788224b7-d0d6-4a68-a14c-24c80744d236,
       44a8f761-d2d8-4433-ad26-50d4c24d96d5,
       f912c5b4-48c9-4f2f-b52b-207c9ce450de, 9dd8ffcc-30ea-4230-9355-c4d1264abf1e,
