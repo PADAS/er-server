@@ -34,11 +34,14 @@ def dumps_helper(obj):
 
 def _event_handler(event_id, type):
     try:
+        logger.debug('Processing update on event_id {0}'.format(event_id))
         view = EventView.as_view()
         connected_sids = redis_client.hkeys('realtime_connections')
 
         for connected_sid in connected_sids:
             try:
+                logger.debug('Creating event payload for user {0}'.format(connected_sid))
+
                 connected_sid = connected_sid.decode('UTF-8')
                 username = redis_client.hget('realtime_connections',
                                              connected_sid).decode('UTF-8')
@@ -69,8 +72,8 @@ def _event_handler(event_id, type):
                     'data': Event.objects.new_count()
                 }
 
-                pubsub.publish(json.dumps(emit_data), 'das.realtime.emit')
-                pubsub.publish(json.dumps(count_data), 'das.realtime.emit')
+                pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
+                pubsub.publish(json.dumps(count_data, default=dumps_helper), 'das.realtime.emit')
 
             except Exception as ex:
                 logger.exception('Error creating custom payload for event: %s' %
@@ -83,16 +86,19 @@ def _event_handler(event_id, type):
 
 def _observation_handler(subject_id):
     try:
+        logger.debug('Processing new observation for subject_id {0}'.format(subject_id))
         view = SubjectTracksView.as_view()
         connected_sids = redis_client.hkeys('realtime_connections')
 
         for connected_sid in connected_sids:
-
             try:
+                logger.debug('Creating observation payload for user {0}'.format(connected_sid))
+
                 connected_sid = connected_sid.decode('UTF-8')
                 username = redis_client.hget('realtime_connections',
                                              connected_sid).decode('UTF-8')
                 user = User.objects.filter(username=username).first()
+
                 if not user:
                     # Probably shouldn't get here, but maybe the user got
                     # deleted just now?

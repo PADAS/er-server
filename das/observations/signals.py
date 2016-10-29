@@ -14,8 +14,23 @@ def observation_post_save(sender, instance, created, **kwargs):
     if kwargs['raw']:
         return
 
-    logger.info('handling Observation.post_save')
+    logger.debug('handling Observation.post_save')
     for delay_hours in (0, 24):
         SubjectStatus.objects.update_from_observation(instance, delay_hours=delay_hours)
+
+@receiver(post_save, sender=SubjectStatus)
+def subject_status_post_save(sender, instance, created, **kwargs):
+
+    if kwargs['raw']:
+        return
+
+    # Looking for name change.
+    if instance.delay_hours == 0:
+        latest_subject_name = instance.additional.get('subject_name', None)
+        if latest_subject_name and latest_subject_name != instance.subject.name:
+            logger.debug('Detected subject name change from %s to %s', instance.subject.name, latest_subject_name)
+            instance.subject.name = latest_subject_name
+            instance.subject.save()
+
 
 # TODO: Consider the cases for update and delete.

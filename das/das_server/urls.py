@@ -28,7 +28,6 @@ urlpatterns = [
     url(r'^api/v1.0/', include('observations.urls')),
     url(r'^api/v1.0/', include('mapping.urls')),
     url(r'^api/v1.0/tms/', include('raster.urls')),
-    url(r'^api/v1.0/tracking/', include('tracking.urls')),
     url(r'^api/v1.0/sensors/', include('sensors.urls')),
     url(r'^api/v1.0/activity/', include('activity.urls')),
     url(r'^api/v1.0/', include('rt_api.urls')),
@@ -38,6 +37,7 @@ urlpatterns = [
     url(r'^accounts/', include('accounts.urls_user')),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^oauth2/token$', oauth2_views.TokenView.as_view(), name="token"),
+    url(r'^api/v1.0/reports/', include('reports.urls', namespace='reports')),
 ]
 
 

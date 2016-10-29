@@ -1,0 +1,61 @@
+- model: observations.commonname
+  pk: forest_elephant
+  fields:
+    created_at: "2016-10-07T1:00:00.000000+00:00"
+    updated_at: "2016-10-07T1:00:00.000000+00:00"
+    display: Forest Elephant
+    value: forest_elephant
+    subject_subtype: elephant
+
+- model: observations.commonname
+  pk: savanna_elephant
+  fields:
+    created_at: "2016-10-07T1:00:00.000000+00:00"
+    updated_at: "2016-10-07T1:00:00.000000+00:00"
+    display: Savanna Elephant
+    value: savanna_elephant
+    subject_subtype: elephant
+
+- model: observations.commonname
+  pk: white_rhino
+  fields:
+    created_at: "2016-10-07T1:00:00.000000+00:00"
+    updated_at: "2016-10-07T1:00:00.000000+00:00"
+    display: White Rhino
+    value: white_rhino
+    subject_subtype: rhino
+
+- model: observations.commonname
+  pk: black_rhino
+  fields:
+    created_at: "2016-10-07T1:00:00.000000+00:00"
+    updated_at: "2016-10-07T1:00:00.000000+00:00"
+    display: Black Rhino
+    value: black_rhino
+    subject_subtype: rhino
+
+- model: observations.commonname
+  pk: grevy_zebra
+  fields:
+    created_at: "2016-10-07T1:00:00.000000+00:00"
+    updated_at: "2016-10-07T1:00:00.000000+00:00"
+    display: "Grevy's Zebra"
+    value: grevys_zebra
+    subject_subtype: zebra
+- model: observations.commonname
+  pk: plains_zebra
+  fields:
+    created_at: "2016-10-07T1:00:00.000000+00:00"
+    updated_at: "2016-10-07T1:00:00.000000+00:00"
+    display: Plains Zebra
+    value: plains_zebra
+    subject_subtype: zebra
+
+- model: observations.commonname
+  pk: reticulated_giraffe
+  fields:
+    created_at: "2016-10-07T1:00:00.000000+00:00"
+    updated_at: "2016-10-07T1:00:00.000000+00:00"
+    display: Reticulated Giraffe
+    value: reticulated_giraffe
+    subject_subtype: giraffe

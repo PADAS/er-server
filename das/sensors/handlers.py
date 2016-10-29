@@ -7,13 +7,101 @@ from dateutil.parser import parse as parse_date
 from rest_framework import status
 from rest_framework.response import Response
 from django.contrib.gis.geos import Point
+from rest_framework import serializers, views, permissions
 
 from observations.models import Source, SubjectSource, Subject, Source, Observation
 from observations.serializers import ObservationSerializer
 from tracking.pubsub_registry import notify_new_tracks
 
+class SensorPostParameters(serializers.Serializer):
+    location = serializers.DictField()
+    recorded_at = serializers.DateTimeField()
+    manufacturer_id = serializers.CharField()
+
+    subject_name = serializers.CharField(default=None)
+    subject_type = serializers.CharField(default=None)
+    subject_subtype = serializers.CharField(default=None)
+    model_name = serializers.CharField(default=None)
+    source_type = serializers.CharField(default=None)
+    additional = serializers.DictField(default={})
+
+
+class GenericSensorHandler():
+
+    DEFAULT_SOURCE_TYPE = 'gps-radio'
+    DEFAULT_SUBJECT_TYPE = 'person'
+    DEFAULT_SUBJECT_SUBTYPE = 'ranger'
+
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    def handle_observation(self, request, sensor_type, provider_key):
+
+        params = SensorPostParameters(data=request.data)
+        if not params.is_valid():
+            return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        params = params.validated_data
+        manufacturer_id = params['manufacturer_id']
+        location = None
+        try:
+            location = params['location']
+            lat = location.get('lat', None)
+            lon = location.get('lon', None)
+
+            location = Point(x=float(lon), y=float(lat))
+        except:
+            location = None
+
+        subject_type = params.get('subject_type', self.DEFAULT_SUBJECT_TYPE)
+        subject_subtype = params.get('subject_subtype', self.DEFAULT_SUBJECT_SUBTYPE)
+        source_type = params.get('source_type', self.DEFAULT_SOURCE_TYPE)
+        model_name = params.get('model_name', None) or '{}:{}'.format(sensor_type, provider_key)
+
+        subject_name = params.get('subject_name') or manufacturer_id
+
+        src, created = Source.objects.ensure_source(source_type,
+                                                    provider_name=provider_key,
+                                                    manufacturer_id=manufacturer_id,
+                                                    model_name=model_name)
+
+        recorded_at = params.get('recorded_at') # self.__str2date(obj['recorded_at'])
+        additional = params.get('additional', {})
+
+        # Short-circuit if we already have this observation.
+        if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
+            return Response({}, status=status.HTTP_201_CREATED)
+
+        # If the Source already exists, assume the SubjectSource and Subject already exist.
+        if created:
+
+            ss, created = SubjectSource.objects.ensure_subject_source(src,
+                                                                      timestamp=recorded_at,
+                                                                      subject_type=subject_type,
+                                                                      subject_subtype=subject_subtype,
+                                                                      subject_name=subject_name,
+                                                                      )
+
+        observation = {
+            'location': location,
+            'recorded_at': recorded_at,
+            'source': src.id,
+            'additional': additional,
+        }
+
+        serializer = ObservationSerializer(data=observation)
+        if serializer.is_valid():
+            serializer.save()
+            notify_new_tracks(src.id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class DasRadioAgentHandler():
+    '''
+    Deprecated. I need to move das-radio-agent to the generic handler above.
+    '''
     SENSOR_TYPE = 'dasradioagent'
     SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_TYPE = 'person'
@@ -132,7 +220,8 @@ class GsatHandler():
         except:
             pass
 
-        r['is_alarm'] = o.get('emer') == '1'
+       # Calculate state, that will be recorded in SubjectStatus.
+        r['state'] = 'alarm' if o.get('emer', 0) == '1' else 'default'
 
         r['events'] = o.get('events').split(',') if len(o.get('events', '')) > 0 else None
 

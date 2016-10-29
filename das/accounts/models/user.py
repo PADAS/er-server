@@ -9,6 +9,8 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core import validators
 from django.utils import timezone
 
+from sendsms import api
+
 from accounts.mixins import PermissionsMixin
 
 
@@ -163,6 +165,12 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         Sends an email to this User.
         """
         send_mail(subject, message, from_email, [self.email], **kwargs)
+
+    def send_sms(self, message, from_phone=None, **kwargs):
+        """
+        Sends an sms message to this User's cell phone if they have one
+        """
+        api.send_sms(body=message, from_phone=from_phone, to=[self.phone], **kwargs)
 
 
 class User(AccountsAbstractUser):

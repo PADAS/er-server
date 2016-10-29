@@ -60,7 +60,9 @@ INSTALLED_APPS = (
     'activity',
     'rt_api',
     'core.apps.CoreConfig',
-    'vectronics'
+    'vectronics',
+    'choices',
+    'reports',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -97,7 +99,23 @@ TEMPLATES = [
             ],
         },
     },
+    {
+        'NAME': 'docx_template',
+        'BACKEND': 'reports.backends.DocxBackend',
+        'DIRS': [BASE_DIR, ],
+        'APP_DIRS': True,
+        'OPTIONS': {'environment': 'reports.environment.Environment',
+                    'optimized': False},
+    },
+    {
+        'BACKEND': 'django.template.backends.jinja2.Jinja2',
+        'NAME': 'jinja2',
+        'DIRS': [BASE_DIR, ],
+        'APP_DIRS': True,
+        'OPTIONS': {'environment': 'jinja2.Environment', },
+    },
 ]
+
 
 # TEMPLATE_CONTEXT_PROCESSORS = TCP + [
 #     'django.core.context_processors.request',
@@ -299,6 +317,16 @@ DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
 #Used by password reset email
 EMAIL_HOST_USER = 'info@pamdas.org'
 
+SENDSMS_BACKEND='utils.smsbackend.AfricasTalkingBackend'
+
+# use these when you want to send SMS from kenya
+SENDSMS_AFRICAS_TALKING_USERNAME=''
+SENDSMS_AFRICAS_TALKING_API_KEY=''
+
+# use these when you don't want to send SMS from kenya
+SENDSMS_TWILIO_ACCOUNT_SID=''
+SENDSMS_TWILIO_AUTH_TOKEN=''
+
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'event_photo': [
         ('original', 'url'),
@@ -351,3 +379,9 @@ VERSATILEIMAGEFIELD_SETTINGS = {
 }
 
 REALTIME_AUTH_TIMEOUT_SECONDS = 1.0
+
+NOTIFY_HIGH_PRIORITY_EVENT=None
+NOTIFY_MEDIUM_PRIORITY_EVENT=None
+NOTIFY_LOW_PRIORITY_EVENT=None
+
+EVENT_MATRIX_ENABLED = False
