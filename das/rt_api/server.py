@@ -1,30 +1,41 @@
 
-import logging
 import eventlet
-from rt_api.rest_api_interface.dummy_request import DummyRequest
+import json
+import logging
+import redis
+
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.db import close_old_connections
+from rt_api.rest_api_interface.dummy_request import DummyRequest
 
 logger = logging.getLogger(__name__)
-
+redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
 
 def create_realtime_handler(sios):
 
     class RealtimeServices():
 
+        supported_message_types = ['new_event', 'update_event', 'delete_event',
+                                   'count_event', 'subject_position_update']
+
         @sios.on('connect', namespace='/')
         def on_connect(sid, socket, *args):
-            # When the user authenticates, we'll track that here. For now mark it
-            # None to represent an unauthenticated state.
-            socket['user'] = None
-
+            # Drop the user if they don't authenticate immediately
+            socket['authed'] = False
             def confirm_authed(sid, socket):
-                if socket['user'] is None:
+                if not redis_client.hexists('realtime_connections', str(sid)):
                     logger.info("Disconnecting unauthenticated socket connection")
                     sios.server.disconnect(sid)
 
             # Make sure the connection authenticates immediately
-            eventlet.spawn_after(1.0, confirm_authed, sid, socket)
+            eventlet.spawn_after(settings.REALTIME_AUTH_TIMEOUT_SECONDS,
+                                 confirm_authed, sid, socket)
+
+        @sios.on('disconnect')
+        def on_disconnect(sid, *args):
+            logger.debug('Got a disconnection event from {0}'.format(str(sid)))
+            redis_client.hdel('realtime_connections', str(sid))
 
         @sios.on('authorization', namespace='/das')
         def on_authenticate(sid, data):
@@ -39,16 +50,22 @@ def create_realtime_handler(sios):
                                   namespace='/das')
                         sios.server.disconnect(sid)
 
-                # to authenticate the token, we need to create a fake http request for oauth to authenticate
+                # To authenticate the token, we need to create a fake http request for oauth to authenticate
                 request = DummyRequest(headers={'Authorization': data['authorization']})
                 user = authenticate(**{'request': request})
 
-                # If the token checks out, mark the connection as authenticated and put it into the chat rooms
+                # The token checks out
                 if user is not None:
                     logger.info("Socket {0} user authenticted successfully".format(sid))
-                    sios.server.environ[sid]['user'] = user
+
+                    # Put the user into redis
+                    redis_client.hset('realtime_connections', str(sid), user.username)
+
+                    # Put the connection into the correct rooms
                     sios.server.manager.enter_room(sid, 'all_clients', '/das')
                     sios.server.manager.enter_room(sid, sid, '/das')
+
+                    # tell the user that they've been authenticated
                     sios.emit('resp_authorization',
                               {'type': 'resp_authorization', 'resp_id': data['id'],
                                'status': {'code': 200, 'message': 'OK'}},
@@ -99,57 +116,29 @@ def create_realtime_handler(sios):
 
 
         @staticmethod
-        def emit_subject_update(subjectid, geo_json=None, user=None, state=None):
-            data = {'type': 'subject_position_update', 'subject_id': subjectid}
-            if geo_json is not None:
-                data['geo_json'] = geo_json
-            if state is not None:
-                data['state'] = state
-            RealtimeServices.emit('subject_position_update', data, user)
-
-        @staticmethod
-        def emit_new_event(event_id, event_data=None, user=None):
-            data = {'type': 'new_event', 'event_id': event_id}
-            if event_data is not None:
-                data['event_data'] = event_data
-
-            logger.info("Emitting new event. %s", event_id)
-            RealtimeServices.emit('new_event', data, user)
-
-        @staticmethod
-        def emit_update_event(event_id, event_data=None, user=None):
-            data = {'type': 'update_event', 'event_id': event_id}
-            if event_data is not None:
-                data['event_data'] = event_data
-
-            logger.info("Emitting update event. %s", event_id)
-            RealtimeServices.emit('update_event', data, user)
-
-        @staticmethod
-        def emit_delete_event(event_id, event_data=None, user=None):
-            data = {'type': 'delete_event', 'event_id': event_id}
-            logger.info("Emitting delete event. %s", event_id)
-            RealtimeServices.emit('delete_event', data, user)
-
-        @staticmethod
-        def emit_count_event(count, user=None):
-            data = {'type': 'count_event', 'count': count}
-            logger.info("Emitting count event change. %s", count)
-            RealtimeServices.emit('count_event', data, user)
-
-        @staticmethod
         def emit(message_type, data, user=None):
+            if user not in sios.server.environ:
+                redis_client.hdel('realtime_connections', str(user))
+                logger.warn('Tried to send a message to a disconnected client: {0}'.format(str(user)))
+                return
             try:
                 if user is None:
                     sios.emit(message_type, data, namespace='/das')
                 else:
                     sios.emit(message_type, data, room=str(user), namespace='/das')
-            except Exception as ex:
 
+            except Exception as ex:
+                redis_client.hdel('realtime_connections', str(user))
                 logger.error("Error emitting event over socket", ex)
 
         @staticmethod
-        def connected_clients():
-            return sios.server.environ.copy()
+        def send_realtime_message(message_data):
+            if message_data['type'] in RealtimeServices.supported_message_types:
+                RealtimeServices.emit(message_data['type'],
+                                      message_data['data'],
+                                      message_data['sid'])
+            else:
+                logger.error('Realtime server received invald message type',
+                             message_data['type'])
 
     return RealtimeServices

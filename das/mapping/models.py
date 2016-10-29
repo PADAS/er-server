@@ -55,6 +55,11 @@ class TileLayer(TimestampedModel):
         return self.name
 
 
+class FeatureTypeManager(models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
 class FeatureType(TimestampedModel):
     """
     If the clients wish to group layers in a control or for ease of administration
@@ -62,9 +67,19 @@ class FeatureType(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
+    presentation = JSONField(default={})
+    objects = FeatureTypeManager()
 
     def __str__(self):
         return self.name
+
+    def natural_key(self):
+        return (self.name,)
+
+
+class FeatureSetManager(models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
 
 
 class FeatureSet(TimestampedModel):
@@ -80,8 +95,13 @@ class FeatureSet(TimestampedModel):
 
     description = models.TextField(null=True, blank=True)
 
+    objects = FeatureSetManager()
+
     def __str__(self):
-        return u"{0}".format(self.name)
+        return self.name
+
+    def natural_key(self):
+        return (self.name,)
 
 
 class Feature(TimestampedModel):
@@ -90,17 +110,27 @@ class Feature(TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=80)
     type = models.ForeignKey(to=FeatureType)
 
     description = models.TextField(null=True, blank=True)
 
     # attributes for presentation
-    presentation = JSONField()
+    presentation = JSONField(default={})
+    fields = JSONField(default={})
+    external_id = models.CharField(max_length=80, blank=True, null=True)
 
     # the feature set with which this feature is being grouped.
     # todo:  evaluate whether many-to-many might be a better approach or stick with this simple approach
     featureset = models.ForeignKey(to=FeatureSet, null=True)  # probably should be spelled feature_set
+
+    @property
+    def default_presentation(self):
+        if self.presentation:
+            return self.presentation
+        if self.type.presentation:
+            return self.type.presentation
+        return {}
 
     class Meta:
         abstract = True
@@ -123,8 +153,7 @@ class PointFeature(Feature):
 
     @property
     def image_url(self):
-        return 'http://maps.google.com/mapfiles/kml/shapes/ranger_station.png'
-        #return 'http://maps.google.com/mapfiles/kml/shapes/triangle.png'
+        return '/static/ranger_station-brown.svg'
 
 
 class MissingTileError(Exception):

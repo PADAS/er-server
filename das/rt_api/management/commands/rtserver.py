@@ -19,8 +19,8 @@ from rt_api.sios import create_rt_socketio
 
 logger = logging.getLogger('rt_api')
 
-MAX_GREEN_THREADS = 20
-
+#allow 50 or so socket connections
+MAX_GREEN_THREADS = 50
 
 class Command(runserver.Command):
 

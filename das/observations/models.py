@@ -15,7 +15,9 @@ GIS
 from datetime import datetime, timedelta
 import uuid
 import random
+from collections import namedtuple
 
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.db.models import Q
@@ -35,7 +37,7 @@ SOURCE_TYPES = (
     ('trap', 'Trap'),
     ('seismic', 'Seismic sensor'),
     ('firms', 'FIRMS data'),
-    ('gps-radio', 'gps radio')
+    ('gps-radio', 'gps radio'),
 )
 
 
@@ -44,10 +46,42 @@ def to_rgb(color):
 
 DEFAULT_COLOR = '255,255,0'
 
+STATUS_COLORS = {'online': 'green', 'offline': 'gray', 'alarm': 'red', 'default': 'black'}
+def get_radio_color(state, additional):
+    color = STATUS_COLORS.get(state, 'black')
+    if state == 'online' \
+            and False == additional.get('gps_fix', True):
+        color = 'blue'
+    return color
+
 
 def random_rgb():
     return ','.join([str(random.randint(0,255)) for i in range(3)])
 
+
+class StaticImageFinder(object):
+    image_cache = {}
+    IMAGE_TYPES = ('svg', 'png', 'jpg')
+    StaticImage = namedtuple('StaticImage', ('exists', 'path'))
+    web_path = '/static/{0}'
+    file_format = '{key}.{type}'
+
+    def get_marker_icon(self, keys):
+        for key in keys:
+            static_image = self.image_cache.get(key, None)
+            if static_image:
+                if static_image.exists:
+                    return static_image.path
+                continue
+            for t in self.IMAGE_TYPES:
+                file = self.file_format.format(**dict(key=key, type=t))
+                if staticfiles_storage.exists(file):
+                    path = self.web_path.format(file)
+                    self.image_cache[key] = self.StaticImage(True, path)
+                    return path
+            self.image_cache[key] = self.StaticImage(False, None)
+
+static_image_finder = StaticImageFinder()
 
 class SourceGroupManager(HierarchyManager):
     def get_default(self):
@@ -96,11 +130,12 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
 
 class SourceManager(models.Manager):
     # Helper functions for hydrating Source and Subject for the given message.
-    def ensure_source(self, source_type, manufacturer_id=None, model_name=None, additional=None):
+    def ensure_source(self, source_type, provider_name=None, manufacturer_id=None, model_name=None, additional=None):
 
         additional = additional or {}
         src, created = Source.objects.get_or_create(source_type=source_type,
                                                     manufacturer_id=manufacturer_id,
+                                                    provider_name=provider_name,
                                                     defaults={'model_name': model_name,
                                                               'additional': additional
                                                               })
@@ -113,7 +148,7 @@ class SourceManager(models.Manager):
         return source
 
 
-class Source(models.Model):
+class Source(TimestampedModel):
 
     objects = SourceManager()
 
@@ -121,6 +156,8 @@ class Source(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     source_type = models.CharField('type of data expected', max_length=100,
                                    null=True, choices=SOURCE_TYPES)
+
+    provider_name = models.CharField('unique name for data provider', max_length=100, null='False', default='default')
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
     model_name = models.CharField('device model name', max_length=100, null=True)
@@ -131,6 +168,7 @@ class Source(models.Model):
             ('view_source',
              'Permission to view a source'),
         )
+        unique_together = ('provider_name', 'manufacturer_id')
 
     def __str__(self):
         return '%s:%s' % (self.manufacturer_id, self.model_name)
@@ -141,9 +179,8 @@ EMPTY_POINT = Point(0,0)
 
 class ObservationManager(models.GeoManager):
     def get_source_range_observations(self, subject_sources, since=None, until=None):
-        """get observations for a set of sources and date ranges.
-        An animal may switch source devices based on a date range.
-        """
+        # Get observations for a set of sources and date ranges. An animal may
+        # switch source devices based on a date range.
         subject_sources = sorted(subject_sources,
                                  key=lambda ss: ss.assigned_range.lower,
                                  reverse=True)
@@ -165,10 +202,11 @@ class ObservationManager(models.GeoManager):
         return []
 
     def get_source_range_observation_values(self, subject_sources, since=None,
-                                      until=None):
+                                      until=None, order_by=None, limit=None):
         """get observations for a set of sources and date ranges.
         An animal may switch source devices based on a date range.
         """
+
         subject_sources = sorted(subject_sources,
                                  key=lambda ss: ss.assigned_range.lower,
                                  reverse=True)
@@ -185,7 +223,12 @@ class ObservationManager(models.GeoManager):
                 result = result.filter(Q(recorded_at__gt=since))
             if until:
                 result = result.filter(Q(recorded_at__lte=until))
-            result = result.order_by('-recorded_at')
+
+            if limit:
+                result = result.order_by('-recorded_at')[:limit]
+            else:
+                result = result.order_by('-recorded_at')
+
             for observation in result.values('location', 'recorded_at'):
                 if observation['location'] != EMPTY_POINT:
                     yield observation
@@ -311,6 +354,8 @@ class Observation(models.Model):
             ['source', 'recorded_at']
         )
 
+DEFAULT_ASSIGNED_RANGE = list((datetime(1970,1,1, tzinfo=pytz.utc),
+                               datetime.max.replace(tzinfo=pytz.utc)))
 
 class SubjectSourceManager(models.GeoManager):
     def get_subject_sources(self, subject):
@@ -321,7 +366,7 @@ class SubjectSourceManager(models.GeoManager):
         sds = SubjectSource.objects.filter(subject_id=subject.id, source_id=source_id)
         return sds
 
-    def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None, assigned_range=None,
+    def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None,
                               additional=None, subject_name=None):
 
         additional = additional or {}
@@ -346,7 +391,7 @@ class SubjectSourceManager(models.GeoManager):
 
             if sub:
                 subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
-                                                                     defaults=dict(assigned_range=assigned_range,
+                                                                     defaults=dict(assigned_range=DEFAULT_ASSIGNED_RANGE,
                                                                                    additional=additional))
                 
         return subject_source, created
@@ -376,6 +421,7 @@ class SubjectSource(models.Model):
 
 DEFAULT_SUBJECT_GROUP_ID = 'b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057'
 DEFAULT_SOURCE_GROUP_ID = '654e592c-fc5a-436d-98dd-fd1b36436a85'
+
 
 
 class SubjectGroupManager(HierarchyManager):
@@ -473,7 +519,7 @@ class SubjectManager(models.Manager):
         return subject
 
 
-class Subject(models.Model, PermissionSetGroupMixin):
+class Subject(TimestampedModel, PermissionSetGroupMixin):
     """Person, Animal, Vehicle, etc"""
 
     def clean_fields(self, exclude=None):
@@ -483,20 +529,27 @@ class Subject(models.Model, PermissionSetGroupMixin):
     TYPE_PERSON = 'person'
     TYPE_VEHICLE = 'vehicle'
     TYPE_STATIONARY_OBJECT = 'stationary-object'
+    TYPE_AIRCRAFT = 'aircraft'
 
     SUBTYPE_ELEPHANT = 'elephant'
     SUBTYPE_ZEBRA = 'zebra'
     SUBTYPE_RHINO = 'rhino'
     SUBTYPE_LION = 'lion'
+    SUBTYPE_GIRAFFE = 'giraffe'
 
     SUBTYPE_SECURITY = 'security'
     SUBTYPE_RESEARCH = 'research'
+    SUBTYPE_MOTORCYCLE = 'motorcycle'
     SUBTYPE_CAMERA_TRAP = 'camera-trap'
     SUBTYPE_WEATHER_STATION = 'weather-station'
 
     SUBTYPE_RANGER = 'ranger'
+    SUBTYPE_RANGER_TEAM = 'ranger_team'
     SUBTYPE_MANAGER = 'manager'
     SUBTYPE_DRIVER = 'driver'
+
+    SUBTYPE_PLANE = 'plane'
+    SUBTYPE_HELICOPTER = 'helicopter'
 
     TYPES_HIERARCHIES = [
         {
@@ -507,6 +560,7 @@ class Subject(models.Model, PermissionSetGroupMixin):
                 (SUBTYPE_ZEBRA, 'Zebra'),
                 (SUBTYPE_RHINO, 'Rhino'),
                 (SUBTYPE_LION, 'Lion'),
+                (SUBTYPE_GIRAFFE, 'Giraffe'),
             )
 
         },
@@ -515,6 +569,7 @@ class Subject(models.Model, PermissionSetGroupMixin):
             'name': 'Person',
             'subtypes': (
                 (SUBTYPE_RANGER, 'Ranger'),
+                (SUBTYPE_RANGER_TEAM, 'Ranger Team'),
                 (SUBTYPE_DRIVER, 'Driver'),
                 (SUBTYPE_MANAGER, 'Manager'),
             )
@@ -525,6 +580,7 @@ class Subject(models.Model, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_SECURITY, 'Security Vehicle'),
                 (SUBTYPE_RESEARCH, 'Research Vehicle'),
+                (SUBTYPE_MOTORCYCLE, 'Motorcycle'),
             )
         },
         {
@@ -533,6 +589,14 @@ class Subject(models.Model, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_CAMERA_TRAP, 'Camera Trap'),
                 (SUBTYPE_WEATHER_STATION, 'Weather Sensor'),
+            )
+        },
+        {
+            'value': TYPE_AIRCRAFT,
+            'name': 'Aircraft',
+            'subtypes': (
+                (SUBTYPE_PLANE, 'Plane'),
+                (SUBTYPE_HELICOPTER, 'Helicopter'),
             )
         }
     ]
@@ -554,6 +618,9 @@ class Subject(models.Model, PermissionSetGroupMixin):
             'This subject is actively shown in visualizations.'
         ),
     )
+    common_name = models.ForeignKey('CommonName', on_delete=models.PROTECT,
+                                    blank=True,
+                                    null=True)
     objects = SubjectManager.from_queryset(SubjectQuerySet)()
 
     class Meta:
@@ -608,35 +675,29 @@ class Subject(models.Model, PermissionSetGroupMixin):
 
     @property
     def image_url(self):
-        key = self._image_key()
-        return googlemarkericon(key.lower())
+        image_url = static_image_finder.get_marker_icon(self._image_keys())
+        if not image_url:
+            image_url = '/static/triangle.png'
+        return image_url
 
-    def _image_key(self):
-        # TODO: This is a bit kludgy, so fix it to use subject type and subtype after March demo.
-        key = self.subject_subtype
-        sex = self.additional.get('sex', None)
+    def _image_keys(self):
+        """return the preferred key first"""
+        key = self.subject_subtype.lower()
+        sex = self.additional.get('sex', 'male')
         if sex:
-            key = '-'.join((key, sex))
-        return key
+            yield '-'.join((key, 'black', sex.lower()))
+            yield '-'.join((key, sex.lower()))
 
-    def get_last_position_image_url(self):
+        status = self.subjectstatus_set.filter(delay_hours=0)
+        if status:
+            status = status[0]
+            if 'state' in status.additional:
+                color = get_radio_color(status.additional['state'],
+                                        status.additional)
+                yield '-'.join((key, color))
 
-        key = self._image_key()
-        if self.subject_subtype == 'ranger':
-            status = self.subjectstatus_set.filter(delay_hours=0)
-
-            if status:
-                status = status[0]
-                if 'state' in status.additional:
-                    key = '-'.join((key, status.additional.get('state')))
-
-                    # TODO: Refactor status (maybe) convey gps-status.
-                    if status.additional['state'] == 'online' \
-                        and False == status.additional.get('gps_fix', True):
-                        key = '-'.join((key, 'nogps'))
-
-
-        return googlemarkericon(key.lower())
+        yield key
+        yield '-'.join((key, 'black'))
 
 
     def get_users_to_notify(self):
@@ -706,6 +767,25 @@ class SubjectStatusManager(models.Manager):
         return substatus
 
 
+class CommonNameManager(models.Manager):
+    def get_by_natural_key(self, value):
+        return self.get(**{value: value})
+
+
+class CommonName(TimestampedModel):
+    """Common name for an animal, could stretch this to other subtypes as well.
+    """
+    #value = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    subject_subtype = models.CharField(max_length=100,
+                                       choices=Subject.SUBTYPE_CHOICES)
+    value = models.CharField(primary_key=True, max_length=100)
+    display = models.CharField(max_length=100)
+    objects = CommonNameManager()
+
+    def __str__(self):
+        return self.display
+
+
 class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
     subject = models.ForeignKey('Subject', on_delete=models.CASCADE)
     location = models.PointField('location')
@@ -740,41 +820,6 @@ class Region(models.Model):
 
     def _____str__(self):
         return '%s, %s' % (self.region, self.country)
-
-
-MARKER_ICONS = {
-    'elephant': '/static/elephant-black-male.svg',
-    'elephant-male': '/static/elephant-black-male.svg',
-    'elephant-female': '/static/elephant-black-female.svg',
-    'forest elephant': '/static/elephant-black-male.svg',
-    'forest elephant-male': '/static/elephant-black-male.svg',
-    'forest elephant-female': '/static/elephant-black-female.svg',
-    'lion-male': '/static/Lion_Male.png',
-    'lion-female': '/static/Lion_Female.png',
-    'ranger': '/static/ranger_team-black.svg',
-    'ranger-online': '/static/ranger_team-green.svg',
-    'ranger-online-nogps': '/static/ranger_team-blue.svg',
-    'ranger-offline': '/static/ranger_team-gray.svg',
-    'ranger-alarm': '/static/ranger_team-red.svg',
-    'vehicle': '/static/truck.png',
-    'cow': '',
-    'cheetah': '',
-    'expedition': 'http://maps.google.com/mapfiles/kml/shapes/triangle.png',
-    'zebra-male': '/static/GrevysZebra_Male.png',
-    'zebra-female': '/static/GrevysZebra_Female.png',
-    'goat': '',
-    'sable-male': '/static/SableAntelopeGraphicMale.png',
-    'sable-female': '/static/SableAntelopeGraphicFemale.png',
-    'rhino-male': '/static/Rhino_Male.png',
-    'rhino-female': '/static/Rhino_Female.png',
-    'white rhino': '',
-    'black rhino': '',
-}
-
-
-def googlemarkericon(subject_type):
-    url = MARKER_ICONS.get(subject_type, '/static/truck.png')
-    return url
 
 
 import observations.signals

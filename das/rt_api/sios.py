@@ -2,6 +2,7 @@
 import logging
 
 from django.conf import settings
+from socketio.kombu_manager import KombuManager
 
 import rt_api.server
 from rt_api.socketio import RTSocketIO
@@ -13,8 +14,11 @@ logger = logging.getLogger('rt_api')
 
 
 def create_rt_socketio(wsgi_handler):
+    client_mgr = KombuManager(url=settings.REALTIME_BROKER_URL,
+                              transport_options = settings.REALTIME_BROKER_OPTIONS
+                              )
     rtsios = RTSocketIO(app=wsgi_handler,
-                      message_queue=settings.REALTIME_BROKER_URL,
+                      client_manager=client_mgr,
                       json=utils.json,
                       logger=logger,
                       engineio_logger=logger)

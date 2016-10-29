@@ -16,7 +16,7 @@ from django.utils.encoding import force_text
 from versatileimagefield.fields import VersatileImageField
 
 from utils.html import clean_user_text
-from core.models import TimestampedModel, ChoiceCharField
+from core.models import TimestampedModel
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
 
@@ -30,10 +30,12 @@ def get_sentinel_user():
 
 
 def marker_icon(event_type, priority, state):
-    CONVERSION = {100:'gray', 200:'med_green', 300:'red'}
+    CONVERSION = {0: 'gray', 100: 'med_green', 200: 'amber', 300: 'red'}
     color = CONVERSION.get(priority, 'black')
     if state == Event.SC_RESOLVED:
         color = 'lt_gray'
+    if not event_type:
+        event_type = 'other'
     return '/static/{0}-{1}.svg'.format(event_type, color)
 
 
@@ -54,7 +56,7 @@ class Community(TimestampedModel):
         return self.name
 
 
-class EventTypeManager(models.Manager):
+class EventBaseManager(models.Manager):
     def get_by_value(self, value):
         return self.get(value=value)
 
@@ -64,6 +66,75 @@ class EventTypeManager(models.Manager):
 
         return result
 
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
+
+class EventClass(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    value = models.CharField(max_length=40, unique=True)
+    display = models.CharField(max_length=100, blank=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    objects = EventBaseManager()
+
+    def __str__(self):
+        return self.display
+
+    def natural_key(self):
+        return (self.value,)
+
+
+class EventFactor(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    value = models.CharField(max_length=40, unique=True)
+    display = models.CharField(max_length=100, blank=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    objects = EventBaseManager()
+
+    def __str__(self):
+        return self.display
+
+    def natural_key(self):
+        return (self.value,)
+
+
+class EventCategory(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    value = models.CharField(max_length=40, unique=True)
+    display = models.CharField(max_length=100, blank=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+    objects = EventBaseManager()
+
+    def __str__(self):
+        return self.display
+
+    def natural_key(self):
+        return (self.value,)
+
+
+class FilterFieldMixin(object):
+    def filter_field(self, field_name, field_data):
+        if not field_data:
+            return self
+
+        if isinstance(field_data, (list, tuple)):
+            field_q = None
+            for value in field_data:
+                field_q = field_q | models.Q(**{field_name: value}) if field_q\
+                    else models.Q(**{field_name: value})
+        else:
+            field_q = models.Q(**{field_name: field_data})
+        return self.filter(field_q)
+
+
+class EventTypeFilteringQuerySet(models.QuerySet, FilterFieldMixin):
+    def by_category(self, category):
+        return self.filter_field('category__value', category)
+
+
+class EventTypeManager(EventBaseManager):
     def create_type(self, **values):
         return self.create(**values)
 
@@ -72,15 +143,21 @@ class EventType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
+    category = models.ForeignKey(EventCategory, null=True,
+                                 on_delete=models.PROTECT)
     ordernum = models.SmallIntegerField(blank=True, null=True)
+    schema = models.TextField(blank=True)
 
-    objects = EventTypeManager()
+    objects = EventTypeManager.from_queryset(EventTypeFilteringQuerySet)()
 
     def __str__(self):
         return self.display
 
+    def natural_key(self):
+        return (self.value,)
 
-class EventFilteringQuerySet(models.QuerySet):
+
+class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def all_sort(self):
         # default order by is by updated_at and (new/active/resolved)
         ordering = [(0, Event.SC_NEW), (0, Event.SC_ACTIVE),
@@ -103,23 +180,13 @@ class EventFilteringQuerySet(models.QuerySet):
         return events
 
     def by_state(self, state):
-        return self._by_field('state', state)
+        return self.filter_field('state', state)
+
+    def by_category(self, category):
+        return self.filter_field('event_type__category__value', category)
 
     def by_event_type(self, event_type):
-        return self._by_field('event_type', event_type)
-
-    def _by_field(self, field_name, field_data):
-        if not field_data:
-            return self
-
-        if isinstance(field_data, (list, tuple)):
-            field_q = None
-            for value in field_data:
-                field_q = field_q | models.Q(**{field_name: value}) if field_q\
-                    else models.Q(**{field_name: value})
-        else:
-            field_q = models.Q(**{field_name: field_data})
-        return self.filter(field_q)
+        return self.filter_field('event_type', event_type)
 
 
 class EventManager(models.Manager):
@@ -180,9 +247,10 @@ class Event(RevisionMixin, TimestampedModel):
     PRI_NONE = 0
 
     PRIORITY_CHOICES = (
-        (100, 'Low'),
-        (200, 'Normal'),
-        (300, 'High')
+        (0, 'None'),
+        (100, 'Green'),
+        (200, 'Amber'),
+        (300, 'Red')
     )
 
     PRIORITY_LABELS_MAP = dict((x, y) for (x,y) in PRIORITY_CHOICES)
@@ -206,11 +274,12 @@ class Event(RevisionMixin, TimestampedModel):
     event_time = models.DateTimeField(default=django.utils.timezone.now)
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
-    event_type = models.ForeignKey(EventType, on_delete=models.PROTECT)
+    event_type = models.ForeignKey(EventType, on_delete=models.PROTECT,
+                                   blank=True, null=True)
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
     location = models.PointField(srid=4326, null=True, blank=True)
-    priority = models.PositiveSmallIntegerField(default=PRI_REFERENCE,
+    priority = models.PositiveSmallIntegerField(default=PRI_NONE,
                                                 choices=PRIORITY_CHOICES)
     attributes = JSONField(default={}, blank=True)
     revision = Revision()
@@ -246,7 +315,8 @@ class Event(RevisionMixin, TimestampedModel):
 
     @property
     def image_url(self):
-        return marker_icon(self.event_type.value, self.priority, self.state)
+        return marker_icon(self.event_type.value if self.event_type else None,
+                           self.priority, self.state)
 
     @property
     def subjects(self):
@@ -395,6 +465,24 @@ class EventNote(RevisionMixin, TimestampedModel):
         return '{0}'.format(self.text[50:])
 
 
+class EventDetailsManager(models.Manager):
+    def create_event_details(self, **kwargs):
+        return self.create(**kwargs)
+
+class EventDetails(RevisionMixin, TimestampedModel):
+    objects = EventDetailsManager()
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE,
+                              related_name='event_details',
+                              related_query_name='event_details')
+    data = JSONField()
+    revision = Revision()
+
+    def save(self, *args, **kwargs):
+        result = super().save(*args, **kwargs)
+        self.event.dependent_table_updated()
+        return result
+
 
 def upload_to(instance, filename):
     '''
@@ -444,5 +532,23 @@ class EventPhoto(RevisionMixin, TimestampedModel):
         relation_deleted.send(sender=Event, relation=self, instance=self.event, related_query_name='photo')
 
         return result
+
+
+class EventClassFactor(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    eventclass = models.ForeignKey(EventClass, on_delete=models.CASCADE)
+    eventfactor = models.ForeignKey(EventFactor, on_delete=models.CASCADE)
+    priority = models.PositiveSmallIntegerField(default=Event.PRI_REFERENCE,
+                                                choices=Event.PRIORITY_CHOICES)
+
+    class Meta:
+        unique_together = (('eventclass', 'eventfactor'),)
+
+    @property
+    def value(self):
+        return '{0}_{1}'.format(self.eventclass.value, self.eventfactor.value)
+
+    def __str__(self):
+        return self.value
 
 

@@ -1,0 +1,115 @@
+- model: mapping.featuretype
+  pk: 03a9f77b-647a-4b54-88db-d2257edd629c
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Cities}
+- model: mapping.featuretype
+  pk: 0ea4493f-9d3a-4463-abc2-3977210c2953
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Settlements}
+- model: mapping.featuretype
+  pk: 15fa4821-1af0-478c-b0a1-7f66ff3f0f7f
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Security}
+- model: mapping.featuretype
+  pk: 1b01837e-6d4e-416f-b837-6f2b54654355
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Park}
+- model: mapping.featuretype
+  pk: 4f13a1e1-eff1-4d00-94ae-93326fed8bd8
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Highways}
+- model: mapping.featuretype
+  pk: 50d739d9-dc64-4e58-8d8d-cc64d18b5cde
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Towns}
+- model: mapping.featuretype
+  pk: 56cefe2e-a6c5-4345-9351-602bd25546f1
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Paths}
+- model: mapping.featuretype
+  pk: 788224b7-d0d6-4a68-a14c-24c80744d236
+  fields:
+    created_at: "2016-08-04T1:00:00.000000+00:00"
+    updated_at: "2016-08-04T1:00:00.000000+00:00"
+    name: Conservancy
+    presentation: |
+        {"fill": "#00FF00", "fill-opacity": 0.4, "stroke": "#87CEFA",  "stroke-width": 3, "stroke-opacity": 0.7}
+- model: mapping.featuretype
+  pk: 8212bbab-36bd-40d4-9ea1-868d07ea2705
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Villages}
+- model: mapping.featuretype
+  pk: 86450bb6-3112-47b8-9aef-bb0841b96afb
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Secondary Roads}
+- model: mapping.featuretype
+  pk: 9dd8ffcc-30ea-4230-9355-c4d1264abf1e
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: National Reserve}
+- model: mapping.featuretype
+  pk: a327c930-d1ee-4938-b87a-74bd1a5a4121
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Cartography}
+- model: mapping.featuretype
+  pk: a918ea51-545e-4f3e-88a8-dee226ad80a4
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Primary Roads}
+- model: mapping.featuretype
+  pk: d5333c12-d3c1-4905-86ff-ee9e1d0b85b1
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Tertiary Roads}
+- model: mapping.featuretype
+  pk: e6f7d1a4-0591-43d1-b1e0-ddc75c0fe071
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Water Points}
+- model: mapping.featuretype
+  pk: ea478e7a-996e-4721-80eb-8f99b6d499af
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Geography}
+- model: mapping.featuretype
+  pk: f912c5b4-48c9-4f2f-b52b-207c9ce450de
+  fields:
+    created_at: "2016-08-04T1:00:00.000000+00:00"
+    updated_at: "2016-08-04T1:00:00.000000+00:00"
+    name: Community Conservancy
+    presentation: |
+        {"fill": "#CCFFCC", "fill-opacity": 0.4, "stroke": "#FFC0CB",  "stroke-width": 3, "stroke-opacity": 0.7}
+- model: mapping.featuretype
+  pk: faae49f3-bd6e-4400-a6b6-f1924fededfd
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Aviation}
+- model: mapping.featuretype
+  pk: fd8543eb-bcf9-49b3-aa60-0fa6c88f1ffd
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Rivers}
+- model: mapping.featuretype
+  pk: fe212e85-6619-445b-a302-87644107cd32
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Forest Reserve}
+- model: mapping.featuretype
+  pk: 44a8f761-d2d8-4433-ad26-50d4c24d96d5
+  fields: {created_at: "2016-08-04T1:00:00.000000+00:00", updated_at: "2016-08-04T1:00:00.000000+00:00", name: Sector}
+- model: mapping.featureset
+  pk: 010abc75-4b2f-4149-b8f6-c6d0f05911ec
+  fields:
+    created_at: "2016-08-04T1:00:00.000000+00:00"
+    updated_at: "2016-08-04T1:00:00.000000+00:00"
+    name: POIs
+    description: ''
+    types: [faae49f3-bd6e-4400-a6b6-f1924fededfd, 03a9f77b-647a-4b54-88db-d2257edd629c,
+      8212bbab-36bd-40d4-9ea1-868d07ea2705, 15fa4821-1af0-478c-b0a1-7f66ff3f0f7f,
+      a327c930-d1ee-4938-b87a-74bd1a5a4121, 0ea4493f-9d3a-4463-abc2-3977210c2953,
+      ea478e7a-996e-4721-80eb-8f99b6d499af, 50d739d9-dc64-4e58-8d8d-cc64d18b5cde,
+      e6f7d1a4-0591-43d1-b1e0-ddc75c0fe071]
+- model: mapping.featureset
+  pk: 09bb08a9-aa35-4a7b-90c6-95820f0ab3a6
+  fields:
+    created_at: "2016-08-04T1:00:00.000000+00:00"
+    updated_at: "2016-08-04T1:00:00.000000+00:00"
+    name: Boundaries
+    description: ''
+    types: [1b01837e-6d4e-416f-b837-6f2b54654355, 788224b7-d0d6-4a68-a14c-24c80744d236,
+      44a8f761-d2d8-4433-ad26-50d4c24d96d5,
+      f912c5b4-48c9-4f2f-b52b-207c9ce450de, 9dd8ffcc-30ea-4230-9355-c4d1264abf1e,
+      fe212e85-6619-445b-a302-87644107cd32]
+- model: mapping.featureset
+  pk: 4e047d83-30f5-49c8-b5c8-658e0b546ab3
+  fields:
+    created_at: "2016-08-04T1:00:00.000000+00:00"
+    updated_at: "2016-08-04T1:00:00.000000+00:00"
+    name: Rivers
+    description: ''
+    types: [fd8543eb-bcf9-49b3-aa60-0fa6c88f1ffd]
+- model: mapping.featureset
+  pk: 6abfde14-c8d1-49a9-b185-06f92b4d52ef
+  fields:
+    created_at: "2016-08-04T1:00:00.000000+00:00"
+    updated_at: "2016-08-04T1:00:00.000000+00:00"
+    name: Roads
+    description: ''
+    types: [4f13a1e1-eff1-4d00-94ae-93326fed8bd8, 86450bb6-3112-47b8-9aef-bb0841b96afb,
+      a918ea51-545e-4f3e-88a8-dee226ad80a4, d5333c12-d3c1-4905-86ff-ee9e1d0b85b1,
+      56cefe2e-a6c5-4345-9351-602bd25546f1]
+

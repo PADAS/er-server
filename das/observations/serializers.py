@@ -78,7 +78,7 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
             last_position = None
             if user.has_any_perms(model.VIEW_POSITION_PERMS, instance):
                 last_position = instance.subjectstatus_set.get_last()
-                rep['image_url'] = instance.get_last_position_image_url()
+                rep['image_url'] = instance.image_url
             elif user.has_any_perms(model.VIEW_DELAYED_PERMS, instance):
                 last_position = instance.subjectstatus_set.get_delayed()
 
@@ -126,7 +126,7 @@ class TrackSerializer(rest_framework.serializers.Serializer):
     def to_representation(self, instance):
 
         # TODO: Review with Shawn, wrt to recent changes in SubjectTracksView.
-        image_url = (self.context.get('subject') or instance).get_last_position_image_url()
+        image_url = (self.context.get('subject') or instance).image_url
 
         feature = make_feature(self.context['request'],
                                self.context['coordinates'], instance,

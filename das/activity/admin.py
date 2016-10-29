@@ -28,11 +28,37 @@ class CommunityAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventType)
 class EventTypeAdmin(admin.ModelAdmin):
-    ordering = ('ordernum', 'display',)
-    list_display = ('display', 'ordernum',)
+    ordering = ('category','ordernum', 'display',)
+    list_display = ('display', 'value', 'ordernum', 'category')
     fieldsets = (
         (None, {
-            'fields': ('display', 'value', 'ordernum',
+            'fields': ('display', 'value', 'ordernum', 'schema', 'category'
                        )}
          ),
     )
+
+
+@admin.register(models.EventClass)
+class EventClassAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(models.EventFactor)
+class EventFactorAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(models.EventCategory)
+class EventCategoryAdmin(admin.ModelAdmin):
+    pass
+
+@admin.register(models.EventClassFactor)
+class EventClassFactorAdmin(admin.ModelAdmin):
+    list_display = ('class_display', 'factor_display', 'priority')
+    ordering = ('eventclass__ordernum', 'eventfactor__ordernum')
+
+    def class_display(self, instance):
+        return instance.eventclass.display
+
+    def factor_display(self, instance):
+        return instance.eventfactor.display

@@ -142,20 +142,37 @@ app:
                         <IfModule mod_headers.c>
                           # Make sure proxies don't deliver the wrong content
                           Header append Vary User-Agent env=!dont-vary
+                          # Allow browser to see custom header, for downloading reports.
+                          Header append Access-Control-Expose-Headers x-das-download-filename
                         </IfModule>
                         </IfModule>
 
               - celeryconfig.conf:
                     permissions: 0644
                     content: |
-                        [program:celeryworker]
-                        command=/opt/python/run/venv/bin/celery worker -A das_server -l info -c 4 -P gevent
+                        [program:celeryworker_priority]
+                        command=/opt/python/run/venv/bin/celery worker -A das_server -Q realtime_p1,realtime_p2,realtime_p3,default -l info -c 20 -P gevent
                         directory=/opt/python/current/app/das
                         environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
                         user=wsgi
                         numprocs=1
-                        stdout_logfile=/opt/python/log/celery_worker.log
-                        stderr_logfile=/opt/python/log/celery_worker_stderr.log
+                        stdout_logfile=/opt/python/log/celery_worker_priority.log
+                        stderr_logfile=/opt/python/log/celery_worker_priority_stderr.log
+                        redirect_stderr=true
+                        autostart=true
+                        autorestart=true
+                        startsecs=10
+                        priority=20
+                        killasgroup=true
+
+                        [program:celeryworker_default]
+                        command=/opt/python/run/venv/bin/celery worker -A das_server -Q default,realtime_p1,realtime_p2,realtime_p3 -l info -c 20 -P gevent
+                        directory=/opt/python/current/app/das
+                        environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
+                        user=wsgi
+                        numprocs=1
+                        stdout_logfile=/opt/python/log/celery_worker_default.log
+                        stderr_logfile=/opt/python/log/celery_worker__default_stderr.log
                         redirect_stderr=true
                         autostart=true
                         autorestart=true
@@ -293,7 +310,7 @@ app:
                                 remi: http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
                         commands:
                           01-install-redis:
-                            command: "if [ ! -e /var/lib/redis ]; then yum -y --enablerepo=remi,remi-test install redis; service redis restart; fi"
+                            command: "if [ -e /var/lib/redis ]; then service redis stop; fi"
 
               - .ebextensions/02-commands.config:
                     permissions: 0666
@@ -372,13 +389,6 @@ app:
                 DAS_ENV_NAME: 'odzala'
               'aws:autoscaling:launchconfiguration':
                 InstanceType: "t2.medium"
-        'das-server-lewa':
-            cname_prefix: 'das-server-lewa'
-            option_settings:
-              'aws:elasticbeanstalk:application:environment':
-                DAS_ENV_NAME: 'lewa'
-              'aws:autoscaling:launchconfiguration':
-                InstanceType: "t2.medium"
         # the demo version of the app
         'das-server-demo':
             cname_prefix: 'das-server-demo'
@@ -409,3 +419,10 @@ app:
                 DAS_ENV_NAME: 'bomassa'
               'aws:autoscaling:launchconfiguration':
                 InstanceType: "t2.medium"
+        # the demo Akagera version of the app
+        'das-server-demo-akagera':
+            cname_prefix: 'das-server-demo-akagera'
+            option_settings:
+              'aws:elasticbeanstalk:application:environment':
+                DAS_ENV_NAME: 'demo-akagera'
+

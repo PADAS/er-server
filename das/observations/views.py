@@ -259,57 +259,47 @@ class SubjectTracksView(generics.RetrieveAPIView):
         return self._cached_object
 
     def get(self, request, *args, **kwargs):
-        now = datetime.datetime.now()
         instance = self.get_object()
-        logger.debug('Time to get object %s', datetime.datetime.now() - now)
-        now = datetime.datetime.now()
         serializer = self.get_serializer(instance)
-        logger.debug('Time to get serializer %s', datetime.datetime.now() - now)
-        now = datetime.datetime.now()
         data = serializer.data
-        logger.debug('Time to get serializer.data %s',
-                     datetime.datetime.now() - now)
-        now = datetime.datetime.now()
         response = Response(data)
-        logger.debug('Time to get response %s',
-                     datetime.datetime.now() - now)
         return response
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         subject = self.get_object()
-        since = self.request.query_params.get('since', None)
-        if isinstance(since, str):
+
+        # Get all the arguments
+        limit = self.request.query_params.get('limit', None)
+        until = self.request.query_params.get('until', datetime.datetime.now(tz=pytz.UTC))
+        since = self.request.query_params.get('since', datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS)
+
+        # Since and until could be passed as strings
+        if until and isinstance(until, str):
+            until = dateparse(until)
+        if since and isinstance(since, str):
             since = dateparse(since)
 
-        until = self.request.query_params.get('until', None)
-        if until:
-            until = dateparse(until)
-        if not until:
-            until = datetime.datetime.now(tz=pytz.UTC)
-
-        if since is None:
-            since = datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS
-
+        # Apply permissions
         if self.request.user.has_any_perms(models.Subject.VIEW_POSITION_PERMS, subject):
             context['subject'] = subject
             try:
-                last_state = subject.subjectstatus_set.get_last()
-            except Exception as ex:
-                logger.warn('error getting subject state while serializing tracks', ex)
+                context['subject_state'] = subject.subjectstatus_set.get_last().additional['state']
+            except Exception:
+                pass
         elif self.request.user.has_any_perms(models.Subject.VIEW_DELAYED_PERMS, subject):
-            until = min(until, datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(hours=24))
+            # Make sure the date ranges are delayed
+            one_day = datetime.timedelta(hours=24)
+            until = min(until,datetime.datetime.now(tz=pytz.UTC) - one_day)
+            since = min(since, datetime.datetime.now(tz=pytz.UTC) - one_day)
+            if since >= until:
+                return None
             try:
-                last_state = subject.subjectstatus_set.get_delayed()
-            except Exception as ex:
-                logger.warn('error getting subject state while serializing tracks', ex)
+                context['subject_state'] = subject.subjectstatus_set.get_delayed().additional['state']
+            except Exception:
+                pass
         else:
             return None
-
-        try:
-            context['subject_state'] = last_state.additional['state']
-        except:
-            pass
 
         sds = models.SubjectSource.objects.filter(subject=subject)
         if not sds:
@@ -318,7 +308,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
         coordinates = []
         times = []
         for ob in models.Observation.objects.get_source_range_observation_values(
-                sds, since, until):
+                sds, since=since, until=until, limit=limit):
             coordinates.append(ob['location'].coords)
             times.append(ob['recorded_at'])
 

@@ -2,22 +2,28 @@ import logging
 import traceback
 from collections import OrderedDict
 
-from core.serializers import ContentTypeField, ChoiceField
+from core.serializers import ContentTypeField
+from choices.serializers import ChoiceField
 from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
 from django.core.urlresolvers import reverse
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from django.http import Http404
+
 from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
 import rest_framework.serializers
 from rest_framework.metadata import BaseMetadata
-from rest_framework.fields import DateTimeField, IntegerField
+from rest_framework.fields import DateTimeField
 from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from versatileimagefield.serializers import VersatileImageFieldSerializer
+
+import jsonschema
+import jsonschema.exceptions
+from utils.json import loads
 
 import activity.models
 import utils
@@ -25,7 +31,30 @@ from accounts.serializers import UserDisplaySerializer, get_user_display
 from observations.serializers import SubjectSerializer, SourceSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
+from activity import schema_utils
+
 logger = logging.getLogger(__name__)
+
+
+class EventAttributesField(rest_framework.serializers.JSONField):
+    def __init__(self, event_type, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.schema = None
+        if event_type:
+            self.schema = event_type.schema
+
+    def to_representation(self, value):
+        return value
+
+    def to_internal_value(self, data):
+        if not self.schema and data:
+            rest_framework.serializers.ValidationError(
+                'Schema not set for Event.Attributes')
+        try:
+            jsonschema.validate(data, self.schema)
+        except jsonschema.exceptions.ValidationError as ex:
+            raise rest_framework.serializers.ValidationError(ex.message)
+        return data
 
 
 class CommunitySerializer(rest_framework.serializers.ModelSerializer):
@@ -59,6 +88,7 @@ REPORTED_SERIALIZER_MAPPING = {
 
 }
 
+
 def filter_blank_choice(choices):
     if isinstance(choices, dict):
         choices = choices.items()
@@ -70,8 +100,10 @@ def filter_blank_choice(choices):
             pass
         yield value,display
 
+
 class EventJSONSchema(BaseMetadata):
     label_lookup = ClassLookupDict({
+        rest_framework.serializers.Field: 'object',
         rest_framework.serializers.BooleanField: 'boolean',
         rest_framework.serializers.NullBooleanField: 'boolean',
         rest_framework.serializers.CharField: 'string',
@@ -85,13 +117,18 @@ class EventJSONSchema(BaseMetadata):
         rest_framework.serializers.DateField: 'string',
         rest_framework.serializers.DateTimeField: 'string',
         rest_framework.serializers.TimeField: 'string',
-        rest_framework.serializers.ChoiceField: 'string',
+        rest_framework.serializers.FileField: 'string',
+        rest_framework.serializers.ChoiceField: 'enum',
         rest_framework.serializers.MultipleChoiceField: 'string',
         rest_framework.serializers.ListField: 'array',
         rest_framework.serializers.DictField: 'object',
         rest_framework.serializers.Serializer: 'object',
+        rest_framework.serializers.PrimaryKeyRelatedField: 'string',
+        rest_framework.serializers.SlugRelatedField: 'enum',
         rest_framework.serializers.UUIDField: 'string',
         rest_framework.serializers.RelatedField: 'object',
+        rest_framework.serializers.HyperlinkedRelatedField: 'string',
+        rest_framework.serializers.HyperlinkedIdentityField: 'string',
         drf_extra_fields.geo_fields.PointField: 'string',
         ChoiceField: 'string',
 
@@ -106,11 +143,11 @@ class EventJSONSchema(BaseMetadata):
 
     def determine_metadata(self, request, view):
         metadata = OrderedDict(self.schema)
-        metadata['description'] = view.get_view_description()
+
         if hasattr(view, 'get_serializer'):
             properties = self.determine_properties(request, view)
             metadata['properties'] = properties
-
+        metadata['description'] = view.get_view_description()
         return metadata
 
     def determine_properties(self, request, view):
@@ -273,6 +310,10 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
             return get_user_display(instance)
         return super().display_value(instance)
 
+    def get_choices(self, cutoff=None):
+        '''get_choices does not work for this complicated field, see object_choices'''
+        return OrderedDict()
+
     @property
     def object_choices(self):
         queryset = self.get_object_queryset()
@@ -303,7 +344,7 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
         return activity.models.EventType.objects.all_sort()
 
     def to_representation(self, value):
-        return value.value
+        return value.value if value else None
 
     def to_internal_value(self, data):
         if data:
@@ -314,6 +355,20 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
     def choices(self):
         return OrderedDict(((row.value, row.display)
                             for row in self.get_queryset()))
+
+
+class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventType
+        read_only_fields = ('value', 'display', 'ordernum')
+        fields = read_only_fields
+
+    def to_representation(self, obj):
+        rep = super().to_representation(obj)
+        if obj.category:
+            rep['category'] = dict(value=obj.category.value,
+                                   display=obj.category.display)
+        return rep
 
 
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
@@ -462,6 +517,106 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
             for revision in photo.revision.all_user()
             ]
 
+class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
+
+    class Meta:
+        model = activity.models.EventDetails
+        read_only_fields = ('created_at', 'updated_at')
+        fields = ('id', 'event', 'data') + read_only_fields
+
+    def create(self, validated_data):
+        return activity.models.EventDetails.objects.create_event_details(**validated_data)
+
+    def update(self, instance, validated_data):
+
+        # it's possibile that we weren't able to validate event data earlier, so do it now
+        if '_internal_validated' in validated_data['event_details'] and not validated_data['event_details']['_internal_validated']:
+            del(validated_data['event_details']['_internal_validated'])
+            validated_data = {'event_details': self._to_internal_value_inner(instance, validated_data['event_details'])}
+
+        # Get the current details object
+        current_details = self.get_attribute(instance)
+
+        if not current_details:
+            current_details = activity.models.EventDetails.objects.create(**{'event': instance, 'data': validated_data})
+
+        elif current_details.data != validated_data:
+            current_details.data = validated_data
+            current_details.save()
+
+        return current_details
+
+    def _to_internal_value_inner(self, instance, data):
+
+        if instance is None:
+            data['_internal_validated'] = False
+            return data
+
+        event_type = instance.event_type
+        if 'request' in self.context:
+            new_event_type = self.context['request'].data['event_type']
+            if new_event_type and new_event_type != instance.event_type.value:
+                event_type = activity.models.EventType.objects.get(value=new_event_type)
+
+        schema = event_type.schema
+
+        if not schema:
+            return super().to_internal_value(data)
+
+        replacement_fields = schema_utils.get_replacement_fields_in_schema(schema)
+
+        parameters = {}
+        for replacement_field in replacement_fields:
+            # No need to get values, only need value to name mapping
+            if replacement_field['type'] not in ['names', 'map']:
+                continue
+
+            if replacement_field['lookup'] == 'enum':
+                parameters[replacement_field['field']] = schema_utils.get_enum_choices(replacement_field, as_string=False)
+            elif replacement_field['lookup'] == 'query':
+                parameters[replacement_field['field']] = schema_utils.get_dynamic_choices(replacement_field, as_string=False)
+            elif replacement_field['lookup'] == 'table':
+                parameters[replacement_field['field']] = schema_utils.get_table_choices(replacement_field, as_string=False)
+
+        all_schema_fields = schema_utils.get_all_fields(schema)
+
+        # Append field information to the data we're getting so we know how to get back to the source
+        ret = {}
+        for k, v in data.items():
+            if k not in all_schema_fields:
+                continue
+            if type(v) == dict and k in parameters and v['value'] in parameters[k]:
+                ret[k] = {'name': parameters[k][v['value']], 'value': v['value']}
+            elif type(v) == list and k in parameters:
+                all_values = []
+                for value in v:
+                    matches = [d for d in parameters[k] if d['value'] == value]
+                    if len(matches) > 0:
+                        all_values.append(matches[0])
+                if len(all_values) > 0:
+                    ret[k] = all_values
+            elif type(v) == str and k in parameters and v in parameters[k]:
+                ret[k] = {'name': parameters[k][v], 'value': v}
+            else:
+                ret[k] = v
+        return ret
+
+
+    def to_internal_value(self, data):
+        return self._to_internal_value_inner(self.root.instance, data)
+
+    def to_representation(self, event_details):
+        if not event_details:
+            return OrderedDict()
+        ret = OrderedDict(event_details.data['event_details'])
+        return ret
+
+    def is_valid(self, raise_exception=False):
+        return super().is_valid(raise_exception=raise_exception)
+
+    def get_attribute(self, instance):
+        return activity.models.EventDetails.objects.filter(event=instance).order_by('created_at').last()
+
 
 class EventSerializer(rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
@@ -475,9 +630,10 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     )
     notes = EventNoteSerializer(many=True, required=False)
     reported_by = ReportedByRelatedField(required=False)
-    message = rest_framework.serializers.CharField(required=True)
+    message = rest_framework.serializers.CharField(required=False)
     photos = EventPhotoSerializer(many=True, required=False)
-    event_type = EventTypeRelatedField()
+    event_type = EventTypeRelatedField(required=False)
+    event_details = EventDetailsSerializer(required=False, default={})
 
     class Meta:
         model = activity.models.Event
@@ -486,25 +642,50 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             'id', 'location', 'time', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes',
             'image_url', 'created_by_user', 'notes', 'reported_by',
-            'state', 'photos') + read_only_fields
+            'state', 'photos', 'event_details') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         if self.context.get('include_photos', True):
             self.fields['photos'].context.update(self.context)
         else:
             self.fields.pop('photos')
+
         if self.context.get('include_notes', True):
             self.fields['notes'].context.update(self.context)
         else:
             self.fields.pop('notes')
 
+        if self.context.get('include_details', True):
+            self.fields['event_details'].context.update(self.context)
+        else:
+            self.fields.pop('event_details')
+
+    def to_internal_value(self, data):
+        internal_value = super().to_internal_value(data)
+        #attributes_field = EventAttributesField(data)
+        return internal_value
+
     def create(self, validated_data):
-        return activity.models.Event.objects.create_event(**validated_data)
+        details_data = {}
+
+        if 'event_details' in validated_data:
+            details_data['event_details'] = validated_data['event_details']
+            del validated_data['event_details']
+
+        new_event = activity.models.Event.objects.create_event(**validated_data)
+        EventDetailsSerializer().update(new_event, details_data)
+        return new_event
 
     def update(self, instance, validated_data):
         update_fields = []
         for k, v in validated_data.items():
+            # details don't get saved in the same table as the rest of the
+            # event data, so hand this off and pretend we never saw it
+            if k == 'event_details':
+                EventDetailsSerializer().update(instance, {k: v})
+                continue
             if getattr(instance, k) != v:
                 setattr(instance, k, v)
                 if k == 'reported_by':
@@ -550,6 +731,9 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
             for photo in rep.get('photos', []):
                 updates.extend(photo['updates'])
             rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
+
+        if event.event_type and event.event_type.category:
+            rep['event_category'] = event.event_type.category.value
         return rep
 
     def render_updates(self, event):
@@ -637,3 +821,34 @@ def make_feature(request, event):
 
         }
     return feature
+
+
+class EventClassSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventClass
+        fields = ('value', 'display', 'ordernum')
+
+
+class EventFactorSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventFactor
+        fields = ('value', 'display', 'ordernum')
+
+
+class EventClassFactorSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventClassFactor
+        fields = ('value',)
+
+    def to_representation(self, instance):
+        c = instance.eventclass
+        f = instance.eventfactor
+        rep = dict(
+                value=instance.value,
+                class_value=c.value,
+                factor_value=f.value,
+                priority=instance.priority,
+                priority_label=instance.get_priority_display())
+
+        return rep
+

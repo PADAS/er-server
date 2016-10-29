@@ -6,5 +6,8 @@ from tracking.models.awtgsm import AWTHttpPlugin
 from tracking.models.inreachkml import InreachKMLPlugin
 from tracking.models.skygistics import SkygisticsSatellitePlugin
 from tracking.models.firms import FirmsPlugin
+from tracking.models.spidertracks import SpiderTracksPlugin
 from tracking.models.plugin_base import TrackingPlugin
 
+runnable_plugins = (SavannahPlugin, DemoSourcePlugin, InreachPlugin, InreachKMLPlugin, AWTHttpPlugin,
+                    SkygisticsSatellitePlugin, FirmsPlugin, SpiderTracksPlugin)

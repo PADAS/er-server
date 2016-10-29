@@ -58,9 +58,11 @@ INSTALLED_APPS = (
     'sensors',
     'mapping.apps.MappingConfig',
     'activity',
-    'rt_api.apps.RTAPIConfig',
+    'rt_api',
     'core.apps.CoreConfig',
-    'vectronics'
+    'vectronics',
+    'choices',
+    'reports',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -97,7 +99,23 @@ TEMPLATES = [
             ],
         },
     },
+    {
+        'NAME': 'docx_template',
+        'BACKEND': 'reports.backends.DocxBackend',
+        'DIRS': [BASE_DIR, ],
+        'APP_DIRS': True,
+        'OPTIONS': {'environment': 'reports.environment.Environment',
+                    'optimized': False},
+    },
+    {
+        'BACKEND': 'django.template.backends.jinja2.Jinja2',
+        'NAME': 'jinja2',
+        'DIRS': [BASE_DIR, ],
+        'APP_DIRS': True,
+        'OPTIONS': {'environment': 'jinja2.Environment', },
+    },
 ]
+
 
 # TEMPLATE_CONTEXT_PROCESSORS = TCP + [
 #     'django.core.context_processors.request',
@@ -144,10 +162,20 @@ REST_FRAMEWORK = {
         'utils.json.ExtendedJSONRenderer',
         'utils.json.ExtendedBrowsableAPIRenderer',
     ),
+    'DEFAULT_METADATA_CLASS': 'utils.drf.NoMetaData',
     'EXCEPTION_HANDLER': 'utils.drf.api_exception_handler',
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
     #'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
     #'DEFAULT_VERSION': 'v1.0',
+    'SECURITY_DEFINITIONS': {
+            'oauth2': {
+                'type': 'oauth2',
+                'name': '',
+                'authorizationUrl': 'http://swagger.io/api/oauth/dialog',
+                'flow': 'password',
+                'in': 'header',
+            }
+        },
 }
 
 AUTHENTICATION_BACKENDS = (
@@ -279,13 +307,25 @@ DATA_INPUT_PLUGINS = {
 MAPPING = {'MBTILES': {'root': r'\tmp',}}
 
 REALTIME_BROKER_URL = 'redis://localhost:6379/2'
+REALTIME_BROKER_OPTIONS = {'max_connections': 200}
 PUBSUB_BROKER_URL = 'redis://localhost:6379/1'
+PUBSUB_BROKER_OPTIONS = {'max_connections': 20}
 
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
 DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
 #Used by password reset email
 EMAIL_HOST_USER = 'info@pamdas.org'
+
+SENDSMS_BACKEND='utils.smsbackend.AfricasTalkingBackend'
+
+# use these when you want to send SMS from kenya
+SENDSMS_AFRICAS_TALKING_USERNAME=''
+SENDSMS_AFRICAS_TALKING_API_KEY=''
+
+# use these when you don't want to send SMS from kenya
+SENDSMS_TWILIO_ACCOUNT_SID=''
+SENDSMS_TWILIO_AUTH_TOKEN=''
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'event_photo': [
@@ -337,3 +377,11 @@ VERSATILEIMAGEFIELD_SETTINGS = {
     # here: https://optimus.io/support/progressive-jpeg/
     'progressive_jpeg': True
 }
+
+REALTIME_AUTH_TIMEOUT_SECONDS = 1.0
+
+NOTIFY_HIGH_PRIORITY_EVENT=None
+NOTIFY_MEDIUM_PRIORITY_EVENT=None
+NOTIFY_LOW_PRIORITY_EVENT=None
+
+EVENT_MATRIX_ENABLED = False

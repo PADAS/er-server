@@ -15,10 +15,11 @@ class SubjectAdmin(admin.ModelAdmin):
 
     list_display = ('id', 'name', 'subject_type', 'subject_subtype',
                     'is_active', 'additional', 'all_groups', 'all_sources')
-    search_fields = ('name', 'subject_subtype')
 
-    fields = ('id', 'name', 'additional', 'groups', SubjectForm.SUBTYPE_FIELD)
-    list_filter = ('is_active', 'subject_type',)
+    search_fields = ('name', 'subject_subtype', 'common_name__display')
+
+    fields = ('id', 'name', 'common_name', 'additional', 'groups', SubjectForm.SUBTYPE_FIELD)
+    list_filter = ('is_active', 'subject_type', 'subject_subtype', 'common_name')
     list_editable = ('is_active',)
 
     def queryset(self, request):
@@ -40,6 +41,11 @@ class SubjectAdmin(admin.ModelAdmin):
         form = super().get_form(request, obj=obj, **kwargs)
         form.base_fields[SubjectForm.SUBTYPE_FIELD].initial = self.type_subtype_view(obj)
         return form
+
+    def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
+        if db_field.name == 'common_name':
+            kwargs['queryset'] = models.CommonName.objects.all()
+        return super().formfield_for_foreignkey(db_field, request=request, **kwargs)
 
     def all_groups(self, instance):
         groups = instance.groups.all()
@@ -71,6 +77,20 @@ class SubjectAdmin(admin.ModelAdmin):
             obj.subject_subtype = st
 
         super().save_model(request, obj, form, change)
+
+
+@admin.register(models.CommonName)
+class CommonNameAdmin(admin.ModelAdmin):
+    list_display = ('value', 'display', 'subject_subtype')
+
+    def queryset(self, request):
+        """Limit Subjects to those this person can administer"""
+        qs = super(SubjectAdmin, self).queryset(request)
+        if request.user.is_superuser:
+            return qs
+
+        raise NotImplementedError('implement filtering SubjectAdmin to user permissions')
+        return qs.filter(owner=request.user)
 
 
 @admin.register(models.Source)

@@ -1,0 +1,4 @@
+{{user}} updated {{event}}
+{% for update in updates %}
+{{update}}
+{% endfor %}
