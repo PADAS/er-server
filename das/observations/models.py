@@ -581,7 +581,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_SECURITY, 'Security Vehicle'),
                 (SUBTYPE_RESEARCH, 'Research Vehicle'),
-                (SUBTYPE_TOURIST_VEHICLE, 'Tourist Vehicle')
+                (SUBTYPE_TOURIST_VEHICLE, 'Tourist Vehicle'),
                 (SUBTYPE_MOTORCYCLE, 'Motorcycle'),
             )
         },
