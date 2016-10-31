@@ -2,7 +2,7 @@
 # pip install -r requirements.txt --find-links wheelhouse
 #
 psycopg2==2.6.2
-simplejson==3.8.2
+simplejson==3.10.0
 pytz==2016.7
 python-dateutil==2.5.3
 requests==2.11.1
@@ -27,7 +27,7 @@ django-pgviews==0.2.0
 django-model-utils==2.6
 #django-extensions==1.5.7
 #see https://github.com/ottoyiu/django-cors-headers
-django-cors-headers==1.2.1
+django-cors-headers==1.2.2
 django-oauth-toolkit==0.10.0
 django-rest-swagger==0.3.7
 django-leaflet==0.18.1
@@ -54,7 +54,7 @@ Fiona==1.6.3
 cython==0.24.1
 geopandas==0.1.1
 shapely==1.5.15
-celery==3.1.23
+celery==3.1.24
 redis==2.10.5
 six==1.10.0
 bleach==1.4.3
@@ -68,11 +68,11 @@ django-storages==1.5.1
 #django-versatileimagefield==1.6
 git+https://github.com/VulcanTechnologies/django-versatileimagefield.git@751767afb611890921c6705f1a69fa69381ea103
 
-boto==2.42.0
+boto==2.43.0
 
 PyYAML==3.12
 
-Pillow==3.4.0
+Pillow==3.4.2
 
 # Docx and Docx Template are used for generating reports as Word documents.
 docxtpl==0.2.3
