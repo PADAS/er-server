@@ -173,90 +173,90 @@ class ChoiceCharField(models.CharField):
 class ActionTaken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class Conservancy(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class Behavior(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class Station(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class Color(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class Health(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class Species(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class CauseOfDeath(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class FenceSection(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class SectionArea(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class Team(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class PoachingMean(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class Tribe(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class IllegalActivity(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class Livestock(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class ContactType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class TrophyStatus(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
 class WildlifeGap(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True)
+    ordernum = models.IntegerField(blank=True, null=True)
 
