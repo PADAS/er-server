@@ -28,7 +28,8 @@ from utils.json import loads
 import activity.models
 import utils
 from accounts.serializers import UserDisplaySerializer, get_user_display
-from observations.serializers import SubjectSerializer, SourceSerializer
+from observations.serializers import SubjectSerializer, SourceSerializer, get_subject_display
+from observations.models import Subject
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
 from activity import schema_utils
@@ -308,6 +309,8 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
     def display_value(self, instance):
         if isinstance(instance, get_user_model()):
             return get_user_display(instance)
+        elif isinstance(instance, Subject):
+            return get_subject_display(instance)
         return super().display_value(instance)
 
     def get_choices(self, cutoff=None):

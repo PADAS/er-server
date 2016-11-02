@@ -3,10 +3,10 @@ from choices.models import Choice, DynamicChoice, Conservancy, Behavior, Station
 
 
 class BaseChoiceAdmin(admin.ModelAdmin):
-    list_display = ('name',)
+    ordering = ('-ordernum',)
+    list_display = ('name', 'ordernum')
     search_fields = ('name',)
-    list_fields = ('name', 'ordernum')
-    list_editable = ('name',)
+    list_editable = ('name', 'ordernum')
 
 
 @admin.register(Choice)
