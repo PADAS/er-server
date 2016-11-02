@@ -199,9 +199,9 @@ class EventManager(models.Manager):
             def get_staff():
                 for obj in get_user_model().objects.all().filter(
                         is_active=True):
-                    yield (obj.get_full_name(), obj)
+                    yield (obj.get_full_name().lower(), obj)
                 for obj in Subject.objects.all().get_staff().by_is_active():
-                    yield (obj.name, obj)
+                    yield (obj.name.lower(), obj)
             for staff in sorted(get_staff(), key=itemgetter(0)):
                 yield staff[1]
 
