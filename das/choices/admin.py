@@ -4,7 +4,8 @@ from choices.models import Choice, DynamicChoice, Conservancy, Behavior, Station
 
 class BaseChoiceAdmin(admin.ModelAdmin):
     ordering = ('ordernum',)
-    list_display = ('name', 'ordernum')
+    list_display = ('id', 'name', 'ordernum')
+    list_display_links = ('id',)
     search_fields = ('name',)
     list_editable = ('name', 'ordernum')
 
