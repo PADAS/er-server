@@ -36,15 +36,14 @@ def _event_handler(event_id, type):
     try:
         logger.debug('Processing update on event_id {0}'.format(event_id))
         view = EventView.as_view()
-        connected_sids = redis_client.hkeys('realtime_connections')
+        all_connections = redis_client.hgetall('realtime_connections')
 
-        for connected_sid in connected_sids:
+        for sid, username in all_connections.items():
             try:
-                logger.debug('Creating event payload for user {0}'.format(connected_sid))
+                connected_sid = sid.decode('UTF-8')
+                username = username.decode('UTF-8')
 
-                connected_sid = connected_sid.decode('UTF-8')
-                username = redis_client.hget('realtime_connections',
-                                             connected_sid).decode('UTF-8')
+                logger.debug('Creating observation payload for user {0}: {1}'.format(username[0], connected_sid))
                 user = User.objects.filter(username=username).first()
                 if not user:
                     # Probably shouldn't get here, but maybe the user got
@@ -76,8 +75,7 @@ def _event_handler(event_id, type):
                 pubsub.publish(json.dumps(count_data, default=dumps_helper), 'das.realtime.emit')
 
             except Exception as ex:
-                logger.exception('Error creating custom payload for event: %s' %
-                                 (event_id,), ex)
+                logger.exception('Error creating custom payload for event: ' + event_id)
             finally:
                 close_old_connections()
 
@@ -88,15 +86,15 @@ def _observation_handler(subject_id):
     try:
         logger.debug('Processing new observation for subject_id {0}'.format(subject_id))
         view = SubjectTracksView.as_view()
-        connected_sids = redis_client.hkeys('realtime_connections')
+        all_connections = redis_client.hgetall('realtime_connections')
 
-        for connected_sid in connected_sids:
+        for sid, username in all_connections.items():
             try:
-                logger.debug('Creating observation payload for user {0}'.format(connected_sid))
+                connected_sid = sid.decode('UTF-8')
+                username = username.decode('UTF-8')
 
-                connected_sid = connected_sid.decode('UTF-8')
-                username = redis_client.hget('realtime_connections',
-                                             connected_sid).decode('UTF-8')
+                logger.debug('Creating observation payload for user {0}: {1}'.format(username[0], connected_sid))
+
                 user = User.objects.filter(username=username).first()
 
                 if not user:
@@ -136,8 +134,7 @@ def _observation_handler(subject_id):
                 pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
 
             except Exception as ex:
-                logger.exception('Error creating payload data for observation: %s' %
-                                 (subject_id,), ex)
+                logger.exception('Error creating payload data for observation: ' + subject_id)
             finally:
                 close_old_connections()
     finally:
