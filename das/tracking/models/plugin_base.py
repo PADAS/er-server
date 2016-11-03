@@ -11,7 +11,8 @@ from core.models import TimestampedModel
 import uuid
 
 import logging
-import datetime, pytz
+from datetime import datetime
+import pytz
 
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -86,7 +87,8 @@ class SourcePlugin(TimestampedModel):
         models.Q(app_label='tracking', model='inreachkmlplugin') | \
         models.Q(app_label='tracking', model='skygisticssatelliteplugin') | \
         models.Q(app_label='tracking', model='firmsplugin') | \
-        models.Q(app_label='tracking', model='spidertracksplugin')
+        models.Q(app_label='tracking', model='spidertracksplugin') | \
+        models.Q(app_label='tracking', model='awetelemetryplugin')
 
     # Generic foreign key to plugin
     plugin_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
@@ -116,7 +118,7 @@ class SourcePlugin(TimestampedModel):
                 for observation in self.plugin.fetch(self.source, self.cursor_data):
                     t.send(observation)
                     result.count += 1
-            self.last_run = datetime.datetime.now(tz=pytz.UTC)
+            self.last_run = pytz.utc.localize(datetime.utcnow())
             self.cursor_data = self.plugin.cursor_data
             self.save()
 
