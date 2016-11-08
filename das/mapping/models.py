@@ -151,10 +151,6 @@ class LineFeature(Feature):
 class PointFeature(Feature):
     feature_geometry = models.MultiPointField(srid=4326)
 
-    @property
-    def image_url(self):
-        return '/static/ranger_station-brown.svg'
-
 
 class MissingTileError(Exception):
     pass

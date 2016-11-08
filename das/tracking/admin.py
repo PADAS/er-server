@@ -42,6 +42,10 @@ class FirmsPluginAdmin(admin.ModelAdmin):
 class SpiderTracksPluginAdmin(admin.ModelAdmin):
     pass
 
+@admin.register(models.AWETelemetryPlugin)
+class AWETelemetryAdmin(admin.ModelAdmin):
+    pass
+
 
 
 

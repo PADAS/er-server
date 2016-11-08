@@ -48,6 +48,10 @@ class GroupSerializer(rest_framework.serializers.ModelSerializer):
         return rep
 
 
+def get_subject_display(subject):
+    return subject.name
+
+
 class SubjectSerializer(rest_framework.serializers.ModelSerializer):
     content_type = ContentTypeField()
     additional_fields = ('region', 'country', 'sex',

@@ -537,8 +537,9 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_LION = 'lion'
     SUBTYPE_GIRAFFE = 'giraffe'
 
-    SUBTYPE_SECURITY = 'security'
+    SUBTYPE_SECURITY = 'security_vehicle'
     SUBTYPE_RESEARCH = 'research'
+    SUBTYPE_TOURIST_VEHICLE = 'tourist_vehicle'
     SUBTYPE_MOTORCYCLE = 'motorcycle'
     SUBTYPE_CAMERA_TRAP = 'camera-trap'
     SUBTYPE_WEATHER_STATION = 'weather-station'
@@ -580,6 +581,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_SECURITY, 'Security Vehicle'),
                 (SUBTYPE_RESEARCH, 'Research Vehicle'),
+                (SUBTYPE_TOURIST_VEHICLE, 'Tourist Vehicle'),
                 (SUBTYPE_MOTORCYCLE, 'Motorcycle'),
             )
         },

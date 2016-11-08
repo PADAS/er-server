@@ -28,7 +28,8 @@ from utils.json import loads
 import activity.models
 import utils
 from accounts.serializers import UserDisplaySerializer, get_user_display
-from observations.serializers import SubjectSerializer, SourceSerializer
+from observations.serializers import SubjectSerializer, SourceSerializer, get_subject_display
+from observations.models import Subject
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
 from activity import schema_utils
@@ -308,6 +309,8 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
     def display_value(self, instance):
         if isinstance(instance, get_user_model()):
             return get_user_display(instance)
+        elif isinstance(instance, Subject):
+            return get_subject_display(instance)
         return super().display_value(instance)
 
     def get_choices(self, cutoff=None):
@@ -739,21 +742,21 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
     def render_updates(self, event):
         def get_action(revision):
             if revision.action == AC_UPDATED:
-                field_mapping = {'message': 'Event Message',
-                                 'event_time': 'Event Time',
-                                 'state': 'Event State is {0}',
-                                 'priority': 'Event Priority is {0}',
+                field_mapping = {'message': 'Description',
+                                 'event_time': 'Time',
+                                 'state': 'State is {0}',
+                                 'priority': 'Priority is {0}',
                                  'location': 'Location',
                                  'reported_by_id': 'Reported By',
-                                 'provenance': 'Event Reporter',
-                                 'event_type': 'Event Type is {0}',
-                                 'created_by_user': 'Event Writer',}
+                                 'provenance': 'Reporter',
+                                 'event_type': 'Report Type is {0}',
+                                 'created_by_user': 'Report Author',}
                 fieldnames = [field_mapping[k].format(event.get_display_value(k, v)) for k, v in revision.data.items() if
                               k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
                                                 ', '.join(fieldnames))
             elif revision.action == AC_RELATION_DELETED:
-                field_mapping = {'message': 'Event Message',
+                field_mapping = {'message': 'Description',
                                  'related_query_name': '{}'
                                  }
                 fieldnames = [field_mapping[k].format(revision.data[k]) for k, v in revision.data.items() if
@@ -768,7 +771,7 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         while revisions:
             revision = revisions.pop()
             record = dict(
-                message='Event {action} by {user}'.format(
+                message='{action} by {user}'.format(
                     action=get_action(revision),
                     user=self.get_user_display(revision.user, event)
                     ),

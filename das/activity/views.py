@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from datetime import timedelta
 
 from rest_framework import generics, status
@@ -81,9 +82,9 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         if len(parameters) > 0:
             template = Template(eventtype.schema)
             rendered_template = template.render(Context(parameters, autoescape=False))
-            schema = loads(rendered_template)
+            schema = loads(rendered_template, object_pairs_hook=OrderedDict)
         else:
-            schema = loads(eventtype.schema)
+            schema = loads(eventtype.schema, object_pairs_hook=OrderedDict)
 
         schema['schema']['id'] = utils.add_base_url(request, reverse('event-schema-eventtype', args=[eventtype.value, ]))
 

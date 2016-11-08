@@ -1,7 +1,7 @@
 import logging
 from django.apps import apps
 from das_server import celery
-from tracking.models import SourcePlugin, DemoSourcePlugin, InreachPlugin, runnable_plugins
+from tracking.models import *
 
 logger = logging.getLogger(__name__)
 
@@ -62,5 +62,10 @@ def run_inreach_plugins(self, inline=True):
     plugins = InreachPlugin.objects.filter(status=InreachPlugin.STATUS_ENABLED)
 
     for p in plugins:
+        p.execute()
+
+@celery.app.task(bind=True)
+def run_awetelementry_plugins(self, inline=True):
+    for p in AWETelemetryPlugin.objects.filter(status=AWETelemetryPlugin.STATUS_ENABLED):
         p.execute()
 

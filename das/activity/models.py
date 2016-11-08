@@ -1,5 +1,6 @@
 import uuid
 import datetime, pytz
+from operator import itemgetter, attrgetter
 
 import django.utils
 from django.core.exceptions import ValidationError
@@ -195,14 +196,19 @@ class EventManager(models.Manager):
 
     def get_reported_by_for_provenance(self, provenance):
         if Event.PC_STAFF == provenance:
-            for obj in get_user_model().objects.all().filter(
-                    is_active=True):
-                yield obj
-            for obj in Subject.objects.all().get_staff():
-                yield obj
+            def get_staff():
+                for obj in get_user_model().objects.all().filter(
+                        is_active=True):
+                    yield (obj.get_full_name().lower(), obj)
+                for obj in Subject.objects.all().get_staff().by_is_active():
+                    yield (obj.name.lower(), obj)
+            for staff in sorted(get_staff(), key=itemgetter(0)):
+                yield staff[1]
+
         elif Event.PC_COMMUNITY == provenance:
-            for obj in Community.objects.all():
-                yield obj
+            for community in sorted(Community.objects.all(),
+                                    key=attrgetter('name')):
+                    yield community
 
     def new_count(self):
         return self.filter(state=Event.SC_NEW).count()
@@ -468,6 +474,7 @@ class EventNote(RevisionMixin, TimestampedModel):
 class EventDetailsManager(models.Manager):
     def create_event_details(self, **kwargs):
         return self.create(**kwargs)
+
 
 class EventDetails(RevisionMixin, TimestampedModel):
     objects = EventDetailsManager()

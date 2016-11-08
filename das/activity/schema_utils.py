@@ -80,7 +80,7 @@ def get_dynamic_choices(field_details, as_string=True):
 def get_enum_choices(field_details, as_string=True):
 
     options = OrderedDict()
-    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).order_by('ordernum'):
+    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
         options[choice.value] = choice.display
 
     if field_details['type'] == 'names':
@@ -106,7 +106,7 @@ def get_table_choices(field_details, as_string=True):
     options = OrderedDict()
     model = apps.get_model('choices.{0}'.format(field_details['field']))
 
-    for row in model.objects.all().order_by('ordernum'):
+    for row in model.objects.all().extra(select={'lower_name': 'lower(name)'}).order_by('ordernum', 'lower_name'):
         options[str(row.id)] = str(row.name)
 
     if field_details['type'] == 'names':

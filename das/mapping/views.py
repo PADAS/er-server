@@ -45,7 +45,7 @@ class FeatureGeoJsonView(APIView):
                             list(chain(PolygonFeature.objects.filter(id=id),
                                        LineFeature.objects.filter(id=id),
                                        PointFeature.objects.filter(id=id))),
-                            properties={'name': 'title', 'image_url': 'image',
+                            properties={'name': 'title',
                                         'default_presentation': 'presentation'},
                             geometry_field='feature_geometry'
                             )
@@ -97,7 +97,7 @@ class FeatureSetGeoJsonView(APIView):
                             list(chain(PolygonFeature.objects.filter(featureset=featureset),
                                        LineFeature.objects.filter(featureset=featureset),
                                        PointFeature.objects.filter(featureset=featureset))),
-                            properties={'name': 'title', 'image_url': 'image',
+                            properties={'name': 'title',
                                         'default_presentation': 'presentation'},
                             geometry_field='feature_geometry'
                             )

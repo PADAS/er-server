@@ -309,7 +309,7 @@ MAPPING = {'MBTILES': {'root': r'\tmp',}}
 REALTIME_BROKER_URL = 'redis://localhost:6379/2'
 REALTIME_BROKER_OPTIONS = {'max_connections': 200}
 PUBSUB_BROKER_URL = 'redis://localhost:6379/1'
-PUBSUB_BROKER_OPTIONS = {'max_connections': 20}
+PUBSUB_BROKER_OPTIONS = {'max_connections': 200}
 
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
