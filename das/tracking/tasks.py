@@ -26,7 +26,7 @@ def run_plugin_class(self, plugin_class):
     for plugin in plugin_class.objects.all():
 
         if plugin.run_source_plugins:
-            for sp in plugin.source_plugins.all():
+            for sp in plugin.source_plugins.filter(status='enabled'):
                 if sp.should_run():
                     run_source_plugin.delay(str(sp.id))
         else:
