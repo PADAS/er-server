@@ -5,6 +5,4 @@
 
 # Use django-extensions to support shell_plus, which allows for running a Django app jupyter notebook.
 django-extensions==1.5.9
-
-# Analyzers require the pymet library
-git+https://github.com/PADAS/pymet
+jupyter==1.0.0
