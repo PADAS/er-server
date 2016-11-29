@@ -3,6 +3,7 @@ import uuid
 from django.contrib import auth
 from django.contrib.gis.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.contrib.postgres.fields import JSONField
 from django.utils.translation import ugettext_lazy as _
 from django.core.mail import send_mail
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -138,6 +139,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         ),
     )
     date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
+    additional = JSONField('additional data', default={})
 
     objects = UserManager()
 
