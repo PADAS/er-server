@@ -220,21 +220,30 @@ class EventRelationshipTypeManager(models.Manager):
 
 class EventRelationshipType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=50)
+    value = models.CharField(max_length=50, unique=True)
 
     objects = EventRelationshipTypeManager()
+
+    def __str__(self):
+        return self.value
+
 
 class EventRelationshipManager(models.Manager):
     pass
 
+
 class EventRelationship(TimestampedModel):
 
     type = models.ForeignKey('EventRelationshipType', on_delete=models.PROTECT)
-    from_event = models.ForeignKey('Event', related_name='from_events', related_query_name='from_event')
-    to_event = models.ForeignKey('Event', related_name='to_events', related_query_name='to_event')
+    from_event = models.ForeignKey('Event', related_name='relationships', related_query_name='relationship',
+                                   on_delete=models.CASCADE)
+    to_event = models.ForeignKey('Event', related_name='+')
 
     class Meta:
         unique_together = ('type', 'from_event', 'to_event')
+
+    def __str__(self):
+        return 'from %s as %s to %s' % (self.from_event, self.type.value, self.to_event)
 
     objects = EventRelationshipManager()
 
@@ -331,24 +340,6 @@ class Event(RevisionMixin, TimestampedModel):
 
     sort_at = models.DateTimeField(default=django.utils.timezone.now,
                                    blank=True)
-
-    # children = models.ManyToManyField('self', symmetrical=False, related_name='parents', related_query_name='parent')
-    # linked = models.ManyToManyField('self', symmetrical=True, related_name='+')
-
-    # related_events = models.ManyToManyField('self', through=EventRelationship, symmetrical=False,
-    #                                         through_fields=('from_event', 'to_event'))
-
-    @property
-    def event_links(self):
-        return EventRelationship.objects.filter(from_event=self, type=EventRelationshipType.objects.get(value='linked'))
-
-    @property
-    def children(self):
-        return EventRelationship.objects.filter(from_event=self, type=EventRelationshipType.objects.get(value='child'))
-
-    @property
-    def parents(self):
-        return EventRelationship.objects.filter(to_event=self, type=EventRelationshipType.objects.get(value='child'))
 
     @property
     def priority_label(self):

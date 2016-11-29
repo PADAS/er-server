@@ -33,6 +33,7 @@ from observations.models import Subject
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
 from activity import schema_utils
+from activity.models import EventRelationship
 
 logger = logging.getLogger(__name__)
 
@@ -414,7 +415,6 @@ def get_update_type(revision, previous_revisions=[]):
     return 'other'
 
 
-
 class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
     created_by_user = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault()
@@ -621,53 +621,11 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         return activity.models.EventDetails.objects.filter(event=instance).order_by('created_at').last()
 
 
-class EventSerializer(rest_framework.serializers.ModelSerializer):
-    serializer_choice_field = ChoiceField
-    # Using PointField here provides the magic to convert between a
-    #  json {lat/lon} and our internal representation.
-    location = PointField(required=False)
-    time = DateTimeField(source='event_time', required=False)
-    updated_at = DateTimeField(source='sort_at', required=False)
-    created_by_user = rest_framework.serializers.HiddenField(
-        default=rest_framework.serializers.CurrentUserDefault()
-    )
-    notes = EventNoteSerializer(many=True, required=False)
-    reported_by = ReportedByRelatedField(required=False)
-    message = rest_framework.serializers.CharField(required=False)
-    photos = EventPhotoSerializer(many=True, required=False)
-    event_type = EventTypeRelatedField(required=False)
-    event_details = EventDetailsSerializer(required=False, default={})
 
-    class Meta:
-        model = activity.models.Event
-        read_only_fields = ('updated_at',)
-        fields = (
-            'id', 'location', 'time', 'message', 'provenance',
-            'event_type', 'priority', 'priority_label', 'attributes',
-            'image_url', 'created_by_user', 'notes', 'reported_by',
-            'state', 'photos', 'event_details') + read_only_fields
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        if self.context.get('include_photos', True):
-            self.fields['photos'].context.update(self.context)
-        else:
-            self.fields.pop('photos')
-
-        if self.context.get('include_notes', True):
-            self.fields['notes'].context.update(self.context)
-        else:
-            self.fields.pop('notes')
-
-        if self.context.get('include_details', True):
-            self.fields['event_details'].context.update(self.context)
-        else:
-            self.fields.pop('event_details')
+class EventSerializerMixin():
 
     def to_internal_value(self, data):
         internal_value = super().to_internal_value(data)
-        #attributes_field = EventAttributesField(data)
         return internal_value
 
     def create(self, validated_data):
@@ -700,44 +658,6 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         if update_fields:
             instance.save(update_fields=update_fields)
         return instance
-
-    def to_representation(self, event):
-        rep = super().to_representation(event)
-        request = self.context['request']
-        rep['url'] = utils.add_base_url(request,
-                                        reverse('event-view',
-                                                args=[event.id, ]))
-        rep['image_url'] = utils.add_base_url(request, event.image_url)
-        if event.location is not None:
-            geodata = make_feature(self.context['request'], event)
-            rep['geojson'] = geodata
-
-        attachments = []
-        subject_attachment = None
-        for attach in event.attachments.all():
-            attach_rep = EventAttachmentSerializer(context=self.context)\
-                .to_representation(attach)
-            if attach.reason == 'target':
-                subject_attachment = attach_rep
-            attachments.append(attach_rep)
-
-        if attachments:
-            rep['attachments'] = attachments
-
-        if subject_attachment:
-            rep['subject'] = subject_attachment
-
-        if self.context.get('include_updates', True):
-            updates = self.render_updates(event)
-            for note in rep.get('notes', []):
-                updates.extend(note['updates'])
-            for photo in rep.get('photos', []):
-                updates.extend(photo['updates'])
-            rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
-
-        if event.event_type and event.event_type.category:
-            rep['event_category'] = event.event_type.category.value
-        return rep
 
     def render_updates(self, event):
         def get_action(revision):
@@ -795,6 +715,153 @@ class EventSerializer(rest_framework.serializers.ModelSerializer):
         return {'first_name': event.get_provenance_display(),
                 'last_name': '',
                 'username': event.provenance}
+
+
+
+class NestedEventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
+
+    class Meta:
+        model = activity.models.Event
+        fields = ('id', 'message',)
+
+    def to_representation(self, event):
+        rep = super().to_representation(event)
+        if 'request' in self.context:
+            request = self.context['request']
+            rep['url'] = utils.add_base_url(request,
+                                            reverse('event-view',
+                                                    args=[event.id, ]))
+            rep['image_url'] = utils.add_base_url(request, event.image_url)
+
+            if event.location is not None:
+                geodata = make_feature(self.context['request'], event)
+                rep['geojson'] = geodata
+
+        # attachments = []
+        # subject_attachment = None
+        # for attach in event.attachments.all():
+        #     attach_rep = EventAttachmentSerializer(context=self.context) \
+        #         .to_representation(attach)
+        #     if attach.reason == 'target':
+        #         subject_attachment = attach_rep
+        #     attachments.append(attach_rep)
+        #
+        # if attachments:
+        #     rep['attachments'] = attachments
+        #
+        # if subject_attachment:
+        #     rep['subject'] = subject_attachment
+        #
+        # if self.context.get('include_updates', True):
+        #     updates = self.render_updates(event)
+        #     for note in rep.get('notes', []):
+        #         updates.extend(note['updates'])
+        #     for photo in rep.get('photos', []):
+        #         updates.extend(photo['updates'])
+        #     rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
+
+        if event.event_type and event.event_type.category:
+            rep['event_category'] = event.event_type.category.value
+        return rep
+
+
+class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
+
+    type = rest_framework.serializers.StringRelatedField(many=False)
+    to_event = NestedEventSerializer()
+
+    class Meta:
+        model = activity.models.EventRelationship
+        read_only_fields = ('created_at', 'updated_at')
+        fields = ('to_event', 'type')
+
+
+
+class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
+    serializer_choice_field = ChoiceField
+    # Using PointField here provides the magic to convert between a
+    #  json {lat/lon} and our internal representation.
+    location = PointField(required=False)
+    time = DateTimeField(source='event_time', required=False)
+    updated_at = DateTimeField(source='sort_at', required=False)
+    created_by_user = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault()
+    )
+    notes = EventNoteSerializer(many=True, required=False)
+    reported_by = ReportedByRelatedField(required=False)
+    message = rest_framework.serializers.CharField(required=False)
+    photos = EventPhotoSerializer(many=True, required=False)
+    event_type = EventTypeRelatedField(required=False)
+    event_details = EventDetailsSerializer(required=False, default={})
+    relationships = EventRelationshipSerializer(many=True)
+
+    class Meta:
+        model = activity.models.Event
+        read_only_fields = ('updated_at',)
+        fields = (
+            'id', 'location', 'time', 'message', 'provenance',
+            'event_type', 'priority', 'priority_label', 'attributes',
+            'image_url', 'created_by_user', 'notes', 'reported_by',
+            'state', 'photos', 'event_details', 'relationships') + read_only_fields
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.context.get('include_photos', True):
+            self.fields['photos'].context.update(self.context)
+        else:
+            self.fields.pop('photos')
+
+        if self.context.get('include_notes', True):
+            self.fields['notes'].context.update(self.context)
+        else:
+            self.fields.pop('notes')
+
+        if self.context.get('include_details', True):
+            self.fields['event_details'].context.update(self.context)
+        else:
+            self.fields.pop('event_details')
+
+    def to_representation(self, event):
+        rep = super().to_representation(event)
+        if 'request' in self.context:
+            request = self.context['request']
+            rep['url'] = utils.add_base_url(request,
+                                            reverse('event-view',
+                                                    args=[event.id, ]))
+            rep['image_url'] = utils.add_base_url(request, event.image_url)
+
+            if event.location is not None:
+                geodata = make_feature(self.context['request'], event)
+                rep['geojson'] = geodata
+
+        attachments = []
+        subject_attachment = None
+        for attach in event.attachments.all():
+            attach_rep = EventAttachmentSerializer(context=self.context) \
+                .to_representation(attach)
+            if attach.reason == 'target':
+                subject_attachment = attach_rep
+            attachments.append(attach_rep)
+
+        if attachments:
+            rep['attachments'] = attachments
+
+        if subject_attachment:
+            rep['subject'] = subject_attachment
+
+        if self.context.get('include_updates', True):
+            updates = self.render_updates(event)
+            for note in rep.get('notes', []):
+                updates.extend(note['updates'])
+            for photo in rep.get('photos', []):
+                updates.extend(photo['updates'])
+            rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
+
+        if event.event_type and event.event_type.category:
+            rep['event_category'] = event.event_type.category.value
+        return rep
 
 
 def make_feature(request, event):

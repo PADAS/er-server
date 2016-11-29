@@ -8,21 +8,22 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
 
-        # EventRelationshipType.objects.create(value='child')
-        # EventRelationshipType.objects.create(value='linked')
+        EventRelationshipType.objects.get_or_create(value='child')
+        EventRelationshipType.objects.get_or_create(value='linked')
+
+        t = EventRelationshipType.objects.all()
+        for item in t:
+            print(item)
+
+
+        # e0 = Event.objects.get(message='BRS')
         #
-        # t = EventRelationshipType.objects.all()
-        # for item in t:
-        #     print(item)
-
-
-        e0 = Event.objects.get(message='BRS')
-        print([x.to_event.message for x in e0.children])
-        e1 = Event.objects.get(message='WRS')
-
-        print([x.from_event.message for x in e1.parents])
+        # e1 = Event.objects.get(message='WRS')
         #
         # er, created = EventRelationship.objects.get_or_create(from_event=e0, to_event=e1, type=EventRelationshipType.objects.get(value='child'))
+        # print((er, created))
+        #
+        # er, created = EventRelationship.objects.get_or_create(from_event=e1, to_event=e0, type=EventRelationshipType.objects.get(value='linked'))
         # print((er, created))
         #
         # er, created = EventRelationship.objects.get_or_create(from_event=e1, to_event=e0,
