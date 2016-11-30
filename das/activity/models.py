@@ -239,19 +239,38 @@ class EventRelationship(TimestampedModel):
                                    on_delete=models.CASCADE)
     to_event = models.ForeignKey('Event', related_name='+', on_delete=models.CASCADE)
 
+    objects = EventRelationshipManager()
+
     class Meta:
         unique_together = ('type', 'from_event', 'to_event')
 
     def __str__(self):
         return '%s : %s : %s' % (self.from_event.id, self.type.value, self.to_event.id)
 
-    objects = EventRelationshipManager()
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        result = super().save(*args, **kwargs)
+        self.from_event.dependent_table_updated()
+        return result
+
+    def clean(self):
+        super().clean()
+
+    def delete(self, using=None, keep_parents=False):
+        myid = self.id
+        result = super().delete(using, keep_parents)
+        self.from_event.dependent_table_updated()
+        self.id = myid
+        relation_deleted.send(sender=Event, relation=self, instance=self.event, related_query_name='relationship')
+
+        return result
 
 
 class Event(RevisionMixin, TimestampedModel):
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
     revision_ignore_fields = ('updated_at', 'sort_at')
     revision_follow_relations = ('activity.EventPhoto',)
+
     ordering = ['-sort_at']
 
     '''
@@ -340,6 +359,13 @@ class Event(RevisionMixin, TimestampedModel):
 
     sort_at = models.DateTimeField(default=django.utils.timezone.now,
                                    blank=True)
+
+    @property
+    def children(self):
+        return self._relatives('child')
+
+    def _relatives(self, type):
+        return [(x.to_event.id, x.to_event.message) for x in self.relationships.filter(type__value=type)]
 
     @property
     def priority_label(self):

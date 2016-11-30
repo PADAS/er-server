@@ -16,16 +16,16 @@ class Command(BaseCommand):
             print(item)
 
 
-        # e0 = Event.objects.get(message='BRS')
-        #
-        # e1 = Event.objects.get(message='WRS')
-        #
-        # er, created = EventRelationship.objects.get_or_create(from_event=e0, to_event=e1, type=EventRelationshipType.objects.get(value='child'))
-        # print((er, created))
-        #
-        # er, created = EventRelationship.objects.get_or_create(from_event=e1, to_event=e0, type=EventRelationshipType.objects.get(value='linked'))
-        # print((er, created))
-        #
-        # er, created = EventRelationship.objects.get_or_create(from_event=e1, to_event=e0,
-        #                                                       type=EventRelationshipType.objects.get(value='child'))
-        # print((er, created))
+        e0 = Event.objects.get(message='BRS')
+
+        e1 = Event.objects.get(message='WRS')
+
+        er, created = EventRelationship.objects.get_or_create(from_event=e0, to_event=e1, type=EventRelationshipType.objects.get(value='child'))
+        print((er, created))
+
+        er, created = EventRelationship.objects.get_or_create(from_event=e1, to_event=e0, type=EventRelationshipType.objects.get(value='linked'))
+        print((er, created))
+
+        er, created = EventRelationship.objects.get_or_create(from_event=e1, to_event=e0,
+                                                              type=EventRelationshipType.objects.get(value='child'))
+        print((er, created))
