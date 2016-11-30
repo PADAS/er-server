@@ -139,7 +139,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         ),
     )
     date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
-    additional = JSONField('additional data', default={})
+    additional = JSONField('additional data', default={}, null=True, blank=True)
 
     objects = UserManager()
 
