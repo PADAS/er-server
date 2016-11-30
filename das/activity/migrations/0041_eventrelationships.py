@@ -7,24 +7,6 @@ import django.db.models.deletion
 import uuid
 
 
-def forward(apps, schema_editor):
-    EventRelationshipType = apps.get_model('activity', 'EventRelationshipType')
-    db_alias = schema_editor.connection.alias
-
-    EventRelationshipType.objects.using(db_alias).bulk_create([
-        EventRelationshipType(value='child'),
-        EventRelationshipType(value='linked')
-    ])
-
-
-def reverse(apps, schema_editor):
-    EventRelationshipType = apps.get_model('activity', 'EventRelationshipType')
-    db_alias = schema_editor.connection.alias
-
-    EventRelationshipType.objects.using(db_alias).filter(value='child').delete()
-    EventRelationshipType.objects.using(db_alias).filter(value='linked').delete()
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -58,6 +40,5 @@ class Migration(migrations.Migration):
             name='eventrelationship',
             unique_together=set([('type', 'from_event', 'to_event')]),
         ),
-        migrations.RunPython(forward, reverse)
 
     ]

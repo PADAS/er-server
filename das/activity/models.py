@@ -237,13 +237,13 @@ class EventRelationship(TimestampedModel):
     type = models.ForeignKey('EventRelationshipType', on_delete=models.PROTECT)
     from_event = models.ForeignKey('Event', related_name='relationships', related_query_name='relationship',
                                    on_delete=models.CASCADE)
-    to_event = models.ForeignKey('Event', related_name='+')
+    to_event = models.ForeignKey('Event', related_name='+', on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ('type', 'from_event', 'to_event')
 
     def __str__(self):
-        return 'from %s as %s to %s' % (self.from_event, self.type.value, self.to_event)
+        return '%s : %s : %s' % (self.from_event.id, self.type.value, self.to_event.id)
 
     objects = EventRelationshipManager()
 
