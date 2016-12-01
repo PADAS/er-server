@@ -78,6 +78,3 @@ Pillow==3.4.2
 docxtpl==0.2.3
 python-docx==0.8.6
 lxml==3.6.4
-
-# Analyzers require the pymet library
-git+https://github.com/PADAS/pymet

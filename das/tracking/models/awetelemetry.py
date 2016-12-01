@@ -223,7 +223,7 @@ class AWETelemetryPlugin(TrackingPlugin):
 
                 # Short-circuit if we already have this observation.
                 if Observation.objects.filter(source=src, recorded_at=obs.recorded_at).exists():
-                    continue
+                    return
 
                 location = None
                 try:

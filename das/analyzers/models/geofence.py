@@ -9,8 +9,6 @@ from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
 from ..exceptions import InsufficientDataAnalyzerException
 from mapping.models import FeatureType, LineFeature
 
-from osgeo import ogr
-import pymet
 
 logger = logging.getLogger(__name__)
 
@@ -106,24 +104,3 @@ class GeofenceAnalyzer(Analyzer):
             logger.debug(result.title)
 
         return result
-
-    def analyze_jake(self, traj):
-
-        if traj.relocsfixcount < 2:
-            raise InsufficientDataAnalyzerException
-
-        fence = self.fence_or_default
-
-        #Attempt the intersection of the trajectory with the fence
-        trajsegs = traj.gettracksegments(None)
-        for trajseg in trajsegs:
-            intersectPnts = trajseg.getline().Intersection(fence)
-            if (intersectPnts.GetGeometryName() == 'MULTIPOINT'):
-                for pnt in intersectPnts:
-                    result = AnalyzerResult(self)
-                    result.analyzer_type = self.__class__.__name__
-                    result.level = NOMINAL
-                    segment_distance_to_crossing = trajseg.p1.distance(crossing_point)
-
-            elif intersectPnts.GetGeometryName() == 'POINT':
-                pass
