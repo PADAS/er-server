@@ -207,6 +207,13 @@ DATABASES = {
     #     'NAME': 'gpsplus_wildlife',
     #     'USER': 'vect_owner',
     # }
+    #
+    # Optional, use to import STE data into das
+    # 'animaltracking': {
+    #     'ENGINE': 'django.contrib.gis.db.backends.postgis',
+    #     'NAME': 'AnimalTracking',
+    #     'USER': 'postgres',
+    # },
 }
 
 DATABASE_ROUTERS = [
