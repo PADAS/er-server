@@ -149,6 +149,8 @@ class EventType(TimestampedModel):
     ordernum = models.SmallIntegerField(blank=True, null=True)
     schema = models.TextField(blank=True)
 
+    is_collection = models.BooleanField(default=False)
+
     objects = EventTypeManager.from_queryset(EventTypeFilteringQuerySet)()
 
     def __str__(self):
@@ -238,11 +240,13 @@ class EventRelationship(TimestampedModel):
     from_event = models.ForeignKey('Event', related_name='relationships', related_query_name='relationship',
                                    on_delete=models.CASCADE)
     to_event = models.ForeignKey('Event', related_name='+', on_delete=models.CASCADE)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
 
     objects = EventRelationshipManager()
 
     class Meta:
         unique_together = ('type', 'from_event', 'to_event')
+        ordering = ['type', 'ordernum',]
 
     def __str__(self):
         return '%s : %s : %s' % (self.from_event.id, self.type.value, self.to_event.id)
@@ -325,12 +329,15 @@ class Event(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
+    serial_number = models.BigIntegerField(unique=True, null=False, verbose_name='Unique serial number for event.')
+
     message = models.TextField(blank=True)
     created_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
         null=True, blank=True, related_name='events', related_query_name='event')
 
     event_time = models.DateTimeField(default=django.utils.timezone.now)
+    end_time = models.DateTimeField(null=True, verbose_name='End Time')
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
     event_type = models.ForeignKey(EventType, on_delete=models.PROTECT,
@@ -361,8 +368,8 @@ class Event(RevisionMixin, TimestampedModel):
                                    blank=True)
 
     @property
-    def children(self):
-        return self._relatives('child')
+    def contains(self):
+        return self._relatives('contains')
 
     def _relatives(self, type):
         return [(x.to_event.id, x.to_event.message) for x in self.relationships.filter(type__value=type)]
@@ -455,7 +462,7 @@ class Event(RevisionMixin, TimestampedModel):
         return value
 
     def __str__(self):
-        return self.message[50:]
+        return self.message[:25]
 
 class EventRelationshipManager(models.Manager):
 

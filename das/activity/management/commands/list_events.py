@@ -20,12 +20,12 @@ class Command(BaseCommand):
 
         e1 = Event.objects.get(message='WRS')
 
-        er, created = EventRelationship.objects.get_or_create(from_event=e0, to_event=e1, type=EventRelationshipType.objects.get(value='child'))
+        er, created = EventRelationship.objects.get_or_create(from_event=e0, to_event=e1, type=EventRelationshipType.objects.get(value='contains'))
         print((er, created))
 
-        er, created = EventRelationship.objects.get_or_create(from_event=e1, to_event=e0, type=EventRelationshipType.objects.get(value='linked'))
+        er, created = EventRelationship.objects.get_or_create(from_event=e1, to_event=e0, type=EventRelationshipType.objects.get(value='is_linked_to'))
         print((er, created))
 
         er, created = EventRelationship.objects.get_or_create(from_event=e1, to_event=e0,
-                                                              type=EventRelationshipType.objects.get(value='child'))
+                                                              type=EventRelationshipType.objects.get(value='contains'))
         print((er, created))

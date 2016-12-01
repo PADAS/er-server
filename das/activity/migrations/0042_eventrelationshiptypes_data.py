@@ -23,8 +23,8 @@ def reverse(apps, schema_editor):
 
     EventRelationship.objects.using(db_alias).all().delete()
 
-    EventRelationshipType.objects.using(db_alias).filter(value='child').delete()
-    EventRelationshipType.objects.using(db_alias).filter(value='linked').delete()
+    EventRelationshipType.objects.using(db_alias).filter(value='contains').delete()
+    EventRelationshipType.objects.using(db_alias).filter(value='is_linked_to').delete()
 
 
 class Migration(migrations.Migration):

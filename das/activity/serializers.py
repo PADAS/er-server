@@ -737,29 +737,6 @@ class NestedEventSerializer(EventSerializerMixin, rest_framework.serializers.Mod
                 geodata = make_feature(self.context['request'], event)
                 rep['geojson'] = geodata
 
-        # attachments = []
-        # subject_attachment = None
-        # for attach in event.attachments.all():
-        #     attach_rep = EventAttachmentSerializer(context=self.context) \
-        #         .to_representation(attach)
-        #     if attach.reason == 'target':
-        #         subject_attachment = attach_rep
-        #     attachments.append(attach_rep)
-        #
-        # if attachments:
-        #     rep['attachments'] = attachments
-        #
-        # if subject_attachment:
-        #     rep['subject'] = subject_attachment
-        #
-        # if self.context.get('include_updates', True):
-        #     updates = self.render_updates(event)
-        #     for note in rep.get('notes', []):
-        #         updates.extend(note['updates'])
-        #     for photo in rep.get('photos', []):
-        #         updates.extend(photo['updates'])
-        #     rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
-
         if event.event_type and event.event_type.category:
             rep['event_category'] = event.event_type.category.value
         return rep
@@ -772,8 +749,8 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = activity.models.EventRelationship
-        read_only_fields = ('created_at', 'updated_at')
-        fields = ('to_event', 'type')
+        read_only_fields = ('created_at', 'updated_at',)
+        fields = ('to_event', 'type', 'ordernum',)
 
 
 
@@ -861,6 +838,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
         if event.event_type and event.event_type.category:
             rep['event_category'] = event.event_type.category.value
+
+        rep['is_collection'] = event.event_type.is_collection
+
         return rep
 
 
