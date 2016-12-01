@@ -66,7 +66,7 @@ django-extra-fields==0.8
 gevent==1.1.2
 django-storages==1.5.1
 #django-versatileimagefield==1.6
-git+https://github.com/VulcanTechnologies/django-versatileimagefield.git@751767afb611890921c6705f1a69fa69381ea103
+git+https://github.com/VulcanTechnologies/django-versatileimagefield.git@c2bf2d81c0c2f1d2a76e42db5c6dc4331f7c1cfe
 
 boto==2.43.0
 
