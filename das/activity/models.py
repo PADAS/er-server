@@ -399,13 +399,6 @@ class Event(RevisionMixin, TimestampedModel):
                                             symmetrical=False, related_name='+')
 
     @property
-    def contains(self):
-        return self._relatives('contains')
-
-    def _relatives(self, type):
-        return [(x.to_event.id, x.to_event.message) for x in self.relationships.filter(type__value=type)]
-
-    @property
     def priority_label(self):
         return self.get_priority_display()
 

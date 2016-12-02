@@ -329,8 +329,12 @@ class EventRelationshipsView(generics.ListCreateAPIView):
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['from_event_id'])
 
-        return EventRelationship.objects.filter(from_event=event)
+        filter = {'from_event': event.id}
 
+        if 'relationship_type' in self.kwargs:
+            filter['type__value'] = self.kwargs['relationship_type']
+
+        return EventRelationship.objects.filter(**filter)
 
 class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (EventObjectPermissions,)

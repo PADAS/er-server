@@ -808,13 +808,13 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     # related_events = EventHeaderSerializer(many=True, read_only=True, )
     # relationships = EventRelationshipSerializer(many=True)
 
-    contained_events = rest_framework.serializers.SerializerMethodField()
-    linked_events = rest_framework.serializers.SerializerMethodField()
+    contains = rest_framework.serializers.SerializerMethodField()
+    is_linked_to = rest_framework.serializers.SerializerMethodField()
 
-    def get_contained_events(self, event):
+    def get_contains(self, event):
         return self.get_related_event(event, 'contains')
 
-    def get_linked_events(self, event):
+    def get_is_linked_to(self, event):
         return self.get_related_event(event, 'is_linked_to')
 
     def get_related_event(self, event, value):
@@ -829,7 +829,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes',
             'image_url', 'created_by_user', 'notes', 'reported_by',
-            'state', 'photos', 'event_details', 'contained_events', 'linked_events') + read_only_fields
+            'state', 'photos', 'event_details', 'contains', 'is_linked_to') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -850,8 +850,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             self.fields.pop('event_details')
 
         if not self.context.get('include_related_events', False):
-            self.fields.pop('contained_events')
-            self.fields.pop('linked_events')
+            self.fields.pop('contains')
+            self.fields.pop('is_linked_to')
 
     def to_representation(self, event):
         rep = super().to_representation(event)
