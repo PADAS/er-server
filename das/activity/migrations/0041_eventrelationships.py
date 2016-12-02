@@ -30,6 +30,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
                 ('value', models.CharField(max_length=50, unique=True)),
+                ('symmetrical', models.BooleanField(default=False))
             ],
         ),
         migrations.AddField(
