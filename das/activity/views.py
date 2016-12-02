@@ -155,8 +155,7 @@ class EventsView(generics.ListCreateAPIView):
         context['include_notes'] = parse_bool(query_params.get('include_notes', True))
         context['include_photos'] = parse_bool(query_params.get('include_photos', True))
         context['include_details'] = parse_bool(query_params.get('include_details', True))
-        context['include_contained_events'] = parse_bool(query_params.get('include_contained_events', True))
-        context['include_linked_events'] = parse_bool(query_params.get('include_linked_events', True))
+        context['include_related_events'] = parse_bool(query_params.get('include_related_events', False))
         return context
 
     def get_queryset(self):
@@ -218,6 +217,7 @@ class EventView(generics.RetrieveUpdateAPIView):
         context['include_updates'] = parse_bool(query_params.get('include_updates', True))
         context['include_notes'] = parse_bool(query_params.get('include_notes', True))
         context['include_photos'] = parse_bool(query_params.get('include_photos', True))
+        context['include_related_events'] = parse_bool(query_params.get('include_related_events', True))
         return context
 
 

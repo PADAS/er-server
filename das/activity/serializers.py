@@ -821,7 +821,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'image_url', 'created_by_user', 'notes', 'reported_by',
             'state', 'photos', 'event_details', 'contained_events', 'linked_events') + read_only_fields
 
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -840,10 +839,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         else:
             self.fields.pop('event_details')
 
-        if not self.context.get('include_contained_events', True):
+        if not self.context.get('include_related_events', False):
             self.fields.pop('contained_events')
-
-        if not self.context.get('include_linked_events', True):
             self.fields.pop('linked_events')
 
     def to_representation(self, event):
