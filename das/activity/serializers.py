@@ -740,7 +740,7 @@ class NestedEventSerializer(EventSerializerMixin, rest_framework.serializers.Mod
 
     class Meta:
         model = activity.models.Event
-        fields = ('id', 'message',)
+        fields = ('id', 'message', 'time', 'end_time', 'serial_number')
 
     def to_representation(self, event):
         rep = super().to_representation(event)
@@ -808,14 +808,16 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     event_details = EventDetailsSerializer(required=False, default={})
     relationships = NestedEventRelationshipSerializer(many=True)
 
+    related_events = NestedEventSerializer(many=True)
+
     class Meta:
         model = activity.models.Event
         read_only_fields = ('updated_at',)
         fields = (
-            'id', 'location', 'time', 'message', 'provenance',
+            'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes',
             'image_url', 'created_by_user', 'notes', 'reported_by',
-            'state', 'photos', 'event_details', 'relationships') + read_only_fields
+            'state', 'photos', 'event_details', 'relationships', 'related_events') + read_only_fields
 
 
     def __init__(self, *args, **kwargs):

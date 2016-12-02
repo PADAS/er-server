@@ -366,6 +366,9 @@ class Event(RevisionMixin, TimestampedModel):
     sort_at = models.DateTimeField(default=django.utils.timezone.now,
                                    blank=True)
 
+    related_events = models.ManyToManyField('self', through='EventRelationship',
+                                            symmetrical=False, related_name='+')
+
     @property
     def contains(self):
         return self._relatives('contains')
