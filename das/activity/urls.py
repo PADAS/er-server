@@ -34,7 +34,7 @@ urlpatterns = [
         r'^event/(?P<from_event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/relationships/?$',
         views.EventRelationshipsView.as_view(), name='event-view-relationships'),
     url(
-        r'^event/(?P<from_event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/relationship/(?P<relationship_id>[0-9a-fA-F]+)/?$',
+        r'^event/(?P<from_event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/relationship/(?P<relationship_type>[0-9a-zA-Z_]+)/(?P<to_event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.EventRelationshipView.as_view(), name='event-view-relationship'),
 ]
 

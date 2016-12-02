@@ -771,6 +771,16 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
     # type = rest_framework.serializers.StringRelatedField(many=False)
     to_event = EventHeaderSerializer()
 
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+
+        if 'request' in self.context:
+            request = self.context['request']
+
+            rep['url'] = utils.add_base_url(request, reverse('event-view-relationship', args=[instance.from_event_id, instance.type.value, instance.to_event_id,]))
+
+        return rep
+
     class Meta:
         model = activity.models.EventRelationship
         read_only_fields = ('created_at', 'updated_at',)

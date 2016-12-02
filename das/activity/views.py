@@ -317,8 +317,12 @@ class EventRelationshipsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
 
     def create(self, request, *args, **kwargs):
-        from_event = kwargs.get('from_event_id')
-        request.data['from_event'] = from_event
+        from_event_id = kwargs.get('from_event_id')
+        to_event_id = request.data.get('to_event_id')
+        type = request.data.get('relationship_type')
+
+        EventRelationship.objects.add_relationship(from_event=from_event_id, to_event=to_event_id, type=type,)
+
         return super().create(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -334,14 +338,22 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['id'])
+                                           pk=self.kwargs['from_event_id'])
 
         relationships = EventRelationship.objects.all().filter(from_event=event)
         return relationships
 
+    def delete(self, request, *args, **kwargs):
+        EventRelationship.objects.remove_relationship(
+            from_event=self.kwargs['from_event_id'],
+            to_event=self.kwargs['to_event_id'],
+            type=self.kwargs['relationship_type'],
+        )
     def get_object(self):
         queryset = self.get_queryset()
-        filters = {'id': self.kwargs['relationship_id']}
+        filters = {'from_event_id': self.kwargs['from_event_id'],
+                   'to_event_id': self.kwargs['to_event_id'],
+                   'type__value': self.kwargs['relationship_type']}
 
         obj = generics.get_object_or_404(queryset, **filters)
 

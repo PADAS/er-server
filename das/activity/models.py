@@ -240,11 +240,12 @@ class EventRelationshipManager(models.Manager):
                {'event_relationship_type': ValidationError(_('Invalid value for event_relationship_type'),
                                                            code='invalid')})
         with transaction.atomic():
-            rel, created = EventRelationship.objects.get_or_create(from_event=from_event, to_event=to_event, type=ert)
-            print (rel)
+            new_relation, created = EventRelationship.objects.get_or_create(from_event=from_event, to_event=to_event, type=ert)
             if ert.symmetrical:
                 rel, created = EventRelationship.objects.get_or_create(from_event=to_event, to_event=from_event,
                                                                        type=ert)
+
+        return new_relation
 
 
     def remove_relationship(self, from_event, to_event, type):
@@ -292,7 +293,7 @@ class EventRelationship(TimestampedModel):
         result = super().delete(using, keep_parents)
         self.from_event.dependent_table_updated()
         self.id = myid
-        relation_deleted.send(sender=Event, relation=self, instance=self.event, related_query_name='relationship')
+        relation_deleted.send(sender=Event, relation=self, instance=self.from_event, related_query_name='relationship')
 
         return result
 
