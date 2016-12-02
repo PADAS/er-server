@@ -735,9 +735,11 @@ class EventSerializerMixin():
                 'username': event.provenance}
 
 
-
-class NestedEventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
-
+class EventHeaderSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
+    '''
+    This is intended to serialize only 'header' fields for an Event, and especially to avoid
+    serializing nested events.
+    '''
     class Meta:
         model = activity.models.Event
         fields = ('id', 'message', 'time', 'end_time', 'serial_number')
@@ -767,22 +769,7 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
 
     type = EventRelationshipTypeRelatedField()
     # type = rest_framework.serializers.StringRelatedField(many=False)
-    # to_event = NestedEventSerializer()
-
-    class Meta:
-        model = activity.models.EventRelationship
-        read_only_fields = ('created_at', 'updated_at',)
-        fields = ('id', 'from_event', 'to_event', 'type', 'ordernum',)
-
-
-class NestedEventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
-
-    def to_internal_value(self, data):
-        return super().to_internal_value(data)
-
-    type = EventRelationshipTypeRelatedField()
-    # type = rest_framework.serializers.StringRelatedField(many=False)
-    to_event = NestedEventSerializer()
+    to_event = EventHeaderSerializer()
 
     class Meta:
         model = activity.models.EventRelationship
@@ -806,9 +793,24 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
-    relationships = NestedEventRelationshipSerializer(many=True)
 
-    related_events = NestedEventSerializer(many=True)
+    # DRF requires read_only=True here, since related_events uses a through Model.
+    # related_events = EventHeaderSerializer(many=True, read_only=True, )
+    # relationships = EventRelationshipSerializer(many=True)
+
+    contained_events = rest_framework.serializers.SerializerMethodField()
+    linked_events = rest_framework.serializers.SerializerMethodField()
+
+    def get_contained_events(self, event):
+        return self.get_related_event(event, 'contains')
+
+    def get_linked_events(self, event):
+        return self.get_related_event(event, 'is_linked_to')
+
+    def get_related_event(self, event, value):
+        qs = event.relationships.filter(type__value=value).order_by('ordernum')
+        serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context)
+        return serializer.data
 
     class Meta:
         model = activity.models.Event
@@ -817,7 +819,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes',
             'image_url', 'created_by_user', 'notes', 'reported_by',
-            'state', 'photos', 'event_details', 'relationships', 'related_events') + read_only_fields
+            'state', 'photos', 'event_details', 'contained_events', 'linked_events') + read_only_fields
 
 
     def __init__(self, *args, **kwargs):
@@ -837,6 +839,12 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             self.fields['event_details'].context.update(self.context)
         else:
             self.fields.pop('event_details')
+
+        if not self.context.get('include_contained_events', True):
+            self.fields.pop('contained_events')
+
+        if not self.context.get('include_linked_events', True):
+            self.fields.pop('linked_events')
 
     def to_representation(self, event):
         rep = super().to_representation(event)

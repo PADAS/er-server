@@ -20,6 +20,9 @@ class Command(BaseCommand):
 
         e1 = Event.objects.get(message='WRS')
 
+        e2 = Event.objects.get(message='hello.')
+
+
         er, created = EventRelationship.objects.get_or_create(from_event=e0, to_event=e1, type=EventRelationshipType.objects.get(value='contains'))
         print((er, created))
 
@@ -28,4 +31,8 @@ class Command(BaseCommand):
 
         er, created = EventRelationship.objects.get_or_create(from_event=e1, to_event=e0,
                                                               type=EventRelationshipType.objects.get(value='contains'))
+        print((er, created))
+
+        er, created = EventRelationship.objects.get_or_create(from_event=e1, to_event=e2, type=EventRelationshipType.objects.get(value='is_linked_to'))
+        er, created = EventRelationship.objects.get_or_create(from_event=e2, to_event=e1, type=EventRelationshipType.objects.get(value='is_linked_to'))
         print((er, created))

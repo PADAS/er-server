@@ -464,7 +464,7 @@ class Event(RevisionMixin, TimestampedModel):
         return value
 
     def __str__(self):
-        return self.message[:25]
+        return '%d: %s' % (self.serial_number, self.message[:50])
 
 class EventRelationshipManager(models.Manager):
 
