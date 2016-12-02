@@ -216,15 +216,13 @@ class EventManager(models.Manager):
         return self.filter(state=Event.SC_NEW).count()
 
 
-class EventRelationshipTypeManager(models.Manager):
-    pass
-
 
 class EventRelationshipType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=50, unique=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
 
-    objects = EventRelationshipTypeManager()
+    objects = EventBaseManager()
 
     def __str__(self):
         return self.value
@@ -236,6 +234,7 @@ class EventRelationshipManager(models.Manager):
 
 class EventRelationship(TimestampedModel):
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     type = models.ForeignKey('EventRelationshipType', on_delete=models.PROTECT)
     from_event = models.ForeignKey('Event', related_name='relationships', related_query_name='relationship',
                                    on_delete=models.CASCADE)
@@ -337,7 +336,7 @@ class Event(RevisionMixin, TimestampedModel):
         null=True, blank=True, related_name='events', related_query_name='event')
 
     event_time = models.DateTimeField(default=django.utils.timezone.now)
-    end_time = models.DateTimeField(null=True, verbose_name='End Time')
+    end_time = models.DateTimeField(null=True, blank=True, verbose_name='End Time')
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
     event_type = models.ForeignKey(EventType, on_delete=models.PROTECT,

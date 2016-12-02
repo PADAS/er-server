@@ -10,8 +10,8 @@ def forward(apps, schema_editor):
     db_alias = schema_editor.connection.alias
 
     EventRelationshipType.objects.using(db_alias).bulk_create([
-        EventRelationshipType(value='child'),
-        EventRelationshipType(value='linked')
+        EventRelationshipType(value='contains', ordernum=1),
+        EventRelationshipType(value='is_linked_to', ordernum=2)
     ])
 
 

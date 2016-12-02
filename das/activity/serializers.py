@@ -375,6 +375,24 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
         return rep
 
 
+class EventRelationshipTypeRelatedField(rest_framework.serializers.RelatedField):
+    def get_queryset(self):
+        return activity.models.EventRelationshipType.objects.all_sort()
+
+    def to_representation(self, value):
+        return value.value if value else None
+
+    def to_internal_value(self, data):
+        if data:
+            return activity.models.EventRelationshipType.objects.get_by_value(data)
+        return None
+
+    @property
+    def choices(self):
+        return OrderedDict(((row.value, row.value)
+                            for row in self.get_queryset()))
+
+
 class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
     target = AttachmentRelatedField(read_only=True)
 
@@ -744,14 +762,32 @@ class NestedEventSerializer(EventSerializerMixin, rest_framework.serializers.Mod
 
 class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
 
-    type = rest_framework.serializers.StringRelatedField(many=False)
+    def to_internal_value(self, data):
+        return super().to_internal_value(data)
+
+    type = EventRelationshipTypeRelatedField()
+    # type = rest_framework.serializers.StringRelatedField(many=False)
+    # to_event = NestedEventSerializer()
+
+    class Meta:
+        model = activity.models.EventRelationship
+        read_only_fields = ('created_at', 'updated_at',)
+        fields = ('id', 'from_event', 'to_event', 'type', 'ordernum',)
+
+
+class NestedEventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
+
+    def to_internal_value(self, data):
+        return super().to_internal_value(data)
+
+    type = EventRelationshipTypeRelatedField()
+    # type = rest_framework.serializers.StringRelatedField(many=False)
     to_event = NestedEventSerializer()
 
     class Meta:
         model = activity.models.EventRelationship
         read_only_fields = ('created_at', 'updated_at',)
-        fields = ('to_event', 'type', 'ordernum',)
-
+        fields = ('id', 'from_event', 'to_event', 'type', 'ordernum',)
 
 
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
@@ -770,7 +806,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
-    relationships = EventRelationshipSerializer(many=True)
+    relationships = NestedEventRelationshipSerializer(many=True)
 
     class Meta:
         model = activity.models.Event

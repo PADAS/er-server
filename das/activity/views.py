@@ -10,11 +10,12 @@ import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 
 from activity.models import Event, EventNote, EventPhoto, EventClass,\
-    EventFactor, EventClassFactor, EventType
+    EventFactor, EventClassFactor, EventType, EventRelationship
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
-    EventTypeSerializer
+    EventTypeSerializer, EventRelationshipSerializer
+
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
@@ -306,3 +307,41 @@ class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
         obj = generics.get_object_or_404(queryset, **filters)
 
         return obj
+
+
+class EventRelationshipsView(generics.ListCreateAPIView):
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = EventRelationshipSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def create(self, request, *args, **kwargs):
+        from_event = kwargs.get('from_event_id')
+        request.data['from_event'] = from_event
+        return super().create(request, *args, **kwargs)
+
+    def get_queryset(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['from_event_id'])
+
+        return EventRelationship.objects.filter(from_event=event)
+
+
+class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = EventRelationshipSerializer
+
+    def get_queryset(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['id'])
+
+        relationships = EventRelationship.objects.all().filter(from_event=event)
+        return relationships
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        filters = {'id': self.kwargs['relationship_id']}
+
+        obj = generics.get_object_or_404(queryset, **filters)
+
+        return obj
+
