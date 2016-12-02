@@ -3,6 +3,7 @@ import datetime, pytz
 from operator import itemgetter, attrgetter
 
 import django.utils
+from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -221,6 +222,7 @@ class EventRelationshipType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=50, unique=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
+    symmetrical = models.BooleanField(default=False)
 
     objects = EventBaseManager()
 
@@ -229,7 +231,33 @@ class EventRelationshipType(models.Model):
 
 
 class EventRelationshipManager(models.Manager):
-    pass
+
+    def add_relationship(self, from_event, to_event, type):
+        try:
+            ert = EventRelationshipType.objects.get(value=type)
+        except:
+            raise ValidationError(
+               {'event_relationship_type': ValidationError(_('Invalid value for event_relationship_type'),
+                                                           code='invalid')})
+        with transaction.atomic():
+            rel, created = EventRelationship.objects.get_or_create(from_event=from_event, to_event=to_event, type=ert)
+            print (rel)
+            if ert.symmetrical:
+                rel, created = EventRelationship.objects.get_or_create(from_event=to_event, to_event=from_event,
+                                                                       type=ert)
+
+
+    def remove_relationship(self, from_event, to_event, type):
+        try:
+            ert = EventRelationshipType.objects.get(value=type)
+        except:
+            raise ValidationError(
+                {'event_relationship_type': ValidationError(_('Invalid value for event_relationship_type'),
+                                                            code='invalid')})
+        with transaction.atomic():
+            EventRelationship.objects.filter(from_event=from_event, to_event=to_event, type=ert).delete()
+            if ert.symmetrical:
+                EventRelationship.objects.filter(from_event=to_event, to_event=from_event, type=ert).delete()
 
 
 class EventRelationship(TimestampedModel):
@@ -248,7 +276,7 @@ class EventRelationship(TimestampedModel):
         ordering = ['type', 'ordernum',]
 
     def __str__(self):
-        return '%s : %s : %s' % (self.from_event.id, self.type.value, self.to_event.id)
+        return '<%s> : %s : <%s>' % (str(self.from_event), self.type.value, self.to_event)
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -328,7 +356,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    serial_number = models.BigIntegerField(unique=True, null=False, verbose_name='Unique serial number for event.')
+    serial_number = models.BigIntegerField(unique=True, null=False, verbose_name='Serial Number')
 
     message = models.TextField(blank=True)
     created_by_user = models.ForeignKey(

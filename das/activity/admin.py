@@ -2,8 +2,14 @@ from django.contrib.gis import admin
 import activity.models as models
 from django.contrib.staticfiles.templatetags.staticfiles import static
 
-class EventAttachmentInline(admin.StackedInline):
+class EventAttachmentInline(admin.TabularInline):
     model=models.EventAttachment
+
+
+class EventRelationshipInline(admin.TabularInline):
+    model=models.EventRelationship
+    fk_name = 'from_event'
+
 
 @admin.register(models.Event)
 class EventAdmin(admin.OSMGeoAdmin):
@@ -15,6 +21,7 @@ class EventAdmin(admin.OSMGeoAdmin):
     readonly_fields = ('id', 'created_at', 'updated_at')
     inlines = [
         EventAttachmentInline,
+        EventRelationshipInline,
     ]
 
 
