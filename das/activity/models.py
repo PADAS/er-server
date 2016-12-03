@@ -235,7 +235,13 @@ class EventRelationshipManager(models.Manager):
     def add_relationship(self, from_event, to_event, type):
         try:
             ert = EventRelationshipType.objects.get(value=type)
-        except:
+
+            if not from_event.event_type.is_collection:
+                raise ValidationError(
+                    {'is_collection': ValidationError(_('Event is not a collection'), code='invalid')}
+                )
+
+        except EventRelationshipType.DoesNotExist:
             raise ValidationError(
                {'event_relationship_type': ValidationError(_('Invalid value for event_relationship_type'),
                                                            code='invalid')})
@@ -251,7 +257,8 @@ class EventRelationshipManager(models.Manager):
     def remove_relationship(self, from_event, to_event, type):
         try:
             ert = EventRelationshipType.objects.get(value=type)
-        except:
+
+        except EventRelationshipType.DoesNotExist:
             raise ValidationError(
                 {'event_relationship_type': ValidationError(_('Invalid value for event_relationship_type'),
                                                             code='invalid')})
