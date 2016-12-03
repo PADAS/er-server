@@ -488,11 +488,6 @@ class Event(RevisionMixin, TimestampedModel):
     def __str__(self):
         return '%d: %s' % (self.serial_number, self.message[:50])
 
-class EventRelationshipManager(models.Manager):
-
-    def create(self, from_event, to_event, event_relationship_type):
-        pass
-
 
 class EventAttachmentManager(models.Manager):
     def create_attachment(self, **kwargs):
