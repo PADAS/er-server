@@ -118,7 +118,7 @@ class EventCategory(TimestampedModel):
 
 class FilterFieldMixin(object):
     def filter_field(self, field_name, field_data):
-        if not field_data:
+        if field_data is None:
             return self
 
         if isinstance(field_data, (list, tuple)):
@@ -191,6 +191,9 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def by_event_type(self, event_type):
         return self.filter_field('event_type', event_type)
+
+    def by_is_collection(self, value):
+        return self.filter_field('event_type__is_collection', value)
 
 
 class EventManager(models.Manager):

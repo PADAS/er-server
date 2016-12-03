@@ -179,6 +179,10 @@ class EventsView(generics.ListCreateAPIView):
         if event_type:
             queryset = queryset.by_event_type(event_type)
 
+        is_collection = query_params.get('is_collection', None)
+        if is_collection:
+            queryset = queryset.by_is_collection(parse_bool(is_collection))
+
         event_category = query_params.getlist('event_category', None)
         if event_category:
             queryset = queryset.by_category(event_category)
