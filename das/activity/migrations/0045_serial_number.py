@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='event',
             name='serial_number',
-            field=models.BigIntegerField(default=-1, unique=False, verbose_name='Serial Number'),
+            field=models.BigIntegerField(default=-1, unique=False, null=True, blank=True, verbose_name='Serial Number'),
             preserve_default=False,
         ),
     ]
