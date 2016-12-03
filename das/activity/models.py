@@ -365,9 +365,12 @@ class Event(RevisionMixin, TimestampedModel):
 
         )
 
+    class ReadonlyMeta:
+        readonly = ['serial_number',]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    serial_number = models.BigIntegerField(blank=True, null=True, verbose_name='Serial Number')
+    serial_number = models.BigIntegerField(blank=True, verbose_name='Serial Number')
 
     message = models.TextField(blank=True)
     created_by_user = models.ForeignKey(
