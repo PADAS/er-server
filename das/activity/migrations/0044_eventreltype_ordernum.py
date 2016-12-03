@@ -16,9 +16,4 @@ class Migration(migrations.Migration):
             name='eventrelationship',
             options={'ordering': ['type', 'ordernum']},
         ),
-        migrations.AddField(
-            model_name='eventrelationship',
-            name='ordernum',
-            field=models.SmallIntegerField(blank=True, null=True),
-        ),
     ]
