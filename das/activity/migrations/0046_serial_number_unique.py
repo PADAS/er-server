@@ -40,11 +40,11 @@ class Migration(migrations.Migration):
             sql = "alter table activity_event alter column serial_number set default nextval('activity_event_serial_number_seq'::regclass);",
             reverse_sql="alter table activity_event alter COLUMN serial_number drop default;"
         ),
-        migrations.AlterField(
-            model_name='event',
-            name='serial_number',
-            field=models.BigIntegerField(unique=True, verbose_name='Serial Number'),
-        ),
+        # migrations.AlterField(
+        #     model_name='event',
+        #     name='serial_number',
+        #     field=models.BigIntegerField(unique=True, verbose_name='Serial Number'),
+        # ),
         migrations.AddField(
             model_name='event',
             name='end_time',
