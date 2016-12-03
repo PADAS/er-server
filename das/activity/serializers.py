@@ -759,6 +759,9 @@ class EventHeaderSerializer(EventSerializerMixin, rest_framework.serializers.Mod
 
         if event.event_type and event.event_type.category:
             rep['event_category'] = event.event_type.category.value
+
+        rep['is_collection'] = event.event_type.is_collection
+
         return rep
 
 
