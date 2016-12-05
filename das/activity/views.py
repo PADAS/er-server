@@ -53,6 +53,9 @@ class EventTypesView(generics.ListAPIView):
         category = query_params.getlist('category', None)
         if category:
             queryset = queryset.by_category(category)
+        is_collection = query_params.get('is_collection', None)
+        if is_collection is not None:
+            queryset = queryset.by_is_collection(parse_bool(is_collection))
         return queryset
 
 

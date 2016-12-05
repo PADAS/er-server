@@ -135,6 +135,9 @@ class EventTypeFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_category(self, category):
         return self.filter_field('category__value', category)
 
+    def by_is_collection(self, value):
+        return self.filter_field('is_collection', value)
+
 
 class EventTypeManager(EventBaseManager):
     def create_type(self, **values):
