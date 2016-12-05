@@ -892,10 +892,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 updates.extend(photo['updates'])
             rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
 
-        if event.event_type and event.event_type.category:
-            rep['event_category'] = event.event_type.category.value
+        if event.event_type:
+            if event.event_type.category:
+                rep['event_category'] = event.event_type.category.value
 
-        rep['is_collection'] = event.event_type.is_collection
+            rep['is_collection'] = event.event_type.is_collection
 
         return rep
 
