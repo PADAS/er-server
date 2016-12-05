@@ -249,7 +249,7 @@ class EventRelationshipManager(models.Manager):
 
         except EventRelationshipType.DoesNotExist:
             raise ValidationError(
-               {'event_relationship_type': ValidationError(_('Invalid value for event_relationship_type'),
+               {'type': ValidationError(_('Invalid value for event relationship type.'),
                                                            code='invalid')})
         with transaction.atomic():
             new_relation, created = EventRelationship.objects.get_or_create(from_event=from_event, to_event=to_event, type=ert)

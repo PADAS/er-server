@@ -326,7 +326,7 @@ class EventRelationshipsView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         from_event_id = kwargs.get('from_event_id')
         to_event_id = request.data.get('to_event_id')
-        type = request.data.get('relationship_type')
+        type = request.data.get('type')
 
         EventRelationship.objects.add_relationship(from_event=from_event_id, to_event=to_event_id, type=type,)
 
@@ -338,8 +338,8 @@ class EventRelationshipsView(generics.ListCreateAPIView):
 
         filter = {'from_event': event.id}
 
-        if 'relationship_type' in self.kwargs:
-            filter['type__value'] = self.kwargs['relationship_type']
+        if 'type' in self.kwargs:
+            filter['type__value'] = self.kwargs['type']
 
         return EventRelationship.objects.filter(**filter)
 
@@ -358,13 +358,13 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
         EventRelationship.objects.remove_relationship(
             from_event=self.kwargs['from_event_id'],
             to_event=self.kwargs['to_event_id'],
-            type=self.kwargs['relationship_type'],
+            type=self.kwargs['type'],
         )
     def get_object(self):
         queryset = self.get_queryset()
         filters = {'from_event_id': self.kwargs['from_event_id'],
                    'to_event_id': self.kwargs['to_event_id'],
-                   'type__value': self.kwargs['relationship_type']}
+                   'type__value': self.kwargs['type']}
 
         obj = generics.get_object_or_404(queryset, **filters)
 
