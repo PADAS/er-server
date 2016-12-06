@@ -269,9 +269,11 @@ class EventRelationshipManager(models.Manager):
                 {'event_relationship_type': ValidationError(_('Invalid value for event_relationship_type'),
                                                             code='invalid')})
         with transaction.atomic():
-            EventRelationship.objects.filter(from_event=from_event, to_event=to_event, type=ert).delete()
+            result = EventRelationship.objects.filter(from_event=from_event, to_event=to_event, type=ert).delete()
             if ert.symmetrical:
                 EventRelationship.objects.filter(from_event=to_event, to_event=from_event, type=ert).delete()
+
+        return result
 
 
 class EventRelationship(TimestampedModel):
