@@ -771,7 +771,6 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
         return super().to_internal_value(data)
 
     type = EventRelationshipTypeRelatedField()
-    # type = rest_framework.serializers.StringRelatedField(many=False)
     to_event = EventHeaderSerializer()
 
     def to_representation(self, instance):
@@ -806,10 +805,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
-
-    # DRF requires read_only=True here, since related_events uses a through Model.
-    # related_events = EventHeaderSerializer(many=True, read_only=True, )
-    # relationships = EventRelationshipSerializer(many=True)
 
     contains = rest_framework.serializers.SerializerMethodField()
     is_linked_to = rest_framework.serializers.SerializerMethodField()
