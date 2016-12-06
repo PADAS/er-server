@@ -319,6 +319,10 @@ class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class EventRelationshipsView(generics.ListCreateAPIView):
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+
     permission_classes = (EventObjectPermissions,)
     serializer_class = EventRelationshipSerializer
     pagination_class = StandardResultsSetPagination
@@ -333,10 +337,15 @@ class EventRelationshipsView(generics.ListCreateAPIView):
         to_event = generics.get_object_or_404(Event.objects.all(),
                                            pk=request.data.get('to_event_id'))
 
-        return EventRelationship.objects.add_relationship(from_event=from_event, to_event=to_event,
+        relation = EventRelationship.objects.add_relationship(from_event=from_event, to_event=to_event,
                                                           type=relationship_type,)
 
+        serializer = self.get_serializer(relation)
+        headers = self.get_success_headers(serializer.data)
+        return response.Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def get_queryset(self):
+
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['from_event_id'])
 
