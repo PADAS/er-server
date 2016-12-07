@@ -6,6 +6,7 @@ import logging
 import observations.models
 import psycopg2.extras
 import pytz
+import STE.subject_groups
 import sys
 
 from django.contrib.gis.geos import Point
@@ -138,6 +139,14 @@ def import_trackinguser(userid):
         time_permissions = accounts.models.PermissionSet.objects.get(name='View Delayed Elephants')
     das_user.permission_sets.add(time_permissions)
 
+    for group_name in trackinguser['subjectgroups']:
+        subject_group = observations.models.SubjectGroup.objects.get(name=group_name)
+        if subject_group is None:
+            continue
+
+        permission_set = accounts.models.PermissionSet.objects.get_or_create(name='view_{0}_group'.format(group_name))[0]
+        subject_group.permission_sets.add(permission_set)
+        das_user.permission_sets.add(permission_set)
 
 def import_trackingmaster(chronofile):
     logger.info('Importing TrackingMaster %s', chronofile)
@@ -237,21 +246,36 @@ def import_trackingmaster(chronofile):
     if archive_locs:
         observations.models.Observation.objects.bulk_create(archive_locs, batch_size=200)
 
-def import_all_chronofiles():
+def import_subject_group(group_name, query):
     at_conn = connections['animaltracking']
     with at_conn.cursor() as at_cursor:
-        sql = 'SELECT chronofile from trackingmaster'
-        at_cursor.execute(sql)
+        at_cursor.execute(query)
         rows = dictfetchall(at_cursor)
+    result = rows[0]
 
-    chronofile_error_list = []
-    for animal in rows:
-        try:
-            import_trackingmaster(animal['chronofile'])
-        except Exception as ex:
-            chronofile_error_list.append({'User {0} import error - {1}'.format(animal['chronofile'], str(ex))})
-            logging.exception('Failed to import TrackingMaster %s',animal['chronofile'])
-    return chronofile_error_list
+    if (result['group_members'] is None or len(result['group_members']) == 0):
+        logger.info('Error looking up group members for {0)', group_name)
+        return
+
+    subject_group = observations.models.SubjectGroup.objects.get_or_create(name=group_name)[0]
+
+    for chronofile_member in result['group_members']:
+
+        with at_conn.cursor() as at_cursor:
+            sql = 'SELECT * from trackingmaster WHERE chronofile=%(chronofile)s'
+            at_cursor.execute(sql, dict(chronofile=chronofile_member))
+            rows = dictfetchall(at_cursor)
+        chronofile = rows[0]
+
+        subject = None
+        q_subject = observations.models.Subject.objects.filter(name=chronofile['name'])
+        for row in q_subject:
+            logger.info('Found existing subject %s by name',chronofile['name'])
+            subject = row
+        if not subject:
+            logger.warn("could not find subject")
+            continue
+        subject.groups.add(subject_group)
 
 
 def import_all_users():
@@ -261,20 +285,45 @@ def import_all_users():
         at_cursor.execute(sql)
         rows = dictfetchall(at_cursor)
 
-    user_error_list = []
+    error_list = []
     for user in rows:
         try:
             import_trackinguser(user['userid'])
         except Exception as ex:
-            user_error_list.append({'User {0} import error - {1}'.format(user['userid'], str(ex))})
+            error_list.append({'User {0} import error - {1}'.format(user['userid'], str(ex))})
             logging.exception('Failed to import TrackingUser %s', user['userid'])
-    return user_error_list
+    return error_list
+
+def import_all_chronofiles():
+    at_conn = connections['animaltracking']
+    with at_conn.cursor() as at_cursor:
+        sql = 'SELECT chronofile from trackingmaster'
+        at_cursor.execute(sql)
+        rows = dictfetchall(at_cursor)
+
+    error_list = []
+    for animal in rows:
+        try:
+            import_trackingmaster(animal['chronofile'])
+        except Exception as ex:
+            error_list.append({'User {0} import error - {1}'.format(animal['chronofile'], str(ex))})
+            logging.exception('Failed to import TrackingMaster %s',animal['chronofile'])
+    return error_list
+
+def import_all_subject_groups():
+    error_list = []
+    for group_name, query in STE.subject_groups.subject_group_query_map.items():
+        print('######### Importing ' + group_name)
+        import_subject_group(group_name, query)
+    return error_list
+
 
 
 def import_all():
     errors = []
-    errors += import_all_users()
     errors += import_all_chronofiles()
+    errors += import_all_subject_groups()
+    errors += import_all_users()
     print(errors)
 
 def import_test():
