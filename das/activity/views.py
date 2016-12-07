@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from datetime import timedelta
 
-from rest_framework import generics, status
+from rest_framework import generics, status, response
 from django.db.models import Prefetch
 from django.core.urlresolvers import reverse
 from django.template import Template, Context
@@ -53,6 +53,9 @@ class EventTypesView(generics.ListAPIView):
         category = query_params.getlist('category', None)
         if category:
             queryset = queryset.by_category(category)
+        is_collection = query_params.get('is_collection', None)
+        if is_collection is not None:
+            queryset = queryset.by_is_collection(parse_bool(is_collection))
         return queryset
 
 
@@ -178,6 +181,10 @@ class EventsView(generics.ListCreateAPIView):
         event_type = query_params.getlist('event_type', None)
         if event_type:
             queryset = queryset.by_event_type(event_type)
+
+        is_collection = query_params.get('is_collection', None)
+        if is_collection:
+            queryset = queryset.by_is_collection(parse_bool(is_collection))
 
         event_category = query_params.getlist('event_category', None)
         if event_category:
@@ -312,20 +319,33 @@ class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class EventRelationshipsView(generics.ListCreateAPIView):
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+
     permission_classes = (EventObjectPermissions,)
     serializer_class = EventRelationshipSerializer
     pagination_class = StandardResultsSetPagination
 
     def create(self, request, *args, **kwargs):
-        from_event_id = kwargs.get('from_event_id')
-        to_event_id = request.data.get('to_event_id')
-        type = request.data.get('relationship_type')
 
-        EventRelationship.objects.add_relationship(from_event=from_event_id, to_event=to_event_id, type=type,)
+        relationship_type = request.data.get('relationship_type')
 
-        return super().create(request, *args, **kwargs)
+        from_event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['from_event_id'])
+
+        to_event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=request.data.get('to_event_id'))
+
+        relation = EventRelationship.objects.add_relationship(from_event=from_event, to_event=to_event,
+                                                          type=relationship_type,)
+
+        serializer = self.get_serializer(relation)
+        headers = self.get_success_headers(serializer.data)
+        return response.Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def get_queryset(self):
+
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['from_event_id'])
 
@@ -348,11 +368,22 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
         return relationships
 
     def delete(self, request, *args, **kwargs):
+
+        from_event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['from_event_id'])
+
+        to_event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['to_event_id'])
+
+
         EventRelationship.objects.remove_relationship(
-            from_event=self.kwargs['from_event_id'],
-            to_event=self.kwargs['to_event_id'],
+            from_event=from_event,
+            to_event=to_event,
             type=self.kwargs['relationship_type'],
         )
+
+        return response.Response({}, status=status.HTTP_204_NO_CONTENT)
+
     def get_object(self):
         queryset = self.get_queryset()
         filters = {'from_event_id': self.kwargs['from_event_id'],

@@ -118,7 +118,7 @@ class EventCategory(TimestampedModel):
 
 class FilterFieldMixin(object):
     def filter_field(self, field_name, field_data):
-        if not field_data:
+        if field_data is None:
             return self
 
         if isinstance(field_data, (list, tuple)):
@@ -134,6 +134,9 @@ class FilterFieldMixin(object):
 class EventTypeFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_category(self, category):
         return self.filter_field('category__value', category)
+
+    def by_is_collection(self, value):
+        return self.filter_field('is_collection', value)
 
 
 class EventTypeManager(EventBaseManager):
@@ -192,6 +195,9 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_event_type(self, event_type):
         return self.filter_field('event_type', event_type)
 
+    def by_is_collection(self, value):
+        return self.filter_field('event_type__is_collection', value)
+
 
 class EventManager(models.Manager):
     def create_event(self, **values):
@@ -235,9 +241,15 @@ class EventRelationshipManager(models.Manager):
     def add_relationship(self, from_event, to_event, type):
         try:
             ert = EventRelationshipType.objects.get(value=type)
-        except:
+
+            if not from_event.event_type.is_collection:
+                raise ValidationError(
+                    {'is_collection': ValidationError(_('Event is not a collection'), code='invalid')}
+                )
+
+        except EventRelationshipType.DoesNotExist:
             raise ValidationError(
-               {'event_relationship_type': ValidationError(_('Invalid value for event_relationship_type'),
+               {'type': ValidationError(_('Invalid value for event relationship type.'),
                                                            code='invalid')})
         with transaction.atomic():
             new_relation, created = EventRelationship.objects.get_or_create(from_event=from_event, to_event=to_event, type=ert)
@@ -251,14 +263,17 @@ class EventRelationshipManager(models.Manager):
     def remove_relationship(self, from_event, to_event, type):
         try:
             ert = EventRelationshipType.objects.get(value=type)
-        except:
+
+        except EventRelationshipType.DoesNotExist:
             raise ValidationError(
                 {'event_relationship_type': ValidationError(_('Invalid value for event_relationship_type'),
                                                             code='invalid')})
         with transaction.atomic():
-            EventRelationship.objects.filter(from_event=from_event, to_event=to_event, type=ert).delete()
+            result = EventRelationship.objects.filter(from_event=from_event, to_event=to_event, type=ert).delete()
             if ert.symmetrical:
                 EventRelationship.objects.filter(from_event=to_event, to_event=from_event, type=ert).delete()
+
+        return result
 
 
 class EventRelationship(TimestampedModel):
@@ -355,9 +370,12 @@ class Event(RevisionMixin, TimestampedModel):
 
         )
 
+    class ReadonlyMeta:
+        readonly = ['serial_number',]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    serial_number = models.BigIntegerField(blank=True, null=True, verbose_name='Serial Number')
+    serial_number = models.BigIntegerField(blank=True, unique=True, verbose_name='Serial Number')
 
     message = models.TextField(blank=True)
     created_by_user = models.ForeignKey(
@@ -487,11 +505,6 @@ class Event(RevisionMixin, TimestampedModel):
 
     def __str__(self):
         return '%d: %s' % (self.serial_number, self.message[:50])
-
-class EventRelationshipManager(models.Manager):
-
-    def create(self, from_event, to_event, event_relationship_type):
-        pass
 
 
 class EventAttachmentManager(models.Manager):

@@ -63,6 +63,7 @@ INSTALLED_APPS = (
     'vectronics',
     'choices',
     'reports',
+    'django_readonly_field',
 )
 
 MIDDLEWARE_CLASSES = (

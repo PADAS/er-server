@@ -364,7 +364,7 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
 class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventType
-        read_only_fields = ('value', 'display', 'ordernum')
+        read_only_fields = ('value', 'display', 'ordernum', 'is_collection')
         fields = read_only_fields
 
     def to_representation(self, obj):
@@ -759,6 +759,9 @@ class EventHeaderSerializer(EventSerializerMixin, rest_framework.serializers.Mod
 
         if event.event_type and event.event_type.category:
             rep['event_category'] = event.event_type.category.value
+
+        rep['is_collection'] = event.event_type.is_collection
+
         return rep
 
 
@@ -768,7 +771,6 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
         return super().to_internal_value(data)
 
     type = EventRelationshipTypeRelatedField()
-    # type = rest_framework.serializers.StringRelatedField(many=False)
     to_event = EventHeaderSerializer()
 
     def to_representation(self, instance):
@@ -803,10 +805,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
-
-    # DRF requires read_only=True here, since related_events uses a through Model.
-    # related_events = EventHeaderSerializer(many=True, read_only=True, )
-    # relationships = EventRelationshipSerializer(many=True)
 
     contains = rest_framework.serializers.SerializerMethodField()
     is_linked_to = rest_framework.serializers.SerializerMethodField()
@@ -889,10 +887,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 updates.extend(photo['updates'])
             rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
 
-        if event.event_type and event.event_type.category:
-            rep['event_category'] = event.event_type.category.value
+        if event.event_type:
+            if event.event_type.category:
+                rep['event_category'] = event.event_type.category.value
 
-        rep['is_collection'] = event.event_type.is_collection
+            rep['is_collection'] = event.event_type.is_collection
 
         return rep
 
