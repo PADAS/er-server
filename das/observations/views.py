@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.filters import DjangoObjectPermissionsFilter
 
 from utils.drf import StandardResultsSetPagination
+from utils.json import zeroout_microseconds
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
 from observations import models
@@ -236,7 +237,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
         for ob in models.Observation.objects.get_source_range_observation_values(
                 sds, since, until):
             coordinates.append(ob['location'].coords)
-            times.append(ob['recorded_at'])
+            times.append(zeroout_microseconds(ob['recorded_at']))
 
         context['times'] = times
         context['coordinates'] = coordinates
@@ -310,7 +311,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
         for ob in models.Observation.objects.get_source_range_observation_values(
                 sds, since=since, until=until, limit=limit):
             coordinates.append(ob['location'].coords)
-            times.append(ob['recorded_at'])
+            times.append(zeroout_microseconds(ob['recorded_at']))
 
         context['times'] = times
         context['coordinates'] = coordinates
