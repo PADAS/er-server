@@ -51,7 +51,8 @@ class ExtendedJSONEncoder(json.JSONEncoder):
                 tmpval = datetime.datetime(o.year, o.month, o.day)
                 formatted_value = tmpval.isoformat()
             else:
-                formatted_value = o.isoformat()
+                formatted_value = o.isoformat() if o.microsecond is None\
+                    else o.replace(microsecond=0).isoformat()
             return formatted_value
         elif bson_imported and isinstance(o, ObjectId):
             # needed for supporting the MongoDB ObjectId
@@ -156,3 +157,9 @@ def empty_geojson_feature():
         "geometry": {}
         }
 
+
+def zeroout_microseconds(value):
+    if (not value or not hasattr(value, 'microsecond') or
+            value.microsecond is None):
+        return value
+    return value.replace(microsecond=0)
