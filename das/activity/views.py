@@ -329,7 +329,7 @@ class EventRelationshipsView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
 
-        relationship_type = request.data.get('relationship_type')
+        type = request.data.get('type')
 
         from_event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['from_event_id'])
@@ -338,7 +338,7 @@ class EventRelationshipsView(generics.ListCreateAPIView):
                                            pk=request.data.get('to_event_id'))
 
         relation = EventRelationship.objects.add_relationship(from_event=from_event, to_event=to_event,
-                                                          type=relationship_type,)
+                                                          type=type,)
 
         serializer = self.get_serializer(relation)
         headers = self.get_success_headers(serializer.data)
