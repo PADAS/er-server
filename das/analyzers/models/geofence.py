@@ -109,21 +109,24 @@ class GeofenceAnalyzer(Analyzer):
 
     def analyze_jake(self, traj):
 
-        if traj.relocsfixcount < 2:
+        if traj.relocs_fix_count < 2:
             raise InsufficientDataAnalyzerException
 
+        # Not sure why we would have a deafult fence?
         fence = self.fence_or_default
 
         #Attempt the intersection of the trajectory with the fence
-        trajsegs = traj.gettracksegments(None)
+        trajsegs = traj.get_track_segments(None) #Should pass in a Trajectory Filter
         for trajseg in trajsegs:
-            intersectPnts = trajseg.getline().Intersection(fence)
+            intersectPnts = trajseg.get_line().Intersection(fence)
             if (intersectPnts.GetGeometryName() == 'MULTIPOINT'):
                 for pnt in intersectPnts:
                     result = AnalyzerResult(self)
                     result.analyzer_type = self.__class__.__name__
                     result.level = NOMINAL
-                    segment_distance_to_crossing = trajseg.p1.distance(crossing_point)
+                    segment_distance_to_crossing = trajseg.p1.distance(pnt)
 
             elif intersectPnts.GetGeometryName() == 'POINT':
                 pass
+
+        return None
