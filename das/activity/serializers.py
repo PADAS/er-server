@@ -661,15 +661,17 @@ class EventSerializerMixin():
             details_data['event_details'] = validated_data['event_details']
             del validated_data['event_details']
 
+        rel_types = ('contains', 'is_linked_to',) # [_.type for _ in activity.models.EventRelationshipType.objects.all()]
+
         relationship_data = {}
-        for key in ('contains', 'is_linked_to', 'collection'):
+        for key in rel_types + ('collection',):
             if key in validated_data:
                 relationship_data[key] = validated_data.pop(key)
 
         new_event = activity.models.Event.objects.create_event(**validated_data)
         EventDetailsSerializer().update(new_event, details_data)
 
-        for relationship_type in ('contains', 'is_linked_to'):
+        for relationship_type in rel_types:
             if relationship_type in relationship_data:
 
                 related = relationship_data.pop(relationship_type)
@@ -691,7 +693,7 @@ class EventSerializerMixin():
                                                                            type='contains')
 
 
-        return new_event
+        return activity.models.Event.objects.get(id=new_event.id)
 
     def update(self, instance, validated_data):
         update_fields = []
