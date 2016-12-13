@@ -279,7 +279,7 @@ app:
                         /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf update
 
                         # Start/Restart celery worker and beat through supervisord
-                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart celeryworker celerybeat
+                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart celeryworker_default celeryworker_priority celerybeat
 
                         # Start/Restart realtime socketio api server
                         /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart realtime
