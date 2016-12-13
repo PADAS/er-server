@@ -16,12 +16,15 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
     EventTypeSerializer, EventRelationshipSerializer
 
+from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
 import utils
 from activity import schema_utils
+import accounts.serializers
+import accounts.models
 
 LAST_DAYS = timedelta(days=3)
 
@@ -394,3 +397,17 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
 
         return obj
 
+
+class EventAlertTargetsListView(generics.ListAPIView):
+
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = accounts.serializers.UserDisplaySerializer
+
+    def get_queryset(self):
+        priority = self.request.query_params.getlist('priority', None)
+
+        priority = [int(_) for _ in priority]
+        if priority:
+            return get_alert_users(priority)
+
+        return accounts.models.User.objects.none()
