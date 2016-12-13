@@ -498,6 +498,11 @@ class EventStateSerializer(rest_framework.serializers.ModelSerializer):
             instance.save(update_fields=update_fields)
         return instance
 
+    def validate_end_time(self, value):
+        if value < self.instance.time:
+            raise rest_framework.serializers.ValidationError('Event end_time must not be earlier than the event\'s start_time.')
+        return value
+
 
 class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
     created_by_user = rest_framework.serializers.HiddenField(
