@@ -179,6 +179,9 @@ def import_trackingmaster(chronofile):
         additional = {}
         additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_COMMON_FIELDS if key in trackingmaster})
 
+        if 'rgb' in additional and ',' not in additional['rgb']:
+            del(additional['rgb'])
+
         if region:
             add_region(region['region'], region['country'])
             additional['region'] = region['region']
