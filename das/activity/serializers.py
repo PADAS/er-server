@@ -486,7 +486,7 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
 class EventStateSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.Event
-        fields = ('state', 'end_time')
+        fields = ('state',)
 
     def update(self, instance, validated_data):
         update_fields = []
@@ -497,11 +497,6 @@ class EventStateSerializer(rest_framework.serializers.ModelSerializer):
         if update_fields:
             instance.save(update_fields=update_fields)
         return instance
-
-    def validate_end_time(self, value):
-        if value < self.instance.time:
-            raise rest_framework.serializers.ValidationError('Event end_time must not be earlier than the event\'s start_time.')
-        return value
 
 
 class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
@@ -828,6 +823,12 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
 
         return rep
 
+    def validate(self, attrs):
+        to_event_id = attrs.get('to_event_id')
+        if to_event_id and to_event_id == self.instance.from_event.id:
+            raise rest_framework.serializers.ValidationError('An event may not be related to itself.')
+        return super().validate(attrs)
+
     class Meta:
         model = activity.models.EventRelationship
         read_only_fields = ('created_at', 'updated_at',)
@@ -859,6 +860,15 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     def get_is_linked_to(self, event):
         return self.get_related_event(event, 'is_linked_to')
+
+    def validate(self, attrs):
+
+        end_time = attrs.get('end_time')
+        if end_time is not None and end_time < self.instance.time:
+            raise rest_framework.serializers.ValidationError('Event end_time must not be earlier than event time.')
+
+
+        return super().validate(attrs)
 
     def get_related_event(self, event, value):
         qs = event.relationships.filter(type__value=value).order_by('ordernum')
