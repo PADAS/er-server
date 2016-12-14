@@ -780,7 +780,7 @@ class EventHeaderSerializer(EventSerializerMixin, rest_framework.serializers.Mod
     '''
     class Meta:
         model = activity.models.Event
-        fields = ('id', 'message', 'time', 'end_time', 'serial_number')
+        fields = ('id', 'message', 'time', 'end_time', 'serial_number', 'priority')
 
     def to_representation(self, event):
         rep = super().to_representation(event)
