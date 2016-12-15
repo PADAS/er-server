@@ -42,7 +42,10 @@ SOURCE_TYPES = (
 
 
 def to_rgb(color):
-    return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(',')])
+    try:
+        return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(',')])
+    except:
+        raise
 
 DEFAULT_COLOR = '255,255,0'
 
@@ -319,6 +322,13 @@ class ObservationManager(models.GeoManager):
             r = r.filter(recorded_at__gt=ssource.assigned_range.lower)
             upper_range = ssource.assigned_range.upper
             lower_range = ssource.assigned_range.lower
+
+            # If there's no timezone info, assume UTC
+            if upper_range.tzinfo is None:
+                upper_range = upper_range.replace(tzinfo=pytz.UTC)
+            if lower_range.tzinfo is None:
+                lower_range = lower_range.replace(tzinfo=pytz.UTC)
+
             if newer_than and newer_than > upper_range:
                 continue
             if older_than and lower_range > older_than:
@@ -541,13 +551,11 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_RESEARCH = 'research'
     SUBTYPE_TOURIST_VEHICLE = 'tourist_vehicle'
     SUBTYPE_MOTORCYCLE = 'motorcycle'
-    SUBTYPE_BOAT = 'ranger_boat'
     SUBTYPE_CAMERA_TRAP = 'camera-trap'
     SUBTYPE_WEATHER_STATION = 'weather-station'
 
     SUBTYPE_RANGER = 'ranger'
     SUBTYPE_RANGER_TEAM = 'ranger_team'
-    SUBTYPE_DOG_TEAM = 'dog_team'
     SUBTYPE_MANAGER = 'manager'
     SUBTYPE_DRIVER = 'driver'
 
@@ -573,7 +581,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_RANGER, 'Ranger'),
                 (SUBTYPE_RANGER_TEAM, 'Ranger Team'),
-                (SUBTYPE_DOG_TEAM, 'Dog Team'),
                 (SUBTYPE_DRIVER, 'Driver'),
                 (SUBTYPE_MANAGER, 'Manager'),
             )
@@ -586,7 +593,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 (SUBTYPE_RESEARCH, 'Research Vehicle'),
                 (SUBTYPE_TOURIST_VEHICLE, 'Tourist Vehicle'),
                 (SUBTYPE_MOTORCYCLE, 'Motorcycle'),
-                (SUBTYPE_BOAT, 'Boat'),
             )
         },
         {
@@ -724,7 +730,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         return '%s, %s, %s' % (self.name, self.subject_type, self.subject_subtype)
 
 
-OBSERVATION_DELAY_HRS = 24
+OBSERVATION_DELAY_HRS = 72
 
 class SubjectStatusQuerySet(models.QuerySet):
     def get_last(self):
