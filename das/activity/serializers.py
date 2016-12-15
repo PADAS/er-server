@@ -639,23 +639,61 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         return activity.models.EventDetails.objects.filter(event=instance).order_by('created_at').last()
 
 
-
 class EventSerializerMixin():
 
     def to_internal_value(self, data):
         internal_value = super().to_internal_value(data)
+
+        for x in ('contains', 'is_linked_to', 'collection'):
+            if x in data:
+                internal_value[x] = data[x]
+
         return internal_value
 
     def create(self, validated_data):
+        return self.create_event(validated_data)
+
+    def create_event(self, validated_data):
+
         details_data = {}
 
         if 'event_details' in validated_data:
             details_data['event_details'] = validated_data['event_details']
             del validated_data['event_details']
 
+        rel_types = ('contains', 'is_linked_to',) # [_.type for _ in activity.models.EventRelationshipType.objects.all()]
+
+        relationship_data = {}
+        for key in rel_types + ('collection',):
+            if key in validated_data:
+                relationship_data[key] = validated_data.pop(key)
+
         new_event = activity.models.Event.objects.create_event(**validated_data)
         EventDetailsSerializer().update(new_event, details_data)
-        return new_event
+
+        for relationship_type in rel_types:
+            if relationship_type in relationship_data:
+
+                related = relationship_data.pop(relationship_type)
+                if not isinstance(related, (list, set)):
+                    related = [related,]
+
+                children = [self.create_event(self.to_internal_value(child)) for child in related]
+
+                for child in children:
+                    activity.models.EventRelationship.objects.add_relationship(from_event=new_event, to_event=child,
+                                                                               type=relationship_type)
+
+
+        if 'collection' in relationship_data:
+            parent = relationship_data.pop('collection')
+            parent = activity.models.Event.objects.get(id=parent['id'])
+            if parent:
+                activity.models.EventRelationship.objects.add_relationship(from_event=parent, to_event=new_event,
+                                                                           type='contains')
+
+
+        return activity.models.Event.objects.get(id=new_event.id)
 
     def update(self, instance, validated_data):
         update_fields = []
@@ -740,9 +778,12 @@ class EventHeaderSerializer(EventSerializerMixin, rest_framework.serializers.Mod
     This is intended to serialize only 'header' fields for an Event, and especially to avoid
     serializing nested events.
     '''
+
+    event_type = EventTypeRelatedField(required=False)
+
     class Meta:
         model = activity.models.Event
-        fields = ('id', 'message', 'time', 'end_time', 'serial_number')
+        fields = ('id', 'message', 'time', 'end_time', 'serial_number', 'priority', 'event_type')
 
     def to_representation(self, event):
         rep = super().to_representation(event)
@@ -779,9 +820,17 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
         if 'request' in self.context:
             request = self.context['request']
 
-            rep['url'] = utils.add_base_url(request, reverse('event-view-relationship', args=[instance.from_event_id, instance.type.value, instance.to_event_id,]))
+            rep['url'] = utils.add_base_url(request, reverse('event-view-relationship', args=[instance.from_event_id,
+                                                                                              instance.type.value,
+                                                                                              instance.to_event_id,]))
 
         return rep
+
+    def validate(self, attrs):
+        to_event_id = attrs.get('to_event_id')
+        if to_event_id and to_event_id == self.instance.from_event.id:
+            raise rest_framework.serializers.ValidationError('An event may not be related to itself.')
+        return super().validate(attrs)
 
     class Meta:
         model = activity.models.EventRelationship
@@ -814,6 +863,15 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     def get_is_linked_to(self, event):
         return self.get_related_event(event, 'is_linked_to')
+
+    def validate(self, attrs):
+
+        end_time = attrs.get('end_time')
+        if end_time is not None and end_time < self.instance.time:
+            raise rest_framework.serializers.ValidationError('Event end_time must not be earlier than event time.')
+
+
+        return super().validate(attrs)
 
     def get_related_event(self, event, value):
         qs = event.relationships.filter(type__value=value).order_by('ordernum')

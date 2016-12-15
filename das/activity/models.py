@@ -303,6 +303,10 @@ class EventRelationship(TimestampedModel):
     def clean(self):
         super().clean()
 
+        if self.from_event == self.to_event:
+            raise ValidationError(
+                {'to_event': ValidationError(_('An event may not have a relationship with itself.'), code='invalid')})
+
     def delete(self, using=None, keep_parents=False):
         myid = self.id
         result = super().delete(using, keep_parents)

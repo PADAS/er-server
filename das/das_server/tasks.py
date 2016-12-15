@@ -1,30 +1,15 @@
 
 import logging
 
-from accounts.models import User, PermissionSet
+from accounts.models import User
 from activity.models import Event
 from activity.views import EventView
+from activity.alerts import get_alert_users
 from das_server import celery, mailer
-from django.conf import settings
+
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 
 logger = logging.getLogger(__name__)
-
-def get_alert_list_by_priorities(priorities):
-    alert_users = set()
-    for priority in priorities:
-        user_group = None
-        if priority == Event.PRI_URGENT and settings.NOTIFY_HIGH_PRIORITY_EVENT is not None:
-            user_group = PermissionSet.objects.get(name=settings.NOTIFY_HIGH_PRIORITY_EVENT)
-        elif priority == Event.PRI_IMPORTANT and settings.NOTIFY_MEDIUM_PRIORITY_EVENT is not None:
-            user_group = PermissionSet.objects.get(name=settings.NOTIFY_MEDIUM_PRIORITY_EVENT)
-        elif settings.NOTIFY_LOW_PRIORITY_EVENT is not None:
-            user_group = PermissionSet.objects.get(name=settings.NOTIFY_LOW_PRIORITY_EVENT)
-
-        if user_group is not None:
-            alert_users |= set(user_group.user_set.all())
-
-    return alert_users
 
 
 @celery.app.task()
@@ -69,7 +54,7 @@ def notify_new_event(event_id):
             priorities.append(revision.data['priority'])
 
     # Get alert user list based on priority history
-    user_list = get_alert_list_by_priorities(priorities)
+    user_list = get_alert_users(priorities)
 
     # Alert each user according to their contact preferences
     for user in user_list:
@@ -91,7 +76,7 @@ def notify_update_event(event_id):
             priorities.append(revision.data['priority'])
 
     # Get alert user list based on priority history
-    userlist = get_alert_list_by_priorities(priorities)
+    userlist = get_alert_users(priorities)
 
     # Alert each user according to their contact preferences
     for user in userlist:

@@ -16,12 +16,15 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
     EventTypeSerializer, EventRelationshipSerializer
 
+from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
 import utils
 from activity import schema_utils
+import accounts.serializers
+import accounts.models
 
 LAST_DAYS = timedelta(days=3)
 
@@ -329,7 +332,7 @@ class EventRelationshipsView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
 
-        relationship_type = request.data.get('relationship_type')
+        type = request.data.get('type')
 
         from_event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['from_event_id'])
@@ -338,7 +341,7 @@ class EventRelationshipsView(generics.ListCreateAPIView):
                                            pk=request.data.get('to_event_id'))
 
         relation = EventRelationship.objects.add_relationship(from_event=from_event, to_event=to_event,
-                                                          type=relationship_type,)
+                                                          type=type,)
 
         serializer = self.get_serializer(relation)
         headers = self.get_success_headers(serializer.data)
@@ -394,3 +397,17 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
 
         return obj
 
+
+class EventAlertTargetsListView(generics.ListAPIView):
+
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = accounts.serializers.UserDisplaySerializer
+
+    def get_queryset(self):
+        priority = self.request.query_params.getlist('priority', None)
+
+        priority = [int(_) for _ in priority]
+        if priority:
+            return get_alert_users(priority)
+
+        return accounts.models.User.objects.none()
