@@ -778,9 +778,12 @@ class EventHeaderSerializer(EventSerializerMixin, rest_framework.serializers.Mod
     This is intended to serialize only 'header' fields for an Event, and especially to avoid
     serializing nested events.
     '''
+
+    event_type = EventTypeRelatedField(required=False)
+
     class Meta:
         model = activity.models.Event
-        fields = ('id', 'message', 'time', 'end_time', 'serial_number', 'priority')
+        fields = ('id', 'message', 'time', 'end_time', 'serial_number', 'priority', 'event_type')
 
     def to_representation(self, event):
         rep = super().to_representation(event)
