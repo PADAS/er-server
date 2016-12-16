@@ -874,7 +874,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         return super().validate(attrs)
 
     def get_related_event(self, event, value):
-        qs = event.relationships.filter(type__value=value).order_by('ordernum')
+        qs = event.out_relationships.filter(type__value=value).order_by('ordernum')
         serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context)
         return serializer.data
 
