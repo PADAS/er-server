@@ -115,7 +115,7 @@ class SpiderTracksPlugin(TrackingPlugin):
     '''
     Fetch data from Savannah Tracking API.
     '''
-    DEFAULT_START_OFFSET = timedelta(hours=24) # timedelta(days=14)
+    DEFAULT_START_OFFSET = timedelta(days=14)
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=2)
     SOURCE_TYPE = 'tracking-device'
     DEFAULT_MODEL_NAME = 'spidertracker'
