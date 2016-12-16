@@ -10,7 +10,7 @@ import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 
 from activity.models import Event, EventNote, EventPhoto, EventClass,\
-    EventFactor, EventClassFactor, EventType, EventRelationship
+    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
@@ -189,9 +189,21 @@ class EventsView(generics.ListCreateAPIView):
         if is_collection:
             queryset = queryset.by_is_collection(parse_bool(is_collection))
 
-        event_category = query_params.getlist('event_category', None)
-        if event_category:
-            queryset = queryset.by_category(event_category)
+        event_categories = query_params.getlist('event_category', None)
+        if event_categories is None or len(event_categories) == 0:
+            event_categories = EventCategory.objects.values_list('value').distinct()
+            event_categories = [x[0] for x in event_categories]
+
+        allowed_event_categories = []
+        for event_category in event_categories:
+            permission_name = 'activity.{0}_events'.format(event_category)
+            if self.request.user.has_perm(permission_name):
+                allowed_event_categories.append(event_category)
+
+        if len(allowed_event_categories) > 0:
+            queryset = queryset.by_category(allowed_event_categories)
+        else:
+            raise rest_framework.exceptions.PermissionDenied
 
         queryset = queryset.prefetch_related(Prefetch('attachments'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))
@@ -224,6 +236,7 @@ class EventView(generics.RetrieveUpdateAPIView):
     def get_serializer_context(self):
         query_params = self.request.query_params
         context = super().get_serializer_context()
+
         context['include_updates'] = parse_bool(query_params.get('include_updates', True))
         context['include_notes'] = parse_bool(query_params.get('include_notes', True))
         context['include_photos'] = parse_bool(query_params.get('include_photos', True))

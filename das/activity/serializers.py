@@ -922,6 +922,13 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 geodata = make_feature(self.context['request'], event)
                 rep['geojson'] = geodata
 
+            if event.event_type:
+                if event.event_type.category:
+                    permission_name = 'activity.{0}_events'.format(event.event_type.category.value)
+                    if not request.user.has_perm(permission_name):
+                        raise PermissionDenied
+                    rep['event_category'] = event.event_type.category.value
+
         attachments = []
         subject_attachment = None
         for attach in event.attachments.all():
@@ -946,9 +953,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
 
         if event.event_type:
-            if event.event_type.category:
-                rep['event_category'] = event.event_type.category.value
-
             rep['is_collection'] = event.event_type.is_collection
 
         return rep

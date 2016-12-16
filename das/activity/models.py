@@ -103,6 +103,11 @@ class EventFactor(TimestampedModel):
 
 
 class EventCategory(TimestampedModel):
+    class Meta:
+        permissions = (
+            ('security_events', 'Permission to see security events'),
+            ('standard_events', 'Permission to see reporting events.'),
+        )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
@@ -371,7 +376,6 @@ class Event(RevisionMixin, TimestampedModel):
              'Permission to view an event'),
             ('admin_event',
              'An admin permission to change which users can view a Subject and their view permission.'),
-
         )
 
     class ReadonlyMeta:
