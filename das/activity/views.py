@@ -197,7 +197,7 @@ class EventsView(generics.ListCreateAPIView):
         queryset = queryset.prefetch_related(Prefetch('event_type'))
         queryset = queryset.prefetch_related(Prefetch('created_by_user'))
         queryset = queryset.prefetch_related(Prefetch('reported_by'))
-        queryset = queryset.prefetch_related(Prefetch('relationships'))
+        queryset = queryset.prefetch_related(Prefetch('out_relationships'))
 
         if parse_bool(query_params.get('include_notes', False)):
             queryset = queryset.prefetch_related(Prefetch('notes'))
