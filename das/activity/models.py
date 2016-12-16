@@ -452,6 +452,13 @@ class Event(RevisionMixin, TimestampedModel):
         # This updates all events having a 'contains' relationship directed at this event. (Ex. parent collections).
         # Event.objects.filter(out_relationship__to_event=self, out_relationship__type__value='contains') \
         #     .update(**kwargs)
+        '''
+        This finds all the events having an indegree relation to this event, and updates them.
+
+        The value 'contains' is a magic value that represents a relationship between a collection-event and another event.
+        :param kwargs: Unused
+        :return: None
+        '''
 
         parents = Event.objects.filter(out_relationship__to_event=self, out_relationship__type__value='contains')
         for parent in parents:
@@ -460,7 +467,13 @@ class Event(RevisionMixin, TimestampedModel):
             parent.save(notify_parent_events=False)
 
     def save(self, *args, notify_parent_events=True, **kwargs):
+        '''
 
+        :param args:
+        :param notify_parent_events: whether to update 'parent' events (those that are collections and contain this event.)
+        :param kwargs:
+        :return:
+        '''
         self.full_clean()
         update_fields = kwargs.get('update_fields', [])
         save_fields = set()
