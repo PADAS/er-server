@@ -1,5 +1,5 @@
 # to install requirements using pip
-# pip install -r requirements.txt --find-links wheelhouse
+# pip install -r requirements.txt --find-links ./wheelhouse
 #
 psycopg2==2.6.2
 simplejson==3.10.0
@@ -80,3 +80,6 @@ Pillow==3.4.2
 docxtpl==0.2.3
 python-docx==0.8.6
 lxml==3.6.4
+
+# Analyzers require the pymet library
+pymet==0.1.1

@@ -64,6 +64,7 @@ INSTALLED_APPS = (
     'choices',
     'reports',
     'django_readonly_field',
+    'STE',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -207,7 +208,7 @@ DATABASES = {
     #     'ENGINE': 'django.contrib.gis.db.backends.postgis',
     #     'NAME': 'gpsplus_wildlife',
     #     'USER': 'vect_owner',
-    # }
+    # },
     #
     # Optional, use to import STE data into das
     # 'animaltracking': {
