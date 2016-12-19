@@ -38,59 +38,26 @@ class ImmobilityAnalyzer(Analyzer):
     @property
     def event_type(self):
         return EventType.objects.get_by_value('analyzer_immobility')
-
-    immobility_probability = models.FloatField()
     radius = models.FloatField(default=13.0)
     threshold_time = models.IntegerField(default=18000) #5 hours
     threshold_probability = models.FloatField(default=0.8)
 
-    # these should go away...
-    threshold_warning_cluster_ratio = models.FloatField(default=.8)
-    threshold_critical_cluster_ratio = models.FloatField(default=1.0)
+    search_time_hours = models.FloatField(null=False, default=0.0)
 
-    def analyze(self, track):
-        """ analyze track for immobile state. Only the 24 hours before the most
-        recent observation are considered """
+    def create_trajectory(self):
 
-        super().analyze(track)
+        def create_fix(observation):
+            gp = pymet.base.GeoPoint(observation.x, observation.y, 0.0)
+            fix = pymet.base.Fix(gp, observation.recorded_at)
+            return fix
+        fixes = [create_fix(x) for x in self.subject.observations(last_hours = self.search_time_hours)]
 
-        if len(track) < 5:
-            raise InsufficientDataAnalyzerException
+        relocs = pymet.base.Relocations(fixes)
+        return pymet.base.Trajectory(relocs)
 
-        result = AnalyzerResult(self)
-        result.analyzer_type = self.__class__.__name__
-
-        # assume immobile until detected otherwise
-        result.level = NOMINAL
-
-        # truncate track to recent observations
-        t_last_observation, p_last_observation = track.last_observation
-        t_cutoff = t_last_observation - timedelta(seconds=self.threshold_time)
-        track = track.truncate(before=t_cutoff)
-
-        cluster_probability = cluster(track, self.radius)
-
-        if cluster_probability >= self.threshold_warning_cluster_ratio:
-            result.value = cluster_probability
-            point = track.geo_series[-1]
-            result.location = DjangoPoint(point.x, point.y)
-
-            if cluster_probability >= self.threshold_critical_cluster_ratio:
-                result.level = CRITICAL
-                result.title = 'Subject is immobile'
-                logger.info(result.title)
-
-            else:
-                result.level = WARNING
-                result.title = 'Subject is almost immobile'
-                logger.info(result.title)
-
-        else:
-            result.location = DjangoPoint(p_last_observation.x, p_last_observation.y)
-            result.title = 'Subject is mobile'
-            logger.info(result.title)
-
-        return result
+    def analyze(self):
+        traj = self.create_trajectory()
+        return self.analyze_jake(traj)
 
 
     def analyze_jake(self, traj):
