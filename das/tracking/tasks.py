@@ -32,6 +32,13 @@ def run_plugin_class(self, plugin_class):
         else:
             plugin.execute()
 
+@celery.app.task(bind=True)
+def run_spidertracks_plugins(self):
+
+    plugins = SpiderTracksPlugin.objects.filter(status=SpiderTracksPlugin.STATUS_ENABLED)
+
+    for p in plugins:
+        p.execute()
 
 @celery.app.task(bind=True)
 def run_source_plugin(self, source_plugin_id):

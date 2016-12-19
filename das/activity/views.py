@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from datetime import timedelta
 
-from rest_framework import generics, status
+from rest_framework import generics, status, response
 from django.db.models import Prefetch
 from django.core.urlresolvers import reverse
 from django.template import Template, Context
@@ -10,17 +10,21 @@ import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 
 from activity.models import Event, EventNote, EventPhoto, EventClass,\
-    EventFactor, EventClassFactor, EventType
+    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
-    EventTypeSerializer
+    EventTypeSerializer, EventRelationshipSerializer
+
+from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
 import utils
 from activity import schema_utils
+import accounts.serializers
+import accounts.models
 
 LAST_DAYS = timedelta(days=3)
 
@@ -52,6 +56,9 @@ class EventTypesView(generics.ListAPIView):
         category = query_params.getlist('category', None)
         if category:
             queryset = queryset.by_category(category)
+        is_collection = query_params.get('is_collection', None)
+        if is_collection is not None:
+            queryset = queryset.by_is_collection(parse_bool(is_collection))
         return queryset
 
 
@@ -154,6 +161,7 @@ class EventsView(generics.ListCreateAPIView):
         context['include_notes'] = parse_bool(query_params.get('include_notes', True))
         context['include_photos'] = parse_bool(query_params.get('include_photos', True))
         context['include_details'] = parse_bool(query_params.get('include_details', True))
+        context['include_related_events'] = parse_bool(query_params.get('include_related_events', False))
         return context
 
     def get_queryset(self):
@@ -177,14 +185,32 @@ class EventsView(generics.ListCreateAPIView):
         if event_type:
             queryset = queryset.by_event_type(event_type)
 
-        event_category = query_params.getlist('event_category', None)
-        if event_category:
-            queryset = queryset.by_category(event_category)
+        is_collection = query_params.get('is_collection', None)
+        if is_collection:
+            queryset = queryset.by_is_collection(parse_bool(is_collection))
+
+        event_categories = query_params.getlist('event_category', None)
+        if event_categories is None or len(event_categories) == 0:
+            event_categories = EventCategory.objects.values_list('value').distinct()
+            event_categories = [x[0] for x in event_categories]
+
+        allowed_event_categories = []
+        for event_category in event_categories:
+            permission_name = 'activity.{0}_events'.format(event_category)
+            if self.request.user.has_perm(permission_name):
+                allowed_event_categories.append(event_category)
+
+        if len(allowed_event_categories) > 0:
+            queryset = queryset.by_category(allowed_event_categories)
+        else:
+            raise rest_framework.exceptions.PermissionDenied
 
         queryset = queryset.prefetch_related(Prefetch('attachments'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))
         queryset = queryset.prefetch_related(Prefetch('created_by_user'))
         queryset = queryset.prefetch_related(Prefetch('reported_by'))
+        queryset = queryset.prefetch_related(Prefetch('out_relationships'))
+
         if parse_bool(query_params.get('include_notes', False)):
             queryset = queryset.prefetch_related(Prefetch('notes'))
         if parse_bool(query_params.get('include_photos', False)):
@@ -210,9 +236,11 @@ class EventView(generics.RetrieveUpdateAPIView):
     def get_serializer_context(self):
         query_params = self.request.query_params
         context = super().get_serializer_context()
+
         context['include_updates'] = parse_bool(query_params.get('include_updates', True))
         context['include_notes'] = parse_bool(query_params.get('include_notes', True))
         context['include_photos'] = parse_bool(query_params.get('include_photos', True))
+        context['include_related_events'] = parse_bool(query_params.get('include_related_events', True))
         return context
 
 
@@ -304,3 +332,95 @@ class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
         obj = generics.get_object_or_404(queryset, **filters)
 
         return obj
+
+
+class EventRelationshipsView(generics.ListCreateAPIView):
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = EventRelationshipSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def create(self, request, *args, **kwargs):
+
+        type = request.data.get('type')
+
+        from_event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['from_event_id'])
+
+        to_event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=request.data.get('to_event_id'))
+
+        relation = EventRelationship.objects.add_relationship(from_event=from_event, to_event=to_event,
+                                                          type=type,)
+
+        serializer = self.get_serializer(relation)
+        headers = self.get_success_headers(serializer.data)
+        return response.Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def get_queryset(self):
+
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['from_event_id'])
+
+        filter = {'from_event': event.id}
+
+        if 'relationship_type' in self.kwargs:
+            filter['type__value'] = self.kwargs['relationship_type']
+
+        return EventRelationship.objects.filter(**filter)
+
+class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = EventRelationshipSerializer
+
+    def get_queryset(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['from_event_id'])
+
+        relationships = EventRelationship.objects.all().filter(from_event=event)
+        return relationships
+
+    def delete(self, request, *args, **kwargs):
+
+        from_event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['from_event_id'])
+
+        to_event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['to_event_id'])
+
+
+        EventRelationship.objects.remove_relationship(
+            from_event=from_event,
+            to_event=to_event,
+            type=self.kwargs['relationship_type'],
+        )
+
+        return response.Response({}, status=status.HTTP_204_NO_CONTENT)
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        filters = {'from_event_id': self.kwargs['from_event_id'],
+                   'to_event_id': self.kwargs['to_event_id'],
+                   'type__value': self.kwargs['relationship_type']}
+
+        obj = generics.get_object_or_404(queryset, **filters)
+
+        return obj
+
+
+class EventAlertTargetsListView(generics.ListAPIView):
+
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = accounts.serializers.UserDisplaySerializer
+
+    def get_queryset(self):
+        priority = self.request.query_params.getlist('priority', None)
+
+        priority = [int(_) for _ in priority]
+        if priority:
+            return get_alert_users(priority)
+
+        return accounts.models.User.objects.none()
