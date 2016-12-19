@@ -672,13 +672,20 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         return subject_source.source
 
-    def observations(self, last_days=None):
+    def observations(self, last_days=None, last_hours=None):
         """ returns all observations for this Subject, spanning
         Sources as necessary """
         subject_sources = SubjectSource.objects.filter(subject=self)
+
+    #TODO: Add deprecation warning for last_days parameter.
+
         if last_days:
+            last_hours = last_days * 24.0
+
+        if last_hours:
             until = datetime.now(tz=pytz.UTC)
-            since = until - timedelta(days=last_days)
+            since = until - timedelta(hours=last_hours)
+
             obs = Observation.objects.get_source_range_observations(subject_sources, since=since, until=until)
         else:
             obs = Observation.objects.get_source_range_observations(subject_sources)
