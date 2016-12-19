@@ -115,7 +115,7 @@ class UserAdmin(DjangoUserAdmin):
             'fields': ('first_name', 'last_name',
                        'email', 'phone',
                        'is_email_alert', 'is_sms_alert',
-                       'username', 'password',
+                       'username', 'additional', 'password',
                        )}
          ),
         (_('Permissions'), {
@@ -136,7 +136,7 @@ class UserAdmin(DjangoUserAdmin):
             'fields': ('first_name', 'last_name',
                        'email', 'phone',
                        'is_email_alert', 'is_sms_alert',
-                       'username',
+                       'username', 'additional',
                        )}
          ),
         (_('Password'), {

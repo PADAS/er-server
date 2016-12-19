@@ -3,6 +3,7 @@ import datetime, pytz
 from operator import itemgetter, attrgetter
 
 import django.utils
+from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -102,6 +103,11 @@ class EventFactor(TimestampedModel):
 
 
 class EventCategory(TimestampedModel):
+    class Meta:
+        permissions = (
+            ('security_events', 'Permission to see security events'),
+            ('standard_events', 'Permission to see reporting events.'),
+        )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
@@ -117,7 +123,7 @@ class EventCategory(TimestampedModel):
 
 class FilterFieldMixin(object):
     def filter_field(self, field_name, field_data):
-        if not field_data:
+        if field_data is None:
             return self
 
         if isinstance(field_data, (list, tuple)):
@@ -134,6 +140,9 @@ class EventTypeFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_category(self, category):
         return self.filter_field('category__value', category)
 
+    def by_is_collection(self, value):
+        return self.filter_field('is_collection', value)
+
 
 class EventTypeManager(EventBaseManager):
     def create_type(self, **values):
@@ -148,6 +157,8 @@ class EventType(TimestampedModel):
                                  on_delete=models.PROTECT)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     schema = models.TextField(blank=True)
+
+    is_collection = models.BooleanField(default=False)
 
     objects = EventTypeManager.from_queryset(EventTypeFilteringQuerySet)()
 
@@ -189,6 +200,9 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_event_type(self, event_type):
         return self.filter_field('event_type', event_type)
 
+    def by_is_collection(self, value):
+        return self.filter_field('event_type__is_collection', value)
+
 
 class EventManager(models.Manager):
     def create_event(self, **values):
@@ -214,10 +228,106 @@ class EventManager(models.Manager):
         return self.filter(state=Event.SC_NEW).count()
 
 
+
+class EventRelationshipType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    value = models.CharField(max_length=50, unique=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+    symmetrical = models.BooleanField(default=False)
+
+    objects = EventBaseManager()
+
+    def __str__(self):
+        return self.value
+
+
+class EventRelationshipManager(models.Manager):
+
+    def add_relationship(self, from_event, to_event, type):
+        try:
+            ert = EventRelationshipType.objects.get(value=type)
+
+            if not from_event.event_type.is_collection:
+                raise ValidationError(
+                    {'is_collection': ValidationError(_('Event is not a collection'), code='invalid')}
+                )
+
+        except EventRelationshipType.DoesNotExist:
+            raise ValidationError(
+               {'type': ValidationError(_('Invalid value for event relationship type.'),
+                                                           code='invalid')})
+        with transaction.atomic():
+            new_relation, created = EventRelationship.objects.get_or_create(from_event=from_event, to_event=to_event, type=ert)
+            if ert.symmetrical:
+                rel, created = EventRelationship.objects.get_or_create(from_event=to_event, to_event=from_event,
+                                                                       type=ert)
+
+        return new_relation
+
+
+    def remove_relationship(self, from_event, to_event, type):
+        try:
+            ert = EventRelationshipType.objects.get(value=type)
+
+        except EventRelationshipType.DoesNotExist:
+            raise ValidationError(
+                {'event_relationship_type': ValidationError(_('Invalid value for event_relationship_type'),
+                                                            code='invalid')})
+        with transaction.atomic():
+            result = EventRelationship.objects.filter(from_event=from_event, to_event=to_event, type=ert).delete()
+            if ert.symmetrical:
+                EventRelationship.objects.filter(from_event=to_event, to_event=from_event, type=ert).delete()
+
+        return result
+
+
+class EventRelationship(TimestampedModel):
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    type = models.ForeignKey('EventRelationshipType', on_delete=models.PROTECT)
+    from_event = models.ForeignKey('Event', related_name='out_relationships', related_query_name='out_relationship',
+                                   on_delete=models.CASCADE)
+    to_event = models.ForeignKey('Event', related_name='in_relationships', related_query_name='in_relationship',
+                                 on_delete=models.CASCADE)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    objects = EventRelationshipManager()
+
+    class Meta:
+        unique_together = ('type', 'from_event', 'to_event')
+        ordering = ['type', 'ordernum',]
+
+    def __str__(self):
+        return '<%s> : %s : <%s>' % (str(self.from_event), self.type.value, self.to_event)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        result = super().save(*args, **kwargs)
+        self.from_event.dependent_table_updated()
+        return result
+
+    def clean(self):
+        super().clean()
+
+        if self.from_event == self.to_event:
+            raise ValidationError(
+                {'to_event': ValidationError(_('An event may not have a relationship with itself.'), code='invalid')})
+
+    def delete(self, using=None, keep_parents=False):
+        myid = self.id
+        result = super().delete(using, keep_parents)
+        self.from_event.dependent_table_updated()
+        self.id = myid
+        relation_deleted.send(sender=Event, relation=self, instance=self.from_event, related_query_name='relationship')
+
+        return result
+
+
 class Event(RevisionMixin, TimestampedModel):
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
     revision_ignore_fields = ('updated_at', 'sort_at')
     revision_follow_relations = ('activity.EventPhoto',)
+
     ordering = ['-sort_at']
 
     '''
@@ -267,10 +377,14 @@ class Event(RevisionMixin, TimestampedModel):
              'Permission to view an event'),
             ('admin_event',
              'An admin permission to change which users can view a Subject and their view permission.'),
-
         )
 
+    class ReadonlyMeta:
+        readonly = ['serial_number',]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+
+    serial_number = models.BigIntegerField(blank=True, unique=True, verbose_name='Serial Number')
 
     message = models.TextField(blank=True)
     created_by_user = models.ForeignKey(
@@ -278,6 +392,7 @@ class Event(RevisionMixin, TimestampedModel):
         null=True, blank=True, related_name='events', related_query_name='event')
 
     event_time = models.DateTimeField(default=django.utils.timezone.now)
+    end_time = models.DateTimeField(null=True, blank=True, verbose_name='End Time')
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
     event_type = models.ForeignKey(EventType, on_delete=models.PROTECT,
@@ -337,7 +452,32 @@ class Event(RevisionMixin, TimestampedModel):
         self.sort_at = self.updated_at
         self.save()
 
-    def save(self, *args, **kwargs):
+    def update_parent_events(self, **kwargs):
+        # This updates all events having a 'contains' relationship directed at this event. (Ex. parent collections).
+        # Event.objects.filter(out_relationship__to_event=self, out_relationship__type__value='contains') \
+        #     .update(**kwargs)
+        '''
+        This finds all the events having an indegree relation to this event, and updates them.
+
+        The value 'contains' is a magic value that represents a relationship between a collection-event and another event.
+        :param kwargs: Unused
+        :return: None
+        '''
+
+        parents = Event.objects.filter(out_relationship__to_event=self, out_relationship__type__value='contains')
+        for parent in parents:
+            parent.updated_at = self.updated_at
+            parent.sort_at = self.sort_at
+            parent.save(notify_parent_events=False)
+
+    def save(self, *args, notify_parent_events=True, **kwargs):
+        '''
+
+        :param args:
+        :param notify_parent_events: whether to update 'parent' events (those that are collections and contain this event.)
+        :param kwargs:
+        :return:
+        '''
         self.full_clean()
         update_fields = kwargs.get('update_fields', [])
         save_fields = set()
@@ -360,7 +500,12 @@ class Event(RevisionMixin, TimestampedModel):
             update_fields.update(save_fields)
             kwargs['update_fields'] = list(update_fields)
 
-        return super().save(*args, **kwargs)
+        result = super().save(*args, **kwargs)
+
+        if notify_parent_events:
+            self.update_parent_events(updated_at=self.updated_at, sort_at=self.sort_at)
+
+        return result
 
     def clean(self):
         super().clean()
@@ -395,7 +540,7 @@ class Event(RevisionMixin, TimestampedModel):
         return value
 
     def __str__(self):
-        return self.message[50:]
+        return '%d: %s' % (self.serial_number, self.message[:50])
 
 
 class EventAttachmentManager(models.Manager):
