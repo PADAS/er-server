@@ -1,10 +1,9 @@
 from django.test import TestCase
 from analyzers.models.analyzer import Analyzer
 
-
 class TestAnalyzer(TestCase):
 
-    fixtures = ['observations_source.json']
+    fixtures = ['test/observations_source.json']
 
     def setUp(self):
         pass
@@ -15,3 +14,4 @@ class TestAnalyzer(TestCase):
         """
 
         self.assertRaises(TypeError, Analyzer())
+

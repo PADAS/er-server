@@ -9,10 +9,10 @@ from observations.models import Subject, Observation
 class SubjectTestCase(TestCase):
 
     fixtures = [
-        'observations_source.json',
-        'observations_subject.json',
-        'observations_subject_source.json',
-        'observations_observation.json',
+        'test/observations_source.json',
+        'test/observations_subject.json',
+        'test/observations_subject_source.json',
+        'test/observations_observation.json',
     ]
 
     def setUp(self):

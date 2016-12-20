@@ -8,6 +8,7 @@ from django.test import TestCase
 from django.utils import timezone
 from django.contrib.auth.models import Permission
 from django.core.management import call_command
+from django.core.urlresolvers import reverse
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.staticfiles import finders
 from rest_framework.fields import DateTimeField
@@ -318,9 +319,53 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 403)
 
 
+    def test_event_type_collection(self):
+        event_type = EventType.objects.get_by_value('incident_collection')
+
+        self.assertTrue(event_type.is_collection)
+
+
+    def test_create_collection(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        event_data['provenance'] = Event.PC_STAFF
+        event_data['event_type'] = 'incident_collection'
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        response_data = {k: response_data[k] for k in event_data.keys()}
+        self.assertDictEqual(response_data, event_data)
+
+        collection_id = response.data['id']
+
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        event_data['provenance'] = Event.PC_STAFF
+        event_data['event_type'] = 'other'
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        response_data = {k: response_data[k] for k in event_data.keys()}
+        self.assertDictEqual(response_data, event_data)
+
+        report_id = response.data['id']
+        rel_data = {'to_event_id': report_id, 'type': 'contains'}
+        request = self.factory.post(self.api_base + '/event/' + collection_id + '/relationships', rel_data)
+        self.force_authenticate(request, self.user)
+        response = views.EventRelationshipsView.as_view()(request, from_event_id=collection_id)
+        print(response)
+        self.assertEqual(response.status_code, 201)
+
 class TestSerializers(TestCase):
     def test_have_all_attachment_serializer_mappings(self):
         for q in EventAttachment.limits.children:
             q = dict(q.children)
             self.assertIn('.'.join((q['app_label'], q['model'])),
                           ATTACHMENT_SERIALIZER_MAPPING)
+
