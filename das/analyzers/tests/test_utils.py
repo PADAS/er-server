@@ -12,7 +12,7 @@ from observations.models import Subject
 class TestAnalyzerUtils(TestCase):
 
     fixtures = [
-        'observations_subject.json'
+        'test/observations_subject.json'
     ]
 
     def setUp(self):

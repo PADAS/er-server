@@ -1422,3 +1422,42 @@
       ,\r\n        {\r\n\t      \"key\": \"reporting_time\",\r\n\t      \"fieldHtmlClass\"\
       : \"date-time-picker json-schema\",\r\n\t      \"readonly\": false\r\n     \
       \   }\r\n    ]\r\n}"}
+- model: activity.eventtype
+  pk: b4ac243d-40ec-49d0-adfb-f6714afc8a5d
+  fields: {created_at: !!timestamp '2016-11-30 22:53:04.777362+00:00', updated_at: !!timestamp '2016-11-30
+      23:28:05.753445+00:00', value: incident_collection, display: Incident Collection,
+    category: 61d279a3-95fd-421f-bdb0-604ae8731761, ordernum: 0, schema: "{\r\n  \
+      \  \"schema\": \r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
+      ,\r\n        \"title\": \"EventType Test Data\",\r\n      \r\n        \"type\"\
+      : \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n            \"\
+      conservancy\": {\r\n                \"type\":\"string\",\r\n               \
+      \ \"title\": \"Conservancy\",\r\n                \"enum\": {{table___conservancy___values}},\r\
+      \n                \"enumNames\": {{table___conservancy___names}}\r\n       \
+      \     },    \r\n            \"beginning_of_incident\": {\r\n               \
+      \ \"type\": \"string\",\r\n                \"title\": \"Beginning of Incident\"\
+      \r\n            },\r\n            \"end_of_incident\": {\r\n               \
+      \ \"type\": \"string\",\r\n                \"title\": \"End of Incident\"\r\n\
+      \            },\r\n            \"details\": {\r\n            \"type\": \"string\"\
+      ,\r\n            \"title\": \"Details\"\r\n            },\r\n            \"\
+      team\": {\r\n                \"type\":\"string\",\r\n                \"title\"\
+      : \"Team\"\r\n            },\r\n            \"results_and_findings\": {\r\n\
+      \                \"type\": \"string\",\r\n                \"title\": \"Results\
+      \ and Findings\"\r\n            },\r\n            \"action_items\": {\r\n  \
+      \              \"type\": \"string\",\r\n                \"title\": \"Action\
+      \ Items\"\r\n            },\r\n            \"external_agency\": {\r\n      \
+      \          \"type\": \"string\",\r\n                \"title\": \"External agency\
+      \ contacted\",\r\n                \"enum\": [ \"OCS\", \"OCPD\", \"County Commander\"\
+      \ ]\r\n            },\r\n           \"name_official\": {\r\n               \
+      \  \"type\": \"string\",\r\n                 \"title\": \"Name of officer who\
+      \ took the report\"\r\n            },\r\n            \"reason_why\": {\r\n \
+      \                \"type\": \"string\",\r\n                 \"title\": \"Reason\
+      \ why external agency was not contacted\"\r\n            }\r\n             \
+      \   \r\n    }\r\n  },\r\n  \"definition\": [\r\n    \"conservancy\",\r\n   \
+      \ {\r\n      \"key\": \"beginning_of_incident\",\r\n      \"fieldHtmlClass\"\
+      : \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
+      \n    {\r\n      \"key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\":\
+      \ \"date-time-picker json-schema\",\r\n      \"readonly\": false\r\n    },\r\
+      \n    \"details\",\r\n    \"team\",\r\n    \"results_and_findings\",\r\n   \
+      \ \"action_items\",\r\n    \"external_agency\",\r\n    \"name_official\",\r\n\
+      \    \"reason_why\"\r\n  ]\r\n}", is_collection: true}
+
