@@ -12,5 +12,19 @@
     },
     "pk": "00000000-0000-0000-0000-000000000000",
     "model": "observations.subject"
+  },
+    {
+    "fields": {
+      "additional": {
+        "note": "test for immobility"
+      },
+      "created_at": "2015-11-01T00:00:00+00:00",
+      "updated_at": "2015-11-01T00:00:00+00:00",
+      "name": "Topsy",
+      "subject_subtype": "elephant",
+      "subject_type": "wildlife"
+    },
+    "pk": "9342973f-b369-4d21-9f1f-ae89d523e05a",
+    "model": "observations.subject"
   }
 ]

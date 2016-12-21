@@ -7,11 +7,12 @@ import pytz
 from analyzers.models.immobility import ImmobilityAnalyzer
 from analyzers.models.analyzer import NOMINAL, WARNING, CRITICAL
 from observations.track import Track
+import observations.models
 
 
 class TestImmobilityAnalyzer(TestCase):
 
-    # fixtures = ['observations_source.json']
+    fixtures = ['test/observations_source.json', 'test/observations_subject.json', 'test/observations_subject_source.json', 'test/observations_observation.json']
 
     def setUp(self):
 
@@ -40,6 +41,16 @@ class TestImmobilityAnalyzer(TestCase):
         self.mobile_track = Track(mobile_points, times)
         self.immobile_track = Track(immobile_points, times)
         self.immobile_track_with_outliers = Track(immobile_points_with_outliers, times)
+
+
+    def test_generic(self):
+
+        f = observations.models.SubjectTrackSegmentFilter(subject_type='elephant')
+        ia = ImmobilityAnalyzer.objects.create(subject_id='9342973f-b369-4d21-9f1f-ae89d523e05a', threshold_time=1000)
+
+        r = ia.analyze()
+
+        print(r)
 
     def xtest_immobility_analyzer_is_mobile(self):
         """

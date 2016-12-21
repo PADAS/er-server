@@ -2,6 +2,20 @@
   {
     "fields": {
       "provider_name": "default",
+      "manufacturer_id": "immobile-collar-01",
+      "additional": {
+      },
+      "created_at": "2015-11-01T00:00:00+00:00",
+      "model_name": "Test-For-Immobility",
+      "updated_at": "2015-11-01T00:00:00+00:00",
+      "source_type": "tracking-device"
+    },
+    "pk": "a91e0366-898c-475b-830f-e0fae46e6efe",
+    "model": "observations.source"
+  },
+  {
+    "fields": {
+      "provider_name": "default",
       "manufacturer_id": "00582121VTI7BCA",
       "additional": {
         "active": 1,
