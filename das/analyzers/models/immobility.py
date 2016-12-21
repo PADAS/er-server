@@ -1,10 +1,13 @@
 from datetime import timedelta
 import logging
-import pymet.base
+import pymet.base, pymet.cluster
 
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point as DjangoPoint
-
+from django.contrib.gis.geos import Point
+from django.db import transaction
+from django.contrib.postgres.fields import DateTimeRangeField, JSONField
+from observations.models import Observation, SubjectTrackSegmentFilter
 from activity.models import EventType
 from .analyzer import Analyzer, AnalyzerResult, NOMINAL, WARNING, CRITICAL
 from ..exceptions import InsufficientDataAnalyzerException
@@ -48,7 +51,8 @@ class ImmobilityAnalyzer(Analyzer):
     def create_trajectory(self):
 
         def create_fix(observation):
-            gp = pymet.base.GeoPoint(observation.x, observation.y, 0.0)
+
+            gp = pymet.base.GeoPoint(observation.location.x, observation.location.y, 0.0)
             fix = pymet.base.Fix(gp, observation.recorded_at)
             return fix
 
@@ -57,12 +61,13 @@ class ImmobilityAnalyzer(Analyzer):
         traj = pymet.base.Trajectory(relocs)
 
         #Look up the StraightTrackSegmentFilter settings for the given SubjectType
-        trajFilterParams = models.SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
+        trajFilterParams = SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
         if trajFilterParams is not None:
             trajFilter = pymet.base.TrajectorySegFilter(max_speed_kmhr=trajFilterParams.speed_KmHr)
             traj.TrajectorySegmentFilter = trajFilter #Set the trajectory segment filter on the trajectory
 
         return traj
+
 
     def analyze(self):
         traj = self.create_trajectory()
@@ -92,7 +97,7 @@ class ImmobilityAnalyzer(Analyzer):
         """
 
         # Check to see if we have data that spans the threshold time otherwise impossible to calculate
-        if len(traj.getRelocations().getTimespanSeconds()) < self.threshold_time:
+        if timedelta(seconds=traj.getRelocations().getTimespanSeconds()) < timedelta(seconds=self.threshold_time):
             raise InsufficientDataAnalyzerException
 
         # Get the relocation fixes in descending order
@@ -130,8 +135,19 @@ class ImmobilityAnalyzer(Analyzer):
         return result
 
 
+class ImmobilityAnalyzerResult(AnalyzerResult):
+    location = models.PointField()
+    analyzer = models.ForeignKey('ImmobilityAnalyzer', on_delete=models.CASCADE)
+    probability_value = models.FloatField()
+    additional = JSONField()
+    cluster_radius = models.FloatField()
+    cluster_fix_count = models.IntegerField()
+    time_threshold_hours = models.FloatField()
+    probability_threshold = models.FloatField()
+    cluster_timespan = DateTimeRangeField()
+    total_fix_count = models.IntegerField()
 
-
+    observations = models.ManyToManyField(Observation, related_name='+')
 
 
 
