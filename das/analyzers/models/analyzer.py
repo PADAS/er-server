@@ -50,7 +50,6 @@ class Analyzer(models.Model):
 class AnalyzerResult(object):
 
     level = NOMINAL
-    value = 0.0
     title = 'AnalyzerResult'
     location = None
     subject = None
@@ -65,7 +64,6 @@ class AnalyzerResult(object):
         return {
             'title': self.title,
             'level': self.level,
-            'value': self.value,
             'analyzer_type': self.analyzer.name,
             'analyzer_id': self.analyzer.id,
             'location': self.location and str(self.location) or None

@@ -1,6 +1,6 @@
 from datetime import timedelta
 import logging
-import pymet
+import pymet.base
 
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point as DjangoPoint
@@ -38,27 +38,35 @@ class ImmobilityAnalyzer(Analyzer):
     @property
     def event_type(self):
         return EventType.objects.get_by_value('analyzer_immobility')
-    radius = models.FloatField(default=13.0)
-    threshold_time = models.IntegerField(default=18000) #5 hours
-    threshold_probability = models.FloatField(default=0.8)
 
-    search_time_hours = models.FloatField(null=False, default=0.0)
+    radius = models.FloatField(null=False, default=13.0)
+    threshold_time = models.IntegerField(null=False, default=18000) #5 hours
+    threshold_probability = models.FloatField(null=False, default=0.8)
+    search_time_hours = models.FloatField(null=False, default=24.0)
 
+    """ Hydrate the trajectory """
     def create_trajectory(self):
 
         def create_fix(observation):
             gp = pymet.base.GeoPoint(observation.x, observation.y, 0.0)
             fix = pymet.base.Fix(gp, observation.recorded_at)
             return fix
-        fixes = [create_fix(x) for x in self.subject.observations(last_hours = self.search_time_hours)]
 
+        fixes = [create_fix(x) for x in self.subject.observations(last_hours=self.search_time_hours)]
         relocs = pymet.base.Relocations(fixes)
-        return pymet.base.Trajectory(relocs)
+        traj = pymet.base.Trajectory(relocs)
+
+        #Look up the StraightTrackSegmentFilter settings for the given SubjectType
+        trajFilterParams = models.SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
+        if trajFilterParams is not None:
+            trajFilter = pymet.base.TrajectorySegFilter(max_speed_kmhr=trajFilterParams.speed_KmHr)
+            traj.TrajectorySegmentFilter = trajFilter #Set the trajectory segment filter on the trajectory
+
+        return traj
 
     def analyze(self):
         traj = self.create_trajectory()
         return self.analyze_jake(traj)
-
 
     def analyze_jake(self, traj):
         """
@@ -98,7 +106,6 @@ class ImmobilityAnalyzer(Analyzer):
         result.analyzer_type = self.__class__.__name__
         result.level = NOMINAL
         result.title = 'Subject is mobile'
-        #TODO: Do we need to assign a position to a Null result?
 
         #Test for immobility
         for i in range(len(fixes)):
@@ -110,17 +117,16 @@ class ImmobilityAnalyzer(Analyzer):
 
             cluster_timespan_seconds = test_cluster.getRelocations().getTimespanSeconds()
 
+            result.position = DjangoPoint(test_cluster.getCentroidOGRPoint().GetX(),
+                                          test_cluster.getCentroidOGRPoint().GetY())
+
             if (cluster_pvalue >= self.threshold_probability) and (cluster_timespan_seconds >= self.threshold_time):
-                # Create and analyzer result
-                result = AnalyzerResult(self)
-                result.analyzer_type = self.__class__.__name__
+                # Modify analyzer result
                 result.level = CRITICAL
-                result.position = DjangoPoint(test_cluster.getCentroidOGRPoint().GetX(),
-                                              test_cluster.getCentroidOGRPoint().GetY())
-
                 result.title = 'Subject is immobile'
-                logger.info(result.title)
+                break
 
+        logger.info(result.title)
         return result
 
 

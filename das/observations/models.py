@@ -428,10 +428,18 @@ class SubjectSource(models.Model):
         return '%s, %s %s-%s' % (self.subject.name, self.source.model_name,
                                  self.assigned_range.lower, self.assigned_range.upper)
 
+class SubjectTrackSegmentFilterManager(models.Manager):
+    pass
+
+class SubjectTrackSegmentFilter(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    subject_type = models.TextField(default="SUBTYPE_ELEPHANT") #Should reference SubjectTypes table
+    speed_KmHr = models.FloatField(default=7.0)
+    additional = JSONField()
+    objects = SubjectTrackSegmentFilterManager()
 
 DEFAULT_SUBJECT_GROUP_ID = 'b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057'
 DEFAULT_SOURCE_GROUP_ID = '654e592c-fc5a-436d-98dd-fd1b36436a85'
-
 
 
 class SubjectGroupManager(HierarchyManager):
