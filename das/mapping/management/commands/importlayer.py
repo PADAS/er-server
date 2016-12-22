@@ -29,6 +29,8 @@ class Command(BaseCommand):
 
         if datasource.layer_count > 1 and options['layer'] is None:
             logger.warn('multiple layers not supported...')
+            for i in range(0, datasource.layer_count):
+                logger.info('layer: %s, name: %s', i, datasource[i].name)
             return
 
         layer_num = 0 if options['layer'] is None else options['layer']
