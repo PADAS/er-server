@@ -103,6 +103,11 @@ class EventFactor(TimestampedModel):
 
 
 class EventCategory(TimestampedModel):
+    class Meta:
+        permissions = (
+            ('security_events', 'Permission to see security events'),
+            ('standard_events', 'Permission to see reporting events.'),
+        )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
@@ -280,9 +285,10 @@ class EventRelationship(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     type = models.ForeignKey('EventRelationshipType', on_delete=models.PROTECT)
-    from_event = models.ForeignKey('Event', related_name='relationships', related_query_name='relationship',
+    from_event = models.ForeignKey('Event', related_name='out_relationships', related_query_name='out_relationship',
                                    on_delete=models.CASCADE)
-    to_event = models.ForeignKey('Event', related_name='+', on_delete=models.CASCADE)
+    to_event = models.ForeignKey('Event', related_name='in_relationships', related_query_name='in_relationship',
+                                 on_delete=models.CASCADE)
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
     objects = EventRelationshipManager()
@@ -302,6 +308,10 @@ class EventRelationship(TimestampedModel):
 
     def clean(self):
         super().clean()
+
+        if self.from_event == self.to_event:
+            raise ValidationError(
+                {'to_event': ValidationError(_('An event may not have a relationship with itself.'), code='invalid')})
 
     def delete(self, using=None, keep_parents=False):
         myid = self.id
@@ -367,7 +377,6 @@ class Event(RevisionMixin, TimestampedModel):
              'Permission to view an event'),
             ('admin_event',
              'An admin permission to change which users can view a Subject and their view permission.'),
-
         )
 
     class ReadonlyMeta:
@@ -413,9 +422,6 @@ class Event(RevisionMixin, TimestampedModel):
     sort_at = models.DateTimeField(default=django.utils.timezone.now,
                                    blank=True)
 
-    related_events = models.ManyToManyField('self', through='EventRelationship',
-                                            symmetrical=False, related_name='+')
-
     @property
     def priority_label(self):
         return self.get_priority_display()
@@ -446,7 +452,32 @@ class Event(RevisionMixin, TimestampedModel):
         self.sort_at = self.updated_at
         self.save()
 
-    def save(self, *args, **kwargs):
+    def update_parent_events(self, **kwargs):
+        # This updates all events having a 'contains' relationship directed at this event. (Ex. parent collections).
+        # Event.objects.filter(out_relationship__to_event=self, out_relationship__type__value='contains') \
+        #     .update(**kwargs)
+        '''
+        This finds all the events having an indegree relation to this event, and updates them.
+
+        The value 'contains' is a magic value that represents a relationship between a collection-event and another event.
+        :param kwargs: Unused
+        :return: None
+        '''
+
+        parents = Event.objects.filter(out_relationship__to_event=self, out_relationship__type__value='contains')
+        for parent in parents:
+            parent.updated_at = self.updated_at
+            parent.sort_at = self.sort_at
+            parent.save(notify_parent_events=False)
+
+    def save(self, *args, notify_parent_events=True, **kwargs):
+        '''
+
+        :param args:
+        :param notify_parent_events: whether to update 'parent' events (those that are collections and contain this event.)
+        :param kwargs:
+        :return:
+        '''
         self.full_clean()
         update_fields = kwargs.get('update_fields', [])
         save_fields = set()
@@ -469,7 +500,12 @@ class Event(RevisionMixin, TimestampedModel):
             update_fields.update(save_fields)
             kwargs['update_fields'] = list(update_fields)
 
-        return super().save(*args, **kwargs)
+        result = super().save(*args, **kwargs)
+
+        if notify_parent_events:
+            self.update_parent_events(updated_at=self.updated_at, sort_at=self.sort_at)
+
+        return result
 
     def clean(self):
         super().clean()

@@ -167,3 +167,7 @@ das/das_server/unittest_settings.py
 das/das_server/akagera_settings.py
 
 das/das_server/demo_akagera_settings.py
+
+das/das_server/ste_production_settings.py
+
+das/das_server/ste__old_settings.py

@@ -10,18 +10,21 @@ import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 
 from activity.models import Event, EventNote, EventPhoto, EventClass,\
-    EventFactor, EventClassFactor, EventType, EventRelationship
+    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
     EventTypeSerializer, EventRelationshipSerializer
 
+from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
 import utils
 from activity import schema_utils
+import accounts.serializers
+import accounts.models
 
 LAST_DAYS = timedelta(days=3)
 
@@ -186,15 +189,27 @@ class EventsView(generics.ListCreateAPIView):
         if is_collection:
             queryset = queryset.by_is_collection(parse_bool(is_collection))
 
-        event_category = query_params.getlist('event_category', None)
-        if event_category:
-            queryset = queryset.by_category(event_category)
+        event_categories = query_params.getlist('event_category', None)
+        if event_categories is None or len(event_categories) == 0:
+            event_categories = EventCategory.objects.values_list('value').distinct()
+            event_categories = [x[0] for x in event_categories]
+
+        allowed_event_categories = []
+        for event_category in event_categories:
+            permission_name = 'activity.{0}_events'.format(event_category)
+            if self.request.user.has_perm(permission_name):
+                allowed_event_categories.append(event_category)
+
+        if len(allowed_event_categories) > 0:
+            queryset = queryset.by_category(allowed_event_categories)
+        else:
+            raise rest_framework.exceptions.PermissionDenied
 
         queryset = queryset.prefetch_related(Prefetch('attachments'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))
         queryset = queryset.prefetch_related(Prefetch('created_by_user'))
         queryset = queryset.prefetch_related(Prefetch('reported_by'))
-        queryset = queryset.prefetch_related(Prefetch('relationships'))
+        queryset = queryset.prefetch_related(Prefetch('out_relationships'))
 
         if parse_bool(query_params.get('include_notes', False)):
             queryset = queryset.prefetch_related(Prefetch('notes'))
@@ -221,6 +236,7 @@ class EventView(generics.RetrieveUpdateAPIView):
     def get_serializer_context(self):
         query_params = self.request.query_params
         context = super().get_serializer_context()
+
         context['include_updates'] = parse_bool(query_params.get('include_updates', True))
         context['include_notes'] = parse_bool(query_params.get('include_notes', True))
         context['include_photos'] = parse_bool(query_params.get('include_photos', True))
@@ -329,7 +345,7 @@ class EventRelationshipsView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
 
-        relationship_type = request.data.get('relationship_type')
+        type = request.data.get('type')
 
         from_event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['from_event_id'])
@@ -338,7 +354,7 @@ class EventRelationshipsView(generics.ListCreateAPIView):
                                            pk=request.data.get('to_event_id'))
 
         relation = EventRelationship.objects.add_relationship(from_event=from_event, to_event=to_event,
-                                                          type=relationship_type,)
+                                                          type=type,)
 
         serializer = self.get_serializer(relation)
         headers = self.get_success_headers(serializer.data)
@@ -394,3 +410,17 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
 
         return obj
 
+
+class EventAlertTargetsListView(generics.ListAPIView):
+
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = accounts.serializers.UserDisplaySerializer
+
+    def get_queryset(self):
+        priority = self.request.query_params.getlist('priority', None)
+
+        priority = [int(_) for _ in priority]
+        if priority:
+            return get_alert_users(priority)
+
+        return accounts.models.User.objects.none()
