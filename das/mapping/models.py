@@ -63,6 +63,14 @@ class FeatureTypeManager(models.Manager):
 class FeatureType(TimestampedModel):
     """
     If the clients wish to group layers in a control or for ease of administration
+
+    MapBox convention for stylization of feature types:
+    Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
+    Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
+    Polygons: https://www.mapbox.com/mapbox-gl-style-spec/#layers-fill
+
+
+
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)

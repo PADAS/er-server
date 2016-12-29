@@ -12,24 +12,26 @@ import observations.models
 
 class TestImmobilityAnalyzer(TestCase):
 
-    fixtures = ['test/observations_source.json', 'test/observations_subject.json', 'test/observations_subject_source.json', 'test/observations_observation.json']
+    fixtures = ['test/observations_source.json', 'test/observations_subject.json',
+                'test/observations_subject_source.json', 'test/observations_observation.json']
 
     def setUp(self):
 
         self.n_points = 50
 
         mobile_points = [
-            [200 * i * 10 ** -6,0]
+            [200 * i * 10 ** -6, 0]
             for i in range(self.n_points)
         ]
 
         # dead track
         immobile_points = [
-            [0,0]
+            [0, 0]
             for i in range(self.n_points)
         ]
 
         immobile_points_with_outliers = copy.deepcopy(immobile_points)
+
         # insert noise:
         immobile_points_with_outliers[49][0] = immobile_points_with_outliers[49][0] + .0004
 
