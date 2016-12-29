@@ -1,6 +1,7 @@
 import logging
 from zipfile import ZipFile
 import tempfile
+import datetime
 
 from django.core.management.base import BaseCommand
 from django.contrib.gis.gdal import DataSource
@@ -14,6 +15,12 @@ from mapping import models
 
 logger = logging.getLogger(__name__)
 
+
+FEATURE_TYPES = {
+    'Primary': 'Primary Roads',
+    'Secondary': 'Secondary Roads',
+    'Old': 'Old Roads',
+}
 
 class Command(BaseCommand):
     help = 'Import a spatial data layer'
@@ -29,6 +36,8 @@ class Command(BaseCommand):
 
         if datasource.layer_count > 1 and options['layer'] is None:
             logger.warn('multiple layers not supported...')
+            for i in range(0, datasource.layer_count):
+                logger.info('layer: %s, name: %s', i, datasource[i].name)
             return
 
         layer_num = 0 if options['layer'] is None else options['layer']
@@ -66,14 +75,39 @@ class Command(BaseCommand):
             return models.PointFeature
         raise KeyError('DAS Feature class not found for {0}'.format(name))
 
+    def make_external_id(self, layer, feature):
+        external_id = '-'.join((layer.name, feature['Name'].value))
+        for name in feature.fields:
+            name = name.decode('utf8')
+            if name in ('globalid',):
+                external_id += '-' + feature[name].value
+        return external_id
+
+    def get_feature_type_for_feature(self, feature, default=None):
+        for name in feature.fields:
+            name = name.decode('utf8')
+            if name in ('roadclass',):
+                value = feature[name].value
+                type_name = FEATURE_TYPES[value]
+                feature_type = models.FeatureType.objects.get_by_natural_key(
+                    type_name)
+                return feature_type
+
+        if not default:
+            raise KeyError('no default feature_type specified')
+        return default
+
     def contains_unique_keys_in_layer(self, layer):
-        seen = {}
+        seen = set()
+        unique_keys = True
         for feature in layer:
-            external_id = '-'.join((layer.name, feature['Name'].value))
+            external_id = self.make_external_id(layer, feature)
             if external_id in seen:
                 logger.info('External_id=%s not unique to layer', external_id)
-                return False
-        return True
+                unique_keys = False
+            else:
+                seen.add(external_id)
+        return unique_keys
 
     def import_layer(self, featureset, featuretype, layer):
         logger.debug('Importing layer: %s, type: %s, fields: %s', layer.name, layer.geom_type, layer.fields)
@@ -81,7 +115,11 @@ class Command(BaseCommand):
         i = 0
         for feature in layer:
             i+=1
-            external_id = '-'.join((layer.name, feature['Name'].value))
+            external_id = self.make_external_id(layer, feature)
+            if not feature['Name'].value:
+                logger.warn('Missing Name for this feature: %s', feature)
+                continue
+
             if not has_unique_keys:
                 external_id = external_id + '-' + str(i)
             fields = {}
@@ -89,7 +127,10 @@ class Command(BaseCommand):
                 name = name.decode('utf8')
                 if name.lower() in ('name', 'description'):
                     continue
-                fields[name] = feature[name].value
+                value = feature[name].value
+                if isinstance(value, datetime.date):
+                    value = value.isoformat()
+                fields[name] = value
 
 
             feature_model = self.get_feature_class(feature.geom_type.name)
@@ -100,7 +141,7 @@ class Command(BaseCommand):
             feature_record, created = feature_model.objects.get_or_create(
                 defaults=defaults,
                 featureset=featureset,
-                type=featuretype,
+                type=self.get_feature_type_for_feature(feature, default=featuretype),
                 external_id=external_id)
 
             logger.debug('Import feature: %s, created:%s', external_id, created)
