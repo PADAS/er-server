@@ -55,7 +55,7 @@ def dictfetchall(cursor):
     ]
 
 TRACKING_MASTER_COMMON_FIELDS = ('comments', 'chronofile')
-TRACKING_MASTER_ANIMAL_FIELDS = ('species', 'sex', 'rgb')
+TRACKING_MASTER_ANIMAL_FIELDS = ('active', 'species', 'sex', 'rgb')
 TRACKING_MASTER_DEVICE_FIELDS = ('active', 'frequency', 'predicted_expiry',)
 ARCHIVE_LOC_FIELDS = ('dloadtime',)
 TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
@@ -207,6 +207,8 @@ def import_trackingmaster(chronofile):
 
     additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_ANIMAL_FIELDS if key in trackingmaster})
 
+    active = 'active' in additional and additional['active'] == 1
+
     # clean rgb value.
     if 'rgb' in additional:
         if additional['rgb'] is None or ',' not in additional['rgb']:
@@ -216,6 +218,7 @@ def import_trackingmaster(chronofile):
     subject, created = observations.models.Subject.objects.update_or_create(name=trackingmaster['name'],
                                                                             defaults=dict(subject_type=subject_type,
                                                                                           subject_subtype=subject_subtype,
+                                                                                          is_active=active,
                                                                                           additional=additional))
 
     if created:
