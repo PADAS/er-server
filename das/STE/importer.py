@@ -163,13 +163,12 @@ def import_trackinguser(userid):
 
     for group_name in trackinguser['subjectgroups']:
         try:
+            permission_set = accounts.models.PermissionSet.objects.get_or_create(name='view_{0}_group'.format(group_name))[0]
             subject_group = observations.models.SubjectGroup.objects.get(name=group_name)
+            subject_group.permission_sets.add(permission_set)
+            das_user.permission_sets.add(permission_set)
         except observations.models.SubjectGroup.DoesNotExist:
             continue
-
-        permission_set = accounts.models.PermissionSet.objects.get_or_create(name='view_{0}_group'.format(group_name))[0]
-        subject_group.permission_sets.add(permission_set)
-        das_user.permission_sets.add(permission_set)
 
 def import_trackingmaster(chronofile):
     logger.info('Importing TrackingMaster %s', chronofile)
