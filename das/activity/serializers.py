@@ -574,7 +574,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
             return data
 
         event_type = instance.event_type
-        if 'request' in self.context:
+        if 'request' in self.context and 'event_type' in self.context['request'].data:
             new_event_type = self.context['request'].data['event_type']
             if new_event_type and new_event_type != instance.event_type.value:
                 event_type = activity.models.EventType.objects.get(value=new_event_type)
