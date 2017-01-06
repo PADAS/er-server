@@ -661,6 +661,15 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     VIEW_DELAYED_PERMS = ('observations.view_delayed',)
     VIEW_SUBJECT_PERMS = ('observations.view_subject',) + VIEW_DELAYED_PERMS + VIEW_POSITION_PERMS
 
+    VIEW_BEGIN_WINDOWS=(('access_begins_7', 7),
+                        ('access_begins_16', 16),
+                        ('access_begins_30', 30),
+                        ('access_begins_60', 60))
+
+    VIEW_END_WINDOWS=(('access_ends_0', 0),
+                      ('access_ends_3', 3),
+                      ('access_ends_7', 7))
+
     @property
     def color(self):
         color = self.additional.get('rgb', DEFAULT_COLOR)
