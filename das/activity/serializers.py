@@ -858,12 +858,16 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     contains = rest_framework.serializers.SerializerMethodField()
     is_linked_to = rest_framework.serializers.SerializerMethodField()
+    is_contained_in = rest_framework.serializers.SerializerMethodField()
 
     def get_contains(self, event):
-        return self.get_related_event(event, 'contains')
+        return self.get_out_relation(event, 'contains')
 
     def get_is_linked_to(self, event):
-        return self.get_related_event(event, 'is_linked_to')
+        return self.get_out_relation(event, 'is_linked_to')
+
+    def get_is_contained_in(self, event):
+        return self.get_in_relation(event, 'contains')
 
     def validate(self, attrs):
 
@@ -874,8 +878,13 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
         return super().validate(attrs)
 
-    def get_related_event(self, event, value):
+    def get_out_relation(self, event, value):
         qs = event.out_relationships.filter(type__value=value).order_by('ordernum')
+        serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context)
+        return serializer.data
+
+    def get_in_relation(self, event, value):
+        qs = event.in_relationships.filter(type__value=value).order_by('ordernum')
         serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context)
         return serializer.data
 
@@ -886,7 +895,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes', 'comment',
             'image_url', 'created_by_user', 'notes', 'reported_by',
-            'state', 'photos', 'event_details', 'contains', 'is_linked_to') + read_only_fields
+            'state', 'photos', 'event_details', 'contains', 'is_linked_to', 'is_contained_in') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
