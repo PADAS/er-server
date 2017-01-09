@@ -339,7 +339,7 @@ class Observation(models.Model):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     location = models.PointField('point location')
-    recorded_at = models.DateTimeField('recorded at')  # point in time of object at lat lon
+    recorded_at = models.DateTimeField('recorded at', db_index=True)  # point in time of object at lat lon
     created_at = models.DateTimeField('row created at', auto_now_add=True)  # date/time this row created
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     additional = JSONField()
