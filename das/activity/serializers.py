@@ -810,9 +810,7 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         return super().to_internal_value(data)
-
     type = EventRelationshipTypeRelatedField()
-    to_event = EventHeaderSerializer()
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
@@ -820,9 +818,20 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
         if 'request' in self.context:
             request = self.context['request']
 
+            # 'url' represents the proper relationship (from_event : to_event) regardless of the direction of this
+            # serialization.
             rep['url'] = utils.add_base_url(request, reverse('event-view-relationship', args=[instance.from_event_id,
                                                                                               instance.type.value,
                                                                                               instance.to_event_id,]))
+        direction = self.context.get('event_relationship_direction', 'out')
+        if direction == 'out':
+            related_event = instance.to_event
+        else:
+            related_event = instance.from_event
+
+        # related_event = instance.to_event if direction == 'out' else instance.from_event
+
+        rep['related_event'] = EventHeaderSerializer(instance=related_event, many=False, context=self.context).data
 
         return rep
 
@@ -835,7 +844,7 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventRelationship
         read_only_fields = ('created_at', 'updated_at',)
-        fields = ('id', 'from_event', 'to_event', 'type', 'ordernum',)
+        fields = ('type', 'ordernum',)
 
 
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
@@ -879,13 +888,23 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         return super().validate(attrs)
 
     def get_out_relation(self, event, value):
-        qs = event.out_relationships.filter(type__value=value).order_by('ordernum')
-        serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context)
+        # qs = activity.models.Event.objects.filter(out_relationship__type__value=value, out_relationship__from_event=event)
+        # serializer = EventHeaderSerializer(instance=qs, many=True, context=self.context)
+        # return serializer.data
+
+        self.context['event_relationship_direction'] = 'out'
+        qs = event.out_relationships.filter(type__value=value).all().order_by('ordernum')
+        serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context,)
         return serializer.data
 
     def get_in_relation(self, event, value):
-        qs = event.in_relationships.filter(type__value=value).order_by('ordernum')
-        serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context)
+        # qs = activity.models.Event.objects.filter(out_relationship__type__value=value, out_relationship__to_event=event)
+        # serializer = EventHeaderSerializer(instance=qs, many=True, context=self.context)
+        # return serializer.data
+
+        qs = event.in_relationships.filter(type__value=value).all()
+        self.context['event_relationship_direction'] = 'in'
+        serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context,)
         return serializer.data
 
     class Meta:

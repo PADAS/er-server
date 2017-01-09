@@ -350,7 +350,7 @@ class Observation(models.Model):
     #     return self.name
 
     class Meta:
-        index_together = (
+        unique_together = (
             ['source', 'recorded_at']
         )
 
