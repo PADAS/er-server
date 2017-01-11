@@ -574,7 +574,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
             return data
 
         event_type = instance.event_type
-        if 'request' in self.context:
+        if 'request' in self.context and 'event_type' in self.context['request'].data:
             new_event_type = self.context['request'].data['event_type']
             if new_event_type and new_event_type != instance.event_type.value:
                 event_type = activity.models.EventType.objects.get(value=new_event_type)
@@ -810,9 +810,7 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         return super().to_internal_value(data)
-
     type = EventRelationshipTypeRelatedField()
-    to_event = EventHeaderSerializer()
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
@@ -820,9 +818,20 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
         if 'request' in self.context:
             request = self.context['request']
 
+            # 'url' represents the proper relationship (from_event : to_event) regardless of the direction of this
+            # serialization.
             rep['url'] = utils.add_base_url(request, reverse('event-view-relationship', args=[instance.from_event_id,
                                                                                               instance.type.value,
                                                                                               instance.to_event_id,]))
+        direction = self.context.get('event_relationship_direction', 'out')
+        if direction == 'out':
+            related_event = instance.to_event
+        else:
+            related_event = instance.from_event
+
+        # related_event = instance.to_event if direction == 'out' else instance.from_event
+
+        rep['related_event'] = EventHeaderSerializer(instance=related_event, many=False, context=self.context).data
 
         return rep
 
@@ -835,7 +844,7 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventRelationship
         read_only_fields = ('created_at', 'updated_at',)
-        fields = ('id', 'from_event', 'to_event', 'type', 'ordernum',)
+        fields = ('type', 'ordernum',)
 
 
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
@@ -851,18 +860,23 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     notes = EventNoteSerializer(many=True, required=False)
     reported_by = ReportedByRelatedField(required=False)
     message = rest_framework.serializers.CharField(required=False)
+    comment = rest_framework.serializers.CharField(required=False)
     photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
 
     contains = rest_framework.serializers.SerializerMethodField()
     is_linked_to = rest_framework.serializers.SerializerMethodField()
+    is_contained_in = rest_framework.serializers.SerializerMethodField()
 
     def get_contains(self, event):
-        return self.get_related_event(event, 'contains')
+        return self.get_out_relation(event, 'contains')
 
     def get_is_linked_to(self, event):
-        return self.get_related_event(event, 'is_linked_to')
+        return self.get_out_relation(event, 'is_linked_to')
+
+    def get_is_contained_in(self, event):
+        return self.get_in_relation(event, 'contains')
 
     def validate(self, attrs):
 
@@ -873,9 +887,24 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
         return super().validate(attrs)
 
-    def get_related_event(self, event, value):
-        qs = event.out_relationships.filter(type__value=value).order_by('ordernum')
-        serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context)
+    def get_out_relation(self, event, value):
+        # qs = activity.models.Event.objects.filter(out_relationship__type__value=value, out_relationship__from_event=event)
+        # serializer = EventHeaderSerializer(instance=qs, many=True, context=self.context)
+        # return serializer.data
+
+        self.context['event_relationship_direction'] = 'out'
+        qs = event.out_relationships.filter(type__value=value).all().order_by('ordernum')
+        serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context,)
+        return serializer.data
+
+    def get_in_relation(self, event, value):
+        # qs = activity.models.Event.objects.filter(out_relationship__type__value=value, out_relationship__to_event=event)
+        # serializer = EventHeaderSerializer(instance=qs, many=True, context=self.context)
+        # return serializer.data
+
+        qs = event.in_relationships.filter(type__value=value).all()
+        self.context['event_relationship_direction'] = 'in'
+        serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context,)
         return serializer.data
 
     class Meta:
@@ -883,9 +912,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         read_only_fields = ('updated_at',)
         fields = (
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
-            'event_type', 'priority', 'priority_label', 'attributes',
+            'event_type', 'priority', 'priority_label', 'attributes', 'comment',
             'image_url', 'created_by_user', 'notes', 'reported_by',
-            'state', 'photos', 'event_details', 'contains', 'is_linked_to') + read_only_fields
+            'state', 'photos', 'event_details', 'contains', 'is_linked_to', 'is_contained_in') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

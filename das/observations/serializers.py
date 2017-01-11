@@ -79,11 +79,20 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
                       if k in additional}
         rep.update(additional)
         if user and render_last_location:
+            permission_check_instance = instance
+            # If the subject list has already been filtered, we don't need to
+            # check permissions on each subject so pass None and cache the result
+            try:
+                if self.instance._hints.get('subjects_filtered', False):
+                    permission_check_instance = None
+            except:
+                pass
+
             last_position = None
-            if user.has_any_perms(model.VIEW_POSITION_PERMS, instance):
+            if user.has_any_perms(model.VIEW_POSITION_PERMS, permission_check_instance):
                 last_position = instance.subjectstatus_set.get_last()
                 rep['image_url'] = instance.image_url
-            elif user.has_any_perms(model.VIEW_DELAYED_PERMS, instance):
+            elif user.has_any_perms(model.VIEW_DELAYED_PERMS, permission_check_instance):
                 last_position = instance.subjectstatus_set.get_delayed()
 
             first_position = None

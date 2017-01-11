@@ -6,11 +6,15 @@ import logging
 import observations.models
 import psycopg2.extras
 import pytz
+from STE import unitlists
 import STE.subject_groups
 import sys
 
 from django.contrib.gis.geos import Point
 from django.db import connections
+from django.contrib.contenttypes.models import ContentType
+
+from tracking.models import SkygisticsSatellitePlugin, SavannahPlugin, AWTHttpPlugin, SourcePlugin
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +27,24 @@ def log_stdout(level=logging.DEBUG):
 
 log_stdout(level=logging.INFO)
 
+# Map AnimalTracking species value to Das (type, sub-type)
+# Keys are taking as a distinct list of species values in AnimalTracking.
+# TODO: Ask Jake to review this map
+atdb_species_to_das_type = {'elephant': ('wildlife', 'elephant'),
+                            'undeployed': ('untyped', 'undeployed'),
+                            'scimitar oryx': ('wildlife', 'scimitar_oryx'),
+                            'cow': ('wildlife', 'cow'),
+                            'cheetah': ('wildlife', 'cheetah'),
+                            'expedition': ('person', 'expedition'),
+                            'vehicle': ('vehicle', 'vehicle'),
+                            'lion': ('wildlife', 'lion'),
+                            'black rhino': ('wildlife', 'rhino'),
+                            'goat': ('wildlife', 'goat'),
+                            'sable': ('wildlife', 'sable'),
+                            'forest elephant': ('wildlife', 'forest_elephant'),
+                            'grevys zebra': ('wildlife', 'grevys_zebra'),
+                            'white rhino': ('wildlife', 'rhino')
+                            }
 
 def dictfetchall(cursor):
     """Returns all rows from a cursor as a dict"""
@@ -32,8 +54,8 @@ def dictfetchall(cursor):
         for row in cursor.fetchall()
     ]
 
-TRACKING_MASTER_COMMON_FIELDS = ('comments', 'chronofile', 'rgb')
-TRACKING_MASTER_ANIMAL_FIELDS = ('species', 'sex')
+TRACKING_MASTER_COMMON_FIELDS = ('comments', 'chronofile')
+TRACKING_MASTER_ANIMAL_FIELDS = ('active', 'species', 'sex', 'rgb')
 TRACKING_MASTER_DEVICE_FIELDS = ('active', 'frequency', 'predicted_expiry',)
 ARCHIVE_LOC_FIELDS = ('dloadtime',)
 TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
@@ -140,13 +162,13 @@ def import_trackinguser(userid):
     das_user.permission_sets.add(time_permissions)
 
     for group_name in trackinguser['subjectgroups']:
-        subject_group = observations.models.SubjectGroup.objects.get(name=group_name)
-        if subject_group is None:
+        try:
+            permission_set = accounts.models.PermissionSet.objects.get_or_create(name='view_{0}_group'.format(group_name))[0]
+            subject_group = observations.models.SubjectGroup.objects.get(name=group_name)
+            subject_group.permission_sets.add(permission_set)
+            das_user.permission_sets.add(permission_set)
+        except observations.models.SubjectGroup.DoesNotExist:
             continue
-
-        permission_set = accounts.models.PermissionSet.objects.get_or_create(name='view_{0}_group'.format(group_name))[0]
-        subject_group.permission_sets.add(permission_set)
-        das_user.permission_sets.add(permission_set)
 
 def import_trackingmaster(chronofile):
     logger.info('Importing TrackingMaster %s', chronofile)
@@ -170,52 +192,61 @@ def import_trackingmaster(chronofile):
 
     region = next(iter(rows), None)
 
-    subject = None
-    q_subject = observations.models.Subject.objects.filter(name=trackingmaster['name'])
-    for row in q_subject:
-        logger.info('Found existing subject %s by name', trackingmaster['name'])
-        subject = row
-    if not subject:
-        additional = {}
-        additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_COMMON_FIELDS if key in trackingmaster})
+    # if not subject:
+    additional = {}
 
-        if 'rgb' in additional and ',' not in additional['rgb']:
+    if region:
+        add_region(region['region'], region['country'])
+        additional['region'] = region['region']
+        additional['country'] = region['country']
+    additional['tm_animal_id'] = trackingmaster['animal_id']
+
+    # Resolve ATDB species to DAS subject type values.
+    subject_type, subject_subtype = atdb_species_to_das_type.get(trackingmaster['species'].lower(), ('wildlife', 'elephant'))
+
+    additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_ANIMAL_FIELDS if key in trackingmaster})
+
+    active = 'active' in additional and additional['active'] == 1
+
+    # clean rgb value.
+    if 'rgb' in additional:
+        if additional['rgb'] is None or ',' not in additional['rgb']:
             del(additional['rgb'])
 
-        if region:
-            add_region(region['region'], region['country'])
-            additional['region'] = region['region']
-            additional['country'] = region['country']
-        additional['external_id'] = trackingmaster['animal_id']
-        subject_type = 'wildlife'
-        if trackingmaster['species'].lower() == 'vehicle':
-            subject_type = 'vehicle'
-        else:
-            additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_ANIMAL_FIELDS if key in trackingmaster})
-        subject = observations.models.Subject(name=trackingmaster['name'],
-                                              subject_type=subject_type,
-                                              additional=additional)
-        subject.save()
+    # Handle creating or updating Subject
+    subject, created = observations.models.Subject.objects.update_or_create(name=trackingmaster['name'],
+                                                                            defaults=dict(subject_type=subject_type,
+                                                                                          subject_subtype=subject_subtype,
+                                                                                          is_active=active,
+                                                                                          additional=additional))
 
-    source = None
-    q_sources = observations.models.Source.objects.filter(source_type=TRACKING_COLLAR_SOURCE_TYPE)
-    q_sources = q_sources.filter(manufacturer_id=trackingmaster['collar_id'])
-    for row in q_sources:
-        source = row
-    if not source:
-        additional = {}
-        additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_DEVICE_FIELDS if key in trackingmaster})
-        for k, v in additional.items():
-            if isinstance(v, datetime.datetime):
-                additional[k] = v.isoformat()
-        source = observations.models.Source(source_type=TRACKING_COLLAR_SOURCE_TYPE,
-                                            manufacturer_id=trackingmaster['collar_id'],
-                                            model_name=trackingmaster['collar_type'],
-                                            additional=additional
-                                            )
-        source.save()
+    if created:
+        logger.info('Created new subject for name=%s', trackingmaster['name'])
+    else:
+        logger.info('Updated existing subject for name=%s', trackingmaster['name'])
 
-    subject_source = observations.models.SubjectSource(subject=subject, source=source, additional={})
+
+    # Handle creating or updating Source
+    additional = {key: trackingmaster[key] for key in TRACKING_MASTER_DEVICE_FIELDS if key in trackingmaster}
+    for k, v in additional.items():
+        if isinstance(v, datetime.datetime):
+            additional[k] = v.isoformat()
+    source, created = observations.models.Source.objects.update_or_create(source_type=TRACKING_COLLAR_SOURCE_TYPE,
+                                        manufacturer_id=trackingmaster['collar_id'],
+                                        defaults=dict(model_name=trackingmaster['collar_type'],
+                                        additional=additional)
+                                        )
+    if created:
+        logger.info('Created new source for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
+    else:
+        logger.info('Updated exiting source for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
+
+    #
+    # Handle Creating or updating SubjectSource
+    #
+    ss_additional = {key: trackingmaster[key] for key in TRACKING_MASTER_COMMON_FIELDS if key in trackingmaster}
+
+    subject_source = observations.models.SubjectSource(subject=subject, source=source, additional=ss_additional)
     start_at = trackingmaster['data_starts'].replace(tzinfo=pytz.UTC)
     end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
     if trackingmaster['data_stops']:
@@ -242,7 +273,7 @@ def import_trackingmaster(chronofile):
             recorded_at=row['fixtime'].replace(tzinfo=pytz.UTC)
         )
         if latest_observation is None or observation.recorded_at > latest_observation.recorded_at:
-            latest_observation = observation;
+            latest_observation = observation
         for k, v in observation.additional.items():
             if isinstance(v, datetime.datetime):
                 observation.additional[k] = v.isoformat()
@@ -253,7 +284,39 @@ def import_trackingmaster(chronofile):
         for delay_hours in (0, 24):
             observations.models.SubjectStatus.objects.update_from_observation(latest_observation, delay_hours=delay_hours)
 
+    create_sourceplugin(source, latest_observation=latest_observation, datasource=trackingmaster['datasource'],
+                        collar_type=trackingmaster['collar_type'])
 
+def create_sourceplugin(source, latest_observation=None, datasource=None, collar_type=None):
+
+    plugin = None
+
+    if (datasource == 'localfile' and collar_type == 'AWT Satellite') \
+            or source.manufacturer_id in unitlists.skyq_imeilist:
+        # Associate with SkygisticsPlugin
+        plugin = SkygisticsSatellitePlugin.objects.get(name='ste-skygistics')
+    elif datasource == 'HTTP':
+        # AWT Http Plugin
+        plugin = AWTHttpPlugin.objects.get(name='awt-http-gsm')
+    elif datasource == 'SavannahTrackingAPI':
+        # SavannahTrackingPlugin
+        plugin = SavannahPlugin.objects.get(name='savannah')
+    else:
+        logger.info('No plugin identified for source %s', source)
+
+    logger.info('Associating source %s with plugin %s', source, plugin)
+
+    if plugin is not None:
+
+        defaults = {
+            'cursor_data': {'latest_timestamp': latest_observation.recorded_at.isoformat()}
+        } if latest_observation else None
+
+        plugin_type = ContentType.objects.get_for_model(plugin)
+        sp, created = SourcePlugin.objects.get_or_create(source=source, plugin_id=plugin.id, plugin_type=plugin_type,
+                                           defaults=defaults)
+        source.provider_name = plugin.name
+        source.save()
 
 def import_subject_group(group_name, query):
     at_conn = connections['animaltracking']
