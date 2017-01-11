@@ -26,11 +26,14 @@ class Command(BaseCommand):
     help = 'Import a spatial data layer'
     tmpdirs = []
 
+    name_field = 'Name'
+
     def handle(self, *args, **options):
         logger.debug('Featureset: %s, FeatureType: %s', options['featureset'], options['featuretype'])
         featureset = models.FeatureSet.objects.get_by_natural_key(options['featureset'])
         featuretype = models.FeatureType.objects.get_by_natural_key(options['featuretype'])
         datasource = self.datasource_from_file(options['filename'])
+        self.name_field = options['name_field'] if options['name_field'] else self.name_field
 
         logger.debug('Data Source: %s, layercount %s', datasource.name, datasource.layer_count)
 
@@ -57,6 +60,9 @@ class Command(BaseCommand):
         parser.add_argument('--layer', type=int,
                             help='Layer to import')
 
+        parser.add_argument('--name-field', type=str,
+                            help='Name Field from the attributes table')
+
     def datasource_from_file(self, filename):
         if filename.endswith('kmz'):
             tmpdir = tempfile.TemporaryDirectory()
@@ -76,7 +82,7 @@ class Command(BaseCommand):
         raise KeyError('DAS Feature class not found for {0}'.format(name))
 
     def make_external_id(self, layer, feature):
-        external_id = '-'.join((layer.name, feature['Name'].value))
+        external_id = '-'.join((layer.name, feature[self.name_field].value))
         for name in feature.fields:
             name = name.decode('utf8')
             if name in ('globalid',):
@@ -116,8 +122,9 @@ class Command(BaseCommand):
         for feature in layer:
             i+=1
             external_id = self.make_external_id(layer, feature)
-            if not feature['Name'].value:
-                logger.warn('Missing Name for this feature: %s', feature)
+            if not feature[self.name_field].value:
+                logger.warn('Missing name field %s for this feature: %s',
+                            self.name_field, feature)
                 continue
 
             if not has_unique_keys:
@@ -125,7 +132,7 @@ class Command(BaseCommand):
             fields = {}
             for name in feature.fields:
                 name = name.decode('utf8')
-                if name.lower() in ('name', 'description'):
+                if name.lower() in (self.name_field.lower(), 'description'):
                     continue
                 value = feature[name].value
                 if isinstance(value, datetime.date):
@@ -148,7 +155,7 @@ class Command(BaseCommand):
 
             feature_record.feature_geometry = feature_geometry
             feature_record.fields = fields
-            feature_record.name = feature['Name'].value
+            feature_record.name = feature[self.name_field].value
             try:
                 feature_record.description = feature['Description'].value
             except KeyError:
