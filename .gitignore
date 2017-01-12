@@ -171,3 +171,11 @@ das/das_server/demo_akagera_settings.py
 das/das_server/ste_production_settings.py
 
 das/das_server/ste__old_settings.py
+
+das/das_server/beanstalk_ste_settings.py
+
+das/das_server/ndoki_production_settings.py
+
+das/das_server/prd1_settings.py
+
+das/das_server/test_import_settings.py
