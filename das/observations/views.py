@@ -31,6 +31,7 @@ except AttributeError:
     days = 16
 
 LAST_DAYS = datetime.timedelta(days=days)
+ONE_YEAR = datetime.timedelta(days=365)
 
 
 def default_since():
@@ -270,37 +271,44 @@ class SubjectTracksView(generics.RetrieveAPIView):
         context = super().get_serializer_context()
         subject = self.get_object()
 
-        # Get all the arguments
+        # Max number of observations in the track
         limit = self.request.query_params.get('limit', None)
-        until = self.request.query_params.get('until', datetime.datetime.now(tz=pytz.UTC))
-        since = self.request.query_params.get('since', datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS)
 
-        # Since and until could be passed as strings
-        if until and isinstance(until, str):
-            until = dateparse(until)
-        if since and isinstance(since, str):
-            since = dateparse(since)
+        # viewable window is specified in terms of "days before today." Example:
+        #
+        # |    NOT VISIBLE    |     VISIBLE WINDOW       |   NOT VISIBLE    |
+        # |-------------------|##########################|------------------|-->
+        # |< start of time    |< begin              end >|           today >|
+        #
+        # The end date of the observations in the track
+        begin = self.request.query_params.get('since', datetime.datetime.now(tz=pytz.UTC) - ONE_YEAR)
+        if begin and isinstance(begin, str):
+            begin = dateparse(begin)
 
-        # Apply permissions
-        if self.request.user.has_any_perms(models.Subject.VIEW_POSITION_PERMS, subject):
-            context['subject'] = subject
-            try:
-                context['subject_state'] = subject.subjectstatus_set.get_last().additional['state']
-            except Exception:
-                pass
-        elif self.request.user.has_any_perms(models.Subject.VIEW_DELAYED_PERMS, subject):
-            # Make sure the date ranges are delayed
-            one_day = datetime.timedelta(hours=24)
-            until = min(until,datetime.datetime.now(tz=pytz.UTC) - one_day)
-            since = min(since, datetime.datetime.now(tz=pytz.UTC) - one_day)
-            if since >= until:
-                return None
-            try:
-                context['subject_state'] = subject.subjectstatus_set.get_delayed().additional['state']
-            except Exception:
-                pass
-        else:
-            return None
+        max_distance_from_today = LAST_DAYS.days
+        for permission_tuple in models.Subject.VIEW_END_WINDOWS:
+            if permission_tuple[1] < max_distance_from_today and self.request.user.has_perm(permission_tuple[0]):
+                max_distance_from_today = permission_tuple[1]
+
+        begin = max(begin, datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(days=max_distance_from_today))
+
+        # The start date of the observations in the track
+        end = self.request.query_params.get('until', datetime.datetime.now(tz=pytz.UTC))
+        if end and isinstance(end, str):
+            end = dateparse(end)
+
+        min_distance_from_today = 0
+        for permission_tuple in models.Subject.VIEW_END_WINDOWS:
+            if permission_tuple[1] > min_distance_from_today and self.request.user.has_perm(permission_tuple[0]):
+                min_distance_from_today = permission_tuple[1]
+
+        end = min(end, datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(min_distance_from_today))
+
+        context['subject'] = subject
+        try:
+            context['subject_state'] = subject.subjectstatus_set.get_last().additional['state']
+        except Exception:
+            pass
 
         sds = models.SubjectSource.objects.filter(subject=subject)
         if not sds:
@@ -309,7 +317,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
         coordinates = []
         times = []
         for ob in models.Observation.objects.get_source_range_observation_values(
-                sds, since=since, until=until, limit=limit):
+                sds, since=begin, until=end, limit=limit):
             coordinates.append(ob['location'].coords)
             times.append(zeroout_microseconds(ob['recorded_at']))
 
