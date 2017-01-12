@@ -352,7 +352,11 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
 
     def to_internal_value(self, data):
         if data:
-            return activity.models.EventType.objects.get_by_value(data)
+            try:
+                return activity.models.EventType.objects.get_by_value(data)
+            except activity.models.EventType.DoesNotExist:
+                raise rest_framework.serializers.ValidationError(
+                    {'event_type': 'Value \'%s\' does not exist.' % data})
         return None
 
     @property
