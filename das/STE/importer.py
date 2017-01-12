@@ -263,50 +263,65 @@ def import_trackingmaster(chronofile):
         at_cursor.execute(sql, dict(chronofile=chronofile))
         rows = dictfetchall(at_cursor)
 
-    archive_locs = []
-    latest_observation = None
-    for row in rows:
-        observation = observations.models.Observation(
-            source=source,
-            additional={key: row[key] for key in ARCHIVE_LOC_FIELDS},
-            location=Point(row['lon'], row['lat']),
-            recorded_at=row['fixtime'].replace(tzinfo=pytz.UTC)
-        )
-        if latest_observation is None or observation.recorded_at > latest_observation.recorded_at:
-            latest_observation = observation
-        for k, v in observation.additional.items():
-            if isinstance(v, datetime.datetime):
-                observation.additional[k] = v.isoformat()
-        archive_locs.append(observation)
+    mapping = map_source_to_plugin(source, trackingmaster['datasource'], trackingmaster['collar_type'])
+    if mapping is None or not SourcePlugin.objects.filter(source=source).exists():
+        archive_locs = []
+        try:
+            latest_observation = observations.models.Observation.objects.filter(source=source).latest('recorded_at')
+            latest_das_observation = latest_observation.recorded_at
+        except:
+            latest_observation = None
+            latest_das_observation = datetime.datetime.min
 
-    if archive_locs:
-        observations.models.Observation.objects.bulk_create(archive_locs, batch_size=200)
-        for delay_hours in (0, 24):
-            observations.models.SubjectStatus.objects.update_from_observation(latest_observation, delay_hours=delay_hours)
+        for row in rows:
+            observation = observations.models.Observation(
+                source=source,
+                additional={key: row[key] for key in ARCHIVE_LOC_FIELDS},
+                location=Point(row['lon'], row['lat']),
+                recorded_at=pytz.utc.localize(row['fixtime'])
+            )
+            if observation.recorded_at <= latest_das_observation:
+                continue
 
-    create_sourceplugin(source, latest_observation=latest_observation, datasource=trackingmaster['datasource'],
-                        collar_type=trackingmaster['collar_type'])
+            if latest_observation is None or observation.recorded_at > latest_observation.recorded_at:
+                latest_observation = observation
 
-def create_sourceplugin(source, latest_observation=None, datasource=None, collar_type=None):
+            for k, v in observation.additional.items():
+                if isinstance(v, datetime.datetime):
+                    observation.additional[k] = v.isoformat()
+            archive_locs.append(observation)
 
-    plugin = None
+        if archive_locs:
+            observations.models.Observation.objects.bulk_create(archive_locs, batch_size=200)
+            for delay_hours in (0, 24):
+                observations.models.SubjectStatus.objects.update_from_observation(latest_observation, delay_hours=delay_hours)
 
+        create_sourceplugin(source, latest_observation=latest_observation, datasource=trackingmaster['datasource'],
+                            collar_type=trackingmaster['collar_type'])
+    else:
+        pass
+
+def map_source_to_plugin (source, datasource=None, collar_type=None):
     if (datasource == 'localfile' and collar_type == 'AWT Satellite') \
             or source.manufacturer_id in unitlists.skyq_imeilist:
         # Associate with SkygisticsPlugin
-        plugin = SkygisticsSatellitePlugin.objects.get(name='ste-skygistics')
+        return SkygisticsSatellitePlugin.objects.get(name='ste-skygistics')
     elif datasource == 'HTTP':
         # AWT Http Plugin
-        plugin = AWTHttpPlugin.objects.get(name='awt-http-gsm')
+        return AWTHttpPlugin.objects.get(name='awt-http-gsm')
     elif datasource == 'SavannahTrackingAPI':
         # SavannahTrackingPlugin
-        plugin = SavannahPlugin.objects.get(name='savannah')
+        return SavannahPlugin.objects.get(name='savannah')
     else:
         logger.info('No plugin identified for source %s', source)
+        return None
 
-    logger.info('Associating source %s with plugin %s', source, plugin)
+def create_sourceplugin(source, latest_observation=None, datasource=None, collar_type=None):
+
+    plugin = map_source_to_plugin(source, datasource, collar_type)
 
     if plugin is not None:
+        logger.info('Associating source %s with plugin %s', source, plugin)
 
         defaults = {
             'cursor_data': {'latest_timestamp': latest_observation.recorded_at.isoformat()}
@@ -385,8 +400,10 @@ def import_all_chronofiles():
 def import_all_subject_groups():
     error_list = []
     for group_name, query in STE.subject_groups.subject_group_query_map.items():
-        print('######### Importing ' + group_name)
-        import_subject_group(group_name, query)
+        try:
+            import_subject_group(group_name, query)
+        except Exception as ex:
+            error_list.append({'Subject group {0} import error - {1}'.format(group_name, str(ex))})
     return error_list
 
 
