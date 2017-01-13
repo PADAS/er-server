@@ -8,7 +8,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.http import Http404
 from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 from rest_framework.response import Response
@@ -20,7 +20,6 @@ from observations.filters import SubjectObjectPermissionsFilter, create_gp_filte
 from observations.permissions import StandardObjectPermissions
 from observations import models
 import observations.serializers as serializers
-
 
 logger = logging.getLogger(__name__)
 
@@ -332,3 +331,16 @@ class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     queryset = models.Source.objects.all()
     serializer_class = serializers.SourceSerializer
 
+
+class ObservationsView(generics.ListCreateAPIView):
+    queryset = models.Observation.objects.all()
+    serializer_class = serializers.ObservationSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def create(self, request, *args, **kwargs):
+        # On condition of post body being a list, let it bulk insert.
+        serializer = serializers.ObservationSerializer(many=isinstance(request.data, list), data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)

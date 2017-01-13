@@ -5,7 +5,8 @@ from core.serializers import ContentTypeField
 from observations import models
 import utils.json
 from utils import add_base_url
-
+from datetime import datetime
+import pytz
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
@@ -120,7 +121,7 @@ class SourceSerializer(rest_framework.serializers.ModelSerializer):
             subject_sources = self.context['view'].subject_sources
             subject_source = subject_sources.get(source=instance)
             rep['assigned_range'] = subject_source.assigned_range
-        except AttributeError:
+        except (AttributeError, KeyError):
             pass
         return rep
 
@@ -141,13 +142,61 @@ class TrackSerializer(rest_framework.serializers.Serializer):
 
         return rep
 
+from drf_extra_fields.geo_fields import PointField
+from collections import OrderedDict
+
+class SourceRelatedField(rest_framework.serializers.RelatedField):
+    def get_queryset(self):
+        return models.Source.objects.all()
+
+    def to_representation(self, source):
+        return source.manufacturer_id
+        # return SourceSerializer().to_representation(source)
+
+    def to_internal_value(self, data):
+
+        if not data: return None
+
+        # If we're just passed a string, then treat it as an ID value.
+        if isinstance(data, str):
+            try:
+                return models.Source.objects.get(id=data)
+            except models.Source.DoesNotExist:
+                return None
+
+        if isinstance(data, dict):
+
+            subject = data.pop('subject', None)
+
+            manufacturer_id = data.pop('manufacturer_id', None)
+
+            if manufacturer_id:
+                source, created = models.Source.objects.get_or_create(manufacturer_id=manufacturer_id, defaults=data)
+
+            if subject:
+                name = subject.pop('name', manufacturer_id)
+                subject, created = models.Subject.objects.get_or_create(name=name, defaults=subject)
+
+                subject_source = models.SubjectSource.objects.ensure(source=source, subject=subject)
+                return subject_source.source
+
+            return source
+
 
 class ObservationSerializer(rest_framework.serializers.ModelSerializer):
+
+    location = PointField(required=False)
+    source = SourceRelatedField()
+
     class Meta:
         model = models.Observation
         fields = ('id', 'location', 'created_at', 'recorded_at', 'additional', 'source')
         id_field = False
         geo_field = 'location'
+
+    def to_representation(self, instance):
+        rep = super(ObservationSerializer, self).to_representation(instance)
+        return rep
 
 
 def make_feature(request, coordinates, subject, coordinate_times=None, time=None, image_url=None):

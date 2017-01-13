@@ -350,12 +350,13 @@ class Observation(models.Model):
     #     return self.name
 
     class Meta:
+        ordering = ['-recorded_at']
         unique_together = (
             ['source', 'recorded_at']
         )
 
-DEFAULT_ASSIGNED_RANGE = list((datetime(1970,1,1, tzinfo=pytz.utc),
-                               datetime.max.replace(tzinfo=pytz.utc)))
+DEFAULT_ASSIGNED_RANGE = list((pytz.utc.localize(datetime.min),
+                               pytz.utc.localize(datetime.max)))
 
 class SubjectSourceManager(models.GeoManager):
     def get_subject_sources(self, subject):
@@ -365,6 +366,23 @@ class SubjectSourceManager(models.GeoManager):
     def get_subject_source(self, subject, source_id):
         sds = SubjectSource.objects.filter(subject_id=subject.id, source_id=source_id)
         return sds
+
+    def ensure(self, source, subject, assigned_range=None):
+        '''
+        hack for IUU demo.
+        :param source:
+        :param subject:
+        :param assigned_range:
+        :return:
+        '''
+        assigned_range = assigned_range or DEFAULT_ASSIGNED_RANGE
+
+        subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=subject,
+                                                                      assigned_range=assigned_range,
+                                                                      defaults=dict(additional={},)
+                                                                      )
+
+        return subject_source
 
     def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None,
                               additional=None, subject_name=None):
