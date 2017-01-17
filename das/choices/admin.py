@@ -1,5 +1,5 @@
 from django.contrib import admin
-from choices.models import Choice, DynamicChoice, Conservancy, Behavior, Station, Color, Health, Species, CauseOfDeath, FenceSection, ActionTaken, SectionArea, Team, PoachingMean, Tribe, IllegalActivity, Livestock, ContactType, TrophyStatus, WildlifeGap
+from choices.models import Choice, DynamicChoice, Conservancy, Behavior, Station, Color, Health, Species, CauseOfDeath, FenceSection, ActionTaken, SectionArea, Team, PoachingMean, Tribe, IllegalActivity, Livestock, ContactType, TrophyStatus, WildlifeGap, IncidentStatus
 
 
 class BaseChoiceAdmin(admin.ModelAdmin):
@@ -92,6 +92,9 @@ class TrophyStatusAdmin(BaseChoiceAdmin):
 class WildlifeGapAdmin(BaseChoiceAdmin):
     pass
 
+@admin.register(IncidentStatus)
+class IncidentStatusAdmin(BaseChoiceAdmin):
+    pass
 
 
 

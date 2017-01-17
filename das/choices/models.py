@@ -260,3 +260,8 @@ class WildlifeGap(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+class IncidentStatus(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
