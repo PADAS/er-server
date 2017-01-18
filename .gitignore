@@ -179,3 +179,5 @@ das/das_server/ndoki_production_settings.py
 das/das_server/prd1_settings.py
 
 das/das_server/test_import_settings.py
+
+das/das_server/iuu_demo_settings.py
