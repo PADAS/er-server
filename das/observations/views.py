@@ -138,7 +138,7 @@ class SubjectsView(generics.ListAPIView):
     serializer_class = serializers.SubjectSerializer
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
-    #pagination_class = StandardResultsSetPagination
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         queryset = models.Subject.objects.all()
@@ -336,9 +336,16 @@ class ObservationsView(generics.ListCreateAPIView):
     queryset = models.Observation.objects.all()
     serializer_class = serializers.ObservationSerializer
     pagination_class = StandardResultsSetPagination
+    permission_classes = (AllowAny,)
 
     def create(self, request, *args, **kwargs):
-        # On condition of post body being a list, let it bulk insert.
+        '''
+         On condition of post body being a list, let it bulk insert.
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        '''
         serializer = serializers.ObservationSerializer(many=isinstance(request.data, list), data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
