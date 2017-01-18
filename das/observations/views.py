@@ -176,53 +176,6 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
         return queryset
 
 
-# class SubjectObservationsView(generics.ListCreateAPIView):
-#
-#     serializer_class = serializers.ObservationSerializer
-#     pagination_class = StandardResultsSetPagination
-#
-#     lookup_field = 'id'
-#
-#     def _find_source(self, subject_id):
-#         try:
-#             subject = generics.get_object_or_404(models.Subject.objects.all(), id=subject_id)
-#
-#             ss = subject.subjectsource_set.all().first()
-#
-#             if ss:
-#                 return ss.source
-#         except:
-#             return None
-#
-#     def create(self, request, *args, **kwargs):
-#         '''
-#          On condition of post body being a list, let it bulk insert.
-#         :param request:
-#         :param args:
-#         :param kwargs:
-#         :return:
-#         '''
-#
-#         request_data = request.data if isinstance(request.data, list) else [request.data,]
-#         source = self._find_source(kwargs['id'])
-#         request_data = [r.update({'source_id':source.id}) for r in request_data]
-#         serializer = serializers.ObservationSerializer(many=True, data=request_data)
-#         serializer.is_valid(raise_exception=True)
-#         self.perform_create(serializer)
-#         headers = self.get_success_headers(serializer.data)
-#         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-#
-#     def get_queryset(self):
-#         try:
-#             subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
-#             subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
-#             sources = models.Source.objects.filter(pk__in=subject_sources.values('source'))
-#             source = sources.first()
-#             observations = models.Observation.objects.filter(source_id=source.id)
-#             return observations
-#         except:
-#             return models.Observation.objects.none()
-#
 class SubjectSourcesView(generics.ListAPIView):
     serializer_class = serializers.SourceSerializer
 
