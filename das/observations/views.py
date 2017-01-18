@@ -140,7 +140,7 @@ class SubjectsView(generics.ListCreateAPIView):
     serializer_class = serializers.SubjectSerializer
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
-    pagination_class = StandardResultsSetPagination
+    # pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         queryset = models.Subject.objects.all()
@@ -381,7 +381,7 @@ class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     queryset = models.Source.objects.all()
     serializer_class = serializers.SourceSerializer
 
-class SourcesView(generics.ListCreateAPIView):
+class SourcesView(generics.ListCreateAPIView,):
     serializer_class = serializers.SourceSerializer
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)

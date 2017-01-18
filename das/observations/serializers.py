@@ -132,7 +132,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             request = self.context['request']
 
             rep['url'] = utils.add_base_url(request, reverse('subject-view', args=[instance.id,]))
-            rep['observations_url'] = utils.add_base_url(request, reverse('subject-observations-view', args=[instance.id,]))
 
         return rep
 
