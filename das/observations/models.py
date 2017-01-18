@@ -143,6 +143,13 @@ class SourceManager(models.Manager):
         return src, created
 
     def create_source(self, **kwargs):
+
+        # For IUU demo, if we already have this source by mmsi, then just return it.
+        try:
+            return Source.objects.get(manufacturer_id=kwargs['manufacturer_id'])
+        except Source.DoesNotExist:
+            pass
+
         subject = kwargs.pop('subject', None)
         with transaction.atomic():
             source = super().create(**kwargs)

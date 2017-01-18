@@ -170,28 +170,6 @@ class SourceSerializer(rest_framework.serializers.Serializer):
         return models.Source.objects.create_source(**validated_data)
 
 
-# class SourceSerializer(rest_framework.serializers.ModelSerializer):
-#
-#     class Meta:
-#         model = models.Source
-#         fields = ('id', 'source_type', 'manufacturer_id', 'model_name', 'additional')
-#
-#     def to_representation(self, instance):
-#         rep = super(SourceSerializer, self).to_representation(instance)
-#         rep.update(instance.additional)
-#         try:
-#             subject_sources = self.context['view'].subject_sources
-#             subject_source = subject_sources.get(source=instance)
-#             rep['assigned_range'] = subject_source.assigned_range
-#         except (AttributeError, KeyError):
-#             pass
-#         return rep
-#
-#
-#     def create(self, validated_data):
-#         return models.Source(**validated_data)
-
-
 class TrackSerializer(rest_framework.serializers.Serializer):
 
     def to_representation(self, instance):
