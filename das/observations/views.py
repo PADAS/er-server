@@ -13,6 +13,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 from rest_framework.response import Response
 from rest_framework.filters import DjangoObjectPermissionsFilter
+from django.http import Http404
+from rest_framework import status
 
 from utils.drf import StandardResultsSetPagination
 from utils.json import zeroout_microseconds
@@ -128,7 +130,7 @@ class RegionSubjectsView(generics.ListAPIView):
         return subjects
 
 
-class SubjectsView(generics.ListAPIView):
+class SubjectsView(generics.ListCreateAPIView):
     """
     Returns all subjects in the system.
     Optional qparam of:
@@ -156,13 +158,14 @@ class SubjectsView(generics.ListAPIView):
         queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
         return queryset
 
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['render_last_location'] = True
         return context
 
 
-class SubjectView(generics.RetrieveAPIView):
+class SubjectView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.SubjectSerializer
     lookup_field = 'id'
@@ -173,6 +176,53 @@ class SubjectView(generics.RetrieveAPIView):
         return queryset
 
 
+# class SubjectObservationsView(generics.ListCreateAPIView):
+#
+#     serializer_class = serializers.ObservationSerializer
+#     pagination_class = StandardResultsSetPagination
+#
+#     lookup_field = 'id'
+#
+#     def _find_source(self, subject_id):
+#         try:
+#             subject = generics.get_object_or_404(models.Subject.objects.all(), id=subject_id)
+#
+#             ss = subject.subjectsource_set.all().first()
+#
+#             if ss:
+#                 return ss.source
+#         except:
+#             return None
+#
+#     def create(self, request, *args, **kwargs):
+#         '''
+#          On condition of post body being a list, let it bulk insert.
+#         :param request:
+#         :param args:
+#         :param kwargs:
+#         :return:
+#         '''
+#
+#         request_data = request.data if isinstance(request.data, list) else [request.data,]
+#         source = self._find_source(kwargs['id'])
+#         request_data = [r.update({'source_id':source.id}) for r in request_data]
+#         serializer = serializers.ObservationSerializer(many=True, data=request_data)
+#         serializer.is_valid(raise_exception=True)
+#         self.perform_create(serializer)
+#         headers = self.get_success_headers(serializer.data)
+#         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+#
+#     def get_queryset(self):
+#         try:
+#             subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
+#             subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
+#             sources = models.Source.objects.filter(pk__in=subject_sources.values('source'))
+#             source = sources.first()
+#             observations = models.Observation.objects.filter(source_id=source.id)
+#             return observations
+#         except:
+#             return models.Observation.objects.none()
+#
 class SubjectSourcesView(generics.ListAPIView):
     serializer_class = serializers.SourceSerializer
 
@@ -331,6 +381,33 @@ class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     queryset = models.Source.objects.all()
     serializer_class = serializers.SourceSerializer
 
+class SourcesView(generics.ListCreateAPIView):
+    serializer_class = serializers.SourceSerializer
+    permission_classes = (StandardObjectPermissions,)
+    filter_backends = (SubjectObjectPermissionsFilter,)
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        queryset = models.Source.objects.all()
+        return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        return context
+
+
+class SourceObservationsView(generics.ListAPIView):
+
+    serializer_class = serializers.ObservationSerializer
+    pagination_class = StandardResultsSetPagination
+
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        source = generics.get_object_or_404(models.Source.objects.all(), pk=self.kwargs['id'])
+        observations = models.Observation.objects.filter(source_id=source.id)
+        return observations
+
 
 class ObservationsView(generics.ListCreateAPIView):
     queryset = models.Observation.objects.all()
@@ -347,7 +424,8 @@ class ObservationsView(generics.ListCreateAPIView):
         :return:
         '''
         serializer = serializers.ObservationSerializer(many=isinstance(request.data, list), data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST,)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)

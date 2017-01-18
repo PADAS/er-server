@@ -143,9 +143,16 @@ class SourceManager(models.Manager):
         return src, created
 
     def create_source(self, **kwargs):
-        source = super().create(**kwargs)
-        source.groups.set((SourceGroup.objects.get_default(),))
-        return source
+        subject = kwargs.pop('subject', None)
+        with transaction.atomic():
+            source = super().create(**kwargs)
+            source.groups.set((SourceGroup.objects.get_default(),))
+
+            if subject:
+                subject = Subject.objects.create_subject(**subject)
+                SubjectSource.objects.create(source=source, subject=subject)
+
+            return source
 
 
 class Source(TimestampedModel):
@@ -161,7 +168,7 @@ class Source(TimestampedModel):
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
     model_name = models.CharField('device model name', max_length=100, null=True)
-    additional = JSONField('additional data')
+    additional = JSONField('additional data', default={})
 
     class Meta:
         permissions = (
@@ -425,10 +432,10 @@ class SubjectSource(models.Model):
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    assigned_range = DateTimeRangeField('time assigned to subject')
+    assigned_range = DateTimeRangeField('time assigned to subject', default=DEFAULT_ASSIGNED_RANGE)
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     subject = models.ForeignKey('Subject', on_delete=models.CASCADE)
-    additional = JSONField('additional')
+    additional = JSONField('additional', default={})
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     objects = SubjectSourceManager()
 
@@ -528,6 +535,7 @@ class SubjectQuerySet(models.QuerySet):
     def by_is_active(self, active=True):
         return self.filter(is_active=active)
 
+from django.db import transaction
 
 class SubjectManager(models.Manager):
     def create_subject(self, **kwargs):
@@ -633,10 +641,10 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_('name'), max_length=100)
 
-    subject_type = models.CharField('subject type', max_length=100, default=TYPE_WILDLIFE, choices=TYPE_CHOICES)
-    subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_ELEPHANT,
-                                       choices=SUBTYPE_CHOICES)
-    additional = JSONField('additional data')
+    subject_type = models.CharField('subject type', max_length=100, default='vessel', )
+    subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default='unknown',
+                                       )
+    additional = JSONField('additional data', default={})
     is_active = models.BooleanField(
         _('active'),
         default=True,

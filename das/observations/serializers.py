@@ -1,5 +1,6 @@
 from django.contrib.gis.geos import Point
 import rest_framework.serializers
+from django.core.urlresolvers import reverse
 
 from core.serializers import ContentTypeField
 from observations import models
@@ -53,21 +54,43 @@ def get_subject_display(subject):
     return subject.name
 
 
-class SubjectSerializer(rest_framework.serializers.ModelSerializer):
-    content_type = ContentTypeField()
+class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = models.SubjectSource
+
+    def create(self, validated_data):
+        return models.SubjectSource(**validated_data)
+
+from django.db.utils import IntegrityError
+class SubjectSerializer(rest_framework.serializers.Serializer):
+    # content_type = ContentTypeField()
+
+    id = rest_framework.serializers.UUIDField(required=False,)
+    name = rest_framework.serializers.CharField(max_length=100)
+    subject_type = rest_framework.serializers.CharField(max_length=100, required=False)
+    subject_subtype = rest_framework.serializers.CharField(max_length=100, required=False)
+    additional = rest_framework.serializers.JSONField(label='Additional data', required=False)
+
+    mmsi = rest_framework.serializers.CharField(max_length=100, required=False)
     additional_fields = ('region', 'country', 'sex',
-                         'species',)
+                         'species', 'additional')
+
+
+
+    def create(self, validated_data):
+        return models.Subject.objects.create_subject(**validated_data)
 
     class Meta:
         model = models.Subject
-        readonly_fields = ('image_url', 'color')
-        fields = ('id', 'name', 'subject_type', 'subject_subtype',
-                  'content_type') + readonly_fields
+        readonly_fields = ('image_url', 'color', )
+        fields = ('id', 'name', 'subject_type', 'subject_subtype', 'additional', 'mmsi') + readonly_fields
 
     def to_internal_value(self, data):
         if 'id' in data:
             return models.Subject.objects.get(id=data['id'])
-        return super().to_internal_value(data)
+
+        subject = super().to_internal_value(data)
+        return subject
 
     def to_representation(self, instance):
         user = getattr(self.context.get('request', None), 'user', None)
@@ -105,14 +128,32 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
                 if first_position:
                     rep['tracks_range'] = (first_position.recorded_at,
                                            last_position.recorded_at)
+        if 'request' in self.context:
+            request = self.context['request']
+
+            rep['url'] = utils.add_base_url(request, reverse('subject-view', args=[instance.id,]))
+            rep['observations_url'] = utils.add_base_url(request, reverse('subject-observations-view', args=[instance.id,]))
+
         return rep
 
 
-class SourceSerializer(rest_framework.serializers.ModelSerializer):
+    def create(self, validated_data):
+        return models.Subject.objects.create_subject(**validated_data)
+
+
+class SourceSerializer(rest_framework.serializers.Serializer):
+    id = rest_framework.serializers.UUIDField(read_only=True)
+    source_type = rest_framework.serializers.ChoiceField(allow_null=True, choices=(('tracking-device', 'Tracking Device'), ('trap', 'Trap'), ('seismic', 'Seismic sensor'), ('firms', 'FIRMS data'), ('gps-radio', 'gps radio')), label='Type of data expected', required=False)
+    manufacturer_id = rest_framework.serializers.CharField(allow_null=True, label='Device manufacturer id', max_length=100, required=False)
+    model_name = rest_framework.serializers.CharField(allow_null=True, label='Device model name', max_length=100, required=False)
+    additional = rest_framework.serializers.JSONField(label='Additional data')
+
+    subject = rest_framework.serializers.JSONField(label='Subject data', required=False)
 
     class Meta:
         model = models.Source
         fields = ('id', 'source_type', 'manufacturer_id', 'model_name', 'additional')
+
 
     def to_representation(self, instance):
         rep = super(SourceSerializer, self).to_representation(instance)
@@ -124,6 +165,32 @@ class SourceSerializer(rest_framework.serializers.ModelSerializer):
         except (AttributeError, KeyError):
             pass
         return rep
+
+
+    def create(self, validated_data):
+        return models.Source.objects.create_source(**validated_data)
+
+
+# class SourceSerializer(rest_framework.serializers.ModelSerializer):
+#
+#     class Meta:
+#         model = models.Source
+#         fields = ('id', 'source_type', 'manufacturer_id', 'model_name', 'additional')
+#
+#     def to_representation(self, instance):
+#         rep = super(SourceSerializer, self).to_representation(instance)
+#         rep.update(instance.additional)
+#         try:
+#             subject_sources = self.context['view'].subject_sources
+#             subject_source = subject_sources.get(source=instance)
+#             rep['assigned_range'] = subject_source.assigned_range
+#         except (AttributeError, KeyError):
+#             pass
+#         return rep
+#
+#
+#     def create(self, validated_data):
+#         return models.Source(**validated_data)
 
 
 class TrackSerializer(rest_framework.serializers.Serializer):
@@ -143,15 +210,17 @@ class TrackSerializer(rest_framework.serializers.Serializer):
         return rep
 
 from drf_extra_fields.geo_fields import PointField
-from collections import OrderedDict
 
 class SourceRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):
         return models.Source.objects.all()
 
     def to_representation(self, source):
-        return source.manufacturer_id
-        # return SourceSerializer().to_representation(source)
+        '''
+        :param source:
+        :return: dict representation of this related source.
+        '''
+        return {'id':source.id, 'manufacturer_id': source.manufacturer_id}
 
     def to_internal_value(self, data):
 
@@ -163,24 +232,6 @@ class SourceRelatedField(rest_framework.serializers.RelatedField):
                 return models.Source.objects.get(id=data)
             except models.Source.DoesNotExist:
                 return None
-
-        if isinstance(data, dict):
-
-            subject = data.pop('subject', None)
-
-            manufacturer_id = data.pop('manufacturer_id', None)
-
-            if manufacturer_id:
-                source, created = models.Source.objects.get_or_create(manufacturer_id=manufacturer_id, defaults=data)
-
-            if subject:
-                name = subject.pop('name', manufacturer_id)
-                subject, created = models.Subject.objects.get_or_create(name=name, defaults=subject)
-
-                subject_source = models.SubjectSource.objects.ensure(source=source, subject=subject)
-                return subject_source.source
-
-            return source
 
 
 class ObservationSerializer(rest_framework.serializers.ModelSerializer):
