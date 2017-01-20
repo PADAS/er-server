@@ -154,7 +154,8 @@ class SubjectsView(generics.ListAPIView):
             queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS)
         subject_group = self.request.query_params.get('subject_group', None)
         if subject_group:
-            queryset = queryset.by_user_subjects(self.request.user)
+            queryset = queryset.by_group(subject_group_id=subject_group.id)
+        queryset = queryset.by_user_subjects(self.request.user)
         queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
         return queryset
 
@@ -170,6 +171,10 @@ class SubjectView(generics.RetrieveAPIView):
     lookup_field = 'id'
 
     def get_queryset(self):
+        subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
+        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
+            raise PermissionDenied
+
         queryset = models.Subject.objects.all()
         queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
         return queryset
@@ -286,7 +291,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
             begin = dateparse(begin)
 
         max_distance_from_today = LAST_DAYS.days
-        for permission_tuple in models.Subject.VIEW_END_WINDOWS:
+        for permission_tuple in models.Subject.VIEW_BEGIN_WINDOWS:
             if permission_tuple[1] < max_distance_from_today and self.request.user.has_perm(permission_tuple[0]):
                 max_distance_from_today = permission_tuple[1]
 

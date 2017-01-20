@@ -278,6 +278,9 @@ class ObservationManager(models.GeoManager):
         r = Observation.objects.filter(source=source).aggregate(Max('recorded_at'))
         return r.get('recorded_at__max')
 
+    def get_last_source_observation(self, source):
+        return Observation.objects.filter(source=source)(Max('recorded_at'))
+
     def get_last_observation(self, subject, newer_than=None):
         """get the last recorded observation of the subject
         subject: subject to get observation for
@@ -655,20 +658,28 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             ('change_alerts', 'Permission to configure alerts for subject, includes setting geofences, proximity and immobility settings.'),
             ('change_view', 'An admin permission to change which users can view a Subject and their view permission.'),
 
+            ('access_begins_7', 'Can view tracks no more than 7 days old'),
+            ('access_begins_16', 'Can view tracks no more than 16 days old'),
+            ('access_begins_30', 'Can view tracks no more than 30 days old'),
+            ('access_begins_60', 'Can view tracks no more than 60 days old'),
+
+            ('access_ends_0', 'Can view tracks no less than 0 days old'),
+            ('access_ends_3', 'Can view tracks no less than 3 days old'),
+            ('access_ends_7', 'Can view tracks no less than 7 days old'),
         )
 
     VIEW_POSITION_PERMS = ('observations.view_last_position', 'observations.view_real_time')
     VIEW_DELAYED_PERMS = ('observations.view_delayed',)
     VIEW_SUBJECT_PERMS = ('observations.view_subject',) + VIEW_DELAYED_PERMS + VIEW_POSITION_PERMS
 
-    VIEW_BEGIN_WINDOWS=(('access_begins_7', 7),
-                        ('access_begins_16', 16),
-                        ('access_begins_30', 30),
-                        ('access_begins_60', 60))
+    VIEW_BEGIN_WINDOWS=(('observations.access_begins_7', 7),
+                        ('observations.access_begins_16', 16),
+                        ('observations.access_begins_30', 30),
+                        ('observations.access_begins_60', 60))
 
-    VIEW_END_WINDOWS=(('access_ends_0', 0),
-                      ('access_ends_3', 3),
-                      ('access_ends_7', 7))
+    VIEW_END_WINDOWS=(('observations.access_ends_0', 0),
+                      ('observations.access_ends_3', 3),
+                      ('observations.access_ends_7', 7))
 
     @property
     def color(self):
@@ -764,9 +775,9 @@ class SubjectStatusQuerySet(models.QuerySet):
             if row.delay_hours == 0:
                 return row
 
-    def get_delayed(self):
+    def get_delayed(self, delay = OBSERVATION_DELAY_HRS):
         for row in self:
-            if row.delay_hours == OBSERVATION_DELAY_HRS:
+            if row.delay_hours == delay:
                 return row
 
 

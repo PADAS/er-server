@@ -4,6 +4,7 @@ import rest_framework.serializers
 from core.serializers import ContentTypeField
 from observations import models
 import utils.json
+import datetime
 from utils import add_base_url
 
 
@@ -86,24 +87,36 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
                 if self.instance._hints.get('subjects_filtered', False):
                     permission_check_instance = None
             except:
-                pass
+                permission_check_instance = None
 
-            last_position = None
-            if user.has_any_perms(model.VIEW_POSITION_PERMS, permission_check_instance):
+            # Find the min and max boundaries for track data
+            oldest_track_age = 99
+            newest_track_age = 0
+
+            for permission_tuple in models.Subject.VIEW_BEGIN_WINDOWS:
+                if permission_tuple[1] < oldest_track_age and user.has_perm(permission_tuple[0]):
+                    oldest_track_age = permission_tuple[1]
+
+            for permission_tuple in models.Subject.VIEW_END_WINDOWS:
+                if permission_tuple[1] > newest_track_age and user.has_perm(permission_tuple[0]):
+                    newest_track_age = permission_tuple[1]
+
+            if newest_track_age > 0:
+                last_position = instance.subjectstatus_set.get_delayed(newest_track_age * 24)
+            else:
                 last_position = instance.subjectstatus_set.get_last()
                 rep['image_url'] = instance.image_url
-            elif user.has_any_perms(model.VIEW_DELAYED_PERMS, permission_check_instance):
-                last_position = instance.subjectstatus_set.get_delayed()
 
-            first_position = None
+            if oldest_track_age < 99 and last_position is not None and last_position.recorded_at < datetime.datetime.now() - datetime.timedelta(days=oldest_track_age):
+                last_position = None
+
+            rep['tracks_available'] = bool(last_position)
+
             if last_position:
                 first_position = instance.subjectstatus_set.get_delayed()
 
                 if 'state' in last_position.additional:
                     rep['state'] = last_position.additional['state']
-
-            rep['tracks_available'] = bool(last_position)
-            if last_position:
                 rep['last_position_date'] = last_position.recorded_at
                 rep['last_position'] = make_feature(self.context['request'],
                                                     last_position.location,

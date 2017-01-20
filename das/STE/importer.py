@@ -141,32 +141,47 @@ def import_trackinguser(userid):
 
     das_user.additional = additional
 
-    try:
-        das_user.save()
-    except django.core.exceptions.ValidationError as ex:
-        # Some emails are repeated in the STE database because the user does not have an email account
-        # of their own. In this case, they use their manager's email. When we encounter these, update
-        # the email to the format regular_email+das_username@regular_email.com and re-save. If we
-        # still fail to save, let the exception go up the stack
-        if len([message for message in ex.messages if 'address already exists' in message]) == 0:
-            raise ex
-        email_parts = das_user.email.split('@')
-        unique_email = '{0}+{1}@{2}'.format(email_parts[0], das_user.username, email_parts[1])
-        das_user.email = unique_email
-        das_user.save()
+    # try:
+    #     das_user.save()
+    # except django.core.exceptions.ValidationError as ex:
+    #     # Some emails are repeated in the STE database because the user does not have an email account
+    #     # of their own. In this case, they use their manager's email. When we encounter these, update
+    #     # the email to the format regular_email+das_username@regular_email.com and re-save. If we
+    #     # still fail to save, let the exception go up the stack
+    #     if len([message for message in ex.messages if 'address already exists' in message]) == 0:
+    #         raise ex
+    #     email_parts = das_user.email.split('@')
+    #     unique_email = '{0}+{1}@{2}'.format(email_parts[0], das_user.username, email_parts[1])
+    #     das_user.email = unique_email
+    #     das_user.save()
 
-    if trackinguser.get('delay', 0) == 0:
-        time_permissions = accounts.models.PermissionSet.objects.get(name='View Elephants')
-    else:
-        time_permissions = accounts.models.PermissionSet.objects.get(name='View Delayed Elephants')
-    das_user.permission_sets.add(time_permissions)
+    end = trackinguser.get('delay', 0)
+    begin = trackinguser.get('fulldataaccess', 60)
+
+    end_perms, created = accounts.models.PermissionSet.objects.get_or_create(name='Access Ends {0}'.format(end))
+    if created:
+        end_perms.permissions.add(django.contrib.auth.models.Permission.objects.get_by_natural_key('access_ends_{0}'.format(end), 'observations', 'subject'))
+
+    begin_perms, created = accounts.models.PermissionSet.objects.get_or_create(name='Access Begins {0}'.format(begin))
+    if created:
+        begin_perms.permissions.add(django.contrib.auth.models.Permission.objects.get_by_natural_key('access_begins_{0}'.format(begin), 'observations', 'subject'))
+
+    das_user.permission_sets.add(end_perms)
+    das_user.permission_sets.add(begin_perms)
 
     for group_name in trackinguser['subjectgroups']:
         try:
-            permission_set = accounts.models.PermissionSet.objects.get_or_create(name='view_{0}_group'.format(group_name))[0]
+            permission_set, created = accounts.models.PermissionSet.objects.get_or_create(name='view_{0}_group'.format(group_name))
+            if created or not created:
+                permission_set.permissions.add(django.contrib.auth.models.Permission.objects.get_by_natural_key(
+                    'view_subjectgroup', 'observations', 'subjectgroup'))
+                permission_set.permissions.add(django.contrib.auth.models.Permission.objects.get_by_natural_key(
+                    'subscribe_alerts', 'observations', 'subject'))
+                permission_set.permissions.add(django.contrib.auth.models.Permission.objects.get_by_natural_key(
+                    'view_subject', 'observations', 'subject'))
             subject_group = observations.models.SubjectGroup.objects.get(name=group_name)
             subject_group.permission_sets.add(permission_set)
-            das_user.permission_sets.add(permission_set)
+            # das_user.permission_sets.add(permission_set)
         except observations.models.SubjectGroup.DoesNotExist:
             continue
 
@@ -298,8 +313,6 @@ def import_trackingmaster(chronofile):
 
         create_sourceplugin(source, latest_observation=latest_observation, datasource=trackingmaster['datasource'],
                             collar_type=trackingmaster['collar_type'])
-    else:
-        pass
 
 def map_source_to_plugin (source, datasource=None, collar_type=None):
     if (datasource == 'localfile' and collar_type == 'AWT Satellite') \
@@ -341,7 +354,7 @@ def import_subject_group(group_name, query):
     result = rows[0]
 
     if (result['group_members'] is None or len(result['group_members']) == 0):
-        logger.info('Error looking up group members for {0)', group_name)
+        logger.info('Error looking up group members for {0}'.format(group_name))
         return
 
     subject_group = observations.models.SubjectGroup.objects.get_or_create(name=group_name)[0]
@@ -410,8 +423,8 @@ def import_all_subject_groups():
 
 def import_all():
     errors = []
-    errors += import_all_chronofiles()
-    errors += import_all_subject_groups()
+    #errors += import_all_chronofiles()
+    #errors += import_all_subject_groups()
     errors += import_all_users()
     print(errors)
 
