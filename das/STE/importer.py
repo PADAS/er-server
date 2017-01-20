@@ -100,11 +100,11 @@ def import_trackinguser(userid):
     if password is not None:
         das_user.set_password(password)
 
-    lastname = trackinguser.get('lastname', 'None')
+    lastname = trackinguser.get('lastname', '')
     das_user.last_name = lastname
 
     # Non-required user object fields
-    firstname = trackinguser.get('firstname', None)
+    firstname = trackinguser.get('firstname', '')
     if firstname is not None:
         das_user.first_name = firstname
 
