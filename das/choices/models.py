@@ -3,7 +3,7 @@ from django.contrib.gis.db import models
 from django.core import checks, exceptions
 from django.db.models.fields import BLANK_CHOICE_DASH
 from django.utils.functional import lazy, curry
-
+from django.utils.translation import ugettext_lazy as _
 
 class ChoiceQuerySet(models.QuerySet):
     def get_choices_for_field(self, model, field):
@@ -259,4 +259,13 @@ class WildlifeGap(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+class IncidentStatus(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Incident Status')
+        verbose_name_plural = _('Incident Statuses')
 

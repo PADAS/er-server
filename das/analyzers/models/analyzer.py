@@ -27,12 +27,6 @@ class Analyzer(models.Model):
 
     subject = models.ForeignKey(to=Subject, on_delete=models.CASCADE)
 
-    # At least one Analyzer shouldn't report back when changing back to 'good' state
-    is_two_state = True
-
-    class Meta:
-        abstract = True
-
     @property
     def valid_times(self):
         return (self.min_time, self.max_time)
@@ -41,13 +35,23 @@ class Analyzer(models.Model):
     def name(self):
         return self.__class__.__name__
 
-    def analyze(self, track):
-        logger.info('{} analyzing {} records'.format(self.__class__.__name__, len(track)))
+    def analyze(self):
+        logger.info('{} analyzing {} records'.format(self.name))
+
+    class Meta:
+        abstract = True
+
+    #def analyze(self, track):
+    #    logger.info('{} analyzing {} records'.format(self.__class__.__name__, len(track)))
+
+    # At least one Analyzer shouldn't report back when changing back to 'good' state
+    #is_two_state = True
 
 
 class AnalyzerResult(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+
     class Meta:
         abstract = True
 

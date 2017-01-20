@@ -68,8 +68,8 @@ class ImmobilityAnalyzer(Analyzer):
 
         return traj
 
-
     def analyze(self):
+        super().analyze()
         traj = self.create_trajectory()
         return self.analyze_jake(traj)
 
@@ -146,7 +146,6 @@ class ImmobilityAnalyzerResult(AnalyzerResult):
     probability_threshold = models.FloatField()
     cluster_timespan = DateTimeRangeField()
     total_fix_count = models.IntegerField()
-
     observations = models.ManyToManyField(Observation, related_name='+')
 
 
