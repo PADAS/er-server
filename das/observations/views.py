@@ -140,7 +140,7 @@ class SubjectsView(generics.ListCreateAPIView):
     serializer_class = serializers.SubjectSerializer
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
-    # pagination_class = StandardResultsSetPagination
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         queryset = models.Subject.objects.all()
@@ -363,10 +363,14 @@ class SourceObservationsView(generics.ListAPIView):
 
 
 class ObservationsView(generics.ListCreateAPIView):
+
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
     queryset = models.Observation.objects.all()
     serializer_class = serializers.ObservationSerializer
     pagination_class = StandardResultsSetPagination
-    permission_classes = (AllowAny,)
+    permission_classes = (StandardObjectPermissions,)
 
     def create(self, request, *args, **kwargs):
         '''

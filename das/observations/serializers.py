@@ -197,7 +197,7 @@ class SourceRelatedField(rest_framework.serializers.RelatedField):
         :param source:
         :return: dict representation of this related source.
         '''
-        return {'id':source.id, 'manufacturer_id': source.manufacturer_id}
+        return source.id
 
     def to_internal_value(self, data):
 
