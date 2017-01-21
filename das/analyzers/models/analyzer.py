@@ -38,6 +38,9 @@ class Analyzer(models.Model):
     def analyze(self):
         logger.info('{} analyzing {} records'.format(self.name))
 
+    def analyze(self,track):
+        logger.info('{} analyzing {} records'.format(self.name))
+
     class Meta:
         abstract = True
 

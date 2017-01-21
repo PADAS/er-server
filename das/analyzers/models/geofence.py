@@ -18,34 +18,40 @@ class GeofenceAnalyzerResult(AnalyzerResult):
 
     crosstime = models.DateTimeField()
     crosspoint = models.PointField()
-    analyzer = models.ForeignKey(to=GeofenceAnalyzer, on_delete=models.CASCADE)
+    analyzer = models.ForeignKey(to='GeofenceAnalyzer', on_delete=models.CASCADE)
     total_fix_count = models.IntegerField()
     observations = models.ManyToManyField(to=Observation, related_name='+')
     additional = JSONField()
-
-    """TODO: A way to store git hash for both pymet and DAS"""
+    #TODO: Store the before and after containment regions
+    #TODO: Store the virtual fence
+    #TODO: A way to store git hash for both pymet and DAS
 
 
 class GeofenceAnalyzer(Analyzer):
-    """ Analyzer for Track for geofence crossing """
 
-    """TODO: Should be versioned"""
+    """ Geofence analyzer to determine locations and estimated times where a subject's trajectory
+     crosses a set of virtual fences.
+     Return: a list of GeofenceAnalyzerResult
+     """
+
+    #TODO: Should be versioned
 
     @property
     def event_type(self):
         return EventType.objects.get_by_value('analyzer_geofence')
 
-    """The set of fences on which the analyzer will run for a given subject"""
     virtual_fences = models.ForeignKey(
         to=FeatureSet,
         on_delete=models.CASCADE,
-        null=True
+        null=True,
+        related_name='virtualfences'
     )
 
     containment_regions = models.ForeignKey(
         to=FeatureSet,
         on_delete=models.CASCADE,
-        null=True
+        null=True,
+        related_name='containmentregions'
     )
 
     search_time_hours = models.FloatField(null=False, default=24.0)
@@ -57,7 +63,7 @@ class GeofenceAnalyzer(Analyzer):
 
         # Get the FeatureSet containing the fences
         if self.virtual_fences is not None:
-            fs = self.virtual_fences.features.all() #QuerySet
+            fs = self.virtual_fences.Feature_set.all()
             for feat in fs:
                 vf = pymet.geofence.VirtualFence(ogr_geometry=feat.feature_geometry,
                                                  fence_name=feat.name,
@@ -66,7 +72,7 @@ class GeofenceAnalyzer(Analyzer):
 
         # Get the FeatureSet containing the containment regions
         if self.containment_regions is not None:
-            rgns = self.containment_regions.features.all() #QuerySet
+            rgns = self.containment_regions.Feature_set.all()
             for feat in rgns:
                 cr = pymet.base.Region(ogr_geometry=feat.feature_geometry,
                                        region_name=feat.name,
@@ -128,7 +134,7 @@ class GeofenceAnalyzer(Analyzer):
             result.crosspoint = cross.getEstimatedCrossFix().getGeoPoint().getOGRPoint() #TODO Should be Django point?
             result.total_fix_count = traj.getRelocationsFixCount()
             result.observations = self.get_observations()
-            result.title = 'Crossed fence'
+            result.title = 'Crossed virtual fence'
             das_analyzer_results.append(result)
 
         return das_analyzer_results

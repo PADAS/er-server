@@ -370,6 +370,7 @@ class Observation(models.Model):
 DEFAULT_ASSIGNED_RANGE = list((datetime(1970,1,1, tzinfo=pytz.utc),
                                datetime.max.replace(tzinfo=pytz.utc)))
 
+
 class SubjectSourceManager(models.GeoManager):
     def get_subject_sources(self, subject):
         sds = SubjectSource.objects.filter(subject_id=subject.id)
@@ -431,8 +432,10 @@ class SubjectSource(models.Model):
         return '%s, %s %s-%s' % (self.subject.name, self.source.model_name,
                                  self.assigned_range.lower, self.assigned_range.upper)
 
+
 class SubjectTrackSegmentFilterManager(models.Manager):
     pass
+
 
 class SubjectTrackSegmentFilter(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)

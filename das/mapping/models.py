@@ -99,7 +99,7 @@ class FeatureSet(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
     types = models.ManyToManyField(to=FeatureType, related_name='featuresets')
-    features = models.ManyToManyField(to=GeoFeature, related_name='featuresets')
+    #features = models.ManyToManyField(to=GeoFeature, related_name='features')
 
     description = models.TextField(null=True, blank=True)
 
@@ -136,7 +136,7 @@ class Feature(TimestampedModel):
 
     # the feature set with which this feature is being grouped.
     # todo:  evaluate whether many-to-many might be a better approach or stick with this simple approach
-    #featureset = models.ForeignKey(to=FeatureSet, null=True)  # probably should be spelled feature_set
+    featureset = models.ForeignKey(to=FeatureSet, null=True)  # probably should be spelled feature_set
 
     @property
     def default_presentation(self):
