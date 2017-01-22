@@ -254,14 +254,14 @@ def import_trackingmaster(chronofile):
     if created:
         logger.info('Created new source for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
     else:
-        logger.info('Updated exiting source for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
+        logger.info('Updated existing source for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
 
     #
     # Handle Creating or updating SubjectSource
     #
     ss_additional = {key: trackingmaster[key] for key in TRACKING_MASTER_COMMON_FIELDS if key in trackingmaster}
 
-    subject_source = observations.models.SubjectSource(subject=subject, source=source, additional=ss_additional)
+    # subject_source = observations.models.SubjectSource(subject=subject, source=source, additional=ss_additional)
     start_at = trackingmaster['data_starts'].replace(tzinfo=pytz.UTC)
     end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
     if trackingmaster['data_stops']:
@@ -270,8 +270,18 @@ def import_trackingmaster(chronofile):
     if end_at < start_at:
         end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
 
-    subject_source.assigned_range = psycopg2.extras.DateTimeTZRange(start_at, end_at)
-    subject_source.save()
+    assigned_range = psycopg2.extras.DateTimeTZRange(start_at, end_at)
+
+    subject_source, created = observations.models.SubjectSource.objects.get_or_create(subject=subject, source=source,
+                                                                                      assigned_range=assigned_range,
+                                                                                      defaults={
+                                                                                          'additional': ss_additional
+                                                                                      })
+    if created:
+        logger.info('Created new SubjectSource for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
+    else:
+        logger.info('Found existing SubjectSource for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
+
 
     with at_conn.cursor() as at_cursor:
         sql = 'SELECT * from archive_loc WHERE chronofile=%(chronofile)s'
