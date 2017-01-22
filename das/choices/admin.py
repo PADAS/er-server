@@ -108,6 +108,7 @@ class VehicleTypesAdmin(admin.ModelAdmin):
 
 @admin.register(models.IncidentStatus)
 class IncidentStatusAdmin(BaseChoiceAdmin):
+    pass
 
 @admin.register(models.WeaponTypes)
 class WeaponTypesAdmin(admin.ModelAdmin):
