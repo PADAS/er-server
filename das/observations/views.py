@@ -276,6 +276,9 @@ class SubjectTracksView(generics.RetrieveAPIView):
         context = super().get_serializer_context()
         subject = self.get_object()
 
+        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
+            raise PermissionDenied
+
         # Max number of observations in the track
         limit = self.request.query_params.get('limit', None)
 
