@@ -90,16 +90,17 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
                 permission_check_instance = None
 
             # Find the min and max boundaries for track data
-            oldest_track_age = 99
-            newest_track_age = 0
+            oldest_track_age = -1
+            newest_track_age = 999
 
             for permission_tuple in models.Subject.VIEW_BEGIN_WINDOWS:
-                if permission_tuple[1] < oldest_track_age and user.has_perm(permission_tuple[0]):
+                if permission_tuple[1] > oldest_track_age and user.has_perm(permission_tuple[0]):
                     oldest_track_age = permission_tuple[1]
 
             for permission_tuple in models.Subject.VIEW_END_WINDOWS:
-                if permission_tuple[1] > newest_track_age and user.has_perm(permission_tuple[0]):
+                if permission_tuple[1] < newest_track_age and user.has_perm(permission_tuple[0]):
                     newest_track_age = permission_tuple[1]
+
 
             if newest_track_age > 0:
                 last_position = instance.subjectstatus_set.get_delayed(newest_track_age * 24)
@@ -107,8 +108,8 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
                 last_position = instance.subjectstatus_set.get_last()
                 rep['image_url'] = instance.image_url
 
-            if oldest_track_age < 99 and last_position is not None and last_position.recorded_at < datetime.datetime.now() - datetime.timedelta(days=oldest_track_age):
-                last_position = None
+            if oldest_track_age < 999 and last_position is not None and last_position.recorded_at < datetime.datetime.now() - datetime.timedelta(days=oldest_track_age):
+                    last_position = None
 
             rep['tracks_available'] = bool(last_position)
 
