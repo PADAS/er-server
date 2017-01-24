@@ -6,6 +6,7 @@ from observations import models
 import utils.json
 import datetime
 from utils import add_base_url
+import pytz
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
@@ -108,7 +109,7 @@ class SubjectSerializer(rest_framework.serializers.ModelSerializer):
                 last_position = instance.subjectstatus_set.get_last()
                 rep['image_url'] = instance.image_url
 
-            if oldest_track_age < 999 and last_position is not None and last_position.recorded_at < datetime.datetime.now() - datetime.timedelta(days=oldest_track_age):
+            if oldest_track_age > 0 and last_position is not None and last_position.recorded_at < pytz.utc.localize(datetime.datetime.utcnow() - datetime.timedelta(days=oldest_track_age)):
                     last_position = None
 
             rep['tracks_available'] = bool(last_position)
