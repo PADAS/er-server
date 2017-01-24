@@ -282,35 +282,39 @@ class SubjectTracksView(generics.RetrieveAPIView):
         # Max number of observations in the track
         limit = self.request.query_params.get('limit', None)
 
-        # viewable window is specified in terms of "days before today." Example:
-        #
-        # |    NOT VISIBLE    |     VISIBLE WINDOW       |   NOT VISIBLE    |
-        # |-------------------|##########################|------------------|-->
-        # |< start of time    |< begin              end >|           today >|
-        #
-        # The end date of the observations in the track
-        begin = self.request.query_params.get('since', datetime.datetime.now(tz=pytz.UTC) - ONE_YEAR)
-        if begin and isinstance(begin, str):
-            begin = dateparse(begin)
+        # Find the min and max boundaries for track data
+        oldest_age_allowed = -1
+        newest_age_allowed = 999
 
-        max_distance_from_today = LAST_DAYS.days
         for permission_tuple in models.Subject.VIEW_BEGIN_WINDOWS:
-            if permission_tuple[1] < max_distance_from_today and self.request.user.has_perm(permission_tuple[0]):
-                max_distance_from_today = permission_tuple[1]
+            if permission_tuple[1] > oldest_age_allowed and self.request.user.has_perm(permission_tuple[0]):
+                oldest_age_allowed = permission_tuple[1]
 
-        begin = max(begin, datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(days=max_distance_from_today))
-
-        # The start date of the observations in the track
-        end = self.request.query_params.get('until', datetime.datetime.now(tz=pytz.UTC))
-        if end and isinstance(end, str):
-            end = dateparse(end)
-
-        min_distance_from_today = 0
         for permission_tuple in models.Subject.VIEW_END_WINDOWS:
-            if permission_tuple[1] > min_distance_from_today and self.request.user.has_perm(permission_tuple[0]):
-                min_distance_from_today = permission_tuple[1]
+            if permission_tuple[1] < newest_age_allowed and self.request.user.has_perm(permission_tuple[0]):
+                newest_age_allowed = permission_tuple[1]
 
-        end = min(end, datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(min_distance_from_today))
+        if oldest_age_allowed < 0 or newest_age_allowed > oldest_age_allowed:
+            raise PermissionDenied
+
+        requested_oldest_age = self.request.query_params.get('since', None)
+        requested_newest_age = self.request.query_params.get('until', None)
+        now = datetime.datetime.now()
+
+        if requested_oldest_age is None:
+            oldest_age = oldest_age_allowed
+        else:
+            requested_oldest_age = (now - requested_oldest_age).days
+            oldest_age = min(requested_oldest_age, oldest_age_allowed)
+
+        if requested_newest_age is None:
+            newest_age = newest_age_allowed
+        else:
+            requested_newest_age = (now - requested_newest_age).days
+            newest_age = max(requested_newest_age, newest_age_allowed)
+
+        begin = now - datetime.timedelta(days=oldest_age)
+        until = now - datetime.timedelta(days=newest_age)
 
         context['subject'] = subject
         try:
@@ -325,7 +329,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
         coordinates = []
         times = []
         for ob in models.Observation.objects.get_source_range_observation_values(
-                sds, since=begin, until=end, limit=limit):
+                sds, since=begin, until=until, limit=limit):
             coordinates.append(ob['location'].coords)
             times.append(zeroout_microseconds(ob['recorded_at']))
 
