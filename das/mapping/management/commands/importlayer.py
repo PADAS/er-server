@@ -27,6 +27,8 @@ class Command(BaseCommand):
     tmpdirs = []
 
     name_field = 'Name'
+    id_field = 'globalid'
+    utm = None
 
     def handle(self, *args, **options):
         logger.debug('Featureset: %s, FeatureType: %s', options['featureset'], options['featuretype'])
@@ -34,6 +36,9 @@ class Command(BaseCommand):
         featuretype = models.FeatureType.objects.get_by_natural_key(options['featuretype'])
         datasource = self.datasource_from_file(options['filename'])
         self.name_field = options['name_field'] if options['name_field'] else self.name_field
+        self.id_field = options['id_field'] if options[
+            'id_field'] else self.id_field
+        self.utm = options['utm'] if options['utm'] else self.utm
 
         logger.debug('Data Source: %s, layercount %s', datasource.name, datasource.layer_count)
 
@@ -59,9 +64,12 @@ class Command(BaseCommand):
                             help='FeatureSet')
         parser.add_argument('--layer', type=int,
                             help='Layer to import')
-
         parser.add_argument('--name-field', type=str,
                             help='Name Field from the attributes table')
+        parser.add_argument('--id-field', type=str,
+                            help='ID field for the row')
+        parser.add_argument('--utm', type=str,
+                            help='Change to this utm')
 
     def datasource_from_file(self, filename):
         if filename.endswith('kmz'):
@@ -85,8 +93,8 @@ class Command(BaseCommand):
         external_id = '-'.join((layer.name, feature[self.name_field].value))
         for name in feature.fields:
             name = name.decode('utf8')
-            if name in ('globalid',):
-                external_id += '-' + feature[name].value
+            if self.id_field and name == self.id_field:
+                external_id += '-' + str(feature[name].value)
         return external_id
 
     def get_feature_type_for_feature(self, feature, default=None):
