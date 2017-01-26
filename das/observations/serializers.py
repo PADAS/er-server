@@ -119,6 +119,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
             rep['tracks_available'] = bool(last_position)
             if last_position:
+                rep['last_position_status'] = last_position.additional or {}
                 rep['last_position_date'] = last_position.recorded_at
                 rep['last_position'] = make_feature(self.context['request'],
                                                     last_position.location,
