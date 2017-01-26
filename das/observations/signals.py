@@ -7,7 +7,7 @@ from observations.models import Observation, SubjectStatus
 
 logger = logging.getLogger(__name__)
 
-# @receiver(post_save, sender=Observation)
+@receiver(post_save, sender=Observation)
 def observation_post_save(sender, instance, created, **kwargs):
 
     # disable the handler during fixture loading
