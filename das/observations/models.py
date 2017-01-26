@@ -144,23 +144,35 @@ class SourceManager(models.Manager):
 
     def create_source(self, **kwargs):
 
-        # For IUU demo, if we already have this source by mmsi, then just return it.
-        try:
-            return Source.objects.get(manufacturer_id=kwargs['manufacturer_id'])
-        except Source.DoesNotExist:
-            pass
 
+        # For IUU demo, we allow including subject in a Source POST.
         subject = kwargs.pop('subject', None)
-        with transaction.atomic():
-            source = super().create(**kwargs)
-            source.groups.set((SourceGroup.objects.get_default(),))
+        manufacturer_id = kwargs.pop('manufacturer_id')
 
-            if subject:
+
+        # For IUU demo, if we already have this source by mmsi, then just return it.
+        # try:
+        #     return Source.objects.get(manufacturer_id=kwargs['manufacturer_id'])
+        # except Source.DoesNotExist:
+        #     pass
+
+
+        source, source_created = Source.objects.update_or_create(manufacturer_id=manufacturer_id,
+                                                          defaults=kwargs)
+
+        with transaction.atomic():
+
+            if source_created:
+                source.groups.set((SourceGroup.objects.get_default(),))
+
+            if source_created and subject:
                 subject = Subject.objects.create_subject(**subject)
                 SubjectSource.objects.create(source=source, subject=subject)
+            elif subject:
+                # update associated subject
+                Subject.objects.filter(subjectsource__source__manufacturer_id=manufacturer_id).update(**subject)
 
-            return source
-
+        return source
 
 class Source(TimestampedModel):
 
@@ -365,7 +377,7 @@ class Observation(models.Model):
 
     class Meta:
         ordering = ['-recorded_at']
-        unique_together = (
+        index_together = (
             ['source', 'recorded_at']
         )
 
