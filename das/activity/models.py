@@ -22,7 +22,6 @@ from core.models import TimestampedModel
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
 
-
 def get_sentinel_user():
     User = get_user_model()
     return User.objects.get_or_create(username='deleted', last_name='account', first_name='deleted',
@@ -31,14 +30,17 @@ def get_sentinel_user():
                                       password=User.objects.make_random_password())[0]
 
 
-def marker_icon(event_type, priority, state):
+def image_basename(event_type, priority, state):
     CONVERSION = {0: 'gray', 100: 'med_green', 200: 'amber', 300: 'red'}
     color = CONVERSION.get(priority, 'black')
     if state == Event.SC_RESOLVED:
         color = 'lt_gray'
     if not event_type:
         event_type = 'other'
-    return '/static/{0}-{1}.svg'.format(event_type, color)
+    return '{0}-{1}'.format(event_type, color)
+
+def marker_icon(event_type, priority, state):
+    return '/static/{}.svg'.format(image_basename(event_type, priority, state))
 
 
 class CommunityManager(models.Manager):
@@ -436,10 +438,10 @@ class Event(RevisionMixin, TimestampedModel):
     def time(self):
         return self.event_time
 
-    @property
-    def image_url(self):
-        return marker_icon(self.event_type.value if self.event_type else None,
-                           self.priority, self.state)
+    # @property
+    # def image_url(self):
+    #     return marker_icon(self.event_type.value if self.event_type else None,
+    #                        self.priority, self.state)
 
     @property
     def subjects(self):

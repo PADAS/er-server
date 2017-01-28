@@ -3,6 +3,8 @@ import traceback
 from collections import OrderedDict
 
 from core.serializers import ContentTypeField
+from core.utils import static_image_finder
+
 from choices.serializers import ChoiceField
 from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
@@ -796,7 +798,9 @@ class EventHeaderSerializer(EventSerializerMixin, rest_framework.serializers.Mod
             rep['url'] = utils.add_base_url(request,
                                             reverse('event-view',
                                                     args=[event.id, ]))
-            rep['image_url'] = utils.add_base_url(request, event.image_url)
+
+            image_url = resolve_image_url(event)
+            rep['image_url'] = utils.add_base_url(request, image_url)
 
             if event.location is not None:
                 geodata = make_feature(self.context['request'], event)
@@ -849,6 +853,10 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
         model = activity.models.EventRelationship
         read_only_fields = ('created_at', 'updated_at',)
         fields = ('type', 'ordernum',)
+
+def resolve_image_url(event):
+    image_key = activity.models.image_filename(event.event_type.value, event.priority, event.state)
+    return static_image_finder.get_marker_icon([image_key, ]) or '/static/triangle.png'
 
 
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
@@ -917,7 +925,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         fields = (
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes', 'comment',
-            'image_url', 'created_by_user', 'notes', 'reported_by',
+            'created_by_user', 'notes', 'reported_by',
             'state', 'photos', 'event_details', 'contains', 'is_linked_to', 'is_contained_in') + read_only_fields
 
     def __init__(self, *args, **kwargs):
@@ -949,7 +957,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             rep['url'] = utils.add_base_url(request,
                                             reverse('event-view',
                                                     args=[event.id, ]))
-            rep['image_url'] = utils.add_base_url(request, event.image_url)
+            image_url = resolve_image_url(event)
+            rep['image_url'] = utils.add_base_url(request, image_url)
 
             if event.location is not None:
                 geodata = make_feature(self.context['request'], event)
@@ -993,7 +1002,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
 def make_feature(request, event):
     is_point = isinstance(event.coordinates, Point)
-    image_url = utils.add_base_url(request, event.image_url)
+    image_url = resolve_image_url(event)
+    image_url = utils.add_base_url(request, image_url)
     feature = utils.json.empty_geojson_feature()
     feature['geometry'] = {
         'type': 'LineString' if not is_point else 'Point',
@@ -1008,7 +1018,7 @@ def make_feature(request, event):
     }
 
     properties = feature['properties']
-    if hasattr(event, 'image_url'):
+    if image_url: #hasattr(event, 'image_url'):
         properties['icon'] = {
             "iconUrl": image_url,
             "iconSize": [25, 25],
