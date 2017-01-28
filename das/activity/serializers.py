@@ -855,7 +855,7 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
         fields = ('type', 'ordernum',)
 
 def resolve_image_url(event):
-    image_key = activity.models.image_filename(event.event_type.value, event.priority, event.state)
+    image_key = activity.models.image_basename(event.event_type.value, event.priority, event.state)
     return static_image_finder.get_marker_icon([image_key, ]) or '/static/triangle.png'
 
 
