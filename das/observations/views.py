@@ -8,11 +8,13 @@ from django.utils.translation import ugettext_lazy as _
 from django.http import Http404
 from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 from rest_framework.response import Response
 from rest_framework.filters import DjangoObjectPermissionsFilter
+from django.http import Http404
+from rest_framework import status
 
 from utils.drf import StandardResultsSetPagination
 from utils.json import zeroout_microseconds
@@ -20,7 +22,6 @@ from observations.filters import SubjectObjectPermissionsFilter, create_gp_filte
 from observations.permissions import StandardObjectPermissions
 from observations import models
 import observations.serializers as serializers
-
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +130,7 @@ class RegionSubjectsView(generics.ListAPIView):
         return subjects
 
 
-class SubjectsView(generics.ListAPIView):
+class SubjectsView(generics.ListCreateAPIView):
     """
     Returns all subjects in the system.
     Optional qparam of:
@@ -163,7 +164,7 @@ class SubjectsView(generics.ListAPIView):
         return context
 
 
-class SubjectView(generics.RetrieveAPIView):
+class SubjectView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.SubjectSerializer
     lookup_field = 'id'
@@ -332,3 +333,55 @@ class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     queryset = models.Source.objects.all()
     serializer_class = serializers.SourceSerializer
 
+class SourcesView(generics.ListCreateAPIView,):
+    serializer_class = serializers.SourceSerializer
+    permission_classes = (StandardObjectPermissions,)
+    filter_backends = (SubjectObjectPermissionsFilter,)
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        queryset = models.Source.objects.all()
+        return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        return context
+
+
+class SourceObservationsView(generics.ListAPIView):
+
+    serializer_class = serializers.ObservationSerializer
+    pagination_class = StandardResultsSetPagination
+
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        source = generics.get_object_or_404(models.Source.objects.all(), pk=self.kwargs['id'])
+        observations = models.Observation.objects.filter(source_id=source.id)
+        return observations
+
+
+class ObservationsView(generics.ListCreateAPIView):
+
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    queryset = models.Observation.objects.all()
+    serializer_class = serializers.ObservationSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = (StandardObjectPermissions,)
+
+    def create(self, request, *args, **kwargs):
+        '''
+         On condition of post body being a list, let it bulk insert.
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        '''
+        serializer = serializers.ObservationSerializer(many=isinstance(request.data, list), data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST,)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)

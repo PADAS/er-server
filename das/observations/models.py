@@ -22,6 +22,7 @@ from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.db.models import Q
 from django.db.models import Max, F, Case, When
+from django.db import transaction
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
@@ -119,10 +120,29 @@ class SourceManager(models.Manager):
         return src, created
 
     def create_source(self, **kwargs):
-        source = super().create(**kwargs)
-        source.groups.set((SourceGroup.objects.get_default(),))
-        return source
 
+
+        # For 3rd-party, we allow including subject in a Source POST.
+        subject = kwargs.pop('subject', None)
+        manufacturer_id = kwargs.pop('manufacturer_id')
+
+
+        source, source_created = Source.objects.update_or_create(manufacturer_id=manufacturer_id,
+                                                          defaults=kwargs)
+
+        with transaction.atomic():
+
+            if source_created:
+                source.groups.set((SourceGroup.objects.get_default(),))
+
+            if source_created and subject:
+                subject = Subject.objects.create_subject(**subject)
+                SubjectSource.objects.create(source=source, subject=subject)
+            elif subject:
+                # update associated subject
+                Subject.objects.filter(subjectsource__source__manufacturer_id=manufacturer_id).update(**subject)
+
+        return source
 
 class Source(TimestampedModel):
 
@@ -137,7 +157,7 @@ class Source(TimestampedModel):
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
     model_name = models.CharField('device model name', max_length=100, null=True)
-    additional = JSONField('additional data')
+    additional = JSONField('additional data', default={})
 
     class Meta:
         permissions = (
@@ -330,8 +350,8 @@ class Observation(models.Model):
             ['source', 'recorded_at']
         )
 
-DEFAULT_ASSIGNED_RANGE = list((datetime(1970,1,1, tzinfo=pytz.utc),
-                               datetime.max.replace(tzinfo=pytz.utc)))
+DEFAULT_ASSIGNED_RANGE = list((pytz.utc.localize(datetime.min),
+                               pytz.utc.localize(datetime.max)))
 
 class SubjectSourceManager(models.GeoManager):
     def get_subject_sources(self, subject):
@@ -342,8 +362,26 @@ class SubjectSourceManager(models.GeoManager):
         sds = SubjectSource.objects.filter(subject_id=subject.id, source_id=source_id)
         return sds
 
+    def ensure(self, source, subject, assigned_range=None):
+        '''
+        :param source:
+        :param subject:
+        :param assigned_range:
+        :return:
+        '''
+        assigned_range = assigned_range or DEFAULT_ASSIGNED_RANGE
+
+        subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=subject,
+                                                                      assigned_range=assigned_range,
+                                                                      defaults=dict(additional={},)
+                                                                      )
+
+        return subject_source
+
     def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None,
                               additional=None, subject_name=None):
+
+        # TODO: Deprecate the use of this function, in favor of the ensure(). And let the caller handle creating related objects if necessary.
 
         additional = additional or {}
 
@@ -383,10 +421,10 @@ class SubjectSource(models.Model):
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    assigned_range = DateTimeRangeField('time assigned to subject')
+    assigned_range = DateTimeRangeField('time assigned to subject', default=DEFAULT_ASSIGNED_RANGE)
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     subject = models.ForeignKey('Subject', on_delete=models.CASCADE)
-    additional = JSONField('additional')
+    additional = JSONField('additional', default={})
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     objects = SubjectSourceManager()
 
@@ -594,7 +632,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     subject_type = models.CharField('subject type', max_length=100, default=TYPE_WILDLIFE, choices=TYPE_CHOICES)
     subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_ELEPHANT,
                                        choices=SUBTYPE_CHOICES)
-    additional = JSONField('additional data')
+    additional = JSONField('additional data', default={})
     is_active = models.BooleanField(
         _('active'),
         default=True,
