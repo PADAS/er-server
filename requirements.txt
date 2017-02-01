@@ -77,6 +77,7 @@ PyYAML==3.12
 Pillow==3.4.2
 
 # Docx and Docx Template are used for generating reports as Word documents.
+Jinja2==2.8.1
 docxtpl==0.2.3
 python-docx==0.8.6
 lxml==3.6.4

@@ -104,7 +104,7 @@ TEMPLATES = [
     {
         'NAME': 'docx_template',
         'BACKEND': 'reports.backends.DocxBackend',
-        'DIRS': [BASE_DIR, ],
+        'DIRS': ['/var/www/env_configs/', BASE_DIR, ],
         'APP_DIRS': True,
         'OPTIONS': {'environment': 'reports.environment.Environment',
                     'optimized': False},

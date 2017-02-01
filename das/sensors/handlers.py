@@ -49,7 +49,8 @@ class GenericSensorHandler():
             lat = location.get('lat', None)
             lon = location.get('lon', None)
 
-            location = Point(x=float(lon), y=float(lat))
+            # location = Point(x=float(lon), y=float(lat))
+            location = {'latitude': float(lat), 'longitude': float(lon)}
         except:
             location = None
 
@@ -85,7 +86,7 @@ class GenericSensorHandler():
         observation = {
             'location': location,
             'recorded_at': recorded_at,
-            'source': src.id,
+            'source': str(src.id),
             'additional': additional,
         }
 
@@ -110,13 +111,6 @@ class DasRadioAgentHandler():
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def _parse_location(self, o):
-        try:
-            loc = o.get('location')
-            return Point(x=float(loc.get('longitude')), y=float(loc.get('latitude')))
-        except:
-            return None
-
     @staticmethod
     def __str2date(d, default_tzinfo=pytz.UTC):
         '''Parse a date and if it's naive, replace tzinfo with default_tzinfo.'''
@@ -135,7 +129,8 @@ class DasRadioAgentHandler():
             lat = location.get('lat', None)
             lon = location.get('lon', None)
 
-            location = Point(x=float(lon), y=float(lat))
+            # location = Point(x=float(lon), y=float(lat))
+            location = {'latitude': lat, 'longitude': lon}
         except:
             location = None
 
@@ -165,7 +160,7 @@ class DasRadioAgentHandler():
         observation = {
             'location': location,
             'recorded_at': recorded_at,
-            'source': src.id,
+            'source': str(src.id),
             'additional': obj['additional'],
         }
 
@@ -193,7 +188,8 @@ class GsatHandler():
     @staticmethod
     def _parse_location(lat, lon):
         try:
-            return Point(x=float(lon), y=float(lat))
+            # return Point(x=float(lon), y=float(lat))
+            return {'latitude': float(lat), 'longitude': float(lon)}
         except:
             raise
 
@@ -287,7 +283,7 @@ class GsatHandler():
                                                                       )
 
         obj['additional'] = dict((k, obj[k]) for k in obj if k not in ('manufacturer_id', 'location', 'recorded_at',))
-        obj['source'] = src.id
+        obj['source'] = str(src.id)
 
         serializer = ObservationSerializer(data=obj)
         if serializer.is_valid():

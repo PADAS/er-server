@@ -170,6 +170,216 @@ class ChoiceCharField(models.CharField):
             )
 
 
+class ChoiceModel(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class SectionArea(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class Station(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class FenceLocation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class FenceDamage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class KeySpecies(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class Species(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class AnimalSex(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class AnimalAge(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class CarcassAge(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class TrophyStatus(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class CauseOfDeath(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class InjuryCause(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class InjuryType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class FireStatus(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class FireCause(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class Direction(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class Crops(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class TypeOfIllegalActivity(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class SnareAge(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class SnareStatus(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class PoacherCampAge(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class TypeOfShots(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class TypeOfTrophy(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class VehicleTypes(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class WeaponTypes(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class TrafficType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class TrafficActivity(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class AccidentType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class CriticalSightingType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class TracksType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class VehicleType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class MedicalEquipmentRequired(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class MedicalEvacSecurity(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
+class DetectionType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+
 class ActionTaken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
@@ -185,11 +395,6 @@ class Behavior(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
-class Station(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
 class Color(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
@@ -200,22 +405,7 @@ class Health(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
-class Species(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-class CauseOfDeath(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
 class FenceSection(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-class SectionArea(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
@@ -246,11 +436,6 @@ class Livestock(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
 class ContactType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-class TrophyStatus(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
