@@ -6,8 +6,8 @@ import logging
 import observations.models
 import psycopg2.extras
 import pytz
-from STE import unitlists
-import STE.subject_groups
+from ste import unitlists
+import ste.subject_groups
 import sys
 
 from django.contrib.gis.geos import Point
@@ -221,7 +221,17 @@ def import_trackingmaster(chronofile):
 
     additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_ANIMAL_FIELDS if key in trackingmaster})
 
-    active = 'active' in additional and additional['active'] == 1
+    # A subject is active if any of their trackingmaster records are active
+    with at_conn.cursor() as at_cursor:
+        sql = 'SELECT SUM(active) from trackingmaster WHERE name=%(subject_name)s'
+        at_cursor.execute(sql, dict(subject_name=trackingmaster['name']))
+        rows = dictfetchall(at_cursor)
+
+    try:
+        active_result = next(iter(rows), None)
+        active = active_result is not None and active_result.get('sum', 0) > 0
+    except:
+        active = False
 
     with at_conn.cursor() as at_cursor:
         sql = 'SELECT * from display WHERE displaygroup=%(subject_name)s'
@@ -437,7 +447,7 @@ def import_all_chronofiles():
 
 def import_all_subject_groups():
     error_list = []
-    for group_name, query in STE.subject_groups.subject_group_query_map.items():
+    for group_name, query in ste.subject_groups.subject_group_query_map.items():
         try:
             import_subject_group(group_name, query)
         except Exception as ex:
@@ -449,8 +459,8 @@ def import_all_subject_groups():
 def import_all():
     errors = []
     errors += import_all_chronofiles()
-    #errors += import_all_subject_groups()
-    #errors += import_all_users()
+    errors += import_all_subject_groups()
+    errors += import_all_users()
     print(errors)
 
 def import_test():
