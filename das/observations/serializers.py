@@ -1,6 +1,7 @@
 from django.contrib.gis.geos import Point
 import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
+from django.db.utils import IntegrityError
 
 from django.core.urlresolvers import reverse
 
@@ -63,9 +64,10 @@ class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
     def create(self, validated_data):
         return models.SubjectSource(**validated_data)
 
-from django.db.utils import IntegrityError
+
 class SubjectSerializer(rest_framework.serializers.Serializer):
-    # content_type = ContentTypeField()
+
+    content_type = ContentTypeField()
 
     id = rest_framework.serializers.UUIDField(required=False,)
     name = rest_framework.serializers.CharField(max_length=100)
