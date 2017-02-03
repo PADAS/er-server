@@ -9,8 +9,9 @@ from observations import models
 import utils.json
 import datetime
 from utils import add_base_url
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
+
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
@@ -77,8 +78,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     additional_fields = ('region', 'country', 'sex',
                          'species', 'additional')
 
-
-
     def create(self, validated_data):
         return models.Subject.objects.create_subject(**validated_data)
 
@@ -99,19 +98,10 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
         rep = super(SubjectSerializer, self).to_representation(instance)
         additional = instance.additional
-        additional = {k: additional[k] for k in self.additional_fields
-                      if k in additional}
+        additional = {k: additional[k] for k in self.additional_fields if k in additional}
         rep.update(additional)
-        if user and render_last_location:
-            permission_check_instance = instance
-            # If the subject list has already been filtered, we don't need to
-            # check permissions on each subject so pass None and cache the result
-            try:
-                if self.instance._hints.get('subjects_filtered', False):
-                    permission_check_instance = None
-            except:
-                permission_check_instance = None
 
+        if user and render_last_location:
             # Find the min and max boundaries for track data
             oldest_track_age = -1
             newest_track_age = 999
@@ -124,14 +114,13 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 if permission_tuple[1] < newest_track_age and user.has_perm(permission_tuple[0]):
                     newest_track_age = permission_tuple[1]
 
-
             if newest_track_age > 0:
                 last_position = instance.subjectstatus_set.get_delayed(newest_track_age * 24)
             else:
                 last_position = instance.subjectstatus_set.get_last()
                 rep['image_url'] = instance.image_url
 
-            if oldest_track_age > 0 and last_position is not None and last_position.recorded_at < pytz.utc.localize(datetime.datetime.utcnow() - datetime.timedelta(days=oldest_track_age)):
+            if oldest_track_age > 0 and last_position is not None and last_position.recorded_at < pytz.utc.localize(datetime.utcnow() - timedelta(days=oldest_track_age)):
                     last_position = None
 
             rep['tracks_available'] = bool(last_position)
@@ -142,7 +131,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 if 'state' in last_position.additional:
                     rep['state'] = last_position.additional['state']
 
-            rep['tracks_available'] = bool(last_position)
             if last_position:
                 rep['last_position_status'] = last_position.additional or {}
                 rep['last_position_date'] = last_position.recorded_at
