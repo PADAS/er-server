@@ -524,7 +524,7 @@ class SubjectQuerySet(models.QuerySet):
             sg_all.add(sg)
             sg_all.update(sg.get_descendants())
 
-        return self.filter(groups__in=sg_all)
+        return self.filter(groups__in=sg_all).distinct('name')
 
     def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
