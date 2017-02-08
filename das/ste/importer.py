@@ -306,48 +306,46 @@ def import_trackingmaster(chronofile):
     else:
         logger.info('Found existing SubjectSource for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
 
+    with at_conn.cursor() as at_cursor:
+        sql = 'SELECT * from archive_loc WHERE chronofile=%(chronofile)s'
+        at_cursor.execute(sql, dict(chronofile=chronofile))
+        rows = dictfetchall(at_cursor)
 
-    return
-    # with at_conn.cursor() as at_cursor:
-    #     sql = 'SELECT * from archive_loc WHERE chronofile=%(chronofile)s'
-    #     at_cursor.execute(sql, dict(chronofile=chronofile))
-    #     rows = dictfetchall(at_cursor)
-    #
-    # mapping = map_source_to_plugin(source, trackingmaster['datasource'], trackingmaster['collar_type'])
-    # if mapping is None or not SourcePlugin.objects.filter(source=source).exists():
-    #     archive_locs = []
-    #     try:
-    #         latest_observation = observations.models.Observation.objects.filter(source=source).latest('recorded_at')
-    #         latest_das_observation = latest_observation.recorded_at
-    #     except:
-    #         latest_observation = None
-    #         latest_das_observation = datetime.datetime.min
-    #
-    #     for row in rows:
-    #         observation = observations.models.Observation(
-    #             source=source,
-    #             additional={key: row[key] for key in ARCHIVE_LOC_FIELDS},
-    #             location=Point(row['lon'], row['lat']),
-    #             recorded_at=pytz.utc.localize(row['fixtime'])
-    #         )
-    #         if observation.recorded_at <= latest_das_observation:
-    #             continue
-    #
-    #         if latest_observation is None or observation.recorded_at > latest_observation.recorded_at:
-    #             latest_observation = observation
-    #
-    #         for k, v in observation.additional.items():
-    #             if isinstance(v, datetime.datetime):
-    #                 observation.additional[k] = v.isoformat()
-    #         archive_locs.append(observation)
-    #
-    #     if archive_locs:
-    #         observations.models.Observation.objects.bulk_create(archive_locs, batch_size=200)
-    #         for delay_hours in (0, 24):
-    #             observations.models.SubjectStatus.objects.update_from_observation(latest_observation, delay_hours=delay_hours)
-    #
-    #     create_sourceplugin(source, latest_observation=latest_observation, datasource=trackingmaster['datasource'],
-    #                         collar_type=trackingmaster['collar_type'])
+    mapping = map_source_to_plugin(source, trackingmaster['datasource'], trackingmaster['collar_type'])
+    if mapping is None or not SourcePlugin.objects.filter(source=source).exists():
+        archive_locs = []
+        try:
+            latest_observation = observations.models.Observation.objects.filter(source=source).latest('recorded_at')
+            latest_das_observation = latest_observation.recorded_at
+        except:
+            latest_observation = None
+            latest_das_observation = datetime.datetime.min
+
+        for row in rows:
+            observation = observations.models.Observation(
+                source=source,
+                additional={key: row[key] for key in ARCHIVE_LOC_FIELDS},
+                location=Point(row['lon'], row['lat']),
+                recorded_at=pytz.utc.localize(row['fixtime'])
+            )
+            if observation.recorded_at <= latest_das_observation:
+                continue
+
+            if latest_observation is None or observation.recorded_at > latest_observation.recorded_at:
+                latest_observation = observation
+
+            for k, v in observation.additional.items():
+                if isinstance(v, datetime.datetime):
+                    observation.additional[k] = v.isoformat()
+            archive_locs.append(observation)
+
+        if archive_locs:
+            observations.models.Observation.objects.bulk_create(archive_locs, batch_size=200)
+            for delay_hours in (0, 24):
+                observations.models.SubjectStatus.objects.update_from_observation(latest_observation, delay_hours=delay_hours)
+
+        create_sourceplugin(source, latest_observation=latest_observation, datasource=trackingmaster['datasource'],
+                            collar_type=trackingmaster['collar_type'])
 
 def map_source_to_plugin (source, datasource=None, collar_type=None):
     if (datasource == 'localfile' and collar_type == 'AWT Satellite') \
