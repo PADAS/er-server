@@ -175,17 +175,27 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
         return queryset
 
 
-class SubjectSourcesView(generics.ListAPIView):
+class SubjectSourcesView(generics.ListCreateAPIView):
     serializer_class = serializers.SourceSerializer
 
     def get_queryset(self):
         subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
         if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
-
         subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
         sources = models.Source.objects.filter(pk__in=subject_sources.values('source'))
         return sources
+
+    def create(self, request, *args, **kwargs):
+
+        # /{id}/ contains subject_id.
+        request.data['subject'] = self.kwargs['id']
+        serializer = serializers.SubjectSourceSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class SubjectSourceView(generics.RetrieveAPIView):
@@ -327,11 +337,25 @@ class ObservationView(generics.RetrieveUpdateDestroyAPIView):
     queryset = models.Observation.objects.all()
     serializer_class = serializers.ObservationSerializer
 
-
 class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
-    lookup_field = 'id'
+    lookup_fields = ('id', 'manufacturer_id')
+
     queryset = models.Source.objects.all()
     serializer_class = serializers.SourceSerializer
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        queryset = self.filter_queryset(queryset)
+
+        filter = {}
+
+        for p in self.lookup_fields:
+            pval = self.kwargs.get(p, None)
+            if pval is not None:
+                filter[p] = pval
+
+        return generics.get_object_or_404(queryset, **filter)
+
 
 class SourcesView(generics.ListCreateAPIView,):
     serializer_class = serializers.SourceSerializer
@@ -339,8 +363,43 @@ class SourcesView(generics.ListCreateAPIView,):
     filter_backends = (SubjectObjectPermissionsFilter,)
     pagination_class = StandardResultsSetPagination
 
+    lookup_fields = ('manufacturer_id', 'provider_name')
+
     def get_queryset(self):
         queryset = models.Source.objects.all()
+
+        filter = {}
+        for fn in self.lookup_fields:
+            if fn in self.request.query_params:
+                filter[fn] = self.request.query_params.get(fn)
+        if filter:
+            queryset = queryset.filter(**filter)
+
+        return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        return context
+
+    # def create(self, request, *args, **kwargs):
+    #
+    #     serializer = serializers.SourceSerializer(data=request.data)
+    #     if not serializer.is_valid():
+    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST,)
+    #     self.perform_create(serializer)
+    #     headers = self.get_success_headers(serializer.data)
+    #     return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class SourceProvidersView(generics.ListCreateAPIView,):
+    serializer_class = serializers.SourceProviderSerializer
+    permission_classes = (StandardObjectPermissions,)
+    pagination_class = StandardResultsSetPagination
+
+    lookup_field = 'name'
+
+    def get_queryset(self):
+        queryset = models.SourceProvider.objects.all()
         return queryset
 
     def get_serializer_context(self):

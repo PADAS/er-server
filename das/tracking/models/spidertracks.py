@@ -173,7 +173,7 @@ class SpiderTracksPlugin(TrackingPlugin):
                         source = source_map.get(manufacturer_id)
                     else:
                         source, created = Source.objects.ensure_source(self.SOURCE_TYPE,
-                                                                    provider_name=self.name,
+                                                                    provider_name=self.provider.name,
                                                                     manufacturer_id=manufacturer_id,
                                                                     model_name=self.DEFAULT_MODEL_NAME)
                         source_map[manufacturer_id] = source

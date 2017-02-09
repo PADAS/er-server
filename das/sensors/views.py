@@ -15,10 +15,10 @@ class SensorObservation(generics.GenericAPIView):
 
     permission_classes = (AllowAnyGet, )
     serializer_class = ObservationSerializer
-    def get(self, request, *args, sensor_type=None, provider_key=None, **kwargs):
+    def get(self, request, *args, sensor_type=None, provider_name=None, **kwargs):
 
         if sensor_type == GsatHandler.SENSOR_TYPE:
-            return GsatHandler().handle_observation(request, provider_key)
+            return GsatHandler().handle_observation(request, provider_name)
 
         # TODO: Write a validator to do this error response.
         errordata = {
@@ -29,8 +29,8 @@ class SensorObservation(generics.GenericAPIView):
         return Response(data=errordata, status=status.HTTP_400_BAD_REQUEST)
 
 
-    def post(self, request, *args, sensor_type=None, provider_key=None, **kwargs):
+    def post(self, request, *args, sensor_type=None, provider_name=None, **kwargs):
         if sensor_type == DasRadioAgentHandler.SENSOR_TYPE:
-            return DasRadioAgentHandler().handle_observation(request, provider_key)
+            return DasRadioAgentHandler().handle_observation(request, provider_name)
 
-        return GenericSensorHandler().handle_observation(request, sensor_type=sensor_type, provider_key=provider_key)
+        return GenericSensorHandler().handle_observation(request, sensor_type=sensor_type, provider_name=provider_name)
