@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from STE import importer
+from ste import importer
 
 
 class Command(BaseCommand):
