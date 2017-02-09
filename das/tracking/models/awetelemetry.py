@@ -203,7 +203,7 @@ class AWETelemetryPlugin(TrackingPlugin):
                 manufacturer_id, subject_name = self._split_id(item['ID'])
 
                 src, created = Source.objects.ensure_source(default_source_type,
-                                                            provider_name=self.name,
+                                                            provider_name=self.provider.name,
                                                             manufacturer_id=manufacturer_id,
                                                             model_name=model_name)
 

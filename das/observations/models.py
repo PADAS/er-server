@@ -27,7 +27,7 @@ from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
 import pytz
-
+from das_server import settings
 from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
@@ -109,10 +109,12 @@ class SourceManager(models.Manager):
     # Helper functions for hydrating Source and Subject for the given message.
     def ensure_source(self, source_type, provider_name=None, manufacturer_id=None, model_name=None, additional=None):
 
+
+        provider, created = SourceProvider.objects.get_or_create(name=provider_name)
         additional = additional or {}
         src, created = Source.objects.get_or_create(source_type=source_type,
                                                     manufacturer_id=manufacturer_id,
-                                                    provider_name=provider_name,
+                                                    provider=provider,
                                                     defaults={'model_name': model_name,
                                                               'additional': additional
                                                               })
@@ -144,6 +146,26 @@ class SourceManager(models.Manager):
 
         return source
 
+class SourceProviderManager(models.Manager):
+    pass
+
+
+DEFAULT_SOURCE_PROVIDER_ID = '697f25e4-562c-4305-af86-1333e9081f4c'
+def get_default_source_provider_id():
+    instance, created = SourceProvider.objects.get_or_create(id=DEFAULT_SOURCE_PROVIDER_ID, name='default')
+    return instance.id
+
+
+class SourceProvider(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField('Friendly name for data provider', max_length=100, null='False', unique=True)
+
+    objects = SourceProviderManager()
+
+    def __str__(self):
+        return self.name
+
+
 class Source(TimestampedModel):
 
     objects = SourceManager()
@@ -153,18 +175,26 @@ class Source(TimestampedModel):
     source_type = models.CharField('type of data expected', max_length=100,
                                    null=True, choices=SOURCE_TYPES)
 
-    provider_name = models.CharField('unique name for data provider', max_length=100, null='False', default='default')
+    # # Delete this after migration occurs for provider attribute.
+    # provider_name = models.CharField('unique name for data provider', max_length=100, null='False', default='default')
+
+    provider = models.ForeignKey(SourceProvider, related_name='sources', related_query_name='source',
+                                 null=False, default=get_default_source_provider_id)
+
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
     model_name = models.CharField('device model name', max_length=100, null=True)
     additional = JSONField('additional data', default={})
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='sources', related_query_name='source')
 
     class Meta:
         permissions = (
             ('view_source',
              'Permission to view a source'),
         )
-        unique_together = ('provider_name', 'manufacturer_id')
+        unique_together = ('provider', 'manufacturer_id')
 
     def __str__(self):
         return '%s:%s' % (self.manufacturer_id, self.model_name)
@@ -628,6 +658,10 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_('name'), max_length=100)
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='subjects', related_query_name='subject')
 
     subject_type = models.CharField('subject type', max_length=100, default=TYPE_WILDLIFE, choices=TYPE_CHOICES)
     subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_ELEPHANT,

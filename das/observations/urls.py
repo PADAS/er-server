@@ -30,11 +30,13 @@ urlpatterns = [
     url(r'^subject/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/source/(?P<source_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/tracks/?$', views.SubjectSourceTrackView.as_view()),
     url(r'^sources/?$', views.SourcesView.as_view()),
     url(r'^source/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.SourceView.as_view()),
+    url(r'^source/(?P<manufacturer_id>[0-9a-zA-Z\-\.]{1,80})/?$', views.SourceView.as_view()),
     url(r'^observation/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.ObservationView.as_view()),
     url(r'^observations/?$', views.ObservationsView.as_view()),
     url(r'^subjectgroups/?$', views.SubjectGroupsView.as_view()),
     url(r'^subjectgroup/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.SubjectGroupView.as_view()),
     url(r'^sourcegroups/?$', views.SourceGroupsView.as_view()),
+    url(r'^sourceproviders/?$', views.SourceProvidersView.as_view()),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
