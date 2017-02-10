@@ -202,24 +202,21 @@ class AWETelemetryPlugin(TrackingPlugin):
                 model_name = (self.name)
                 manufacturer_id, subject_name = self._split_id(item['ID'])
 
-                src, created = Source.objects.ensure_source(default_source_type,
-                                                            provider_name=self.provider.name,
-                                                            manufacturer_id=manufacturer_id,
-                                                            model_name=model_name)
+                src = Source.objects.ensure_source(source_type=self.DEFAULT_SOURCE_TYPE,
+                                                   provider=self.provider.name,
+                                                   manufacturer_id=manufacturer_id,
+                                                   model_name=model_name,
+                                                   subject={
+                                                       'subject_type': default_subject_type,
+                                                       'subject_subtype': default_subject_subtype,
+                                                       'name': manufacturer_id
+                                                   }
+                                               )
 
                 # Create correlation.
-                sp = SourcePlugin.objects.create(plugin=self, source=src)
+                SourcePlugin.objects.create(plugin=self, source=src)
 
                 obs = self._transform(src, item)
-
-                # If the Source already exists, assume the SubjectSource and Subject already exist.
-                if created:
-                    ss, created = SubjectSource.objects.ensure_subject_source(src,
-                                                                              timestamp=obs.recorded_at,
-                                                                              subject_type=default_subject_type,
-                                                                              subject_subtype=default_subject_subtype,
-                                                                              subject_name=subject_name
-                                                                              )
 
                 # Short-circuit if we already have this observation.
                 if Observation.objects.filter(source=src, recorded_at=obs.recorded_at).exists():

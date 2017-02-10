@@ -61,10 +61,16 @@ class GenericSensorHandler():
 
         subject_name = params.get('subject_name') or manufacturer_id
 
-        src, created = Source.objects.ensure_source(source_type,
-                                                    provider_name=provider_name,
+        src = Source.objects.ensure_source(source_type,
+                                                    provider=provider_name,
                                                     manufacturer_id=manufacturer_id,
-                                                    model_name=model_name)
+                                                    model_name=model_name,
+                                                    subject={
+                                                        'subject_type': subject_type,
+                                                        'subject_subtype': subject_subtype,
+                                                        'name': subject_name
+                                                        }
+                                                    )
 
         recorded_at = params.get('recorded_at') # self.__str2date(obj['recorded_at'])
         additional = params.get('additional', {})
@@ -72,16 +78,6 @@ class GenericSensorHandler():
         # Short-circuit if we already have this observation.
         if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
             return Response({}, status=status.HTTP_201_CREATED)
-
-        # If the Source already exists, assume the SubjectSource and Subject already exist.
-        if created:
-
-            ss, created = SubjectSource.objects.ensure_subject_source(src,
-                                                                      timestamp=recorded_at,
-                                                                      subject_type=subject_type,
-                                                                      subject_subtype=subject_subtype,
-                                                                      subject_name=subject_name,
-                                                                      )
 
         observation = {
             'location': location,
@@ -137,26 +133,22 @@ class DasRadioAgentHandler():
         model_name = '{}:{}'.format(self.SENSOR_TYPE, provider_name)
         manufacturer_id = obj.get('manufacturer_id')
 
-        src, created = Source.objects.ensure_source(self.SOURCE_TYPE,
-                                                    provider_name=provider_name,
+        src = Source.objects.ensure_source(source_type=self.SOURCE_TYPE,
+                                                    provider=provider_name,
                                                     manufacturer_id=manufacturer_id,
-                                                    model_name=model_name)
+                                                    model_name=model_name,
+                                                    subject={
+                                                        'subject_type': self.DEFAULT_SUBJECT_TYPE,
+                                                        'subject_subtype': self.DEFAULT_SUBJECT_SUBTYPE,
+                                                        'name': manufacturer_id
+                                                        }
+                                                    )
 
         recorded_at = self.__str2date(obj['recorded_at'])
 
         # Short-circuit if we already have this observation.
         if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
             return Response({}, status=status.HTTP_201_CREATED)
-
-        # If the Source already exists, assume the SubjectSource and Subject already exist.
-        if created:
-
-            ss, created = SubjectSource.objects.ensure_subject_source(src,
-                                                                      timestamp=recorded_at,
-                                                                      subject_type=self.DEFAULT_SUBJECT_TYPE,
-                                                                      subject_subtype=self.DEFAULT_SUBJECT_SUBTYPE,
-                                                                      subject_name=obj.get('subject_name', manufacturer_id)
-                                                                      )
 
         observation = {
             'location': location,

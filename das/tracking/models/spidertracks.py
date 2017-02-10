@@ -172,21 +172,18 @@ class SpiderTracksPlugin(TrackingPlugin):
                     if manufacturer_id in source_map:
                         source = source_map.get(manufacturer_id)
                     else:
-                        source, created = Source.objects.ensure_source(self.SOURCE_TYPE,
-                                                                    provider_name=self.provider.name,
-                                                                    manufacturer_id=manufacturer_id,
-                                                                    model_name=self.DEFAULT_MODEL_NAME)
-                        source_map[manufacturer_id] = source
+                        source = Source.objects.ensure_source(source_type=self.SOURCE_TYPE,
+                                                           provider=self.provider.name,
+                                                           manufacturer_id=manufacturer_id,
+                                                           model_name=self.DEFAULT_MODEL_NAME,
+                                                           subject={
+                                                               'subject_type': Subject.TYPE_AIRCRAFT,
+                                                               'subject_subtype': Subject.SUBTYPE_PLANE,
+                                                               'name': self._get_registration(fix) or manufacturer_id
+                                                           }
+                                                           )
 
-                        # If the Source already exists, assume the SubjectSource and Subject already exist.
-                        if created:
-                            SubjectSource.objects.ensure_subject_source(
-                                source,
-                              timestamp=fix_time,
-                              subject_type=Subject.TYPE_AIRCRAFT,
-                              subject_subtype=Subject.SUBTYPE_PLANE,
-                              subject_name=self._get_registration(fix) or manufacturer_id
-                            )
+                        source_map[manufacturer_id] = source
 
                     observation = self._transform(fix, source)
                     if observation:

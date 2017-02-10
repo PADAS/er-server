@@ -174,3 +174,9 @@ class SubjectStatusAdmin(admin.ModelAdmin):
     list_display= ('subject', 'delay_hours', 'recorded_at', 'location')
 
     list_filter = ('delay_hours',)
+
+@admin.register(models.SourceProvider)
+class SourceProviderAdmin(admin.ModelAdmin):
+    search_fields = ('name',)
+    ordering = ('name',)
+    list_display = ('name',)

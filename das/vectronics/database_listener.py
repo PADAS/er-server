@@ -4,7 +4,7 @@ import psycopg2.extensions
 import select
 
 from django.db import connections
-from observations.models import Source, Observation, SourceProvider
+from observations.models import Source, Observation, SourceProvider, Subject
 from vectronics.models import GpsPlusPositions
 from tracking.models.plugin_base import Obs
 
@@ -17,10 +17,18 @@ def start_listening():
     def handle(*args):
         position = GpsPlusPositions.objects.get(pk=args[0].payload)
         provider, created = SourceProvider.objects.get_or_create(name='vectronics')
-        source, created = Source.objects.ensure_source(source_type=source_type,
-                                                       manufacturer_id=position.id_collar,
-                                                       model_name='vectronics',
-                                                       provider_name=provider.name)
+
+        manufacturer_id = position.id_collar
+        source = Source.objects.ensure_source(source_type=source_type,
+                                              provider=provider.name,
+                                              manufacturer_id=manufacturer_id,
+                                              model_name='vectronics',
+                                              subject={
+                                                  'subject_type': Subject.TYPE_UNASSIGNED,
+                                                  'subject_subtype': Subject.SUBTYPE_UNASSIGNED,
+                                                  'name': manufacturer_id
+                                              }
+                                              )
 
         additional = dict((k, v) for k, v in position if not k.startswith('_') and v is not None and
                           k not in ('id_collar', 'latitude', 'longitude', 'acquisition_time'))

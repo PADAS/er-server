@@ -106,45 +106,37 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
 
 
 class SourceManager(models.Manager):
+
     # Helper functions for hydrating Source and Subject for the given message.
-    def ensure_source(self, source_type, provider_name=None, manufacturer_id=None, model_name=None, additional=None):
+    def ensure_source(self, *args, **kwargs):
 
-
-        provider, created = SourceProvider.objects.get_or_create(name=provider_name)
-        additional = additional or {}
-        src, created = Source.objects.get_or_create(source_type=source_type,
-                                                    manufacturer_id=manufacturer_id,
-                                                    provider=provider,
-                                                    defaults={'model_name': model_name,
-                                                              'additional': additional
-                                                              })
-
-        return src, created
-
-    def create_source(self, **kwargs):
-
-
-        # For 3rd-party, we allow including subject in a Source POST.
-        subject = kwargs.pop('subject', None)
-        manufacturer_id = kwargs.pop('manufacturer_id')
-
-
-        source, source_created = Source.objects.update_or_create(manufacturer_id=manufacturer_id,
-                                                          defaults=kwargs)
-
+        additional = kwargs.get('additional', {})
+        subject = kwargs.get('subject')
         with transaction.atomic():
+
+            provider, created = SourceProvider.objects.get_or_create(name=kwargs.get('provider'))
+
+            searchkey = dict(manufacturer_id=kwargs['manufacturer_id'], provider=provider)
+            defaults = {
+                'source_type': kwargs.get('source_type'),
+                'model_name': kwargs.get('model_name'),
+                'additional': additional
+            }
+
+            source, source_created = Source.objects.get_or_create(defaults=defaults, **searchkey)
 
             if source_created:
                 source.groups.set((SourceGroup.objects.get_default(),))
 
-            if source_created and subject:
+            # If we've created a new Source, also create a subject with default values.
+            if source_created:
+                if not subject:
+                    subject = {'name': source.manufacturer_id}
                 subject = Subject.objects.create_subject(**subject)
                 SubjectSource.objects.create(source=source, subject=subject)
-            elif subject:
-                # update associated subject
-                Subject.objects.filter(subjectsource__source__manufacturer_id=manufacturer_id).update(**subject)
 
-        return source
+            return source
+
 
 class SourceProviderManager(models.Manager):
     pass
@@ -574,6 +566,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     TYPE_VEHICLE = 'vehicle'
     TYPE_STATIONARY_OBJECT = 'stationary-object'
     TYPE_AIRCRAFT = 'aircraft'
+    TYPE_UNASSIGNED = 'unassigned'
 
     SUBTYPE_ELEPHANT = 'elephant'
     SUBTYPE_ZEBRA = 'zebra'
@@ -598,6 +591,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     SUBTYPE_PLANE = 'plane'
     SUBTYPE_HELICOPTER = 'helicopter'
+    SUBTYPE_UNASSIGNED = 'unassigned'
 
     TYPES_HIERARCHIES = [
         {
@@ -650,6 +644,13 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 (SUBTYPE_PLANE, 'Plane'),
                 (SUBTYPE_HELICOPTER, 'Helicopter'),
             )
+        },
+        {
+            'value': TYPE_UNASSIGNED,
+            'name': 'Unassigned',
+            'subtypes': (
+                (SUBTYPE_UNASSIGNED, 'Unassigned'),
+            )
         }
     ]
 
@@ -663,8 +664,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='subjects', related_query_name='subject')
 
-    subject_type = models.CharField('subject type', max_length=100, default=TYPE_WILDLIFE, choices=TYPE_CHOICES)
-    subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_ELEPHANT,
+    subject_type = models.CharField('subject type', max_length=100, default=TYPE_UNASSIGNED, choices=TYPE_CHOICES)
+    subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_UNASSIGNED,
                                        choices=SUBTYPE_CHOICES)
     additional = JSONField('additional data', default={})
     is_active = models.BooleanField(

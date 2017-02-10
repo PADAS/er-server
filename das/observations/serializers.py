@@ -83,6 +83,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     subject_type = rest_framework.serializers.CharField(max_length=100, required=False)
     subject_subtype = rest_framework.serializers.CharField(max_length=100, required=False)
     additional = rest_framework.serializers.JSONField(label='Additional data', required=False)
+    created_at = rest_framework.serializers.DateTimeField(read_only=True)
+    updated_at = rest_framework.serializers.DateTimeField(read_only=True)
 
     additional_fields = ('region', 'country', 'sex',
                          'species', 'additional')
@@ -187,10 +189,10 @@ class SourceSerializer(rest_framework.serializers.Serializer):
     model_name = rest_framework.serializers.CharField(allow_null=True, label='Device model name', max_length=100, required=False)
     additional = rest_framework.serializers.JSONField(label='Additional data')
     provider = SourceProviderRelatedField()
-    # subject = rest_framework.serializers.JSONField(label='Subject data', required=False)
 
     content_type = ContentTypeField(read_only=True)
-
+    created_at = rest_framework.serializers.DateTimeField(read_only=True)
+    updated_at = rest_framework.serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = models.Source
@@ -198,13 +200,18 @@ class SourceSerializer(rest_framework.serializers.Serializer):
 
     def to_representation(self, instance):
         rep = super(SourceSerializer, self).to_representation(instance)
-        rep.update(instance.additional)
         try:
             subject_sources = self.context['view'].subject_sources
             subject_source = subject_sources.get(source=instance)
             rep['assigned_range'] = subject_source.assigned_range
         except (AttributeError, KeyError):
             pass
+
+        if 'request' in self.context:
+            request = self.context['request']
+
+            rep['url'] = utils.add_base_url(request, reverse('source-view', args=[instance.id,]))
+
         return rep
 
     def create(self, validated_data):
@@ -212,14 +219,14 @@ class SourceSerializer(rest_framework.serializers.Serializer):
             request = self.context['request']
             validated_data['owner'] = request.user
 
-        return models.Source.objects.create_source(**validated_data)
+        return models.Source.objects.ensure_source(**validated_data)
 
 class SourceProviderSerializer(rest_framework.serializers.Serializer):
     id = rest_framework.serializers.UUIDField(read_only=True)
     name = rest_framework.serializers.CharField(label='Source Provider', max_length=100, required=True)
     class Meta:
         model = models.SourceProvider
-        fields = ('id' 'name')
+        fields = ('id', 'name')
 
     def create(self, validated_data):
 

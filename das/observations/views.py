@@ -197,6 +197,26 @@ class SubjectSourcesView(generics.ListCreateAPIView):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+class SourceSubjectsView(generics.ListCreateAPIView):
+    serializer_class = serializers.SubjectSerializer
+
+    def get_queryset(self):
+        source = generics.get_object_or_404(models.Source.objects.all(), pk=self.kwargs['id'])
+        # if not self.request.user.has_any_perms(models.Source.VIEW_SUBJECT_PERMS, source):
+        #     raise PermissionDenied
+        return models.Subject.objects.filter(subjectsource__source=source)
+
+    def create(self, request, *args, **kwargs):
+
+        # /{id}/ contains subject_id.
+        request.data['subject'] = self.kwargs['id']
+        serializer = serializers.SubjectSourceSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class SubjectSourceView(generics.RetrieveAPIView):
     serializer_class = serializers.SourceSerializer
