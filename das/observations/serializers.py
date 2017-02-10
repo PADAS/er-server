@@ -189,7 +189,7 @@ class SourceSerializer(rest_framework.serializers.Serializer):
     model_name = rest_framework.serializers.CharField(allow_null=True, label='Device model name', max_length=100, required=False)
     additional = rest_framework.serializers.JSONField(label='Additional data')
     provider = SourceProviderRelatedField()
-
+    subject = rest_framework.serializers.JSONField(label='Subject data', required=False)
     content_type = ContentTypeField(read_only=True)
     created_at = rest_framework.serializers.DateTimeField(read_only=True)
     updated_at = rest_framework.serializers.DateTimeField(read_only=True)

@@ -401,15 +401,6 @@ class SourcesView(generics.ListCreateAPIView,):
         context = super().get_serializer_context()
         return context
 
-    # def create(self, request, *args, **kwargs):
-    #
-    #     serializer = serializers.SourceSerializer(data=request.data)
-    #     if not serializer.is_valid():
-    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST,)
-    #     self.perform_create(serializer)
-    #     headers = self.get_success_headers(serializer.data)
-    #     return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
 
 class SourceProvidersView(generics.ListCreateAPIView,):
     serializer_class = serializers.SourceProviderSerializer
