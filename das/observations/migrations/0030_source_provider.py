@@ -47,13 +47,13 @@ class Migration(migrations.Migration):
         migrations.RunSQL('SET CONSTRAINTS ALL IMMEDIATE', reverse_sql=migrations.RunSQL.noop),
 
         migrations.RunPython(create_default_source_provider, reverse_code=migrations.RunPython.noop),
+        migrations.RunSQL(sql='create extension IF NOT EXISTS "uuid-ossp";', reverse_sql=migrations.RunSQL.noop),
         migrations.RunSQL(sql=HYDRATE_SOURCE_PROVIDERS, reverse_sql=migrations.RunSQL.noop),
         migrations.AddField(
             model_name='source',
             name='provider',
             field=models.ForeignKey(default=observations.models.get_default_source_provider_id, on_delete=django.db.models.deletion.CASCADE, related_name='sources', related_query_name='source', to='observations.SourceProvider'),
         ),
-        migrations.RunSQL(sql='create extension IF NOT EXISTS "uuid-ossp";', reverse_sql=migrations.RunSQL.noop),
         migrations.RunSQL(sql=SOURCE_PROVIDER_UPDATE, reverse_sql=migrations.RunSQL.noop),
         migrations.AlterUniqueTogether(
             name='source',
