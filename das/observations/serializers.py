@@ -106,13 +106,15 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             oldest_track_age = -1
             newest_track_age = 999
 
-            for permission_tuple in models.Subject.VIEW_BEGIN_WINDOWS:
+            for permission_tuple in sorted(models.Subject.VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse=True):
                 if permission_tuple[1] > oldest_track_age and user.has_perm(permission_tuple[0]):
                     oldest_track_age = permission_tuple[1]
+                    break
 
-            for permission_tuple in models.Subject.VIEW_END_WINDOWS:
+            for permission_tuple in sorted(models.Subject.VIEW_END_WINDOWS, key=lambda _: _[1]):
                 if permission_tuple[1] < newest_track_age and user.has_perm(permission_tuple[0]):
                     newest_track_age = permission_tuple[1]
+                    break
 
             if newest_track_age > 0:
                 last_position = instance.subjectstatus_set.get_delayed(newest_track_age * 24)
