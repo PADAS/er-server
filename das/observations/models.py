@@ -516,6 +516,11 @@ class SubjectQuerySet(models.QuerySet):
         return subjects
 
     def by_user_subjects(self, user):
+
+        # Avoid checking for a user that does not have permission sets (ex. AnonymousUser)
+        if not hasattr(user, 'get_all_permission_sets'):
+            return self.none()
+
         sg_all = set()
         for sg in SubjectGroup.objects.all().filter(
                 permission_sets__in=user.get_all_permission_sets()):
