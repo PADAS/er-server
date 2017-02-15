@@ -3,8 +3,7 @@ import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 
 from django.core.urlresolvers import reverse
-
-from core.serializers import ContentTypeField
+from django.conf import settings
 from observations import models
 import utils.json
 import datetime
@@ -94,61 +93,52 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     def to_representation(self, instance):
         user = getattr(self.context.get('request', None), 'user', None)
         render_last_location = self.context.get('render_last_location', True)
-        model = self.Meta.model
 
         rep = super(SubjectSerializer, self).to_representation(instance)
         additional = instance.additional
         additional = {k: additional[k] for k in self.additional_fields if k in additional}
         rep.update(additional)
+        rep['tracks_available'] = False
 
         if user and render_last_location:
-            # Find the min and max boundaries for track data
-            oldest_track_age = -1
-            newest_track_age = 999
+            # Find the user's allowed viewable date range
+            maximum_allowed_age = None
+            minimum_allowed_age = None
 
             for permission_tuple in sorted(models.Subject.VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse=True):
-                if permission_tuple[1] > oldest_track_age and user.has_perm(permission_tuple[0]):
-                    oldest_track_age = permission_tuple[1]
+                if user.has_perm(permission_tuple[0]) and (maximum_allowed_age is None or permission_tuple[1] > maximum_allowed_age):
+                    maximum_allowed_age = permission_tuple[1]
                     break
 
             for permission_tuple in sorted(models.Subject.VIEW_END_WINDOWS, key=lambda _: _[1]):
-                if permission_tuple[1] < newest_track_age and user.has_perm(permission_tuple[0]):
-                    newest_track_age = permission_tuple[1]
+                if user.has_perm(permission_tuple[0]) and (minimum_allowed_age is None or permission_tuple[1] < minimum_allowed_age):
+                    minimum_allowed_age = permission_tuple[1]
                     break
 
-            if newest_track_age > 0:
-                last_position = instance.subjectstatus_set.get_delayed(newest_track_age * 24)
-            else:
-                last_position = instance.subjectstatus_set.get_last()
-                rep['image_url'] = instance.image_url
+            if minimum_allowed_age is not None and maximum_allowed_age is not None:
 
-            if oldest_track_age > 0 and last_position is not None and last_position.recorded_at < pytz.utc.localize(datetime.utcnow() - timedelta(days=oldest_track_age)):
-                    last_position = None
+                window_start_date = datetime.utcnow() - timedelta(days=maximum_allowed_age)
+                widnow_end_date = datetime.utcnow() - timedelta(days=minimum_allowed_age)
 
-            rep['tracks_available'] = bool(last_position)
+                sds = models.SubjectSource.objects.filter(subject=instance)
+                observations = models.Observation.objects.get_source_range_observation_values(sds, since=window_start_date, until=widnow_end_date)
 
-            if last_position:
-                first_position = instance.subjectstatus_set.get_delayed()
+                observations = sorted(list(observations), key=lambda _: _['recorded_at'], reverse=True)
+                if len(observations) > 0:
+                    newest_position = observations[0]
+                    oldest_position = observations[-1]
+                    default_window_cutoff = pytz.utc.localize(datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
 
-                if 'state' in last_position.additional:
-                    rep['state'] = last_position.additional['state']
+                    rep['image_url'] = instance.image_url
+                    rep['tracks_available'] = newest_position['recorded_at'] > default_window_cutoff
+                    # rep['last_position_status'] = newest_position.additional or {}
+                    rep['last_position_date'] = newest_position['recorded_at']
+                    rep['last_position'] = make_feature(self.context['request'],newest_position['location'], instance, time=newest_position['recorded_at'], image_url=rep['image_url'])
+                    rep['tracks_range'] = (oldest_position['recorded_at'], newest_position['recorded_at'])
 
-            if last_position:
-                rep['last_position_status'] = last_position.additional or {}
-                rep['last_position_date'] = last_position.recorded_at
-                rep['last_position'] = make_feature(self.context['request'],
-                                                    last_position.location,
-                                                    instance,
-                                                    time=last_position.recorded_at,
-                                                    image_url=rep['image_url'])
-                if first_position:
-                    rep['tracks_range'] = (first_position.recorded_at,
-                                           last_position.recorded_at)
         if 'request' in self.context:
             request = self.context['request']
-
-            rep['url'] = utils.add_base_url(request, reverse('subject-view', args=[instance.id,]))
-
+            rep['url'] = utils.add_base_url(request, reverse('subject-view',args=[instance.id, ]))
         return rep
 
 

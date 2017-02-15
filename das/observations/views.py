@@ -305,7 +305,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
         now = datetime.datetime.now()
 
         if requested_oldest_age is None:
-            oldest_age = oldest_age_allowed
+            oldest_age = min(settings.SHOW_TRACK_DAYS, oldest_age_allowed)
         else:
             requested_oldest_age = (now - requested_oldest_age).days
             oldest_age = min(requested_oldest_age, oldest_age_allowed)
