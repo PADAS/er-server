@@ -692,8 +692,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     VIEW_BEGIN_WINDOWS=(('observations.access_begins_7', 7),
                         ('observations.access_begins_16', 16),
                         ('observations.access_begins_30', 30),
-                        ('observations.access_begins_60', 60),
-                        ('observations.access_begins_999', 999)) # 999 does not exist, but superusers will have it anyway
+                        ('observations.access_begins_60', 60))
 
     VIEW_END_WINDOWS=(('observations.access_ends_0', 0),
                       ('observations.access_ends_3', 3),
@@ -789,6 +788,19 @@ class SubjectStatusQuerySet(models.QuerySet):
         for row in self:
             if row.delay_hours == delay:
                 return row
+
+    def get_range_endpoints(self, max_delay, min_delay):
+        range_start = None
+        range_end = None
+        for row in self:
+            if row.delay_hours > max_delay or row.delay_hours < min_delay:
+                continue
+            if range_start is None or row.delay_hours > range_start.delay_hours:
+                range_start = row
+            if range_end is None or row.delay_hours < range_end.delay_hours:
+                range_end = row
+        return range_start, range_end
+
 
 
 class SubjectStatusManager(models.Manager):

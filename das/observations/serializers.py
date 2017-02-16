@@ -116,25 +116,15 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     break
 
             if minimum_allowed_age is not None and maximum_allowed_age is not None:
-
-                window_start_date = datetime.utcnow() - timedelta(days=maximum_allowed_age)
-                widnow_end_date = datetime.utcnow() - timedelta(days=minimum_allowed_age)
-
-                sds = models.SubjectSource.objects.filter(subject=instance)
-                observations = models.Observation.objects.get_source_range_observation_values(sds, since=window_start_date, until=widnow_end_date)
-
-                observations = sorted(list(observations), key=lambda _: _['recorded_at'], reverse=True)
-                if len(observations) > 0:
-                    newest_position = observations[0]
-                    oldest_position = observations[-1]
+                start, end = instance.subjectstatus_set.get_range_endpoints(maximum_allowed_age * 24, minimum_allowed_age * 24)
+                if start is not None and end is not None:
                     default_window_cutoff = pytz.utc.localize(datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
-
                     rep['image_url'] = instance.image_url
-                    rep['tracks_available'] = newest_position['recorded_at'] > default_window_cutoff
-                    # rep['last_position_status'] = newest_position.additional or {}
-                    rep['last_position_date'] = newest_position['recorded_at']
-                    rep['last_position'] = make_feature(self.context['request'],newest_position['location'], instance, time=newest_position['recorded_at'], image_url=rep['image_url'])
-                    rep['tracks_range'] = (oldest_position['recorded_at'], newest_position['recorded_at'])
+                    rep['tracks_available'] = end.recorded_at > default_window_cutoff
+                    rep['last_position_status'] = end.additional or {}
+                    rep['last_position_date'] = end.recorded_at
+                    rep['last_position'] = make_feature(self.context['request'],end.location, instance, time=end.recorded_at, image_url=rep['image_url'])
+                    rep['tracks_range'] = (start.recorded_at, end.recorded_at)
 
         if 'request' in self.context:
             request = self.context['request']
