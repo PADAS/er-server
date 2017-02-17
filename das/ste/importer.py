@@ -198,7 +198,6 @@ def import_trackingmaster(chronofile):
         not trackingmaster['data_starts'] or
         trackingmaster['species'].lower() == 'undeployed'):
         logger.info('TrackingMaster for %s, Undeployed', chronofile)
-        return
 
     with at_conn.cursor() as at_cursor:
         sql = 'SELECT * from regions WHERE chronofile=%(chronofile)s'
@@ -286,10 +285,15 @@ def import_trackingmaster(chronofile):
     ss_additional = {key: trackingmaster[key] for key in TRACKING_MASTER_COMMON_FIELDS if key in trackingmaster}
 
     # subject_source = observations.models.SubjectSource(subject=subject, source=source, additional=ss_additional)
-    start_at = trackingmaster['data_starts'].replace(tzinfo=pytz.UTC)
-    end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
-    if trackingmaster['data_stops']:
+    if trackingmaster['data_starts'] is not None:
+        start_at = trackingmaster['data_starts'].replace(tzinfo=pytz.UTC)
+    else:
+        start_at = datetime.datetime.min.replace(tzinfo=pytz.UTC)
+
+    if trackingmaster['data_stops'] is not None:
         end_at = trackingmaster['data_stops'].replace(tzinfo=pytz.UTC)
+    else:
+        end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
 
     if end_at < start_at:
         end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
@@ -319,7 +323,7 @@ def import_trackingmaster(chronofile):
             latest_das_observation = latest_observation.recorded_at
         except:
             latest_observation = None
-            latest_das_observation = datetime.datetime.min
+            latest_das_observation = datetime.datetime.min.replace(tzinfo=pytz.UTC)
 
         for row in rows:
             observation = observations.models.Observation(
