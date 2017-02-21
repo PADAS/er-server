@@ -18,4 +18,5 @@ RUN pip install --upgrade pip
 VOLUME /code
 WORKDIR /code
 ADD ./requirements.txt /code/requirements.txt
+ADD ./das /code/das
 RUN pip install -r /code/requirements.txt
