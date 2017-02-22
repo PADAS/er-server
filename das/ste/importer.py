@@ -431,8 +431,8 @@ def import_all_chronofiles():
         try:
             import_trackingmaster_animal(animal['name'])
         except Exception as ex:
-            error_list.append({'Animal {0} import error - {1}'.format(animal['animal'], str(ex))})
-            logging.exception('Failed to import TrackingMaster animal %s',animal['animal'])
+            error_list.append({'Animal {0} import error - {1}'.format(animal['name'], str(ex))})
+            logging.exception('Failed to import TrackingMaster animal %s',animal['name'])
     return error_list
 
 def import_all_subject_groups():
