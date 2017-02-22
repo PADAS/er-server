@@ -141,19 +141,19 @@ def import_trackinguser(userid):
 
     das_user.additional = additional
 
-    # try:
-    #     das_user.save()
-    # except django.core.exceptions.ValidationError as ex:
-    #     # Some emails are repeated in the STE database because the user does not have an email account
-    #     # of their own. In this case, they use their manager's email. When we encounter these, update
-    #     # the email to the format regular_email+das_username@regular_email.com and re-save. If we
-    #     # still fail to save, let the exception go up the stack
-    #     if len([message for message in ex.messages if 'address already exists' in message]) == 0:
-    #         raise ex
-    #     email_parts = das_user.email.split('@')
-    #     unique_email = '{0}+{1}@{2}'.format(email_parts[0], das_user.username, email_parts[1])
-    #     das_user.email = unique_email
-    #     das_user.save()
+    try:
+        das_user.save()
+    except django.core.exceptions.ValidationError as ex:
+        # Some emails are repeated in the STE database because the user does not have an email account
+        # of their own. In this case, they use their manager's email. When we encounter these, update
+        # the email to the format regular_email+das_username@regular_email.com and re-save. If we
+        # still fail to save, let the exception go up the stack
+        if len([message for message in ex.messages if 'address already exists' in message]) == 0:
+            raise ex
+        email_parts = das_user.email.split('@')
+        unique_email = '{0}+{1}@{2}'.format(email_parts[0], das_user.username, email_parts[1])
+        das_user.email = unique_email
+        das_user.save()
 
     end = trackinguser.get('delay', 0)
     begin = trackinguser.get('fulldataaccess', 60)
@@ -181,7 +181,7 @@ def import_trackinguser(userid):
                     'view_subject', 'observations', 'subject'))
             subject_group = observations.models.SubjectGroup.objects.get(name=group_name)
             subject_group.permission_sets.add(permission_set)
-            # das_user.permission_sets.add(permission_set)
+            das_user.permission_sets.add(permission_set)
         except observations.models.SubjectGroup.DoesNotExist:
             continue
 
@@ -272,7 +272,6 @@ def import_trackingmaster_animal(animal_name):
         #
         ss_additional = {key: trackingmaster[key] for key in TRACKING_MASTER_COMMON_FIELDS if key in trackingmaster}
 
-        # subject_source = observations.models.SubjectSource(subject=subject, source=source, additional=ss_additional)
         if trackingmaster['data_starts'] is not None:
             start_at = trackingmaster['data_starts'].replace(tzinfo=pytz.UTC)
         else:
@@ -480,7 +479,7 @@ def import_test():
 
     for chronofile in CHRONO_SAMPLES:
         try:
-            import_trackingmaster(chronofile)
+            import_trackingmaster_animal(chronofile)
         except Exception as ex:
             print(ex)
             raise ex
