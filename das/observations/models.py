@@ -568,6 +568,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     TYPE_VEHICLE = 'vehicle'
     TYPE_STATIONARY_OBJECT = 'stationary-object'
     TYPE_AIRCRAFT = 'aircraft'
+    TYPE_UNASSIGNED = 'unassigned'
 
     SUBTYPE_ELEPHANT = 'elephant'
     SUBTYPE_ZEBRA = 'zebra'
@@ -590,6 +591,9 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     SUBTYPE_PLANE = 'plane'
     SUBTYPE_HELICOPTER = 'helicopter'
+
+    SUBTYPE_UNASSIGNED = 'unassigned'
+
 
     TYPES_HIERARCHIES = [
         {
@@ -639,6 +643,13 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_PLANE, 'Plane'),
                 (SUBTYPE_HELICOPTER, 'Helicopter'),
+            )
+        },
+        {
+            'value': TYPE_UNASSIGNED,
+            'name': 'Unassigned',
+            'subtypes': (
+                (SUBTYPE_UNASSIGNED, 'Unassigned'),
             )
         }
     ]

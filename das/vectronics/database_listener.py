@@ -10,15 +10,18 @@ from tracking.models.plugin_base import Obs
 
 logger = logging.getLogger('vectronics_db_listener')
 channel_name = 'das_vectronics_position_notification'
-source_type = 'tracking-device'
+SOURCE_TYPE = 'tracking-device'
+MODEL_NAME = 'vectronics'
+PROVIDER_NAME = 'default'
 
 def start_listening():
 
     def handle(*args):
         position = GpsPlusPositions.objects.get(pk=args[0].payload)
-        source, created = Source.objects.ensure_source(source_type=source_type,
+        source, created = Source.objects.ensure_source(source_type=SOURCE_TYPE,
                                                        manufacturer_id=position.id_collar,
-                                                       model_name='vectronics')
+                                                       model_name=MODEL_NAME,
+                                                       provider_name=PROVIDER_NAME)
 
         additional = dict((k, v) for k, v in position if not k.startswith('_') and v is not None and
                           k not in ('id_collar', 'latitude', 'longitude', 'acquisition_time'))
