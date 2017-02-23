@@ -99,6 +99,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         additional = {k: additional[k] for k in self.additional_fields if k in additional}
         rep.update(additional)
         rep['tracks_available'] = False
+        rep['image_url'] = instance.image_url
 
         if user and render_last_location:
             # Find the user's allowed viewable date range
@@ -119,7 +120,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 start, end = instance.subjectstatus_set.get_range_endpoints(maximum_allowed_age * 24, minimum_allowed_age * 24)
                 if start is not None and end is not None:
                     default_window_cutoff = pytz.utc.localize(datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
-                    rep['image_url'] = instance.image_url
                     rep['tracks_available'] = end.recorded_at > default_window_cutoff
                     rep['last_position_status'] = end.additional or {}
                     rep['last_position_date'] = end.recorded_at
