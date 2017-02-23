@@ -59,7 +59,7 @@ TRACKING_MASTER_ANIMAL_FIELDS = ('active', 'species', 'sex', 'rgb')
 TRACKING_MASTER_DEVICE_FIELDS = ('active', 'frequency', 'predicted_expiry',)
 ARCHIVE_LOC_FIELDS = ('dloadtime',)
 TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
-
+SOURCE_PROVIDER_NAME = 'default'
 
 def add_region(region, country):
     region_qs = observations.models.Region.objects.all().filter(region=region, country=country)
@@ -214,7 +214,7 @@ def import_trackingmaster_animal(animal_name):
         additional['tm_animal_id'] = trackingmaster['animal_id']
 
         # Resolve ATDB species to DAS subject type values.;
-        subject_type, subject_subtype = atdb_species_to_das_type.get(trackingmaster['species'].lower(), ('wildlife', 'elephant'))
+        subject_type, subject_subtype = atdb_species_to_das_type.get(trackingmaster['species'].lower(), ('unassigned', 'unassigned'))
 
         additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_ANIMAL_FIELDS if key in trackingmaster})
 
@@ -259,8 +259,9 @@ def import_trackingmaster_animal(animal_name):
                 additional[k] = v.isoformat()
         source, created = observations.models.Source.objects.update_or_create(source_type=TRACKING_COLLAR_SOURCE_TYPE,
                                             manufacturer_id=trackingmaster['collar_id'],
+                                            provider_name=SOURCE_PROVIDER_NAME,
                                             defaults=dict(model_name=trackingmaster['collar_type'],
-                                            additional=additional)
+                                                additional=additional)
                                             )
         if created:
             logger.info('Created new source for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
