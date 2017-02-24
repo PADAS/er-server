@@ -1,1 +1,3 @@
-docker run -it -v $(pwd):/code das/server
+docker run -d --name redis redis
+docker run -d --name postgis das/postgis
+docker/server

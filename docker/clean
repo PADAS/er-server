@@ -1,0 +1,4 @@
+docker stop redis && docker rm redis docker rmi -f redis
+docker stop postgis && docker rm postgis && docker rmi -f das/postgis
+docker stop das/server && rm das/server && docker rmi -f das/server
+docker rmi -f $(docker images -f dangling=true -q)

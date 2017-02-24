@@ -1,0 +1,3 @@
+docker pull redis
+docker build -t das/postgis -f docker/PostGIS/Dockerfile .
+docker build -t das/server -f docker/API/Dockerfile . 
