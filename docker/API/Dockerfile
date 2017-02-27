@@ -28,5 +28,7 @@ RUN pip3 install -r /workspace/requirements-dev.txt
 
 ADD ./das /var/www/das
 ADD ./startapp.sh /workspace/startapp.sh
+VOLUME /tmp
+
 ENTRYPOINT ["/workspace/startapp.sh"]
 EXPOSE 8000
