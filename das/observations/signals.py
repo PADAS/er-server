@@ -14,9 +14,11 @@ def observation_post_save(sender, instance, created, **kwargs):
     if kwargs['raw']:
         return
 
+    observation = Observation.objects.get(id=instance.id)
+
     logger.debug('handling Observation.post_save')
     for delay_hours in (0, 24):
-        SubjectStatus.objects.update_from_observation(instance, delay_hours=delay_hours)
+        SubjectStatus.objects.update_from_observation(observation, delay_hours=delay_hours)
 
 @receiver(post_save, sender=SubjectStatus)
 def subject_status_post_save(sender, instance, created, **kwargs):
