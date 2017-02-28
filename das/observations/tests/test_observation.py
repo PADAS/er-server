@@ -80,8 +80,6 @@ class ObservationTestCase(TestCase):
 
         serializer = ObservationSerializer(data=observation)
 
-        if not serializer.is_valid():
-            print(serializer.errors)
         self.assertTrue(serializer.is_valid(), msg='Observation is not valid.')
 
         observation_instance = None

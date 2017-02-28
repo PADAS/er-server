@@ -1,20 +1,6 @@
 from __future__ import unicode_literals
-import pytz
 
 from django.db import models
-
-class InferredTimezoneDateTimeField(models.DateTimeField):
-    '''
-    This is a one-off class to localize a naive date in a read-only database (ex. vectronics).
-    '''
-    def __init__(self, inferred_timezone=None, **kwargs):
-        super().__init__(**kwargs)
-        self.inferred_timezone = inferred_timezone or pytz.utc
-
-    def from_db_value(self, value, expression, connection, context):
-        if value is None:
-            return value
-        return self.inferred_timezone.localize(value)
 
 class GpsPlusPositions(models.Model):
 
@@ -24,7 +10,7 @@ class GpsPlusPositions(models.Model):
 
     id_position = models.AutoField(primary_key=True)
     id_collar = models.IntegerField()
-    acquisition_time = InferredTimezoneDateTimeField(inferred_timezone=pytz.utc)
+    acquisition_time = models.DateTimeField()
     scts = models.DateTimeField(blank=True, null=True)
     origin_code = models.CharField(max_length=1, blank=True, null=True)
     ecef_x = models.IntegerField(blank=True, null=True)
