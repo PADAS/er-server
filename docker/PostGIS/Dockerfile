@@ -10,6 +10,5 @@ FROM mdillon/postgis
 MAINTAINER MAtt Korwel, mattko@vulcan.com
 
 ENV POSTGRES_USER das
+ENV POSTGRES_DB das
 ENV POSTGRES_PASSWORD password
-
-ADD docker/PostGIS/init.sql /docker-entrypoint-initdb.d/

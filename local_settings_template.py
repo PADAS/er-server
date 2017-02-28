@@ -23,7 +23,7 @@ TEMPLATE_DEBUG = True
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'dasdb',
+        'NAME': 'das',
         'USER': 'postgres',
         'HOST': 'localhost',
         #'PASSWORD': '',
