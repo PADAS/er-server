@@ -26,6 +26,4 @@ cd /var/www/das
 export DJANGO_SETTINGS_MODULE=das_server.local_settings
 python3 manage.py migrate
 # python3 manage.py createsuperuser
-python3 manage.py runserver 0.0.0.0:8000 &
-python manage.py rt_server 8001 &
-python manage.py message_queue_listeners
+python3 manage.py runserver 0.0.0.0:8000
