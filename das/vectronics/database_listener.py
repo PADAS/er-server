@@ -2,6 +2,7 @@ import datetime
 import logging
 import psycopg2.extensions
 import select
+import pytz
 
 from django.db import connections
 from observations.models import Source, Observation, SourceProvider, Subject
@@ -36,7 +37,10 @@ def start_listening():
         for key in [k for k, v in additional.items() if isinstance(v, datetime.datetime)]:
             additional[key] = additional[key].isoformat()
 
-        observation = Obs(source=source, recorded_at=position.acquisition_time.isoformat(), latitude=position.latitude,
+
+        # Vectronics database stores a naive date that we can assume is UTC.
+        recorded_at = pytz.utc.localize(position.acquisition_time)
+        observation = Obs(source=source, recorded_at=recorded_at, latitude=position.latitude,
                           longitude=position.longitude, additional=additional)
 
         Observation.objects.add_observation(observation)
