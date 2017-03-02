@@ -59,7 +59,7 @@ TRACKING_MASTER_ANIMAL_FIELDS = ('active', 'species', 'sex', 'rgb')
 TRACKING_MASTER_DEVICE_FIELDS = ('active', 'frequency', 'predicted_expiry',)
 ARCHIVE_LOC_FIELDS = ('dloadtime',)
 TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
-SOURCE_PROVIDER_NAME = 'default'
+DEFAULT_SOURCE_PROVIDER_NAME = 'default'
 
 def add_region(region, country):
     region_qs = observations.models.Region.objects.all().filter(region=region, country=country)
@@ -257,9 +257,16 @@ def import_trackingmaster_animal(animal_name):
         for k, v in additional.items():
             if isinstance(v, datetime.datetime):
                 additional[k] = v.isoformat()
+
+
+        mapped_plugin = map_source_to_plugin(source, trackingmaster['datasource'], trackingmaster['collar_type'])
+
+        # We need to use the plugin's name in place of the source's provider_name. Default value is 'default'.
+        provider_name = mapped_plugin.name if mapped_plugin else DEFAULT_SOURCE_PROVIDER_NAME
+
         source, created = observations.models.Source.objects.update_or_create(source_type=TRACKING_COLLAR_SOURCE_TYPE,
                                             manufacturer_id=trackingmaster['collar_id'],
-                                            provider_name=SOURCE_PROVIDER_NAME,
+                                            provider_name=provider_name,
                                             defaults=dict(model_name=trackingmaster['collar_type'],
                                                 additional=additional)
                                             )
@@ -303,8 +310,7 @@ def import_trackingmaster_animal(animal_name):
             at_cursor.execute(sql, dict(chronofile=chronofile))
             rows = dictfetchall(at_cursor)
 
-        mapping = map_source_to_plugin(source, trackingmaster['datasource'], trackingmaster['collar_type'])
-        if mapping is None or not SourcePlugin.objects.filter(source=source).exists():
+        if mapped_plugin is None or not SourcePlugin.objects.filter(source=source).exists():
             archive_locs = []
             try:
                 latest_observation = observations.models.Observation.objects.filter(source=source).latest('recorded_at')
