@@ -32,6 +32,7 @@ log_stdout(level=logging.INFO)
 # TODO: Ask Jake to review this map
 atdb_species_to_das_type = {'elephant': ('wildlife', 'elephant'),
                             'undeployed': ('untyped', 'undeployed'),
+                            'unassigned': ('untyped', 'undeployed'),
                             'scimitar oryx': ('wildlife', 'scimitar_oryx'),
                             'cow': ('wildlife', 'cow'),
                             'cheetah': ('wildlife', 'cheetah'),
@@ -55,7 +56,7 @@ def dictfetchall(cursor):
     ]
 
 TRACKING_MASTER_COMMON_FIELDS = ('comments', 'chronofile')
-TRACKING_MASTER_ANIMAL_FIELDS = ('active', 'species', 'sex', 'rgb')
+TRACKING_MASTER_ANIMAL_FIELDS = ('active', 'species', 'sex')
 TRACKING_MASTER_DEVICE_FIELDS = ('active', 'frequency', 'predicted_expiry',)
 ARCHIVE_LOC_FIELDS = ('dloadtime',)
 TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
@@ -189,99 +190,109 @@ def import_trackingmaster_animal(animal_name):
     logger.info('Importing TrackingMaster records for subject %s', animal_name)
     at_conn = connections['animaltracking']
     with at_conn.cursor() as at_cursor:
-        sql = 'SELECT * from trackingmaster WHERE name=%(animal_name)s ORDER BY data_starts asc'
+        sql = 'SELECT * from trackingmaster WHERE name=%(animal_name)s ' \
+              'ORDER BY data_starts asc'
         at_cursor.execute(sql, dict(animal_name=animal_name))
         rows = dictfetchall(at_cursor)
 
     for trackingmaster in rows:
-
         chronofile = trackingmaster['chronofile']
+        additional = {'tm_animal_id': trackingmaster['animal_id']}
+        additional.update(
+            {key: trackingmaster[key] for key in TRACKING_MASTER_ANIMAL_FIELDS
+             if key in trackingmaster})
 
+        # Subject region -> lookup and endure it exists in das
         with at_conn.cursor() as at_cursor:
             sql = 'SELECT * from regions WHERE chronofile=%(chronofile)s'
             at_cursor.execute(sql, dict(chronofile=chronofile))
             rows = dictfetchall(at_cursor)
-
         region = next(iter(rows), None)
-
-        # if not subject:
-        additional = {}
 
         if region:
             add_region(region['region'], region['country'])
             additional['region'] = region['region']
             additional['country'] = region['country']
-        additional['tm_animal_id'] = trackingmaster['animal_id']
 
-        # Resolve ATDB species to DAS subject type values.;
-        subject_type, subject_subtype = atdb_species_to_das_type.get(trackingmaster['species'].lower(), ('unassigned', 'unassigned'))
+        # Subject sex -> Unknown sex should not be in additional at all
+        if 'sex' in additional and additional['sex'] in ('Unknown', 'Unkown', 'None'):
+            del(additional['sex'])
 
-        additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_ANIMAL_FIELDS if key in trackingmaster})
-
-        active = 'active' in additional and additional['active'] == 1
-
+        # Icon color -> If color is not specified, default to white
+        # _ALWAYS_ ignore rgb column in trackingmaster, even if display table
+        # has no value for chronofile
         with at_conn.cursor() as at_cursor:
             sql = 'SELECT * from display WHERE displaygroup=%(subject_name)s'
             at_cursor.execute(sql, dict(subject_name=trackingmaster['name']))
             rows = dictfetchall(at_cursor)
-
         display = next(iter(rows), None)
 
-        if (display is None or 'colour' not in display) and 'rgb' in additional:
-            if additional['rgb'] is None or ',' not in additional['rgb']:
-                del(additional['rgb'])
+        if display is not None and \
+                'colour' in display and \
+                len(display['colour']) == 3:
+            r = display['colour'][0]
+            g = display['colour'][1]
+            b = display['colour'][2]
+            additional['rgb'] = '{0},{1},{2}'.format(r, g, b)
         else:
-            try:
-                rgb = display['colour']
-                additional['rgb'] = '{0},{1},{2}'.format(rgb[0], rgb[1], rgb[2])
-            except Exception as ex:
-                print(ex)
-                del (additional['rgb'])
+            additional['rgb'] = '255,255,255'
 
+        # Resolve ATDB species to DAS subject type values.;
+        subject_type, subject_subtype = atdb_species_to_das_type.get(
+            trackingmaster['species'].lower(), ('unassigned', 'unassigned'))
 
-        # Handle creating or updating Subject
-        subject, created = observations.models.Subject.objects.update_or_create(name=trackingmaster['name'],
-                                                                                defaults=dict(subject_type=subject_type,
-                                                                                              subject_subtype=subject_subtype,
-                                                                                              is_active=active,
-                                                                                              additional=additional))
+        # Create or update the subject
+        subject, created = observations.models.Subject.objects.update_or_create(
+            name = trackingmaster['name'],
+            defaults = dict(subject_type=subject_type,
+            subject_subtype = subject_subtype,
+            is_active = 'active' in additional and additional['active'] == 1,
+            additional = additional))
 
         if created:
-            logger.info('Created new subject for name=%s', trackingmaster['name'])
+            logger.info('Created new subject for name=%s',
+                        trackingmaster['name'])
         else:
-            logger.info('Updated existing subject for name=%s', trackingmaster['name'])
-
+            logger.info('Updated existing subject for name=%s',
+                        trackingmaster['name'])
 
         # Handle creating or updating Source
-        additional.update({key: trackingmaster[key] for key in TRACKING_MASTER_DEVICE_FIELDS if key in trackingmaster})
+        additional.update({
+            key: trackingmaster[key] for key in TRACKING_MASTER_DEVICE_FIELDS if
+            key in trackingmaster})
         for k, v in additional.items():
             if isinstance(v, datetime.datetime):
                 additional[k] = v.isoformat()
-
 
         mapped_plugin = map_source_to_plugin(source, trackingmaster['datasource'], trackingmaster['collar_type'])
 
         # We need to use the plugin's name in place of the source's provider_name. Default value is 'default'.
         provider_name = mapped_plugin.name if mapped_plugin else DEFAULT_SOURCE_PROVIDER_NAME
 
-        source, created = observations.models.Source.objects.update_or_create(source_type=TRACKING_COLLAR_SOURCE_TYPE,
-                                            manufacturer_id=trackingmaster['collar_id'],
-                                            provider_name=provider_name,
-                                            defaults=dict(model_name=trackingmaster['collar_type'],
-                                                additional=additional)
+        source, created = observations.models.Source.objects.update_or_create(
+            source_type=TRACKING_COLLAR_SOURCE_TYPE,
+            manufacturer_id=trackingmaster['collar_id'],
+            provider_name=provider_name,
+            defaults=dict(model_name=trackingmaster['collar_type'],
+            additional=additional)
                                             )
         if created:
-            logger.info('Created new source for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
+            logger.info('Created new source for name=%s, collar_id=%s',
+                        trackingmaster['name'], trackingmaster['collar_id'])
         else:
-            logger.info('Updated existing source for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
+            logger.info('Updated existing source for name=%s, collar_id=%s',
+                        trackingmaster['name'], trackingmaster['collar_id'])
 
         #
         # Handle Creating or updating SubjectSource
         #
-        ss_additional = {key: trackingmaster[key] for key in TRACKING_MASTER_COMMON_FIELDS if key in trackingmaster}
+        ss_additional = {key: trackingmaster[key] for key in
+                         TRACKING_MASTER_COMMON_FIELDS if
+                         key in trackingmaster}
 
         if trackingmaster['data_starts'] is not None:
-            start_at = trackingmaster['data_starts'].replace(tzinfo=pytz.UTC)
+            start_at = trackingmaster['data_starts'].replace(
+                tzinfo=pytz.UTC)
         else:
             start_at = datetime.datetime.min.replace(tzinfo=pytz.UTC)
 
@@ -295,20 +306,20 @@ def import_trackingmaster_animal(animal_name):
 
         assigned_range = psycopg2.extras.DateTimeTZRange(start_at, end_at)
 
-        subject_source, created = observations.models.SubjectSource.objects.get_or_create(subject=subject, source=source,
-                                                                                          assigned_range=assigned_range,
-                                                                                          defaults={
-                                                                                              'additional': ss_additional
-                                                                                          })
+        subject_source, created = observations.models.SubjectSource.objects.get_or_create(
+            subject=subject, source=source,
+            assigned_range=assigned_range,
+            defaults={
+                'additional': ss_additional
+            })
         if created:
-            logger.info('Created new SubjectSource for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
+            logger.info('Created new SubjectSource for name=%s, collar_id=%s',
+                        trackingmaster['name'], trackingmaster['collar_id'])
         else:
-            logger.info('Found existing SubjectSource for name=%s, collar_id=%s', trackingmaster['name'], trackingmaster['collar_id'])
+            logger.info('Found existing SubjectSource for name=%s, collar=%s',
+                        trackingmaster['name'], trackingmaster['collar_id'])
 
-        with at_conn.cursor() as at_cursor:
-            sql = 'SELECT * from archive_loc WHERE chronofile=%(chronofile)s'
-            at_cursor.execute(sql, dict(chronofile=chronofile))
-            rows = dictfetchall(at_cursor)
+
 
         if mapped_plugin is None or not SourcePlugin.objects.filter(source=source).exists():
             archive_locs = []
@@ -318,6 +329,11 @@ def import_trackingmaster_animal(animal_name):
             except:
                 latest_observation = None
                 latest_das_observation = datetime.datetime.min.replace(tzinfo=pytz.UTC)
+
+            with at_conn.cursor() as at_cursor:
+                sql = 'SELECT * from archive_loc WHERE chronofile=%(chronofile)s'
+                at_cursor.execute(sql, dict(chronofile=chronofile))
+                rows = dictfetchall(at_cursor)
 
             for row in rows:
                 observation = observations.models.Observation(
@@ -344,6 +360,59 @@ def import_trackingmaster_animal(animal_name):
 
             create_sourceplugin(source, latest_observation=latest_observation, datasource=trackingmaster['datasource'],
                                 collar_type=trackingmaster['collar_type'])
+
+        # This probably doesn't need to get run every time once we're caught up
+        find_and_add_missing_observations(chronofile, source)
+
+        # make sure the subjectstatus gets updated with the latest observation
+        latest_observation = observations.models.Observation.objects.\
+            get_last_observation(subject=subject)
+
+        if latest_observation is not None:
+            for delay_hours in (0, 24):
+                observations.models.SubjectStatus.objects.\
+                    update_from_observation(
+                    latest_observation, delay_hours=delay_hours)
+
+def find_and_add_missing_observations(chronofile, source):
+    """
+      This is not a quick function. It will manually check all AT observations
+      against the DAS database, and add any that are missing. This is intended
+      as a "catch up" function, and probably will not need to be run for every
+      AT data dump once we're caught up.
+    """
+    at_conn = connections['animaltracking']
+    das_conn = connections['default']
+    with at_conn.cursor() as at_cursor:
+        sql = 'SELECT * from archive_loc WHERE chronofile=%(chronofile)s'
+        at_cursor.execute(sql, dict(chronofile=chronofile))
+        rows = dictfetchall(at_cursor)
+
+    for row in rows:
+        with das_conn.cursor() as das_cursor:
+            sql = 'SELECT * ' \
+                  '  FROM observations_observation' \
+                  ' WHERE source_id=%(source_id)s' \
+                  '   AND recorded_at = %(recorded_at)s'
+            das_cursor.execute(sql, dict(source_id=source.id,
+                                         recorded_at=row['fixtime']))
+            rows = dictfetchall(das_cursor)
+
+            if len(rows) > 0:
+                continue
+
+        additional = {key: row[key] for key in ARCHIVE_LOC_FIELDS}
+
+        for k, v in additional.items():
+            if isinstance(v, datetime.datetime):
+                additional[k] = v.isoformat()
+
+        observations.models.Observation.objects.create(
+            source=source,
+            additional=additional,
+            location=Point(row['lon'], row['lat']),
+            recorded_at=pytz.utc.localize(row['fixtime']).isoformat())
+
 
 def map_source_to_plugin (source, datasource=None, collar_type=None):
     if (datasource == 'localfile' and collar_type == 'AWT Satellite') \
