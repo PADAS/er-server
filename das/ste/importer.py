@@ -264,7 +264,9 @@ def import_trackingmaster_animal(animal_name):
             if isinstance(v, datetime.datetime):
                 additional[k] = v.isoformat()
 
-        mapped_plugin = map_source_to_plugin(source, trackingmaster['datasource'], trackingmaster['collar_type'])
+        mapped_plugin = map_source_to_plugin(trackingmaster['collar_id'],
+                                             trackingmaster['datasource'],
+                                             trackingmaster['collar_type'])
 
         # We need to use the plugin's name in place of the source's provider_name. Default value is 'default'.
         provider_name = mapped_plugin.name if mapped_plugin else DEFAULT_SOURCE_PROVIDER_NAME
@@ -414,9 +416,9 @@ def find_and_add_missing_observations(chronofile, source):
             recorded_at=pytz.utc.localize(row['fixtime']).isoformat())
 
 
-def map_source_to_plugin (source, datasource=None, collar_type=None):
+def map_source_to_plugin (manufacturer_id, datasource=None, collar_type=None):
     if (datasource == 'localfile' and collar_type == 'AWT Satellite') \
-            or source.manufacturer_id in unitlists.skyq_imeilist:
+            or manufacturer_id in unitlists.skyq_imeilist:
         # Associate with SkygisticsPlugin
         return SkygisticsSatellitePlugin.objects.get(name='ste-skygistics')
     elif datasource == 'HTTP':
@@ -426,12 +428,12 @@ def map_source_to_plugin (source, datasource=None, collar_type=None):
         # SavannahTrackingPlugin
         return SavannahPlugin.objects.get(name='savannah')
     else:
-        logger.info('No plugin identified for source %s', source)
+        logger.info('No plugin identified for manufacturer_id %s', manufacturer_id)
         return None
 
 def create_sourceplugin(source, latest_observation=None, datasource=None, collar_type=None):
 
-    plugin = map_source_to_plugin(source, datasource, collar_type)
+    plugin = map_source_to_plugin(source.manufacturer_id, datasource, collar_type)
 
     if plugin is not None:
         logger.info('Associating source %s with plugin %s', source, plugin)
