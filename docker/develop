@@ -1,3 +1,0 @@
-docker run -d --name redis redis
-docker run -d --name postgis das/postgis
-docker/server

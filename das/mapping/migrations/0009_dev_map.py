@@ -5,17 +5,17 @@ from django.db import migrations
 from django.core.management import call_command
 
 
-def populate_features(apps, schema_editor):
+def populate_localmap(apps, schema_editor):
     apps.models_module = None
-    # call_command('loaddata', 'initial_features')
+    call_command('loaddata', 'initial_dev_map')
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('mapping', '0003_featuresets'),
+        ('mapping', '0008_featuretype'),
     ]
 
     operations = [
-        migrations.RunPython(populate_features),
+        migrations.RunPython(populate_localmap),
     ]

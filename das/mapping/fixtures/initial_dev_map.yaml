@@ -1,0 +1,9 @@
+- model: mapping.map
+  pk: 6d33d3a5-e3c2-4e19-b723-267635e812b3
+  fields:
+    created_at: 2017-03-03 00:40:03.818038+00:00
+    updated_at: 2017-03-03 00:40:53.164781+00:00
+    name: localmap
+    attributes: {field: key}
+    center: SRID=4326;POINT (-122.3284935780880431 47.5979956357618761)
+    zoom: 15
