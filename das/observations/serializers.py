@@ -117,11 +117,12 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         additional = {k: additional[k] for k in self.additional_fields
                       if k in additional}
         rep.update(additional)
+        rep['image_url'] = instance.image_url
+
         if user and render_last_location:
             last_position = None
             if user.has_any_perms(model.VIEW_POSITION_PERMS, instance):
                 last_position = instance.subjectstatus_set.get_last()
-                rep['image_url'] = instance.image_url
             elif user.has_any_perms(model.VIEW_DELAYED_PERMS, instance):
                 last_position = instance.subjectstatus_set.get_delayed()
 
