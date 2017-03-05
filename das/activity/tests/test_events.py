@@ -135,6 +135,7 @@ class TestEventView(BaseAPITest):
 
     def test_create_matrix_event(self):
         event_data = {'priority': Event.PRI_REFERENCE,
+                      'event_type': ET_OTHER,
                       'attributes': {
                             'event_class': 'trespass',
                             'event_factor': 'loss_of_life',
