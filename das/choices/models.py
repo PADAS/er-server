@@ -454,3 +454,32 @@ class IncidentStatus(models.Model):
         verbose_name = _('Incident Status')
         verbose_name_plural = _('Incident Statuses')
 
+class Nationality(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Nationality')
+        verbose_name_plural = _('Nationalities')
+
+class Village(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Village')
+        verbose_name_plural = _('Villages')
+
+class ArrestViolation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Arrest Violation')
+        verbose_name_plural = _('Arrest Violations')
+
+
+
