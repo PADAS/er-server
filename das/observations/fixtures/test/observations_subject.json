@@ -10,7 +10,7 @@
       "subject_subtype": "elephant",
       "subject_type": "wildlife"
     },
-    "pk": "00000000-0000-0000-0000-000000000000",
+    "pk": "ab27bfb5-ce7a-43ac-a1ac-69ddb4e1f4a5",
     "model": "observations.subject"
   },
   {
