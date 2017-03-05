@@ -386,7 +386,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    serial_number = models.BigIntegerField(blank=True, unique=True, verbose_name='Serial Number')
+    serial_number = models.BigIntegerField(blank=True, unique=True, null=True, verbose_name='Serial Number')
 
     message = models.TextField(blank=True)
     comment = models.TextField(blank=True, null=True, verbose_name='Additional message text')
