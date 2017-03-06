@@ -157,3 +157,18 @@ class ChoiceAdmin(admin.ModelAdmin):
 @admin.register(models.DynamicChoice)
 class DynamicChoiceAdmin(admin.ModelAdmin):
     pass
+
+@admin.register(models.Nationality)
+class NationalityAdmin(admin.ModelAdmin):
+    pass
+
+@admin.register(models.Village)
+class VillageAdmin(admin.ModelAdmin):
+    pass
+
+@admin.register(models.ArrestViolation)
+class ArrestViolationAdmin(admin.ModelAdmin):
+    pass
+
+
+
