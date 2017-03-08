@@ -189,6 +189,7 @@ def import_trackinguser(userid):
 def import_trackingmaster_animal(animal_name):
     logger.info('Importing TrackingMaster records for subject %s', animal_name)
     at_conn = connections['animaltracking']
+    das_conn = connections['default']
     with at_conn.cursor() as at_cursor:
         sql = 'SELECT * from trackingmaster WHERE name=%(animal_name)s ' \
               'ORDER BY data_starts asc'
@@ -197,6 +198,8 @@ def import_trackingmaster_animal(animal_name):
 
     for trackingmaster in rows:
         chronofile = trackingmaster['chronofile']
+
+        # Get the subject info prepared
         additional = {'tm_animal_id': trackingmaster['animal_id']}
         additional.update(
             {key: trackingmaster[key] for key in TRACKING_MASTER_ANIMAL_FIELDS
@@ -215,8 +218,9 @@ def import_trackingmaster_animal(animal_name):
             additional['country'] = region['country']
 
         # Subject sex -> Unknown sex should not be in additional at all
-        if 'sex' in additional and additional['sex'] in ('Unknown', 'Unkown', 'None'):
-            del(additional['sex'])
+        if 'sex' in additional and additional['sex'] in (
+                'Unknown', 'Unkown', 'None'):
+            del (additional['sex'])
 
         # Resolve ATDB species to DAS subject type values.;
         subject_type, subject_subtype = atdb_species_to_das_type.get(
@@ -244,15 +248,39 @@ def import_trackingmaster_animal(animal_name):
             subject_type = 'unassigned'
             subject_subtype = 'unassigned'
 
-        # Create or update the subject
-        subject, created = observations.models.Subject.objects.update_or_create(
-            name = trackingmaster['name'],
-            # subject_type=subject_type,
-            # subject_subtype = subject_subtype,
-            defaults = dict(subject_type=subject_type,
-            subject_subtype = subject_subtype,
-            is_active = 'active' in additional and additional['active'] == 1,
-            additional = additional))
+        # If a subject name has changed in trackingmaster, calling get_or_create
+        # will create a new subject, which is not what we want. Check to see
+        # if there's an existing subjectsource record for this chronofile first.
+        # We'll use this to determine if a subject we haven't seen before is
+        # new, or if it's an existing subject with an updated name.
+        with das_conn.cursor() as das_cursor:
+            id_string=str(chronofile)
+            sql = 'SELECT * ' \
+                  '  FROM observations_subjectsource' \
+                  ' WHERE additional ->> \'chronofile\'=%(chronofile)s'
+            das_cursor.execute(sql, dict(chronofile=id_string))
+            rows = dictfetchall(das_cursor)
+
+        existing_ss = next(iter(rows), None)
+
+        if existing_ss:
+            created = False
+            subject = observations.models.Subject.objects.filter(
+                id=existing_ss['subject_id']).update(
+                    name=trackingmaster['name'],
+                    subject_type=subject_type,
+                    subject_subtype=subject_subtype,
+                    is_active='active' in additional and additional['active'] == 1,
+                    additional=additional)
+        else:
+            # Create or update the subject
+            subject, created = observations.models.Subject.objects.update_or_create(
+                name = trackingmaster['name'],
+                defaults = dict(subject_type=subject_type,
+                                subject_subtype = subject_subtype,
+                                is_active = 'active' in additional and \
+                                            additional['active'] == 1,
+                                additional = additional))
 
         if created:
             logger.info('Created new subject for name=%s',
@@ -325,8 +353,6 @@ def import_trackingmaster_animal(animal_name):
         else:
             logger.info('Found existing SubjectSource for name=%s, collar=%s',
                         trackingmaster['name'], trackingmaster['collar_id'])
-
-
 
         if mapped_plugin is None or not SourcePlugin.objects.filter(source=source).exists():
             archive_locs = []
