@@ -218,6 +218,10 @@ def import_trackingmaster_animal(animal_name):
         if 'sex' in additional and additional['sex'] in ('Unknown', 'Unkown', 'None'):
             del(additional['sex'])
 
+        # Resolve ATDB species to DAS subject type values.;
+        subject_type, subject_subtype = atdb_species_to_das_type.get(
+            trackingmaster['species'].lower(), ('unassigned', 'unassigned'))
+
         # Icon color -> If color is not specified, default to white
         # _ALWAYS_ ignore rgb column in trackingmaster, even if display table
         # has no value for chronofile
@@ -227,23 +231,24 @@ def import_trackingmaster_animal(animal_name):
             rows = dictfetchall(at_cursor)
         display = next(iter(rows), None)
 
-        if display is not None and \
-                'colour' in display and \
+        if display is not None and 'colour' in display and \
                 len(display['colour']) == 3:
             r = display['colour'][0]
             g = display['colour'][1]
             b = display['colour'][2]
             additional['rgb'] = '{0},{1},{2}'.format(r, g, b)
         else:
+            # Per Jake: if subject has no display table entry, it should always
+            # display as a white triangle
             additional['rgb'] = '255,255,255'
-
-        # Resolve ATDB species to DAS subject type values.;
-        subject_type, subject_subtype = atdb_species_to_das_type.get(
-            trackingmaster['species'].lower(), ('unassigned', 'unassigned'))
+            subject_type = 'unassigned'
+            subject_subtype = 'unassigned'
 
         # Create or update the subject
         subject, created = observations.models.Subject.objects.update_or_create(
             name = trackingmaster['name'],
+            # subject_type=subject_type,
+            # subject_subtype = subject_subtype,
             defaults = dict(subject_type=subject_type,
             subject_subtype = subject_subtype,
             is_active = 'active' in additional and additional['active'] == 1,
@@ -364,7 +369,7 @@ def import_trackingmaster_animal(animal_name):
                                 collar_type=trackingmaster['collar_type'])
 
         # This probably doesn't need to get run every time once we're caught up
-        find_and_add_missing_observations(chronofile, source)
+        # find_and_add_missing_observations(chronofile, source)
 
         # make sure the subjectstatus gets updated with the latest observation
         latest_observation = observations.models.Observation.objects.\
