@@ -189,6 +189,7 @@ def import_trackinguser(userid):
 def import_trackingmaster_animal(animal_name):
     logger.info('Importing TrackingMaster records for subject %s', animal_name)
     at_conn = connections['animaltracking']
+    das_conn = connections['default']
     with at_conn.cursor() as at_cursor:
         sql = 'SELECT * from trackingmaster WHERE name=%(animal_name)s ' \
               'ORDER BY data_starts asc'
@@ -197,6 +198,8 @@ def import_trackingmaster_animal(animal_name):
 
     for trackingmaster in rows:
         chronofile = trackingmaster['chronofile']
+
+        # Get the subject info prepared
         additional = {'tm_animal_id': trackingmaster['animal_id']}
         additional.update(
             {key: trackingmaster[key] for key in TRACKING_MASTER_ANIMAL_FIELDS
@@ -215,8 +218,13 @@ def import_trackingmaster_animal(animal_name):
             additional['country'] = region['country']
 
         # Subject sex -> Unknown sex should not be in additional at all
-        if 'sex' in additional and additional['sex'] in ('Unknown', 'Unkown', 'None'):
-            del(additional['sex'])
+        if 'sex' in additional and additional['sex'] in (
+                'Unknown', 'Unkown', 'None'):
+            del (additional['sex'])
+
+        # Resolve ATDB species to DAS subject type values.;
+        subject_type, subject_subtype = atdb_species_to_das_type.get(
+            trackingmaster['species'].lower(), ('unassigned', 'unassigned'))
 
         # Icon color -> If color is not specified, default to white
         # _ALWAYS_ ignore rgb column in trackingmaster, even if display table
@@ -227,27 +235,55 @@ def import_trackingmaster_animal(animal_name):
             rows = dictfetchall(at_cursor)
         display = next(iter(rows), None)
 
-        if display is not None and \
-                'colour' in display and \
+        if display is not None and 'colour' in display and \
                 len(display['colour']) == 3:
             r = display['colour'][0]
             g = display['colour'][1]
             b = display['colour'][2]
             additional['rgb'] = '{0},{1},{2}'.format(r, g, b)
         else:
+            # Per Jake: if subject has no display table entry, it should always
+            # display as a white triangle
             additional['rgb'] = '255,255,255'
+            subject_type = 'unassigned'
+            subject_subtype = 'unassigned'
 
-        # Resolve ATDB species to DAS subject type values.;
-        subject_type, subject_subtype = atdb_species_to_das_type.get(
-            trackingmaster['species'].lower(), ('unassigned', 'unassigned'))
+        # If a subject name has changed in trackingmaster, calling get_or_create
+        # will create a new subject, which is not what we want. Check to see
+        # if there's an existing subjectsource record for this chronofile first.
+        # We'll use this to determine if a subject we haven't seen before is
+        # new, or if it's an existing subject with an updated name.
+        with das_conn.cursor() as das_cursor:
+            id_string=str(chronofile)
+            sql = 'SELECT * ' \
+                  '  FROM observations_subjectsource' \
+                  ' WHERE additional ->> \'chronofile\'=%(chronofile)s'
+            das_cursor.execute(sql, dict(chronofile=id_string))
+            rows = dictfetchall(das_cursor)
 
-        # Create or update the subject
-        subject, created = observations.models.Subject.objects.update_or_create(
-            name = trackingmaster['name'],
-            defaults = dict(subject_type=subject_type,
-            subject_subtype = subject_subtype,
-            is_active = 'active' in additional and additional['active'] == 1,
-            additional = additional))
+        existing_ss = next(iter(rows), None)
+
+        if existing_ss:
+            created = False
+            subjects = observations.models.Subject.objects.filter(
+                id=existing_ss['subject_id'])
+            subject = subjects.first()
+            subjects.update(
+                name=trackingmaster['name'],
+                subject_type=subject_type,
+                subject_subtype=subject_subtype,
+                is_active='active' in additional and additional['active'] == 1,
+                additional=additional)
+        else:
+            # Create or update the subject
+            subject, created = observations.models.Subject.objects.\
+                update_or_create(
+                    name = trackingmaster['name'],
+                    defaults = dict(subject_type=subject_type,
+                                    subject_subtype=subject_subtype,
+                                    is_active='active' in additional and
+                                              additional['active'] == 1,
+                                    additional=additional))
 
         if created:
             logger.info('Created new subject for name=%s',
@@ -268,8 +304,10 @@ def import_trackingmaster_animal(animal_name):
                                              trackingmaster['datasource'],
                                              trackingmaster['collar_type'])
 
-        # We need to use the plugin's name in place of the source's provider_name. Default value is 'default'.
-        provider_name = mapped_plugin.name if mapped_plugin else DEFAULT_SOURCE_PROVIDER_NAME
+        # We need to use the plugin's name in place of the source's
+        # provider_name. Default value is 'default'.
+        provider_name = mapped_plugin.name if mapped_plugin \
+            else DEFAULT_SOURCE_PROVIDER_NAME
 
         source, created = observations.models.Source.objects.update_or_create(
             source_type=TRACKING_COLLAR_SOURCE_TYPE,
@@ -308,12 +346,34 @@ def import_trackingmaster_animal(animal_name):
 
         assigned_range = psycopg2.extras.DateTimeTZRange(start_at, end_at)
 
-        subject_source, created = observations.models.SubjectSource.objects.get_or_create(
-            subject=subject, source=source,
-            assigned_range=assigned_range,
-            defaults={
-                'additional': ss_additional
-            })
+        # If a subjectsource's assigned range changes in trackingmaster, calling
+        # get_or_create will create a new record, which is not what we want.
+        # Check to see if there's an existing subjectsource record for this
+        # chronofile first.
+        with das_conn.cursor() as das_cursor:
+            id_string=str(chronofile)
+            sql = 'SELECT * ' \
+                  '  FROM observations_subjectsource' \
+                  ' WHERE additional ->> \'chronofile\'=%(chronofile)s'
+            das_cursor.execute(sql, dict(chronofile=id_string))
+            rows = dictfetchall(das_cursor)
+
+        subject_source = next(iter(rows), None)
+
+        if subject_source:
+            created = False
+            observations.models.SubjectSource.objects.filter(
+                id=subject_source['id']).update(subject=subject,
+                                                source=source,
+                                                assigned_range=assigned_range,
+                                                additional=ss_additional)
+
+        else:
+            subject_source, created = observations.models.SubjectSource.\
+                objects.get_or_create(subject=subject,
+                                      source=source,
+                                      assigned_range=assigned_range,
+                                      defaults={'additional': ss_additional})
         if created:
             logger.info('Created new SubjectSource for name=%s, collar_id=%s',
                         trackingmaster['name'], trackingmaster['collar_id'])
@@ -321,16 +381,17 @@ def import_trackingmaster_animal(animal_name):
             logger.info('Found existing SubjectSource for name=%s, collar=%s',
                         trackingmaster['name'], trackingmaster['collar_id'])
 
-
-
-        if mapped_plugin is None or not SourcePlugin.objects.filter(source=source).exists():
+        if mapped_plugin is None or not SourcePlugin.objects.filter(
+                source=source).exists():
             archive_locs = []
             try:
-                latest_observation = observations.models.Observation.objects.filter(source=source).latest('recorded_at')
+                latest_observation = observations.models.Observation.objects.\
+                    filter(source=source).latest('recorded_at')
                 latest_das_observation = latest_observation.recorded_at
             except:
                 latest_observation = None
-                latest_das_observation = datetime.datetime.min.replace(tzinfo=pytz.UTC)
+                latest_das_observation = datetime.datetime.min.replace(
+                    tzinfo=pytz.UTC)
 
             with at_conn.cursor() as at_cursor:
                 sql = 'SELECT * from archive_loc WHERE chronofile=%(chronofile)s'
@@ -347,7 +408,8 @@ def import_trackingmaster_animal(animal_name):
                 if observation.recorded_at <= latest_das_observation:
                     continue
 
-                if latest_observation is None or observation.recorded_at > latest_observation.recorded_at:
+                if latest_observation is None or observation.recorded_at > \
+                        latest_observation.recorded_at:
                     latest_observation = observation
 
                 for k, v in observation.additional.items():
@@ -356,15 +418,21 @@ def import_trackingmaster_animal(animal_name):
                 archive_locs.append(observation)
 
             if archive_locs:
-                observations.models.Observation.objects.bulk_create(archive_locs, batch_size=200)
+                observations.models.Observation.objects.bulk_create(
+                    archive_locs,
+                    batch_size=200)
                 for delay_hours in (0, 24):
-                    observations.models.SubjectStatus.objects.update_from_observation(latest_observation, delay_hours=delay_hours)
+                    observations.models.SubjectStatus.objects.\
+                        update_from_observation(latest_observation,
+                                                delay_hours=delay_hours)
 
-            create_sourceplugin(source, latest_observation=latest_observation, datasource=trackingmaster['datasource'],
+            create_sourceplugin(source,
+                                latest_observation=latest_observation,
+                                datasource=trackingmaster['datasource'],
                                 collar_type=trackingmaster['collar_type'])
 
         # This probably doesn't need to get run every time once we're caught up
-        find_and_add_missing_observations(chronofile, source)
+        # find_and_add_missing_observations(chronofile, source)
 
         # make sure the subjectstatus gets updated with the latest observation
         latest_observation = observations.models.Observation.objects.\
