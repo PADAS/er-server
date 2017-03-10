@@ -62,6 +62,60 @@ ARCHIVE_LOC_FIELDS = ('dloadtime',)
 TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
 DEFAULT_SOURCE_PROVIDER_NAME = 'default'
 
+filter_list=['Nyiro',
+             'Edison',
+             '39_blue',
+             'WCSN29',
+             'WCSN23',
+             '26_red',
+             '36_blue',
+             '6_blue',
+             'WCSN21',
+             'WCSN24',
+             '35_blue',
+             '27_blue',
+             '40_blue',
+             '30_blue',
+             'WCSN26',
+             '33_red',
+             '28_red',
+             '38_blue',
+             'WCSN22',
+             #'2_blue',
+             '37_blue',
+             'Kimbo',
+             'WCSN30',
+             '36_red',
+             '27_red',
+             '28_blue',
+             '2_red',
+             '29_blue',
+             '23_blue',
+             '24_blue',
+             'WCSN28',
+             '32_red',
+             'WCSN25',
+             '32_blue',
+             #'WCSN27',
+             '8_blue',
+             'Onero',
+             'Mlima Surua',
+             '33_blue',
+             '21_blue',
+             '25_red',
+             '29_red',
+             'Janice',
+             'Boniface',
+             'Larouille',
+             'Marijo',
+             'Nkoghe',
+             'Ta_a',
+             '21_red',
+             '23_red',
+             '24_red',
+             '22_blue',
+             '34_blue']
+
 def add_region(region, country):
     region_qs = observations.models.Region.objects.all().filter(region=region, country=country)
     if not region_qs:
@@ -432,7 +486,7 @@ def import_trackingmaster_animal(animal_name):
                                 collar_type=trackingmaster['collar_type'])
 
         # This probably doesn't need to get run every time once we're caught up
-        # find_and_add_missing_observations(chronofile, source)
+        find_and_add_missing_observations(chronofile, source)
 
         # make sure the subjectstatus gets updated with the latest observation
         latest_observation = observations.models.Observation.objects.\
@@ -567,17 +621,18 @@ def import_all_users():
 def import_all_chronofiles():
     at_conn = connections['animaltracking']
     with at_conn.cursor() as at_cursor:
-        sql = 'SELECT distinct(name) from trackingmaster'
+        sql = 'SELECT distinct(name) from trackingmaster order by name'
         at_cursor.execute(sql)
         rows = dictfetchall(at_cursor)
 
     error_list = []
     for animal in rows:
-        try:
-            import_trackingmaster_animal(animal['name'])
-        except Exception as ex:
-            error_list.append({'Animal {0} import error - {1}'.format(animal['name'], str(ex))})
-            logging.exception('Failed to import TrackingMaster animal %s',animal['name'])
+        if animal['name'] in filter_list:
+            try:
+                import_trackingmaster_animal(animal['name'])
+            except Exception as ex:
+                error_list.append({'Animal {0} import error - {1}'.format(animal['name'], str(ex))})
+                logging.exception('Failed to import TrackingMaster animal %s',animal['name'])
     return error_list
 
 def import_all_subject_groups():
