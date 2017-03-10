@@ -134,7 +134,11 @@ class SavannahPlugin(TrackingPlugin):
 
         self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
 
+        now = pytz.utc.localize(datetime.datetime.utcnow())
         for fix in client.fetch_observations(source.manufacturer_id, start_time=st):
+            if fix.recorded_at > now:
+                self.logger.warning('Savannah plugin encountered a fix from the future: {0}'.format(fix))
+                continue
             lt = fix.recorded_at
             yield self._transform((source, fix))
 
