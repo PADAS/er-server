@@ -520,9 +520,9 @@ def find_and_add_missing_observations(chronofile, source):
                   '   AND recorded_at = %(recorded_at)s'
             das_cursor.execute(sql, dict(source_id=source.id,
                                          recorded_at=row['fixtime']))
-            rows = dictfetchall(das_cursor)
+            das_rows = dictfetchall(das_cursor)
 
-            if len(rows) > 0:
+            if len(das_rows) > 0:
                 continue
 
         additional = {key: row[key] for key in ARCHIVE_LOC_FIELDS}
