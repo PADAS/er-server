@@ -62,60 +62,6 @@ ARCHIVE_LOC_FIELDS = ('dloadtime',)
 TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
 DEFAULT_SOURCE_PROVIDER_NAME = 'default'
 
-filter_list=['Nyiro',
-             'Edison',
-             '39_blue',
-             'WCSN29',
-             'WCSN23',
-             '26_red',
-             '36_blue',
-             '6_blue',
-             'WCSN21',
-             'WCSN24',
-             '35_blue',
-             '27_blue',
-             '40_blue',
-             '30_blue',
-             'WCSN26',
-             '33_red',
-             '28_red',
-             '38_blue',
-             'WCSN22',
-             #'2_blue',
-             '37_blue',
-             'Kimbo',
-             'WCSN30',
-             '36_red',
-             '27_red',
-             '28_blue',
-             '2_red',
-             '29_blue',
-             '23_blue',
-             '24_blue',
-             'WCSN28',
-             '32_red',
-             'WCSN25',
-             '32_blue',
-             #'WCSN27',
-             '8_blue',
-             'Onero',
-             'Mlima Surua',
-             '33_blue',
-             '21_blue',
-             '25_red',
-             '29_red',
-             'Janice',
-             'Boniface',
-             'Larouille',
-             'Marijo',
-             'Nkoghe',
-             'Ta_a',
-             '21_red',
-             '23_red',
-             '24_red',
-             '22_blue',
-             '34_blue']
-
 def add_region(region, country):
     region_qs = observations.models.Region.objects.all().filter(region=region, country=country)
     if not region_qs:
@@ -627,12 +573,11 @@ def import_all_chronofiles():
 
     error_list = []
     for animal in rows:
-        if animal['name'] in filter_list:
-            try:
-                import_trackingmaster_animal(animal['name'])
-            except Exception as ex:
-                error_list.append({'Animal {0} import error - {1}'.format(animal['name'], str(ex))})
-                logging.exception('Failed to import TrackingMaster animal %s',animal['name'])
+        try:
+            import_trackingmaster_animal(animal['name'])
+        except Exception as ex:
+            error_list.append({'Animal {0} import error - {1}'.format(animal['name'], str(ex))})
+            logging.exception('Failed to import TrackingMaster animal %s',animal['name'])
     return error_list
 
 def import_all_subject_groups():
