@@ -1,14 +1,24 @@
 import accounts.models
-import datetime
+
 import django
 import django.contrib.auth.models
+from django.db.models import Max, Min
 import logging
 import observations.models
+import ste.models
+
 import psycopg2.extras
 import pytz
 from ste import unitlists
 import ste.subject_groups
 import sys
+
+from datetime import datetime, timedelta
+import dateutil, pytz
+import pandas as pd
+import numpy as np
+import matplotlib
+from django.db.models import Q, F
 
 from django.contrib.gis.geos import Point
 from django.db import connections
@@ -197,6 +207,7 @@ def import_trackingmaster_animal(animal_name):
         rows = dictfetchall(at_cursor)
 
     for trackingmaster in rows:
+
         chronofile = trackingmaster['chronofile']
 
         # Get the subject info prepared
@@ -297,7 +308,7 @@ def import_trackingmaster_animal(animal_name):
             key: trackingmaster[key] for key in TRACKING_MASTER_DEVICE_FIELDS if
             key in trackingmaster})
         for k, v in additional.items():
-            if isinstance(v, datetime.datetime):
+            if isinstance(v, datetime):
                 additional[k] = v.isoformat()
 
         mapped_plugin = map_source_to_plugin(trackingmaster['collar_id'],
@@ -334,15 +345,15 @@ def import_trackingmaster_animal(animal_name):
             start_at = trackingmaster['data_starts'].replace(
                 tzinfo=pytz.UTC)
         else:
-            start_at = datetime.datetime.min.replace(tzinfo=pytz.UTC)
+            start_at = pytz.utc.localize(datetime.min)
 
         if trackingmaster['data_stops'] is not None:
-            end_at = trackingmaster['data_stops'].replace(tzinfo=pytz.UTC)
+            end_at = pytz.utc.localize(trackingmaster['data_stops'])
         else:
-            end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
+            end_at = pytz.utc.localize(datetime.max)
 
         if end_at < start_at:
-            end_at = datetime.datetime.max.replace(tzinfo=pytz.UTC)
+            end_at = pytz.utc.localize(datetime.max)
 
         assigned_range = psycopg2.extras.DateTimeTZRange(start_at, end_at)
 
@@ -390,8 +401,7 @@ def import_trackingmaster_animal(animal_name):
                 latest_das_observation = latest_observation.recorded_at
             except:
                 latest_observation = None
-                latest_das_observation = datetime.datetime.min.replace(
-                    tzinfo=pytz.UTC)
+                latest_das_observation = pytz.utc.localize(datetime.min)
 
             with at_conn.cursor() as at_cursor:
                 sql = 'SELECT * from archive_loc WHERE chronofile=%(chronofile)s'
@@ -413,7 +423,7 @@ def import_trackingmaster_animal(animal_name):
                     latest_observation = observation
 
                 for k, v in observation.additional.items():
-                    if isinstance(v, datetime.datetime):
+                    if isinstance(v, datetime):
                         observation.additional[k] = v.isoformat()
                 archive_locs.append(observation)
 
@@ -445,43 +455,107 @@ def import_trackingmaster_animal(animal_name):
                     latest_observation, delay_hours=delay_hours)
 
 def find_and_add_missing_observations(chronofile, source):
-    """
-      This is not a quick function. It will manually check all AT observations
-      against the DAS database, and add any that are missing. This is intended
-      as a "catch up" function, and probably will not need to be run for every
-      AT data dump once we're caught up.
-    """
-    at_conn = connections['animaltracking']
-    das_conn = connections['default']
-    with at_conn.cursor() as at_cursor:
-        sql = 'SELECT * from archive_loc WHERE chronofile=%(chronofile)s'
-        at_cursor.execute(sql, dict(chronofile=chronofile))
-        rows = dictfetchall(at_cursor)
 
-    for row in rows:
-        with das_conn.cursor() as das_cursor:
-            sql = 'SELECT * ' \
-                  '  FROM observations_observation' \
-                  ' WHERE source_id=%(source_id)s' \
-                  '   AND recorded_at = %(recorded_at)s'
-            das_cursor.execute(sql, dict(source_id=source.id,
-                                         recorded_at=row['fixtime']))
-            das_rows = dictfetchall(das_cursor)
+    add_these = generate_missing_observations(chronofile, source)
+    observations.models.Observation.objects.bulk_create(add_these, batch_size=200)
 
-            if len(das_rows) > 0:
-                continue
 
-        additional = {key: row[key] for key in ARCHIVE_LOC_FIELDS}
+def generate_missing_observations(chronofile, source):
+    '''
+    Find and yield archive_loc records that aren't matched in DAS, for the given source.
 
-        for k, v in additional.items():
-            if isinstance(v, datetime.datetime):
-                additional[k] = v.isoformat()
+    :param chronofile: integer, identifies chronofile in archive_loc table.
+    :param source: Source, indicates the Source to associate these observations with.
+    :return: generator of archive_loc dicts that should be added to DAS.
+    '''
 
-        observations.models.Observation.objects.create(
-            source=source,
-            additional=additional,
-            location=Point(row['lon'], row['lat']),
-            recorded_at=pytz.utc.localize(row['fixtime']).isoformat())
+    # Create dataframes for both record sets.
+    def generate_old(items):
+        for item in items:
+            yield {'recorded_at': pytz.utc.localize(item.fixtime),
+                   'latitude': item.lat,
+                   'longitude': item.lon,
+                   'recordserial': item.recordserial,
+                   'chronofile': item.chronofile.chronofile,
+                   'dloadtime': item.dloadtime
+                   }
+
+    def generate_new(items):
+        for item in items:
+            yield {'recorded_at': item.recorded_at,
+                   'latitude': item.location.y,
+                   'longitude': item.location.x
+                   }
+
+
+    # Compare in chunks of this size.
+    chunk_interval = timedelta(days=180)
+
+    # Set hard limits on the dates we'll look for.
+    START_DATE_LIMIT = pytz.utc.localize(datetime(1980, 1, 1))
+    END_DATE_LIMIT = pytz.utc.localize(datetime.utcnow())
+
+    # Determine the range of observations for the given chronofile.
+    date_range = ste.models.ArchiveLoc.objects.using('animaltracking').filter(
+        chronofile__chronofile=chronofile).aggregate(Min('fixtime'), Max('fixtime'))
+
+    # Set the date where we'll stop looking for observations.
+    try:
+        earliest_date = pytz.utc.localize(date_range['fixtime__min'])
+    except:
+        earliest_date = START_DATE_LIMIT
+
+    # Set the markers for the first block of fixes.
+    try:
+        end = pytz.utc.localize(date_range['fixtime__max']) + timedelta(seconds=1)
+    except:
+        end = END_DATE_LIMIT
+
+    start = end - chunk_interval
+
+    print('chronofile: {}, source: {} {}, finding observations in range: {} to {}'.format(
+        chronofile, source.id, source.manufacturer_id, start, end
+    ))
+
+    # Compare within chunk_interval, and quit when we get back before the 10 years ago.
+    while end >= earliest_date:
+
+        print('chronofile: {}, source: {} {}, matching from {} to {}'.format(
+            chronofile, source.id, source.manufacturer_id, start, end)
+        )
+
+        atobservations = ste.models.ArchiveLoc.objects.using('animaltracking').filter(chronofile__chronofile=chronofile,
+                                                                                      fixtime__gte=start,
+                                                                                      fixtime__lt=end)
+
+        das_observations = observations.models.Observation.objects.filter(source=source, recorded_at__gte=start,
+                                                                          recorded_at__lt=end)
+
+        df_at = pd.DataFrame(generate_old(atobservations))
+        df_das = pd.DataFrame(generate_new(das_observations))
+
+        if len(df_at) > 0:
+            # Join the two dataframes, on recorded_at
+            merged_result = df_at.merge(df_das, on='recorded_at', how='left', suffixes=('_at', '_das'))
+
+            # Create a dataframe of those records exclusive to Animal Tracking
+            missing_observations_results = merged_result[pd.isnull(merged_result['latitude_das'])]
+
+            print('\tFound {} missing observations.'.format(len(missing_observations_results)))
+            def create_observation(s):
+                s = s.to_dict()
+                return observations.models.Observation(
+                    recorded_at=s['recorded_at'].isoformat(),
+                    source=source,
+                    additional={'dloadtime': s['dloadtime'].isoformat(),},
+                    location=Point(x=s['longitude_at'], y=s['latitude_at']),
+                )
+
+            for i, s in missing_observations_results.iterrows():
+                yield create_observation(s)
+
+        end = start
+        start = start - chunk_interval
 
 
 def map_source_to_plugin (manufacturer_id, datasource=None, collar_type=None):
