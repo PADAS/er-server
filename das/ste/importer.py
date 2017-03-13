@@ -8,17 +8,13 @@ import observations.models
 import ste.models
 
 import psycopg2.extras
-import pytz
 from ste import unitlists
 import ste.subject_groups
 import sys
 
 from datetime import datetime, timedelta
-import dateutil, pytz
+import pytz
 import pandas as pd
-import numpy as np
-import matplotlib
-from django.db.models import Q, F
 
 from django.contrib.gis.geos import Point
 from django.db import connections
