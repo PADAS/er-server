@@ -2,6 +2,7 @@ import accounts.models
 
 import django
 import django.contrib.auth.models
+import django.db.utils
 from django.db.models import Max, Min
 import logging
 import observations.models
@@ -64,6 +65,7 @@ def dictfetchall(cursor):
 TRACKING_MASTER_COMMON_FIELDS = ('comments', 'chronofile')
 TRACKING_MASTER_ANIMAL_FIELDS = ('active', 'species', 'sex')
 TRACKING_MASTER_DEVICE_FIELDS = ('active', 'frequency', 'predicted_expiry',)
+TRACKING_USER_ADDITIONAL_FIELDS = ('notes', 'organization', 'moudatesigned', 'moutype', 'tech')
 ARCHIVE_LOC_FIELDS = ('dloadtime',)
 TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
 DEFAULT_SOURCE_PROVIDER_NAME = 'default'
@@ -76,92 +78,139 @@ def add_region(region, country):
 def import_trackinguser(userid):
     logger.info('Importing TrackingUser %s', userid)
     at_conn = connections['animaltracking']
+    das_conn = connections['default']
+
     with at_conn.cursor() as at_cursor:
         sql = 'SELECT * FROM trackingusers users JOIN trackingusersaux aux ON users.username = aux.username WHERE users.userid=%(userid)s'
         at_cursor.execute(sql, dict(userid=userid))
         rows = dictfetchall(at_cursor)
     trackinguser = rows[0]
 
+    # Fix up these fields in trackinsmaster because they have
+    if not trackinguser['lastname'] or len(trackinguser['lastname']) == 0:
+        trackinguser['lastname'] = 'No Lastname'
 
-    das_user = None;
-    q_users = accounts.models.User.objects.filter(additional__ste_userid=trackinguser['userid'])
-    for row in q_users:
-        das_user = row
+    if not trackinguser['firstname'] or len(trackinguser['firstname']) == 0:
+        trackinguser['firstname'] = 'No Firstname'
 
-    if not das_user:
-        das_user = accounts.models.User()
+    # Put together the additional fields
     additional = {'ste_userid': trackinguser['userid']}
 
-    # Required Field
-    das_user.username = trackinguser['username']
-
-    emails = trackinguser.get('emails', ['NO_EMAIL_ADDRESS+{0}@vulcan.com'.format(das_user.username)])
-    if len(emails) > 0:
-        das_user.email = emails[0]
+    # Save primary email for a top-level user attribute
+    emails = trackinguser.get('emails', None)
+    if emails and len(emails) > 0:
+        primary_email = emails[0]
         if len(emails) > 1:
             additional['additional_emails'] = emails[1:]
     else:
-        return
+        primary_email = 'NO_EMAIL_ADDRESS+{0}@vulcan.com'.format(
+            trackinguser['username'])
 
-    password = trackinguser.get('password', None)
-    if password is not None:
-        das_user.set_password(password)
-
-    lastname = trackinguser.get('lastname', '')
-    das_user.last_name = lastname
-
-    # Non-required user object fields
-    firstname = trackinguser.get('firstname', '')
-    if firstname is not None:
-        das_user.first_name = firstname
-
+    # save primary phone for a top-level user attribute
+    primary_phone = '+55555555555'
     phonenumbers = trackinguser.get('phonenumbers', None)
-    if phonenumbers is not None and len(phonenumbers) > 0:
-        das_user.phone = phonenumbers[0]
+    if phonenumbers and len(phonenumbers) > 0:
+        primary_phone = phonenumbers[0]
         if len(phonenumbers) > 1:
             additional['additional_phonenumbers'] = phonenumbers[1:]
 
-    # Additoinal fields (JSON)
-    notes = trackinguser.get('notes', None)
-    if notes is not None:
-        additional['notes'] = notes
+    # Get any other fields, if they exist
+    additional.update({key: trackinguser[key] for key in
+                       TRACKING_USER_ADDITIONAL_FIELDS if
+                       key in trackinguser})
 
-    org = trackinguser['organization']
-    if org is not None:
-        additional['organization'] = org
+    # Fix any date fields
+    for k, v in additional.items():
+        if isinstance(v, datetime.datetime):
+            additional[k] = v.isoformat()
 
-    moudatesigned = trackinguser.get('moudatesigned', None)
-    if moudatesigned is not None:
-        additional['moudatesigned'] = moudatesigned.isoformat()
+    # Look to see if a das user for this trackingusers row already exists
+    with das_conn.cursor() as das_cursor:
+        id_string = str(trackinguser['userid'])
+        sql = 'SELECT * ' \
+              '  FROM accounts_user' \
+              ' WHERE additional ->> \'ste_userid\'=%(user_id)s'
+        das_cursor.execute(sql, dict(user_id=id_string))
+        rows = dictfetchall(das_cursor)
 
-    moutype = trackinguser.get('moutype', None)
-    if moutype is not None:
-        additional['moutype'] = moutype
+    user = next(iter(rows), None)
 
-    moufilename = trackinguser.get('moufilename', None)
-    if moufilename is not None:
-        additional['moufilename'] = moufilename
+    # If one does, update that user. Can't use update_or_create because the
+    # primary key in AT maps to an entry in the additional column in DAS
+    if user:
+        created = False
+        users = accounts.models.User.objects.filter(id=user['id'])
+        user = users.first()
+        try:
+            users.update(username=trackinguser['username'],
+                         password=trackinguser.get('password', None),
+                         last_name=trackinguser.get('lastname', 'No Lastname'),
+                         first_name=trackinguser.get('firstname', 'No Firstname'),
+                         email=primary_email,
+                         phone=primary_phone,
+                         additional=additional)
+        except django.db.utils.IntegrityError as ex:
+            # Some emails are repeated in the STE database because the user does not have an email account
+            # of their own. In this case, they use their manager's email. When we encounter these, update
+            # the email to the format regular_email+das_username@regular_email.com and re-save. If we
+            # still fail to save, let the exception go up the stack
+            if len([message for message in ex.args if 'accounts_user_email_' in message]) == 0:
+                raise ex
+            email_parts = primary_email.split('@')
+            primary_email = '{0}+{1}@{2}'.format(email_parts[0], trackinguser['username'], email_parts[1])
+            users.update(username=trackinguser['username'],
+                         password=trackinguser.get('password', None),
+                         last_name=trackinguser.get('lastname', 'No Lastname'),
+                         first_name=trackinguser.get('firstname', 'No Firstname'),
+                         email=primary_email,
+                         phone=primary_phone,
+                         additional=additional)
 
-    tech = trackinguser.get('tech', None)
-    if tech is not None:
-        additional['tech'] = tech
+    # If we didn't find an existing das user for this AT user, create one
+    else:
+        try:
+            user, created = accounts.models.User.objects.update_or_create(
+                username=trackinguser['username'],
+                defaults=dict(last_name=trackinguser.get('lastname', 'No Lastname'),
+                              first_name=trackinguser.get('firstname', 'No Firstname'),
+                              password=trackinguser.get('password', None),
+                              email=primary_email,
+                              phone=primary_phone,
+                              additional=additional))
+        except django.core.exceptions.ValidationError as ex:
+            # Some emails are repeated in the STE database because the user does not have an email account
+            # of their own. In this case, they use their manager's email. When we encounter these, update
+            # the email to the format regular_email+das_username@regular_email.com and re-save. If we
+            # still fail to save, let the exception go up the stack
+            if len([message for message in ex.messages if 'address already exists' in message]) == 0:
+                raise ex
+            email_parts = primary_email.split('@')
+            primary_email = '{0}+{1}@{2}'.format(email_parts[0], trackinguser['username'], email_parts[1])
+            user, created = accounts.models.User.objects.update_or_create(
+                username=trackinguser['username'],
+                defaults=dict(last_name=trackinguser.get('lastname', 'No Lastname'),
+                              first_name=trackinguser.get('firstname', 'No Firstname'),
+                              password=trackinguser.get('password', None),
+                              email=primary_email,
+                              phone=primary_phone,
+                              additional=additional))
 
-    das_user.additional = additional
+    if created:
+        logger.info('Created new user: %s', user.username)
+    else:
+        logger.info('Updated existing user: %s', user.username)
 
-    try:
-        das_user.save()
-    except django.core.exceptions.ValidationError as ex:
-        # Some emails are repeated in the STE database because the user does not have an email account
-        # of their own. In this case, they use their manager's email. When we encounter these, update
-        # the email to the format regular_email+das_username@regular_email.com and re-save. If we
-        # still fail to save, let the exception go up the stack
-        if len([message for message in ex.messages if 'address already exists' in message]) == 0:
-            raise ex
-        email_parts = das_user.email.split('@')
-        unique_email = '{0}+{1}@{2}'.format(email_parts[0], das_user.username, email_parts[1])
-        das_user.email = unique_email
-        das_user.save()
+    # Update the user's password this way so it gets hashed
+    password = trackinguser.get('password', None)
+    if password is not None:
+        user.set_password(password)
+        user.save()
 
+    # Clean up the user's permissions. This line can be removed eventually,
+    # but for the time being, there's cruft.
+    user.permission_sets.clear()
+
+    # Get the user's access window
     end = trackinguser.get('delay', 0)
     begin = trackinguser.get('fulldataaccess', 60)
 
@@ -173,9 +222,10 @@ def import_trackinguser(userid):
     if created:
         begin_perms.permissions.add(django.contrib.auth.models.Permission.objects.get_by_natural_key('access_begins_{0}'.format(begin), 'observations', 'subject'))
 
-    das_user.permission_sets.add(end_perms)
-    das_user.permission_sets.add(begin_perms)
+    user.permission_sets.add(end_perms)
+    user.permission_sets.add(begin_perms)
 
+    # Get the user's allowed subjects
     for group_name in trackinguser['subjectgroups']:
         try:
             permission_set, created = accounts.models.PermissionSet.objects.get_or_create(name='view_{0}_group'.format(group_name))
@@ -188,7 +238,7 @@ def import_trackinguser(userid):
                     'view_subject', 'observations', 'subject'))
             subject_group = observations.models.SubjectGroup.objects.get(name=group_name)
             subject_group.permission_sets.add(permission_set)
-            das_user.permission_sets.add(permission_set)
+            user.permission_sets.add(permission_set)
         except observations.models.SubjectGroup.DoesNotExist:
             continue
 
