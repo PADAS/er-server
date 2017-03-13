@@ -8,7 +8,7 @@ class Command(BaseCommand):
     help = 'Import STE database into DAS'
 
     if not hasattr(settings, 'DATABASES') or 'animaltracking' not in settings.DATABASES:
-        raise ConnectionError('Connection information for vectronics database not specified')
+        raise ConnectionError('Connection information for animaltracking database not specified')
 
     def handle(self, *args, **options):
         importer.import_all()
