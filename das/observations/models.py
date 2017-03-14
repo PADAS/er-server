@@ -690,6 +690,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             ('access_begins_16', 'Can view tracks no more than 16 days old'),
             ('access_begins_30', 'Can view tracks no more than 30 days old'),
             ('access_begins_60', 'Can view tracks no more than 60 days old'),
+            ('access_begins_99', 'Can view all historical tracks'),
 
             ('access_ends_0', 'Can view tracks no less than 0 days old'),
             ('access_ends_3', 'Can view tracks no less than 3 days old'),
@@ -703,7 +704,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     VIEW_BEGIN_WINDOWS=(('observations.access_begins_7', 7),
                         ('observations.access_begins_16', 16),
                         ('observations.access_begins_30', 30),
-                        ('observations.access_begins_60', 60))
+                        ('observations.access_begins_60', 60),
+                        ('observations.access_begins_99', 99))
 
     VIEW_END_WINDOWS=(('observations.access_ends_0', 0),
                       ('observations.access_ends_3', 3),

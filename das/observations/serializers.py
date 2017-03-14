@@ -10,6 +10,7 @@ import datetime
 from utils import add_base_url
 from datetime import datetime, timedelta
 import pytz
+import sys
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
@@ -110,6 +111,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 if user.has_perm(permission_tuple[0]) and (maximum_allowed_age is None or permission_tuple[1] > maximum_allowed_age):
                     maximum_allowed_age = permission_tuple[1]
                     break
+            if maximum_allowed_age == 99:
+                maximum_allowed_age = sys.maxsize
 
             for permission_tuple in sorted(models.Subject.VIEW_END_WINDOWS, key=lambda _: _[1]):
                 if user.has_perm(permission_tuple[0]) and (minimum_allowed_age is None or permission_tuple[1] < minimum_allowed_age):

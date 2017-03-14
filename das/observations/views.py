@@ -3,6 +3,7 @@ import datetime
 
 import dateutil.parser
 import pytz
+import sys
 from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 from django.http import Http404
@@ -291,6 +292,9 @@ class SubjectTracksView(generics.RetrieveAPIView):
             if permission_tuple[1] > oldest_age_allowed and self.request.user.has_perm(permission_tuple[0]):
                 oldest_age_allowed = permission_tuple[1]
                 break
+
+        if oldest_age_allowed == 99:
+            oldest_age_allowed = sys.maxsize
 
         for permission_tuple in sorted(models.Subject.VIEW_END_WINDOWS, key=lambda _: _[1]):
             if permission_tuple[1] < newest_age_allowed and self.request.user.has_perm(permission_tuple[0]):
