@@ -693,6 +693,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             ('access_begins_all', 'Can view all historical tracks'),
 
             ('access_ends_0', 'Can view tracks no less than 0 days old'),
+            ('access_ends_1', 'Can view tracks no less than 1 day old'),
             ('access_ends_3', 'Can view tracks no less than 3 days old'),
             ('access_ends_7', 'Can view tracks no less than 7 days old'),
         )
@@ -708,6 +709,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                         ('observations.access_begins_all', 100000000))
 
     VIEW_END_WINDOWS=(('observations.access_ends_0', 0),
+                      ('observations.access_ends_1', 1),
                       ('observations.access_ends_3', 3),
                       ('observations.access_ends_7', 7))
 
