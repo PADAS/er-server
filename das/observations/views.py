@@ -287,6 +287,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
         # Find the min and max boundaries for track data
         oldest_age_allowed = -1
         newest_age_allowed = 999
+        mou_expiry_date = self.request.user.additional.get('expiry', None)
 
         for permission_tuple in sorted(models.Subject.VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse=True):
             if permission_tuple[1] > oldest_age_allowed and self.request.user.has_perm(permission_tuple[0]):
@@ -316,6 +317,15 @@ class SubjectTracksView(generics.RetrieveAPIView):
         else:
             requested_newest_age = (now - requested_newest_age).days
             newest_age = max(requested_newest_age, newest_age_allowed)
+
+        if mou_expiry_date is not None:
+            now = pytz.utc.localize(datetime.datetime.utcnow())
+            mou_expiry_date = pytz.utc.localize(dateutil.parser.parse(mou_expiry_date))
+            mou_expiry_age = now - mou_expiry_date
+
+            newest_age = max(mou_expiry_age.days, newest_age)
+            if oldest_age < newest_age:
+                raise PermissionDenied
 
         begin = now - datetime.timedelta(days=oldest_age)
         until = now - datetime.timedelta(days=newest_age)

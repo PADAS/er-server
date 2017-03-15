@@ -7,9 +7,11 @@ from django.conf import settings
 from observations import models
 import utils.json
 import datetime
+from dateutil.parser import parse as parse_date
 from utils import add_base_url
 from datetime import datetime, timedelta
 import pytz
+import time
 import sys
 
 
@@ -106,6 +108,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             # Find the user's allowed viewable date range
             maximum_allowed_age = None
             minimum_allowed_age = None
+            mou_expiry_date = user.additional.get('expiry', None)
 
             for permission_tuple in sorted(models.Subject.VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse=True):
                 if user.has_perm(permission_tuple[0]) and (maximum_allowed_age is None or permission_tuple[1] > maximum_allowed_age):
@@ -116,6 +119,16 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 if user.has_perm(permission_tuple[0]) and (minimum_allowed_age is None or permission_tuple[1] < minimum_allowed_age):
                     minimum_allowed_age = permission_tuple[1]
                     break
+
+            if mou_expiry_date is not None:
+                now = pytz.utc.localize(datetime.utcnow())
+                mou_expiry_date = pytz.utc.localize(parse_date(mou_expiry_date))
+                mou_expiry_age = now - mou_expiry_date
+
+                minimum_allowed_age = max(mou_expiry_age.days, minimum_allowed_age)
+                if maximum_allowed_age < minimum_allowed_age:
+                    maximum_allowed_age = None
+                    minimum_allowed_age = None
 
             if minimum_allowed_age is not None and maximum_allowed_age is not None:
                 start, end = instance.subjectstatus_set.get_range_endpoints(maximum_allowed_age * 24, minimum_allowed_age * 24)
