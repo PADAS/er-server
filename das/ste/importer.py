@@ -65,7 +65,7 @@ def dictfetchall(cursor):
 TRACKING_MASTER_COMMON_FIELDS = ('comments', 'chronofile')
 TRACKING_MASTER_ANIMAL_FIELDS = ('active', 'species', 'sex')
 TRACKING_MASTER_DEVICE_FIELDS = ('active', 'frequency', 'predicted_expiry',)
-TRACKING_USER_ADDITIONAL_FIELDS = ('notes', 'organization', 'moudatesigned', 'moutype', 'tech')
+TRACKING_USER_ADDITIONAL_FIELDS = ('notes', 'organization', 'moudatesigned', 'moutype', 'tech', 'expiry')
 ARCHIVE_LOC_FIELDS = ('dloadtime',)
 TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
 DEFAULT_SOURCE_PROVIDER_NAME = 'default'
@@ -484,10 +484,10 @@ def import_trackingmaster_animal(animal_name):
                 observations.models.Observation.objects.bulk_create(
                     archive_locs,
                     batch_size=200)
-                for delay_hours in (0, 24):
+                for delay_hours in observations.models.Subject.VIEW_END_WINDOWS:
                     observations.models.SubjectStatus.objects.\
                         update_from_observation(latest_observation,
-                                                delay_hours=delay_hours)
+                                                delay_hours=delay_hours[1]*24)
 
             create_sourceplugin(source,
                                 latest_observation=latest_observation,
@@ -502,10 +502,10 @@ def import_trackingmaster_animal(animal_name):
             get_last_observation(subject=subject)
 
         if latest_observation is not None:
-            for delay_hours in (0, 24):
+            for delay_hours in observations.models.Subject.VIEW_END_WINDOWS:
                 observations.models.SubjectStatus.objects.\
                     update_from_observation(
-                    latest_observation, delay_hours=delay_hours)
+                    latest_observation, delay_hours=delay_hours[1]*24)
 
 def find_and_add_missing_observations(chronofile, source):
 

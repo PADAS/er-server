@@ -3,7 +3,7 @@ import logging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from observations.models import Observation, SubjectStatus
+from observations.models import Observation, SubjectStatus, Subject
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +17,8 @@ def observation_post_save(sender, instance, created, **kwargs):
     observation = Observation.objects.get(id=instance.id)
 
     logger.debug('handling Observation.post_save')
-    for delay_hours in (0, 24):
-        SubjectStatus.objects.update_from_observation(observation, delay_hours=delay_hours)
+    for delay_hours in Subject.VIEW_END_WINDOWS:
+        SubjectStatus.objects.update_from_observation(observation, delay_hours=delay_hours[1]*24)
 
 @receiver(post_save, sender=SubjectStatus)
 def subject_status_post_save(sender, instance, created, **kwargs):
