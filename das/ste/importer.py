@@ -121,7 +121,7 @@ def import_trackinguser(userid):
 
     # Fix any date fields
     for k, v in additional.items():
-        if isinstance(v, datetime.datetime):
+        if isinstance(v, datetime):
             additional[k] = v.isoformat()
 
     # Look to see if a das user for this trackingusers row already exists
@@ -213,12 +213,19 @@ def import_trackinguser(userid):
     # Get the user's access window
     end = trackinguser.get('delay', 0)
     begin = trackinguser.get('fulldataaccess', 60)
+    begin_name = begin
+
+    # Use a positive value so our checks to find the largest allowed
+    # permission work correctly
+    if begin == -999:
+        begin_name = 'All'
+        begin = 'all'
 
     end_perms, created = accounts.models.PermissionSet.objects.get_or_create(name='Access Ends {0}'.format(end))
     if created:
         end_perms.permissions.add(django.contrib.auth.models.Permission.objects.get_by_natural_key('access_ends_{0}'.format(end), 'observations', 'subject'))
 
-    begin_perms, created = accounts.models.PermissionSet.objects.get_or_create(name='Access Begins {0}'.format(begin))
+    begin_perms, created = accounts.models.PermissionSet.objects.get_or_create(name='Access Begins {0}'.format(begin_name))
     if created:
         begin_perms.permissions.add(django.contrib.auth.models.Permission.objects.get_by_natural_key('access_begins_{0}'.format(begin), 'observations', 'subject'))
 
@@ -488,7 +495,7 @@ def import_trackingmaster_animal(animal_name):
                                 collar_type=trackingmaster['collar_type'])
 
         # This probably doesn't need to get run every time once we're caught up
-        find_and_add_missing_observations(chronofile, source)
+        # find_and_add_missing_observations(chronofile, source)
 
         # make sure the subjectstatus gets updated with the latest observation
         latest_observation = observations.models.Observation.objects.\

@@ -10,6 +10,7 @@ import datetime
 from utils import add_base_url
 from datetime import datetime, timedelta
 import pytz
+import sys
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
