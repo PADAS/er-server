@@ -218,8 +218,8 @@ def import_trackinguser(userid):
     # Use a positive value so our checks to find the largest allowed
     # permission work correctly
     if begin == -999:
-        begin_name = 'Forever'
-        begin = 99
+        begin_name = 'All'
+        begin = 'all'
 
     end_perms, created = accounts.models.PermissionSet.objects.get_or_create(name='Access Ends {0}'.format(end))
     if created:

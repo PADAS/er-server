@@ -293,9 +293,6 @@ class SubjectTracksView(generics.RetrieveAPIView):
                 oldest_age_allowed = permission_tuple[1]
                 break
 
-        if oldest_age_allowed == 99:
-            oldest_age_allowed = sys.maxsize
-
         for permission_tuple in sorted(models.Subject.VIEW_END_WINDOWS, key=lambda _: _[1]):
             if permission_tuple[1] < newest_age_allowed and self.request.user.has_perm(permission_tuple[0]):
                 newest_age_allowed = permission_tuple[1]
