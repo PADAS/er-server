@@ -143,7 +143,6 @@ def import_trackinguser(userid):
         user = users.first()
         try:
             users.update(username=trackinguser['username'],
-                         password=trackinguser.get('password', None),
                          last_name=trackinguser.get('lastname', 'No Lastname'),
                          first_name=trackinguser.get('firstname', 'No Firstname'),
                          email=primary_email,
@@ -159,12 +158,14 @@ def import_trackinguser(userid):
             email_parts = primary_email.split('@')
             primary_email = '{0}+{1}@{2}'.format(email_parts[0], trackinguser['username'], email_parts[1])
             users.update(username=trackinguser['username'],
-                         password=trackinguser.get('password', None),
                          last_name=trackinguser.get('lastname', 'No Lastname'),
                          first_name=trackinguser.get('firstname', 'No Firstname'),
                          email=primary_email,
                          phone=primary_phone,
                          additional=additional)
+
+        # Set password this way so that it gets correctly encrypted
+        user.set_password(trackinguser.get('password', None))
 
     # If we didn't find an existing das user for this AT user, create one
     else:
@@ -173,7 +174,6 @@ def import_trackinguser(userid):
                 username=trackinguser['username'],
                 defaults=dict(last_name=trackinguser.get('lastname', 'No Lastname'),
                               first_name=trackinguser.get('firstname', 'No Firstname'),
-                              password=trackinguser.get('password', None),
                               email=primary_email,
                               phone=primary_phone,
                               additional=additional))
@@ -190,10 +190,12 @@ def import_trackinguser(userid):
                 username=trackinguser['username'],
                 defaults=dict(last_name=trackinguser.get('lastname', 'No Lastname'),
                               first_name=trackinguser.get('firstname', 'No Firstname'),
-                              password=trackinguser.get('password', None),
                               email=primary_email,
                               phone=primary_phone,
                               additional=additional))
+
+        # Set password this way so that it gets correctly encrypted
+        user.set_password(trackinguser.get('password', None))
 
     if created:
         logger.info('Created new user: %s', user.username)
@@ -724,36 +726,3 @@ def import_all():
     errors += import_all_subject_groups()
     errors += import_all_users()
     print(errors)
-
-def import_test():
-
-    USER_SAMPLES = [
-        6,
-        90,
-        116,
-        172,
-        189,
-    ]
-
-    CHRONO_SAMPLES = [
-        21,
-        154,
-        333,
-        400,
-        685,
-    ]
-
-    for trackinguser in USER_SAMPLES:
-        try:
-            import_trackinguser(trackinguser)
-        except Exception as ex:
-            print(ex)
-            raise ex
-
-    for chronofile in CHRONO_SAMPLES:
-        try:
-            import_trackingmaster_animal(chronofile)
-        except Exception as ex:
-            print(ex)
-            raise ex
-
