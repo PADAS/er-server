@@ -146,8 +146,7 @@ def import_trackinguser(userid):
                          last_name=trackinguser.get('lastname', 'No Lastname'),
                          first_name=trackinguser.get('firstname', 'No Firstname'),
                          email=primary_email,
-                         phone=primary_phone,
-                         additional=additional)
+                         phone=primary_phone)
         except django.db.utils.IntegrityError as ex:
             # Some emails are repeated in the STE database because the user does not have an email account
             # of their own. In this case, they use their manager's email. When we encounter these, update
@@ -161,11 +160,15 @@ def import_trackinguser(userid):
                          last_name=trackinguser.get('lastname', 'No Lastname'),
                          first_name=trackinguser.get('firstname', 'No Firstname'),
                          email=primary_email,
-                         phone=primary_phone,
-                         additional=additional)
+                         phone=primary_phone)
+
+
+        # Django update does not always work with json fields, so set it this way
+        user.additional = additional
 
         # Set password this way so that it gets correctly encrypted
         user.set_password(trackinguser.get('password', None))
+        user.save()
 
     # If we didn't find an existing das user for this AT user, create one
     else:
@@ -201,12 +204,6 @@ def import_trackinguser(userid):
         logger.info('Created new user: %s', user.username)
     else:
         logger.info('Updated existing user: %s', user.username)
-
-    # Update the user's password this way so it gets hashed
-    password = trackinguser.get('password', None)
-    if password is not None:
-        user.set_password(password)
-        user.save()
 
     # Clean up the user's permissions. This line can be removed eventually,
     # but for the time being, there's cruft.
