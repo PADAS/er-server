@@ -654,6 +654,7 @@ def import_subject_group(group_name, query):
         return
 
     subject_group = observations.models.SubjectGroup.objects.get_or_create(name=group_name)[0]
+    subject_group.subjects.clear()
 
     for chronofile_member in result['group_members']:
 
