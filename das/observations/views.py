@@ -242,8 +242,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
         coordinates = []
         times = []
-        for ob in models.Observation.objects.get_source_range_observation_values(
-                sds, since, until):
+        for ob in models.Observation.objects.get_subject_source_observation_values(sds, since, until):
             coordinates.append(ob['location'].coords)
             times.append(zeroout_microseconds(ob['recorded_at']))
 
@@ -336,14 +335,11 @@ class SubjectTracksView(generics.RetrieveAPIView):
         except Exception:
             pass
 
-        sds = models.SubjectSource.objects.filter(subject=subject)
-        if not sds:
-            raise Http404
-
         coordinates = []
         times = []
-        for ob in models.Observation.objects.get_source_range_observation_values(
-                sds, since=begin, until=until, limit=limit):
+        for ob in models.Observation.objects.get_subject_observation_values(
+                subject, since=begin, until=until, limit=limit):
+
             coordinates.append(ob['location'].coords)
             times.append(zeroout_microseconds(ob['recorded_at']))
 

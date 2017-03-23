@@ -177,68 +177,54 @@ EMPTY_POINT = Point(0,0)
 
 
 class ObservationManager(models.GeoManager):
-    def get_source_range_observations(self, subject_sources, since=None, until=None):
-        # Get observations for a set of sources and date ranges. An animal may
-        # switch source devices based on a date range.
-        subject_sources = sorted(subject_sources,
-                                 key=lambda ss: ss.assigned_range.lower,
-                                 reverse=True)
-        qs = None
-        for ss in subject_sources:
-            q = Q(source_id=ss.source_id) &\
-                Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
-            qs = qs | q if qs else q
 
-        if qs:
-            result = Observation.objects.filter(qs)
-            if since:
-                result = result.filter(Q(recorded_at__gt=since))
-            if until:
-                result = result.filter(Q(recorded_at__lte=until))
-            result = result.order_by('-recorded_at')
-            result = result.exclude(location=EMPTY_POINT)
-            return result
-        return []
+    def get_subject_observations(self, subject, since=None, until=None):
+        queryset = Observation.objects.filter(source__subjectsource__subject=subject,
+                                              source__subjectsource__assigned_range__contains=F('recorded_at'),
+                                              exclusion_flags=0)
 
-    def get_source_range_observation_values(self, subject_sources, since=None,
-                                      until=None, order_by=None, limit=None):
-        """get observations for a set of sources and date ranges.
-        An animal may switch source devices based on a date range.
+        if since:
+            queryset = queryset.filter(Q(recorded_at__gt=since))
+        if until:
+            queryset = queryset.filter(Q(recorded_at__lte=until))
+
+        queryset = queryset.exclude(location=EMPTY_POINT)
+        queryset = queryset.order_by('-recorded_at')
+        return queryset
+
+    def get_subject_observation_values(self, subject, since=None, until=None, limit=None):
+        """
+        Generate a list of observations for the given subject.
         """
 
-        subject_sources = sorted(subject_sources,
-                                 key=lambda ss: ss.assigned_range.lower,
-                                 reverse=True)
-        qs = None
-        for ss in subject_sources:
-            q = Q(source_id=ss.source_id) & \
-                Q(recorded_at__range=[ss.assigned_range.lower,
-                                      ss.assigned_range.upper])
-            qs = qs | q if qs else q
+        result = self.get_subject_observations(subject, since=since, until=until)
 
-        if qs:
-            result = Observation.objects.filter(qs)
-            if since:
-                result = result.filter(Q(recorded_at__gt=since))
-            if until:
-                result = result.filter(Q(recorded_at__lte=until))
+        if limit:
+            result = result[:limit]
 
-            if limit:
-                result = result.order_by('-recorded_at')[:limit]
-            else:
-                result = result.order_by('-recorded_at')
+        for observation in result.values('location', 'recorded_at'):
+            yield observation
 
-            for observation in result.values('location', 'recorded_at'):
-                if observation['location'] != EMPTY_POINT:
-                    yield observation
+    def get_subject_source_observation_values(self, subject_source, since=None, until=None, limit=None):
 
+        queryset = Observation.objects.filter(source__subjectsource=subject_source,
+                                              source__subjectsource__assigned_range__contains=F('recorded_at'),
+                                              exclusion_flags=0)
 
-    def get_source_range_observations_last(self, subject_sources, last_days):
-        """get the last days worth of observations starting from now.
-        An animal may switch source devices based on a date range.
-        """
-        since = datetime.now(tz=pytz.UTC) - last_days
-        return self.get_source_range_observations(subject_sources, since=since)
+        if since:
+            queryset = queryset.filter(Q(recorded_at__gt=since))
+        if until:
+            queryset = queryset.filter(Q(recorded_at__lte=until))
+
+        queryset = queryset.exclude(location=EMPTY_POINT)
+        queryset = queryset.order_by('-recorded_at')
+
+        if limit:
+            queryset = queryset[:limit]
+
+        for observation in queryset.values('location', 'recorded_at'):
+            yield observation
+
 
     def add_observation(self, observation):
         '''
@@ -343,6 +329,11 @@ class ObservationManager(models.GeoManager):
 
 
 class Observation(models.Model):
+
+    # Constants for filter bit-map.
+    EXCLUDED_MANUALLY = 1
+    EXCLUDED_AUTOMATICALLY = 2
+
     """observation point
     similar to archive_loc
     """
@@ -352,16 +343,18 @@ class Observation(models.Model):
     created_at = models.DateTimeField('row created at', auto_now_add=True)  # date/time this row created
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     additional = JSONField()
+    exclusion_flags = models.BigIntegerField('Exclusion flags as a bitmap', null=False, default=0)
 
     objects = ObservationManager()
 
-    # def __str__(self):
-    #     return self.name
+    def __str__(self):
+        return '{}:{}:{:08b}'.format(self.recorded_at.isoformat(), self.location, self.exclusion_flags)
 
     class Meta:
         unique_together = (
             ['source', 'recorded_at']
         )
+
 
 DEFAULT_ASSIGNED_RANGE = list((pytz.utc.localize(datetime.min),
                                pytz.utc.localize(datetime.max)))
@@ -734,25 +727,17 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         return subject_source.source
 
-    def observations(self, last_days=None, last_hours=None):
+    def observations(self, last_hours=None):
         """ returns all observations for this Subject, spanning
         Sources as necessary """
-        subject_sources = SubjectSource.objects.filter(subject=self)
-
-    #TODO: Add deprecation warning for last_days parameter.
-
-        if last_days:
-            last_hours = last_days * 24.0
-
+        since = None
+        until = None
         if last_hours:
             until = datetime.now(tz=pytz.UTC)
             since = until - timedelta(hours=last_hours)
 
-            obs = Observation.objects.get_source_range_observations(subject_sources, since=since, until=until)
-        else:
-            obs = Observation.objects.get_source_range_observations(subject_sources)
+        return Observation.objects.get_subject_observations(self, since=since, until=until)
 
-        return obs
 
     @property
     def image_url(self):

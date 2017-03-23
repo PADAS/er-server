@@ -25,7 +25,7 @@ def handle_subject(subject_id):
             return
 
 
-    track = Track.from_observations(subject.observations(last_days=3))
+    track = Track.from_observations(subject.observations(last_hours=3*24))
 
     if not track:
         logger.warning('Subject {} ({}) has no observations'.format(subject.name, subject_id))
