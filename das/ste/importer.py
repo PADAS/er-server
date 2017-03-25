@@ -234,6 +234,8 @@ def import_trackinguser(userid):
     # Get the user's allowed subjects
     for group_name in trackinguser['subjectgroups']:
         try:
+            group_name = group_name.lower().replace(' ', '_')
+
             permission_set, created = accounts.models.PermissionSet.objects.get_or_create(name='view_{0}_group'.format(group_name))
             if created or not created:
                 permission_set.permissions.add(django.contrib.auth.models.Permission.objects.get_by_natural_key(
@@ -378,7 +380,7 @@ def import_trackingmaster_animal(animal_name):
             provider_name=provider_name,
             defaults=dict(model_name=trackingmaster['collar_type'],
             additional=additional)
-                                            )
+        )
         if created:
             logger.info('Created new source for name=%s, collar_id=%s',
                         trackingmaster['name'], trackingmaster['collar_id'])
