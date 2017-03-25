@@ -19,7 +19,7 @@ def populate_eventdata(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0049_event_comment'),
+        ('activity', '0050_fix_serial_number'),
     ]
 
     operations = [

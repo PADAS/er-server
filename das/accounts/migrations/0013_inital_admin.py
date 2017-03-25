@@ -19,7 +19,7 @@ def populate_admin(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0011_auto_20161129_1227'),
+        ('accounts', '0012_additional'),
     ]
 
     operations = [
