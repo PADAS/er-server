@@ -1,0 +1,11 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+  source: {repository: busybox}
+
+inputs:
+- name: das
+
+run:
+  path: das/ci/test.sh
