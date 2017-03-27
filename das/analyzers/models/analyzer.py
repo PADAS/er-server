@@ -28,18 +28,14 @@ class Analyzer(models.Model):
     subject = models.ForeignKey(to=Subject, on_delete=models.CASCADE)
 
     @property
-    def valid_times(self):
-        return (self.min_time, self.max_time)
-
-    @property
     def name(self):
         return self.__class__.__name__
 
     def analyze(self):
-        logger.info('{} analyzing {} records'.format(self.name))
+        logger.info('%s analyzing', self.name)
 
     def analyze(self,track):
-        logger.info('{} analyzing {} records'.format(self.name))
+        logger.info('%s analyzing', self.name)
 
     class Meta:
         abstract = True
@@ -58,3 +54,17 @@ class AnalyzerResult(TimestampedModel):
     class Meta:
         abstract = True
 
+
+class Annotator(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    subject = models.ForeignKey(to=Subject, on_delete=models.CASCADE)
+
+    @property
+    def name(self):
+        return self.__class__.__name__
+
+    def annotate(self, subject):
+        logger.info('%s annotating subject: %s', self.name, subject.name)
+
+    class Meta:
+        abstract = True

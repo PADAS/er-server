@@ -1,0 +1,1 @@
+from analyzers.tests.test_annotator import *

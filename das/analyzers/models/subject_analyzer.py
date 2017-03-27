@@ -10,7 +10,8 @@ class SubjectAnalyzer(models.Model):
     """
     limits = models.Q(app_label='analyzers', model='geofenceanalyzer') \
         | models.Q(app_label='analyzers', model='immobilityanalyzer') \
-        | models.Q(app_label='analyzers', model='proximityanalyzer')
+        | models.Q(app_label='analyzers', model='proximityanalyzer') \
+        | models.Q(app_label='analyzers', model='observationannotator')
 
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
     object_id = models.PositiveIntegerField()

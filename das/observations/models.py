@@ -225,6 +225,13 @@ class ObservationManager(models.GeoManager):
         for observation in queryset.values('location', 'recorded_at'):
             yield observation
 
+    def set_flag(self, id_list, flags):
+        '''Hide the nuances of manipulating a bitmap associated with an observation.'''
+        Observation.objects.filter(id__in=id_list).update(exclusion_flags=F('exclusion_flags').bitor(flags))
+
+    def unset_flag(self, id_list, flags):
+        '''Hide the nuances of zeroing bits in a bitmap.'''
+        Observation.objects.filter(id__in=id_list).update(exclusion_flags=F('exclusion_flags').bitand(~flags))
 
     def add_observation(self, observation):
         '''
