@@ -396,3 +396,15 @@ NOTIFY_MEDIUM_PRIORITY_EVENT=None
 NOTIFY_LOW_PRIORITY_EVENT=None
 
 EVENT_MATRIX_ENABLED = False
+
+# Default speed-threshold (in km/h) by subject-subtype. These are default values that maybe overridden in an
+# ObservationAnnotation instance.
+ANNOTATION_SETTINGS = {
+    'speed_thresholds': {
+        'forest_elephant': 7.0,
+        'elephant': 7.5,
+        'vehicle': 200.0,
+        'plane': 500.0,
+        'helicopter': 500.0,
+    }
+}

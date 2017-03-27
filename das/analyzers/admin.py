@@ -13,3 +13,6 @@ if settings.DEBUG:
     class SubjectAnalyzerAdmin(admin.ModelAdmin):
         pass
 
+    @admin.register(models.ObservationAnnotator)
+    class ObservationAnnotatorAdmin(admin.ModelAdmin):
+        pass
