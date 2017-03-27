@@ -27,6 +27,7 @@ services:
       - 8000:8000
     volumes: 
       - ./das/das:/var/www/das
+      - ./das/dependencies:/workspace/dependencies
 
   postgis:
     image: das/postgis
