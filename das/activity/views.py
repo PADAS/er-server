@@ -14,7 +14,7 @@ from activity.models import Event, EventNote, EventPhoto, EventClass,\
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
-    EventTypeSerializer, EventRelationshipSerializer
+    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
@@ -59,6 +59,15 @@ class EventTypesView(generics.ListAPIView):
         is_collection = query_params.get('is_collection', None)
         if is_collection is not None:
             queryset = queryset.by_is_collection(parse_bool(is_collection))
+        return queryset
+
+
+class EventCategoriesView(generics.ListAPIView):
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = EventCategorySerializer
+
+    def get_queryset(self):
+        queryset = EventCategory.objects.all_sort()
         return queryset
 
 

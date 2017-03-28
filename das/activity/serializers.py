@@ -381,6 +381,17 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
         return rep
 
 
+class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.EventCategory
+        read_only_fields = ('value', 'display', 'ordernum',)
+        fields = read_only_fields
+
+    def to_representation(self, obj):
+        rep = super().to_representation(obj)
+        return rep
+
+
 class EventRelationshipTypeRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):
         return activity.models.EventRelationshipType.objects.all_sort()
