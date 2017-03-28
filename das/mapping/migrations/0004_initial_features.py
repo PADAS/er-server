@@ -7,7 +7,7 @@ from django.core.management import call_command
 
 def populate_features(apps, schema_editor):
     apps.models_module = None
-    # call_command('loaddata', 'initial_features')
+    #call_command('loaddata', 'initial_features')
 
 
 class Migration(migrations.Migration):
