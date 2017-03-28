@@ -241,6 +241,19 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         self.assertEqual(response.status_code, 200)
 
+    def test_event_categories_list(self):
+
+        request = self.factory.get(self.api_base + '/events/categories')
+        self.force_authenticate(request, self.user)
+
+        response = views.EventCategoriesView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        category_values = [x['value'] for x in response.data]
+
+        self.assertIn('security', category_values)
+        self.assertIn('standard', category_values)
+
     def test_event_count(self):
         request = self.factory.get(self.api_base + '/events/count')
         self.force_authenticate(request, self.user)
@@ -362,6 +375,7 @@ class TestEventView(BaseAPITest):
         response = views.EventRelationshipsView.as_view()(request, from_event_id=collection_id)
         print(response)
         self.assertEqual(response.status_code, 201)
+
 
 class TestSerializers(TestCase):
     def test_have_all_attachment_serializer_mappings(self):
