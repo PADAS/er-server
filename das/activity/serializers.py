@@ -327,11 +327,11 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
             # Ensure that field.choices returns something sensible
             # even when accessed with a read-only field.
             return {}
-
-        return {provenance: [(
-                                 self.to_representation(item),
-                                 self.display_value(item)) for item in values]
-                for provenance, values in queryset}
+        choices = []
+        for provenance, values in queryset:
+            choices += [(self.to_representation(item), self.display_value(item))
+                        for item in values]
+        return choices
 
 
 class AttachmentRelatedField(rest_framework.serializers.RelatedField):
