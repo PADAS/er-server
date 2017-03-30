@@ -7,7 +7,7 @@ from kombu import Exchange, Queue
 try:
     from das_server.local_celery_settings import BROKER_URL
 except ImportError:
-    BROKER_URL = 'redis://localhost:6379'
+    BROKER_URL = 'redis://redis:6379'
 
 CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_ACCEPT_CONTENT = ['application/json']
