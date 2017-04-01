@@ -15,13 +15,13 @@ VOLUME /workspace
 WORKDIR /workspace
 
 ADD ./dependencies /workspace/dependencies
-RUN dpkg -i /workspace/dependencies/proj_4.9.2-1_amd64.deb
-RUN dpkg -i /workspace/dependencies/gdal_1.11.4-1_amd64.deb
-RUN dpkg -i /workspace/dependencies/geos_3.5.0-1_amd64.deb
+RUN dpkg -i /workspace/dependencies/proj_4.9.3-1_amd64.deb
+RUN dpkg -i /workspace/dependencies/gdal_2.1.3-1_amd64.deb
+RUN dpkg -i /workspace/dependencies/geos_3.6.1-1_amd64.deb
 ENV LD_LIBRARY_PATH "/usr/local/lib"
 
 RUN pip3 install -U "pip"
-RUN pip3 install -r /workspace/dependencies/requirements.txt
+RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt
 RUN pip3 install -r /workspace/dependencies/requirements-dev.txt
 
 ADD ./das /var/www/das

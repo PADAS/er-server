@@ -5,20 +5,20 @@ services:
     image: das/web
     container_name: das_web
     build:
-      context: ./das-web
+      context: ../das-web
       dockerfile: docker/Dockerfile
     links: 
       - api
     ports:
       - 9000:9000
     volumes: 
-      - ./das-web:/var/www/das
+      - ../das-web:/var/www/das
 
   api:
     image: das/server
     container_name: das_api
     build:
-      context: ./das
+      context: .
       dockerfile: docker/API/Dockerfile
     links:
       - postgis
@@ -26,14 +26,14 @@ services:
     ports:
       - 8000:8000
     volumes: 
-      - ./das/das:/var/www/das
-      - ./das/dependencies:/workspace/dependencies
+      - ./das:/var/www/das
+      - ./dependencies:/workspace/dependencies
 
   postgis:
     image: das/postgis
     container_name: das_postgis
     build:
-      context: ./das
+      context: .
       dockerfile: docker/PostGIS/Dockerfile
 
   redis:

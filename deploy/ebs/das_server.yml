@@ -327,8 +327,6 @@ app:
                             command: "mkdir -p /var/media/mbtiles; chown wsgi /var/media; chown wsgi /var/media/mbtiles"
                           05-make-tmp-cache-dir:
                             command: "mkdir -p /tmp/django_cache; chown wsgi /tmp/django_cache"
-                          06-make-tmp-raster-dir:
-                            command: "mkdir -p /tmp/raster; chown wsgi /tmp/raster"
                           07-mod-proxy-protocol:
                             command: "if [ ! -e /etc/httpd/modules/mod_proxy_protocol.so ]; then cd /opt; git clone https://github.com/roadrunner2/mod-proxy-protocol.git; cd mod-proxy-protocol; apxs -i -a -c mod_proxy_protocol.c; fi"
                           08-fix-ld:

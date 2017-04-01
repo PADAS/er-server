@@ -50,7 +50,6 @@ INSTALLED_APPS = (
     'oauth2_provider',
     'rest_framework',
     'rest_framework_swagger',
-    'raster',
     'observations',
     'analyzers',
     'das_server',
@@ -302,8 +301,6 @@ CACHES = {
         'LOCATION': '/tmp/django_cache',
     }
 }
-
-RASTER_WORKDIR = '/tmp/raster'
 
 '''
 Associate a plugin name with a plugin-configuration dict that will override the plugin's configuration in the database.
