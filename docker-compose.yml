@@ -1,33 +1,62 @@
 version: "3"
 
 services:
+  nginx:
+    image: das/nginx
+    container_name: das_nginx
+    build:
+      context: .
+      dockerfile: docker/Nginx/Dockerfile
+    links:
+      - api:api
+      - rt_api:rt_api
+    ports:
+      - 8000:8000
+    volumes:
+      - ./default.conf:/etc/nginx/conf.d/default.conf
+
   web:
     image: das/web
     container_name: das_web
     build:
       context: ../das-web
       dockerfile: docker/Dockerfile
-    links: 
-      - api
+
     ports:
       - 9000:9000
     volumes: 
       - ../das-web:/var/www/das
 
-  api:
+  api: &das_api
     image: das/server
     container_name: das_api
     build:
       context: .
       dockerfile: docker/API/Dockerfile
+    volumes:
+      - ./das:/var/www/das
+      - ./dependencies:/workspace/dependencies
+    env_file:
+      - django.env
     links:
       - postgis
       - redis
-    ports:
-      - 8000:8000
-    volumes: 
-      - ./das:/var/www/das
-      - ./dependencies:/workspace/dependencies
+
+  rt_api:
+    <<: *das_api
+    container_name: das_rt_api
+    working_dir: /var/www/das
+    #entrypoint: /usr/bin/gunicorn --worker-class eventlet rt_wsgi.py:application -w 1 -b :8000
+    environment:
+      - EVENTLET_SHOULDPATCH=True
+    entrypoint: python3 manage.py rtserver 0.0.0.0:8000
+
+  mql:
+    <<: *das_api
+    container_name: das_mql
+    working_dir: /var/www/das
+    entrypoint: python3 manage.py message_queue_listeners
+    ports: []
 
   postgis:
     image: das/postgis

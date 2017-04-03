@@ -12,20 +12,6 @@ SECRET_KEY = 'aefefsfees'
 DEBUG = True
 TEMPLATE_DEBUG = True
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'das',
-        'USER': 'das',
-        'HOST': 'postgis',
-        'PASSWORD': 'password',
-    }
-}
-
-
-GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'
-GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 DEV = True
@@ -50,13 +36,6 @@ _test_fixtures = ('%s/tests/fixtures' % x for x in ('observations',
                                                     'mapping',
                                                     'das_server'))
 FIXTURE_DIRS = list(os.path.join(BASE_DIR, x) for x in _test_fixtures)
-
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
-    }
-}
 
 
 #MIDDLEWARE_CLASSES = MIDDLEWARE_CLASSES + ('django_ses',)

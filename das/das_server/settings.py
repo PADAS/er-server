@@ -34,7 +34,6 @@ DEV = False
 
 INSTALLED_APPS = (
     'accounts.apps.AccountsConfig',
-    #'suit',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,7 +41,6 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
-    #'django.contrib.sites',
     'versatileimagefield',
     'storages',
     'treebeard',
@@ -196,24 +194,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': 'das',
-        'USER': 'postgres',
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
-    },
-    # Optional, use to import vectroincs data into das
-    # 'vectronics': {
-    #     'ENGINE': 'django.contrib.gis.db.backends.postgis',
-    #     'NAME': 'gpsplus_wildlife',
-    #     'USER': 'vect_owner',
-    # }
-    #
-    # Optional, use to import STE data into das
-    # 'animaltracking': {
-    #     'ENGINE': 'django.contrib.gis.db.backends.postgis',
-    #     'NAME': 'AnimalTracking',
-    #     'USER': 'postgres',
-    # },
+        'USER': 'das',
+        'HOST': 'postgis',
+        'PASSWORD': 'password',
+    }
 }
 
 DATABASE_ROUTERS = [
@@ -297,8 +281,8 @@ GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
 
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
-        'LOCATION': '/tmp/django_cache',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
     }
 }
 
@@ -311,9 +295,9 @@ DATA_INPUT_PLUGINS = {
 #would want to set this to where you might have some MBTiles maps
 MAPPING = {'MBTILES': {'root': r'/tmp',}}
 
-REALTIME_BROKER_URL = 'redis://localhost:6379/2'
+REALTIME_BROKER_URL = 'redis://redis:6379/2'
 REALTIME_BROKER_OPTIONS = {'max_connections': 200}
-PUBSUB_BROKER_URL = 'redis://localhost:6379/1'
+PUBSUB_BROKER_URL = 'redis://redis:6379/1'
 PUBSUB_BROKER_OPTIONS = {'max_connections': 200}
 
 # the address to send notification emails from
