@@ -110,6 +110,7 @@ class EventCategory(TimestampedModel):
             ('security_events', 'Permission to see security events'),
             ('standard_events', 'Permission to see reporting events.'),
         )
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
@@ -294,6 +295,7 @@ class EventRelationship(TimestampedModel):
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
     objects = EventRelationshipManager()
+    name = 'Event Relationship'
 
     class Meta:
         unique_together = ('type', 'from_event', 'to_event')
@@ -375,10 +377,23 @@ class Event(RevisionMixin, TimestampedModel):
 
     class Meta:
         permissions = (
-            ('view_event',
-             'Permission to view an event'),
-            ('admin_event',
-             'An admin permission to change which users can view a Subject and their view permission.'),
+            ('view_event', 'Permission to view an event'),
+            ('admin_event', 'An admin permission to change which users can view a Subject and their view permission.'),
+
+            ('security_create', 'Create security reports'),
+            ('security_read', 'View security reports'),
+            ('security_update', 'Modify security reports'),
+            ('security_delete', 'Delete security reports'),
+
+            ('standard_create', 'Create monitoring reports'),
+            ('standard_read', 'View monitoring reports'),
+            ('standard_update', 'Modify monitoring reports'),
+            ('standard_delete', 'Delete monitoring reports'),
+
+            ('logistics_create', 'Create logistics reports'),
+            ('logistics_read', 'View logistics reports'),
+            ('logistics_update', 'Modify logistics reports'),
+            ('logistics_delete', 'Delete logistics reports'),
         )
 
     class ReadonlyMeta:
