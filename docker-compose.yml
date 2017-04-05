@@ -27,8 +27,8 @@ services:
     volumes: 
       - ../das-web:/var/www/das
 
-  api: &das_api
-    image: das/server
+  api:
+    image: das/api
     container_name: das_api
     build:
       context: .
@@ -36,41 +36,61 @@ services:
     volumes:
       - ./das:/var/www/das
       - ./dependencies:/workspace/dependencies
-    env_file:
-      - django.env
     links:
       - postgis
       - redis
 
   rt_api:
-    <<: *das_api
+    image: das/rt_api
     container_name: das_rt_api
-    working_dir: /var/www/das
-    #entrypoint: /usr/bin/gunicorn --worker-class eventlet rt_wsgi.py:application -w 1 -b :8000
-    environment:
-      - EVENTLET_SHOULDPATCH=True
-    entrypoint: python3 manage.py rtserver 0.0.0.0:8000
+    build:
+      context: .
+      dockerfile: docker/RT_API/Dockerfile
+    volumes:
+      - ./das:/var/www/das
+      - ./dependencies:/workspace/dependencies
+    links:
+      - postgis
+      - redis
 
   mql:
-    <<: *das_api
+    image: das/mql
     container_name: das_mql
-    working_dir: /var/www/das
-    entrypoint: python3 manage.py message_queue_listeners
-    ports: []
+    build:
+      context: .
+      dockerfile: docker/MQL/Dockerfile
+    volumes:
+      - ./das:/var/www/das
+      - ./dependencies:/workspace/dependencies
+    links:
+      - postgis
+      - redis
 
   worker:
-    <<: *das_api
+    image: das/worker
     container_name: das_worker
-    working_dir: /var/www/das
-    entrypoint: celery -A das_server worker -l info
-    ports: []
+    build:
+      context: .
+      dockerfile: docker/Worker/Dockerfile
+    volumes:
+      - ./das:/var/www/das
+      - ./dependencies:/workspace/dependencies
+    links:
+      - postgis
+      - redis
 
   beat:
-    <<: *das_api
+    image: das/beat
     container_name: das_beat
-    working_dir: /var/www/das
-    entrypoint: celery -A das_server beat -l info -s /tmp/celerybeat-schedule
-    ports: []
+    build:
+      context: .
+      dockerfile: docker/Beat/Dockerfile
+    volumes:
+      - ./das:/var/www/das
+      - ./dependencies:/workspace/dependencies
+    links:
+      - postgis
+      - redis
 
   postgis:
     image: das/postgis

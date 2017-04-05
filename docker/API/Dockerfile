@@ -27,5 +27,6 @@ RUN pip3 install -r /workspace/dependencies/requirements-dev.txt
 ADD ./das /var/www/das
 VOLUME /tmp
 
-ENTRYPOINT ["/var/www/das/startapp.sh"]
+ENV DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
+CMD ["/var/www/das/startapp.sh"]
 EXPOSE 8000
