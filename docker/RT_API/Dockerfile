@@ -1,9 +1,4 @@
-FROM das/api
-
-WORKDIR /var/www/das
-
+FROM das/base
 ENV EVENTLET_SHOULDPATCH=True
-
-#CMD /usr/bin/gunicorn --worker-class eventlet rt_wsgi.py:application -w 1 -b :8000
-CMD ["python3", "manage.py", "rtserver", "0.0.0.0:8000"]
+ADD ./start.sh /var/www/das/start.sh
 EXPOSE 8000

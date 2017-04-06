@@ -12,7 +12,7 @@ WORKDIR /workspace
 
 RUN rm -v /etc/nginx/nginx.conf
 RUN rm -v /etc/nginx/sites-enabled/default
-ADD ./docker/Nginx/nginx.conf /etc/nginx/
+ADD ./nginx.conf /etc/nginx/
 
 ENTRYPOINT ["/usr/sbin/nginx",  "-g", "daemon off;"]
 EXPOSE 8000

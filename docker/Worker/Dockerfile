@@ -1,4 +1,2 @@
-FROM das/api
-
-WORKDIR /var/www/das
-CMD ["celery", "-A das_server", "worker", "-l info"]
+FROM das/base
+ADD ./start.sh /var/www/das/start.sh

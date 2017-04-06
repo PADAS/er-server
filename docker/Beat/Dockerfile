@@ -1,4 +1,2 @@
-FROM das/api
-
-WORKDIR /var/www/das
-CMD ["celery", "-A das_server", "beat", "-l info", "-s /tmp/celerybeat-schedule"]
+FROM das/base
+ADD ./start.sh /var/www/das/start.sh
