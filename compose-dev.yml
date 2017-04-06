@@ -27,6 +27,7 @@ services:
       - ./docker/MQL/start.sh:/var/www/das/start.sh
 
   worker:
+    volumes:
       - ./das:/var/www/das
       - ./dependencies:/workspace/dependencies
       - ./docker/base/wait_for.sh:/var/www/das/wait_for.sh
