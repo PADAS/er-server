@@ -3,10 +3,8 @@ MAINTAINER Chris Doehring, chrisdo@vulcan.com & Matt Korwel, mattko@vulcan.com
 
 RUN apt-get update \
     && apt-get install -y \
-    nginx \
     git \
     libpq-dev \
-    ssh \
     python3-pip \
     && apt-get autoremove \
     && apt-get clean
