@@ -34,7 +34,6 @@ DEV = False
 
 INSTALLED_APPS = (
     'accounts.apps.AccountsConfig',
-    #'suit',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,7 +41,6 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
-    #'django.contrib.sites',
     'versatileimagefield',
     'storages',
     'treebeard',
@@ -50,7 +48,6 @@ INSTALLED_APPS = (
     'oauth2_provider',
     'rest_framework',
     'rest_framework_swagger',
-    'raster',
     'observations',
     'analyzers',
     'das_server',
@@ -197,24 +194,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': 'das',
-        'USER': 'postgres',
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
-    },
-    # Optional, use to import vectroincs data into das
-    # 'vectronics': {
-    #     'ENGINE': 'django.contrib.gis.db.backends.postgis',
-    #     'NAME': 'gpsplus_wildlife',
-    #     'USER': 'vect_owner',
-    # }
-    #
-    # Optional, use to import STE data into das
-    # 'animaltracking': {
-    #     'ENGINE': 'django.contrib.gis.db.backends.postgis',
-    #     'NAME': 'AnimalTracking',
-    #     'USER': 'postgres',
-    # },
+        'USER': 'das',
+        'HOST': 'postgis',
+        'PASSWORD': 'password',
+    }
 }
 
 DATABASE_ROUTERS = [
@@ -298,12 +281,10 @@ GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
 
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
-        'LOCATION': '/tmp/django_cache',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
     }
 }
-
-RASTER_WORKDIR = '/tmp/raster'
 
 '''
 Associate a plugin name with a plugin-configuration dict that will override the plugin's configuration in the database.
@@ -314,10 +295,42 @@ DATA_INPUT_PLUGINS = {
 #would want to set this to where you might have some MBTiles maps
 MAPPING = {'MBTILES': {'root': r'/tmp',}}
 
-REALTIME_BROKER_URL = 'redis://localhost:6379/2'
+REALTIME_BROKER_URL = 'redis://redis:6379/2'
 REALTIME_BROKER_OPTIONS = {'max_connections': 200}
-PUBSUB_BROKER_URL = 'redis://localhost:6379/1'
+PUBSUB_BROKER_URL = 'redis://redis:6379/1'
 PUBSUB_BROKER_OPTIONS = {'max_connections': 200}
+
+#Celery Settings
+CELERY_BROKER_URL = 'redis://redis:6379'
+
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ENABLE_UTC = True
+CELERY_TIMEZONE = 'US/Pacific'
+
+CELERY_REDIS_MAX_CONNECTIONS = 500
+CELERY_MAX_TASKS_PER_CHILD = 100
+
+CELERY_RESULT_PERSISTENT = False
+CELERY_TASK_RESULT_EXPIRES = 300
+CELERY_IGNORE_RESULT = True
+CELERY_STORE_ERRORS_EVEN_IF_IGNORED = True
+# TODO: update in production
+CELERY_CELERYD_PREFETCH_MULTIPLIER = 1
+# Enables error emails.
+CELERY_SEND_TASK_ERROR_EMAILS = False
+
+CELERY_DEFAULT_QUEUE = 'default'
+CELERY_DEFAULT_EXCHANGE = 'default'
+CELERY_DEFAULT_ROUTING_KEY = 'default'
+
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'visibility_timeout': 3600,
+    'fanout_prefix': True
+}
+
 
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'

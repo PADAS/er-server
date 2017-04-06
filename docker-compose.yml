@@ -1,40 +1,59 @@
 version: "3"
 
 services:
+  nginx:
+    image: das/nginx
+    container_name: das_nginx
+    links:
+      - api:api
+      - rt_api:rt_api
+    ports:
+      - 8000:8000
+
   web:
     image: das/web
     container_name: das_web
-    build:
-      context: ./das-web
-      dockerfile: docker/Dockerfile
-    links: 
-      - api
     ports:
       - 9000:9000
-    volumes: 
-      - ./das-web:/var/www/das
 
   api:
-    image: das/server
+    image: das/api
     container_name: das_api
-    build:
-      context: ./das
-      dockerfile: docker/API/Dockerfile
     links:
       - postgis
       - redis
-    ports:
-      - 8000:8000
-    volumes: 
-      - ./das/das:/var/www/das
-      - ./das/dependencies:/workspace/dependencies
+
+  rt_api:
+    image: das/rt_api
+    container_name: das_rt_api
+    links:
+      - postgis
+      - redis
+
+  mql:
+    image: das/mql
+    container_name: das_mql
+    links:
+      - postgis
+      - redis
+
+  worker:
+    image: das/worker
+    container_name: das_worker
+    links:
+      - postgis
+      - redis
+
+  beat:
+    image: das/beat
+    container_name: das_beat
+    links:
+      - postgis
+      - redis
 
   postgis:
     image: das/postgis
     container_name: das_postgis
-    build:
-      context: ./das
-      dockerfile: docker/PostGIS/Dockerfile
 
   redis:
     image: redis

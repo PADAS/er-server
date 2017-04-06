@@ -17,7 +17,7 @@ urlpatterns = (
     url(r'^featureset/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         FeatureSetGeoJsonView.as_view(), name='mapping-featureset-geojson'),
 
-    # a list of available base maps (from the raster app)
+    # a list of available base maps
     url(r'^maps/?$', MapListJsonView.as_view()),
 
     url(r'^mbtiles/(?P<name>%s)/(?P<z>(\d+|\{z\}))/(?P<x>(\d+|\{x\}))/(?P<y>(\d+|\{y\})).png$' % MBTILES_ID_PATTERN, tile, name="tile"),

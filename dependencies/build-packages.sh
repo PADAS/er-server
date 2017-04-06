@@ -1,20 +1,28 @@
-apt-get install  build-essential \
+apt-get update -y
+apt-get install -y build-essential \
                  software-properties-common \
                  ca-certificates \
                  gcc \
+                 autoconf \
+                 zip \
+                 checkinstall \
                  wget
 
-wget http://download.osgeo.org/proj/proj-4.9.2.tar.gz; tar -xzvf proj-4.9.2.tar.gz; cd proj-4.9.2; ./configure --prefix=/usr; make; checkinstall;
-cp proj-4.9.2/proj_4.9.2-1_amd64.deb .
-rm -rf proj-4.9.2
 
-wget http://download.osgeo.org/gdal/1.11.4/gdal-1.11.4.tar.gz; tar -xzvf gdal-1.11.4.tar.gz; cd gdal-1.11.4; ./configure --prefix=/usr; make; checkinstall;
-cp gdal-1.11.4/gdal_1.11.4-1_amd64.deb .
-rm -rf gdal-1.11.4
+wget http://download.osgeo.org/proj/proj-4.9.3.tar.gz; tar -xzvf proj-4.9.3.tar.gz; cd proj-4.9.3; ./configure --prefix=/usr; make; checkinstall -y;
+cd ..
+cp proj-4.9.3/proj_4.9.3-1_amd64.deb .
+rm -rf proj-4.9.3
 
-wget http://download.osgeo.org/geos/geos-3.5.0.tar.bz2; tar -xjf geos-3.5.0.tar.bz2; cd geos-3.5.0; ./configure; make; checkinstall;
-cp geos-3.5.0/geos-3.5.0-1_amd64.deb .
-rm -rf geos-3.5.0
+wget http://download.osgeo.org/gdal/2.1.3/gdal-2.1.3.tar.gz; tar -xzvf gdal-2.1.3.tar.gz; cd gdal-2.1.3; ./configure --prefix=/usr; make; checkinstall -y;
+cd ..
+cp gdal-2.1.3/gdal_2.1.3-1_amd64.deb .
+rm -rf gdal-2.1.3
+
+wget http://download.osgeo.org/geos/geos-3.6.1.tar.bz2; tar -xjf geos-3.6.1.tar.bz2; cd geos-3.6.1; ./configure; make; checkinstall -y;
+cd ..
+cp geos-3.6.1/geos_3.6.1-1_amd64.deb .
+rm -rf geos-3.6.1
 
 # RUN if [ ! -e /usr/lib/libproj.so ]; then \
 #   cd /opt; wget http://download.osgeo.org/proj/proj-4.9.2.tar.gz; tar -xzvf proj-4.9.2.tar.gz; cd proj-4.9.2; ./configure --prefix=/usr; make; make install; fi
@@ -24,3 +32,6 @@ rm -rf geos-3.5.0
 
 # RUN if [ ! -e /usr/local/lib/libgeos_c.so ]; then \
 #    cd /opt; wget http://download.osgeo.org/geos/geos-3.5.0.tar.bz2; tar -xjf geos-3.5.0.tar.bz2; cd geos-3.5.0; ./configure; make; make install; fi
+
+# Best practice is to clean up packages before creating a docker image
+#apt-get clean && rm -rf /var/lib/apt/lists/*
