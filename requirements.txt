@@ -37,8 +37,7 @@ django-raster==0.2
 git+https://github.com/Julian/jsonschema.git@20ff43fe6b6ec047acfe71c75838323ea9185051
 django-sendsms
 
-GDAL==1.11.2; sys_platform!='win32'
-GDAL==1.11.4; sys_platform=='win32'
+GDAL>=2.1.2
 pyproj==1.9.5
 # Under windows add appropriate path'ed Environment Variables
 #GDAL_DATA=C:\projects\das\dasvir\Lib\site-packages\osgeo\data\gdal
