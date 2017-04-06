@@ -660,7 +660,6 @@ def import_subject_group(group_name, query):
         return
 
     subject_group = observations.models.SubjectGroup.objects.get_or_create(name=group_name)[0]
-    subject_group.subjects.clear()
 
     for chronofile_member in result['group_members']:
 
@@ -678,7 +677,8 @@ def import_subject_group(group_name, query):
         if not subject:
             logger.warn("could not find subject")
             continue
-        subject.groups.add(subject_group)
+        if subject_group not in subject.groups.all():
+            subject.groups.add(subject_group)
 
 
 def import_all_users():
