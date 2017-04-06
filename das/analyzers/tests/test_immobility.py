@@ -45,8 +45,7 @@ class TestImmobilityAnalyzer(TestCase):
                 'test/observations_subject_source.json', 'test/observations_observation.json']
 
     def setUp(self):
-
-        source = models.Source.objects.get(id='a91e0366-898c-475b-830f-e0fae46e6efe')
+        pass
 
 
     def test_ishango_immobile(self):
