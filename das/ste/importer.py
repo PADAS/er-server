@@ -247,6 +247,10 @@ def import_trackinguser(userid):
             subject_group = observations.models.SubjectGroup.objects.get(name=group_name)
             subject_group.permission_sets.add(permission_set)
             user.permission_sets.add(permission_set)
+            if group_name == 'everything':
+                aircraft_perms = accounts.models.PermissionSet.objects.get(name='View Aircraft')
+                if aircraft_perms is not None:
+                    user.permission_sets.add(aircraft_perms)
         except observations.models.SubjectGroup.DoesNotExist:
             continue
 
