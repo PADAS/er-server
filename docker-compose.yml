@@ -4,120 +4,57 @@ services:
   nginx:
     image: das/nginx
     container_name: das_nginx
-    build:
-      context: ./docker/Nginx
     links:
       - api:api
       - rt_api:rt_api
     ports:
       - 8000:8000
-    volumes:
-      - ./default.conf:/etc/nginx/conf.d/default.conf
 
   web:
     image: das/web
     container_name: das_web
-    build:
-      context: ../das-web
-      dockerfile: docker/Dockerfile
-
     ports:
       - 9000:9000
-    volumes: 
-      - ../das-web:/var/www/das
 
   api:
     image: das/api
     container_name: das_api
-    build:
-      context: ./docker/API/
-    volumes:
-      - ./das:/var/www/das
-      - ./dependencies:/workspace/dependencies
-      - ./docker/base/wait_for.sh:/var/www/das/wait_for.sh
-      - ./docker/API/start.sh:/var/www/das/start.sh
     links:
       - postgis
       - redis
-    depends_on:
-      - base
 
   rt_api:
     image: das/rt_api
     container_name: das_rt_api
-    build:
-      context: ./docker/RT_API/
-    volumes:
-      - ./das:/var/www/das
-      - ./dependencies:/workspace/dependencies
-      - ./docker/base/wait_for.sh:/var/www/das/wait_for.sh
-      - ./docker/RT_API/start.sh:/var/www/das/start.sh
     links:
       - postgis
       - redis
-    depends_on:
-      - base
 
   mql:
     image: das/mql
     container_name: das_mql
-    build:
-      context: ./docker/MQL
-    volumes:
-      - ./das:/var/www/das
-      - ./dependencies:/workspace/dependencies
-      - ./docker/base/wait_for.sh:/var/www/das/wait_for.sh
-      - ./docker/MQL/start.sh:/var/www/das/start.sh
     links:
       - postgis
       - redis
-    depends_on:
-      - base
 
   worker:
     image: das/worker
     container_name: das_worker
-    build:
-      context: ./docker/Worker
-    volumes:
-      - ./das:/var/www/das
-      - ./dependencies:/workspace/dependencies
-      - ./docker/base/wait_for.sh:/var/www/das/wait_for.sh
-      - ./docker/Worker/start.sh:/var/www/das/start.sh
     links:
       - postgis
       - redis
-    depends_on:
-      - base
 
   beat:
     image: das/beat
     container_name: das_beat
-    build:
-      context: docker/Beat
-    volumes:
-      - ./das:/var/www/das
-      - ./dependencies:/workspace/dependencies
-      - ./docker/base/wait_for.sh:/var/www/das/wait_for.sh
-      - ./docker/Beat/start.sh:/var/www/das/start.sh
     links:
       - postgis
       - redis
-    depends_on:
-      - base
 
   postgis:
     image: das/postgis
     container_name: das_postgis
-    build:
-      context: docker/PostGIS
 
   redis:
     image: redis
     container_name: das_redis
-
-  base:
-    image: das/base
-    build:
-      context: ./
-      dockerfile: ./docker/base/Dockerfile

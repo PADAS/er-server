@@ -1,6 +1,5 @@
 #!/bin/sh
-source ./wait_for.sh
-
+. ./wait_for.sh
 wait_for
 
 python3 manage.py migrate
