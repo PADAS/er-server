@@ -228,8 +228,10 @@ class EventManager(models.Manager):
                     yield community
 
     def new_count(self):
-        return self.filter(state=Event.SC_NEW).count()
+        return self.new().count()
 
+    def new(self):
+        return self.filter(state=Event.SC_NEW)
 
 
 class EventRelationshipType(models.Model):
