@@ -5,7 +5,7 @@ from django.test import TestCase
 import pytz
 
 from analyzers.models.immobility import ImmobilityAnalyzer
-from .immobility_test_data import ISHANGO_IMMOBILE
+from .immobility_test_data import *
 from observations.track import Track
 import observations.models
 from django.contrib.gis.db import models
@@ -41,41 +41,72 @@ def time_shift(items, start_time=None, time_key='recorded_at'):
 
 class TestImmobilityAnalyzer(TestCase):
 
-    fixtures = ['test/observations_source.json', 'test/observations_subject.json',
-                'test/observations_subject_source.json', 'test/observations_observation.json']
-
-    def setUp(self):
-        pass
-
-
     def test_ishango_immobile(self):
 
-        source = models.Source.objects.get(id='a91e0366-898c-475b-830f-e0fae46e6efe')
-        end = pytz.utc.localize(datetime.utcnow())
+        # Grab prepared observation list from test data.
+        test_observations = ISHANGO_IMMOBILE
 
-        for item in time_shift(ISHANGO_IMMOBILE):
+        # Create models (Subject, SubjectSource and Source)
+        sub = models.Subject.objects.create(name='Ishango', subject_type='wildlife', subject_subtype= 'elephant')
+        source = models.Source.objects.create(manufacturer_id='ishango-collar')
+        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+
+        # Create observations in database, so the Analyzer will find them.
+        for item in time_shift(test_observations):
 
             recorded_at = item['recorded_at']
             location = Point(x=item['longitude'], y=item['latitude'])
             obs = models.Observation.objects.create(recorded_at=recorded_at,
                                              location=location,
                                                     source=source, additional={})
-            if obs.recorded_at > end:
-                break
 
-        ia = ImmobilityAnalyzer.objects.create(subject_id='9342973f-b369-4d21-9f1f-ae89d523e05a', threshold_time=1000)
+        # Create the new analyzer with the Subject we're interested in.
+        ia = ImmobilityAnalyzer.objects.create(subject=sub, threshold_time=1800)
 
-        test_subject = models.Subject.objects.get(id='9342973f-b369-4d21-9f1f-ae89d523e05a')
-        print (test_subject)
+        # Analyze
+        r = ia.analyze()
+
+        # Assert
+        self.assertAlmostEqual(29.77662635, r.position.x, places=5)
+        self.assertAlmostEqual(-0.2370999999, r.position.y, places=5)
+        self.assertEqual(r.level, 20)
+
+    def test_emmanuel_immobile(self):
+
+        test_observations = EMMANUEL_IMMOBILE
+
+        sub = models.Subject.objects.create(name='Emmanuel', subject_type='wildlife', subject_subtype= 'elephant')
+        source = models.Source.objects.create(manufacturer_id='emmanuel-collar')
+        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+
+        for item in time_shift(test_observations):
+
+            recorded_at = item['recorded_at']
+            location = Point(x=item['longitude'], y=item['latitude'])
+            obs = models.Observation.objects.create(recorded_at=recorded_at,
+                                             location=location,
+                                                    source=source, additional={})
+
+
+        ia = ImmobilityAnalyzer.objects.create(subject=sub, threshold_time=1800)
 
         r = ia.analyze()
 
-        print(r)
+        print (r.level, r.position.x, r.position.y)
+        self.assertAlmostEqual(29.821741, r.position.x, places=5)
+        self.assertAlmostEqual(-0.428036, r.position.y, places=5)
+        self.assertEqual(r.level, 20)
 
     def test_random(self):
+        '''
+        This test is just for fun. No assertions take place.
+        :return: 
+        '''
+        sub = models.Subject.objects.create(name='Random Guy', subject_type='wildlife', subject_subtype= 'elephant')
+        source = models.Source.objects.create(manufacturer_id='random-guy-collar')
+        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
 
         n = pytz.utc.localize(datetime.utcnow())
-        source = models.Source.objects.get(id='a91e0366-898c-475b-830f-e0fae46e6efe')
         positions = generate_random_positions()
         positions.send(None)
         while True:
@@ -87,13 +118,9 @@ class TestImmobilityAnalyzer(TestCase):
             if obs.recorded_at > n:
                 break
 
-        ia = ImmobilityAnalyzer.objects.create(subject_id='9342973f-b369-4d21-9f1f-ae89d523e05a', threshold_time=1000)
-
-        test_subject = models.Subject.objects.get(id='9342973f-b369-4d21-9f1f-ae89d523e05a')
-        print (test_subject)
+        ia = ImmobilityAnalyzer.objects.create(subject=sub, threshold_time=1800)
 
         r = ia.analyze()
-
         print(r)
 
 
