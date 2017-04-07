@@ -2,18 +2,15 @@ version: "3"
 
 services:
   nginx:
-    image: das/nginx
     build:
       context: ./docker/Nginx
       
   web:
-    image: das/web
     build:
       context: ../das-web
       dockerfile: docker/Dockerfile
 
   api:
-    image: das/api
     container_name: das_api
     build:
       context: ./docker/API/
@@ -21,7 +18,6 @@ services:
       - base
 
   rt_api:
-    image: das/rt_api
     container_name: das_rt_api
     build:
       context: ./docker/RT_API/
@@ -29,7 +25,6 @@ services:
       - base
 
   mql:
-    image: das/mql
     container_name: das_mql
     build:
       context: ./docker/MQL
@@ -37,7 +32,6 @@ services:
       - base
 
   worker:
-    image: das/worker
     container_name: das_worker
     build:
       context: ./docker/Worker
@@ -45,7 +39,6 @@ services:
       - base
 
   beat:
-    image: das/beat
     container_name: das_beat
     build:
       context: docker/Beat
@@ -53,13 +46,12 @@ services:
       - base
 
   postgis:
-    image: das/postgis
     container_name: das_postgis
     build:
       context: docker/PostGIS
       
   base:
-    image: das/base
+    image: grc.io/padas-app/base
     build:
       context: ./
       dockerfile: ./docker/base/Dockerfile
