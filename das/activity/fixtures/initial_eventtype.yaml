@@ -270,7 +270,7 @@
   pk: 77dfdc9a-026f-4841-9e27-91836992560a
   fields: {created_at: !!timestamp '2016-09-28 22:42:18.795104+00:00', updated_at: !!timestamp '2016-10-08
       00:05:27.506842+00:00', value: logistics_stuff_happened, display: Logistics Stuff Happened,
-    category: 268772c6-c039-43e4-b1d0-f2c9da08d2e4, ordernum: 111, schema: "{\r\n\
+    category: baf67553-0fbf-42f8-b30c-d51c3e246e0b, ordernum: 111, schema: "{\r\n\
       \    \"schema\": {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
       ,\r\n        \"title\": \"EventType Test Data\",\r\n      \r\n        \"type\"\
       : \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n  \t    \"blackRhinos\"\

@@ -1,4 +1,5 @@
-from rest_framework.permissions import DjangoObjectPermissions, DjangoModelPermissions
+from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions
+from activity.models import EventType
 
 
 class EventObjectPermissions(DjangoModelPermissions):
@@ -25,7 +26,7 @@ class EventObjectPermissions(DjangoModelPermissions):
         'DELETE': delete_perms,
     }
 
-class EventCategoryPermissions(DjangoObjectPermissions):
+class EventCategoryPermissions(IsAuthenticated):
 
     http_method_map = {
         'GET': 'read',
@@ -36,6 +37,24 @@ class EventCategoryPermissions(DjangoObjectPermissions):
         'PATCH': 'update',
         'DELETE': 'delete',
     }
+
+    def has_permission(self, request, view):
+        # These methods are allowed for everyone
+        if request.method in ['OPTIONS', 'HEAD']:
+            super().has_permission(request, view)
+
+        # If they're trying to make a new event, we need to check the type here
+        if request.method == 'POST':
+            # TODO: check event data to see the type, look up the category
+            type = EventType.objects.get_by_natural_key(request.data['event_type'])
+            permission_name = 'activity.{0}_{1}'.format(
+                type.category.value,
+                'create'
+            )
+            return request.user.has_perm(permission_name)
+
+        # Otherwise, let it through here and check at the object level later on
+        return super().has_permission(request, view)
 
     def has_object_permission(self, request, view, obj):
 
