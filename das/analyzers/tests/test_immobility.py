@@ -1,120 +1,126 @@
 import copy
 from datetime import datetime, timedelta
-
+import dateutil.parser as dp
 from django.test import TestCase
 import pytz
 
 from analyzers.models.immobility import ImmobilityAnalyzer
-from analyzers.models.analyzer import NOMINAL, WARNING, CRITICAL
+from .immobility_test_data import *
 from observations.track import Track
 import observations.models
+from django.contrib.gis.db import models
+from django.contrib.gis.geos import Point, Polygon
+import random
+import copy
 
+from observations import models
+
+
+def generate_random_positions(start_time=None, x=37.5, y=1.41):
+    recorded_at = start_time or pytz.utc.localize(datetime.utcnow()) - timedelta(hours=24)
+
+    while True:
+        yield recorded_at, Point(x=x, y=y)
+        x += (random.random()  - 0.5)/10000
+        y += (random.random()  - 0.5)/10000
+        recorded_at = recorded_at + timedelta(minutes=30)
+
+
+def time_shift(items, start_time=None, time_key='recorded_at'):
+    fake_start = start_time or pytz.utc.localize(datetime.utcnow()) - timedelta(hours=24)
+    for i, item in enumerate(items):
+        if i == 0:
+            actual_start = dp.parse(item[time_key])
+            fake_time = fake_start
+        else:
+            fake_time = (dp.parse(item[time_key]) - actual_start) + fake_start
+
+        new_item = copy.copy(item)
+        new_item[time_key] = fake_time
+        yield new_item
 
 class TestImmobilityAnalyzer(TestCase):
 
-    fixtures = ['test/observations_source.json', 'test/observations_subject.json',
-                'test/observations_subject_source.json', 'test/observations_observation.json']
+    def test_ishango_immobile(self):
 
-    def setUp(self):
+        # Grab prepared observation list from test data.
+        test_observations = ISHANGO_IMMOBILE
 
-        self.n_points = 50
+        # Create models (Subject, SubjectSource and Source)
+        sub = models.Subject.objects.create(name='Ishango', subject_type='wildlife', subject_subtype= 'elephant')
+        source = models.Source.objects.create(manufacturer_id='ishango-collar')
+        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
 
-        mobile_points = [
-            [200 * i * 10 ** -6, 0]
-            for i in range(self.n_points)
-        ]
+        # Create observations in database, so the Analyzer will find them.
+        for item in time_shift(test_observations):
 
-        # dead track
-        immobile_points = [
-            [0, 0]
-            for i in range(self.n_points)
-        ]
+            recorded_at = item['recorded_at']
+            location = Point(x=item['longitude'], y=item['latitude'])
+            obs = models.Observation.objects.create(recorded_at=recorded_at,
+                                             location=location,
+                                                    source=source, additional={})
 
-        immobile_points_with_outliers = copy.deepcopy(immobile_points)
+        # Create the new analyzer with the Subject we're interested in.
+        ia = ImmobilityAnalyzer.objects.create(subject=sub, threshold_time=1800)
 
-        # insert noise:
-        immobile_points_with_outliers[49][0] = immobile_points_with_outliers[49][0] + .0004
+        # Analyze
+        r = ia.analyze()
 
-        times = [
-            datetime(2000,1,1,0,0,0,tzinfo=pytz.utc) + timedelta(hours=i)
-            for i in range(self.n_points)
-        ]
+        # Assert
+        self.assertAlmostEqual(29.77662635, r.position.x, places=5)
+        self.assertAlmostEqual(-0.2370999999, r.position.y, places=5)
+        self.assertEqual(r.level, 20)
 
-        self.mobile_track = Track(mobile_points, times)
-        self.immobile_track = Track(immobile_points, times)
-        self.immobile_track_with_outliers = Track(immobile_points_with_outliers, times)
+    def test_emmanuel_immobile(self):
+
+        test_observations = EMMANUEL_IMMOBILE
+
+        sub = models.Subject.objects.create(name='Emmanuel', subject_type='wildlife', subject_subtype= 'elephant')
+        source = models.Source.objects.create(manufacturer_id='emmanuel-collar')
+        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+
+        for item in time_shift(test_observations):
+
+            recorded_at = item['recorded_at']
+            location = Point(x=item['longitude'], y=item['latitude'])
+            obs = models.Observation.objects.create(recorded_at=recorded_at,
+                                             location=location,
+                                                    source=source, additional={})
 
 
-    def test_generic(self):
-
-        f = observations.models.SubjectTrackSegmentFilter(subject_type='elephant')
-        ia = ImmobilityAnalyzer.objects.create(subject_id='9342973f-b369-4d21-9f1f-ae89d523e05a', threshold_time=1000)
+        ia = ImmobilityAnalyzer.objects.create(subject=sub, threshold_time=1800)
 
         r = ia.analyze()
 
+        print (r.level, r.position.x, r.position.y)
+        self.assertAlmostEqual(29.821741, r.position.x, places=5)
+        self.assertAlmostEqual(-0.428036, r.position.y, places=5)
+        self.assertEqual(r.level, 20)
+
+    def test_random(self):
+        '''
+        This test is just for fun. No assertions take place.
+        :return: 
+        '''
+        sub = models.Subject.objects.create(name='Random Guy', subject_type='wildlife', subject_subtype= 'elephant')
+        source = models.Source.objects.create(manufacturer_id='random-guy-collar')
+        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+
+        n = pytz.utc.localize(datetime.utcnow())
+        positions = generate_random_positions()
+        positions.send(None)
+        while True:
+
+            recorded_at, location = positions.send(None)
+            obs = models.Observation.objects.create(recorded_at=recorded_at,
+                                             location=location,
+                                                    source=source, additional={})
+            if obs.recorded_at > n:
+                break
+
+        ia = ImmobilityAnalyzer.objects.create(subject=sub, threshold_time=1800)
+
+        r = ia.analyze()
         print(r)
 
-    def xtest_immobility_analyzer_is_mobile(self):
-        """
-        Test a mobile Track
-        """
 
-        immobility_analyzer = ImmobilityAnalyzer()
-        analyzer_result = immobility_analyzer.analyze(self.mobile_track)
-
-        expected = NOMINAL
-        actual = analyzer_result.level
-
-        self.assertEqual(actual, expected, 'actual value: {}'.format(analyzer_result.value))
-
-    def xtest_immobility_analyzer_is_critical_immobile(self):
-        """
-        Test an immobile Track
-        """
-
-        analyzer = ImmobilityAnalyzer()
-        analyzer_result = analyzer.analyze(self.immobile_track)
-
-        actual = analyzer_result.level
-        expected = CRITICAL
-
-        self.assertEqual(actual, expected)
-
-    def xtest_immobility_analyzer_is_warning_immobile(self):
-        """
-        Test an immobile Track
-        """
-        analyzer = ImmobilityAnalyzer()
-        analyzer_result = analyzer.analyze(self.immobile_track)
-
-        expected = CRITICAL
-        actual = analyzer_result.level
-
-        self.assertEqual(actual, expected, "actual value: {}".format(analyzer_result.value))
-
-    def xtest_immobility_analyzer_is_nominal_with_a_few_outliers_but_less_than_threshold_ratio(self):
-        """
-        Test an immobile Track with a few outliers, but less than the threshold ratio.  Should still
-        be classified as immobile.
-        """
-
-        analyzer = ImmobilityAnalyzer()
-        analyzer_result = analyzer.analyze(self.immobile_track_with_outliers)
-
-        expected = WARNING
-        actual = analyzer_result.level
-
-        self.assertEqual(actual, expected, "actual value: {}".format(analyzer_result.value))
-
-    def xtest_immobility_analyzer_is_warning_with_more_outliers_than_the_threshold_ratio(self):
-        """
-        Test an immobile Track with enough outliers to exceed threshold ratio.
-        """
-
-        analyzer = ImmobilityAnalyzer()
-        analyzer_result = analyzer.analyze(self.immobile_track_with_outliers)
-
-        expected = NOMINAL
-        actual = analyzer_result.level
-
-        self.assertEqual(actual, expected, "actual value: {}".format(analyzer_result.value))

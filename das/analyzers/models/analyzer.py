@@ -31,10 +31,7 @@ class Analyzer(models.Model):
     def name(self):
         return self.__class__.__name__
 
-    def analyze(self):
-        logger.info('%s analyzing', self.name)
-
-    def analyze(self,track):
+    def analyze(self,track=None):
         logger.info('%s analyzing', self.name)
 
     class Meta:
