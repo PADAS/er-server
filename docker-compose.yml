@@ -5,8 +5,8 @@ services:
     image: das/nginx
     container_name: das_nginx
     links:
-      - api:api
-      - rt_api:rt_api
+      - api
+      - rt_api
     ports:
       - 8000:8000
 
