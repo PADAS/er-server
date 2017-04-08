@@ -85,4 +85,4 @@ lxml==3.6.4
 #needed for production build with chef
 --find-links /var/www/das/das/wheelhouse
 # Analyzers require the pymet library
-pymet==0.1.4
+pymet==0.1.3
