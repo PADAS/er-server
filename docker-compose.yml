@@ -2,7 +2,7 @@ version: "3"
 
 services:
   nginx:
-    image: das/nginx
+    image: gcr.io/padas-app/nginx
     container_name: das_nginx
     links:
       - api
@@ -11,48 +11,48 @@ services:
       - 8000:8000
 
   web:
-    image: das/web
+    image: gcr.io/padas-app/web
     container_name: das_web
     ports:
       - 9000:9000
 
   api:
-    image: das/api
+    image: gcr.io/padas-app/api
     container_name: das_api
     links:
       - postgis
       - redis
 
   rt_api:
-    image: das/rt_api
+    image: gcr.io/padas-app/rt_api
     container_name: das_rt_api
     links:
       - postgis
       - redis
 
   mql:
-    image: das/mql
+    image: gcr.io/padas-app/mql
     container_name: das_mql
     links:
       - postgis
       - redis
 
   worker:
-    image: das/worker
+    image: gcr.io/padas-app/worker
     container_name: das_worker
     links:
       - postgis
       - redis
 
   beat:
-    image: das/beat
+    image: gcr.io/padas-app/beat
     container_name: das_beat
     links:
       - postgis
       - redis
 
   postgis:
-    image: das/postgis
+    image: gcr.io/padas-app/postgis
     container_name: das_postgis
 
   redis:
