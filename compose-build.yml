@@ -51,7 +51,7 @@ services:
       context: docker/PostGIS
       
   base:
-    image: grc.io/padas-app/base
+    image: gcr.io/padas-app/base
     build:
       context: ./
       dockerfile: ./docker/base/Dockerfile
