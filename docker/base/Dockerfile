@@ -22,12 +22,12 @@ RUN pip3 install -U "pip"
 RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt
 RUN pip3 install -r /workspace/dependencies/requirements-dev.txt
 
-ADD ./das /var/www/das
+ADD ./das /var/www/app
 
 VOLUME /tmp
-WORKDIR /var/www/das
-ADD ./docker/base/wait_for.sh /var/www/das/wait_for.sh
+WORKDIR /var/www/app
+ADD ./docker/base/wait_for.sh /var/www/app/wait_for.sh
 
 ENV DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
-ADD ./docker/base/start.sh /var/www/das/start.sh
-ENTRYPOINT ["/var/www/das/start.sh"]
+ADD ./docker/base/start.sh /var/www/app/start.sh
+ENTRYPOINT ["/var/www/app/start.sh"]
