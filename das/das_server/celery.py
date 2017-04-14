@@ -10,23 +10,24 @@ from kombu import Exchange, Queue
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'das_server.settings')
 app = Celery('das_server')
-
+app.autodiscover_tasks()
 # Using a string here means the worker will not have to
 # pickle the object when using Windows.
+
 app.config_from_object('django.conf:settings', namespace='CELERY')
-app.autodiscover_tasks()
-
-default_exchange = Exchange(app.conf.CELERY_DEFAULT_EXCHANGE)
-
+default_exchange = Exchange(app.conf.task_default_exchange)
+# Celery 4 changed from UPPERCASE to lower with new names. we've updated them here, but not yet in settings.py
+# We want input from chis d et al.
+# read more here: http://docs.celeryproject.org/en/latest/userguide/configuration.html?highlight=CELERY_DEFAULT_QUEUE#std:setting-beat_schedule
 # Defining queues
-CELERY_QUEUES = (
-    Queue(app.conf.CELERY_DEFAULT_QUEUE, default_exchange, routing_key=app.conf.CELERY_DEFAULT_ROUTING_KEY),
+app.conf.task_queues = (
+    Queue(app.conf.task_default_queue, default_exchange, routing_key=app.conf.task_default_routing_key),
     Queue('realtime_p1', default_exchange, routing_key='realtime.tasks.p1'),
     Queue('realtime_p2', default_exchange, routing_key='realtime.tasks.p2'),
     Queue('realtime_p3', default_exchange, routing_key='realtime.tasks.p3'),
 )
 
-CELERY_ROUTES = {
+app.conf.task_routes = {
     'rt_api.tasks.handle_emit_data': {'routing_key': 'realtime.tasks.p1'},
     'rt_api.tasks.handle_new_event': {'routing_key': 'realtime.tasks.p2'},
     'rt_api.tasks.handle_update_event': {'routing_key': 'realtime.tasks.p2'},
@@ -37,7 +38,8 @@ CELERY_ROUTES = {
 
 
 # Defining scheduled tasks.
-CELERYBEAT_SCHEDULE = {
+
+app.conf.beat_schedule = {
     'plugins': {
       'task': 'tracking.tasks.run_plugins',
         'schedule': timedelta(minutes=5),
