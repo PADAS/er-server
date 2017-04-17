@@ -33,7 +33,7 @@ ET_OTHER = 'other'
 class TestSourcePlugin(TestCase):
     def setUp(self):
         super().setUp()
-        call_command('loaddata', 'initial_eventtype')
+        call_command('loaddata', 'initial_eventdata')
 
     def test_sentinel_user(self):
         user = get_sentinel_user()
@@ -55,7 +55,7 @@ class TestEventView(BaseAPITest):
     user_const = dict(last_name='last', first_name='first')
     def setUp(self):
         super().setUp()
-        call_command('loaddata', 'initial_eventtype')
+        call_command('loaddata', 'initial_eventdata')
         self.user = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True, **self.user_const)
         self.readonly_user = User.objects.create_user('readonly',
                                                       'readonly@test.com',
@@ -375,6 +375,20 @@ class TestEventView(BaseAPITest):
         response = views.EventRelationshipsView.as_view()(request, from_event_id=collection_id)
         print(response)
         self.assertEqual(response.status_code, 201)
+
+    def test_event_without_event_type(self):
+        event_data = {'message': 'this has no event type', 'priority': '200'}
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 400)
+
+        self.assertTrue('event_type' in response.data, 'I cannot find "event_type" in response data.')
+
+
+
 
 
 class TestSerializers(TestCase):

@@ -907,6 +907,10 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         if end_time is not None and end_time < self.instance.time:
             raise rest_framework.serializers.ValidationError('Event end_time must not be earlier than event time.')
 
+        # If we're creating an event, and event_type is not present in the request, raise ValidationError.
+        event_type = attrs.get('event_type')
+        if event_type is None and self.instance is None:
+            raise rest_framework.serializers.ValidationError({'event_type': 'Event type must be provided.'})
 
         return super().validate(attrs)
 
