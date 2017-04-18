@@ -31,7 +31,7 @@ ET_OTHER = 'other'
 
 ET_SECURITY = 'carcass'
 ET_STANDARD = 'rhino_birth'
-ET_LOGISTICS = 'logistics_stuff_happened'
+ET_LOGISTICS = 'snare'
 
 ### These permission lists are made up, and do not necessarily correspond to permission sets in production deployments
 # All perms user has... all perms
@@ -79,14 +79,6 @@ class TestEventView(BaseAPITest):
     def setUp(self):
         super().setUp()
         call_command('loaddata', 'initial_eventtype')
-        # self.user = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True, **self.user_const)
-        # self.readonly_user = User.objects.create_user('readonly',
-        #                                               'readonly@test.com',
-        #                                               'readonly', **self.user_const)
-        #
-        # self.user_rep = UserDisplaySerializer().to_representation(self.user)
-        # self.staff = Subject.objects.create(name='Ranger 2', additional={})
-        # self.staff_rep = SubjectSerializer().to_representation(self.staff)
 
         self.no_perms_user = User.objects.create_user('no_perms_user',
             'das_no_perms@vulcan.com', 'noperms', **self.user_const)
@@ -102,9 +94,6 @@ class TestEventView(BaseAPITest):
         self.all_perms_user = User.objects.create_user(
             'all_perms_user', 'das_all_perms@vulcan.com', 'all_perms_user',
             **self.user_const)
-
-
-
 
         self.event_data = dict(
             message=lorem_ipsum.paragraph(),
@@ -143,11 +132,6 @@ class TestEventView(BaseAPITest):
 
         self.user_rep = UserDisplaySerializer().to_representation(self.guest_user)
 
-        # self.event_set = PermissionSet.objects.create(name='eventset')
-        # self.event_set.permissions.add(
-        #     Permission.objects.get(codename='view_event'))
-        # self.readonly_user.permission_sets.add(self.event_set)
-
     def create_event(self, event_data):
         data = copy.deepcopy(event_data)
         if 'time' in event_data:
@@ -162,12 +146,13 @@ class TestEventView(BaseAPITest):
                 data['location'])
         return Event.objects.create_event(**data)
 
-    #     request = self.factory.get(self.api_base + '/events/schema')
-    #     self.force_authenticate(request, self.user)
-    #
-    #     response = views.EventSchemaView.as_view()(request)
-    #     response_data = response.data
-    #     self.assertEqual(response.status_code, 200)
+        request = self.factory.get(self.api_base + '/events/schema')
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventSchemaView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+
     def test_find_all_event_type_icons(self):
         for et in EventType.objects.all():
             for p in Event.PRIORITY_CHOICES:
@@ -319,6 +304,7 @@ class TestEventView(BaseAPITest):
 
         self.assertIn('security', category_values)
         self.assertIn('standard', category_values)
+        self.assertIn('logistics', category_values)
 
     def test_event_count(self):
         request = self.factory.get(self.api_base + '/events/count')
@@ -335,6 +321,23 @@ class TestEventView(BaseAPITest):
 
         response = views.EventCountView.as_view()(request)
         self.assertEqual(response.status_code, 403)
+
+    def test_event_count_by_category(self):
+        all_request = self.factory.get(self.api_base + '/events/count')
+        self.force_authenticate(all_request, self.all_perms_user)
+        all_response = views.EventCountView.as_view()(all_request)
+        all_response_data = all_response.data
+
+        some_request = self.factory.get(self.api_base + '/events/count')
+        self.force_authenticate(some_request, self.guest_user)
+        some_response = views.EventCountView.as_view()(some_request)
+        some_response_data = some_response.data
+
+        self.assertEqual(all_response.status_code, 200)
+        self.assertEqual(some_response.status_code, 200)
+
+        self.assertGreater(all_response_data['count'], some_response_data['count'])
+
 
     def test_add_reported_by(self):
         event = self.create_event(self.event_data)

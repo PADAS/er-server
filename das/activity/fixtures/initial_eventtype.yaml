@@ -267,32 +267,6 @@
   fields: {created_at: !!timestamp '2016-09-29 01:00:00+00:00', updated_at: !!timestamp '2016-09-29
       01:00:00+00:00', value: logistics, display: Logistics Incident, ordernum: 1}
 - model: activity.eventtype
-  pk: 77dfdc9a-026f-4841-9e27-91836992560a
-  fields: {created_at: !!timestamp '2016-09-28 22:42:18.795104+00:00', updated_at: !!timestamp '2016-10-08
-      00:05:27.506842+00:00', value: logistics_stuff_happened, display: Logistics Stuff Happened,
-    category: baf67553-0fbf-42f8-b30c-d51c3e246e0b, ordernum: 111, schema: "{\r\n\
-      \    \"schema\": {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
-      ,\r\n        \"title\": \"EventType Test Data\",\r\n      \r\n        \"type\"\
-      : \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n  \t    \"blackRhinos\"\
-      : {\r\n\t\t\"type\": \"string\",\r\n\t\t\"title\": \"Black Rhino Names\",\r\n\
-      \t\t\"enum\": {{query___blackRhinos___values}},\r\n\t\t\"enumNames\": {{query___blackRhinos___names}}\r\
-      \n\t    },\r\n            \"conservancy\": {\r\n                \"type\":\"\
-      string\",\r\n                \"title\": \"Conservancy\",\r\n               \
-      \ \"enum\": {{table___conservancy___values}},\r\n                \"enumNames\"\
-      : {{table___conservancy___names}}\r\n            },\r\n   \t    \"behavior\"\
-      : {\r\n\t\t\"type\":\"string\",\r\n\t\t\"title\": \"Behavior\",\r\n\t\t\"enum\"\
-      : {{table___behavior___values}},\r\n\t\t\"enumNames\": {{table___behavior___names}}\r\
-      \n\t    },\r\n\t    \"reporting_station\": {\r\n\t\t\"type\": \"string\",\r\n\
-      \t\t\"title\": \"Reporting Station\",\r\n\t\t\"enum\": {{table___station___values}},\r\
-      \n\t\t\"enumNames\": {{table___station___names}}\r\n\t    },\r\n\t    \"reporting_time\"\
-      :{\r\n\t        \"type\": \"string\",\r\n\t        \"title\": \"Reporting Time\"\
-      \r\n            }\r\n        }\r\n    },\r\n    \"definition\": [\r\n      \
-      \  {\r\n\t        \"key\": \"blackRhinos\",\r\n\t        \"fieldHtmlClass\"\
-      : \"multiple-select\"\r\n    \t},\r\n        \"conservancy\",\r\n        \"\
-      behavior\",\r\n        \"reporting_station\",\r\n        {\r\n\t      \"key\"\
-      : \"reporting_time\",\r\n\t      \"fieldHtmlClass\": \"date-time-picker json-schema\"\
-      ,\r\n\t      \"readonly\": false\r\n        }\r\n    ]\r\n}"}
-- model: activity.eventtype
   pk: 02943c51-0661-478e-b4a8-c57264bb721a
   fields: {created_at: !!timestamp '2016-07-07 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
       01:03:22.568288+00:00', value: other, display: Other, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
@@ -381,7 +355,7 @@
 - model: activity.eventtype
   pk: 19afb1f3-695b-44c7-aea0-cef6d338da87
   fields: {created_at: !!timestamp '2016-10-04 18:18:10.334441+00:00', updated_at: !!timestamp '2016-10-08
-      00:48:41.243291+00:00', value: snare, display: Snare, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+      00:48:41.243291+00:00', value: snare, display: Snare, category: baf67553-0fbf-42f8-b30c-d51c3e246e0b,
     ordernum: 310, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
       : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
       \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
