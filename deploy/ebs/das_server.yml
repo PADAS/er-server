@@ -13,7 +13,7 @@ app:
     description: 'Domain Awareness System' # description of your app
 
     all_environments:
-        solution_stack_name: '64bit Amazon Linux 2015.09 v2.0.8 running Python 3.4'
+        solution_stack_name: '64bit Amazon Linux 2016.09 v2.3.3 running Python 3.4'
 
         # optional information on the tier type
         # check the boto documentation for create_environment
@@ -51,8 +51,8 @@ app:
               IamInstanceProfile: "arn:aws:iam::074677080781:instance-profile/das_server-dev"
               EC2KeyName: "das-dev"
               SecurityGroups: "sg-e0cf3284,sg-304ee854"
-              ImageId: "ami-9fbd53ff"
-              #ImageId: "ami-21637d11" - amazon eb
+              ImageId: "ami-49fa6c29"
+              #ImageId: "ami-49fa6c29" - amazon eb
 
             'aws:autoscaling:asg':
                 MinSize: 1
@@ -297,7 +297,7 @@ app:
                             yum:
                                 httpd24: []
                                 httpd24-devel: []
-                                postgresql94-devel: []
+                                postgresql95-devel: []
                                 gcc: []
                                 make: []
                                 gcc-c++: []
