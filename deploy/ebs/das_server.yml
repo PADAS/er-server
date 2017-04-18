@@ -297,7 +297,7 @@ app:
                             yum:
                                 httpd24: []
                                 httpd24-devel: []
-                                postgresql95-devel: []
+                                postgresql94-devel: []
                                 gcc: []
                                 make: []
                                 gcc-c++: []
