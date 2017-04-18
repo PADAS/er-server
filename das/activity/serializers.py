@@ -884,6 +884,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     reported_by = ReportedByRelatedField(required=False)
     message = rest_framework.serializers.CharField(required=False)
     comment = rest_framework.serializers.CharField(required=False)
+    title = rest_framework.serializers.CharField(required=False)
     photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
@@ -907,6 +908,10 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         if end_time is not None and end_time < self.instance.time:
             raise rest_framework.serializers.ValidationError('Event end_time must not be earlier than event time.')
 
+        # If we're creating an event, and event_type is not present in the request, raise ValidationError.
+        event_type = attrs.get('event_type')
+        if event_type is None and self.instance is None:
+            raise rest_framework.serializers.ValidationError({'event_type': 'Event type must be provided.'})
 
         return super().validate(attrs)
 
@@ -935,7 +940,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         read_only_fields = ('updated_at',)
         fields = (
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
-            'event_type', 'priority', 'priority_label', 'attributes', 'comment',
+            'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'photos', 'event_details', 'contains', 'is_linked_to', 'is_contained_in') + read_only_fields
 
