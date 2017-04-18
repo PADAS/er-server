@@ -1,5 +1,6 @@
 import copy
 import collections
+import string, random
 
 import django.contrib.auth
 from django.db import transaction
@@ -389,6 +390,22 @@ class TestEventView(BaseAPITest):
 
 
 
+
+
+    def test_edit_event_title(self):
+        event = self.create_event(self.event_data)
+        TITLE = ''.join([random.choice(string.ascii_letters + string.digits + string.punctuation) for x in range(30)])
+        update_data = {'title': TITLE}
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}'.format(str(event.id)),
+            update_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventView.as_view()(request, id=str(event.id))
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(response.data['title'], TITLE)
 
 
 class TestSerializers(TestCase):

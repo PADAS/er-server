@@ -391,6 +391,8 @@ class Event(RevisionMixin, TimestampedModel):
     message = models.TextField(blank=True)
     comment = models.TextField(blank=True, null=True, verbose_name='Additional message text')
 
+    title = models.TextField(blank=True, null=True, verbose_name='Event Title.')
+
     created_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
         null=True, blank=True, related_name='events', related_query_name='event')
