@@ -306,6 +306,8 @@ app:
                                 git: []
                                 libjpeg-turbo-devel: []
                                 libtiff-devel: []
+                                libpng-devel: []
+                                freetype-devel: []
                             rpm:
                                 remi: http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
                         commands:
