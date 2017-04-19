@@ -13,7 +13,7 @@ app:
     description: 'Domain Awareness System' # description of your app
 
     all_environments:
-        solution_stack_name: '64bit Amazon Linux 2015.09 v2.0.8 running Python 3.4'
+        solution_stack_name: '64bit Amazon Linux 2016.09 v2.3.3 running Python 3.4'
 
         # optional information on the tier type
         # check the boto documentation for create_environment
@@ -51,8 +51,8 @@ app:
               IamInstanceProfile: "arn:aws:iam::074677080781:instance-profile/das_server-dev"
               EC2KeyName: "das-dev"
               SecurityGroups: "sg-e0cf3284,sg-304ee854"
-              ImageId: "ami-9fbd53ff"
-              #ImageId: "ami-21637d11" - amazon eb
+              ImageId: "ami-49fa6c29"
+              #ImageId: "ami-49fa6c29" - amazon eb
 
             'aws:autoscaling:asg':
                 MinSize: 1
@@ -306,6 +306,8 @@ app:
                                 git: []
                                 libjpeg-turbo-devel: []
                                 libtiff-devel: []
+                                libpng-devel: []
+                                freetype-devel: []
                             rpm:
                                 remi: http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
                         commands:
@@ -319,8 +321,7 @@ app:
                           01-PROJ:
                             command: "if [ ! -e /usr/lib/libproj.so ]; then cd /opt; wget http://download.osgeo.org/proj/proj-4.9.2.tar.gz; tar -xzvf proj-4.9.2.tar.gz; cd proj-4.9.2; ./configure --prefix=/usr; make; make install; fi"
                           02-GDAL:
-                            #command: "if [ ! -e /usr/lib/libgdal.so ]; then cd /opt; wget http://download.osgeo.org/gdal/2.0.2/gdal-2.0.2.tar.gz; tar -xzvf gdal-2.0.2.tar.gz; cd gdal-2.0.2; ./configure --prefix=/usr; make; make install; fi"
-                            command: "if [ ! -e /usr/lib/libgdal.so ]; then cd /opt; wget http://download.osgeo.org/gdal/1.11.4/gdal-1.11.4.tar.gz; tar -xzvf gdal-1.11.4.tar.gz; cd gdal-1.11.4; ./configure --prefix=/usr; make; make install; fi"
+                            command: "if [[ ! -e /usr/lib/libgdal.so || ! -e /var/log/gdal-2.1.3-is-installed ]]; then cd /opt; wget http://download.osgeo.org/gdal/2.1.3/gdal-2.1.3.tar.gz; tar -xzvf gdal-2.1.3.tar.gz; cd gdal-2.1.3; ./configure --prefix=/usr; make; make install; touch /var/log/gdal-2.1.3-is-installed; fi"
                           03-GEOS:
                             command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.5.0.tar.bz2; tar -xjf geos-3.5.0.tar.bz2; cd geos-3.5.0; ./configure; make; make install; fi"
                           04-make-media-dir:
