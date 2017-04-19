@@ -4,6 +4,7 @@ from operator import itemgetter, attrgetter
 
 import django.utils
 from django.db import transaction
+from django.db.models.signals import post_save
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -12,6 +13,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
+from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
@@ -122,6 +124,19 @@ class EventCategory(TimestampedModel):
 
     def natural_key(self):
         return (self.value,)
+
+@receiver(post_save, sender=EventCategory)
+def ensure_perms_exist(sender, **kwargs):
+    if kwargs.get('created', False):
+        content_type = ContentType.objects.get(app_label='activity', model='event')
+        category_name = kwargs['instance'].value
+        # make permissions here
+        from django.contrib.auth.models import Permission
+        for operation in ['create', 'read', 'update', 'delete']:
+            codename = '{0}_{1}'.format(category_name, operation)
+            defaults = {'name': 'Can {1} {0} events'.format(category_name, operation),
+                        'content_type': content_type}
+            Permission.objects.get_or_create(codename=codename, defaults=defaults)
 
 
 class FilterFieldMixin(object):

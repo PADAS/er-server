@@ -17,7 +17,7 @@ from drf_extra_fields.geo_fields import PointField
 from core.tests import BaseAPITest
 from choices.models import Choice
 from accounts.models import PermissionSet
-from activity.models import Event, EventAttachment, EventType
+from activity.models import Event, EventAttachment, EventType, EventCategory
 from activity.models import get_sentinel_user, marker_icon
 from activity.serializers import ATTACHMENT_SERIALIZER_MAPPING
 from activity import views
@@ -443,6 +443,15 @@ class TestEventView(BaseAPITest):
         response = views.EventRelationshipsView.as_view()(request, from_event_id=collection_id)
         print(response)
         self.assertEqual(response.status_code, 201)
+
+    def test_add_event_category(self):
+        value = 'new'
+        display = 'new event permissions'
+        EventCategory.objects.create(value=value, display=display)
+
+        for operation in ['create', 'read', 'update', 'delete']:
+            codename = '{0}_{1}'.format(value, operation)
+            self.assertIsNotNone(Permission.objects.get(codename=codename))
 
     def test_all_perms_user_permissions(self):
         results = self.do_all_operations_on_all_event_types(self.all_perms_user)
