@@ -8,6 +8,7 @@ from django.db.models.signals import post_save
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
@@ -130,8 +131,7 @@ def ensure_perms_exist(sender, **kwargs):
     if kwargs.get('created', False):
         content_type = ContentType.objects.get(app_label='activity', model='event')
         category_name = kwargs['instance'].value
-        # make permissions here
-        from django.contrib.auth.models import Permission
+
         for operation in ['create', 'read', 'update', 'delete']:
             codename = '{0}_{1}'.format(category_name, operation)
             defaults = {'name': 'Can {1} {0} events'.format(category_name, operation),
