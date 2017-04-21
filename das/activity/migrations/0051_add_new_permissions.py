@@ -11,15 +11,18 @@ all_perms = ['standard_create',  'standard_read',  'standard_update',  'standard
              'security_create',  'security_read',  'security_update',  'security_delete',
              'logistics_create', 'logistics_read', 'logistics_update', 'logistics_delete']
 
-restricted_perms = ['security_create',  'security_read',  'security_update',  'security_delete',
-                    'logistics_create', 'logistics_read', 'logistics_update', 'logistics_delete']
+restricted_perms = ['security_create',  'security_read',  'security_update',
+                    'logistics_create', 'logistics_read', 'logistics_update']
 
-def create_new_permission_sets():
 
-    all_group = PermissionSet.objects.get_or_create(name='all_event_permissions')
-    restricted_group = PermissionSet.objects.get_or_create(name='all_event_permissions')
+def create_new_permission_sets(apps, schema_editor):
+    all_group, created = PermissionSet.objects.get_or_create(
+        name='all_event_permissions')
+    restricted_group, created = PermissionSet.objects.get_or_create(
+        name='restricted_event_permissions')
 
-    existing_security_group = PermissionSet.objects.get_or_create(name='security_events')
+    existing_security_group = PermissionSet.objects.get_or_create(
+        name='security_events')
 
     for perm_name in all_perms:
         perm = Permission.objects.get_by_natural_key(perm_name, 'activity', 'event')
@@ -30,7 +33,7 @@ def create_new_permission_sets():
         restricted_group.permissions.add(perm)
 
     for user in User.objects.all():
-        if user.permission_sets.contains(existing_security_group):
+        if user.permission_sets.filter(name='security_events').exists():
             user.permission_sets.add(all_group)
             continue
 
@@ -38,7 +41,7 @@ def create_new_permission_sets():
         user.permission_sets.add(restricted_group)
 
 
-def reverse_new_permission_sets():
+def reverse_new_permission_sets(apps, schema_editor):
     pass
 
 
