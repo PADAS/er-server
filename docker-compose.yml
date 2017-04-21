@@ -9,6 +9,8 @@ services:
       - rt_api
     ports:
       - 8000:8000
+    volumes:
+        - user_uploads:/user-uploads
 
   web:
     image: gcr.io/padas-app/web
@@ -22,6 +24,8 @@ services:
     links:
       - postgis
       - redis
+    volumes:
+        - user_uploads:/user-uploads
 
   rt_api:
     image: gcr.io/padas-app/rt_api
@@ -43,6 +47,8 @@ services:
     links:
       - postgis
       - redis
+    volumes:
+        - user_uploads:/user-uploads
 
   beat:
     image: gcr.io/padas-app/beat
@@ -58,3 +64,6 @@ services:
   redis:
     image: redis
     container_name: das_redis
+
+volumes:
+    user_uploads:

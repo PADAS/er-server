@@ -31,7 +31,9 @@ def event_post_delete(sender, instance, **kwargs):
 
 @receiver(post_save, sender=EventPhoto)
 def warm_EventPhoto_image(sender, instance, **kwargs):
-    celery.app.send_task('activity.tasks.warm_eventphotos', args=(str(instance.id),))
+    transaction.on_commit(lambda:
+        celery.app.send_task('activity.tasks.warm_eventphotos', args=(str(instance.id),))
+    )
 
 @receiver(post_delete, sender=EventPhoto)
 def delete_EventPhoto_products(sender, instance, **kwargs):
