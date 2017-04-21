@@ -7,6 +7,9 @@ call your project be overriding the settings file
 import platform
 from .settings import *
 
+MEDIA_ROOT = '/images'
+MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
+
 SECRET_KEY = 'aefefsfees'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -47,4 +50,5 @@ AWS_SES_REGION_NAME = 'us-west-2'
 AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
-DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
+#DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
+#SHOW_TRACK_DAYS = 100
