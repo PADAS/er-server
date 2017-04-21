@@ -1,8 +1,7 @@
 import logging
-import pymet.base, pymet.geofence
-
+import pymet
 from django.contrib.gis.db import models
-from django.contrib.gis.geos import Point, LineString, MultiLineString
+from django.contrib.gis.geos import Point
 from django.contrib.postgres.fields import JSONField
 
 from activity.models import EventType
@@ -22,9 +21,9 @@ class GeofenceAnalyzerResult(AnalyzerResult):
     total_fix_count = models.IntegerField()
     observations = models.ManyToManyField(to=Observation, related_name='+')
     additional = JSONField()
-    #TODO: Store the before and after containment regions
-    #TODO: Store the virtual fence
-    #TODO: A way to store git hash for both pymet and DAS
+    # TODO: Store the before and after containment regions
+    # TODO: Store the virtual fence
+    # TODO: A way to store git hash for both pymet and DAS
 
 
 class GeofenceAnalyzer(Analyzer):
@@ -34,7 +33,7 @@ class GeofenceAnalyzer(Analyzer):
      Return: a list of GeofenceAnalyzerResult
      """
 
-    #TODO: Should be versioned
+    # TODO: Should be versioned
 
     @property
     def event_type(self):
@@ -98,18 +97,18 @@ class GeofenceAnalyzer(Analyzer):
         traj = pymet.base.Trajectory(relocs)
 
         # Look up the StraightTrackSegmentFilter settings for the given SubjectType
-        trajFilterParams = SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
-        if trajFilterParams is not None:
-            trajFilter = pymet.base.TrajectorySegFilter(max_speed_kmhr=trajFilterParams.speed_KmHr)
-            traj.TrajectorySegmentFilter = trajFilter  # Set the trajectory segment filter on the trajectory
+        traj_filter_params = SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
+        if traj_filter_params is not None:
+            traj_filter = pymet.base.TrajSegFilter(max_speed_kmhr=traj_filter_params.speed_KmHr)
+            traj.traj_seg_filter = traj_filter  # Set the trajectory segment filter on the trajectory
 
         return traj
 
-    def analyze(self):
+    def analyze(self, track=None):
         super().analyze()
         traj = self.create_trajectory()
-        analysisParams = self.create_geofence_analysis_param()
-        return self.analyze_jake(traj, analysisParams)
+        analysis_params = self.create_geofence_analysis_param()
+        return self.analyze_jake(traj, analysis_params)
 
     def analyze_jake(self, traj, geofence_analysis_params):
         """
@@ -118,21 +117,22 @@ class GeofenceAnalyzer(Analyzer):
         after any geofence crossings
         """
 
-        if traj.getRelocationsFixCount() < 2:
+        if traj.relocs.fix_count < 2:
             raise InsufficientDataAnalyzerException
 
         #Generate a list of crossings
-        cross_results = pymet.geofence.GeofenceAnalysis.calculateGeofenceCrossings(geofence_analysis_params, [traj])
+        cross_results = pymet.geofence.GeofenceAnalysis.calc_crossings(geofence_analysis_params, [traj])
 
-        das_analyzer_results=[]
-        for cross in cross_results.getGeofenceCrossings():
+        das_analyzer_results = []
+        for cross in cross_results.geofence_crossings:
             #Create a DAS Analyser result based on each crossing event
             result = GeofenceAnalyzerResult(self)
             result.analyzer_type = self.__class__.__name__
             result.analyzer = self
-            result.crosstime = cross.getEstimatedCrossFix().getFixtime()
-            result.crosspoint = cross.getEstimatedCrossFix().getGeoPoint().getOGRPoint() #TODO Should be Django point?
-            result.total_fix_count = traj.getRelocationsFixCount()
+            result.crosstime = cross.est_cross_fix.fixtime
+            result.crosspoint = Point(cross.est_cross_fix.geopoint.ogr_geometry.GetX(),
+                                      cross.est_cross_fix.geopoint.ogr_geometry.GetY())
+            result.total_fix_count = traj.relocs.fix_count
             result.observations = self.get_observations()
             result.title = 'Crossed virtual fence'
             das_analyzer_results.append(result)
@@ -141,6 +141,7 @@ class GeofenceAnalyzer(Analyzer):
 
 
     """Original code from Joseph which I think can be deprecated"""
+    """
     is_two_state = False
 
     @property
@@ -171,8 +172,7 @@ class GeofenceAnalyzer(Analyzer):
 
     def analyze_joseph(self, track):
 
-        """ analyze track for geofence containment. Only the most recent
-        two observations are considered """
+        #analyze track for geofence containment. Only the most recent two observations are considered
         super().analyze(track)
 
         if len(track) < 2:
@@ -222,7 +222,7 @@ class GeofenceAnalyzer(Analyzer):
         return result
 
 
-
+"""
 
 
 

@@ -43,7 +43,7 @@ class ImmobilityAnalyzer(Analyzer):
         return EventType.objects.get_by_value('analyzer_immobility')
 
     radius = models.FloatField(null=False, default=13.0)
-    threshold_time = models.IntegerField(null=False, default=18000) #5 hours
+    threshold_time = models.IntegerField(null=False, default=18000)  # 5 hours
     threshold_probability = models.FloatField(null=False, default=0.8)
     search_time_hours = models.FloatField(null=False, default=24.0)
 
@@ -60,15 +60,15 @@ class ImmobilityAnalyzer(Analyzer):
         relocs = pymet.base.Relocations(fixes)
         traj = pymet.base.Trajectory(relocs)
 
-        #Look up the StraightTrackSegmentFilter settings for the given SubjectType
-        trajFilterParams = SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
-        if trajFilterParams is not None:
-            trajFilter = pymet.base.TrajectorySegFilter(max_speed_kmhr=trajFilterParams.speed_KmHr)
-            traj.TrajectorySegmentFilter = trajFilter #Set the trajectory segment filter on the trajectory
+        # Look up the StraightTrackSegmentFilter settings for the given SubjectType
+        traj_filter_params = SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
+        if traj_filter_params is not None:
+            traj_filter = pymet.base.TrajSegFilter(max_speed_kmhr=traj_filter_params.speed_KmHr)
+            traj.traj_seg_filter = traj_filter  # Set the trajectory segment filter on the trajectory
 
         return traj
 
-    def analyze(self):
+    def analyze(self, track=None):
         super().analyze()
         traj = self.create_trajectory()
         return self.analyze_jake(traj)
@@ -97,11 +97,11 @@ class ImmobilityAnalyzer(Analyzer):
         """
 
         # Check to see if we have data that spans the threshold time otherwise impossible to calculate
-        if timedelta(seconds=traj.getRelocations().getTimespanSeconds()) < timedelta(seconds=self.threshold_time):
+        if timedelta(seconds=traj.relocs.timespan_seconds) < timedelta(seconds=self.threshold_time):
             raise InsufficientDataAnalyzerException
 
         # Get the relocation fixes in descending order
-        fixes = traj.getRelocations().getFixes('DESC')
+        fixes = traj.relocs.get_fixes('DESC')
 
         # Create a blank cluster
         test_cluster = pymet.cluster.Cluster()
@@ -112,18 +112,16 @@ class ImmobilityAnalyzer(Analyzer):
         result.level = NOMINAL
         result.title = 'Subject is mobile'
 
-        #Test for immobility
+        # Test for immobility
         for i in range(len(fixes)):
-            test_cluster.addFix(fixes[i])
+            test_cluster.add_fix(fixes[i])
 
             # Calculate the ratio of points within cluster threshold distance and total points in cluster
-            cluster_pvalue = test_cluster.NumPointsWithinThreshold(self.radius) / \
-                             test_cluster.getRelocations().getFixCount()
+            cluster_pvalue = test_cluster.threshold_point_count(self.radius) / test_cluster.relocs.fix_count
 
-            cluster_timespan_seconds = test_cluster.getRelocations().getTimespanSeconds()
+            cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
 
-            result.position = DjangoPoint(test_cluster.getCentroidOGRPoint().GetX(),
-                                          test_cluster.getCentroidOGRPoint().GetY())
+            result.position = DjangoPoint(test_cluster.centroid.GetX(), test_cluster.centroid.GetY())
 
             if (cluster_pvalue >= self.threshold_probability) and (cluster_timespan_seconds >= self.threshold_time):
                 # Modify analyzer result
@@ -147,8 +145,3 @@ class ImmobilityAnalyzerResult(AnalyzerResult):
     cluster_timespan = DateTimeRangeField()
     total_fix_count = models.IntegerField()
     observations = models.ManyToManyField(Observation, related_name='+')
-
-
-
-
-

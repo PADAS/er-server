@@ -1,6 +1,7 @@
 # to install requirements using pip
 # pip install -r requirements.txt --find-links ./wheelhouse
-#
+# See http://www.lfd.uci.edu/~gohlke/pythonlibs (windows wheelhouses)
+
 psycopg2==2.6.2
 simplejson==3.10.0
 pytz==2016.7
@@ -50,7 +51,7 @@ fastkml==0.11
 #django-rq==0.8.0
 
 geopy==1.11.0
-Fiona==1.6.3
+Fiona==1.7.5
 cython==0.24.1
 geopandas==0.1.1
 shapely==1.5.15

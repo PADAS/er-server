@@ -64,7 +64,7 @@ INSTALLED_APPS = (
     'choices',
     'reports',
     'django_readonly_field',
-    'ste',
+    'STE',
 )
 
 MIDDLEWARE_CLASSES = (
