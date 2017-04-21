@@ -7,7 +7,7 @@ call your project be overriding the settings file
 import platform
 from .settings import *
 
-MEDIA_ROOT = '/images'
+MEDIA_ROOT = '/user-uploads'
 MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
 
 SECRET_KEY = 'aefefsfees'
