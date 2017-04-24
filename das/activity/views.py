@@ -26,6 +26,8 @@ from activity import schema_utils
 import accounts.serializers
 import accounts.models
 
+import usercontent.serializers
+
 LAST_DAYS = timedelta(days=3)
 
 
@@ -342,6 +344,53 @@ class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
 
         return obj
 
+class EventDocumentsView(generics.ListCreateAPIView):
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = usercontent.serializers.FileContentSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+
+    def create(self, request, *args, **kwargs):
+        request.data['event'] = self.kwargs['id']
+
+        # TODO: This conditional is to handle the case where a file is uploaded via XHR. Figure out why.
+        if 'file' not in request.data:
+            try:
+                # Ajax request.
+                request.data['file'] = request.stream.FILES['file']
+            except KeyError:
+                pass
+
+        return super().create(request, *args, **kwargs)
+
+    def get_queryset(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['id'])
+
+        return event.documents.all()
+
+
+# class EventFileView(generics.RetrieveUpdateDestroyAPIView):
+#     permission_classes = (EventObjectPermissions,)
+#     serializer_class = EventPhotoSerializer
+#
+#     def get_queryset(self):
+#         event = generics.get_object_or_404(Event.objects.all(),
+#                                            pk=self.kwargs['id'])
+#
+#         file_contents = event.file_content.all()
+#         return file_contents
+#
+#     def get_object(self):
+#         queryset = self.get_queryset()
+#         filters = {'id': self.kwargs['photo_id']}
+#
+#         obj = generics.get_object_or_404(queryset, **filters)
+#
+#         return obj
+#
 
 class EventRelationshipsView(generics.ListCreateAPIView):
 

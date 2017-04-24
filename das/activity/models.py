@@ -19,6 +19,7 @@ from versatileimagefield.fields import VersatileImageField
 
 from utils.html import clean_user_text
 from core.models import TimestampedModel
+import usercontent.models
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
 
@@ -427,6 +428,8 @@ class Event(RevisionMixin, TimestampedModel):
 
     sort_at = models.DateTimeField(default=django.utils.timezone.now,
                                    blank=True)
+
+    documents = models.ManyToManyField(usercontent.models.FileContent)
 
     @property
     def priority_label(self):
