@@ -51,8 +51,8 @@ app:
               IamInstanceProfile: "arn:aws:iam::074677080781:instance-profile/das_server-dev"
               EC2KeyName: "das-dev"
               SecurityGroups: "sg-e0cf3284,sg-304ee854"
-              ImageId: "ami-49fa6c29"
-              #ImageId: "ami-49fa6c29" - amazon eb
+              ImageId: "ami-38fc6a58"
+              #ImageId: "ami-38fc6a58" - amazon eb, hvm type
 
             'aws:autoscaling:asg':
                 MinSize: 1
