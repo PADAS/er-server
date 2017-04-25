@@ -1,0 +1,41 @@
+version: "3"
+
+services:
+  web:
+    volumes: 
+      - ../das-web:/var/www/app
+
+  api:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/var/www/app/wait_for.sh
+      - ./docker/API/start.sh:/var/www/app/start.sh
+
+  rt_api:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/var/www/app/wait_for.sh
+      - ./docker/RT_API/start.sh:/var/www/app/start.sh
+
+  mql:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/var/www/app/wait_for.sh
+      - ./docker/MQL/start.sh:/var/www/app/start.sh
+
+  worker:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/var/www/app/wait_for.sh
+      - ./docker/Worker/start.sh:/var/www/app/start.sh
+
+  beat:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/var/www/app/wait_for.sh
+      - ./docker/Beat/start.sh:/var/www/app/start.sh

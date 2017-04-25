@@ -1,5 +1,6 @@
 import copy
 import collections
+import string, random
 
 import django.contrib.auth
 from django.db import transaction
@@ -57,6 +58,7 @@ class TestSourcePlugin(TestCase):
     def setUp(self):
         super().setUp()
         call_command('loaddata', 'initial_eventtype')
+        call_command('loaddata', 'initial_eventdata')
 
     def test_sentinel_user(self):
         user = get_sentinel_user()
@@ -78,7 +80,7 @@ class TestEventView(BaseAPITest):
     user_const = dict(last_name='last', first_name='first')
     def setUp(self):
         super().setUp()
-        call_command('loaddata', 'initial_eventtype')
+        call_command('loaddata', 'initial_eventdata')
 
         self.no_perms_user = User.objects.create_user('no_perms_user',
             'das_no_perms@vulcan.com', 'noperms', **self.user_const)
@@ -265,8 +267,14 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         self.assertEqual(response_data['message'], update_data['message'])
 
-    # def test_validate_serializer_schema(self):
-    #     self.assertIn('provenance', response_data['properties'])
+    def test_validate_serializer_schema(self):
+        request = self.factory.get(self.api_base + '/events/schema')
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventSchemaView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('provenance', response_data['properties'])
 
     def test_event_feed(self):
         request = self.factory.get(self.api_base + '/events')
@@ -443,6 +451,36 @@ class TestEventView(BaseAPITest):
         response = views.EventRelationshipsView.as_view()(request, from_event_id=collection_id)
         print(response)
         self.assertEqual(response.status_code, 201)
+
+    def test_event_without_event_type(self):
+        event_data = {'message': 'this has no event type', 'priority': '200'}
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 400)
+
+        self.assertTrue('event_type' in response.data, 'I cannot find "event_type" in response data.')
+
+
+
+
+
+    def test_edit_event_title(self):
+        event = self.create_event(self.event_data)
+        TITLE = ''.join([random.choice(string.ascii_letters + string.digits + string.punctuation) for x in range(30)])
+        update_data = {'title': TITLE}
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}'.format(str(event.id)),
+            update_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventView.as_view()(request, id=str(event.id))
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(response.data['title'], TITLE)
 
     def test_add_event_category(self):
         value = 'new'

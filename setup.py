@@ -13,8 +13,8 @@ except ImportError:
     from distutils.core import setup
     extra = {}
 
-if sys.version_info <= (3, 4):
-    error = 'ERROR: das requires Python Version 3.4 or above...exiting.'
+if sys.version_info <= (3, 5):
+    error = 'ERROR: das requires Python Version 3.5 or above...exiting.'
     print(error, file=sys.stderr)
     sys.exit(1)
 
@@ -47,8 +47,8 @@ setup(name='das',
           'License :: OSI Approved :: BSD License',
           'Operating System :: OS Independent',
           'Topic :: Internet',
-          'Programming Language :: Python :: 3.4',
-          'Programming Language :: Python :: 3.5'],
+          'Programming Language :: Python :: 3.5',
+          'Programming Language :: Python :: 3.6'],
       **extra
       )
 
