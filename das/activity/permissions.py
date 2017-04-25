@@ -45,10 +45,9 @@ class EventCategoryPermissions(IsAuthenticated):
 
         # If they're trying to make a new event, we need to check the type here
         if request.method == 'POST' and 'event_type' in request.data:
-            # TODO: check event data to see the type, look up the category
-            type = EventType.objects.get_by_natural_key(request.data['event_type'])
+            event_type = EventType.objects.get_by_natural_key(request.data['event_type'])
             permission_name = 'activity.{0}_{1}'.format(
-                type.category.value,
+                event_type.category.value,
                 'create'
             )
             return request.user.has_perm(permission_name)
