@@ -5,7 +5,7 @@ from django.contrib.gis.geos import Point
 from django.contrib.postgres.fields import JSONField
 
 from activity.models import EventType
-from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
+from .analyzer import Analyzer, AnalyzerResult, OK, CRITICAL
 from ..exceptions import InsufficientDataAnalyzerException
 from mapping.models import FeatureType, LineFeature, GeoFeature, FeatureSet
 from observations.models import Observation, SubjectTrackSegmentFilter

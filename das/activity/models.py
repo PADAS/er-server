@@ -558,8 +558,10 @@ class EventAttachment(RevisionMixin, models.Model):
 
     objects = EventAttachmentManager()
     TARGET = 'target'
+    ANALYZER_RESULT = 'analyzer-result'
     EVENT_ATTACHMENT_REASONS = (
         (TARGET, 'Target'),
+        (ANALYZER_RESULT, 'Analyzer Result')
     )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     # Foreign Key to event for this attachment.
@@ -569,7 +571,8 @@ class EventAttachment(RevisionMixin, models.Model):
 
     # Generic foreign key relation to any model within 'limits'. The technical constraint is the related model must
     # have id of type UUID.
-    limits = models.Q(app_label='observations', model='subject') | models.Q(app_label='observations', model='source')
+    limits = models.Q(app_label='observations', model='subject') | models.Q(app_label='observations', model='source') \
+            | models.Q(app_label='analyzers', model='subjectanalyzerresult')
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
     target_id = models.UUIDField()
     target = GenericForeignKey('content_type', 'target_id')

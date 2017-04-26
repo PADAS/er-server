@@ -9,15 +9,16 @@ from django.db import transaction
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from observations.models import Observation, SubjectTrackSegmentFilter
 from activity.models import EventType
-from .analyzer import Analyzer, AnalyzerResult, NOMINAL, WARNING, CRITICAL
-from ..exceptions import InsufficientDataAnalyzerException
+from analyzers.models.analyzer import SubjectAnalyzer, SubjectAnalyzerResult, OK, WARNING, CRITICAL
 
-from .utils import cluster
+from analyzers.exceptions import InsufficientDataAnalyzerException
+
+from analyzers.models.utils import cluster
 
 logger = logging.getLogger(__name__)
 
 
-class ImmobilityAnalyzer(Analyzer):
+class ImmobilityAnalyzer(SubjectAnalyzer):
 
     """ Immobility Analyzer for a Track.
 
@@ -37,43 +38,41 @@ class ImmobilityAnalyzer(Analyzer):
         must be inside a cluster to generate a CRITICAL.  Default 1.0
 
      """
-
-    @property
-    def event_type(self):
-        return EventType.objects.get_by_value('analyzer_immobility')
-
     radius = models.FloatField(null=False, default=13.0)
     threshold_time = models.IntegerField(null=False, default=18000)  # 5 hours
     threshold_probability = models.FloatField(null=False, default=0.8)
     search_time_hours = models.FloatField(null=False, default=24.0)
 
-    """ Hydrate the trajectory """
-    def create_trajectory(self):
+    @property
+    def event_type(self):
+        return EventType.objects.get_by_value('analyzer_immobility')
 
+    def _create_trajectory(self, subject):
+        """
+        Hydrate the trajectory 
+        """
         def create_fix(observation):
-
             gp = pymet.base.GeoPoint(observation.location.x, observation.location.y, 0.0)
             fix = pymet.base.Fix(gp, observation.recorded_at)
             return fix
 
-        fixes = [create_fix(x) for x in self.subject.observations(last_hours=self.search_time_hours)]
+        fixes = [create_fix(x) for x in subject.observations(last_hours=self.search_time_hours)]
         relocs = pymet.base.Relocations(fixes)
         traj = pymet.base.Trajectory(relocs)
 
         # Look up the StraightTrackSegmentFilter settings for the given SubjectType
-        traj_filter_params = SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
+        traj_filter_params = SubjectTrackSegmentFilter.objects.filter(subject_type=subject.subject_subtype).first()
         if traj_filter_params is not None:
             traj_filter = pymet.base.TrajSegFilter(max_speed_kmhr=traj_filter_params.speed_KmHr)
             traj.traj_seg_filter = traj_filter  # Set the trajectory segment filter on the trajectory
 
         return traj
 
-    def analyze(self, track=None):
-        super().analyze()
-        traj = self.create_trajectory()
-        return self.analyze_jake(traj)
+    def analyze(self, subject):
+        traj = self._create_trajectory(subject)
+        return self.analyze_trajectory(traj)
 
-    def analyze_jake(self, traj):
+    def analyze_trajectory(self, traj):
         """
 
         A function to search for immobility within a movement trajectory. Assumes we start with a filtered
@@ -107,10 +106,7 @@ class ImmobilityAnalyzer(Analyzer):
         test_cluster = pymet.cluster.Cluster()
 
         # Create the analyzer result
-        result = AnalyzerResult(self)
-        result.analyzer_type = self.__class__.__name__
-        result.level = NOMINAL
-        result.title = 'Subject is mobile'
+        result = SubjectAnalyzerResult(subject_analyzer=self, level=OK, notes='Subject is mobile', analyzer_revision=1)
 
         # Test for immobility
         for i in range(len(fixes)):
@@ -121,27 +117,25 @@ class ImmobilityAnalyzer(Analyzer):
 
             cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
 
-            result.position = DjangoPoint(test_cluster.centroid.GetX(), test_cluster.centroid.GetY())
+            result.location = DjangoPoint(test_cluster.centroid.GetX(), test_cluster.centroid.GetY())
 
             if (cluster_pvalue >= self.threshold_probability) and (cluster_timespan_seconds >= self.threshold_time):
                 # Modify analyzer result
                 result.level = CRITICAL
-                result.title = 'Subject is immobile'
+                result.notes = 'Subject is immobile'
+
+                result.values = {
+                    'probability_value': 0.0,
+                    'cluster_radius': 0.0,
+                    'cluster_fix_count': 0,
+                    'cluster_timestamp': None,
+                    'total_fix_count': 0,
+                }
                 break
 
-        logger.info(result.title)
+        logger.info(result.notes)
         return result
 
 
-class ImmobilityAnalyzerResult(AnalyzerResult):
-    location = models.PointField()
-    analyzer = models.ForeignKey('ImmobilityAnalyzer', on_delete=models.CASCADE)
-    probability_value = models.FloatField()
-    additional = JSONField()
-    cluster_radius = models.FloatField()
-    cluster_fix_count = models.IntegerField()
-    time_threshold_hours = models.FloatField()
-    probability_threshold = models.FloatField()
-    cluster_timespan = DateTimeRangeField()
-    total_fix_count = models.IntegerField()
-    observations = models.ManyToManyField(Observation, related_name='+')
+
+

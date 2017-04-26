@@ -1,18 +1,16 @@
-from analyzers.models.analyzer import Analyzer
-from analyzers.models.containment import ContainmentAnalyzer
-from analyzers.models.geofence import GeofenceAnalyzer
-from analyzers.models.immobility import ImmobilityAnalyzer
-from analyzers.models.proximity import ProximityAnalyzer
-from analyzers.models.speed import SpeedAnalyzer
-from analyzers.models.subject_analyzer import SubjectAnalyzer
+import uuid
+
+from django.contrib.gis.db import models
+from django.utils.translation import ugettext_lazy as _
+
 from analyzers.models.annotation import ObservationAnnotator
+from analyzers.models.immobility import ImmobilityAnalyzer
+from analyzers.models.analyzer import SubjectAnalyzerResult
+from core.models import TimestampedModel
 
 all_analyzers = (
-    ContainmentAnalyzer,
-    GeofenceAnalyzer,
     ImmobilityAnalyzer,
-    SpeedAnalyzer,
-    ProximityAnalyzer
 )
+
 
 

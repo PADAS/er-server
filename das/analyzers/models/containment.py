@@ -5,7 +5,7 @@ from django.contrib.gis.geos import Point, Polygon, MultiPolygon
 from django.core.exceptions import ObjectDoesNotExist
 
 from activity.models import EventType
-from .analyzer import Analyzer, AnalyzerResult, NOMINAL, CRITICAL
+from .analyzer import Analyzer, AnalyzerResult, OK, CRITICAL
 from .utils import distance_to_exterior_point
 from mapping.models import FeatureType, PolygonFeature
 
@@ -66,7 +66,7 @@ class ContainmentAnalyzer(Analyzer):
 
         result = AnalyzerResult(self)
         result.analyzer_type = self.__class__.__name__
-        result.level = NOMINAL
+        result.level = OK
         result.location = point
 
         if polygon.feature_geometry.contains(Point(point.x, point.y)):

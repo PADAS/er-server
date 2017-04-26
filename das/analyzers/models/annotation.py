@@ -23,6 +23,10 @@ except (AttributeError, KeyError):
 class ObservationAnnotator(Annotator):
 
     @classmethod
+    def should_run(cls, *args, **kwargs):
+        return True
+
+    @classmethod
     def get_for_subject(self, subject):
 
         # Set the generic default max speed very high, in case this gets executed without values in settings.
