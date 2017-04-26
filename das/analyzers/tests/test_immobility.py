@@ -83,7 +83,7 @@ class TestImmobilityAnalyzer(TestCase):
         # self.assertAlmostEqual(-0.2370999999, r.position.y, places=5)
         # self.assertEqual(r.level, 20)
 
-    def test_emmanuel_immobile(self):
+    def xtest_emmanuel_immobile(self):
 
         test_observations = EMMANUEL_IMMOBILE
 
@@ -109,7 +109,7 @@ class TestImmobilityAnalyzer(TestCase):
         self.assertAlmostEqual(-0.428036, r.position.y, places=5)
         self.assertEqual(r.level, 20)
 
-    def test_random(self):
+    def xtest_random(self):
         '''
         This test is just for fun. No assertions take place.
         :return: 
