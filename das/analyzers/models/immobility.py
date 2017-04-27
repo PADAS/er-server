@@ -68,7 +68,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
     def analyze(self, subject, last_result):
         traj = self._create_trajectory(subject)
-        return self.analyze_trajectory(subject,traj)
+        return self.analyze_trajectory(subject, last_result, traj)
 
     def analyze_trajectory(self,subject, last_result, traj):
         """

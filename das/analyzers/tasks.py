@@ -2,7 +2,7 @@ import logging
 
 from django.conf import settings
 
-from analyzers.models.analyzer import OK, WARNING, CRITICAL
+from analyzers.models.analyzer import OK, WARNING, CRITICAL, SubjectAnalyzerResult
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.utils import get_or_create_analyzers_for_subject, latest_event_for
 from das_server import celery
@@ -35,9 +35,9 @@ def handle_subject(subject_id):
     for analyzer in get_or_create_analyzers_for_subject(subject):
 
         try:
-            last_result = analyzer.SubjectAnalyzerResult.objects.filter(subject=subject, subject_analyzer=analyzer). \
+            last_result = SubjectAnalyzerResult.objects.filter(subject=subject, subject_analyzer_id=analyzer.id). \
                 latest('created_at')
-        except analyzer.SubjectAnalyzerResult.DoesNotExist:
+        except SubjectAnalyzerResult.DoesNotExist:
             last_result = None
 
         try:

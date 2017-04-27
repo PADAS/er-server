@@ -32,7 +32,7 @@ class Migration(migrations.Migration):
                 ('notes', models.TextField(blank=True, default='')),
                 ('schedule', django.contrib.postgres.fields.ArrayField(base_field=models.CharField(max_length=50), default=[], size=None, verbose_name='Array of crontab schedule patterns that an analyzer can use to determine whether to run.')),
                 ('is_active', models.BooleanField(default=True, help_text='Designates whether this analyzer is active. Set this False instead of deleting this record.', verbose_name='active')),
-                ('radius', models.FloatField(default=13.0)),
+                ('threshold_radius', models.FloatField(default=13.0)),
                 ('threshold_time', models.IntegerField(default=18000)),
                 ('threshold_probability', models.FloatField(default=0.8)),
                 ('search_time_hours', models.FloatField(default=24.0)),
