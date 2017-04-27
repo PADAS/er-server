@@ -35,18 +35,22 @@ def handle_subject(subject_id):
     for analyzer in get_or_create_analyzers_for_subject(subject):
 
         try:
-            latest_result = SubjectAnalyzerResult.objects.filter(subject=subject).latest('created_at')
-        except SubjectAnalyzerResult.DoesNotExist:
-            latest_result = None
-
+            last_result = analyzer.SubjectAnalyzerResult.objects.filter(subject=subject, subject_analyzer=analyzer). \
+                latest('created_at')
+        except analyzer.SubjectAnalyzerResult.DoesNotExist:
+            last_result = None
 
         try:
-            analyzer_result = analyzer.analyze(subject)
-            analyzer_result.subject = subject
+            analyzer_result, analyzer_event = analyzer.analyze(subject, last_result)
             print(analyzer_result)
 
-            if should_save(analyzer_result, last_result=latest_result):
-                analyzer_result.save()
+            if analyzer_event is not None:
+                #ToDo: Should signal the event
+                pass
+
+            # if should_save(analyzer_result, last_result=latest_result):
+            #     analyzer_result.save()
+            #     event_to_file = analyzer_result.build_event(last_result)
 
             # if (not latest_event and analyzer_result.level == OK) or \
             #    ((not analyzer.is_two_state) and analyzer_result.level < WARNING) or \
@@ -75,8 +79,6 @@ def annotate_observations_for_subject(subject_id):
     except Subject.DoesNotExist:
         logger.warning('Unable to run annotation for subject ID: %s, because it does not exist.', subject_id)
         return
-
-
 
 
 @celery.app.task()

@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 # borrow levels from logging:
 
-OK = 0
-WARNING = 10
-CRITICAL = 20
-ERROR = 30
+OK = 10
+WARNING = 20
+CRITICAL = 30
+ERROR = 40
 
 analyzer_level_to_event_priority = {
     OK: Event.PRI_REFERENCE,
@@ -39,6 +39,7 @@ class Schedule(TimestampedModel):
             'Designates whether this Schedule is active. '
             'Set this False instead of deleting this record.'
         ))
+
 
 class SubjectAnalyzer(RevisionMixin, TimestampedModel):
 
@@ -64,7 +65,13 @@ class SubjectAnalyzer(RevisionMixin, TimestampedModel):
     class Meta:
         abstract = True
 
-    def analyze(self, subject):
+    def analyze(self, subject, last_result=None):
+        raise NotImplementedError()
+
+    def save_analyzer_result(self, last_result=None, this_result=None):
+        raise NotImplementedError()
+
+    def create_analyzer_event(self, last_result=None, this_result=None):
         raise NotImplementedError()
 
 
@@ -84,7 +91,8 @@ class SubjectAnalyzerResult(TimestampedModel):
     # images
 
     # Remaining attributes are to reference the analyzer that created me.
-    limits = models.Q(app_label='analyzers', model='immobilityanalyzer') # | models.Q(app_label='analyzers', model='geofenceanalyzer')
+    limits = models.Q(app_label='analyzers', model='immobilityanalyzer')
+    # | models.Q(app_label='analyzers', model='geofenceanalyzer')
     subject_analyzer_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
     subject_analyzer_id = models.UUIDField()
     subject_analyzer = GenericForeignKey('subject_analyzer_content_type', 'subject_analyzer_id')

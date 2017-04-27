@@ -26,19 +26,17 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
     parameters:
 
-    radius: radius of cluster.  Defaults to 13m as in the Wall document
+    threshold_radius: radius of cluster.  Defaults to 13m as in the Wall document
 
     threshold_time: time in seconds the track is expected to be stationary.
-        Defaults to 18000 (5 hours) as in Wall
+        Defaults to 18000 seconds (5 hours) as in Wall
 
     threshold_warning_cluster_ratio: the proportion of observations in a sample which
-        must be inside a cluster to generate a WARNING.  Default 0.8 as in Wall
-
-    threshold_critical_cluster_ratio: the proportion of observations in a sample which
-        must be inside a cluster to generate a CRITICAL.  Default 1.0
+        must be inside a cluster to generate a CRITICAL.  Default 0.8 as in Wall
 
      """
-    radius = models.FloatField(null=False, default=13.0)
+
+    threshold_radius = models.FloatField(null=False, default=13.0)
     threshold_time = models.IntegerField(null=False, default=18000)  # 5 hours
     threshold_probability = models.FloatField(null=False, default=0.8)
     search_time_hours = models.FloatField(null=False, default=24.0)
@@ -68,11 +66,11 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
         return traj
 
-    def analyze(self, subject):
+    def analyze(self, subject, last_result):
         traj = self._create_trajectory(subject)
-        return self.analyze_trajectory(traj)
+        return self.analyze_trajectory(subject,traj)
 
-    def analyze_trajectory(self, traj):
+    def analyze_trajectory(self,subject, last_result, traj):
         """
 
         A function to search for immobility within a movement trajectory. Assumes we start with a filtered
@@ -82,6 +80,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
         Note that this is a simplified version of the full clustering algorithm since it's only looking at data within
         threshold time and will not figure out the true start of an immobility without looking backwards through all
+        possible points
 
         TODO: Update the analyzer_immobility model to include more info about the immobility result:
 
@@ -106,36 +105,71 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         test_cluster = pymet.cluster.Cluster()
 
         # Create the analyzer result
-        result = SubjectAnalyzerResult(subject_analyzer=self, level=OK, notes='Subject is mobile', analyzer_revision=1)
+        result = SubjectAnalyzerResult(subject_analyzer=self,
+                                       level=OK,
+                                       notes=subject.name + ' is mobile',
+                                       analyzer_revision=1,subject=subject)
 
         # Test for immobility
         for i in range(len(fixes)):
             test_cluster.add_fix(fixes[i])
 
             # Calculate the ratio of points within cluster threshold distance and total points in cluster
-            cluster_pvalue = test_cluster.threshold_point_count(self.radius) / test_cluster.relocs.fix_count
+            cluster_pvalue = test_cluster.threshold_point_count(self.threshold_radius) / test_cluster.relocs.fix_count
 
             cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
 
             result.location = DjangoPoint(test_cluster.centroid.GetX(), test_cluster.centroid.GetY())
 
+            result.values = {
+                'probability_value': cluster_pvalue,
+                'cluster_radius': test_cluster.cluster_radius,
+                'cluster_fix_count': test_cluster.threshold_point_count(self.threshold_radius),
+                'cluster_timestamp': test_cluster.relocs.earliest_fix,
+                'total_fix_count': test_cluster.relocs.fix_count,
+            }
+
             if (cluster_pvalue >= self.threshold_probability) and (cluster_timespan_seconds >= self.threshold_time):
                 # Modify analyzer result
                 result.level = CRITICAL
-                result.notes = 'Subject is immobile'
-
-                result.values = {
-                    'probability_value': 0.0,
-                    'cluster_radius': 0.0,
-                    'cluster_fix_count': 0,
-                    'cluster_timestamp': None,
-                    'total_fix_count': 0,
-                }
+                result.notes = subject.name + ' is immobile'
                 break
 
         logger.info(result.notes)
-        return result
 
+        this_event = self.build_event(result, last_result)
+
+        return result,this_event
+
+    def create_analyzer_event(self, last_result=None, this_result=None):
+
+        event = None
+
+        # no data to create an event so exit
+        if this_result is not None:
+
+            # Notify if result is critical or warning
+            if this_result.level in (CRITICAL, WARNING):
+                # ToDO: create an immobility event
+                pass
+
+            # Notify if there is a state transition from Critical/Warning back to OK
+            if last_result is not None:
+                if (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
+                    # ToDO: create an immobility event
+                    pass
+
+        return event
+
+    def save_analyzer_result(self, last_result=None, this_result=None):
+
+        # No data to save so exit
+        if this_result is None:
+            return
+
+        # Save if result is critical or warning
+        if this_result.level in (CRITICAL, WARNING):
+            this_result.save()
 
 
 
