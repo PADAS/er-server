@@ -71,7 +71,7 @@ class TestImmobilityAnalyzer(TestCase):
 
         handle_subject(str(sub.id))
 
-        self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
+        self.assertFalse(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
         # # Create the new analyzer with the Subject we're interested in.
         # ia = ImmobilityAnalyzer.objects.create(subject=sub, threshold_time=18000)
         #

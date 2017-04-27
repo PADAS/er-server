@@ -80,11 +80,12 @@ class SubjectAnalyzerResult(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     analyzer_revision = models.IntegerField()
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
-    location = models.PointField()
+    geometry_collection = models.GeometryCollectionField()
+    estimated_time = models.DateTimeField(auto_now_add=True)
     level = models.IntegerField()
     observations = models.ManyToManyField(Observation, related_name='+')
     values = JSONField(default={}, blank=True)
-    notes = models.TextField(default='', blank=True)
+    message = models.TextField(default='', blank=True)
 
     # TODO: Reference GeoFeature table, and FileContent (which will soon exist as models).
     # geometries = models.ForeignKey('GeoFeature', on_delete=models.PROTECT)
