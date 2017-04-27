@@ -124,7 +124,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             result.geometry_collection = DjangoGeoColl([DjangoPoint(test_cluster.centroid.GetX(),
                                                                test_cluster.centroid.GetY())])
 
-            result.estimated_time = test_cluster.relocs.earliest_fix
+            result.estimated_time = test_cluster.relocs.latest_fix.fixtime
 
             result.values = {
                 'probability_value': cluster_pvalue,
@@ -153,27 +153,29 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             # Notify if result is critical or warning
             if this_result.level in (CRITICAL, WARNING):
                 event_data = dict(
-                    message=this_result.notes,
-                    time=this_result.estimated_time,
+                    message=this_result.message,
+                    event_time=this_result.estimated_time,
                     provenance=Event.PC_ANALYZER,
                     event_type=EventType.objects.get_by_value('immobility'),
                     priority=Event.PRI_REFERENCE,
-                    location=dict(longitude=this_result.location.x, latitude=this_result.location.y)
+                    location=this_result.geometry_collection[0]
                 )
 
             # Notify if there is a state transition from Critical/Warning back to OK
             if last_result is not None:
                 if (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
                     event_data = dict(
-                        message=this_result.notes,
-                        time=this_result.estimated_time,
+                        message=this_result.message,
+                        event_time=this_result.estimated_time,
                         provenance=Event.PC_ANALYZER,
                         event_type=EventType.objects.get_by_value('immobility_all_clear'),
                         priority=Event.PRI_REFERENCE,
-                        location=dict(longitude=this_result.location.x, latitude=this_result.location.y)
+                        location=this_result.geometry_collection[0]
                     )
 
-        return Event.objects.create_event(**event_data)
+        e =  Event.objects.create_event(**event_data)
+        print(Event.objects.get(id=e.id))
+        return e
 
     def save_analyzer_result(self, last_result=None, this_result=None):
 

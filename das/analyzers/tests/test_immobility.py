@@ -40,11 +40,13 @@ from analyzers.tasks import handle_subject
 
 class TestImmobilityAnalyzer(TestCase):
 
-    def setUp(self):
-        ec = EventCategory.objects.create(value='analyzer', display='analyzer')
-        et1 = EventType.objects.create(value='immobility', display='immobility', category=ec)
-        et2 = EventType.objects.create(value='immobility_all_clear', display='immobility_all_clear', category=ec)
+    fixtures = ['initial_eventtype.yaml',]
 
+    def setUp(self):
+        # ec = EventCategory.objects.create(value='analyzer', display='analyzer')
+        # et1 = EventType.objects.create(value='immobility', display='immobility', category=ec)
+        # et2 = EventType.objects.create(value='immobility_all_clear', display='immobility_all_clear', category=ec)
+        pass
 
     def test_ishango_immobile(self):
 

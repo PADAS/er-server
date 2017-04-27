@@ -262,6 +262,22 @@
   pk: 61d279a3-95fd-421f-bdb0-604ae8731761
   fields: {created_at: !!timestamp '2016-09-29 01:00:00+00:00', updated_at: !!timestamp '2016-09-29
       01:00:00+00:00', value: security, display: Security Incident, ordernum: 1}
+- model: activity.eventcategory
+  pk: ef230385-5afc-40d1-ad07-c811f6da2b3c
+  fields: {created_at: !!timestamp '2016-09-29 01:00:00+00:00', updated_at: !!timestamp '2016-09-29
+      01:00:00+00:00', value: analyzer_event, display: Analyzer Event, ordernum: 1}
+- model: activity.eventtype
+  pk: c419acac-874d-422e-8b7b-54470afe56c5
+  fields: {created_at: !!timestamp '2016-07-07 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
+      01:03:22.568288+00:00', value: immobility, display: Immobility, category: ef230385-5afc-40d1-ad07-c811f6da2b3c,
+    ordernum: 300}
+
+- model: activity.eventtype
+  pk: 8bf325e7-2880-447a-b2d8-156c66bc5708
+  fields: {created_at: !!timestamp '2016-07-07 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
+      01:03:22.568288+00:00', value: immobility_all_clear, display: Immobility All Clear, category: ef230385-5afc-40d1-ad07-c811f6da2b3c,
+    ordernum: 301}
+
 - model: activity.eventtype
   pk: 02943c51-0661-478e-b4a8-c57264bb721a
   fields: {created_at: !!timestamp '2016-07-07 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
