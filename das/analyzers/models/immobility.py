@@ -1,14 +1,16 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
+import pytz
 import logging
 import pymet.base, pymet.cluster
 
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point as DjangoPoint
+from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.contrib.gis.geos import Point
 from django.db import transaction
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from observations.models import Observation, SubjectTrackSegmentFilter
-from activity.models import EventType
+from activity.models import Event, EventType
 from analyzers.models.analyzer import SubjectAnalyzer, SubjectAnalyzerResult, OK, WARNING, CRITICAL
 
 from analyzers.exceptions import InsufficientDataAnalyzerException
@@ -107,7 +109,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         # Create the analyzer result
         result = SubjectAnalyzerResult(subject_analyzer=self,
                                        level=OK,
-                                       notes=subject.name + ' is mobile',
+                                       message=subject.name + ' is mobile',
                                        analyzer_revision=1,subject=subject)
 
         # Test for immobility
@@ -119,13 +121,15 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
             cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
 
-            result.location = DjangoPoint(test_cluster.centroid.GetX(), test_cluster.centroid.GetY())
+            result.geometry_collection = DjangoGeoColl([DjangoPoint(test_cluster.centroid.GetX(),
+                                                               test_cluster.centroid.GetY())])
+
+            result.estimated_time = test_cluster.relocs.earliest_fix
 
             result.values = {
                 'probability_value': cluster_pvalue,
                 'cluster_radius': test_cluster.cluster_radius,
                 'cluster_fix_count': test_cluster.threshold_point_count(self.threshold_radius),
-                'cluster_timestamp': test_cluster.relocs.earliest_fix,
                 'total_fix_count': test_cluster.relocs.fix_count,
             }
 
@@ -135,31 +139,41 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 result.notes = subject.name + ' is immobile'
                 break
 
-        logger.info(result.notes)
+        logger.info(result.message)
+        self.save_analyzer_result(last_result=last_result, this_result=result)
+        this_event = self.create_analyzer_event(last_result=last_result, this_result=result)
 
-        this_event = self.create_analyzer_event(result, last_result)
-
-        return result,this_event
+        return result, this_event
 
     def create_analyzer_event(self, last_result=None, this_result=None):
-
-        event = None
-
+        event_data = dict()
         # no data to create an event so exit
         if this_result is not None:
 
             # Notify if result is critical or warning
             if this_result.level in (CRITICAL, WARNING):
-                # ToDO: create an immobility event
-                pass
+                event_data = dict(
+                    message=this_result.notes,
+                    time=this_result.estimated_time,
+                    provenance=Event.PC_ANALYZER,
+                    event_type=EventType.objects.get_by_value('immobility'),
+                    priority=Event.PRI_REFERENCE,
+                    location=dict(longitude=this_result.location.x, latitude=this_result.location.y)
+                )
 
             # Notify if there is a state transition from Critical/Warning back to OK
             if last_result is not None:
                 if (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
-                    # ToDO: create an immobility event
-                    pass
+                    event_data = dict(
+                        message=this_result.notes,
+                        time=this_result.estimated_time,
+                        provenance=Event.PC_ANALYZER,
+                        event_type=EventType.objects.get_by_value('immobility_all_clear'),
+                        priority=Event.PRI_REFERENCE,
+                        location=dict(longitude=this_result.location.x, latitude=this_result.location.y)
+                    )
 
-        return event
+        return Event.objects.create_event(**event_data)
 
     def save_analyzer_result(self, last_result=None, this_result=None):
 

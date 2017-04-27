@@ -11,7 +11,7 @@ from django.test import TestCase
 from analyzers.models import ImmobilityAnalyzer, SubjectAnalyzerResult
 from observations import models
 from .immobility_test_data import *
-
+from activity.models import EventType, EventCategory
 
 def generate_random_positions(start_time=None, x=37.5, y=1.41):
     recorded_at = start_time or pytz.utc.localize(datetime.utcnow()) - timedelta(hours=24)
@@ -39,6 +39,12 @@ def time_shift(items, start_time=None, time_key='recorded_at'):
 from analyzers.tasks import handle_subject
 
 class TestImmobilityAnalyzer(TestCase):
+
+    def setUp(self):
+        ec = EventCategory.objects.create(value='analyzer', display='analyzer')
+        et1 = EventType.objects.create(value='immobility', display='immobility', category=ec)
+        et2 = EventType.objects.create(value='immobility_all_clear', display='immobility_all_clear', category=ec)
+
 
     def test_ishango_immobile(self):
 

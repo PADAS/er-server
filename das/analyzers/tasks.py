@@ -14,14 +14,6 @@ from analyzers.models import *
 
 logger = logging.getLogger(__name__)
 
-def should_save(analyzer_result, last_result=None):
-    if last_result is None:
-        return True
-    if analyzer_result.level in (CRITICAL, WARNING):
-        return True
-    if last_result.level in (CRITICAL, WARNING):
-        return True
-
 @celery.app.task()
 def handle_subject(subject_id):
 
