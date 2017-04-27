@@ -137,7 +137,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
         logger.info(result.notes)
 
-        this_event = self.build_event(result, last_result)
+        this_event = self.create_analyzer_event(result, last_result)
 
         return result,this_event
 
@@ -162,14 +162,12 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         return event
 
     def save_analyzer_result(self, last_result=None, this_result=None):
-
+        
         # No data to save so exit
-        if this_result is None:
-            return
-
-        # Save if result is critical or warning
-        if this_result.level in (CRITICAL, WARNING):
-            this_result.save()
+        if this_result is not None:
+            # Save if result is critical or warning
+            if this_result.level in (CRITICAL, WARNING):
+                this_result.save()
 
 
 
