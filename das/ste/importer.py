@@ -70,6 +70,7 @@ ARCHIVE_LOC_FIELDS = ('dloadtime',)
 TRACKING_COLLAR_SOURCE_TYPE = 'tracking-device'
 DEFAULT_SOURCE_PROVIDER_NAME = 'default'
 
+
 def add_region(region, country):
     region_qs = observations.models.Region.objects.all().filter(region=region, country=country)
     if not region_qs:
@@ -179,6 +180,7 @@ def import_trackinguser(userid):
                               first_name=trackinguser.get('firstname', 'No Firstname'),
                               email=primary_email,
                               phone=primary_phone,
+                              password='default',
                               additional=additional))
         except django.core.exceptions.ValidationError as ex:
             # Some emails are repeated in the STE database because the user does not have an email account
@@ -195,6 +197,7 @@ def import_trackinguser(userid):
                               first_name=trackinguser.get('firstname', 'No Firstname'),
                               email=primary_email,
                               phone=primary_phone,
+                              password='default',
                               additional=additional))
 
         # Set password this way so that it gets correctly encrypted
