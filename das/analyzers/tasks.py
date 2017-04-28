@@ -36,25 +36,6 @@ def handle_subject(subject_id):
             analyzer_result, analyzer_event = analyzer.analyze(subject, last_result)
             print(analyzer_result)
 
-            if analyzer_event is not None:
-                #ToDo: Should signal the event
-                pass
-
-            # if should_save(analyzer_result, last_result=latest_result):
-            #     analyzer_result.save()
-            #     event_to_file = analyzer_result.build_event(last_result)
-
-            # if (not latest_event and analyzer_result.level == OK) or \
-            #    ((not analyzer.is_two_state) and analyzer_result.level < WARNING) or \
-            #    (not analyzer_result) or \
-            #    (latest_event and analyzer.is_two_state and analyzer_result.level == latest_event.attributes.get('level')):
-            #     continue
-            #
-            # # conditions met to create a new Event
-            #
-            # analyzer_result.subject = subject
-            # _ = analyzer_result.create_event()
-
         except InsufficientDataAnalyzerException:
             logger.warning('insufficient observations exist to support analyzer {}'.format(analyzer))
 

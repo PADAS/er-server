@@ -179,8 +179,9 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                         priority=Event.PRI_REFERENCE,
                         location=this_result.geometry_collection[0])
 
-        e =  Event.objects.create_event(**event_data)
-        return e
+            if len(event_data) > 0:
+                e = Event.objects.create_event(**event_data)
+                return e
 
     def save_analyzer_result(self, last_result=None, this_result=None):
 
