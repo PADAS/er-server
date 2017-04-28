@@ -110,7 +110,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         result = SubjectAnalyzerResult(subject_analyzer=self,
                                        level=OK,
                                        message=subject.name + ' is mobile',
-                                       analyzer_revision=1,subject=subject)
+                                       analyzer_revision=1, subject=subject)
 
         # Test for immobility
         for i in range(len(fixes)):
@@ -120,6 +120,14 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             cluster_pvalue = test_cluster.threshold_point_count(self.threshold_radius) / test_cluster.relocs.fix_count
 
             cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
+
+            # print('Fixtime:', str(fixes[i].fixtime),
+            #       'Lat:', str(fixes[i].geopoint.latitude),
+            #       'Lon:', str(fixes[i].geopoint.longitude),
+            #     'Cluster fixcount:', str(test_cluster.relocs.fix_count),
+            #       'Timespan(seconds):', str(cluster_timespan_seconds),
+            #           'Cluster radius:', str(test_cluster.cluster_radius),
+            #       'Cluster Probability:', str(cluster_pvalue))
 
             result.geometry_collection = DjangoGeoColl([DjangoPoint(test_cluster.centroid.GetX(),
                                                                test_cluster.centroid.GetY())])
@@ -136,7 +144,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             if (cluster_pvalue >= self.threshold_probability) and (cluster_timespan_seconds >= self.threshold_time):
                 # Modify analyzer result
                 result.level = CRITICAL
-                result.notes = subject.name + ' is immobile'
+                result.message = subject.name + ' is immobile'
                 break
 
         logger.info(result.message)
@@ -158,8 +166,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                     provenance=Event.PC_ANALYZER,
                     event_type=EventType.objects.get_by_value('immobility'),
                     priority=Event.PRI_REFERENCE,
-                    location=this_result.geometry_collection[0]
-                )
+                    location=this_result.geometry_collection[0])
 
             # Notify if there is a state transition from Critical/Warning back to OK
             if last_result is not None:
@@ -170,11 +177,9 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                         provenance=Event.PC_ANALYZER,
                         event_type=EventType.objects.get_by_value('immobility_all_clear'),
                         priority=Event.PRI_REFERENCE,
-                        location=this_result.geometry_collection[0]
-                    )
+                        location=this_result.geometry_collection[0])
 
         e =  Event.objects.create_event(**event_data)
-        print(Event.objects.get(id=e.id))
         return e
 
     def save_analyzer_result(self, last_result=None, this_result=None):
@@ -183,6 +188,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             # Save if result is critical or warning
             if this_result.level in (CRITICAL, WARNING):
                 this_result.save()
+                print (SubjectAnalyzerResult.objects.get(id=this_result.id))
 
 
 

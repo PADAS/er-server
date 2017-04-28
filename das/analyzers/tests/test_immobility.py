@@ -79,17 +79,7 @@ class TestImmobilityAnalyzer(TestCase):
 
         handle_subject(str(sub.id))
 
-        self.assertFalse(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
-        # # Create the new analyzer with the Subject we're interested in.
-        # ia = ImmobilityAnalyzer.objects.create(subject=sub, threshold_time=18000)
-        #
-        # # Analyze
-        # r = ia.analyze()
-        #
-        # # Assert
-        # self.assertAlmostEqual(29.77662635, r.position.x, places=5)
-        # self.assertAlmostEqual(-0.2370999999, r.position.y, places=5)
-        # self.assertEqual(r.level, 20)
+        self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
 
     def xtest_emmanuel_immobile(self):
 
