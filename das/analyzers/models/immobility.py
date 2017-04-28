@@ -19,6 +19,11 @@ from analyzers.models.utils import cluster
 
 logger = logging.getLogger(__name__)
 
+EVENT_PRIORITY_MAP = {
+    CRITICAL: Event.PRI_URGENT,
+    WARNING: Event.PRI_IMPORTANT,
+    OK: Event.PRI_REFERENCE,
+}
 
 class ImmobilityAnalyzer(SubjectAnalyzer):
 
@@ -156,32 +161,32 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
     def create_analyzer_event(self, last_result=None, this_result=None):
         event_data = dict()
         # no data to create an event so exit
-        if this_result is not None:
+        if not this_result:
+            return
 
-            # Notify if result is critical or warning
-            if this_result.level in (CRITICAL, WARNING):
-                event_data = dict(
-                    message=this_result.message,
-                    event_time=this_result.estimated_time,
-                    provenance=Event.PC_ANALYZER,
-                    event_type=EventType.objects.get_by_value('immobility'),
-                    priority=Event.PRI_REFERENCE,
-                    location=this_result.geometry_collection[0])
+        # Notify if result is critical or warning
+        if this_result.level in (CRITICAL, WARNING):
+            event_data = dict(
+                message=this_result.message,
+                event_time=this_result.estimated_time,
+                provenance=Event.PC_ANALYZER,
+                event_type=EventType.objects.get_by_value('immobility'),
+                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_NONE),
+                location=this_result.geometry_collection[0])
+            e = Event.objects.create_event(**event_data)
+            return e
 
-            # Notify if there is a state transition from Critical/Warning back to OK
-            if last_result is not None:
-                if (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
-                    event_data = dict(
-                        message=this_result.message,
-                        event_time=this_result.estimated_time,
-                        provenance=Event.PC_ANALYZER,
-                        event_type=EventType.objects.get_by_value('immobility_all_clear'),
-                        priority=Event.PRI_REFERENCE,
-                        location=this_result.geometry_collection[0])
-
-            if len(event_data) > 0:
-                e = Event.objects.create_event(**event_data)
-                return e
+        # Notify if there is a state transition from Critical/Warning back to OK
+        if last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
+            event_data = dict(
+                message=this_result.message,
+                event_time=this_result.estimated_time,
+                provenance=Event.PC_ANALYZER,
+                event_type=EventType.objects.get_by_value('immobility_all_clear'),
+                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_NONE),
+                location=this_result.geometry_collection[0])
+            e = Event.objects.create_event(**event_data)
+            return e
 
     def save_analyzer_result(self, last_result=None, this_result=None):
 
