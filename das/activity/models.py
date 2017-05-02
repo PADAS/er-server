@@ -29,7 +29,6 @@ def get_sentinel_user():
                                       is_active=False,
                                       password=User.objects.make_random_password())[0]
 
-
 def image_basename(event_type, priority, state):
     CONVERSION = {0: 'gray', 100: 'med_green', 200: 'amber', 300: 'red'}
     color = CONVERSION.get(priority, 'black')
@@ -230,7 +229,6 @@ class EventManager(models.Manager):
         return self.filter(state=Event.SC_NEW).count()
 
 
-
 class EventRelationshipType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=50, unique=True)
@@ -399,27 +397,36 @@ class Event(RevisionMixin, TimestampedModel):
     end_time = models.DateTimeField(null=True, blank=True, verbose_name='End Time')
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
+
     event_type = models.ForeignKey(EventType, on_delete=models.PROTECT,
                                    blank=True, null=True)
+
     state = models.CharField(max_length=40, choices=STATE_CHOICES,
                              default=SC_NEW, db_index=True)
+
     location = models.PointField(srid=4326, null=True, blank=True)
+
     priority = models.PositiveSmallIntegerField(default=PRI_NONE,
                                                 choices=PRIORITY_CHOICES)
     attributes = JSONField(default={}, blank=True)
+
     revision = Revision()
 
     _usermodel = settings.AUTH_USER_MODEL.lower().split('.')
+
     reported_by_limits = models.Q(app_label='observations', model='subject')\
         | models.Q(app_label='observations', model='source') \
         | models.Q(app_label='activity', model='community') \
         | models.Q(app_label=_usermodel[0], model=_usermodel[1])
+
     reported_by_content_type = models.ForeignKey(
         ContentType,
         on_delete=models.CASCADE,
         limit_choices_to=reported_by_limits,
         null=True, blank=True)
+
     reported_by_id = models.UUIDField(null=True, blank=True, default=None)
+
     reported_by = GenericForeignKey('reported_by_content_type',
                                     'reported_by_id')
 

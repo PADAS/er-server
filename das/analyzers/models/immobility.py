@@ -160,6 +160,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
     def create_analyzer_event(self, last_result=None, this_result=None):
         event_data = dict()
+
         # no data to create an event so exit
         if not this_result:
             return
