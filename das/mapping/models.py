@@ -8,6 +8,7 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import reverse, NoReverseMatch
 from django.utils.translation import ugettext_lazy as _
+from django.contrib.postgres.fields import ArrayField
 
 from core.models import TimestampedModel
 from utils.decorator import reify
@@ -55,25 +56,21 @@ class TileLayer(TimestampedModel):
         return self.name
 
 
-class FeatureTypeManager(models.Manager):
+class DisplayCategoryManager(models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class FeatureType(TimestampedModel):
+class DisplayCategory(TimestampedModel):
     """
     If the clients wish to group layers in a control or for ease of administration
-
-    MapBox convention for stylization of feature types:
-    Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
-    Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
-    Polygons: https://www.mapbox.com/mapbox-gl-style-spec/#layers-fill
+    Boundaries, Water, Security etc.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
-    presentation = JSONField(default={})
-    objects = FeatureTypeManager()
+
+    objects = DisplayCategoryManager()
 
     def __str__(self):
         return self.name
@@ -82,28 +79,25 @@ class FeatureType(TimestampedModel):
         return (self.name,)
 
 
-class FeatureSetManager(models.Manager):
+class FeatureGroupManager(models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class FeatureSet(TimestampedModel):
+class FeatureGroup(TimestampedModel):
     """
     A grouping of features that should be toggled together on the map,
       e.g. a set of camps or a system of rivers
       ... better than handling as a layer group in UI as it allows grouping to be controlled in db?
     """
 
-    """TODO: Should be versioned"""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
-    types = models.ManyToManyField(to=FeatureType, related_name='featuresets')
-    #features = models.ManyToManyField(to=GeoFeature, related_name='features')
+    features = models.ManyToManyField(to=GeoFeature, related_name='feature_groups')
 
     description = models.TextField(null=True, blank=True)
 
-    objects = FeatureSetManager()
+    objects = FeatureGroupManager()
 
     def __str__(self):
         return self.name
@@ -117,26 +111,39 @@ class Feature(TimestampedModel):
     A vector feature, e.g. a boundary, a hut, a village, a river ...
     """
 
-    """TODO: Should be versioned"""
+    #TODO: Add versioning
 
+    #data fields
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80)
-    type = models.ForeignKey(to=FeatureType)
-    description = models.TextField(null=True, blank=True)
+    type = models.CharField(max_length=80)
+    tags = ArrayField(null=True, blank=True)  # Tags will allow categorization according to different views (e.g., HF)
+    status = models.IntegerField(default=1)  # Whether this feature is currently valid (1=yes, 0=no)
 
-    #Added by Jake
-    short_name = models.CharField(max_length=20)  # A shorter name used for cartographic display
-    categorization = JSONField(default={})  # Different types of categorization
-    attributes = JSONField(default={})  # Additional feature attribute data
+    # provenance
+    provenance = models.JSONField(default={}) # where did the data come from? method?
+        # collected_by # who collected the data?
+        # collect_method # the method used to collect the data (e.g., GPS, Satellite, etc.)
+        # collect_date # when was the data collected?
 
-    # attributes for presentation
-    presentation = JSONField(default={})
-    fields = JSONField(default={})
-    external_id = models.CharField(max_length=80, blank=True, null=True)
+    # ownership
+    feature_owners = ArrayField(null=True, blank=True) # The person/entity who owns the given spatial feature. E.g., 'Government of Kenya'
+    data_owners = ArrayField(null=True, blank=True) # The person/entity/organization who owns the data
+    # last_edited_user # ToDO: How can we keep track of who last edited this feature?
 
-    # the feature set with which this feature is being grouped.
-    # todo:  evaluate whether many-to-many might be a better approach or stick with this simple approach
-    featureset = models.ForeignKey(to=FeatureSet, null=True)  # probably should be spelled feature_set
+    #additional attributes
+    notes = models.TextField(null=True, blank=True)
+    attributes = models.JSONField(default={})  # Additional feature attribute data
+        # ste_guid
+        # json_schema
+
+    #presentation fields
+    display_category = models.ForeignKey(to=DisplayCategory)  # Boundaries, Water, Security etc.
+    display_name = models.CharField(max_length=20)  # A shorter name used for cartographic display
+    presentation = JSONField(default={})  # JSON Field for defining the basic presentation of the feature
+        # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
+        # Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
+        # Polygons: https://www.mapbox.com/mapbox-gl-style-spec/#layers-fill
 
     @property
     def default_presentation(self):
