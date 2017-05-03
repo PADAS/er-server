@@ -67,17 +67,20 @@ CELERY_ROUTES = {
 
 
 # Defining scheduled tasks.
+PLUGIN_PERIOD = 5*60 # Seconds
 CELERYBEAT_SCHEDULE = {
     'plugins': {
       'task': 'tracking.tasks.run_plugins',
-        'schedule': timedelta(minutes=5),
+        'schedule': timedelta(seconds=PLUGIN_PERIOD),
+        'kwargs': {'expire_subtasks': PLUGIN_PERIOD},
+        'options': {'expires': PLUGIN_PERIOD},
     },
     'demo-plugins': {
       'task': 'tracking.tasks.run_demo_plugins',
-        'schedule': timedelta(minutes=5),
+        'schedule': timedelta(seconds=PLUGIN_PERIOD),
+        'options': {'expires': PLUGIN_PERIOD},
     },
 }
-
 
 try:
     from das_server.local_celery_settings import *

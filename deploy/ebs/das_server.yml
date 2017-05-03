@@ -151,7 +151,7 @@ app:
                     permissions: 0644
                     content: |
                         [program:celeryworker_priority]
-                        command=/opt/python/run/venv/bin/celery worker -A das_server -Q realtime_p1,realtime_p2,realtime_p3,default -l info -c 20 -P gevent
+                        command=/opt/python/run/venv/bin/celery worker -A das_server -Q realtime_p1,realtime_p2,realtime_p3,default -l info -c 3 -P gevent
                         directory=/opt/python/current/app/das
                         environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
                         user=wsgi
@@ -166,7 +166,7 @@ app:
                         killasgroup=true
 
                         [program:celeryworker_default]
-                        command=/opt/python/run/venv/bin/celery worker -A das_server -Q default,realtime_p1,realtime_p2,realtime_p3 -l info -c 20 -P gevent
+                        command=/opt/python/run/venv/bin/celery worker -A das_server -Q default,realtime_p1,realtime_p2,realtime_p3 -l info -c 5 -P gevent
                         directory=/opt/python/current/app/das
                         environment=DJANGO_SETTINGS_MODULE='das_server.local_settings',PYTHONPATH='/opt/python/current/app/das:$PYTHONPATH'
                         user=wsgi
@@ -401,7 +401,7 @@ app:
               'aws:elasticbeanstalk:application:environment':
                 DAS_ENV_NAME: 'ste'
               'aws:autoscaling:launchconfiguration':
-                InstanceType: "t2.medium"
+                InstanceType: "t2.large"
         # the grumeti version of the app
         'das-server-grumeti':
             cname_prefix: 'das-server-grumeti'

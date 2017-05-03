@@ -131,7 +131,13 @@ class SourcePlugin(TimestampedModel):
 
     def should_run(self):
         # Defer decision to associated Plugin if possible.
-        return self.plugin.should_run(self) if hasattr(self.plugin, 'should_run') else True
+        if hasattr(self.plugin, 'should_run'):
+            print('Delegating to plugin.should_run')
+            return self.plugin.should_run(self)
+        else:
+            return True
+
+        # return self.plugin.should_run(self) if hasattr(self.plugin, 'should_run') else True
 
 
 class TrackingPlugin(TimestampedModel):
