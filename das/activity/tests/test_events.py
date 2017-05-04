@@ -456,7 +456,7 @@ class TestEventView(BaseAPITest):
         event_data = {'message': 'this has no event type', 'priority': '200'}
 
         request = self.factory.post(self.api_base + '/events/', event_data)
-        self.force_authenticate(request, self.user)
+        self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 400)
@@ -475,7 +475,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.patch(
             self.api_base + '/event/{0}'.format(str(event.id)),
             update_data)
-        self.force_authenticate(request, self.user)
+        self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventView.as_view()(request, id=str(event.id))
         self.assertEqual(response.status_code, 200)
