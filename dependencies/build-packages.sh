@@ -6,23 +6,24 @@ apt-get install -y build-essential \
                  autoconf \
                  zip \
                  checkinstall \
+                 python3-dev \
                  wget
 
+
+wget http://download.osgeo.org/geos/geos-3.6.1.tar.bz2; tar -xjf geos-3.6.1.tar.bz2; cd geos-3.6.1; ./configure; make; checkinstall -y;
+cd ..
+cp geos-3.6.1/geos_3.6.1-1_amd64.deb .
+rm -rf geos-3.6.1
 
 wget http://download.osgeo.org/proj/proj-4.9.3.tar.gz; tar -xzvf proj-4.9.3.tar.gz; cd proj-4.9.3; ./configure --prefix=/usr; make; checkinstall -y;
 cd ..
 cp proj-4.9.3/proj_4.9.3-1_amd64.deb .
 rm -rf proj-4.9.3
 
-wget http://download.osgeo.org/gdal/2.1.3/gdal-2.1.3.tar.gz; tar -xzvf gdal-2.1.3.tar.gz; cd gdal-2.1.3; ./configure --prefix=/usr; make; checkinstall -y;
+wget http://download.osgeo.org/gdal/2.1.3/gdal-2.1.3.tar.gz; tar -xzvf gdal-2.1.3.tar.gz; cd gdal-2.1.3; ./configure --prefix=/usr --with-python --with-geos=yes; make; checkinstall -y;
 cd ..
 cp gdal-2.1.3/gdal_2.1.3-1_amd64.deb .
 rm -rf gdal-2.1.3
-
-wget http://download.osgeo.org/geos/geos-3.6.1.tar.bz2; tar -xjf geos-3.6.1.tar.bz2; cd geos-3.6.1; ./configure; make; checkinstall -y;
-cd ..
-cp geos-3.6.1/geos_3.6.1-1_amd64.deb .
-rm -rf geos-3.6.1
 
 # RUN if [ ! -e /usr/lib/libproj.so ]; then \
 #   cd /opt; wget http://download.osgeo.org/proj/proj-4.9.2.tar.gz; tar -xzvf proj-4.9.2.tar.gz; cd proj-4.9.2; ./configure --prefix=/usr; make; make install; fi
