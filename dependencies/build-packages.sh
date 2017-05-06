@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 apt-get update -y
 apt-get install -y build-essential \
                  software-properties-common \
@@ -14,13 +16,15 @@ wget http://download.osgeo.org/geos/geos-3.6.1.tar.bz2; tar -xjf geos-3.6.1.tar.
 cd ..
 cp geos-3.6.1/geos_3.6.1-1_amd64.deb .
 rm -rf geos-3.6.1
+ldconfig
 
 wget http://download.osgeo.org/proj/proj-4.9.3.tar.gz; tar -xzvf proj-4.9.3.tar.gz; cd proj-4.9.3; ./configure --prefix=/usr; make; checkinstall -y;
 cd ..
 cp proj-4.9.3/proj_4.9.3-1_amd64.deb .
 rm -rf proj-4.9.3
+ldconfig
 
-wget http://download.osgeo.org/gdal/2.1.3/gdal-2.1.3.tar.gz; tar -xzvf gdal-2.1.3.tar.gz; cd gdal-2.1.3; ./configure --prefix=/usr --with-python --with-geos=yes; make; checkinstall -y;
+wget http://download.osgeo.org/gdal/2.1.3/gdal-2.1.3.tar.gz; tar -xzvf gdal-2.1.3.tar.gz; cd gdal-2.1.3; ./configure --prefix=/usr --with-python=/usr/bin/python3 --with-geos=/usr/local/bin/geos-config --with-static-proj4=/usr/lib/libproj.a; make; checkinstall -y;
 cd ..
 cp gdal-2.1.3/gdal_2.1.3-1_amd64.deb .
 rm -rf gdal-2.1.3
@@ -36,3 +40,9 @@ rm -rf gdal-2.1.3
 
 # Best practice is to clean up packages before creating a docker image
 #apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# The following 4 lines of code succeeds if gdal is compiled with geos correctly
+#from osgeo import ogr
+#p1 = ogr.CreateGeometryFromWkt('POINT(10 20)')
+#p2 = ogr.CreateGeometryFromWkt('POINT(30 20)')
+#u = p1.Union(p2)
