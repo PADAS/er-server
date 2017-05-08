@@ -102,7 +102,8 @@ class SourcePlugin(TimestampedModel):
     cursor_data = JSONField(null=True)
     status = models.CharField(max_length=15, default=STATUS_ENABLED)
 
-    last_run = models.DateTimeField(auto_now_add=True, verbose_name='Timestamp for when this plugin last executed.')
+    # last_run: datetime.min implies it hasn't ever been executed.
+    last_run = models.DateTimeField(default=datetime.min, verbose_name='Timestamp for when this plugin last executed.')
 
     def execute(self, target=None):
         '''
@@ -138,6 +139,9 @@ class SourcePlugin(TimestampedModel):
             return True
 
         # return self.plugin.should_run(self) if hasattr(self.plugin, 'should_run') else True
+
+    def __str__(self):
+        return '%s: source: %s, manufacturer_id: %s' % (self.id, self.source_id, self.source.manufacturer_id)
 
 
 class TrackingPlugin(TimestampedModel):
