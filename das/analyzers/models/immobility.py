@@ -172,7 +172,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type=EventType.objects.get_by_value('immobility'),
-                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_NONE),
+                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT),
                 location=this_result.geometry_collection[0])
             e = Event.objects.create_event(**event_data)
             return e
@@ -180,11 +180,11 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         # Notify if there is a state transition from Critical/Warning back to OK
         if last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
-                message="Immobility All Clear",
+                message= this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type=EventType.objects.get_by_value('immobility_all_clear'),
-                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_NONE),
+                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_REFERENCE),
                 location=this_result.geometry_collection[0])
             e = Event.objects.create_event(**event_data)
             return e
@@ -195,7 +195,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             # Save if result is critical or warning
             if this_result.level in (CRITICAL, WARNING):
                 this_result.save()
-                print (SubjectAnalyzerResult.objects.get(id=this_result.id))
+                print(SubjectAnalyzerResult.objects.get(id=this_result.id))
 
             if last_result is not None:
                 # Save the result if there was a transition from Critical/Warning to OK
