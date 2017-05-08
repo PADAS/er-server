@@ -77,7 +77,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         traj = self._create_trajectory(subject)
         return self.analyze_trajectory(subject, last_result, traj)
 
-    def analyze_trajectory(self,subject, last_result, traj):
+    def analyze_trajectory(self, subject, last_result, traj):
         """
 
         A function to search for immobility within a movement trajectory. Assumes we start with a filtered
@@ -180,7 +180,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         # Notify if there is a state transition from Critical/Warning back to OK
         if last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
-                message=this_result.message,
+                message="Immobility All Clear",
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type=EventType.objects.get_by_value('immobility_all_clear'),
@@ -196,6 +196,12 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             if this_result.level in (CRITICAL, WARNING):
                 this_result.save()
                 print (SubjectAnalyzerResult.objects.get(id=this_result.id))
+
+            if last_result is not None:
+                # Save the result if there was a transition from Critical/Warning to OK
+                if (this_result.level is OK) and (last_result in (CRITICAL, WARNING)):
+                    this_result.save()
+                    print(SubjectAnalyzerResult.objects.get(id=this_result.id))
 
 
 
