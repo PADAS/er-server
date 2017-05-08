@@ -103,7 +103,7 @@ app:
         archive:
             includes: # files to include, a list of regex
               - '^das\/.*'
-              #- '^wheelhouse\/.*'
+              - '^wheelhouse\/.*'
               - '^requirements\.txt$'
             excludes: # files to exclude, a list of regex
                 - '^.gitignore$'
@@ -307,6 +307,7 @@ app:
                                 libjpeg-turbo-devel: []
                                 libtiff-devel: []
                                 python34-devel: []
+                                geos-devel: []
                             rpm:
                                 remi: http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
                         commands:
