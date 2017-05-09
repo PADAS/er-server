@@ -112,35 +112,24 @@ class SourcePlugin(TimestampedModel):
         :return:
         '''
         if self.should_run:
+
             result = SourcePluginResult()
             result.plugin_type = self.plugin_type
             result.source_id = self.source_id
 
+            # target coroutine always returns an accumulator that indicates the number of observations that have
+            # been created.
             with target or DasDefaultTarget() as t:
                 for observation in self.plugin.fetch(self.source, self.cursor_data):
-                    o, created = self.add_observation(observation)
-                    if created:
-                        result.count += 1
+                    accumulator = t.send(observation)
 
             self.last_run = pytz.utc.localize(datetime.utcnow())
             self.cursor_data = self.plugin.cursor_data
             self.save()
 
-            if result.count > 0:
+            if accumulator.get('created', 0) > 0:
                 notify_new_tracks(str(self.source.id))
             return result
-
-    def add_observation(self, item):
-        location = Point(x=item.longitude, y=item.latitude)
-        additional = item.additional or {}
-        result, created = observations.models.Observation.objects.get_or_create(source_id=item.source.id,
-                                                                                recorded_at=item.recorded_at,
-                                                                                defaults=dict(
-                                                                                    location=location,
-                                                                                    additional=additional
-                                                                                ))
-
-        return result, created
 
     def maintenance(self, target=None):
         raise NotImplementedError('maintenance is not yet implemented')
@@ -226,14 +215,18 @@ class PluginTarget(object):
         '''
 
         def _():
+            accumulator = {'count': 0, 'created': 0}
             cnt = 0
             try:
+
                 while True:
-                    item = (yield)
-                    self._handle_item(item)
-                    cnt += 1
+                    item = yield accumulator
+                    result, created = self._handle_item(item)
+                    accumulator['count'] += 1
+                    accumulator['created'] += 1 if created else 0
             except GeneratorExit:
-                self.logger.info("Target received %d messages", cnt)
+                self.logger.info("Target received %d messages, created %d items.", accumulator['count'],
+                                 accumulator['created'] )
             except Exception as e:
                 self.logger.exception("Exception in plugin handler.")
 
@@ -250,6 +243,7 @@ class PluginTarget(object):
         self._r.close()
         return True
 
+
 class DasDefaultTarget(PluginTarget):
     '''
     Default target that writes to the Observations model.
@@ -264,6 +258,7 @@ class DasDefaultTarget(PluginTarget):
                                                                 location=location,
                                                                 additional=additional
                                                             ))
+        return result, created
 
 
 
