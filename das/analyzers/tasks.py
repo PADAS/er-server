@@ -22,9 +22,12 @@ def handle_subject(subject_id):
     # Call annotator first
     annotate_observations_for_subject(subject_id)
 
+    # Queue analyzer tasks.
+    analyze_subject.apply_async(args=[str(subject_id),])
 
-@celery.app.task()
-def analyze_subject(subject_id):
+
+@celery.app.task(bind=True)
+def analyze_subject(self, subject_id):
 
 
     subject = Subject.objects.get(id=subject_id)
