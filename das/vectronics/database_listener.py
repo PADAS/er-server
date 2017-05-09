@@ -9,6 +9,8 @@ from django.db import connections
 from observations.models import Source, Observation
 from vectronics.models import GpsPlusPositions
 from tracking.models.plugin_base import Obs
+from tracking.pubsub_registry import notify_new_tracks
+
 
 logger = logging.getLogger('vectronics_db_listener')
 channel_name = 'das_vectronics_position_notification'
@@ -56,7 +58,10 @@ def handle_gps_plus_position(position):
                       longitude=longitude, additional=additional)
 
     try:
-        Observation.objects.add_observation(observation)
+        observation, created = Observation.objects.add_observation(observation)
+
+        if created:
+            notify_new_tracks(observation.source.id)
 
         logger.info('Recorded observation for collar_id: %s, at %s, longitude: %s, latitude: %s',
                     position.id_collar, recorded_at.isoformat(), position.longitude, position.latitude)
