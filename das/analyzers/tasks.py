@@ -37,7 +37,7 @@ def analyze_subject(self, subject_id):
 
         try:
             last_result = SubjectAnalyzerResult.objects.filter(subject=subject, subject_analyzer_id=analyzer.id). \
-                latest('created_at')
+                latest('estimated_time')
         except SubjectAnalyzerResult.DoesNotExist:
             last_result = None
 

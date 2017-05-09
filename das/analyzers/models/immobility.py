@@ -73,7 +73,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
         return traj
 
-    def analyze(self, subject, last_result):
+    def analyze(self, subject, last_result=None):
         traj = self._create_trajectory(subject)
         return self.analyze_trajectory(subject, last_result, traj)
 
@@ -114,12 +114,12 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         # Create the analyzer result
         result = SubjectAnalyzerResult(subject_analyzer=self,
                                        level=OK,
-                                       message=subject.name + ' is mobile',
+                                       message=subject.name + ' is moving',
                                        analyzer_revision=1, subject=subject)
 
         # Test for immobility
-        for i in range(len(fixes)):
-            test_cluster.add_fix(fixes[i])
+        for f in fixes:
+            test_cluster.add_fix(f)
 
             # Calculate the ratio of points within cluster threshold distance and total points in cluster
             cluster_pvalue = test_cluster.threshold_point_count(self.threshold_radius) / test_cluster.relocs.fix_count
