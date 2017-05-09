@@ -102,25 +102,6 @@ class AWETelemetryPlugin(TrackingPlugin):
     service_url = models.CharField(max_length=50,
                                    help_text='The API endpoint for the AWE Telemetry/AWT service.')
 
-    def should_run(self, source_plugin):
-
-
-        if pytz.utc.localize(datetime.utcnow()) - source_plugin.last_run < self.EXECUTION_THROTTLE:
-            return False
-
-        # Don't bother running now if less than 30 minutes has passed since the latest fix.
-        try:
-            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
-            if not latest_timestamp:
-                return True
-            latest_timestamp = parse_date(latest_timestamp)
-
-            if (pytz.utc.localize(datetime.utcnow()) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
-                return True
-        except:
-            return True
-
-        return False
 
     def fetch(self, source, cursor_data=None):
 

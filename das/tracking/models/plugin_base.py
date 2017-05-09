@@ -12,8 +12,9 @@ from core.models import TimestampedModel
 import uuid
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
+from dateutil.parser import parse as parse_date
 
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -177,7 +178,30 @@ class TrackingPlugin(TimestampedModel):
         return True
 
     def should_run(self, source_plugin):
-        return True
+
+        now = pytz.utc.localize(datetime.utcnow())
+
+        # Don't bother running now if less than one hour has passed since the latest fix.
+        try:
+            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
+            latest_timestamp = parse_date(latest_timestamp) if latest_timestamp else pytz.utc.localize(datetime.min)
+
+            # If we haven't seen data from over 30 days, then use 24 hours as polling interval.
+            if now - latest_timestamp > timedelta(days=30):
+                wait_interval = timedelta(hours=24)
+            else:
+                wait_interval = self.DEFAULT_REPORT_INTERVAL
+
+            if (now - wait_interval) > latest_timestamp:
+                return True
+
+        except Exception as e:
+            self.logger.exception('Failed to determine whether source-plugin %s should run.', source_plugin)
+
+            if (now - source_plugin.last_run) > self.DEFAULT_REPORT_INTERVAL:
+                return True
+
+        return False
 
     def execute(self):
         '''

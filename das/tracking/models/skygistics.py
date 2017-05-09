@@ -250,29 +250,6 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
                                        help_text='API endpoint for Skygistics service.',
                                        default='http://skyq1.skygistics.com')
 
-    def should_run(self, source_plugin):
-
-        now = pytz.utc.localize(datetime.utcnow())
-
-        # Don't bother running now if less than one hour has passed since the latest fix.
-        try:
-            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
-            latest_timestamp = parse_date(latest_timestamp) if latest_timestamp else pytz.utc.localize(datetime.min)
-
-            # If we haven't seen data from over 30 days, then use 24 hours as polling interval.
-            if now - latest_timestamp > timedelta(days=30):
-                wait_interval = timedelta(hours=24)
-            else:
-                wait_interval = self.DEFAULT_REPORT_INTERVAL
-
-            if (now - wait_interval) > latest_timestamp:
-                return True
-
-        except Exception as e:
-            self.logger.exception('Failed to determine whether source-plugin %s should run.', source_plugin)
-            return True
-        else:
-            return False
 
     def fetch(self, source, cursor_data=None):
 

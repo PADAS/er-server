@@ -124,22 +124,6 @@ class AWTHttpPlugin(TrackingPlugin):
     DEFAULT_START_OFFSET = timedelta(days=7)
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=30)
 
-    def should_run(self, source_plugin):
-
-        # Don't bother running now if less than 30 minutes has passed since the latest fix.
-        try:
-            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
-            if not latest_timestamp:
-                return True
-            latest_timestamp = parse_date(latest_timestamp)
-
-            if (datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
-                return True
-        except:
-            return True
-
-        return False
-
     def fetch(self, source, cursor_data=None):
 
         self.logger = logging.getLogger(self.__class__.__name__)
