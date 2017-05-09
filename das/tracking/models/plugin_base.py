@@ -119,6 +119,7 @@ class SourcePlugin(TimestampedModel):
 
             # target coroutine always returns an accumulator that indicates the number of observations that have
             # been created.
+            accumulator = None
             with target or DasDefaultTarget() as t:
                 for observation in self.plugin.fetch(self.source, self.cursor_data):
                     accumulator = t.send(observation)
@@ -127,7 +128,7 @@ class SourcePlugin(TimestampedModel):
             self.cursor_data = self.plugin.cursor_data
             self.save()
 
-            if accumulator.get('created', 0) > 0:
+            if accumulator and accumulator.get('created', 0) > 0:
                 notify_new_tracks(str(self.source.id))
             return result
 
