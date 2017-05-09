@@ -17,13 +17,19 @@ logger = logging.getLogger(__name__)
 @celery.app.task()
 def handle_subject(subject_id):
 
-    logger.info('handling subject %s' % str(subject_id))
+    logger.info('handling subject %s', str(subject_id))
 
     # Call annotator first
     annotate_observations_for_subject(subject_id)
 
+
+@celery.app.task()
+def analyze_subject(subject_id):
+
+
     subject = Subject.objects.get(id=subject_id)
 
+    logger.info('Running analyzers for subject: %s', subject)
     for analyzer in get_or_create_analyzers_for_subject(subject):
 
         try:
