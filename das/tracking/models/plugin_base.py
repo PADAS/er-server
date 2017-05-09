@@ -5,6 +5,7 @@ import logging
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
+from django.contrib.gis.geos import Point, Polygon
 from django.contrib.contenttypes.fields import GenericRelation
 from core.models import TimestampedModel
 
@@ -117,8 +118,10 @@ class SourcePlugin(TimestampedModel):
 
             with target or DasDefaultTarget() as t:
                 for observation in self.plugin.fetch(self.source, self.cursor_data):
-                    t.send(observation)
-                    result.count += 1
+                    o, created = self.add_observation(observation)
+                    if created:
+                        result.count += 1
+
             self.last_run = pytz.utc.localize(datetime.utcnow())
             self.cursor_data = self.plugin.cursor_data
             self.save()
@@ -126,6 +129,18 @@ class SourcePlugin(TimestampedModel):
             if result.count > 0:
                 notify_new_tracks(str(self.source.id))
             return result
+
+    def add_observation(self, item):
+        location = Point(x=item.longitude, y=item.latitude)
+        additional = item.additional or {}
+        result, created = observations.models.Observation.objects.get_or_create(source_id=item.source.id,
+                                                                                recorded_at=item.recorded_at,
+                                                                                defaults=dict(
+                                                                                    location=location,
+                                                                                    additional=additional
+                                                                                ))
+
+        return result, created
 
     def maintenance(self, target=None):
         raise NotImplementedError('maintenance is not yet implemented')
@@ -182,8 +197,6 @@ class TrackingPlugin(TimestampedModel):
             try:
                 logger.debug('Running plugin {} for source {}'.format(sp, sp.source))
                 result = sp.execute()
-                if result.count > 0:
-                    notify_new_tracks(result.source_id)
                 logger.debug(
                     'Finished running plugin {} for source {} with result.count={}'.format(sp, sp.source, result.count))
             except DasPluginException as dpe:
@@ -242,7 +255,17 @@ class DasDefaultTarget(PluginTarget):
     Default target that writes to the Observations model.
     '''
     def _handle_item(self, item):
-        observations.models.Observation.objects.add_observation(item)
+
+        location = Point(x=item.longitude, y=item.latitude)
+        additional = item.additional or {}
+        result, created = observations.models.Observation.objects.get_or_create(source_id=item.source.id,
+                                                            recorded_at=item.recorded_at,
+                                                            defaults=dict(
+                                                                location=location,
+                                                                additional=additional
+                                                            ))
+
+
 
 '''
 Observation Football; meant to provide a consistent way for passing essential observation data between functions.
