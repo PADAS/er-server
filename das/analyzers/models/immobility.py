@@ -199,7 +199,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
             if last_result is not None:
                 # Save the result if there was a transition from Critical/Warning to OK
-                if (this_result.level is OK) and (last_result in (CRITICAL, WARNING)):
+                if (this_result.level is OK) and (last_result.level in (CRITICAL, WARNING)):
                     this_result.save()
                     print(SubjectAnalyzerResult.objects.get(id=this_result.id))
 
