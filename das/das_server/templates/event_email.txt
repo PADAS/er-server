@@ -1,0 +1,15 @@
+DAS Event Alert
+{{id}}: {{title}} {{newness}}
+
+{% if updated %}
+The following fields have been changed:
+{% for updated_field in updated_fields_names %}
+{{updated_field}}
+{% endfor %}
+{% endif %}
+
+
+Full event data:
+{% for event_field in all_fields_and_values %}
+{{event_field}}
+{% endfor %}
