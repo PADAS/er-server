@@ -21,6 +21,9 @@ subject_group_query_map = {
     'wcs_niassa_realtime':                       "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm INNER JOIN trackingmasteraux tma ON tm.chronofile = tma.chronofile WHERE tm.active=1 AND tma.data_owners @> '{WCS Niassa}'::text[] ORDER by tm.chronofile ASC) AS group_members;",
     'mep_realtime':                              "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm INNER JOIN trackingmasteraux tma ON tm.chronofile = tma.chronofile WHERE tm.active=1 AND tma.data_owners @> '{MEP}'::text[] ORDER by tm.chronofile ASC) AS group_members;",
     'gorongosa_elephant_project_realtime':       "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm INNER JOIN trackingmasteraux tma ON tm.chronofile = tma.chronofile WHERE tm.active=1 AND tma.data_owners @> '{University of Idaho - Gorongosa Elephant Project}'::text[] ORDER by tm.chronofile ASC) AS group_members;",
+    'smithsonian_chad_oryx':                     "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm INNER JOIN trackingmasteraux tma ON tm.chronofile = tma.chronofile WHERE tm.species='Scimitar Oryx'  AND tma.data_owners @> '{Smithsonian}'::text[] ORDER by tm.chronofile ASC) AS group_members;",
+    'smithsonian_myanmar_elephants':             "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm INNER JOIN trackingmasteraux tma ON tm.chronofile = tma.chronofile WHERE tm.species='Asian Elephant' AND tma.data_owners @> '{Smithsonian}'::text[] ORDER by tm.chronofile ASC) AS group_members;",
+
 
     ### Custom Defined Groups ###
     'everything':                                "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm ORDER BY chronofile ASC) as group_members",
