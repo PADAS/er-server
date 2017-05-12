@@ -61,9 +61,14 @@ class SavannaClient(object):
         res = conn.getresponse()
         saveline = None
         if res.status == http.client.OK:
+            self.logger.info('Fetch OK from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
+
             for line in res:
-                if line != saveline: # We occassionally see duplicate records in results.
-                    yield self.parse_line(line.decode('utf-8').strip())
+                try:
+                    if line != saveline: # We occassionally see duplicate records in results.
+                        yield self.parse_line(line.decode('utf-8').strip())
+                except Exception as e:
+                    self.logger.exception('Failed to parse line for collar_id: %s, line: [%s]', collar_id, line)
                 saveline = line
         else:
             msg = 'Failed to get data from Savannah Tracking API for collar_id: %s. Result status: %d' % (collar_id,
