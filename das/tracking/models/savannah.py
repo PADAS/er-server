@@ -43,7 +43,8 @@ class SavannaClient(object):
         :return: generator, yielding individual records.
         '''
 
-        conn = http.client.HTTPConnection(self.host)
+        self.logger.info('Fetching from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
+        conn = http.client.HTTPConnection(self.host, timeout=15)
 
         payload = dict(uid=self.username, pwd=self.password,
                        unixtime=str(start_time), collar=collar_id)
@@ -65,7 +66,8 @@ class SavannaClient(object):
                     yield self.parse_line(line.decode('utf-8').strip())
                 saveline = line
         else:
-            msg = 'Failed to get data from Savannah Tracking API.'
+            msg = 'Failed to get data from Savannah Tracking API for collar_id: %s. Result status: %d' % (collar_id,
+                                                                                                          res.status)
             self.logger.error(msg)
             raise DasPluginFetchError(msg)
 
