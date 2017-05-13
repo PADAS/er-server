@@ -96,9 +96,6 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             3) immobility cluster fix count
             4) algorithm provenance
 
-        :param traj:
-        :return:
-
         """
 
         # Check to see if we have data that spans the threshold time otherwise impossible to calculate
@@ -115,7 +112,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         result = SubjectAnalyzerResult(subject_analyzer=self,
                                        level=OK,
                                        message=subject.name + ' is moving',
-                                       analyzer_revision=1, subject=subject)
+                                       analyzer_revision=1,
+                                       subject=subject)
 
         # Test for immobility
         for f in fixes:
@@ -151,6 +149,13 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 result.level = CRITICAL
                 result.message = subject.name + ' is immobile'
                 break
+
+
+        if result.level == OK:
+            # Because the result is OK, we want the result to reflect the latest position of the animal
+            # and not the cluster centroid.
+            result.geometry_collection = DjangoGeoColl([DjangoPoint(fixes[0].ogr_geometry.GetX(),
+                                                               fixes[0].ogr_geometry.GetY())])
 
         logger.info(result.message)
         self.save_analyzer_result(last_result=last_result, this_result=result)
