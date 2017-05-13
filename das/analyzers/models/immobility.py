@@ -61,15 +61,24 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             fix = pymet.base.Fix(gp, observation.recorded_at)
             return fix
 
+        # Create a relocations object
         fixes = [create_fix(x) for x in subject.observations(last_hours=self.search_time_hours)]
         relocs = pymet.base.Relocations(fixes)
-        traj = pymet.base.Trajectory(relocs)
 
-        # Look up the StraightTrackSegmentFilter settings for the given SubjectType
+        # Filter the relocations for junk coordinates
+        coord_filter = pymet.base.RelocsCoordinateFilter()
+        relocs.apply_fix_filter(coord_filter)
+
+        # Filter the relocations based on speed
+        speed_threshold = float('Inf')
         traj_filter_params = SubjectTrackSegmentFilter.objects.filter(subject_type=subject.subject_subtype).first()
         if traj_filter_params is not None:
-            traj_filter = pymet.base.TrajSegFilter(max_speed_kmhr=traj_filter_params.speed_KmHr)
-            traj.traj_seg_filter = traj_filter  # Set the trajectory segment filter on the trajectory
+            speed_threshold = traj_filter_params.speed_KmHr
+        speed_filter = pymet.base.RelocsSpeedFilter(max_speed_kmhr=speed_threshold)
+        relocs.apply_fix_filter(speed_filter)
+
+        # Create a trajectory from the relocations
+        traj = pymet.base.Trajectory(relocs)
 
         return traj
 
