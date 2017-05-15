@@ -37,7 +37,9 @@ log_stdout(level=logging.INFO)
 # Map AnimalTracking species value to Das (type, sub-type)
 # Keys are taking as a distinct list of species values in AnimalTracking.
 # TODO: Ask Jake to review this map
-atdb_species_to_das_type = {'elephant': ('wildlife', 'elephant'),
+atdb_species_to_das_type = {
+                            'elephant': ('wildlife', 'elephant'),
+                            'asian elephant': ('wildlife', 'asian_elephant'),
                             'undeployed': ('untyped', 'undeployed'),
                             'unassigned': ('untyped', 'undeployed'),
                             'scimitar oryx': ('wildlife', 'scimitar_oryx'),
