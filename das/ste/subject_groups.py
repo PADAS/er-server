@@ -38,6 +38,7 @@ subject_group_query_map = {
     'custom_sa_realtime_sponsorlink1':           "SELECT ARRAY(SELECT distinct(tm.chronofile) from trackingmaster tm WHERE tm.name IN ('Agnes', 'Big Al', 'Charlise', 'Classic', 'Colleen', 'Gower', 'Irving', 'Lapajuma', 'Mac', 'Mangala', 'Mapimbi', 'Matambu', 'Mighty Craic', 'Mondli', 'Nwambi', 'Nwankwimbi', 'Proud', 'Sarita', 'Summer', 'Tussle', 'Wessa', 'Wild Spirit', 'Yvonne', 'Zingi') AND active=1 ORDER by chronofile asc) AS group_members",
     'custom_sa_realtime_sponsorlink2':           "SELECT ARRAY(SELECT distinct(tm.chronofile) from trackingmaster tm WHERE tm.name IN ('Batsha', 'Fortunate', 'Nkosazana') AND active=1 ORDER by chronofile asc) AS group_members",
     'custom_samlist1':                           "SELECT ARRAY(SELECT distinct(tm.chronofile) from trackingmaster tm WHERE tm.name IN ('Magado','Gambela','Delaware') AND active=1 ORDER by chronofile ASC) AS group_members",
+    'custom_lpuzan_realtime':                    "SELECT ARRAY(SELECT distinct(tm.chronofile) from trackingmaster tm WHERE tm.name IN ('Squall') ORDER by tm.chronofile asc) AS group_members",
 
     ### Full Data Access Groups ###
     'elephants_kenya_ste':                       "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm INNER JOIN regions r ON tm.chronofile = r.chronofile INNER JOIN trackingmasteraux tma ON tm.chronofile=tma.chronofile WHERE tm.species='Elephant'    AND r.country='Kenya'        AND tma.data_owners @> '{STE}'::text[] ORDER BY tm.chronofile ASC) AS group_members",
