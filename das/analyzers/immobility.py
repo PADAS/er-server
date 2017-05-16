@@ -5,6 +5,8 @@ import pymet.base, pymet.cluster
 
 from django.contrib.gis.geos import Point as DjangoPoint
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
+from django.utils.translation import ugettext_lazy as _
+
 from observations.models import SubjectTrackSegmentFilter
 from activity.serializers import EventSerializer
 from activity.models import Event, EventType
@@ -115,7 +117,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         # Create the analyzer result
         result = SubjectAnalyzerResult(subject_analyzer=self.config,
                                        level=OK,
-                                       message=subject.name + ' is moving',
+                                       message=subject.name + _(' is moving'),
                                        analyzer_revision=1,
                                        subject=subject)
 
@@ -143,7 +145,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             if (cluster_pvalue >= self.config.threshold_probability) and (cluster_timespan_seconds >= self.config.threshold_time):
                 # Modify analyzer result
                 result.level = CRITICAL
-                result.message = subject.name + ' is immobile'
+                result.message = subject.name + _(' is immobile')
                 break
 
 

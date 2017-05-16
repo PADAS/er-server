@@ -35,7 +35,10 @@ class Schedule(TimestampedModel):
 
 
 class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
-
+    '''
+    An implementation of SubjectAnalyzerConfig is meant to associate a specific set of parameter values with 
+    a SubjectGroup that it applies to. 
+    '''
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(null=False, unique=True, max_length=100,
                             verbose_name='A friendly, unique name for the analyzer.')
@@ -68,7 +71,12 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
         raise NotImplementedError()
 
 
+class SubjectAnalyzerResultManager(models.Manager):
+    pass
+
 class SubjectAnalyzerResult(TimestampedModel):
+
+    objects = SubjectAnalyzerResultManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     analyzer_revision = models.IntegerField()
