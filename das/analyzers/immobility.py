@@ -187,10 +187,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 location=this_result.geometry_collection[0])
 
         if event_data:
-            ser = EventSerializer(data=event_data)
-            if ser.is_valid():
-                ser.save()
-        # Return?
+            e = Event.objects.create_event(**event_data)
+            return e
 
     def save_analyzer_result(self, last_result=None, this_result=None):
 
