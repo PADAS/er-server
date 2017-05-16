@@ -1,6 +1,7 @@
 import logging
 
 from django.conf import settings
+from html import unescape
 from django.template.loader import render_to_string
 from activity.serializers import EventSerializer
 from rt_api.rest_api_interface.dummy_request import DummyRequest
@@ -10,7 +11,21 @@ logger = logging.getLogger(__name__)
 sms_separator_string = '{0}: {1}'
 email_separator_string = '{0}: {1}'
 
-ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url', 'priority', 'geojson', 'location']
+ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
+                 'priority', 'geojson', 'location', 'event_details']
+
+
+def extract_details(details):
+    for k, v in details.items():
+        if isinstance(v, dict) and 'name' in v:
+            yield email_separator_string.format(k, v['name'])
+        elif isinstance(v, (int, float, bool)):
+            yield email_separator_string.format(k, str(v))
+        elif isinstance(v, str):
+            yield email_separator_string.format(k, v)
+        elif isinstance(v, list):
+            yield email_separator_string.format(k, ', '.join([_.get('name') for
+                _ in v if isinstance(_, dict) and _.get('name') is not None]))
 
 
 def send_event_mail(event, user, revision, email_callback = None):
@@ -36,7 +51,13 @@ def send_event_mail(event, user, revision, email_callback = None):
         title=event.title,
         newness=newness)
 
-    all_fields_and_values = []
+    schema_fields_and_values = None
+    ed = event.event_details.first()
+    if ed and ed.data and 'event_details' in ed.data:
+        schema_fields_and_values = list(
+            extract_details(ed.data['event_details']))
+
+    event_fields_and_values = []
     serializer = EventSerializer()
     serializer.context['request'] = DummyRequest()
     serializer.context['request'].user = user
@@ -50,13 +71,15 @@ def send_event_mail(event, user, revision, email_callback = None):
             display_value = value
         update_str = email_separator_string.format(key, display_value)
         if update_str is not None:
-            all_fields_and_values.append(update_str)
+            event_fields_and_values.append(update_str)
 
     parameters = {
         'id': event.id,
         'title': event.title,
         'newness': newness,
-        'all_fields_and_values': all_fields_and_values
+        'event_fields_and_values': event_fields_and_values,
+        'schema_fields_exist': schema_fields_and_values is not None,
+        'schema_fields_and_values': schema_fields_and_values
     }
 
     if revision is not None:
