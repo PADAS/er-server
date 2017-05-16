@@ -1,7 +1,7 @@
 import copy
 import random
 from datetime import datetime, timedelta
-
+from functools import reduce, partial
 import dateutil.parser as dp
 import pytz
 from django.contrib.gis.db import models
@@ -12,6 +12,7 @@ from analyzers.models import ImmobilityAnalyzer, SubjectAnalyzerResult
 from observations import models
 from .immobility_test_data import *
 from activity.models import EventType, EventCategory
+from analyzers.tasks import analyze_subject
 
 def generate_random_positions(start_time=None, x=37.5, y=1.41):
     recorded_at = start_time or pytz.utc.localize(datetime.utcnow()) - timedelta(hours=24)
@@ -22,30 +23,35 @@ def generate_random_positions(start_time=None, x=37.5, y=1.41):
         y += (random.random()  - 0.5)/10000
         recorded_at = recorded_at + timedelta(minutes=30)
 
+def typify(fmap, item):
+    r = copy.copy(item)
+    for k,f in fmap.items():
+        r[k] = f(r[k])
+    return r
 
-def time_shift(items, start_time=None, time_key='recorded_at'):
-    fake_start = start_time or pytz.utc.localize(datetime.utcnow()) - timedelta(hours=24)
+parse_recorded_at = partial(typify, dict(recorded_at=dp.parse))
+
+
+def time_shift(items, time_key='recorded_at', start_time=None):
+
+    # Determine timespan of 'items'.
+    minimum_time = reduce((lambda x, y: x if x < y else y), [_[time_key] for _ in items])
+    maximum_time = reduce((lambda x, y: x if x > y else y), [_[time_key] for _ in items])
+    actual_start = minimum_time
+
+    fake_start = start_time or pytz.utc.localize(datetime.utcnow()) - (maximum_time - minimum_time)
     for i, item in enumerate(items):
-        if i == 0:
-            actual_start = dp.parse(item[time_key])
-            fake_time = fake_start
-        else:
-            fake_time = (dp.parse(item[time_key]) - actual_start) + fake_start
-
+        fake_time = (item[time_key] - actual_start) + fake_start
         new_item = copy.copy(item)
         new_item[time_key] = fake_time
         yield new_item
 
-from analyzers.tasks import handle_subject
 
 class TestImmobilityAnalyzer(TestCase):
 
     fixtures = ['initial_eventtype.yaml',]
 
     def setUp(self):
-        # ec = EventCategory.objects.create(value='analyzer', display='analyzer')
-        # et1 = EventType.objects.create(value='immobility', display='immobility', category=ec)
-        # et2 = EventType.objects.create(value='immobility_all_clear', display='immobility_all_clear', category=ec)
         pass
 
     def test_ishango_immobile(self):
@@ -64,9 +70,8 @@ class TestImmobilityAnalyzer(TestCase):
 
         ia = ImmobilityAnalyzer.objects.create(subject_group=sg)
 
-        # groups = models.SubjectGroup.objects.filter(subjects=sub)
-        # self.assertTrue(ImmobilityAnalyzer.should_run(sub, subject_groups=groups))
-
+        # parse recorded_at (from string to datetime).
+        test_observations = [parse_recorded_at(x) for x in test_observations]
 
         # Create observations in database, so the Analyzer will find them.
         for item in time_shift(test_observations):
@@ -77,7 +82,7 @@ class TestImmobilityAnalyzer(TestCase):
                                              location=location,
                                                     source=source, additional={})
 
-        handle_subject(str(sub.id))
+        analyze_subject(str(sub.id))
 
         self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
 
@@ -88,6 +93,9 @@ class TestImmobilityAnalyzer(TestCase):
         sub = models.Subject.objects.create(name='Emmanuel', subject_type='wildlife', subject_subtype= 'elephant')
         source = models.Source.objects.create(manufacturer_id='emmanuel-collar')
         models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+
+        # parse recorded_at (from string to datetime).
+        test_observations = [parse_recorded_at(x) for x in test_observations]
 
         for item in time_shift(test_observations):
 
