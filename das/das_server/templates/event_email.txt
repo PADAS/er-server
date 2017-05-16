@@ -1,7 +1,7 @@
 DAS Event Alert
 {{id}}: {{title}} {{newness}}
 
-{% if updated %}
+{% if newness == "UPDATE" %}
 The following fields have been changed:
 {% for updated_field in updated_fields_names %}
 {{updated_field}}

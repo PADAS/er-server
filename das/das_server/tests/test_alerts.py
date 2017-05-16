@@ -26,9 +26,9 @@ schema_data = {
     }
 }
 
-target_subject_new_event = 'DAS Green ALERT: {0}  {1} NEW'
+target_subject_new_event = 'DAS Green ALERT: {serial}  {title} NEW'
 target_body_new_event = '''DAS Event Alert
-{0}: {6} NEW
+{serial}: {title} NEW
 
 
 Full event data:
@@ -44,15 +44,13 @@ friendly_killed: 1
 
 
 
-id: {0}
+time: {time}
 
-time: {1}
+message: {text}
 
-message: {2}
+provenance: {provenance}
 
-provenance: {5}
-
-event_type: {3}
+event_type: {type}
 
 priority_label: Green
 
@@ -66,16 +64,22 @@ photos: []
 
 is_contained_in: []
 
-url: /api/v1.0/activity/event/{0}
+url: /api/v1.0/activity/event/{id}
 
 event_category: security
 
-is_collection: {4}'''
+is_collection: {is_collection}'''
 target_from_address_new_event = 'notifications@pamdas.org'
 
-target_subject_update_event = 'DAS Green ALERT: {0}  New Title UPDATE'
+target_subject_update_event = 'DAS Green ALERT: {serial}  New Title UPDATE'
 target_body_update_event = '''DAS Event Alert
-{0}: New Title UPDATE
+{serial}: New Title UPDATE
+
+
+The following fields have been changed:
+
+title: New Title
+
 
 
 Full event data:
@@ -91,15 +95,13 @@ friendly_killed: 1
 
 
 
-id: {0}
+time: {time}
 
-time: {1}
+message: {text}
 
-message: {2}
+provenance: {provenance}
 
-provenance: {5}
-
-event_type: {3}
+event_type: {type}
 
 priority_label: Green
 
@@ -115,11 +117,11 @@ photos: []
 
 is_contained_in: []
 
-url: /api/v1.0/activity/event/{0}
+url: /api/v1.0/activity/event/{id}
 
 event_category: security
 
-is_collection: {4}'''
+is_collection: {is_collection}'''
 
 target_from_address_update_event = 'notifications@pamdas.org'
 
@@ -156,6 +158,9 @@ class TestEventView(TestCase):
 
         details = EventDetails.objects.create_event_details(event=self.incident, data=schema_data)
         details.save()
+
+        self.event.refresh_from_db()
+        self.incident.refresh_from_db()
 
     def time_to_string(self, time):
         time = time.isoformat()
@@ -213,14 +218,15 @@ class TestEventView(TestCase):
 
         mailer.send_event_mail(self.event, self.user, None, mail_callback)
 
-        target_subject = target_subject_new_event.format(self.event.id, self.event.title)
-        target_body = target_body_new_event.format(self.event.id,
-                                                   self.time_to_string(self.event.event_time),
-                                                   self.event.message,
-                                                   self.event.event_type.value,
-                                                   'False',
-                                                   self.event.get_display_value('provenance', self.event.provenance),
-                                                   self.event.title).strip()
+        target_subject = target_subject_new_event.format(serial=self.event.serial_number, title=self.event.title)
+        target_body = target_body_new_event.format(serial=self.event.serial_number,
+                                                   id=self.event.id,
+                                                   time=self.time_to_string(self.event.event_time),
+                                                   text=self.event.message,
+                                                   type=self.event.event_type.value,
+                                                   is_collection='False',
+                                                   provenance=self.event.get_display_value('provenance', self.event.provenance),
+                                                   title=self.event.title).strip()
 
         self.assertEquals(email_data['subject'], target_subject)
         self.assertEquals(email_data['body'], target_body)
@@ -237,13 +243,14 @@ class TestEventView(TestCase):
         revision = self.update_event(self.event)
 
         mailer.send_event_mail(self.event, self.user, revision, mail_callback)
-        target_subject = target_subject_update_event.format(self.event.id)
-        target_body = target_body_update_event.format(self.event.id,
-                                                      self.time_to_string(self.event.event_time),
-                                                      self.event.message,
-                                                      self.event.event_type.value,
-                                                      'False',
-                                                      self.event.get_display_value('provenance', self.event.provenance)).strip()
+        target_subject = target_subject_update_event.format(serial=self.event.serial_number)
+        target_body = target_body_update_event.format(serial=self.event.serial_number,
+                                                      id=self.event.id,
+                                                      time=self.time_to_string(self.event.event_time),
+                                                      text=self.event.message,
+                                                      type=self.event.event_type.value,
+                                                      is_collection='False',
+                                                      provenance=self.event.get_display_value('provenance', self.event.provenance)).strip()
         self.assertEquals(email_data['subject'], target_subject)
         self.assertEquals(email_data['body'], target_body)
         self.assertEquals(email_data['from_address'], target_from_address_update_event)
@@ -258,14 +265,15 @@ class TestEventView(TestCase):
 
         mailer.send_event_mail(self.incident, self.user, None, mail_callback)
 
-        target_subject = target_subject_new_event.format(self.incident.id, self.incident.title)
-        target_body = target_body_new_event.format(self.incident.id,
-                                                   self.time_to_string(self.incident.event_time),
-                                                   self.incident.message,
-                                                   self.incident.event_type.value,
-                                                   'True',
-                                                   self.incident.get_display_value('provenance', self.incident.provenance),
-                                                   self.incident.title).strip()
+        target_subject = target_subject_new_event.format(serial=self.incident.serial_number, title=self.incident.title)
+        target_body = target_body_new_event.format(serial=self.incident.serial_number,
+                                                   id=self.incident.id,
+                                                   time=self.time_to_string(self.incident.event_time),
+                                                   text=self.incident.message,
+                                                   type=self.incident.event_type.value,
+                                                   is_collection='True',
+                                                   provenance=self.incident.get_display_value('provenance', self.incident.provenance),
+                                                   title=self.incident.title).strip()
 
         self.assertEquals(email_data['subject'], target_subject)
         self.assertEquals(email_data['body'], target_body)
@@ -282,13 +290,14 @@ class TestEventView(TestCase):
         revision = self.update_event(self.incident)
 
         mailer.send_event_mail(self.incident, self.user, revision, mail_callback)
-        target_subject = target_subject_update_event.format(self.incident.id)
-        target_body = target_body_update_event.format(self.incident.id,
-                                                      self.time_to_string(self.incident.event_time),
-                                                      self.incident.message,
-                                                      self.incident.event_type.value,
-                                                      'True',
-                                                      self.incident.get_display_value('provenance', self.incident.provenance),).strip()
+        target_subject = target_subject_update_event.format(serial=self.incident.serial_number)
+        target_body = target_body_update_event.format(serial=self.incident.serial_number,
+                                                   id=self.incident.id,
+                                                   time=self.time_to_string(self.incident.event_time),
+                                                   text=self.incident.message,
+                                                   type=self.incident.event_type.value,
+                                                   is_collection='True',
+                                                   provenance=self.incident.get_display_value('provenance', self.incident.provenance)).strip()
         self.assertEquals(email_data['subject'], target_subject)
         self.assertEquals(email_data['body'], target_body)
         self.assertEquals(email_data['from_address'], target_from_address_new_event)

@@ -12,7 +12,8 @@ sms_separator_string = '{0}: {1}'
 email_separator_string = '{0}: {1}'
 
 ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
-                 'priority', 'geojson', 'location', 'event_details']
+                 'priority', 'geojson', 'location', 'event_details', 'id',
+                 'serial_number']
 
 
 def extract_details(details):
@@ -47,7 +48,7 @@ def send_event_mail(event, user, revision, email_callback = None):
     priority_str = event.get_display_value('priority', event.priority)
     subject_str = 'DAS {color} ALERT: {id}  {title} {newness}'.format(
         color=priority_str,
-        id=event.id,
+        id=event.serial_number,
         title=event.title,
         newness=newness)
 
@@ -74,7 +75,7 @@ def send_event_mail(event, user, revision, email_callback = None):
             event_fields_and_values.append(update_str)
 
     parameters = {
-        'id': event.id,
+        'id': event.serial_number,
         'title': event.title,
         'newness': newness,
         'event_fields_and_values': event_fields_and_values,
