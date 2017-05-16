@@ -8,11 +8,11 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point
 from django.test import TestCase
 
-from analyzers.models import ImmobilityAnalyzer, SubjectAnalyzerResult
+from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult
 from observations import models
 from .immobility_test_data import *
-from activity.models import EventType, EventCategory
 from analyzers.tasks import analyze_subject
+
 
 def generate_random_positions(start_time=None, x=37.5, y=1.41):
     recorded_at = start_time or pytz.utc.localize(datetime.utcnow()) - timedelta(hours=24)
@@ -68,7 +68,7 @@ class TestImmobilityAnalyzer(TestCase):
         sg.subjects.add(sub)
         sg.save()
 
-        ia = ImmobilityAnalyzer.objects.create(subject_group=sg)
+        ia = ImmobilityAnalyzerConfig.objects.create(subject_group=sg)
 
         # parse recorded_at (from string to datetime).
         test_observations = [parse_recorded_at(x) for x in test_observations]
@@ -106,7 +106,7 @@ class TestImmobilityAnalyzer(TestCase):
                                                     source=source, additional={})
 
 
-        ia = ImmobilityAnalyzer.objects.create(subject=sub, threshold_time=18000)
+        ia = ImmobilityAnalyzerConfig.objects.create(subject=sub, threshold_time=18000)
 
         r = ia.analyze()
 
@@ -136,7 +136,7 @@ class TestImmobilityAnalyzer(TestCase):
             if obs.recorded_at > n:
                 break
 
-        ia = ImmobilityAnalyzer.objects.create(subject=sub, threshold_time=18000)
+        ia = ImmobilityAnalyzerConfig.objects.create(subject=sub, threshold_time=18000)
 
         r = ia.analyze()
         print(r)

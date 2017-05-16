@@ -1,18 +1,17 @@
+from geopy.distance import distance
+from shapely.geometry.multipoint import MultiPoint
+
 from activity.models import Event
-from analyzers.models import all_analyzers
+
+from analyzers.immobility import ImmobilityAnalyzer
+
+subject_analyzers = (ImmobilityAnalyzer,)
 
 
-def get_or_create_analyzers_for_subject(subject):
+def get_subject_analyzers(subject):
 
-    for klass in all_analyzers:
-        analyzers = klass.objects.filter(subject_group__subjects=subject)
-        if analyzers.exists():
-            for analyzer in analyzers:
-                yield analyzer
-        # else:
-        #     # new it up
-        #     analyzer = klass.objects.create(subject=subject)
-        #     yield analyzer
+    for klass in subject_analyzers:
+        yield from klass.get_subject_analyzers(subject)
 
 
 def latest_event_for(analyzer):
@@ -26,3 +25,26 @@ def latest_event_for(analyzer):
         .first()
 
     return event
+
+def distance_to_exterior_point(polygon, point):
+    """ for a point outside polygon, return the distance in meters
+    to that point """
+    d = polygon.boundary.project(point)
+    p = polygon.boundary.interpolate(d)
+    return distance(p.coords, point.coords).m
+
+def cluster(track, radius):
+    """ returns the probability (in the range 0-1 inclusive) of a
+    track being clustered to radius. """
+
+    centroid = MultiPoint(track.geo_series).centroid
+    num_points = len(track.geo_series)
+    inside_points = []
+    for point in track.geo_series:
+        distance_meters = distance(point.coords, centroid.coords).m
+        if distance_meters <= radius:
+            inside_points.append(point)
+
+    probability = len(inside_points) / num_points
+
+    return probability

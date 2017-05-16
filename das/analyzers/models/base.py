@@ -15,19 +15,12 @@ from revision.manager import Revision, RevisionMixin
 
 logger = logging.getLogger(__name__)
 
-# borrow levels from logging:
-
+# Result levels.
 OK = 10
 WARNING = 20
 CRITICAL = 30
 ERROR = 40
 
-analyzer_level_to_event_priority = {
-    OK: Event.PRI_REFERENCE,
-    WARNING: Event.PRI_IMPORTANT,
-    CRITICAL: Event.PRI_URGENT,
-    ERROR: Event.PRI_REFERENCE,
-}
 
 class Schedule(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -41,7 +34,7 @@ class Schedule(TimestampedModel):
         ))
 
 
-class SubjectAnalyzer(RevisionMixin, TimestampedModel):
+class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(null=False, unique=True, max_length=100,
@@ -113,3 +106,4 @@ class Annotator(RevisionMixin, TimestampedModel):
 
     class Meta:
         abstract = True
+

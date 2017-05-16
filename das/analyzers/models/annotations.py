@@ -1,20 +1,20 @@
 import logging
+
 from datetime import datetime, timedelta
 import pytz
+
+import psycopg2.extras
+import geopandas as gpd
 from django.contrib.gis.db import models
-from django.contrib.gis.geos import Point as DjangoPoint
 from django.conf import settings
 from observations.models import Observation, SubjectSource
-from analyzers.models.analyzer import Annotator
-import psycopg2.extras
 
-import geopandas as gpd
-
-DEFAULT_HISTORY_INTERVAL = timedelta(days=7)
-
+from analyzers.models.base import Annotator
 
 logger = logging.getLogger(__name__)
 
+# ObservationAnnotator
+DEFAULT_HISTORY_INTERVAL = timedelta(days=7)
 try:
     DEFAULT_SPEED_THRESHOLDS = settings.ANNOTATION_SETTINGS['speed_thresholds']
 except (AttributeError, KeyError):
@@ -105,4 +105,5 @@ class ObservationAnnotator(Annotator):
 
         logger.info('Setting exclusion_flags on these observations: {}'.format(flag_these))
         Observation.objects.set_flag(flag_these, Observation.EXCLUDED_AUTOMATICALLY)
+
 

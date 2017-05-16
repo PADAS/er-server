@@ -2,15 +2,14 @@ import logging
 
 from django.conf import settings
 
-from analyzers.models.analyzer import OK, WARNING, CRITICAL, SubjectAnalyzerResult
+from analyzers.models import OK, WARNING, CRITICAL, SubjectAnalyzerResult
 from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers.utils import get_or_create_analyzers_for_subject, latest_event_for
+
 from das_server import celery
 from observations.models import Subject, SubjectSource
 from observations.track import Track
 from analyzers.models import ObservationAnnotator
-from analyzers.models import *
-
+from analyzers.utils import get_subject_analyzers
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +32,10 @@ def analyze_subject(self, subject_id):
     subject = Subject.objects.get(id=subject_id)
 
     logger.info('Running analyzers for subject: %s', subject)
-    for analyzer in get_or_create_analyzers_for_subject(subject):
+    for analyzer in get_subject_analyzers(subject):
 
         try:
-            last_result = SubjectAnalyzerResult.objects.filter(subject=subject, subject_analyzer_id=analyzer.id). \
+            last_result = SubjectAnalyzerResult.objects.filter(subject=subject, subject_analyzer_id=analyzer.config.id). \
                 latest('estimated_time')
         except SubjectAnalyzerResult.DoesNotExist:
             last_result = None

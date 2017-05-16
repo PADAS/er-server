@@ -7,7 +7,7 @@ import analyzers.models as models
 class ObservationAnnotatorAdmin(admin.ModelAdmin):
     pass
 
-@admin.register(models.ImmobilityAnalyzer)
+@admin.register(models.ImmobilityAnalyzerConfig)
 class ImmobilityAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'subject_group_name',)
 
