@@ -147,6 +147,7 @@ class SourceManager(models.Manager):
 
         return source
 
+
 class Source(TimestampedModel):
 
     objects = SourceManager()
@@ -171,6 +172,10 @@ class Source(TimestampedModel):
 
     def __str__(self):
         return '%s:%s' % (self.manufacturer_id, self.model_name)
+
+    def observations(self):
+        queryset = Observation.objects.filter(source=self,).order_by('-recorded_at')
+        return queryset
 
 
 EMPTY_POINT = Point(0,0)
@@ -240,27 +245,16 @@ class ObservationManager(models.GeoManager):
         :param observation: An object with attributes: source, latitude, longitude, recorded_at, additional
         :return: The new Observation
         '''
-
-        # todo: consider changing the Geometry type in the db to accept z-value.
-        # loc = Point(x=float(observation.pop('lon')), y=float(observation.pop('lat')),
-        #             z=float(observation.get('elevation')))
-
         location = Point(x=observation.longitude, y=observation.latitude)
-
         additional = observation.additional or {}
+        result, created = observations.models.Observation.objects.get_or_create(source_id=observation.source.id,
+                                                            recorded_at=observation.recorded_at,
+                                                            defaults=dict(
+                                                                location=location,
+                                                                additional=additional
+                                                            ))
+        return result, created
 
-
-        # Check for matching observation already recorded.
-        obs = Observation.objects \
-            .filter(source_id=observation.source.id, recorded_at=observation.recorded_at) \
-            .first()
-
-        if not obs:
-            obs = Observation.objects.create(source_id=observation.source.id, location=location,
-                                             recorded_at=observation.recorded_at,
-                                             additional=additional)
-
-        return obs
 
     def get_max_recorded_at(self, source):
         '''Get the latest recorded timestamp for the source.'''
@@ -739,6 +733,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         Sources as necessary """
         since = None
         until = None
+
         if last_hours:
             until = datetime.now(tz=pytz.UTC)
             since = until - timedelta(hours=last_hours)

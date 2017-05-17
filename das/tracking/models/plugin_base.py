@@ -5,14 +5,16 @@ import logging
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
+from django.contrib.gis.geos import Point, Polygon
 from django.contrib.contenttypes.fields import GenericRelation
 from core.models import TimestampedModel
 
 import uuid
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
+from dateutil.parser import parse as parse_date
 
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -102,7 +104,8 @@ class SourcePlugin(TimestampedModel):
     cursor_data = JSONField(null=True)
     status = models.CharField(max_length=15, default=STATUS_ENABLED)
 
-    last_run = models.DateTimeField(auto_now_add=True, verbose_name='Timestamp for when this plugin last executed.')
+    # last_run: datetime.min implies it hasn't ever been executed.
+    last_run = models.DateTimeField(default=datetime.min, verbose_name='Timestamp for when this plugin last executed.')
 
     def execute(self, target=None):
         '''
@@ -110,19 +113,23 @@ class SourcePlugin(TimestampedModel):
         :return:
         '''
         if self.should_run:
+
             result = SourcePluginResult()
             result.plugin_type = self.plugin_type
             result.source_id = self.source_id
 
+            # target coroutine always returns an accumulator that indicates the number of observations that have
+            # been created.
+            accumulator = None
             with target or DasDefaultTarget() as t:
                 for observation in self.plugin.fetch(self.source, self.cursor_data):
-                    t.send(observation)
-                    result.count += 1
+                    accumulator = t.send(observation)
+
             self.last_run = pytz.utc.localize(datetime.utcnow())
             self.cursor_data = self.plugin.cursor_data
             self.save()
 
-            if result.count > 0:
+            if accumulator and accumulator.get('created', 0) > 0:
                 notify_new_tracks(str(self.source.id))
             return result
 
@@ -131,7 +138,16 @@ class SourcePlugin(TimestampedModel):
 
     def should_run(self):
         # Defer decision to associated Plugin if possible.
-        return self.plugin.should_run(self) if hasattr(self.plugin, 'should_run') else True
+        if hasattr(self.plugin, 'should_run'):
+            print('Delegating to plugin.should_run')
+            return self.plugin.should_run(self)
+        else:
+            return True
+
+        # return self.plugin.should_run(self) if hasattr(self.plugin, 'should_run') else True
+
+    def __str__(self):
+        return '%s: source: %s, manufacturer_id: %s' % (self.id, self.source_id, self.source.manufacturer_id)
 
 
 class TrackingPlugin(TimestampedModel):
@@ -162,7 +178,30 @@ class TrackingPlugin(TimestampedModel):
         return True
 
     def should_run(self, source_plugin):
-        return True
+
+        now = pytz.utc.localize(datetime.utcnow())
+
+        # Don't bother running now if less than one hour has passed since the latest fix.
+        try:
+            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
+            latest_timestamp = parse_date(latest_timestamp) if latest_timestamp else pytz.utc.localize(datetime.min)
+
+            # If we haven't seen data from over 30 days, then use 24 hours as polling interval.
+            if now - latest_timestamp > timedelta(days=30):
+                wait_interval = timedelta(hours=24)
+            else:
+                wait_interval = self.DEFAULT_REPORT_INTERVAL
+
+            if (now - wait_interval) > latest_timestamp:
+                return True
+
+        except Exception as e:
+            self.logger.exception('Failed to determine whether source-plugin %s should run.', source_plugin)
+
+            if (now - source_plugin.last_run) > self.DEFAULT_REPORT_INTERVAL:
+                return True
+
+        return False
 
     def execute(self):
         '''
@@ -172,8 +211,6 @@ class TrackingPlugin(TimestampedModel):
             try:
                 logger.debug('Running plugin {} for source {}'.format(sp, sp.source))
                 result = sp.execute()
-                if result.count > 0:
-                    notify_new_tracks(result.source_id)
                 logger.debug(
                     'Finished running plugin {} for source {} with result.count={}'.format(sp, sp.source, result.count))
             except DasPluginException as dpe:
@@ -203,14 +240,18 @@ class PluginTarget(object):
         '''
 
         def _():
+            accumulator = {'count': 0, 'created': 0}
             cnt = 0
             try:
+
                 while True:
-                    item = (yield)
-                    self._handle_item(item)
-                    cnt += 1
+                    item = yield accumulator
+                    result, created = self._handle_item(item)
+                    accumulator['count'] += 1
+                    accumulator['created'] += 1 if created else 0
             except GeneratorExit:
-                self.logger.info("Target received %d messages", cnt)
+                self.logger.info("Target received %d messages, created %d items.", accumulator['count'],
+                                 accumulator['created'] )
             except Exception as e:
                 self.logger.exception("Exception in plugin handler.")
 
@@ -227,12 +268,24 @@ class PluginTarget(object):
         self._r.close()
         return True
 
+
 class DasDefaultTarget(PluginTarget):
     '''
     Default target that writes to the Observations model.
     '''
     def _handle_item(self, item):
-        observations.models.Observation.objects.add_observation(item)
+
+        location = Point(x=item.longitude, y=item.latitude)
+        additional = item.additional or {}
+        result, created = observations.models.Observation.objects.get_or_create(source_id=item.source.id,
+                                                            recorded_at=item.recorded_at,
+                                                            defaults=dict(
+                                                                location=location,
+                                                                additional=additional
+                                                            ))
+        return result, created
+
+
 
 '''
 Observation Football; meant to provide a consistent way for passing essential observation data between functions.

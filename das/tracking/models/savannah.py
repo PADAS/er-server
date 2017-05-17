@@ -43,7 +43,8 @@ class SavannaClient(object):
         :return: generator, yielding individual records.
         '''
 
-        conn = http.client.HTTPConnection(self.host)
+        self.logger.info('Fetching from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
+        conn = http.client.HTTPConnection(self.host, timeout=15)
 
         payload = dict(uid=self.username, pwd=self.password,
                        unixtime=str(start_time), collar=collar_id)
@@ -60,12 +61,18 @@ class SavannaClient(object):
         res = conn.getresponse()
         saveline = None
         if res.status == http.client.OK:
+            self.logger.info('Fetch OK from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
+
             for line in res:
-                if line != saveline: # We occassionally see duplicate records in results.
-                    yield self.parse_line(line.decode('utf-8').strip())
+                try:
+                    if line != saveline: # We occassionally see duplicate records in results.
+                        yield self.parse_line(line.decode('utf-8').strip())
+                except Exception as e:
+                    self.logger.exception('Failed to parse line for collar_id: %s, line: [%s]', collar_id, line)
                 saveline = line
         else:
-            msg = 'Failed to get data from Savannah Tracking API.'
+            msg = 'Failed to get data from Savannah Tracking API for collar_id: %s. Result status: %d' % (collar_id,
+                                                                                                          res.status)
             self.logger.error(msg)
             raise DasPluginFetchError(msg)
 
@@ -97,21 +104,6 @@ class SavannahPlugin(TrackingPlugin):
     service_api_host = models.CharField(max_length=50,
                                         help_text='the ip-address or host-name for the Savannah Tracking service.')
 
-    def should_run(self, source_plugin):
-
-        # Don't bother running now if less than 30 minutes has passed since the latest fix.
-        try:
-            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
-            if not latest_timestamp:
-                return True
-            latest_timestamp = parse_date(latest_timestamp)
-
-            if (datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
-                return True
-        except:
-            return True
-
-        return False
 
     def fetch(self, source, cursor_data=None):
 

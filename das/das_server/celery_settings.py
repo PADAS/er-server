@@ -54,6 +54,7 @@ CELERY_QUEUES = (
     Queue('realtime_p1', default_exchange, routing_key='realtime.tasks.p1'),
     Queue('realtime_p2', default_exchange, routing_key='realtime.tasks.p2'),
     Queue('realtime_p3', default_exchange, routing_key='realtime.tasks.p3'),
+    Queue('analyzers', default_exchange, routing_key='analyzers.tasks'),
 )
 
 CELERY_ROUTES = {
@@ -63,21 +64,27 @@ CELERY_ROUTES = {
     'rt_api.tasks.handle_delete_event': {'routing_key': 'realtime.tasks.p3'},
     'rt_api.tasks.handle_new_source_observation': {'routing_key': 'realtime.tasks.p3'},
     'rt_api.tasks.handle_new_subject_observation': {'routing_key': 'realtime.tasks.p3'},
+
+    # Queue analyzer tasks separately.
+    'analyzers.tasks.analyze_subject': {'routing_key': 'analyzers.tasks'},
 }
 
 
 # Defining scheduled tasks.
+PLUGIN_PERIOD = 5*60 # Seconds
 CELERYBEAT_SCHEDULE = {
     'plugins': {
       'task': 'tracking.tasks.run_plugins',
-        'schedule': timedelta(minutes=5),
+        'schedule': timedelta(seconds=PLUGIN_PERIOD),
+        'kwargs': {'expire_subtasks': PLUGIN_PERIOD},
+        'options': {'expires': PLUGIN_PERIOD},
     },
     'demo-plugins': {
       'task': 'tracking.tasks.run_demo_plugins',
-        'schedule': timedelta(minutes=5),
+        'schedule': timedelta(seconds=PLUGIN_PERIOD),
+        'options': {'expires': PLUGIN_PERIOD},
     },
 }
-
 
 try:
     from das_server.local_celery_settings import *
