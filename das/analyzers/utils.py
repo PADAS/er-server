@@ -1,18 +1,8 @@
 from geopy.distance import distance
 from shapely.geometry.multipoint import MultiPoint
-
+from django.http.request import HttpRequest
 from activity.models import Event
-
-from analyzers.immobility import ImmobilityAnalyzer
-
-subject_analyzers = (ImmobilityAnalyzer,)
-
-
-def get_subject_analyzers(subject):
-
-    for klass in subject_analyzers:
-        yield from klass.get_subject_analyzers(subject)
-
+from activity.serializers import EventSerializer
 
 def latest_event_for(analyzer):
     """ Returns the most recent event or None for a given subject and analyzer """
@@ -48,3 +38,28 @@ def cluster(track, radius):
     probability = len(inside_points) / num_points
 
     return probability
+
+from django.contrib.auth import get_user_model
+
+def get_system_user():
+    User = get_user_model()
+    return User.objects.get_or_create(username='system_analyzers', last_name='Alyzer', first_name='Anne',
+                                      email='system_analyzers@pamdas.org',
+                                      is_active=False,
+                                      password=User.objects.make_random_password())[0]
+
+
+def save_analyzer_event(event_data):
+    '''
+    TODO: I create a blank request here, in order to provide EventSerializer with a valid context that includes
+    a User.
+    '''
+    request = HttpRequest()
+    request.user = get_system_user()
+    ser = EventSerializer(data=event_data,
+                          context={ 'request': request})
+
+    if ser.is_valid():
+        return ser.create(ser.validated_data)
+
+    raise ValueError('Analyzer Event is invalid, errors=%s' % (ser.errors,))

@@ -10,6 +10,7 @@ from django.test import TestCase
 
 from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult
 from observations import models
+from activity.models import Event
 from .immobility_test_data import *
 from analyzers.tasks import analyze_subject
 
@@ -85,6 +86,9 @@ class TestImmobilityAnalyzer(TestCase):
         analyze_subject(str(sub.id))
 
         self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
+
+        for e in Event.objects.all():
+            self.assertTrue(e.event_details.all().exists())
 
     def xtest_emmanuel_immobile(self):
 

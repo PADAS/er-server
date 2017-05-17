@@ -7,8 +7,8 @@ from django.contrib.gis.geos import Point as DjangoPoint
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.utils.translation import ugettext_lazy as _
 
+from analyzers.utils import save_analyzer_event
 from observations.models import SubjectTrackSegmentFilter
-from activity.serializers import EventSerializer
 from activity.models import Event, EventType
 from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
 
@@ -117,7 +117,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         # Create the analyzer result
         result = SubjectAnalyzerResult(subject_analyzer=self.config,
                                        level=OK,
-                                       message=subject.name + _(' is moving'),
+                                       message=subject.name + str(_(' is moving')),
                                        analyzer_revision=1,
                                        subject=subject)
 
@@ -145,7 +145,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             if (cluster_pvalue >= self.config.threshold_probability) and (cluster_timespan_seconds >= self.config.threshold_time):
                 # Modify analyzer result
                 result.level = CRITICAL
-                result.message = subject.name + _(' is immobile')
+                result.message = subject.name + str(_(' is immobile'))
                 break
 
 
@@ -168,15 +168,23 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
         event_data = None
 
+        # Create a dict() location to satisfy our EventSerializer.
+        event_location_value = {
+            'longitude': this_result.geometry_collection[0].x,
+            'latitude': this_result.geometry_collection[0].y
+        }
+
         # Notify if result is critical or warning
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
                 message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type=EventType.objects.get_by_value('immobility'),
+                event_type='immobility',
                 priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT),
-                location=this_result.geometry_collection[0])
+                location=event_location_value,
+                event_details=this_result.values,
+            )
 
         # Notify if there is a state transition from Critical/Warning back to OK
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
@@ -184,13 +192,14 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 message= this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type=EventType.objects.get_by_value('immobility_all_clear'),
+                event_type='immobility_all_clear',
                 priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_REFERENCE),
-                location=this_result.geometry_collection[0])
+                location=event_location_value,
+                event_details = this_result.values,
+            )
 
         if event_data:
-            e = Event.objects.create_event(**event_data)
-            return e
+            return save_analyzer_event(event_data)
 
     def save_analyzer_result(self, last_result=None, this_result=None):
 

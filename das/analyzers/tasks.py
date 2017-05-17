@@ -9,7 +9,7 @@ from das_server import celery
 from observations.models import Subject, SubjectSource
 from observations.track import Track
 from analyzers.models import ObservationAnnotator
-from analyzers.utils import get_subject_analyzers
+from analyzers.finder import get_subject_analyzers
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def analyze_subject(self, subject_id):
 
         try:
             analyzer_result, analyzer_event = analyzer.analyze(subject, last_result)
-            print(analyzer_result)
+            logger.debug('Analyzer Result: %s', analyzer_result)
 
         except InsufficientDataAnalyzerException:
             logger.warning('insufficient observations exist to support analyzer {}'.format(analyzer))
