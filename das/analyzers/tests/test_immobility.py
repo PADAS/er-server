@@ -50,7 +50,7 @@ def time_shift(items, time_key='recorded_at', start_time=None):
 
 class TestImmobilityAnalyzer(TestCase):
 
-    fixtures = ['initial_eventtype.yaml',]
+    # fixtures = ['initial_eventtype.yaml', 'analyzer_eventtype.yaml']
 
     def setUp(self):
         pass
@@ -90,34 +90,9 @@ class TestImmobilityAnalyzer(TestCase):
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
 
-    def xtest_emmanuel_immobile(self):
-
-        test_observations = EMMANUEL_IMMOBILE
-
-        sub = models.Subject.objects.create(name='Emmanuel', subject_type='wildlife', subject_subtype= 'elephant')
-        source = models.Source.objects.create(manufacturer_id='emmanuel-collar')
-        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
-
-        # parse recorded_at (from string to datetime).
-        test_observations = [parse_recorded_at(x) for x in test_observations]
-
-        for item in time_shift(test_observations):
-
-            recorded_at = item['recorded_at']
-            location = Point(x=item['longitude'], y=item['latitude'])
-            obs = models.Observation.objects.create(recorded_at=recorded_at,
-                                             location=location,
-                                                    source=source, additional={})
-
-
-        ia = ImmobilityAnalyzerConfig.objects.create(subject=sub, threshold_time=18000)
-
-        r = ia.analyze()
-
-        print (r.level, r.position.x, r.position.y)
-        self.assertAlmostEqual(29.821741, r.position.x, places=5)
-        self.assertAlmostEqual(-0.428036, r.position.y, places=5)
-        self.assertEqual(r.level, 20)
+        for e in Event.objects.all():
+            for ed in e.event_details.all():
+                print('Event Details: %s' % ed.data)
 
     def xtest_random(self):
         '''
