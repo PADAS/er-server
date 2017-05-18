@@ -6,7 +6,9 @@ class EventObjectPermissionsFilter(BaseFilterBackend):
     Filter the list of events to what the user is allowed to view
     """
 
-    view_perms = ('events.view_event',)
+    #
+    # TODO: Update this filter to use new category permisisons
+    #
 
     def filter_queryset(self, request, queryset, view):
         user = request.user

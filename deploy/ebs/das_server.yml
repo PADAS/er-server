@@ -51,8 +51,8 @@ app:
               IamInstanceProfile: "arn:aws:iam::074677080781:instance-profile/das_server-dev"
               EC2KeyName: "das-dev"
               SecurityGroups: "sg-e0cf3284,sg-304ee854"
-              ImageId: "ami-49fa6c29"
-              #ImageId: "ami-49fa6c29" - amazon eb
+              ImageId: "ami-38fc6a58"
+              #ImageId: "ami-38fc6a58" - amazon eb, hvm type
 
             'aws:autoscaling:asg':
                 MinSize: 1
@@ -318,12 +318,12 @@ app:
                     permissions: 0666
                     yaml:
                         commands:
-                          01-PROJ:
-                            command: "if [ ! -e /usr/lib/libproj.so ]; then cd /opt; wget http://download.osgeo.org/proj/proj-4.9.2.tar.gz; tar -xzvf proj-4.9.2.tar.gz; cd proj-4.9.2; ./configure --prefix=/usr; make; make install; fi"
-                          02-GDAL:
-                            command: "if [[ ! -e /usr/lib/libgdal.so || ! -e /var/log/gdal-2.1.3-is-installed ]]; then cd /opt; wget http://download.osgeo.org/gdal/2.1.3/gdal-2.1.3.tar.gz; tar -xzvf gdal-2.1.3.tar.gz; cd gdal-2.1.3; ./configure --prefix=/usr; make; make install; touch /var/log/gdal-2.1.3-is-installed; fi"
-                          03-GEOS:
-                            command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.5.0.tar.bz2; tar -xjf geos-3.5.0.tar.bz2; cd geos-3.5.0; ./configure; make; make install; fi"
+                          01-GEOS:
+                            command: "if [ ! -e /usr/local/lib/libgeos_c.so ]; then cd /opt; wget http://download.osgeo.org/geos/geos-3.6.1.tar.bz2; tar -xjf geos-3.6.1.tar.bz2; cd geos-3.6.1; ./configure --enable-python; make; make install; /sbin/ldconfig; fi"
+                          02-PROJ:
+                            command: "if [ ! -e /usr/lib/libproj.so ]; then cd /opt; wget http://download.osgeo.org/proj/proj-4.9.3.tar.gz; tar -xzvf proj-4.9.3.tar.gz; cd proj-4.9.3; ./configure --prefix=/usr; make; make install; /sbin/ldconfig; fi"
+                          03-GDAL:
+                            command: "if [[ ! -e /usr/lib/libgdal.so || ! -e /var/log/gdal-2.1.3-is-installed ]]; then cd /opt; wget http://download.osgeo.org/gdal/2.1.3/gdal-2.1.3.tar.gz; tar -xzvf gdal-2.1.3.tar.gz; cd gdal-2.1.3; ./configure --prefix=/usr --with-python=/opt/python/run/venv/bin/python --with-geos=/usr/local/bin/geos-config --with-static-proj4=/usr/lib/libproj.a; make; make install; touch /var/log/gdal-2.1.3-is-installed; /sbin/ldconfig; fi"
                           04-make-media-dir:
                             command: "mkdir -p /var/media/mbtiles; chown wsgi /var/media; chown wsgi /var/media/mbtiles"
                           05-make-tmp-cache-dir:
@@ -332,6 +332,8 @@ app:
                             command: "if [ ! -e /etc/httpd/modules/mod_proxy_protocol.so ]; then cd /opt; git clone https://github.com/roadrunner2/mod-proxy-protocol.git; cd mod-proxy-protocol; apxs -i -a -c mod_proxy_protocol.c; fi"
                           08-fix-ld:
                             command: "if ! grep -q /usr/local/lib /etc/ld.so.conf; then sed -i '$a/usr/local/lib' /etc/ld.so.conf; /sbin/ldconfig;fi"
+                          09-update-pip:
+                            command: "/opt/python/run/venv/bin/pip install pip --upgrade"
 
               - .ebextensions/03-commands.config:
                     permissions: 0666
