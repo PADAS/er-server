@@ -544,7 +544,7 @@ class Event(RevisionMixin, TimestampedModel):
                    strings_only=True)
         if field_name == 'event_type':
             try:
-                return force_text(EventType.objects.get(pk=value).display,
+                return force_text(EventType.objects.get(value=value).display,
                               strings_only=True)
             except EventType.DoesNotExist:
                 pass
