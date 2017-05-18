@@ -27,6 +27,26 @@ def get_replacement_fields_in_schema(schema):
 
     return fields
 
+def get_rendered_schema(schema):
+    try:
+        template = Template(schema)
+
+        empty_params = {}
+        for node in template.nodelist:
+            if type(node) is VariableNode:
+                empty_params[node.token.contents] = []
+
+        if len(empty_params) > 0:
+            rendered_schema = template.render(Context(empty_params, autoescape=False))
+            schema_json = loads(rendered_schema)
+        else:
+            schema_json = loads(schema)
+
+        return schema_json['schema']['properties']
+    except Exception as ex:
+        logger.error("Error rendering schema with empty data", ex)
+        return []
+
 def get_all_fields(schema):
     try:
         template = Template(schema)

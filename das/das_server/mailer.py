@@ -1,10 +1,11 @@
 import logging
-
+import json
 from django.conf import settings
-from html import unescape
 from django.template.loader import render_to_string
 from activity.serializers import EventSerializer
+from activity.models import Event
 from rt_api.rest_api_interface.dummy_request import DummyRequest
+import activity.schema_utils as schema_utils
 
 logger = logging.getLogger(__name__)
 
@@ -13,27 +14,31 @@ email_separator_string = '{0}: {1}'
 
 ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
                  'priority', 'geojson', 'location', 'event_details', 'id',
-                 'serial_number']
+                 'serial_number', 'state', 'photos', 'is_contained_in', 'url',
+                 'event_category', 'is_collection', 'attributes', 'provenance',
+                 'priority_label', 'title']
 
 
-def extract_details(details):
+def extract_details(schema, details):
+    schema = schema_utils.get_rendered_schema(schema)
     for k, v in details.items():
+        key_display = schema[k]['title']
         if isinstance(v, dict) and 'name' in v:
-            yield email_separator_string.format(k, v['name'])
+            yield email_separator_string.format(key_display, v['name'])
         elif isinstance(v, (int, float, bool)):
-            yield email_separator_string.format(k, str(v))
+            yield email_separator_string.format(key_display, str(v))
         elif isinstance(v, str):
-            yield email_separator_string.format(k, v)
+            yield email_separator_string.format(key_display, v)
         elif isinstance(v, list):
-            yield email_separator_string.format(k, ', '.join([_.get('name') for
+            yield email_separator_string.format(key_display, ', '.join([_.get('name') for
                 _ in v if isinstance(_, dict) and _.get('name') is not None]))
 
 
-def send_event_mail(event, user, revision, email_callback = None):
+def send_event_mail(event, user, revision, email_callback=None):
     if revision is not None:
         updated_fields = []
         for key, value in revision.data.items():
-            if key in ignore_fields or value is None:
+            if (key in ignore_fields and key != 'title') or value is None:
                 continue
             try:
                 display_value = event.get_display_value(key, value)
@@ -46,7 +51,7 @@ def send_event_mail(event, user, revision, email_callback = None):
         newness = 'NEW'
 
     priority_str = event.get_display_value('priority', event.priority)
-    subject_str = 'DAS {color} ALERT: {id}  {title} {newness}'.format(
+    subject_str = 'DAS {color} Alert: {id} {title}'.format(
         color=priority_str,
         id=event.serial_number,
         title=event.title,
@@ -55,8 +60,7 @@ def send_event_mail(event, user, revision, email_callback = None):
     schema_fields_and_values = None
     ed = event.event_details.first()
     if ed and ed.data and 'event_details' in ed.data:
-        schema_fields_and_values = list(
-            extract_details(ed.data['event_details']))
+        schema_fields_and_values = list(extract_details(event.event_type.schema, ed.data['event_details']))
 
     event_fields_and_values = []
     serializer = EventSerializer()
@@ -66,18 +70,24 @@ def send_event_mail(event, user, revision, email_callback = None):
     for i, (key, value) in enumerate(all_event_fields.items()):
         if key in ignore_fields or value is None:
             continue
-        try:
-            display_value = event.get_display_value(key, value)
-        except Exception:
-            display_value = value
-        update_str = email_separator_string.format(key, display_value)
-        if update_str is not None:
-            event_fields_and_values.append(update_str)
+        elif key == 'time' and event.time is not None:
+            display_value = event.time.strftime('%A, %B %d, %Y at %H:%M')
+        else:
+            try:
+                display_value = event.get_display_value(key, value)
+            except Exception:
+                display_value = value
+        if display_value is not None:
+            event_fields_and_values.append(email_separator_string.format(key, display_value))
 
+    parent_event = Event.objects.filter(out_relationship__to_event=event, out_relationship__type__value='contains').first()
+    display_title = event.title if event.title is not None else 'No Title'
     parameters = {
         'id': event.serial_number,
-        'title': event.title,
+        'title': display_title,
         'newness': newness,
+        'color': priority_str,
+        'parent': parent_event.serial_number if parent_event is not None else 0,
         'event_fields_and_values': event_fields_and_values,
         'schema_fields_exist': schema_fields_and_values is not None,
         'schema_fields_and_values': schema_fields_and_values
