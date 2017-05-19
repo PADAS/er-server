@@ -4,14 +4,17 @@ from operator import itemgetter, attrgetter
 
 import django.utils
 from django.db import transaction
+from django.db.models.signals import post_save
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
+from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
@@ -110,6 +113,7 @@ class EventCategory(TimestampedModel):
             ('security_events', 'Permission to see security events'),
             ('standard_events', 'Permission to see reporting events.'),
         )
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
@@ -121,6 +125,18 @@ class EventCategory(TimestampedModel):
 
     def natural_key(self):
         return (self.value,)
+
+@receiver(post_save, sender=EventCategory)
+def ensure_perms_exist(sender, **kwargs):
+    if kwargs.get('created', False):
+        content_type = ContentType.objects.get(app_label='activity', model='event')
+        category_name = kwargs['instance'].value
+
+        for operation in ['create', 'read', 'update', 'delete']:
+            codename = '{0}_{1}'.format(category_name, operation)
+            defaults = {'name': 'Can {1} {0} events'.format(category_name, operation),
+                        'content_type': content_type}
+            Permission.objects.get_or_create(codename=codename, defaults=defaults)
 
 
 class FilterFieldMixin(object):
@@ -227,8 +243,10 @@ class EventManager(models.Manager):
                     yield community
 
     def new_count(self):
-        return self.filter(state=Event.SC_NEW).count()
+        return self.new().count()
 
+    def new(self):
+        return self.filter(state=Event.SC_NEW)
 
 
 class EventRelationshipType(models.Model):
@@ -294,6 +312,7 @@ class EventRelationship(TimestampedModel):
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
     objects = EventRelationshipManager()
+    name = 'Event Relationship'
 
     class Meta:
         unique_together = ('type', 'from_event', 'to_event')
@@ -375,10 +394,23 @@ class Event(RevisionMixin, TimestampedModel):
 
     class Meta:
         permissions = (
-            ('view_event',
-             'Permission to view an event'),
-            ('admin_event',
-             'An admin permission to change which users can view a Subject and their view permission.'),
+            ('view_event', 'Permission to view an event'),
+            ('admin_event', 'An admin permission to change which users can view a Subject and their view permission.'),
+
+            ('security_create', 'Create security reports'),
+            ('security_read', 'View security reports'),
+            ('security_update', 'Modify security reports'),
+            ('security_delete', 'Delete security reports'),
+
+            ('standard_create', 'Create monitoring reports'),
+            ('standard_read', 'View monitoring reports'),
+            ('standard_update', 'Modify monitoring reports'),
+            ('standard_delete', 'Delete monitoring reports'),
+
+            ('logistics_create', 'Create logistics reports'),
+            ('logistics_read', 'View logistics reports'),
+            ('logistics_update', 'Modify logistics reports'),
+            ('logistics_delete', 'Delete logistics reports'),
         )
 
     class ReadonlyMeta:

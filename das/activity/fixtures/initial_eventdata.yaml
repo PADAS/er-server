@@ -262,6 +262,10 @@
   pk: 61d279a3-95fd-421f-bdb0-604ae8731761
   fields: {created_at: !!timestamp '2016-09-29 01:00:00+00:00', updated_at: !!timestamp '2016-09-29
       01:00:00+00:00', value: security, display: Security Incident, ordernum: 1}
+- model: activity.eventcategory
+  pk: baf67553-0fbf-42f8-b30c-d51c3e246e0b
+  fields: {created_at: !!timestamp '2016-09-29 01:00:00+00:00', updated_at: !!timestamp '2016-09-29
+      01:00:00+00:00', value: logistics, display: Logistics Incident, ordernum: 1}
 - model: activity.eventtype
   pk: 02943c51-0661-478e-b4a8-c57264bb721a
   fields: {created_at: !!timestamp '2016-07-07 01:00:00+00:00', updated_at: !!timestamp '2016-10-08
@@ -351,7 +355,7 @@
 - model: activity.eventtype
   pk: 19afb1f3-695b-44c7-aea0-cef6d338da87
   fields: {created_at: !!timestamp '2016-10-04 18:18:10.334441+00:00', updated_at: !!timestamp '2016-10-08
-      00:48:41.243291+00:00', value: snare, display: Snare, category: 61d279a3-95fd-421f-bdb0-604ae8731761,
+      00:48:41.243291+00:00', value: snare, display: Snare, category: baf67553-0fbf-42f8-b30c-d51c3e246e0b,
     ordernum: 310, schema: "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\"\
       : \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType\
       \ Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"\
