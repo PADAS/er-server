@@ -90,6 +90,55 @@ class TestImmobilityAnalyzer(TestCase):
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
 
+    def test_wasiwasi_immobile(self):
+        # Grab prepared observation list from test data.
+        test_observations = WASIWASI_IMMOBILE
+
+        # Create models (Subject, SubjectSource and Source)
+        sub = models.Subject.objects.create(name='Wasiwasi', subject_type='wildlife', subject_subtype='elephant')
+        source = models.Source.objects.create(manufacturer_id='wasiwasi-collar')
+        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+
+        sg = models.SubjectGroup.objects.create(name='immobility_analyzer_group', )
+        sg.subjects.add(sub)
+        sg.save()
+
+        ia = ImmobilityAnalyzerConfig.objects.create(subject_group=sg)
+
+        # parse recorded_at (from string to datetime).
+        test_observations = [parse_recorded_at(x) for x in test_observations]
+
+        print('test_observations length: ', str(len(test_observations)))
+
+        for i in range(0, len(test_observations)):
+            tmp_obs = test_observations[0:i]
+
+            # Create observations in database, so the Analyzer will find them.
+            for item in time_shift(tmp_obs):
+                recorded_at = item['recorded_at']
+                location = Point(x=item['longitude'], y=item['latitude'])
+                obs = models.Observation.objects.create(recorded_at=recorded_at,
+                                                        location=location,
+                                                          source=source, additional={})
+            analyze_subject(str(sub.id))
+
+            models.Observation.objects.all().delete()
+
+            #self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
+
+            #for e in Event.objects.all():
+            #    self.assertTrue(e.event_details.all().exists())
+
+        #Want to have a look at which results are created
+        for result in SubjectAnalyzerResult.objects.filter(subject=sub).all():
+            print(result)
+
+        #Want to have a look at which events are created
+        for event in Event.objects.all():
+            print(event)
+
+        assert(True)
+
     def xtest_emmanuel_immobile(self):
 
         test_observations = EMMANUEL_IMMOBILE
