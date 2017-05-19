@@ -183,3 +183,5 @@ das/das_server/test_import_settings.py
 das/das_server/dev_ste_settings.py
 
 das/celerybeat-schedule.db
+
+das/das_server/migration_testsettings.py
