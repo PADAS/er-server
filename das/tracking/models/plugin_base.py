@@ -105,7 +105,8 @@ class SourcePlugin(TimestampedModel):
     status = models.CharField(max_length=15, default=STATUS_ENABLED)
 
     # last_run: datetime.min implies it hasn't ever been executed.
-    last_run = models.DateTimeField(default=datetime.min, verbose_name='Timestamp for when this plugin last executed.')
+    last_run = models.DateTimeField(default=pytz.utc.localize(datetime(2000,1,1)),
+                                    verbose_name='Timestamp for when this plugin last executed.')
 
     def execute(self, target=None):
         '''
