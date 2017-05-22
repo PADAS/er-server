@@ -61,7 +61,7 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
     class Meta:
         abstract = True
 
-    def analyze(self, subject, last_result=None):
+    def analyze(self, last_result=None):
         raise NotImplementedError()
 
     def save_analyzer_result(self, last_result=None, this_result=None):

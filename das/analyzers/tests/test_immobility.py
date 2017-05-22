@@ -8,12 +8,19 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point
 from django.test import TestCase
 
-from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
 from observations import models
 from activity.models import Event
 from .immobility_test_data import *
 from analyzers.tasks import analyze_subject
+import analyzers.exceptions
 
+from analyzers.utils import typify
+
+from analyzers.immobility import ImmobilityAnalyzer
+
+# Function to apply to plain/JSON observations to convert recorded_at to datetime.
+parse_recorded_at = partial(typify, dict(recorded_at=dp.parse))
 
 def generate_random_positions(start_time=None, x=37.5, y=1.41):
     recorded_at = start_time or pytz.utc.localize(datetime.utcnow()) - timedelta(hours=24)
@@ -24,16 +31,20 @@ def generate_random_positions(start_time=None, x=37.5, y=1.41):
         y += (random.random()  - 0.5)/10000
         recorded_at = recorded_at + timedelta(minutes=30)
 
-def typify(fmap, item):
-    r = copy.copy(item)
-    for k,f in fmap.items():
-        r[k] = f(r[k])
-    return r
-
-parse_recorded_at = partial(typify, dict(recorded_at=dp.parse))
-
 
 def time_shift(items, time_key='recorded_at', start_time=None):
+    '''
+    Time-shift the items in the list using each item's 'time_key' key.
+    Anchor the new list at start_time or a time calculated based on the item data.
+    
+    :param items: A list of dict items where each item has a time in item[time_key]
+    :param time_key: The key to use for getting a datetime from each item.
+    :param start_time: Anchor the new list at this datetime if it's provided.
+    :return: generator which yields a new 'time-shifted' list of the items.
+    '''
+
+    if not items:
+        return
 
     # Determine timespan of 'items'.
     minimum_time = reduce((lambda x, y: x if x < y else y), [_[time_key] for _ in items])
@@ -55,7 +66,42 @@ class TestImmobilityAnalyzer(TestCase):
     def setUp(self):
         pass
 
-    def test_ishango_immobile(self):
+    def test_immobility_with_moving_observations_list(self):
+
+        test_subject = models.Subject(name='Sample')
+
+        # parse recorded_at (from string to datetime).
+        test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE]
+
+        def generate_observations(observations):
+            for item in time_shift(observations):
+
+                recorded_at = item['recorded_at']
+                location = Point(x=item['longitude'], y=item['latitude'])
+                obs = models.Observation(recorded_at=recorded_at, location=location)
+                yield obs
+
+        test_observations = list(generate_observations(test_observations))
+
+        for count in range(21, 10, -1):
+            try:
+                config = ImmobilityAnalyzerConfig() # default values
+                last_result = SubjectAnalyzerResult(level=OK)
+
+                ia = ImmobilityAnalyzer(config=config, subject=test_subject)
+                result, event = ia.analyze(observations=test_observations[:count], last_result=last_result)
+
+                # Break when we get to an OK result
+                if result.level == OK:
+                    break
+            except analyzers.exceptions.InsufficientDataAnalyzerException:
+                break
+
+        # Assert we've broken from this for-loop at level=>OK and count=>17
+        self.assertEqual(result.level, OK)
+        self.assertEqual(count, 17) # Magic number, based on Ishango test dataset
+
+    def test_integration_ishango_immobile(self):
 
         # Grab prepared observation list from test data.
         test_observations = ISHANGO_IMMOBILE
@@ -141,32 +187,5 @@ class TestImmobilityAnalyzer(TestCase):
         for event in Event.objects.all():
             print(event)
 
-        assert(True)
-
-    def xtest_random(self):
-        '''
-        This test is just for fun. No assertions take place.
-        :return: 
-        '''
-        sub = models.Subject.objects.create(name='Random Guy', subject_type='wildlife', subject_subtype= 'elephant')
-        source = models.Source.objects.create(manufacturer_id='random-guy-collar')
-        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
-
-        n = pytz.utc.localize(datetime.utcnow())
-        positions = generate_random_positions()
-        positions.send(None)
-        while True:
-
-            recorded_at, location = positions.send(None)
-            obs = models.Observation.objects.create(recorded_at=recorded_at,
-                                             location=location,
-                                                    source=source, additional={})
-            if obs.recorded_at > n:
-                break
-
-        ia = ImmobilityAnalyzerConfig.objects.create(subject=sub, threshold_time=18000)
-
-        r = ia.analyze()
-        print(r)
 
 

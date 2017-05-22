@@ -41,7 +41,7 @@ def analyze_subject(self, subject_id):
             last_result = None
 
         try:
-            analyzer_result, analyzer_event = analyzer.analyze(subject, last_result)
+            analyzer_result, analyzer_event = analyzer.analyze(last_result=last_result)
             logger.debug('Analyzer Result: %s', analyzer_result)
 
         except InsufficientDataAnalyzerException:

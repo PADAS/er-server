@@ -1,3 +1,5 @@
+import copy
+
 from geopy.distance import distance
 from shapely.geometry.multipoint import MultiPoint
 from django.http.request import HttpRequest
@@ -43,10 +45,12 @@ from django.contrib.auth import get_user_model
 
 def get_system_user():
     User = get_user_model()
-    return User.objects.get_or_create(username='system_analyzers', last_name='Alyzer', first_name='Anne',
+    user, created = User.objects.get_or_create(username='system_analyzers',
+                                      defaults=dict(last_name='Alyzer', first_name='Anne',
                                       email='system_analyzers@pamdas.org',
                                       is_active=False,
-                                      password=User.objects.make_random_password())[0]
+                                      password=User.objects.make_random_password()))
+    return user
 
 
 def save_analyzer_event(event_data):
@@ -63,3 +67,16 @@ def save_analyzer_event(event_data):
         return ser.create(ser.validated_data)
 
     raise ValueError('Analyzer Event is invalid, errors=%s' % (ser.errors,))
+
+def typify(fmap, item):
+    '''
+    Convenience method to convert values in 'item' using a dict of key, func pairs
+    :param fmap: key=>func, where key is a key within item and func is to be applied to the corresponding value in item.
+    :param item: A dictionary to which we'll apply the functions.
+    :return: A new dict
+    '''
+    r = copy.copy(item)
+    for k,f in fmap.items():
+        r[k] = f(r[k])
+    return r
+
