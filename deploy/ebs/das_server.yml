@@ -303,7 +303,7 @@ app:
                         /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart message_queue_listeners
 
                         # Start/Restart vectronics_db_listen
-                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart vectronics_db_listen
+                        /usr/local/bin/supervisorctl -c /opt/python/etc/supervisord.conf restart vectronics_db_listener
 
               - .ebextensions/01-install_dependencies.config:
                     permissions: 0777
