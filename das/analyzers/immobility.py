@@ -160,7 +160,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             result.geometry_collection = DjangoGeoColl([DjangoPoint(test_cluster.centroid.GetX(),
                                                                test_cluster.centroid.GetY())])
 
-            print('Latest Fix: ', str(test_cluster.relocs.latest_fix.fixtime))
+            #print('Latest Fix: ', str(test_cluster.relocs.latest_fix.fixtime))
             result.estimated_time = test_cluster.relocs.latest_fix.fixtime
 
             result.values = {
@@ -171,7 +171,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             }
 
             if (cluster_pvalue >= self.config.threshold_probability) and \
-                    (cluster_timespan_seconds >= self.config.threshold_time):
+                    (cluster_timespan_seconds > self.config.threshold_time):
+                # Todo: gte comparison  on the timespan but switched to achieve parity with STE system
                 # Modify analyzer result
                 result.level = CRITICAL
                 result.message = self.subject.name + str(_(' is immobile'))
