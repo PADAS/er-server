@@ -141,51 +141,38 @@ class TestImmobilityAnalyzer(TestCase):
                 print('Event Details: %s' % ed.data)
 
     def test_wasiwasi_immobile(self):
-        # Grab prepared observation list from test data.
-        test_observations = WASIWASI_IMMOBILE
+        print('Analyzing: ', 'WasiWasi')
+        test_subject = models.Subject(name='WasiWasi')
 
-        # Create models (Subject, SubjectSource and Source)
-        sub = models.Subject.objects.create(name='Wasiwasi', subject_type='wildlife', subject_subtype='elephant')
-        source = models.Source.objects.create(manufacturer_id='wasiwasi-collar')
-        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+        # parse recorded_at (from string to datetime)
+        test_observations = [parse_recorded_at(x) for x in WASIWASI_IMMOBILE]
 
-        sg = models.SubjectGroup.objects.create(name='immobility_analyzer_group', )
-        sg.subjects.add(sub)
-        sg.save()
-
-        ia = ImmobilityAnalyzerConfig.objects.create(subject_group=sg)
-
-        # parse recorded_at (from string to datetime).
-        test_observations = [parse_recorded_at(x) for x in test_observations]
-
-        print('test_observations length: ', str(len(test_observations)))
-
-        for i in range(0, len(test_observations)):
-            tmp_obs = test_observations[0:i]
-
-            # Create observations in database, so the Analyzer will find them.
-            for item in time_shift(tmp_obs):
+        def generate_observations(observations):
+            for item in observations:
                 recorded_at = item['recorded_at']
                 location = Point(x=item['longitude'], y=item['latitude'])
-                obs = models.Observation.objects.create(recorded_at=recorded_at,
-                                                        location=location,
-                                                          source=source, additional={})
-            analyze_subject(str(sub.id))
+                obs = models.Observation(recorded_at=recorded_at, location=location)
+                yield obs
 
-            models.Observation.objects.all().delete()
+        # Grab prepared observation list from test data.
+        test_observations = list(generate_observations(test_observations))
 
-            #self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
+        last_result = None
+        for i in range(1, len(test_observations)):
+            try:
+                print('Current data-point: ', test_observations[i-1])
 
-            #for e in Event.objects.all():
-            #    self.assertTrue(e.event_details.all().exists())
+                ia_config = ImmobilityAnalyzerConfig()
+                ia_config.threshold_time = 18000 # 5 hours
 
-        #Want to have a look at which results are created
-        for result in SubjectAnalyzerResult.objects.filter(subject=sub).all():
-            print(result)
+                ia = ImmobilityAnalyzer(config=ia_config, subject=test_subject)
+                result, event = ia.analyze(observations=test_observations[:i], last_result=last_result)
+                last_result = result
 
-        #Want to have a look at which events are created
-        for event in Event.objects.all():
-            print(event)
+                print('Analyzer result: ', last_result)
+                print('Analyzer event: ', event)
+            except analyzers.exceptions.InsufficientDataAnalyzerException:
+                print('Insufficient data warning')
+                pass
 
-
-
+        self.assertTrue(True)
