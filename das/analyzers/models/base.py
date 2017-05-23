@@ -83,7 +83,7 @@ class SubjectAnalyzerResult(TimestampedModel):
     analyzer_revision = models.IntegerField()
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
     geometry_collection = models.GeometryCollectionField()
-    estimated_time = models.DateTimeField(auto_now_add=True)
+    estimated_time = models.DateTimeField()
     level = models.IntegerField()
     observations = models.ManyToManyField(Observation, related_name='+')
     values = JSONField(default={}, blank=True)
