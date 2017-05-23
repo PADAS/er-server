@@ -152,13 +152,15 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             test_cluster.add_fix(f)
 
             # Calculate the ratio of points within cluster threshold distance and total points in cluster
-            cluster_pvalue = test_cluster.threshold_point_count(self.config.threshold_radius) / test_cluster.relocs.fix_count
+            cluster_pvalue = test_cluster.threshold_point_count(self.config.threshold_radius) / \
+                             test_cluster.relocs.fix_count
 
             cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
 
             result.geometry_collection = DjangoGeoColl([DjangoPoint(test_cluster.centroid.GetX(),
                                                                test_cluster.centroid.GetY())])
 
+            print('Latest Fix: ', str(test_cluster.relocs.latest_fix.fixtime))
             result.estimated_time = test_cluster.relocs.latest_fix.fixtime
 
             result.values = {
@@ -168,7 +170,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 'total_fix_count': test_cluster.relocs.fix_count,
             }
 
-            if (cluster_pvalue >= self.config.threshold_probability) and (cluster_timespan_seconds >= self.config.threshold_time):
+            if (cluster_pvalue >= self.config.threshold_probability) and \
+                    (cluster_timespan_seconds >= self.config.threshold_time):
                 # Modify analyzer result
                 result.level = CRITICAL
                 result.message = self.subject.name + str(_(' is immobile'))
@@ -184,7 +187,6 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         self.logger.info(result.message)
 
         return result
-
 
     def create_analyzer_event(self, last_result=None, this_result=None):
         # no data to create an event so exit

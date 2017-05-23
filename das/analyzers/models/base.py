@@ -74,6 +74,7 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
 class SubjectAnalyzerResultManager(models.Manager):
     pass
 
+
 class SubjectAnalyzerResult(TimestampedModel):
 
     objects = SubjectAnalyzerResultManager()
@@ -99,6 +100,14 @@ class SubjectAnalyzerResult(TimestampedModel):
     subject_analyzer_id = models.UUIDField()
     subject_analyzer = GenericForeignKey('subject_analyzer_content_type', 'subject_analyzer_id')
     subject_analyzer_revision = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        _tmp_str = 'Subject: ' + self.subject.name + ', ' + \
+           'Level: ' + str(self.level) + ', ' + \
+           'Message: ' + str(self.message) + ', ' + \
+           'Est.Time: ' + str(self.estimated_time) + ', ' + \
+           'Geometry: ' + str(self.geometry_collection)
+        return _tmp_str
 
 
 class Annotator(RevisionMixin, TimestampedModel):
