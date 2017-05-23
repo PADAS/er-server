@@ -2,6 +2,7 @@ import logging
 import json
 from django.conf import settings
 from django.template.loader import render_to_string
+from django.utils.translation import ugettext_lazy as _
 from activity.serializers import EventSerializer
 from activity.models import Event
 from rt_api.rest_api_interface.dummy_request import DummyRequest
@@ -34,7 +35,7 @@ def extract_details(schema, details):
                 _ in v if isinstance(_, dict) and _.get('name') is not None]))
 
 
-def send_event_mail(event, user, revision, email_callback=None):
+def send_event_mail(event, user, revision, email_callback):
     if revision is not None:
         updated_fields = []
         for key, value in revision.data.items():
@@ -46,12 +47,12 @@ def send_event_mail(event, user, revision, email_callback=None):
                 display_value = value
             updated_fields.append(email_separator_string.format(key, display_value))
 
-        newness = 'UPDATE'
+        newness = _('UPDATE')
     else:
-        newness = 'NEW'
+        newness = _('NEW')
 
     priority_str = event.get_display_value('priority', event.priority)
-    subject_str = 'DAS {color} Alert: {id} {title}'.format(
+    subject_str = _('DAS {color} Alert: {id} {title}').format(
         color=priority_str,
         id=event.serial_number,
         title=event.title,
@@ -71,7 +72,7 @@ def send_event_mail(event, user, revision, email_callback=None):
         if key in ignore_fields or value is None:
             continue
         elif key == 'time' and event.time is not None:
-            display_value = event.time.strftime('%A, %B %d, %Y at %H:%M')
+            display_value = event.time.strftime(_('%A, %B %d, %Y at %H:%M'))
         else:
             try:
                 display_value = event.get_display_value(key, value)
@@ -81,7 +82,7 @@ def send_event_mail(event, user, revision, email_callback=None):
             event_fields_and_values.append(email_separator_string.format(key, display_value))
 
     parent_event = Event.objects.filter(out_relationship__to_event=event, out_relationship__type__value='contains').first()
-    display_title = event.title if event.title is not None else 'No Title'
+    display_title = event.title if event.title is not None else _('No Title')
     parameters = {
         'id': event.serial_number,
         'title': display_title,
@@ -97,12 +98,9 @@ def send_event_mail(event, user, revision, email_callback=None):
         parameters['user'] = revision.user
         parameters['updated_fields_names'] = updated_fields
 
-    body = render_to_string('event_email.txt', parameters)
+    body = render_to_string(_('event_email.txt'), parameters)
     logger.info('emailing {} from {}'.format(user.email, settings.FROM_EMAIL))
-    if email_callback is None:
-        user.email_user(subject_str, body, settings.FROM_EMAIL)
-    else:
-        email_callback(subject_str, body, settings.FROM_EMAIL)
+    email_callback(subject_str, body, settings.FROM_EMAIL)
 
 
 def send_new_event_sms(event, user):

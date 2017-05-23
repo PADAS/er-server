@@ -28,14 +28,14 @@ def send_user_event_notification(username, event_id, revision_id = None):
 
     if revision_id == None:
         if user.is_email_alert:
-            mailer.send_new_event_mail(event, user)
+            mailer.send_event_mail(event, user, None, user.email_user)
 
         if user.is_sms_alert:
             mailer.send_new_event_sms(event, user)
     else:
         revision = event.revision.all_user().get(id=revision_id)
         if user.is_email_alert:
-            mailer.send_update_event_mail(event, revision, user)
+            mailer.send_event_mail(event, user, revision, user.email_user)
 
         if user.is_sms_alert:
             mailer.send_update_event_sms(event, revision, user)
