@@ -176,3 +176,37 @@ class TestImmobilityAnalyzer(TestCase):
                 pass
 
         self.assertTrue(True)
+
+
+    def test_immobility_event(self):
+        '''
+        Test creating an Immobility Event, along with EventDetails reflecting an ImmobilityAnalyzer result.
+        :return: 
+        '''
+        from analyzers.utils import save_analyzer_event
+
+        event_location_value = {
+            'longitude': 36.5,
+            'latitude': 1.5
+        }
+
+        analyzer_result_values = {
+            'probability_value': .80,
+            'cluster_radius': 13,
+            'cluster_fix_count': 6,
+            'total_fix_count': 26,
+        }
+
+        event_data = dict(
+            message='Woody is immobile',
+            event_time=pytz.utc.localize(datetime.utcnow()),
+            provenance=Event.PC_ANALYZER,
+            event_type='immobility',
+            priority=Event.PRI_URGENT,
+            location=event_location_value,
+            event_details=analyzer_result_values,
+        )
+
+        e = save_analyzer_event(event_data)
+
+        self.assertTrue(e.event_details.count() == 1)
