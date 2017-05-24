@@ -23,7 +23,8 @@ subject_group_query_map = {
     'gorongosa_elephant_project_realtime':       "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm INNER JOIN trackingmasteraux tma ON tm.chronofile = tma.chronofile WHERE tm.active=1 AND tma.data_owners @> '{University of Idaho - Gorongosa Elephant Project}'::text[] ORDER by tm.chronofile ASC) AS group_members;",
     'smithsonian_chad_oryx':                     "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm INNER JOIN trackingmasteraux tma ON tm.chronofile = tma.chronofile WHERE tm.species='Scimitar Oryx'  AND tma.data_owners @> '{Smithsonian}'::text[] ORDER by tm.chronofile ASC) AS group_members;",
     'smithsonian_myanmar_elephants':             "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm INNER JOIN trackingmasteraux tma ON tm.chronofile = tma.chronofile WHERE tm.species='Asian Elephant' AND tma.data_owners @> '{Smithsonian}'::text[] ORDER by tm.chronofile ASC) AS group_members;",
-
+    'apn_garamba_elephant' :                     "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm INNER JOIN trackingmasteraux tma ON tm.chronofile = tma.chronofile WHERE tma.data_owners @> '{APN - GNP}'::text[] ORDER by tm.chronofile ASC) AS group_members;",
+    'apn_garamba_elephant_realtime' :                "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm INNER JOIN trackingmasteraux tma ON tm.chronofile = tma.chronofile WHERE tma.collar_status ='Active - Deployed' AND tma.data_owners @> '{APN - GNP}'::text[] ORDER by tm.chronofile ASC) AS group_members;",
 
     ### Custom Defined Groups ###
     'everything':                                "SELECT ARRAY(SELECT distinct(tm.chronofile) FROM trackingmaster tm ORDER BY chronofile ASC) as group_members",
