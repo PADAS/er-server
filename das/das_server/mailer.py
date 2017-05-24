@@ -34,6 +34,12 @@ def extract_details(schema, details):
             yield email_separator_string.format(key_display, ', '.join([_.get('name') for
                 _ in v if isinstance(_, dict) and _.get('name') is not None]))
 
+def send_immobility_mail(event, user, email_callback):
+    subject_str = _('Immobility Report: {name} {time}').format(
+        color=priority_str,
+        id=event.serial_number,
+        title=event.title,
+        newness=newness)
 
 def send_event_mail(event, user, revision, email_callback):
     if revision is not None:

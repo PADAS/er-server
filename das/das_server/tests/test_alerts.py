@@ -1,6 +1,8 @@
 import copy
+import pytz
 import das_server.mailer as mailer
 import django.contrib.auth
+from datetime import datetime
 from django.utils import lorem_ipsum
 from django.test import TestCase
 from django.utils import timezone
@@ -21,25 +23,15 @@ event_schema_data = {
 }
 
 target_from_address = 'notifications@pamdas.org'
-target_subject_template = 'DAS Green Alert: {serial} {title}'
-target_body_template = '''DAS Green Alert
-{serial}: {title}
-
-
-
-Details: some details about the event
-
-Conservancy: Sera
-
-Section/Area: Corner Safi
-
-time: {time}
-
-message: {text}
-
-event_type: {type}
-
-notes: []'''
+target_subject_template = 'Immobility Report: {name} {ti}'
+target_body_template = '''
+Name: {name}
+Start time of immobility (GMT): {time}
+Probability: {probability}%
+Sample Size: {sample}
+Cluster Search Radius (meters): {radius}
+Estimated Latitude: {lat}
+Estimated Longitude: {lon}'''
 
 class TestEventView(TestCase):
     def setUp(self):
@@ -57,19 +49,27 @@ class TestEventView(TestCase):
             'noperms', 'noperms@test.com', 'noperms', **self.user_const)
         self.staff = Subject.objects.create(name='Ranger 2', additional={})
 
+
+        analyzer_result_values = {
+            'probability_value': .80,
+            'cluster_radius': 13,
+            'cluster_fix_count': 6,
+            'total_fix_count': 26,
+        }
+
         self.event_data = dict(
-            message=lorem_ipsum.paragraph(),
-            time=DateTimeField().to_representation(timezone.now()),
-            provenance=Event.PC_SYSTEM,
-            event_type=ET_OTHER,
-            priority=Event.PRI_REFERENCE,
-            location=dict(longitude='40.1353', latitude='-1.891517')
+            message='Woody is immobile',
+            time=pytz.utc.localize(datetime.utcnow()),
+            provenance=Event.PC_ANALYZER,
+            event_type='immobility',
+            priority=Event.PRI_URGENT,
+            location=dict(longitude='36.5', latitude='1.5')
         )
 
         self.event = self.create_event(self.event_data)
 
         details = EventDetails.objects.create_event_details(
-            event=self.event, data=event_schema_data)
+            event=self.event, data=analyzer_result_values)
         details.save()
 
         self.event.refresh_from_db()
@@ -131,15 +131,13 @@ class TestEventView(TestCase):
             serial=self.event.serial_number,
             title=self.event.title)
         target_body = target_body_template.format(
-            serial=self.event.serial_number,
-            id=self.event.id,
+            name=self.event.subjects[0].name,
             time=self.time_to_string(self.event.event_time),
-            text=self.event.message,
-            type=self.event.event_type.display,
-            is_collection='False',
-            provenance=self.event.get_display_value('provenance', self.event.provenance),
-            title='No Title',
-            parent=0).strip()
+            probability=self.event.event_details['probability_value'],
+            sample=self.event.event_details['total_fix_count'],
+            radius=self.event.event_details['cluster_radius'],
+            lat=self.event.location.latitude,
+            lon=self.event.location.longititude).strip()
         self.assertEquals(email_data['subject'], target_subject)
         self.assertEquals(email_data['body'], target_body)
         self.assertEquals(email_data['from_address'], target_from_address)
