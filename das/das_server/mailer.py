@@ -72,7 +72,7 @@ def send_event_mail(event, user, revision, email_callback):
         if key in ignore_fields or value is None:
             continue
         elif key == 'time' and event.time is not None:
-            display_value = event.time.strftime(_('%A, %B %d, %Y at %H:%M'))
+            display_value = event.time.strftime('%A, %B %d, %Y at %H:%M')
         else:
             try:
                 display_value = event.get_display_value(key, value)
