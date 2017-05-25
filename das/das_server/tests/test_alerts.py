@@ -10,7 +10,7 @@ from django.core.management import call_command
 from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
-from activity.models import Event, EventType, EventRelationship, EventDetails
+from activity.models import Event, EventType, EventRelationship, EventDetails, EventAttachment
 from observations.models import Subject
 
 User = django.contrib.auth.get_user_model()
@@ -23,8 +23,9 @@ event_schema_data = {
 }
 
 target_from_address = 'notifications@pamdas.org'
-target_subject_template = 'Immobility Report: {name} {ti}'
-target_body_template = '''
+target_subject_template = 'Immobility Report: {name} {time}'
+target_body_template = '''DAS Immobility Alert
+
 Name: {name}
 Start time of immobility (GMT): {time}
 Probability: {probability}%
@@ -51,7 +52,7 @@ class TestEventView(TestCase):
 
 
         analyzer_result_values = {
-            'probability_value': .80,
+            'probability_value': 80,
             'cluster_radius': 13,
             'cluster_fix_count': 6,
             'total_fix_count': 26,
@@ -66,17 +67,29 @@ class TestEventView(TestCase):
             location=dict(longitude='36.5', latitude='1.5')
         )
 
+        self.subject_details = dict(
+            name='Elle',
+            additional={}
+        )
+
         self.event = self.create_event(self.event_data)
 
         details = EventDetails.objects.create_event_details(
             event=self.event, data=analyzer_result_values)
         details.save()
 
+        self.subject = self.create_subject(self.subject_details)
+
+        EventAttachment.objects.create(target=self.subject, event=self.event)
+
         self.event.refresh_from_db()
 
     def time_to_string(self, time):
         return time.strftime('%A, %B %d, %Y at %H:%M')
 
+    def create_subject(self, subject_data):
+        data = copy.deepcopy(subject_data)
+        return Subject.objects.create_subject(**data)
 
     def create_event(self, event_data):
         data = copy.deepcopy(event_data)
@@ -125,19 +138,21 @@ class TestEventView(TestCase):
             email_data['body'] = body.strip()
             email_data['from_address'] = from_address
 
-        mailer.send_event_mail(self.event, self.user, None, mail_callback)
+        mailer.send_immobility_mail(self.event, self.user, mail_callback)
+
+        details = self.event.event_details.first().data
 
         target_subject = target_subject_template.format(
-            serial=self.event.serial_number,
-            title=self.event.title)
+            name=self.event.subjects[0].name if len(self.event.subjects) > 0 else 'No Name',
+            time=self.time_to_string(self.event.time))
         target_body = target_body_template.format(
-            name=self.event.subjects[0].name,
+            name=self.event.subjects[0].name if len(self.event.subjects) > 0 else 'No Name',
             time=self.time_to_string(self.event.event_time),
-            probability=self.event.event_details['probability_value'],
-            sample=self.event.event_details['total_fix_count'],
-            radius=self.event.event_details['cluster_radius'],
-            lat=self.event.location.latitude,
-            lon=self.event.location.longititude).strip()
+            probability=details['probability_value'],
+            sample=details['total_fix_count'],
+            radius=details['cluster_radius'],
+            lat=self.event.location.x,
+            lon=self.event.location.y).strip()
         self.assertEquals(email_data['subject'], target_subject)
         self.assertEquals(email_data['body'], target_body)
         self.assertEquals(email_data['from_address'], target_from_address)
