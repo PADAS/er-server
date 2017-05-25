@@ -140,12 +140,12 @@ class TestImmobilityAnalyzer(TestCase):
             for ed in e.event_details.all():
                 print('Event Details: %s' % ed.data)
 
-    def test_wasiwasi_immobile(self):
-        print('Analyzing: ', 'WasiWasi')
-        test_subject = models.Subject(name='WasiWasi')
+    def test_ishango_immobile(self):
+        print('Analyzing: ', 'Ishango')
+        test_subject = models.Subject(name='Ishango')
 
         # parse recorded_at (from string to datetime)
-        test_observations = [parse_recorded_at(x) for x in WASIWASI_IMMOBILE]
+        test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE2]
 
         def generate_observations(observations):
             for item in observations:
@@ -166,7 +166,7 @@ class TestImmobilityAnalyzer(TestCase):
                 ia_config.threshold_time = 18000 # 5 hours
 
                 ia = ImmobilityAnalyzer(config=ia_config, subject=test_subject)
-                result, event = ia.analyze(observations=test_observations[:i], last_result=last_result)
+                result, event = ia.analyze(observations=test_observations[:i+1], last_result=last_result)
                 last_result = result
 
                 print('Analyzer result: ', last_result)
@@ -176,7 +176,6 @@ class TestImmobilityAnalyzer(TestCase):
                 pass
 
         self.assertTrue(True)
-
 
     def test_immobility_event(self):
         '''

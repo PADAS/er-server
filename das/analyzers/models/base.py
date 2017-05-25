@@ -103,7 +103,7 @@ class SubjectAnalyzerResult(TimestampedModel):
 
     def __str__(self):
         _tmp_str = 'Subject: ' + self.subject.name + ', ' + \
-           'Level: ' + str(self.level) + ', ' + \
+           'Values: ' + str(self.values) + ', ' + \
            'Message: ' + str(self.message) + ', ' + \
            'Est.Time: ' + str(self.estimated_time) + ', ' + \
            'Geometry: ' + str(self.geometry_collection)

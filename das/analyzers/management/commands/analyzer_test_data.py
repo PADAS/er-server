@@ -11,9 +11,10 @@ from observations.models import Observation
 def print_immobility_test_set():
     # This is a hand-curated list with a subject name, and end-time and a window size in hours.
     IMMOBILITY_TEST_SUBJECTS = [  # (name, window-end-time, window hours)
-        ('Ishango', pytz.utc.localize(datetime(2017, 4, 5, 14, 58)), 24),
-        ('Courtney', pytz.utc.localize(datetime(2017, 4, 30, 2, 10)), 48),
-        ('Wasiwasi', pytz.utc.localize(datetime(2017, 5, 13, 2, 10)), 25),
+        #('Ishango', pytz.utc.localize(datetime(2017, 4, 5, 14, 58)), 24),
+        #('Courtney', pytz.utc.localize(datetime(2017, 4, 30, 2, 10)), 48),
+        #('Wasiwasi', pytz.utc.localize(datetime(2017, 5, 13, 2, 10)), 25),
+        ('Ishango', pytz.utc.localize(datetime(2017, 5, 25, 20, 00)), 10),
     ]
 
     def das_observations(subject_name, start_date, end_date):
