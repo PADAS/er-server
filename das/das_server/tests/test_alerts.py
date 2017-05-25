@@ -35,10 +35,10 @@ Estimated Latitude: {lat}
 Estimated Longitude: {lon}'''
 
 class TestEventView(TestCase):
+
+    fixtures = ['initial_eventtype.yaml', 'analyzer_eventtype.yaml', 'initial_choices.yaml']
     def setUp(self):
         super().setUp()
-        call_command('loaddata', 'initial_eventdata')
-        call_command('loaddata', 'initial_choices')
 
         self.user_const = dict(last_name='last', first_name='first')
         self.user = User.objects.create_user(
