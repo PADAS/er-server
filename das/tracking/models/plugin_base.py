@@ -2,6 +2,7 @@ from functools import namedtuple
 
 import uuid
 import logging
+import json
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
@@ -187,17 +188,26 @@ class TrackingPlugin(TimestampedModel):
             latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
             latest_timestamp = parse_date(latest_timestamp) if latest_timestamp else pytz.utc.localize(datetime.min)
 
+            print('latest_timestamp: %s' % latest_timestamp)
             # If we haven't seen data from over 30 days, then use 24 hours as polling interval.
             if now - latest_timestamp > timedelta(days=30):
                 wait_interval = timedelta(hours=24)
             else:
                 wait_interval = self.DEFAULT_REPORT_INTERVAL
 
-            if (now - wait_interval) > latest_timestamp:
+            should_run_message = {'plugin': str(self),
+                                  'source': str(source_plugin.source),
+                                  'wait_interval': str(wait_interval),
+                                  'time_since_last': str(now-latest_timestamp),
+                                  'should_run': (now- wait_interval) >= latest_timestamp
+                                  }
+            logger.info(json.dumps(should_run_message))
+
+            if (now - wait_interval) >= latest_timestamp:
                 return True
 
         except Exception as e:
-            self.logger.exception('Failed to determine whether source-plugin %s should run.', source_plugin)
+            logger.exception('Failed to determine whether source-plugin %s should run.', source_plugin)
 
             if (now - source_plugin.last_run) > self.DEFAULT_REPORT_INTERVAL:
                 return True
