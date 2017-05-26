@@ -14,7 +14,7 @@ def print_immobility_test_set():
         #('Ishango', pytz.utc.localize(datetime(2017, 4, 5, 14, 58)), 24),
         #('Courtney', pytz.utc.localize(datetime(2017, 4, 30, 2, 10)), 48),
         #('Wasiwasi', pytz.utc.localize(datetime(2017, 5, 13, 2, 10)), 25),
-        ('Ishango', pytz.utc.localize(datetime(2017, 5, 25, 20, 00)), 10),
+        ('Ishango', pytz.utc.localize(datetime(2017, 5, 25, 20, 00)), 24),
     ]
 
     def das_observations(subject_name, start_date, end_date):

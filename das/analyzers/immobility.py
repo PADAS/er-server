@@ -147,6 +147,13 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                                        analyzer_revision=1,
                                        subject=self.subject)
 
+        # Define the latest fix as the estimated time
+        result.estimated_time = fixes[0].fixtime
+
+        # Define the geometry to be the latest fix geometry
+        result.geometry_collection = DjangoGeoColl([DjangoPoint(fixes[0].ogr_geometry.GetX(),
+                                                                fixes[0].ogr_geometry.GetY())])
+
         # Test for immobility
         for f in fixes:
             test_cluster.add_fix(f)
@@ -157,18 +164,6 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
             cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
 
-            result.geometry_collection = DjangoGeoColl([DjangoPoint(test_cluster.centroid.GetX(),
-                                                               test_cluster.centroid.GetY())])
-
-            #print('Latest Fix: ', str(test_cluster.relocs.latest_fix.fixtime))
-            result.estimated_time = test_cluster.relocs.latest_fix.fixtime
-
-            result.values = {
-                'probability_value': cluster_pvalue,
-                'cluster_radius': test_cluster.cluster_radius,
-                'cluster_fix_count': test_cluster.threshold_point_count(self.config.threshold_radius),
-                'total_fix_count': test_cluster.relocs.fix_count,
-            }
 
             if (cluster_pvalue >= self.config.threshold_probability) and \
                     (cluster_timespan_seconds > self.config.threshold_time):
@@ -176,14 +171,15 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 # Modify analyzer result
                 result.level = CRITICAL
                 result.message = self.subject.name + str(_(' is immobile'))
-                break
-
-
-        if result.level == OK:
-            # Because the result is OK, we want the result to reflect the latest position of the animal
-            # and not the cluster centroid.
-            result.geometry_collection = DjangoGeoColl([DjangoPoint(fixes[0].ogr_geometry.GetX(),
-                                                               fixes[0].ogr_geometry.GetY())])
+                result.geometry_collection = DjangoGeoColl([DjangoPoint(test_cluster.centroid.GetX(),
+                                                                        test_cluster.centroid.GetY())])
+                result.values = {
+                    'probability_value': cluster_pvalue,
+                    'cluster_radius': test_cluster.cluster_radius,
+                    'cluster_fix_count': test_cluster.threshold_point_count(self.config.threshold_radius),
+                    'total_fix_count': test_cluster.relocs.fix_count,
+                }
+                #break
 
         self.logger.info(result.message)
 
