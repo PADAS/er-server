@@ -3,5 +3,5 @@
 # https://docs.djangoproject.com/en/1.8/ref/contrib/gis/install/
 # single windows installer https://trac.osgeo.org/osgeo4w/
 
-# Use django-extensions to support shell_plus, which allows for running a Django app jupyter notebook.
-django-extensions==1.5.9
+earthengine-api
+GDAL==2.1.2 #1.11.4 is giving problems

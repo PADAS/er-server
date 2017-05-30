@@ -1,5 +1,6 @@
 import datetime
 import logging
+import psycopg2
 import psycopg2.extensions
 import select
 import pytz
@@ -8,11 +9,14 @@ from django.db import connections
 from observations.models import Source, Observation, SourceProvider, Subject
 from vectronics.models import GpsPlusPositions
 from tracking.models.plugin_base import Obs
+from tracking.pubsub_registry import notify_new_tracks
+
 
 logger = logging.getLogger('vectronics_db_listener')
 channel_name = 'das_vectronics_position_notification'
-source_type = 'tracking-device'
-SOURCE_PROVIDER_NAME = 'vectronics'
+SOURCE_TYPE = 'tracking-device'
+MODEL_NAME = 'vectronics'
+PROVIDER_NAME = 'default'
 
 def start_listening():
 
@@ -63,13 +67,13 @@ def start_listening():
                           longitude=longitude, additional=additional)
 
         try:
-            Observation.objects.add_observation(observation)
+            observation, created = Observation.objects.add_observation(observation)
 
-            logger.debug('Recorded observation for collar_id: %s, at %s, longitude: %s, latitude: %s',
-                         position.id_collar, recorded_at.isoformat(), position.longitude, position.latitude)
+            logger.info('Recorded observation for collar_id: %s, at %s, longitude: %s, latitude: %s',
+                        position.id_collar, recorded_at.isoformat(), position.longitude, position.latitude)
         except Exception:
             logger.exception('Failed observation for collar_id: %s, at %s, longitude: %s, latitude: %s',
-                         position.id_collar, recorded_at.isoformat(), position.longitude, position.latitude)
+                             position.id_collar, recorded_at.isoformat(), position.longitude, position.latitude)
 
     cursor = connections['vectronics'].cursor()
     db_connection = connections['vectronics'].connection
@@ -77,7 +81,6 @@ def start_listening():
     cursor.execute('LISTEN ' + channel_name + ';')
 
     print('Waiting for notifications: ' + channel_name)
-
     while 1:
         if select.select([db_connection], [], [], 5) != ([], [], []):
             db_connection.poll()

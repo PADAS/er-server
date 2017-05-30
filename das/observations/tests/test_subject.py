@@ -46,12 +46,12 @@ class SubjectTestCase(TestCase):
             )
 
 
-        actual = len(subject.observations(last_days=3))
+        actual = len(subject.observations(last_hours=3*24))
         expected = 1
 
         self.assertEqual(actual, expected)
 
-        actual = len(subject.observations(last_days=30))
+        actual = len(subject.observations(last_hours=30*24))
         expected = 2
 
         self.assertEqual(actual, expected)

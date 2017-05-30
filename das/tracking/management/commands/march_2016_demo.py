@@ -18,8 +18,6 @@ import random
 
 from accounts.models import PermissionSet, User
 from activity.models import Event, EventAttachment, Community, EventType
-from analyzers.models import all_analyzers, ContainmentAnalyzer, SubjectAnalyzer, \
-    GeofenceAnalyzer, ImmobilityAnalyzer, ProximityAnalyzer, SpeedAnalyzer
 from mapping.models import FeatureType, PolygonFeature, LineFeature, PointFeature, FeatureSet
 from observations.models import Subject, SubjectGroup, SubjectSource, Source, Observation
 from tracking.pubsub_registry import notify_new_tracks
@@ -146,19 +144,6 @@ class DemoDriver():
         FeatureType.objects.filter(name="TEAM SIX's Geofence FeatureType").delete()
         line_feature = LineFeature.objects.filter(name__contains='Major highway - A2').first()
 
-        GeofenceAnalyzer.objects.create(
-            subject=self.subject,
-            fence=line_feature
-        )
-
-        ImmobilityAnalyzer.objects.create(
-            subject=self.subject,
-            radius=100,
-            threshold_time=60*60*2,
-            threshold_warning_cluster_ratio=1.0,
-            threshold_critical_cluster_ratio=1.0,
-            )
-
         PolygonFeature.objects.filter(name="TEAM SIX's Proximity Feature").delete()
         # SpeedAnalyzer.objects.create(subject=self.subject, max_speed=10000000)
 
@@ -217,8 +202,7 @@ class DemoDriver():
         Event.objects.filter(event_time__gt=time).delete()
 
     def delete_analyzers(self):
-        for klass in all_analyzers:
-            klass.objects.filter(subject_id=self.subject_id).delete()
+        pass
 
     def ignition(self):
         self.delete_analyzers()

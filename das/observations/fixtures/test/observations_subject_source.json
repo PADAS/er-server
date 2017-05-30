@@ -18,6 +18,16 @@
       "subject": "ab27bfb5-ce7a-43ac-a1ac-69ddb4e1f4a5",
       "additional": {"x":1}
     }
+  },
+    {
+    "pk": "00000000-0000-0000-0000-000000000001",
+    "model": "observations.subjectsource",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"1999-09-01T00:00:00+00:00\", \"upper\": \"2100-01-01T00:00:00+00:00\"}",
+      "source": "a91e0366-898c-475b-830f-e0fae46e6efe",
+      "subject": "9342973f-b369-4d21-9f1f-ae89d523e05a",
+      "additional": {"note": "Testing for immobility"}
+    }
   }
 ]
 

@@ -62,6 +62,11 @@ class FeatureTypeManager(models.Manager):
 class FeatureType(TimestampedModel):
     """
     If the clients wish to group layers in a control or for ease of administration
+
+    MapBox convention for stylization of feature types:
+    Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
+    Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
+    Polygons: https://www.mapbox.com/mapbox-gl-style-spec/#layers-fill
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -88,9 +93,12 @@ class FeatureSet(TimestampedModel):
       ... better than handling as a layer group in UI as it allows grouping to be controlled in db?
     """
 
+    """TODO: Should be versioned"""
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
     types = models.ManyToManyField(to=FeatureType, related_name='featuresets')
+    #features = models.ManyToManyField(to=GeoFeature, related_name='features')
 
     description = models.TextField(null=True, blank=True)
 
@@ -100,7 +108,7 @@ class FeatureSet(TimestampedModel):
         return self.name
 
     def natural_key(self):
-        return (self.name,)
+        return self.name
 
 
 class Feature(TimestampedModel):
@@ -108,11 +116,17 @@ class Feature(TimestampedModel):
     A vector feature, e.g. a boundary, a hut, a village, a river ...
     """
 
+    """TODO: Should be versioned"""
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80)
     type = models.ForeignKey(to=FeatureType)
-
     description = models.TextField(null=True, blank=True)
+
+    #Added by Jake
+    short_name = models.CharField(max_length=20)  # A shorter name used for cartographic display
+    categorization = JSONField(default={})  # Different types of categorization
+    attributes = JSONField(default={})  # Additional feature attribute data
 
     # attributes for presentation
     presentation = JSONField(default={})
@@ -137,6 +151,14 @@ class Feature(TimestampedModel):
     # todo:  perhaps type and name?
     def __str__(self):
         return u"{0}".format(self.name)
+
+
+class GeoFeature(Feature):
+    """
+        GeoFeature is a PostGIS type that can accept the gamut of spatial types and provides
+        better distance calculations when data spans large distances as opposed to a cartesian representation.
+    """
+    feature_geometry = models.GeometryField(geography=True, srid=4326)
 
 
 class PolygonFeature(Feature):
