@@ -72,7 +72,7 @@ class SkygisticsSatelliteClient(SkygisticsClient):
     def _get_text(self, url, query):
         response_text = None
         try:
-            response = requests.get(url, query)
+            response = requests.get(url, query, timeout=5.0)
             # todo:  sad API, it returns a 500 if any param is bad or missing.
             #   check status code and do better
             if response.status_code != 200:
