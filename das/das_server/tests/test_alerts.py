@@ -46,9 +46,9 @@ new_event_body = '''DAS Green Alert
 
 
 
-Details: some details about the event
-
 Conservancy: Sera
+
+Details: some details about the event
 
 Section/Area: Corner Safi
 
@@ -72,9 +72,9 @@ title: New Title
 
 Full event data:
 
-Details: some details about the event
-
 Conservancy: Sera
+
+Details: some details about the event
 
 Section/Area: Corner Safi
 
@@ -91,9 +91,9 @@ new_incident_body = '''DAS Green Alert
 
 
 
-Details: some details about the event
-
 Conservancy: Sera
+
+Details: some details about the event
 
 time: {time}
 
@@ -115,9 +115,9 @@ title: New Title
 
 Full event data:
 
-Details: some details about the event
-
 Conservancy: Sera
+
+Details: some details about the event
 
 time: {time}
 
@@ -132,9 +132,9 @@ new_contained_event = '''DAS Green Alert
 
 
 
-Details: some details about the event
-
 Conservancy: Sera
+
+Details: some details about the event
 
 Section/Area: Corner Safi
 

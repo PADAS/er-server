@@ -228,6 +228,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.assertEqual(response.data[0]['name'], 'all_group')
 
     def test_superuser_return_subject_groups(self):
+        return_groups = ('Subjects', 'all_group')
         request = self.factory.get(
             API_BASE + '/subjectgroups')
         self.force_authenticate(request, self.superuser)
@@ -235,8 +236,8 @@ class SubjectGroupViewTest(BasePermissionTest):
         response = views.SubjectGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 2)
-        self.assertEqual(response.data[0]['name'], 'Subjects')
-        self.assertEqual(response.data[1]['name'], 'all_group')
+        self.assertTrue(response.data[0]['name'] in return_groups)
+        self.assertTrue(response.data[1]['name'] in return_groups)
 
 
 class SourceGroupViewTest(BasePermissionTest):

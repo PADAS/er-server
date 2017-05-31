@@ -267,6 +267,21 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         self.assertEqual(response_data['message'], update_data['message'])
 
+    def test_create_event_with_empty_message(self):
+        event_data = dict(priority=0,
+                          event_type=ET_OTHER,
+                          message='',
+                          comment='')
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        response_data = {k: response_data[k] for k in event_data.keys()}
+        self.assertDictEqual(response_data, event_data)
+
     def test_validate_serializer_schema(self):
         request = self.factory.get(self.api_base + '/events/schema')
         self.force_authenticate(request, self.all_perms_user)
