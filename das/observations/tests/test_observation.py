@@ -27,7 +27,7 @@ class ObservationTestCase(TestCase):
         since = until - timedelta(days=2)
 
         observations = Observation.objects.get_subject_observations(
-            subject_sources[0].subject,
+            subject_sources[1].subject,
             until=until,
             since=since
         )

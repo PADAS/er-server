@@ -19,7 +19,7 @@ class SubjectTestCase(TestCase):
         pass
 
     def test_subject_observations(self):
-        subject = Subject.objects.get(name='Turvey')
+        subject = Subject.objects.get(name='Topsy')
         actual = len(subject.observations())
         expected = 1
 
