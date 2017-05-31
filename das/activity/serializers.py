@@ -882,9 +882,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     )
     notes = EventNoteSerializer(many=True, required=False)
     reported_by = ReportedByRelatedField(required=False)
-    message = rest_framework.serializers.CharField(required=False)
-    comment = rest_framework.serializers.CharField(required=False)
-    title = rest_framework.serializers.CharField(required=False)
+    message = rest_framework.serializers.CharField(required=False, allow_blank=True)
+    comment = rest_framework.serializers.CharField(required=False, allow_blank=True)
+    title = rest_framework.serializers.CharField(required=False, allow_blank=True)
     photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
@@ -982,7 +982,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
             if event.event_type:
                 if event.event_type.category:
-                    permission_name = 'activity.{0}_events'.format(event.event_type.category.value)
+                    permission_name = 'activity.{0}_read'.format(event.event_type.category.value)
                     if not request.user.has_perm(permission_name):
                         raise PermissionDenied
                     rep['event_category'] = event.event_type.category.value

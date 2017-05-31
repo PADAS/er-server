@@ -110,6 +110,9 @@ class BasePermissionTest(BaseAPITest):
         self.ele_group.permission_sets.add(self.subject_view_realtime_set)
         self.ele_group.save()
 
+        self.all_group.permission_sets.add(self.subject_view_realtime_set)
+        self.all_group.save()
+
         self.last_view_user.permission_sets.add(self.subject_view_last_set)
         self.last_view_user.save()
 
@@ -194,13 +197,35 @@ class SubjectGroupViewTest(BasePermissionTest):
     def setUp(self):
         super().setUp()
 
-    def test_user_return_subject_groups(self):
+    def test_delay_view_user_return_subject_groups(self):
         request = self.factory.get(
             API_BASE + '/subjectgroups')
         self.force_authenticate(request, self.delayed_view_user)
 
         response = views.SubjectGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'ele_group')
+
+    def test_last_view_user_return_subject_groups(self):
+        request = self.factory.get(
+            API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.last_view_user)
+
+        response = views.SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'ele_group')
+
+    def test_realtime_view_user_return_subject_groups(self):
+        request = self.factory.get(
+            API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.realtime_view_user)
+
+        response = views.SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'all_group')
 
     def test_superuser_return_subject_groups(self):
         request = self.factory.get(
@@ -209,6 +234,9 @@ class SubjectGroupViewTest(BasePermissionTest):
 
         response = views.SubjectGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]['name'], 'Subjects')
+        self.assertEqual(response.data[1]['name'], 'all_group')
 
 
 class SourceGroupViewTest(BasePermissionTest):

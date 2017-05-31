@@ -18,7 +18,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
-from activity.permissions import EventObjectPermissions
+from activity.permissions import EventCategoryPermissions
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
 import utils
@@ -32,7 +32,7 @@ LAST_DAYS = timedelta(days=3)
 
 
 class EventSchemaView(generics.ListCreateAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
@@ -48,7 +48,7 @@ class EventSchemaView(generics.ListCreateAPIView):
 
 
 class EventTypesView(generics.ListAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventTypeSerializer
 
     def get_queryset(self):
@@ -65,7 +65,7 @@ class EventTypesView(generics.ListAPIView):
 
 
 class EventCategoriesView(generics.ListAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventCategorySerializer
 
     def get_queryset(self):
@@ -74,7 +74,7 @@ class EventCategoriesView(generics.ListAPIView):
 
 
 class EventTypeSchemaView(generics.ListCreateAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
@@ -135,12 +135,32 @@ class EventCountView(generics.ListAPIView):
     __doc__ = """
     Returns the count of New Events.
     """
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     queryset = Event.objects.all()
 
     def get(self, request, *args, **kwargs):
-        count = Event.objects.new_count()
-        data = {'count': count}
+
+        queryset  = Event.objects.new()
+
+        event_categories = self.request.query_params.getlist('event_category', None)
+        if event_categories is None or len(event_categories) == 0:
+            event_categories = EventCategory.objects.values_list(
+                'value').distinct()
+            event_categories = [x[0] for x in event_categories]
+
+        allowed_event_categories = []
+        for event_category in event_categories:
+            permission_name = 'activity.{0}_read'.format(event_category)
+            if self.request.user.has_perm(permission_name):
+                allowed_event_categories.append(event_category)
+
+        if len(allowed_event_categories) > 0:
+            queryset = queryset.by_category(allowed_event_categories)
+        else:
+            raise rest_framework.exceptions.PermissionDenied
+
+
+        data = {'count': queryset.count()}
         return generics.views.Response(data)
 
 
@@ -159,7 +179,7 @@ class EventsView(generics.ListCreateAPIView):
     page_size, (default is {page_size}, max is {max_page_size})
     """.format(page_size=StandardResultsSetPagination.page_size,
                     max_page_size=StandardResultsSetPagination.max_page_size)
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     filter_backends = (EventObjectPermissionsFilter,)
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
@@ -207,7 +227,7 @@ class EventsView(generics.ListCreateAPIView):
 
         allowed_event_categories = []
         for event_category in event_categories:
-            permission_name = 'activity.{0}_events'.format(event_category)
+            permission_name = 'activity.{0}_read'.format(event_category)
             if self.request.user.has_perm(permission_name):
                 allowed_event_categories.append(event_category)
 
@@ -234,15 +254,19 @@ def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
     return str(hash(instance.updated_at))
 
 
-class EventView(generics.RetrieveUpdateAPIView):
-    permission_classes = (EventObjectPermissions,)
+class EventView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventSerializer
     queryset = Event.objects.all()
     lookup_field = 'id'
 
     @etag(etag_func=calculate_event_etag)
     def get(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if obj:
+            self.check_object_permissions(self.request, obj)
         return super().get(request, *args, **kwargs)
+
 
     def get_serializer_context(self):
         query_params = self.request.query_params
@@ -256,14 +280,14 @@ class EventView(generics.RetrieveUpdateAPIView):
 
 
 class EventStateView(generics.RetrieveUpdateAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventStateSerializer
     queryset = Event.objects.all()
     lookup_field = 'id'
 
 
 class EventNotesView(generics.ListCreateAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventNoteSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -280,7 +304,7 @@ class EventNotesView(generics.ListCreateAPIView):
 
 
 class EventNoteView(generics.RetrieveUpdateAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventNoteSerializer
 
     def get_queryset(self):
@@ -300,7 +324,7 @@ class EventNoteView(generics.RetrieveUpdateAPIView):
 
 
 class EventPhotosView(generics.ListCreateAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventPhotoSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -326,7 +350,7 @@ class EventPhotosView(generics.ListCreateAPIView):
 
 
 class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventPhotoSerializer
 
     def get_queryset(self):
@@ -397,7 +421,7 @@ class EventRelationshipsView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         super().perform_create(serializer)
 
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventRelationshipSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -431,7 +455,7 @@ class EventRelationshipsView(generics.ListCreateAPIView):
         return EventRelationship.objects.filter(**filter)
 
 class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventRelationshipSerializer
 
     def get_queryset(self):
@@ -471,7 +495,7 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
 
 class EventAlertTargetsListView(generics.ListAPIView):
 
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = accounts.serializers.UserDisplaySerializer
 
     def get_queryset(self):

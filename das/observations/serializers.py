@@ -43,7 +43,7 @@ class GroupSerializer(rest_framework.serializers.ModelSerializer):
     def to_representation(self, instance):
         user = getattr(self.context.get('request', None), 'user', None)
         data_serializer = self.serializer(context=self.context)
-        contained_field= self.contained_field
+        contained_field = self.contained_field
 
         queryset = getattr(instance, 'get_all_{0}'.format(contained_field))(
             user=user, active=True)
@@ -121,9 +121,9 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
         if user and render_last_location:
             last_position = None
-            if user.has_any_perms(model.VIEW_POSITION_PERMS, instance):
+            if user.has_any_perms(model.VIEW_POSITION_PERMS, None):
                 last_position = instance.subjectstatus_set.get_last()
-            elif user.has_any_perms(model.VIEW_DELAYED_PERMS, instance):
+            elif user.has_any_perms(model.VIEW_DELAYED_PERMS, None):
                 last_position = instance.subjectstatus_set.get_delayed()
 
             first_position = None
