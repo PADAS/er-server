@@ -12,7 +12,7 @@ import uuid
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('mapping', '0008_featuretype'),
+        ('mapping', '0009_raster'),
     ]
 
     operations = [

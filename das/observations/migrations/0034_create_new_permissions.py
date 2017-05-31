@@ -10,7 +10,7 @@ import uuid
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('observations', '0025_feature_name'),
+        ('observations', '0033_annotations'),
     ]
 
     operations = [

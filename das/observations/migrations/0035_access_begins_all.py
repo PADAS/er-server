@@ -12,7 +12,7 @@ from django.utils.timezone import utc
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('observations', '0028_merge'),
+        ('observations', '0034_create_new_permissions'),
     ]
 
     operations = [

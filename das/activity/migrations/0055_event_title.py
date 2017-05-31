@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0050_fix_serial_number'),
+        ('activity', '0054_fix_serial_number'),
     ]
 
     operations = [

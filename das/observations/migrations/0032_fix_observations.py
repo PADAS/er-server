@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('observations', '0030_source_provider'),
+        ('observations', '0031_exclusion_flags'),
     ]
 
     operations = [

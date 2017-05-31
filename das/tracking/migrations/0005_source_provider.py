@@ -26,7 +26,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('observations', '0030_source_provider'),
-        ('tracking', '0003_awetelemetryplugin'),
+        ('tracking', '0004_alter_source_plugin'),
     ]
 
     operations = [

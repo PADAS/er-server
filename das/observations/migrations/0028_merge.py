@@ -9,7 +9,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('observations', '0027_recorded_at_index'),
-        ('observations', '0026_create_new_permissions'),
         ('observations', '0027_analyzer_metadata'),
     ]
 

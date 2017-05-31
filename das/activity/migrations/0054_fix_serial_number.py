@@ -9,7 +9,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0049_event_comment'),
+        ('activity', '0053_migrate_existing_user_permissions'),
     ]
 
     operations = [
