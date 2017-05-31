@@ -70,20 +70,23 @@ class AWTHttpClient(object):
             'accept': "*/*"
         }
 
-        r = requests.get(self.api_url, params=params, headers=headers)
+        try:
+            r = requests.get(self.api_url, params=params, headers=headers, timeout=5.0)
+        except requests.exceptions.Timeout:
+            self.logger.warning('Timeout when fetching data for collar_id: %s', collar_id)
+        else:
+            saveline = None
+            if r.status_code == requests.codes.ok:
 
-        saveline = None
-        if r.status_code == requests.codes.ok:
+                for line in r.text.split('\r'):
+                    if len(line.strip()) < 1:
+                        continue
 
-            for line in r.text.split('\r'):
-                if len(line.strip()) < 1:
-                    continue
-
-                if line != saveline: # We occassionally see duplicate records in results.
-                    _ = parser_f(line.strip())
-                    if _:
-                        yield _
-                saveline = line
+                    if line != saveline: # We occassionally see duplicate records in results.
+                        _ = parser_f(line.strip())
+                        if _:
+                            yield _
+                    saveline = line
 
     @classmethod
     def line_parser(cls, collar_id):
