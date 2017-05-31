@@ -970,6 +970,13 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         rep = super().to_representation(event)
         if 'request' in self.context:
             request = self.context['request']
+
+            if event.event_type and event.event_type.category:
+                rep['event_category'] = event.event_type.category.value
+                permission_name = 'activity.{0}_read'.format(event.event_type.category.value)
+                if not request.user.has_perm(permission_name):
+                    return []
+
             rep['url'] = utils.add_base_url(request,
                                             reverse('event-view',
                                                     args=[event.id, ]))
@@ -979,13 +986,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             if event.location is not None:
                 geodata = make_feature(self.context['request'], event)
                 rep['geojson'] = geodata
-
-            if event.event_type:
-                if event.event_type.category:
-                    permission_name = 'activity.{0}_read'.format(event.event_type.category.value)
-                    if not request.user.has_perm(permission_name):
-                        raise PermissionDenied
-                    rep['event_category'] = event.event_type.category.value
 
         attachments = []
         subject_attachment = None
