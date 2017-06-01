@@ -4,4 +4,4 @@
 # single windows installer https://trac.osgeo.org/osgeo4w/
 
 earthengine-api
-GDAL==2.1.2 #1.11.4 is giving problems
+#GDAL==2.1.2 #1.11.4 is giving problems
