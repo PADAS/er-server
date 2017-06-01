@@ -38,15 +38,19 @@ app.conf.task_routes = {
 
 
 # Defining scheduled tasks.
-
+# PLUGINS_INTERVAL is in seconds, and is the ticker interval for triggering plugin tasks.
+PLUGINS_INTERVAL = 5*60
 app.conf.beat_schedule = {
     'plugins': {
       'task': 'tracking.tasks.run_plugins',
-        'schedule': timedelta(minutes=5),
+        'schedule': timedelta(seconds=PLUGINS_INTERVAL),
+        'kwargs': {'expire_subtasks': PLUGINS_INTERVAL},
+        'options': {'expires': PLUGINS_INTERVAL},
     },
     'demo-plugins': {
       'task': 'tracking.tasks.run_demo_plugins',
-        'schedule': timedelta(minutes=5),
+        'schedule': timedelta(seconds=PLUGINS_INTERVAL),
+        'options': {'expires': PLUGINS_INTERVAL},
     },
 }
 
