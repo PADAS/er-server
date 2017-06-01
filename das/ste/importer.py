@@ -204,6 +204,7 @@ def import_trackinguser(userid):
 
         # Set password this way so that it gets correctly encrypted
         user.set_password(trackinguser.get('password', None))
+        user.save()
 
     if created:
         logger.info('Created new user: %s', user.username)
