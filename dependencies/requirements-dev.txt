@@ -8,6 +8,7 @@
 -e git+https://github.com/PADAS/fastkml.git@987a8372aa14b8bfd39ddb62c7557ae080ba30ed#egg=fastkml
 -e git+https://github.com/PADAS/python-socketio.git@3314c2243590fbbff327744b47fe10d29d00d402#egg=python-socketio
 amqp==2.1.4
+appdirs==1.4.3
 aspy.yaml==0.3.0          # via pre-commit
 billiard==3.5.0.2
 bleach==1.4.3
@@ -60,6 +61,7 @@ nodeenv==1.1.2            # via pre-commit
 numpy==1.12.1
 oauthlib==1.0.3
 olefile==0.44
+packaging==16.8
 pandas==0.19.2
 pillow==4.0.0
 pockets==0.3.2
@@ -72,6 +74,7 @@ pyproj==1.9.5.1
 python-dateutil==2.6.0
 python-docx==0.8.6
 python-engineio==1.3.0
+python-json-logger==0.1.7
 pytz==2016.10
 pyyaml==3.12
 redis==2.10.5
