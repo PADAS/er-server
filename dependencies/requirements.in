@@ -63,3 +63,12 @@ Jinja2==2.8.1
 docxtpl==0.2.3
 python-docx==0.8.6
 lxml==3.7.3
+
+
+-e git+https://github.com/PADAS/python-socketio.git@3314c2243590fbbff327744b47fe10d29d00d402#egg=python-socketio
+
+-e git+https://github.com/PADAS/fastkml.git@987a8372aa14b8bfd39ddb62c7557ae080ba30ed#egg=fastkml
+
+#-e git+https://github.com/Julian/jsonschema.git@d0f2ef740b306dd966a947e2677d0c2ab065fc1f#egg=jsonschema
+
+-e git+https://github.com/VulcanTechnologies/django-versatileimagefield.git@c2bf2d81c0c2f1d2a76e42db5c6dc4331f7c1cfe#egg=django-versatileimagefield
