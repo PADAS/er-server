@@ -16,15 +16,15 @@ def upload_to(instance, filename):
     name, extension = filename.rsplit('.', 1) if '.' in filename else (filename, '')
 
     d = pytz.utc.localize(datetime.utcnow())
-    file_path = 'file_uploads/{year:04}/{month:02}/{day:02}/{pk!s}.{extension}'.format(year=d.year, month=d.month,
+    file_path = 'file_uploads/{year:04}/{month:02}/{day:02}/{pk!s}/{name}.{extension}'.format(year=d.year, month=d.month,
                                                                                     day=d.day, pk=instance.id,
-                                                                                    extension=extension)
+                                                                                    extension=extension, name=name)
     return file_path
 
 class FileContent(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    added_by = models.ForeignKey(
+    created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='file_contents', related_query_name='file_content')
     file = models.FileField(upload_to=upload_to, )
