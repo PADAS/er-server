@@ -5,6 +5,7 @@ from rest_framework import generics, status, response
 from django.db.models import Prefetch
 from django.core.urlresolvers import reverse
 from django.template import Template, Context
+from rest_framework.response import Response
 
 import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
@@ -18,13 +19,14 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
-from activity.permissions import EventCategoryPermissions
+from activity.permissions import EventCategoryPermissions, EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
 import utils
 from activity import schema_utils
 import accounts.serializers
 import accounts.models
+import usercontent.models
 
 import usercontent.serializers
 
@@ -373,11 +375,13 @@ class EventDocumentsView(generics.ListCreateAPIView):
     serializer_class = usercontent.serializers.FileContentSerializer
     pagination_class = StandardResultsSetPagination
 
-    def perform_create(self, serializer):
-        super().perform_create(serializer)
+    # def perform_create(self, serializer):
+    #     super().perform_create(serializer)
 
     def create(self, request, *args, **kwargs):
-        request.data['event'] = self.kwargs['id']
+
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['id'])
 
         # TODO: This conditional is to handle the case where a file is uploaded via XHR. Figure out why.
         if 'file' not in request.data:
@@ -387,7 +391,17 @@ class EventDocumentsView(generics.ListCreateAPIView):
             except KeyError:
                 pass
 
-        return super().create(request, *args, **kwargs)
+        # return super().create(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+
+        filecontent = usercontent.models.FileContent.objects.get(id=serializer.data.get('id'))
+
+        event.documents.add(filecontent)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
     def get_queryset(self):
         event = generics.get_object_or_404(Event.objects.all(),
@@ -395,26 +409,6 @@ class EventDocumentsView(generics.ListCreateAPIView):
 
         return event.documents.all()
 
-
-# class EventFileView(generics.RetrieveUpdateDestroyAPIView):
-#     permission_classes = (EventObjectPermissions,)
-#     serializer_class = EventPhotoSerializer
-#
-#     def get_queryset(self):
-#         event = generics.get_object_or_404(Event.objects.all(),
-#                                            pk=self.kwargs['id'])
-#
-#         file_contents = event.file_content.all()
-#         return file_contents
-#
-#     def get_object(self):
-#         queryset = self.get_queryset()
-#         filters = {'id': self.kwargs['photo_id']}
-#
-#         obj = generics.get_object_or_404(queryset, **filters)
-#
-#         return obj
-#
 
 class EventRelationshipsView(generics.ListCreateAPIView):
 

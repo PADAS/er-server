@@ -37,6 +37,8 @@ from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 from activity import schema_utils
 from activity.models import EventRelationship
 
+import usercontent.serializers
+
 logger = logging.getLogger(__name__)
 
 
@@ -555,6 +557,16 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
             for revision in photo.revision.all_user()
             ]
 
+
+class EventDocumentSerializer(rest_framework.serializers.Serializer):
+
+    def to_internal_value(self, data):
+        return super().to_internal_value(data)
+
+    def to_representation(self, instance):
+        return super().to_representation(instance)
+
+
 class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
@@ -893,6 +905,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     is_linked_to = rest_framework.serializers.SerializerMethodField()
     is_contained_in = rest_framework.serializers.SerializerMethodField()
 
+    documents = EventDocumentSerializer(many=True, required=False)
+
     def get_contains(self, event):
         return self.get_out_relation(event, 'contains')
 
@@ -942,7 +956,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
-            'state', 'photos', 'event_details', 'contains', 'is_linked_to', 'is_contained_in') + read_only_fields
+            'state', 'photos', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
+                 'documents', ) + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -33,7 +33,7 @@ class FileContent(TimestampedModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         result = super().save(*args, **kwargs)
-        self.event.dependent_table_updated()
+        # self.event.dependent_table_updated()
         return result
 
     def clean(self):
