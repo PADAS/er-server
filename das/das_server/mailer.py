@@ -22,7 +22,8 @@ ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
 
 def extract_details(schema, details):
     schema = schema_utils.get_rendered_schema(schema)
-    for k, v in details.items():
+    for k in sorted(details.keys()):
+        v = details[k]
         key_display = schema[k]['title']
         if isinstance(v, dict) and 'name' in v:
             yield email_separator_string.format(key_display, v['name'])
