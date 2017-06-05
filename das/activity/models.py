@@ -302,6 +302,15 @@ class EventRelationshipManager(models.Manager):
         return result
 
 
+class EventDocument(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    event = models.ForeignKey('Event', related_name='event_documents', related_query_name='event_document',
+                                   on_delete=models.CASCADE)
+    filecontent = models.ForeignKey('usercontent.FileContent', related_name='event_documents', related_query_name='event_document',
+                                 on_delete=models.CASCADE)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+
 class EventRelationship(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -461,7 +470,7 @@ class Event(RevisionMixin, TimestampedModel):
     sort_at = models.DateTimeField(default=django.utils.timezone.now,
                                    blank=True)
 
-    documents = models.ManyToManyField(usercontent.models.FileContent)
+    documents = models.ManyToManyField(usercontent.models.FileContent,)
 
     @property
     def priority_label(self):

@@ -536,7 +536,7 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
                                         reverse('event-view-photo',
                                                 args=[photo.event.id, photo.id ]))
         else:
-            logger.warn('missing request in EventPhotoSerializer context: %s',
+            logger.warning('missing request in EventPhotoSerializer context: %s',
                         traceback.format_stack())
 
         return rep
@@ -558,13 +558,16 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
             ]
 
 
-class EventDocumentSerializer(rest_framework.serializers.Serializer):
+class EventDocumentSerializer(rest_framework.serializers.ModelSerializer):
 
-    def to_internal_value(self, data):
-        return super().to_internal_value(data)
+    class Meta:
+        model = activity.models.EventDocument
 
-    def to_representation(self, instance):
-        return super().to_representation(instance)
+    # def to_internal_value(self, data):
+    #     return super().to_internal_value(data)
+    #
+    # def to_representation(self, instance):
+    #     return super().to_representation(instance)
 
 
 class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
@@ -905,6 +908,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     is_linked_to = rest_framework.serializers.SerializerMethodField()
     is_contained_in = rest_framework.serializers.SerializerMethodField()
 
+    # documents = usercontent.serializers.FileContentSerializer(many=True, required=False, read_only=True,)
     documents = EventDocumentSerializer(many=True, required=False)
 
     def get_contains(self, event):
@@ -966,6 +970,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             self.fields['photos'].context.update(self.context)
         else:
             self.fields.pop('photos')
+
+        if self.context.get('include_documents', True):
+            self.fields['documents'].context.update(self.context)
+        else:
+            self.fields.pop('documents')
 
         if self.context.get('include_notes', True):
             self.fields['notes'].context.update(self.context)
