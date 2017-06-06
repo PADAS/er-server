@@ -310,6 +310,9 @@ class EventDocument(TimestampedModel):
                                     related_query_name='event_document', on_delete=models.CASCADE)
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
+    class Meta:
+        ordering = ['ordernum', '-updated_at']
+
 
 class EventRelationship(TimestampedModel):
 
