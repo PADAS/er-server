@@ -580,6 +580,20 @@ class EventDocumentSerializer(rest_framework.serializers.ModelSerializer):
 
         return super().create(validated_data)
 
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+
+        if 'request' in self.context:
+            request = self.context['request']
+            rep['url'] = utils.add_base_url(request,
+                                            reverse('event-view-document',
+                                                    args=[instance.event.id, instance.id ]))
+
+
+        return rep
+
+
+
 
 class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
 

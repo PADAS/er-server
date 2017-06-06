@@ -11,7 +11,7 @@ import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 
 from activity.models import Event, EventNote, EventPhoto, EventClass,\
-    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory
+    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventDocument
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
@@ -370,6 +370,7 @@ class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
 
         return obj
 
+
 class EventDocumentsView(generics.ListCreateAPIView):
     permission_classes = (EventObjectPermissions,)
     serializer_class = EventDocumentSerializer
@@ -405,6 +406,25 @@ class EventDocumentsView(generics.ListCreateAPIView):
                                            pk=self.kwargs['id'])
 
         return event.documents.all()
+
+
+class EventDocumentView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (EventObjectPermissions,)
+    serializer_class = EventDocumentSerializer
+
+    def get_queryset(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['event_id'])
+
+        qs = EventDocument.objects.all().filter(event=event)
+        return qs
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        filters = {'id': self.kwargs['document_id']}
+
+        obj = generics.get_object_or_404(queryset, **filters)
+        return obj
 
 
 class EventRelationshipsView(generics.ListCreateAPIView):
