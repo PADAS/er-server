@@ -386,7 +386,7 @@ class EventDocumentsView(generics.ListCreateAPIView):
         if 'filecontent.file' not in request.data:
             try:
                 # Ajax request.
-                request.data['filecontent.file'] = request.stream.FILES['file']
+                request.data['filecontent.file'] = request.stream.FILES['filecontent.file']
             except KeyError:
                 pass
 
