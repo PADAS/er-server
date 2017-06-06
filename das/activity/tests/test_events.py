@@ -1,3 +1,5 @@
+import os, tempfile, shutil
+
 import copy
 import collections
 import string, random
@@ -52,28 +54,6 @@ radio_room_user_permissions = [
     'logistics_create', 'logistics_read', 'logistics_update']
 # Guest users can see logistics events and nothing else
 guest_user_permissions = ['logistics_read']
-
-
-class TestSourcePlugin(TestCase):
-    def setUp(self):
-        super().setUp()
-        call_command('loaddata', 'initial_eventtype')
-        call_command('loaddata', 'initial_eventdata')
-
-    def test_sentinel_user(self):
-        user = get_sentinel_user()
-        self.assertEqual('deleted', user.username)
-
-    def test_create_event_with_attachment(self):
-        with transaction.atomic():
-            e = Event.objects.create_event(message=lorem_ipsum.paragraph(),
-                                           provenance=Event.PC_SYSTEM,
-                                           event_type=EventType.objects.get_by_value(ET_OTHER),
-                                           priority=Event.PRI_URGENT,
-                                           attributes={},
-                                           )
-
-        self.assertIsNotNone(e.id)
 
 
 class TestEventView(BaseAPITest):
@@ -133,6 +113,11 @@ class TestEventView(BaseAPITest):
         self.guest_user.permission_sets.add(self.guest_user_permissionset)
 
         self.user_rep = UserDisplaySerializer().to_representation(self.guest_user)
+
+        self.temporary_folder = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.temporary_folder)
 
     def create_event(self, event_data):
         data = copy.deepcopy(event_data)
@@ -281,6 +266,54 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
+
+    def test_create_event_and_upload_document(self):
+        event_data = dict(priority=0,
+                          event_type=ET_OTHER,
+                          message='',
+                          comment='')
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+
+        event_data['id'] = None
+
+        response_data = {k: response_data[k] for k in event_data.keys()}
+        self.assertTrue(response_data['id'] is not None)
+
+        my_event_id = response_data['id']
+
+        # Create a simple text file and add it to the event.
+
+        filename = os.path.join(self.temporary_folder, 'some-test-file.txt')
+        with open(filename, 'w') as f:
+            f.write('The quick brown fox jumps over the lazy dog.')
+
+        with open(filename, "rb") as f:
+            path = '/'.join((self.api_base, 'activity', 'event', my_event_id, 'documents'))
+            request = self.factory.post(path, {'filecontent.file': f}, format='multipart')
+
+            self.force_authenticate(request, self.all_perms_user)
+            response = views.EventDocumentsView.as_view()(request, id=my_event_id)
+            print(response.data)
+
+        # Make request for the new event and assert that it includes a new document.
+        path = '/'.join((self.api_base, 'activity', 'event', my_event_id))
+        request = self.factory.get(path, event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventView.as_view()(request, id=my_event_id)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertTrue(len(response.data['documents']) == 1 )
+        print(response.data)
+
+
+
 
     def test_validate_serializer_schema(self):
         request = self.factory.get(self.api_base + '/events/schema')

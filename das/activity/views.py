@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from datetime import timedelta
-
+import copy
 from rest_framework import generics, status, response
 from django.db.models import Prefetch
 from django.core.urlresolvers import reverse
@@ -371,8 +371,15 @@ class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
         return obj
 
 
+def resolve_first(dicts, keys):
+    for d in dicts:
+        for k in keys:
+            if k in d:
+                return d[k]
+                break
+
 class EventDocumentsView(generics.ListCreateAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventDocumentSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -381,7 +388,7 @@ class EventDocumentsView(generics.ListCreateAPIView):
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['id'])
 
-        request.data['event'] = event.id
+        # request.data['event'] = event.id
 
         # TODO: This conditional is to handle the case where a file is uploaded via XHR. Figure out why.
         if 'filecontent.file' not in request.data:
@@ -391,9 +398,10 @@ class EventDocumentsView(generics.ListCreateAPIView):
             except KeyError:
                 pass
 
-        request.data['file'] = request.data['filecontent.file']
+        this_data = copy.copy(request.data)
+        this_data['event'] = event.id
 
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=this_data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
 
@@ -409,7 +417,7 @@ class EventDocumentsView(generics.ListCreateAPIView):
 
 
 class EventDocumentView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (EventObjectPermissions,)
+    permission_classes = (EventCategoryPermissions,)
     serializer_class = EventDocumentSerializer
 
     def get_queryset(self):

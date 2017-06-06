@@ -568,13 +568,14 @@ class EventDocumentSerializer(rest_framework.serializers.ModelSerializer):
     def create(self, validated_data):
 
         # Get uploaded file from request.
-        ser = usercontent.serializers.FileContentSerializer(data=dict(file=self.context['request'].data['file']),
-                                                             context={'request':self.context['request']})
+        ser = usercontent.serializers.FileContentSerializer(
+            data=dict(file=self.context['request'].data['filecontent.file']),
+            context={'request':self.context['request']})
 
         ser.is_valid(raise_exception=True)
         filecontent = ser.create(ser.validated_data)
 
-        validated_data.pop('file', None)
+        validated_data.pop('filecontent.file', None)
 
         validated_data['filecontent'] = filecontent
 
