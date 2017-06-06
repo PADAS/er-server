@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='eventdocument',
             name='event',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='event_documents', related_query_name='event_document', to='activity.Event'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='documents', related_query_name='document', to='activity.Event'),
         ),
         migrations.AddField(
             model_name='eventdocument',

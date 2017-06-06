@@ -15,7 +15,7 @@ from activity.models import Event, EventNote, EventPhoto, EventClass,\
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
-    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer
+    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventDocumentSerializer
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
@@ -372,33 +372,30 @@ class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
 
 class EventDocumentsView(generics.ListCreateAPIView):
     permission_classes = (EventObjectPermissions,)
-    serializer_class = usercontent.serializers.FileContentSerializer
+    serializer_class = EventDocumentSerializer
     pagination_class = StandardResultsSetPagination
-
-    # def perform_create(self, serializer):
-    #     super().perform_create(serializer)
 
     def create(self, request, *args, **kwargs):
 
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['id'])
 
+        request.data['event'] = event.id
+
         # TODO: This conditional is to handle the case where a file is uploaded via XHR. Figure out why.
-        if 'file' not in request.data:
+        if 'filecontent.file' not in request.data:
             try:
                 # Ajax request.
-                request.data['file'] = request.stream.FILES['file']
+                request.data['filecontent.file'] = request.stream.FILES['file']
             except KeyError:
                 pass
 
-        # return super().create(request, *args, **kwargs)
+        request.data['file'] = request.data['filecontent.file']
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
 
-        filecontent = usercontent.models.FileContent.objects.get(id=serializer.data.get('id'))
-
-        event.documents.add(filecontent)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
