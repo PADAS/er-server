@@ -312,6 +312,12 @@ class EventDocument(TimestampedModel):
     class Meta:
         ordering = ['ordernum', '-updated_at']
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        result = super().save(*args, **kwargs)
+        self.event.dependent_table_updated()
+        return result
+
 
 class EventRelationship(TimestampedModel):
 
