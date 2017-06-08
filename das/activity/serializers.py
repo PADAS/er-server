@@ -881,7 +881,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         default=rest_framework.serializers.CurrentUserDefault()
     )
     notes = EventNoteSerializer(many=True, required=False)
-    reported_by = ReportedByRelatedField(required=False)
+    reported_by = ReportedByRelatedField(required=False, allow_null=True)
     message = rest_framework.serializers.CharField(required=False, allow_blank=True)
     comment = rest_framework.serializers.CharField(required=False, allow_blank=True)
     title = rest_framework.serializers.CharField(required=False, allow_blank=True)
