@@ -6,7 +6,7 @@ import select
 import pytz
 
 from django.db import connections
-from observations.models import Source, Observation
+from observations.models import Source, Observation, SourceProvider, Subject
 from vectronics.models import GpsPlusPositions
 from tracking.models.plugin_base import Obs
 from tracking.pubsub_registry import notify_new_tracks
@@ -16,16 +16,18 @@ logger = logging.getLogger('vectronics_db_listener')
 channel_name = 'das_vectronics_position_notification'
 SOURCE_TYPE = 'tracking-device'
 MODEL_NAME = 'vectronics'
-PROVIDER_NAME = 'default'
+SOURCE_PROVIDER_NAME = 'default'
 
 
 def handle_notify(notify):
 
     try:
+        print('Handling notify...')
+        logger.info('Handling notify...')
         position = GpsPlusPositions.objects.get(pk=notify.payload)
         handle_gps_plus_position(position)
     except GpsPlusPositions.DoesNotExist:
-        logger.warning('Notified for id_position: %s, but it does not exit in the database.', notify.payload)
+        logger.warning('Notified for id_position: %s, but it does not exist in the database.', notify.payload)
 
 
 def handle_gps_plus_position(position):
@@ -33,10 +35,21 @@ def handle_gps_plus_position(position):
                 position.id_position,
                 position.id_collar, position.acquisition_time.isoformat(), position.longitude, position.latitude)
 
+    provider, created = SourceProvider.objects.get_or_create(name=SOURCE_PROVIDER_NAME)
+    manufacturer_id = position.id_collar
     source, created = Source.objects.ensure_source(source_type=SOURCE_TYPE,
                                                    manufacturer_id=position.id_collar,
                                                    model_name=MODEL_NAME,
-                                                   provider_name=PROVIDER_NAME)
+                                                   provider=provider.name,
+                                                   subject={
+                                                       'subject_type': Subject.TYPE_UNASSIGNED,
+                                                       'subject_subtype': Subject.SUBTYPE_UNASSIGNED,
+                                                       'name': manufacturer_id
+                                                   }
+                                                   )
+
+    logger.debug('{} source ({}) for collar_id: {}'.format('Created' if created else 'Found', source.id,
+                                                           position.id_collar))
 
     additional = dict((k, v) for k, v in position if not k.startswith('_') and v is not None and
                       k not in ('id_collar', 'latitude', 'longitude', 'acquisition_time'))
