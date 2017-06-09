@@ -5,7 +5,7 @@ import traceback
 
 try:
     # local_log.py should contain an override of DEFAULT_LOGGING as seen below
-    from das_server import local_log
+    from . import local_log
 except ImportError:
     local_log = None
 
@@ -15,19 +15,17 @@ DEFAULT_LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        'syslog': {
-            'format': 'mw %(levelname)s %(processName)s %(thread)d %(name)s %(message)s'
-        },
-        'simple': {
-            'format': '%(asctime)s mw %(levelname)s %(processName)s %(thread)d %(name)s %(message)s'
+        'json': {
+            'format': '%(asctime)s %(levelname)s %(processName)s %(thread)d %(name)s %(message)s',
+            'class': 'pythonjsonlogger.jsonlogger.JsonFormatter',
         },
     },
     'handlers': {
         'console': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'class': 'logging.StreamHandler',
             'stream': sys.stdout,
-            'formatter': 'simple'
+            'formatter': 'json'
         },
     },
     'loggers': {
@@ -46,47 +44,7 @@ DEFAULT_LOGGING = {
         },
         '': {
             'handlers': ['console'],
-            'level': 'DEBUG',
-        },
-    }
-}
-
-WSGI = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'syslog': {
-            'format': 'mw %(levelname)s %(processName)s %(thread)d %(name)s %(message)s'
-        },
-        'simple': {
-            'format': '%(asctime)s mw %(levelname)s %(processName)s %(thread)d %(name)s %(message)s'
-        },
-    },
-    'handlers': {
-        'file': {
             'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': '/opt/python/log/das_httpd.log',
-            'formatter': 'simple'
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'propagate': False,
-            'level': 'INFO',
-        },
-        'django.request': {
-            'handlers': ['file'],
-            'propagate': False,
-            'level': 'INFO',
-        },
-        'rt_api': {
-            'level': 'WARN',
-        },
-        '': {
-            'handlers': ['file'],
-            'level': 'DEBUG',
         },
     }
 }
@@ -98,9 +56,9 @@ has_initialized = False
 def init_logging(service=None):
     global has_initialized
     if has_initialized:
-        logger.debug('das_server logging already initialized, not loading %s /n %s',
-                       service,
-                       traceback.format_stack())
+        logger.debug('logging already initialized, not loading %s /n %s',
+                     service,
+                     exc_info=True)
         return
 
     has_initialized = True
@@ -114,7 +72,7 @@ def init_logging(service=None):
             module = local_log
         log_settings = getattr(module, service.upper())
     except AttributeError:
-        message = 'No das_server DJANGO logging configuration' \
+        message = 'No logging configuration' \
                   ' found for {0} in {1}'.format(service, repr(module))
         logger.warning(message)
         raise KeyError(message)

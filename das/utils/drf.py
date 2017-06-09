@@ -74,8 +74,12 @@ def api_exception_handler(exc, context):
     """
     Our custom error handler, that returns payload as JSON
     """
-    if not isinstance(exc, (exceptions.PermissionDenied,)):
-        logger.exception('Exception handling %s', context['request'].get_full_path)
+    if not isinstance(exc, (exceptions.PermissionDenied,
+                            exceptions.NotAuthenticated,
+                            exceptions.AuthenticationFailed,
+                            )):
+        logger.exception('Exception handling %s',
+                         context['request'].get_full_path())
     response = exception_handler(exc, context)
     if not response:
         message = str(_('Internal Server Error'))
