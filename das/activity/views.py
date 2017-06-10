@@ -2,6 +2,8 @@ from collections import OrderedDict
 from datetime import timedelta
 import copy
 from rest_framework import generics, status, response
+from django.http.response import HttpResponse
+
 from django.db.models import Prefetch
 from django.core.urlresolvers import reverse
 from django.template import Template, Context
@@ -11,11 +13,11 @@ import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 
 from activity.models import Event, EventNote, EventPhoto, EventClass,\
-    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventDocument
+    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
-    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventDocumentSerializer
+    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
@@ -26,9 +28,6 @@ import utils
 from activity import schema_utils
 import accounts.serializers
 import accounts.models
-import usercontent.models
-
-import usercontent.serializers
 
 LAST_DAYS = timedelta(days=3)
 
@@ -378,17 +377,15 @@ def resolve_first(dicts, keys):
                 return d[k]
                 break
 
-class EventDocumentsView(generics.ListCreateAPIView):
+class EventFilesView(generics.ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
-    serializer_class = EventDocumentSerializer
+    serializer_class = EventFileSerializer
     pagination_class = StandardResultsSetPagination
 
     def create(self, request, *args, **kwargs):
 
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['id'])
-
-        # request.data['event'] = event.id
 
         # TODO: This conditional is to handle the case where a file is uploaded via XHR. Figure out why.
         if 'filecontent.file' not in request.data:
@@ -413,26 +410,35 @@ class EventDocumentsView(generics.ListCreateAPIView):
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['id'])
 
-        return event.documents.all()
+        return event.files.all()
 
-
-class EventDocumentView(generics.RetrieveUpdateDestroyAPIView):
+class EventFileView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (EventCategoryPermissions,)
-    serializer_class = EventDocumentSerializer
+    serializer_class = EventFileSerializer
 
     def get_queryset(self):
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['event_id'])
 
-        qs = EventDocument.objects.all().filter(event=event)
+        qs = EventFile.objects.all().filter(event=event)
         return qs
 
     def get_object(self):
         queryset = self.get_queryset()
-        filters = {'id': self.kwargs['document_id']}
+        filters = {'id': self.kwargs['filecontent_id']}
 
         obj = generics.get_object_or_404(queryset, **filters)
         return obj
+
+    def get(self, request, *args, **kwargs):
+
+        if request.GET.get('data', 'false').lower() == 'true':
+            return super().get(request, *args, **kwargs)
+
+        instance = self.get_object()
+        response = HttpResponse(instance.filecontent.file, content_type='application/octet-stream')
+        response['Content-Disposition'] = 'attachment; filename=%s' % instance.filecontent.filename
+        return response
 
 
 class EventRelationshipsView(generics.ListCreateAPIView):

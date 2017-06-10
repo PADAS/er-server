@@ -302,13 +302,13 @@ class EventRelationshipManager(models.Manager):
         return result
 
 
-class EventDocument(TimestampedModel):
+class EventFile(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    event = models.ForeignKey('Event', related_name='documents', related_query_name='document',
+    event = models.ForeignKey('Event', related_name='files', related_query_name='file',
                               on_delete=models.CASCADE)
     filecontent = models.ForeignKey('usercontent.FileContent', related_name='+', on_delete=models.CASCADE)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-
+    revision = Revision()
     class Meta:
         ordering = ['ordernum', '-updated_at']
 

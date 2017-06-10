@@ -298,7 +298,7 @@ class TestEventView(BaseAPITest):
             request = self.factory.post(path, {'filecontent.file': f}, format='multipart')
 
             self.force_authenticate(request, self.all_perms_user)
-            response = views.EventDocumentsView.as_view()(request, id=my_event_id)
+            response = views.EventFilesView.as_view()(request, id=my_event_id)
             print(response.data)
 
         # Make request for the new event and assert that it includes a new document.

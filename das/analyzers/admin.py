@@ -12,4 +12,3 @@ if settings.DEBUG:
     @admin.register(models.SubjectAnalyzer)
     class SubjectAnalyzerAdmin(admin.ModelAdmin):
         pass
-

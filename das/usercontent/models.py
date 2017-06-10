@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models
 
 from core.models import TimestampedModel
+from revision.manager import Revision, RevisionMixin
 
 '''
 NOTE: Be sure th configure Nginx to set content-type='application/octet-stream files with executable extension or
@@ -59,7 +60,7 @@ def upload_to(instance, filename):
                                                                                     extension=extension, name=name)
     return file_path
 
-class FileContent(TimestampedModel):
+class FileContent(TimestampedModel, RevisionMixin):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     created_by = models.ForeignKey(
@@ -67,6 +68,7 @@ class FileContent(TimestampedModel):
         null=True, blank=True, related_name='file_contents', related_query_name='file_content')
     file = models.FileField(upload_to=upload_to, )
     filename = models.TextField(verbose_name='Name of uploaded file.', default='noname')
+    revision = Revision()
 
     def save(self, *args, **kwargs):
         self.full_clean()

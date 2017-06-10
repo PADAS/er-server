@@ -557,13 +557,13 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
             for revision in photo.revision.all_user()
             ]
 
-class EventDocumentSerializer(rest_framework.serializers.ModelSerializer):
+class EventFileSerializer(rest_framework.serializers.ModelSerializer):
 
 
     filecontent = usercontent.serializers.FileContentSerializer()
 
     class Meta:
-        model = activity.models.EventDocument
+        model = activity.models.EventFile
 
     def create(self, validated_data):
 
@@ -587,7 +587,7 @@ class EventDocumentSerializer(rest_framework.serializers.ModelSerializer):
         if 'request' in self.context:
             request = self.context['request']
             rep['url'] = utils.add_base_url(request,
-                                            reverse('event-view-document',
+                                            reverse('event-view-file',
                                                     args=[instance.event.id, instance.id ]))
 
 
@@ -934,7 +934,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     is_linked_to = rest_framework.serializers.SerializerMethodField()
     is_contained_in = rest_framework.serializers.SerializerMethodField()
 
-    documents = EventDocumentSerializer(many=True, required=False, read_only=True)
+    files = EventFileSerializer(many=True, required=False, read_only=True)
 
     def get_contains(self, event):
         return self.get_out_relation(event, 'contains')
@@ -986,7 +986,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'photos', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
-                 'documents', ) + read_only_fields
+                 'files', ) + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -33,3 +33,8 @@ class FileContentSerializer(rest_framework.serializers.ModelSerializer):
         image_url = resolve_file_icon(filecontent)
         return utils.add_base_url(self.context['request'], image_url)
 
+    def to_representation(self, instance):
+
+        rep = super().to_representation(instance)
+        del rep['file']
+        return rep
