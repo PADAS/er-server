@@ -377,6 +377,7 @@ def resolve_first(dicts, keys):
                 return d[k]
                 break
 
+from usercontent.serializers import UserContentSerializer
 class EventFilesView(generics.ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventFileSerializer
@@ -397,6 +398,8 @@ class EventFilesView(generics.ListCreateAPIView):
 
         this_data = copy.copy(request.data)
         this_data['event'] = event.id
+
+        this_data['usercontent.file'] = this_data['filecontent.file']
 
         serializer = self.get_serializer(data=this_data)
         serializer.is_valid(raise_exception=True)
@@ -436,8 +439,8 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
             return super().get(request, *args, **kwargs)
 
         instance = self.get_object()
-        response = HttpResponse(instance.filecontent.file, content_type='application/octet-stream')
-        response['Content-Disposition'] = 'attachment; filename=%s' % instance.filecontent.filename
+        response = HttpResponse(instance.usercontent.file, content_type='application/octet-stream')
+        response['Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename
         return response
 
 

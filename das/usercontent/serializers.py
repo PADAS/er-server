@@ -18,6 +18,7 @@ def resolve_file_icon(filecontent):
     return static_image_finder.get_marker_icon([image_key, ]) or DEFAULT_FILE_ICON
 
 
+
 class FileContentSerializer(rest_framework.serializers.ModelSerializer):
 
     created_by = rest_framework.serializers.HiddenField(
@@ -38,3 +39,74 @@ class FileContentSerializer(rest_framework.serializers.ModelSerializer):
         rep = super().to_representation(instance)
         del rep['file']
         return rep
+
+
+class ImageFileContentSerializer(rest_framework.serializers.ModelSerializer):
+
+    created_by = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault()
+    )
+
+    image_url = rest_framework.serializers.SerializerMethodField()
+
+    class Meta:
+        model = usercontent.models.ImageFileContent
+
+    def get_image_url(self, filecontent):
+        image_url = resolve_file_icon(filecontent)
+        return utils.add_base_url(self.context['request'], image_url)
+
+    def to_representation(self, instance):
+
+        rep = super().to_representation(instance)
+        del rep['file']
+        return rep
+
+
+class UserContentSerializer(rest_framework.serializers.Serializer):
+
+    # def is_valid(self, raise_exception=False):
+    #     return super().is_valid(raise_exception)
+
+    created_by = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault()
+    )
+
+    file = rest_framework.serializers.FileField()
+    filename = rest_framework.serializers.CharField(label='Name of uploaded file.', required=False, style={'base_template': 'textarea.html'})
+
+    image_url = rest_framework.serializers.SerializerMethodField()
+
+    def get_image_url(self, filecontent):
+        image_url = resolve_file_icon(filecontent)
+        return utils.add_base_url(self.context['request'], image_url)
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        del rep['file']
+        return rep
+
+    def create(self, validated_data):
+
+        validated_data
+
+        if validated_data['file'].name.split('.')[-1].lower() in ('jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff'):
+            ser = ImageFileContentSerializer()
+        else:
+            ser = FileContentSerializer()
+
+        instance = ser.create(validated_data)
+
+        return instance
+
+
+
+
+
+
+USERCONTENT_SERIALIZER_MAPPING = {
+    'usercontent.filecontent': {'serializer': FileContentSerializer,
+                                'field': 'usercontent'},
+    'usercontent.imagefilecontent': {'serializer': ImageFileContentSerializer,
+                                     'field': 'usercontent'},
+}

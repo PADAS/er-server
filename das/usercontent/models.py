@@ -96,7 +96,7 @@ class ImageFileContent(TimestampedModel, RevisionMixin):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='imagefile_contents', related_query_name='imagefile_content')
 
-    imagefile = VersatileImageField(upload_to=imagefile_content_upload_to, null=True, max_length=512)
+    file = VersatileImageField(upload_to=imagefile_content_upload_to, null=True, max_length=512)
     filename = models.TextField(verbose_name='Name of image file.', default='noname')
     revision = Revision()
 

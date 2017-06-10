@@ -13,6 +13,8 @@ from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from django.http import Http404
 
+from django.contrib.contenttypes.models import ContentType
+
 from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
 import rest_framework.serializers
@@ -557,10 +559,23 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
             for revision in photo.revision.all_user()
             ]
 
+
+# class UserContentRelatedField(rest_framework.serializers.RelatedField):
+#     def to_native(self, value):
+#         return 'native value'
+#
+#     def from_native(self, data):
+#         return 'some value'
+
+
 class EventFileSerializer(rest_framework.serializers.ModelSerializer):
 
 
-    filecontent = usercontent.serializers.FileContentSerializer()
+    # filecontent = usercontent.serializers.FileContentSerializer()
+    # filecontent = usercontent.serializers.FileContentSerializer()
+    # filecontent = UserContentRelatedField(read_only=False, queryset=)
+    usercontent_id = rest_framework.serializers.UUIDField(required=False)
+    usercontent_type = rest_framework.serializers.PrimaryKeyRelatedField(required=False, queryset=ContentType.objects.all())
 
     class Meta:
         model = activity.models.EventFile
@@ -568,16 +583,17 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
     def create(self, validated_data):
 
         # Get uploaded file from request.
-        ser = usercontent.serializers.FileContentSerializer(
-            data=dict(file=self.context['request'].data['filecontent.file']),
-            context={'request':self.context['request']})
+        ser = usercontent.serializers.UserContentSerializer(
+            data=dict(file=self.context['request'].data['filecontent.file'],
+                      ),
+            context={'request': self.context['request']})
 
         ser.is_valid(raise_exception=True)
         filecontent = ser.create(ser.validated_data)
 
         validated_data.pop('filecontent.file', None)
 
-        validated_data['filecontent'] = filecontent
+        validated_data['usercontent'] = filecontent
 
         return super().create(validated_data)
 
@@ -592,6 +608,14 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
 
 
         return rep
+
+    def is_valid(self, raise_exception=False):
+
+        try:
+            r = super().is_valid(raise_exception=raise_exception)
+        except Exception as e:
+            raise e
+        return r
 
 
 
