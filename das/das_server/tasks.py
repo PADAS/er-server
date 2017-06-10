@@ -6,6 +6,7 @@ from activity.models import Event
 from activity.views import EventView
 from activity.alerts import get_alert_users
 from das_server import celery, mailer
+from observations.views import SubjectView
 
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 
@@ -26,16 +27,22 @@ def send_user_event_notification(username, event_id, revision_id = None):
 
     event = Event.objects.get(pk=event_id)
 
+    for subject in event.subjects:
+        request = DummyRequest('/subject/', 'GET', user=user)
+        result = SubjectView.as_view()(request, id=str(subject.id))
+        if result.status_code != 200 or not result.data:
+            return
+
     if revision_id == None:
         if user.is_email_alert:
-            mailer.send_new_event_mail(event, user)
+            mailer.send_event_mail(event, user, None, user.email_user)
 
         if user.is_sms_alert:
             mailer.send_new_event_sms(event, user)
     else:
         revision = event.revision.all_user().get(id=revision_id)
         if user.is_email_alert:
-            mailer.send_update_event_mail(event, revision, user)
+            mailer.send_event_mail(event, user, revision, user.email_user)
 
         if user.is_sms_alert:
             mailer.send_update_event_sms(event, revision, user)
