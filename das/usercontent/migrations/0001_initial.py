@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('id', models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
-                ('file', models.FileField(upload_to=usercontent.models.upload_to)),
+                ('file', models.FileField(upload_to=usercontent.models.file_content_upload_to)),
                 ('filename', models.TextField(default='noname', verbose_name='Name of uploaded file.')),
                 ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='file_contents', related_query_name='file_content', to=settings.AUTH_USER_MODEL)),
             ],
