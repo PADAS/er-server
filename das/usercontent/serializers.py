@@ -3,6 +3,7 @@ import logging
 import rest_framework.serializers
 import utils
 from core.utils import static_image_finder
+from versatileimagefield.serializers import VersatileImageFieldSerializer
 
 import usercontent.models
 
@@ -25,14 +26,13 @@ class FileContentSerializer(rest_framework.serializers.ModelSerializer):
         default=rest_framework.serializers.CurrentUserDefault()
     )
 
-    image_url = rest_framework.serializers.SerializerMethodField()
+    icon_url = rest_framework.serializers.SerializerMethodField()
 
     class Meta:
         model = usercontent.models.FileContent
 
-    def get_image_url(self, filecontent):
-        image_url = resolve_file_icon(filecontent)
-        return utils.add_base_url(self.context['request'], image_url)
+    def get_icon_url(self, filecontent):
+        return utils.add_base_url(self.context['request'], resolve_file_icon(filecontent))
 
     def to_representation(self, instance):
 
@@ -47,19 +47,19 @@ class ImageFileContentSerializer(rest_framework.serializers.ModelSerializer):
         default=rest_framework.serializers.CurrentUserDefault()
     )
 
-    image_url = rest_framework.serializers.SerializerMethodField()
+    icon_url = rest_framework.serializers.SerializerMethodField()
+
+    image_urls = VersatileImageFieldSerializer(sizes='event_photo', source='file')
 
     class Meta:
         model = usercontent.models.ImageFileContent
 
-    def get_image_url(self, filecontent):
-        image_url = resolve_file_icon(filecontent)
-        return utils.add_base_url(self.context['request'], image_url)
+    def get_icon_url(self, filecontent):
+        return utils.add_base_url(self.context['request'], resolve_file_icon(filecontent))
 
     def to_representation(self, instance):
 
         rep = super().to_representation(instance)
-        del rep['file']
         return rep
 
 
@@ -82,13 +82,16 @@ class UserContentSerializer(rest_framework.serializers.Serializer):
         return utils.add_base_url(self.context['request'], image_url)
 
     def to_representation(self, instance):
-        rep = super().to_representation(instance)
-        del rep['file']
+
+        if isinstance(instance, usercontent.models.FileContent):
+            content_serializer = FileContentSerializer(context={'request': self.context['request']})
+        elif isinstance(instance, usercontent.models.ImageFileContent):
+            content_serializer = ImageFileContentSerializer(context={'request': self.context['request']})
+
+        rep = content_serializer.to_representation(instance)
         return rep
 
     def create(self, validated_data):
-
-        validated_data
 
         if validated_data['file'].name.split('.')[-1].lower() in ('jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff'):
             ser = ImageFileContentSerializer()

@@ -577,6 +577,8 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
     usercontent_id = rest_framework.serializers.UUIDField(required=False)
     usercontent_type = rest_framework.serializers.PrimaryKeyRelatedField(required=False, queryset=ContentType.objects.all())
 
+    usercontent = usercontent.serializers.UserContentSerializer(required=False)
+
     class Meta:
         model = activity.models.EventFile
 
@@ -604,9 +606,10 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
             request = self.context['request']
             rep['url'] = utils.add_base_url(request,
                                             reverse('event-view-file',
-                                                    args=[instance.event.id, instance.id ]))
+                                                    args=[instance.event.id, instance.id, instance.usercontent.filename]))
 
-
+        rep.pop('usercontent_id')
+        rep.pop('usercontent_type')
         return rep
 
     def is_valid(self, raise_exception=False):
