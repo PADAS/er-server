@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_FILE_ICON = '/static/icon-txt.png'
 
+IMAGEFILE_EXTENSIONS = getattr(settings, 'USERCONTENT_SETTINGS', {}).get('imagefile_extensions', set())
+
+
 def resolve_file_icon(filecontent):
     try:
         image_key = 'icon-{}'.format(filecontent.filename.split('.')[-1])
@@ -93,8 +96,7 @@ class UserContentSerializer(rest_framework.serializers.Serializer):
 
     def create(self, validated_data):
 
-        imagefile_extensions = getattr(settings, 'USERCONTENT', {}).get('imagefile_extensions', set())
-        if validated_data['file'].name.split('.')[-1].lower() in imagefile_extensions:
+        if validated_data['file'].name.split('.')[-1].lower() in IMAGEFILE_EXTENSIONS:
             ser = ImageFileContentSerializer()
         else:
             ser = FileContentSerializer()

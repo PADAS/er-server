@@ -34,6 +34,8 @@ import accounts.models
 
 LAST_DAYS = timedelta(days=3)
 
+USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get('force_download_mimetypes', set())
+
 
 class EventSchemaView(generics.ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
@@ -443,9 +445,8 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
 
         instance = self.get_object()
 
-        force_download = getattr(settings, 'USERCONTENT', {}).get('force_download_mimetypes', set())
         content_type, encoding = mimetypes.guess_type(instance.usercontent.filename)
-        if content_type and content_type not in force_download:
+        if content_type and content_type not in USERCONTENT_FORCE_DOWNLOAD:
             response = HttpResponse(instance.usercontent.file, content_type=content_type)
         else:
             response = HttpResponse(instance.usercontent.file, content_type='application/octet-stream')
