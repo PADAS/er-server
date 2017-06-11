@@ -7,6 +7,8 @@ from django.db import models
 from versatileimagefield.fields import VersatileImageField
 
 from core.models import TimestampedModel
+from core.serializers import ContentTypeField
+
 from revision.manager import Revision, RevisionMixin
 
 '''
@@ -99,6 +101,8 @@ class ImageFileContent(TimestampedModel, RevisionMixin):
     file = VersatileImageField(upload_to=imagefile_content_upload_to, null=True, max_length=512)
     filename = models.TextField(verbose_name='Name of image file.', default='noname')
     revision = Revision()
+
+    content_type = ContentTypeField()
 
     def save(self, *args, **kwargs):
         self.full_clean()

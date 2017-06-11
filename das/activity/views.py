@@ -1,6 +1,9 @@
 from collections import OrderedDict
 from datetime import timedelta
 import copy
+import mimetypes
+
+from django.conf import settings
 from rest_framework import generics, status, response
 from django.http.response import HttpResponse
 
@@ -439,8 +442,15 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
             return super().get(request, *args, **kwargs)
 
         instance = self.get_object()
-        response = HttpResponse(instance.usercontent.file, content_type='application/octet-stream')
-        response['Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename
+
+        force_download = getattr(settings, 'USERCONTENT', {}).get('force_download_mimetypes', set())
+        content_type, encoding = mimetypes.guess_type(instance.usercontent.filename)
+        if content_type and content_type not in force_download:
+            response = HttpResponse(instance.usercontent.file, content_type=content_type)
+        else:
+            response = HttpResponse(instance.usercontent.file, content_type='application/octet-stream')
+            response['Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename
+
         return response
 
 

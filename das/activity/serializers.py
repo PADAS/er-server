@@ -608,6 +608,7 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
                                             reverse('event-view-file',
                                                     args=[instance.event.id, instance.id, instance.usercontent.filename]))
 
+        # Hide esoteric attributes
         rep.pop('usercontent_id')
         rep.pop('usercontent_type')
         return rep

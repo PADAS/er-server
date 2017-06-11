@@ -402,6 +402,17 @@ VERSATILEIMAGEFIELD_SETTINGS = {
     'progressive_jpeg': True
 }
 
+USERCONTENT_SETTINGS = {
+    # For a file with one of these extensions, we'll attempt to save it as an ImageFile.
+    'imagefile_extensions': ('jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff'),
+
+    # Prohibit uploading files with these extensions.
+    'prohibited_extensions': ('bin', 'exe', 'dll', 'deb', 'sh',),
+
+    # Always serve files with these mime-types as application/octet-stream.
+    'force_download_mimetypes': ('text/html', 'text/javascript',),
+}
+
 REALTIME_AUTH_TIMEOUT_SECONDS = 1.0
 
 NOTIFY_HIGH_PRIORITY_EVENT=None
