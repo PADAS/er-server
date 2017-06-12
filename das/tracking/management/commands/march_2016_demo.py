@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timedelta
 import glob
 import json
@@ -18,8 +19,6 @@ import random
 
 from accounts.models import PermissionSet, User
 from activity.models import Event, EventAttachment, Community, EventType
-from analyzers.models import all_analyzers, ContainmentAnalyzer, SubjectAnalyzer, \
-    GeofenceAnalyzer, ImmobilityAnalyzer, ProximityAnalyzer, SpeedAnalyzer
 from mapping.models import FeatureType, PolygonFeature, LineFeature, PointFeature, FeatureSet
 from observations.models import Subject, SubjectGroup, SubjectSource, Source, Observation
 from tracking.pubsub_registry import notify_new_tracks
@@ -73,7 +72,7 @@ def load_track_geojson(name):
 group = None
 def create_actors():
     # (163, 'Permission to subscribe to an alert on this Subject.'),
-    permission = Permission.objects.get(pk=163)
+    permission = Permission.objects.get(codename='subscribe_alerts')
     permission_set = PermissionSet.objects.get_or_create(name='Demo PermissionSet')[0]
     permission_set.permissions.add(permission)
 
@@ -139,28 +138,15 @@ class DemoDriver():
             subject=self.subject
         )
 
-    def create_analyzers(self):
-
-        PolygonFeature.objects.filter(name="TEAM SIX's Container").delete()
-
-        FeatureType.objects.filter(name="TEAM SIX's Geofence FeatureType").delete()
-        line_feature = LineFeature.objects.filter(name__contains='Major highway - A2').first()
-
-        GeofenceAnalyzer.objects.create(
-            subject=self.subject,
-            fence=line_feature
-        )
-
-        ImmobilityAnalyzer.objects.create(
-            subject=self.subject,
-            radius=100,
-            threshold_time=60*60*2,
-            threshold_warning_cluster_ratio=1.0,
-            threshold_critical_cluster_ratio=1.0,
-            )
-
-        PolygonFeature.objects.filter(name="TEAM SIX's Proximity Feature").delete()
-        # SpeedAnalyzer.objects.create(subject=self.subject, max_speed=10000000)
+    # def create_analyzers(self):
+    # 
+    #     PolygonFeature.objects.filter(name="TEAM SIX's Container").delete()
+    # 
+    #     FeatureType.objects.filter(name="TEAM SIX's Geofence FeatureType").delete()
+    #     line_feature = LineFeature.objects.filter(name__contains='Major highway - A2').first()
+    # 
+    #     PolygonFeature.objects.filter(name="TEAM SIX's Proximity Feature").delete()
+    #     # SpeedAnalyzer.objects.create(subject=self.subject, max_speed=10000000)
 
 
     def drive(self):
@@ -185,7 +171,7 @@ class DemoDriver():
                     source_id=self.source.id,
                     location=Point(point),
                     recorded_at=t,
-                    additional={}
+                    additional={},
                 )
                 transaction.on_commit(lambda: notify_new_tracks(self.source.id))
                 transaction.commit()
@@ -209,7 +195,6 @@ class DemoDriver():
         Observation.objects.filter(source_id=self.source_id).delete()
 
     def delete_events(self):
-        # EventAttachment.objects.filter(target_id=self.subject.id).delete()
         EventAttachment.objects.all().delete()
         Event.objects.all().delete()
 
@@ -217,8 +202,9 @@ class DemoDriver():
         Event.objects.filter(event_time__gt=time).delete()
 
     def delete_analyzers(self):
-        for klass in all_analyzers:
-            klass.objects.filter(subject_id=self.subject_id).delete()
+        pass
+        # for klass in all_analyzers:
+        #     klass.objects.filter(subject_id=self.subject_id).delete()
 
     def ignition(self):
         self.delete_analyzers()
@@ -228,7 +214,7 @@ class DemoDriver():
         self.delete_observations()
         self.delete_events()
         self.hydrate()
-        self.create_analyzers()
+        # self.create_analyzers()
 
 demodatafile = {}
 def read_demo_data(file=None):
@@ -272,7 +258,9 @@ def add_demo_data(subject=None):
             store_event(evt, subject, next(times))
 
 def store_event(evt, subject, t):
-    event = Event(message=evt['message'], event_type= EventType.objects.get(id=evt['event_type']))
+    title = evt.get('title', evt.get('message', ''))
+    print(evt)
+    event = Event(message=evt['message'], title=evt['title'], event_type=EventType.objects.get(value=evt['event_type']))
     event.event_time = t
     if evt.get('center', None):
         event.location = Point(*evt['center'])
@@ -362,9 +350,21 @@ class Command(BaseCommand):
 
     help = 'Run the March 2016 demo track'
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '-i', '--interval',
+            action='store',
+            dest='interval',
+            default=0,
+            help='Number of seconds to wait between updates. Default is 0, meaning wait for keyboard input.',
+        )
+
+
     def handle(self, *args, **options):
 
         #import_geojson()
+
+        interval = int(options['interval'])
 
         create_actors()
         drivers = []
@@ -396,4 +396,7 @@ class Command(BaseCommand):
             if 0.4 > random.random():
                 next(randomevents)
 
-            input('press enter to continue')
+            if interval > 0:
+                time.sleep(interval)
+            else:
+                input('press enter to continue')
