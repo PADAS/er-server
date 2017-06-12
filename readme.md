@@ -76,6 +76,21 @@ Non-Docker Development Environment Setup Steps
         python manage.py message_queue_listeners --settings=das_server.local_settings
  
 
+Git Pre-commit hooks
+---------------------------------------------------
+Git commit hooks enforce pep8. The python pre-commit package is installed through requirements-dev.txt
+
+Install pre-commit libraries and establish the git hooks.
+>pre-commit install
+
+Manually run pre-commit
+>pre-commit run --all-files
+
+Update pre-commit
+>pre-commit autoupdate
+
+See the following for more information and a library of hooks: http://pre-commit.com/
+
 
 Managing python requirements
 ---------------------------------------------------
