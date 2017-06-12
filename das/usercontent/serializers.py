@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_FILE_ICON = '/static/icon-txt.png'
 
-IMAGEFILE_EXTENSIONS = getattr(settings, 'USERCONTENT_SETTINGS', {}).get('imagefile_extensions', set())
-
+# Load UserContent settings once from settings.
+USERCONTENT_SETTINGS = getattr(settings, 'USERCONTENT_SETTINGS', {})
+IMAGEFILE_EXTENSIONS = USERCONTENT_SETTINGS.get('imagefile_extensions', set())
 
 def resolve_file_icon(filecontent):
     try:
@@ -53,8 +54,6 @@ class ImageFileContentSerializer(rest_framework.serializers.ModelSerializer):
     )
 
     icon_url = rest_framework.serializers.SerializerMethodField()
-
-    image_urls = VersatileImageFieldSerializer(sizes='event_photo', source='file')
 
     class Meta:
         model = usercontent.models.ImageFileContent
@@ -104,3 +103,32 @@ class UserContentSerializer(rest_framework.serializers.Serializer):
         instance = ser.create(validated_data)
 
         return instance
+
+
+def get_available_renditions(sizes=None):
+    if not sizes:
+        return {}
+    renditions = VersatileImageFieldSerializer(sizes=sizes).sizes
+    renditions = dict(renditions)
+    return renditions
+
+
+IMAGE_RENDITIONS = {'default': get_available_renditions(sizes='default')}
+
+
+def get_stored_filename(file, rendition_set='default', rendition_key=None):
+    '''
+    VersatileImageFieldSerializer knows how to get the renditions, so
+    we can defer to it to determine which files are available for an image.
+    '''
+    try:
+        renditions = IMAGE_RENDITIONS[rendition_set]
+        rendition = renditions.get(rendition_key, 'None')
+        rendition_type, key = rendition.split('__')
+
+        if rendition_type == 'thumbnail':
+            return file.thumbnail[key].name
+    except ValueError:
+        pass
+
+    return file.name

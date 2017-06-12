@@ -352,6 +352,11 @@ SENDSMS_TWILIO_ACCOUNT_SID=''
 SENDSMS_TWILIO_AUTH_TOKEN=''
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
+    'default': [
+        ('original', 'url'),
+        ('thumbnail', 'thumbnail__150x150'), # Resize to fit within
+        ('large', 'thumbnail__800x800') # Resize to fit within
+    ],
     'event_photo': [
         ('original', 'url'),
         ('thumbnail', 'thumbnail__150x150'), # Resize to fit within
@@ -411,6 +416,11 @@ USERCONTENT_SETTINGS = {
 
     # Always serve files with these mime-types as application/octet-stream.
     'force_download_mimetypes': ('text/html', 'text/javascript',),
+
+    # Edit these extensions by appending a .txt
+    'edit_extensions': ('html', 'htm', 'js', 'css', 'exe', 'sh', 'bin', 'dll', 'deb', 'dmg', 'iso', 'img', 'msi', 'msp',
+                   'msm')
+
 }
 
 REALTIME_AUTH_TIMEOUT_SECONDS = 1.0

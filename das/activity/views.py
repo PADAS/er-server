@@ -2,6 +2,7 @@ from collections import OrderedDict
 from datetime import timedelta
 import copy
 import mimetypes
+import logging
 
 from django.conf import settings
 from rest_framework import generics, status, response
@@ -14,6 +15,7 @@ from rest_framework.response import Response
 
 import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
+import versatileimagefield.files
 
 from activity.models import Event, EventNote, EventPhoto, EventClass,\
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile
@@ -31,6 +33,8 @@ import utils
 from activity import schema_utils
 import accounts.serializers
 import accounts.models
+
+logger = logging.getLogger(__name__)
 
 LAST_DAYS = timedelta(days=3)
 
@@ -420,6 +424,9 @@ class EventFilesView(generics.ListCreateAPIView):
 
         return event.files.all()
 
+
+from usercontent.serializers import get_stored_filename
+
 class EventFileView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventFileSerializer
@@ -445,9 +452,23 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
 
         instance = self.get_object()
 
+        desired_image_size = self.kwargs.get('image_size', None)
         content_type, encoding = mimetypes.guess_type(instance.usercontent.filename)
         if content_type and content_type not in USERCONTENT_FORCE_DOWNLOAD:
-            response = HttpResponse(instance.usercontent.file, content_type=content_type)
+
+            if isinstance(instance.usercontent.file, (versatileimagefield.files.VersatileImageFieldFile,)):
+                filename = get_stored_filename(instance.usercontent.file, rendition_set='default', rendition_key=desired_image_size )
+                try:
+                    responsefile = instance.usercontent.file.field.storage.open(filename)
+                except OSError as oe:
+                    logger.warning('Failed attempt to open file %s. Will default to original file version.', filename)
+                    responsefile = instance.usercontent.file
+
+
+            else:
+                responsefile = instance.usercontent.file
+
+            response = HttpResponse(responsefile, content_type=content_type)
         else:
             response = HttpResponse(instance.usercontent.file, content_type='application/octet-stream')
             response['Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename

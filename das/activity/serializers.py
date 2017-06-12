@@ -24,6 +24,11 @@ from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from versatileimagefield.serializers import VersatileImageFieldSerializer
+import versatileimagefield.files
+
+# Make dictionaries from the IMAGE_SETS, to make lookups a little easier.
+from versatileimagefield.utils import get_resized_path, get_rendition_key_set, IMAGE_SETS
+IMAGE_RENDITION_SETS = dict((k,dict(v)) for k, v in IMAGE_SETS.items())
 
 import jsonschema
 import jsonschema.exceptions
@@ -608,9 +613,29 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
                                             reverse('event-view-file',
                                                     args=[instance.event.id, instance.id, instance.usercontent.filename]))
 
+            # If attached usercontent is an ImageFileField, then render urls for renditions.
+            if isinstance(instance.usercontent.file, (versatileimagefield.files.VersatileImageFieldFile,)):
+
+                # Image Sizes
+                image_sizes = {}
+                for size in IMAGE_RENDITION_SETS['default'].keys(): #'('thumbnail', 'large'):
+                    image_sizes[size] = utils.add_base_url(request,
+                                                reverse('event-view-file-size',
+                                                        args=[instance.event.id, instance.id,
+                                                              size, instance.usercontent.filename]))
+                if image_sizes:
+                    rep['image_sizes'] = image_sizes
+
         # Hide esoteric attributes
         rep.pop('usercontent_id')
         rep.pop('usercontent_type')
+
+
+        rep['filename'] = rep['usercontent'].pop('filename')
+        rep['icon_url'] = rep['usercontent'].pop('icon_url')
+        rep.pop('usercontent')
+        rep.pop('event')
+
         return rep
 
     def is_valid(self, raise_exception=False):

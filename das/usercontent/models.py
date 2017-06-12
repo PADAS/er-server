@@ -11,6 +11,12 @@ from core.serializers import ContentTypeField
 
 from revision.manager import Revision, RevisionMixin
 
+# Load UserContent settings once from settings.
+USERCONTENT_SETTINGS = getattr(settings, 'USERCONTENT_SETTINGS', {})
+EDIT_EXTENSIONS = USERCONTENT_SETTINGS.get('edit_extensions', ('html', 'htm', 'js', 'css', 'exe',
+                                                               'sh', 'bin', 'dll', 'deb', 'dmg',
+                                                               'iso', 'img', 'msi', 'msp', 'msm'))
+
 '''
 NOTE: Be sure th configure Nginx to set content-type='application/octet-stream files with executable extension or
  web-content extensions (ex. .exe, .bin, .js, .html)
@@ -34,13 +40,7 @@ NOTE: Be sure th configure Nginx to set content-type='application/octet-stream f
        
 '''
 
-SUPPORTED_EXTENSIONS = ('pdf', 'doc', 'docx', 'txt', 'csv', 'xls', 'xlsx', 'pptx', 'ppt', 'jpg', 'png', 'svg', 'jpeg',
-                        'gif', 'tif', 'tiff')
 
-# Edit the extensions in this list -- add a .txt as a safeguard in case the web-server is not configured to set
-# the content-type appropriately.
-EDIT_EXTENSIONS = ('html', 'htm', 'js', 'css', 'exe', 'sh', 'bin', 'dll', 'deb', 'dmg', 'iso', 'img', 'msi', 'msp',
-                   'msm')
 
 
 def _upload_to(root, instance, filename):
@@ -112,3 +112,6 @@ class ImageFileContent(TimestampedModel, RevisionMixin):
     def clean(self):
         self.filename = self.file.name
         super().clean()
+
+
+import usercontent.signals
