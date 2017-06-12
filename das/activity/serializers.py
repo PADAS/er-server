@@ -565,20 +565,8 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
             ]
 
 
-# class UserContentRelatedField(rest_framework.serializers.RelatedField):
-#     def to_native(self, value):
-#         return 'native value'
-#
-#     def from_native(self, data):
-#         return 'some value'
-
-
 class EventFileSerializer(rest_framework.serializers.ModelSerializer):
 
-
-    # filecontent = usercontent.serializers.FileContentSerializer()
-    # filecontent = usercontent.serializers.FileContentSerializer()
-    # filecontent = UserContentRelatedField(read_only=False, queryset=)
     usercontent_id = rest_framework.serializers.UUIDField(required=False)
     usercontent_type = rest_framework.serializers.PrimaryKeyRelatedField(required=False, queryset=ContentType.objects.all())
 

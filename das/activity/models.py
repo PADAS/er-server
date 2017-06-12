@@ -309,12 +309,11 @@ class EventFile(TimestampedModel, RevisionMixin):
 
     relation_limits = models.Q(app_label='usercontent', model='filecontent') | \
         models.Q(app_label='usercontent', model='imagefilecontent')
+
     # Generic foreign key to plugin
     usercontent_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=relation_limits)
     usercontent_id = models.UUIDField()
     usercontent = GenericForeignKey('usercontent_type', 'usercontent_id')
-
-    # filecontent = models.ForeignKey('usercontent.FileContent', related_name='+', on_delete=models.CASCADE)
 
     ordernum = models.SmallIntegerField(blank=True, null=True)
     revision = Revision()
