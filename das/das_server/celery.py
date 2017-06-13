@@ -3,6 +3,8 @@ import os
 from datetime import timedelta
 
 from celery import Celery
+from django.conf import settings
+
 from celery.signals import setup_logging
 from kombu import Exchange, Queue
 
@@ -14,6 +16,8 @@ app = Celery('das_server')
 # pickle the object when using Windows.
 
 app.config_from_object('django.conf:settings', namespace='CELERY')
+app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
+
 default_exchange = Exchange(app.conf.task_default_exchange)
 app.autodiscover_tasks()
 
