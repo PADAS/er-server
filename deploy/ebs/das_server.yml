@@ -103,7 +103,7 @@ app:
         archive:
             includes: # files to include, a list of regex
               - '^das\/.*'
-              #- '^wheelhouse\/.*'
+              - '^wheelhouse\/.*'
               - '^requirements\.txt$'
             excludes: # files to exclude, a list of regex
                 - '^.gitignore$'
