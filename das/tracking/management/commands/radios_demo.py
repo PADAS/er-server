@@ -19,8 +19,7 @@ import time
 
 from accounts.models import PermissionSet, User
 from activity.models import Event, EventAttachment, Community, EventType
-from analyzers.models import all_analyzers, ContainmentAnalyzer, SubjectAnalyzer, \
-    GeofenceAnalyzer, ImmobilityAnalyzer, ProximityAnalyzer, SpeedAnalyzer
+
 from mapping.models import FeatureType, PolygonFeature, LineFeature, PointFeature, FeatureSet
 from observations.models import Subject, SubjectGroup, SubjectSource, Source, Observation
 from tracking.pubsub_registry import notify_new_tracks
@@ -152,7 +151,7 @@ class DemoDriver():
             fence=line_feature
         )
 
-        ImmobilityAnalyzer.objects.create(
+        ImmobilityAnalyzerConfig.objects.create(
             subject=self.subject,
             radius=100,
             threshold_time=60*60*2,

@@ -65,6 +65,7 @@ docxtpl==0.2.3
 python-docx==0.8.6
 lxml==3.7.3
 
+pymet>=0.1.10
 
 -e git+https://github.com/PADAS/python-socketio.git@3314c2243590fbbff327744b47fe10d29d00d402#egg=python-socketio
 

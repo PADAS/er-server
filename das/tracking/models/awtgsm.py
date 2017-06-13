@@ -70,20 +70,23 @@ class AWTHttpClient(object):
             'accept': "*/*"
         }
 
-        r = requests.get(self.api_url, params=params, headers=headers)
+        try:
+            r = requests.get(self.api_url, params=params, headers=headers, timeout=5.0)
+        except requests.exceptions.Timeout:
+            self.logger.warning('Timeout when fetching data for collar_id: %s', collar_id)
+        else:
+            saveline = None
+            if r.status_code == requests.codes.ok:
 
-        saveline = None
-        if r.status_code == requests.codes.ok:
+                for line in r.text.split('\r'):
+                    if len(line.strip()) < 1:
+                        continue
 
-            for line in r.text.split('\r'):
-                if len(line.strip()) < 1:
-                    continue
-
-                if line != saveline: # We occassionally see duplicate records in results.
-                    _ = parser_f(line.strip())
-                    if _:
-                        yield _
-                saveline = line
+                    if line != saveline: # We occassionally see duplicate records in results.
+                        _ = parser_f(line.strip())
+                        if _:
+                            yield _
+                    saveline = line
 
     @classmethod
     def line_parser(cls, collar_id):
@@ -123,22 +126,6 @@ class AWTHttpPlugin(TrackingPlugin):
                                       default='http://www.yrless.co.za/STE/yrserv/datanew.phtml')
     DEFAULT_START_OFFSET = timedelta(days=7)
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=30)
-
-    def should_run(self, source_plugin):
-
-        # Don't bother running now if less than 30 minutes has passed since the latest fix.
-        try:
-            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
-            if not latest_timestamp:
-                return True
-            latest_timestamp = parse_date(latest_timestamp)
-
-            if (datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
-                return True
-        except:
-            return True
-
-        return False
 
     def fetch(self, source, cursor_data=None):
 

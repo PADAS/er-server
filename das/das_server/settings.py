@@ -198,7 +198,10 @@ DATABASES = {
         'USER': 'das',
         'HOST': 'postgis',
         'PASSWORD': 'password',
-    }
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
+    },
 }
 
 DATABASE_ROUTERS = [
@@ -286,6 +289,8 @@ CACHES = {
         'LOCATION': 'unique-snowflake',
     }
 }
+
+RASTER_WORKDIR = '/tmp/raster'
 
 '''
 Associate a plugin name with a plugin-configuration dict that will override the plugin's configuration in the database.
@@ -423,6 +428,8 @@ USERCONTENT_SETTINGS = {
 
 }
 
+SHOW_TRACK_DAYS = 16
+
 REALTIME_AUTH_TIMEOUT_SECONDS = 1.0
 
 NOTIFY_HIGH_PRIORITY_EVENT=None
@@ -430,3 +437,15 @@ NOTIFY_MEDIUM_PRIORITY_EVENT=None
 NOTIFY_LOW_PRIORITY_EVENT=None
 
 EVENT_MATRIX_ENABLED = False
+
+# Default speed-threshold (in km/h) by subject-subtype. These are default values that maybe overridden in an
+# ObservationAnnotation instance.
+ANNOTATION_SETTINGS = {
+    'speed_thresholds': {
+        'forest_elephant': 7.0,
+        'elephant': 7.5,
+        'vehicle': 200.0,
+        'plane': 500.0,
+        'helicopter': 500.0,
+    }
+}

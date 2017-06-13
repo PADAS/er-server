@@ -11,7 +11,7 @@ from django.contrib.auth.models import Permission
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0050_fix_serial_number'),
+        ('activity', '0050_analyzer_eventtypes'),
     ]
 
     operations = [

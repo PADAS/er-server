@@ -26,8 +26,8 @@ class ObservationTestCase(TestCase):
         until = datetime(2015,11,10, tzinfo=UTC)
         since = until - timedelta(days=2)
 
-        observations = Observation.objects.get_source_range_observations(
-            subject_sources,
+        observations = Observation.objects.get_subject_observations(
+            subject_sources[1].subject,
             until=until,
             since=since
         )
@@ -43,8 +43,8 @@ class ObservationTestCase(TestCase):
         until = datetime(3030,11,10, tzinfo=UTC)
         since = until - timedelta(days=2)
 
-        observations = Observation.objects.get_source_range_observations(
-            subject_sources,
+        observations = Observation.objects.get_subject_observations(
+            subject_sources[0].subject,
             until=until,
             since=since
         )

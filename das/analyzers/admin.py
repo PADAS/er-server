@@ -3,12 +3,15 @@ from django.contrib.admin import ModelAdmin
 from django.conf import settings
 import analyzers.models as models
 
-if settings.DEBUG:
+@admin.register(models.ObservationAnnotator)
+class ObservationAnnotatorAdmin(admin.ModelAdmin):
+    pass
 
-    @admin.register(models.GeofenceAnalyzer)
-    class GeofenceAnalyzerAdmin(ModelAdmin):
-        pass
+@admin.register(models.ImmobilityAnalyzerConfig)
+class ImmobilityAnalyzerAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'subject_group_name',)
 
-    @admin.register(models.SubjectAnalyzer)
-    class SubjectAnalyzerAdmin(admin.ModelAdmin):
-        pass
+    search_fields = ('subject_group__name',)
+
+    def subject_group_name(self, o):
+        return o.subject_group.name

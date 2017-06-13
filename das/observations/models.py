@@ -43,7 +43,10 @@ SOURCE_TYPES = (
 
 
 def to_rgb(color):
-    return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(',')])
+    try:
+        return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(',')])
+    except:
+        raise
 
 DEFAULT_COLOR = '255,255,0'
 
@@ -158,6 +161,7 @@ class SourceProvider(TimestampedModel):
         return self.name
 
 
+
 class Source(TimestampedModel):
 
     objects = SourceManager()
@@ -191,73 +195,70 @@ class Source(TimestampedModel):
     def __str__(self):
         return '%s:%s' % (self.manufacturer_id, self.model_name)
 
+    def observations(self):
+        queryset = Observation.objects.filter(source=self,).order_by('-recorded_at')
+        return queryset
+
 
 EMPTY_POINT = Point(0,0)
 
 
 class ObservationManager(models.GeoManager):
-    def get_source_range_observations(self, subject_sources, since=None, until=None):
-        # Get observations for a set of sources and date ranges. An animal may
-        # switch source devices based on a date range.
-        subject_sources = sorted(subject_sources,
-                                 key=lambda ss: ss.assigned_range.lower,
-                                 reverse=True)
-        qs = None
-        for ss in subject_sources:
-            q = Q(source_id=ss.source_id) &\
-                Q(recorded_at__range=[ss.assigned_range.lower, ss.assigned_range.upper])
-            qs = qs | q if qs else q
 
-        if qs:
-            result = Observation.objects.filter(qs)
-            if since:
-                result = result.filter(Q(recorded_at__gt=since))
-            if until:
-                result = result.filter(Q(recorded_at__lte=until))
-            result = result.order_by('-recorded_at')
-            result = result.exclude(location=EMPTY_POINT)
-            return result
-        return []
+    def get_subject_observations(self, subject, since=None, until=None):
+        queryset = Observation.objects.filter(source__subjectsource__subject=subject,
+                                              source__subjectsource__assigned_range__contains=F('recorded_at'),
+                                              exclusion_flags=0)
 
-    def get_source_range_observation_values(self, subject_sources, since=None,
-                                      until=None, order_by=None, limit=None):
-        """get observations for a set of sources and date ranges.
-        An animal may switch source devices based on a date range.
+        if since:
+            queryset = queryset.filter(Q(recorded_at__gt=since))
+        if until:
+            queryset = queryset.filter(Q(recorded_at__lte=until))
+
+        queryset = queryset.exclude(location=EMPTY_POINT)
+        queryset = queryset.order_by('-recorded_at')
+        return queryset
+
+    def get_subject_observation_values(self, subject, since=None, until=None, limit=None):
+        """
+        Generate a list of observations for the given subject.
         """
 
-        subject_sources = sorted(subject_sources,
-                                 key=lambda ss: ss.assigned_range.lower,
-                                 reverse=True)
-        qs = None
-        for ss in subject_sources:
-            q = Q(source_id=ss.source_id) & \
-                Q(recorded_at__range=[ss.assigned_range.lower,
-                                      ss.assigned_range.upper])
-            qs = qs | q if qs else q
+        result = self.get_subject_observations(subject, since=since, until=until)
 
-        if qs:
-            result = Observation.objects.filter(qs)
-            if since:
-                result = result.filter(Q(recorded_at__gt=since))
-            if until:
-                result = result.filter(Q(recorded_at__lte=until))
+        if limit:
+            result = result[:limit]
 
-            if limit:
-                result = result.order_by('-recorded_at')[:limit]
-            else:
-                result = result.order_by('-recorded_at')
+        for observation in result.values('location', 'recorded_at'):
+            yield observation
 
-            for observation in result.values('location', 'recorded_at'):
-                if observation['location'] != EMPTY_POINT:
-                    yield observation
+    def get_subject_source_observation_values(self, subject_source, since=None, until=None, limit=None):
 
+        queryset = Observation.objects.filter(source__subjectsource=subject_source,
+                                              source__subjectsource__assigned_range__contains=F('recorded_at'),
+                                              exclusion_flags=0)
 
-    def get_source_range_observations_last(self, subject_sources, last_days):
-        """get the last days worth of observations starting from now.
-        An animal may switch source devices based on a date range.
-        """
-        since = datetime.now(tz=pytz.UTC) - last_days
-        return self.get_source_range_observations(subject_sources, since=since)
+        if since:
+            queryset = queryset.filter(Q(recorded_at__gt=since))
+        if until:
+            queryset = queryset.filter(Q(recorded_at__lte=until))
+
+        queryset = queryset.exclude(location=EMPTY_POINT)
+        queryset = queryset.order_by('-recorded_at')
+
+        if limit:
+            queryset = queryset[:limit]
+
+        for observation in queryset.values('location', 'recorded_at'):
+            yield observation
+
+    def set_flag(self, id_list, flags):
+        '''Hide the nuances of manipulating a bitmap associated with an observation.'''
+        Observation.objects.filter(id__in=id_list).update(exclusion_flags=F('exclusion_flags').bitor(flags))
+
+    def unset_flag(self, id_list, flags):
+        '''Hide the nuances of zeroing bits in a bitmap.'''
+        Observation.objects.filter(id__in=id_list).update(exclusion_flags=F('exclusion_flags').bitand(~flags))
 
     def add_observation(self, observation):
         '''
@@ -266,32 +267,24 @@ class ObservationManager(models.GeoManager):
         :param observation: An object with attributes: source, latitude, longitude, recorded_at, additional
         :return: The new Observation
         '''
-
-        # todo: consider changing the Geometry type in the db to accept z-value.
-        # loc = Point(x=float(observation.pop('lon')), y=float(observation.pop('lat')),
-        #             z=float(observation.get('elevation')))
-
         location = Point(x=observation.longitude, y=observation.latitude)
-
         additional = observation.additional or {}
+        result, created = observations.models.Observation.objects.get_or_create(source_id=observation.source.id,
+                                                            recorded_at=observation.recorded_at,
+                                                            defaults=dict(
+                                                                location=location,
+                                                                additional=additional
+                                                            ))
+        return result, created
 
-
-        # Check for matching observation already recorded.
-        obs = Observation.objects \
-            .filter(source_id=observation.source.id, recorded_at=observation.recorded_at) \
-            .first()
-
-        if not obs:
-            obs = Observation.objects.create(source_id=observation.source.id, location=location,
-                                             recorded_at=observation.recorded_at,
-                                             additional=additional)
-
-        return obs
 
     def get_max_recorded_at(self, source):
         '''Get the latest recorded timestamp for the source.'''
         r = Observation.objects.filter(source=source).aggregate(Max('recorded_at'))
         return r.get('recorded_at__max')
+
+    def get_last_source_observation(self, source):
+        return Observation.objects.filter(source=source)(Max('recorded_at'))
 
     def get_last_observation(self, subject, newer_than=None):
         """get the last recorded observation of the subject
@@ -337,6 +330,13 @@ class ObservationManager(models.GeoManager):
             r = r.filter(recorded_at__gt=ssource.assigned_range.lower)
             upper_range = ssource.assigned_range.upper
             lower_range = ssource.assigned_range.lower
+
+            # If there's no timezone info, assume UTC
+            if upper_range.tzinfo is None:
+                upper_range = upper_range.replace(tzinfo=pytz.UTC)
+            if lower_range.tzinfo is None:
+                lower_range = lower_range.replace(tzinfo=pytz.UTC)
+
             if newer_than and newer_than > upper_range:
                 continue
             if older_than and lower_range > older_than:
@@ -352,6 +352,11 @@ class ObservationManager(models.GeoManager):
 
 
 class Observation(models.Model):
+
+    # Constants for filter bit-map.
+    EXCLUDED_MANUALLY = 1
+    EXCLUDED_AUTOMATICALLY = 2
+
     """observation point
     similar to archive_loc
     """
@@ -361,19 +366,22 @@ class Observation(models.Model):
     created_at = models.DateTimeField('row created at', auto_now_add=True)  # date/time this row created
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     additional = JSONField()
+    exclusion_flags = models.BigIntegerField('Exclusion flags as a bitmap', null=False, default=0)
 
     objects = ObservationManager()
 
-    # def __str__(self):
-    #     return self.name
+    def __str__(self):
+        return '{}:{}:{:08b}'.format(self.recorded_at.isoformat(), self.location, self.exclusion_flags)
 
     class Meta:
         unique_together = (
             ['source', 'recorded_at']
         )
 
+
 DEFAULT_ASSIGNED_RANGE = list((pytz.utc.localize(datetime.min),
                                pytz.utc.localize(datetime.max)))
+
 
 class SubjectSourceManager(models.GeoManager):
     def get_subject_sources(self, subject):
@@ -455,9 +463,19 @@ class SubjectSource(models.Model):
                                  self.assigned_range.lower, self.assigned_range.upper)
 
 
+class SubjectTrackSegmentFilterManager(models.Manager):
+    pass
+
+
+class SubjectTrackSegmentFilter(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    subject_type = models.TextField(default="SUBTYPE_ELEPHANT") #Should reference SubjectTypes table
+    speed_KmHr = models.FloatField(default=7.0)
+    additional = JSONField()
+    objects = SubjectTrackSegmentFilterManager()
+
 DEFAULT_SUBJECT_GROUP_ID = 'b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057'
 DEFAULT_SOURCE_GROUP_ID = '654e592c-fc5a-436d-98dd-fd1b36436a85'
-
 
 
 class SubjectGroupManager(HierarchyManager):
@@ -527,7 +545,7 @@ class SubjectQuerySet(models.QuerySet):
             sg_all.add(sg)
             sg_all.update(sg.get_descendants())
 
-        return self.filter(groups__in=sg_all)
+        return self.filter(groups__in=sg_all).distinct('name')
 
     def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
@@ -584,19 +602,20 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_RESEARCH = 'research'
     SUBTYPE_TOURIST_VEHICLE = 'tourist_vehicle'
     SUBTYPE_MOTORCYCLE = 'motorcycle'
-    SUBTYPE_BOAT = 'ranger_boat'
     SUBTYPE_CAMERA_TRAP = 'camera-trap'
     SUBTYPE_WEATHER_STATION = 'weather-station'
 
     SUBTYPE_RANGER = 'ranger'
     SUBTYPE_RANGER_TEAM = 'ranger_team'
-    SUBTYPE_DOG_TEAM = 'dog_team'
     SUBTYPE_MANAGER = 'manager'
     SUBTYPE_DRIVER = 'driver'
 
     SUBTYPE_PLANE = 'plane'
     SUBTYPE_HELICOPTER = 'helicopter'
     SUBTYPE_UNASSIGNED = 'unassigned'
+
+    SUBTYPE_UNASSIGNED = 'unassigned'
+
 
     TYPES_HIERARCHIES = [
         {
@@ -618,7 +637,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_RANGER, 'Ranger'),
                 (SUBTYPE_RANGER_TEAM, 'Ranger Team'),
-                (SUBTYPE_DOG_TEAM, 'Dog Team'),
                 (SUBTYPE_DRIVER, 'Driver'),
                 (SUBTYPE_MANAGER, 'Manager'),
             )
@@ -631,7 +649,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 (SUBTYPE_RESEARCH, 'Research Vehicle'),
                 (SUBTYPE_TOURIST_VEHICLE, 'Tourist Vehicle'),
                 (SUBTYPE_MOTORCYCLE, 'Motorcycle'),
-                (SUBTYPE_BOAT, 'Boat'),
             )
         },
         {
@@ -695,11 +712,33 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             ('change_alerts', 'Permission to configure alerts for subject, includes setting geofences, proximity and immobility settings.'),
             ('change_view', 'An admin permission to change which users can view a Subject and their view permission.'),
 
+            ('access_begins_7', 'Can view tracks no more than 7 days old'),
+            ('access_begins_16', 'Can view tracks no more than 16 days old'),
+            ('access_begins_30', 'Can view tracks no more than 30 days old'),
+            ('access_begins_60', 'Can view tracks no more than 60 days old'),
+            ('access_begins_all', 'Can view all historical tracks'),
+
+            ('access_ends_0', 'Can view tracks no less than 0 days old'),
+            ('access_ends_1', 'Can view tracks no less than 1 day old'),
+            ('access_ends_3', 'Can view tracks no less than 3 days old'),
+            ('access_ends_7', 'Can view tracks no less than 7 days old'),
         )
 
     VIEW_POSITION_PERMS = ('observations.view_last_position', 'observations.view_real_time')
     VIEW_DELAYED_PERMS = ('observations.view_delayed',)
-    VIEW_SUBJECT_PERMS = ('observations.view_subject',) + VIEW_DELAYED_PERMS + VIEW_POSITION_PERMS
+
+    VIEW_BEGIN_WINDOWS=(('observations.access_begins_7', 7),
+                        ('observations.access_begins_16', 16),
+                        ('observations.access_begins_30', 30),
+                        ('observations.access_begins_60', 60),
+                        ('observations.access_begins_all', 100000000))
+
+    VIEW_END_WINDOWS=(('observations.access_ends_0', 0),
+                      ('observations.access_ends_1', 1),
+                      ('observations.access_ends_3', 3),
+                      ('observations.access_ends_7', 7))
+
+    VIEW_SUBJECT_PERMS = ('observations.view_subject',) + VIEW_BEGIN_WINDOWS + VIEW_END_WINDOWS
 
     @property
     def color(self):
@@ -722,18 +761,18 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         return subject_source.source
 
-    def observations(self, last_days=None):
+    def observations(self, last_hours=None):
         """ returns all observations for this Subject, spanning
         Sources as necessary """
-        subject_sources = SubjectSource.objects.filter(subject=self)
-        if last_days:
-            until = datetime.now(tz=pytz.UTC)
-            since = until - timedelta(days=last_days)
-            obs = Observation.objects.get_source_range_observations(subject_sources, since=since, until=until)
-        else:
-            obs = Observation.objects.get_source_range_observations(subject_sources)
+        since = None
+        until = None
 
-        return obs
+        if last_hours:
+            until = datetime.now(tz=pytz.UTC)
+            since = until - timedelta(hours=last_hours)
+
+        return Observation.objects.get_subject_observations(self, since=since, until=until)
+
 
     @property
     def image_url(self):
@@ -749,14 +788,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         if sex:
             yield '-'.join((key, 'black', sex.lower()))
             yield '-'.join((key, sex.lower()))
-
-        status = self.subjectstatus_set.filter(delay_hours=0)
-        if status:
-            status = status[0]
-            if 'state' in status.additional:
-                color = get_radio_color(status.additional['state'],
-                                        status.additional)
-                yield '-'.join((key, color))
 
         yield key
         yield '-'.join((key, 'black'))
@@ -780,7 +811,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         return '%s, %s, %s' % (self.name, self.subject_type, self.subject_subtype)
 
 
-OBSERVATION_DELAY_HRS = 24
+OBSERVATION_DELAY_HRS = 72
 
 class SubjectStatusQuerySet(models.QuerySet):
     def get_last(self):
@@ -788,10 +819,23 @@ class SubjectStatusQuerySet(models.QuerySet):
             if row.delay_hours == 0:
                 return row
 
-    def get_delayed(self):
+    def get_delayed(self, delay = OBSERVATION_DELAY_HRS):
         for row in self:
-            if row.delay_hours == OBSERVATION_DELAY_HRS:
+            if row.delay_hours == delay:
                 return row
+
+    def get_range_endpoints(self, max_delay, min_delay):
+        range_start = None
+        range_end = None
+        for row in self:
+            if row.delay_hours > max_delay or row.delay_hours < min_delay:
+                continue
+            if range_start is None or row.delay_hours > range_start.delay_hours:
+                range_start = row
+            if range_end is None or row.delay_hours < range_end.delay_hours:
+                range_end = row
+        return range_start, range_end
+
 
 
 class SubjectStatusManager(models.Manager):

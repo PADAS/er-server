@@ -39,6 +39,7 @@ import utils
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from observations.serializers import SubjectSerializer, SourceSerializer, get_subject_display
 from observations.models import Subject
+from analyzers.serializers import SubjectAnalyzerResultSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
 from activity import schema_utils
@@ -89,6 +90,9 @@ ATTACHMENT_SERIALIZER_MAPPING = {
                              'field': 'subject'},
     'observations.source': {'serializer': SourceSerializer,
                             'field': 'source'},
+    'analyzers.subjectanalyzerresult': {'serializer': SubjectAnalyzerResultSerializer,
+                                        'field': 'subject_analyzer_result'
+                                        }
 }
 
 REPORTED_SERIALIZER_MAPPING = {
