@@ -3,6 +3,8 @@ import os
 from datetime import timedelta
 
 from celery import Celery
+from django.conf import settings
+
 from celery.signals import setup_logging
 from kombu import Exchange, Queue
 
@@ -10,11 +12,12 @@ from kombu import Exchange, Queue
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'das_server.settings')
 app = Celery('das_server')
-app.autodiscover_tasks()
 # Using a string here means the worker will not have to
 # pickle the object when using Windows.
 
 app.config_from_object('django.conf:settings', namespace='CELERY')
+app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
+
 default_exchange = Exchange(app.conf.task_default_exchange)
 # Celery 4 changed from UPPERCASE to lower with new names. we've updated them here, but not yet in settings.py
 # We want input from chis d et al.
