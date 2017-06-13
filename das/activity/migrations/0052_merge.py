@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('activity', '0051_add_new_permissions'),
-        ('activity', '0051_event_title'),
+
     ]
 
     operations = [

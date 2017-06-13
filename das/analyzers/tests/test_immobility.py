@@ -1,107 +1,211 @@
 import copy
+import random
 from datetime import datetime, timedelta
-
-from django.test import TestCase
+from functools import reduce, partial
+import dateutil.parser as dp
 import pytz
+from django.contrib.gis.db import models
+from django.contrib.gis.geos import Point
+from django.test import TestCase
 
-from analyzers.models.immobility import ImmobilityAnalyzer
-from analyzers.models.analyzer import NOMINAL, WARNING, CRITICAL
-from observations.track import Track
+from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
+from observations import models
+from activity.models import Event
+from .immobility_test_data import *
+from analyzers.tasks import analyze_subject
+import analyzers.exceptions
+
+from analyzers.utils import typify
+
+from analyzers.immobility import ImmobilityAnalyzer
+
+# Function to apply to plain/JSON observations to convert recorded_at to datetime.
+parse_recorded_at = partial(typify, dict(recorded_at=dp.parse))
+
+def generate_random_positions(start_time=None, x=37.5, y=1.41):
+    recorded_at = start_time or pytz.utc.localize(datetime.utcnow()) - timedelta(hours=24)
+
+    while True:
+        yield recorded_at, Point(x=x, y=y)
+        x += (random.random()  - 0.5)/10000
+        y += (random.random()  - 0.5)/10000
+        recorded_at = recorded_at + timedelta(minutes=30)
+
+
+def time_shift(items, time_key='recorded_at', start_time=None):
+    '''
+    Time-shift the items in the list using each item's 'time_key' key.
+    Anchor the new list at start_time or a time calculated based on the item data.
+    
+    :param items: A list of dict items where each item has a time in item[time_key]
+    :param time_key: The key to use for getting a datetime from each item.
+    :param start_time: Anchor the new list at this datetime if it's provided.
+    :return: generator which yields a new 'time-shifted' list of the items.
+    '''
+
+    if not items:
+        return
+
+    # Determine timespan of 'items'.
+    minimum_time = reduce((lambda x, y: x if x < y else y), [_[time_key] for _ in items])
+    maximum_time = reduce((lambda x, y: x if x > y else y), [_[time_key] for _ in items])
+    actual_start = minimum_time
+
+    fake_start = start_time or pytz.utc.localize(datetime.utcnow()) - (maximum_time - minimum_time)
+    for i, item in enumerate(items):
+        fake_time = (item[time_key] - actual_start) + fake_start
+        new_item = copy.copy(item)
+        new_item[time_key] = fake_time
+        yield new_item
 
 
 class TestImmobilityAnalyzer(TestCase):
 
-    # fixtures = ['observations_source.json']
+    # fixtures = ['initial_eventtype.yaml', 'analyzer_eventtype.yaml']
 
     def setUp(self):
+        pass
 
-        self.n_points = 50
+    def test_immobility_with_moving_observations_list(self):
 
-        mobile_points = [
-            [200 * i * 10 ** -6,0]
-            for i in range(self.n_points)
-        ]
+        test_subject = models.Subject(name='Sample')
 
-        # dead track
-        immobile_points = [
-            [0,0]
-            for i in range(self.n_points)
-        ]
+        # parse recorded_at (from string to datetime).
+        test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE]
 
-        immobile_points_with_outliers = copy.deepcopy(immobile_points)
-        # insert noise:
-        immobile_points_with_outliers[49][0] = immobile_points_with_outliers[49][0] + .0004
+        def generate_observations(observations):
+            for item in time_shift(observations):
 
-        times = [
-            datetime(2000,1,1,0,0,0,tzinfo=pytz.utc) + timedelta(hours=i)
-            for i in range(self.n_points)
-        ]
+                recorded_at = item['recorded_at']
+                location = Point(x=item['longitude'], y=item['latitude'])
+                obs = models.Observation(recorded_at=recorded_at, location=location)
+                yield obs
 
-        self.mobile_track = Track(mobile_points, times)
-        self.immobile_track = Track(immobile_points, times)
-        self.immobile_track_with_outliers = Track(immobile_points_with_outliers, times)
+        test_observations = list(generate_observations(test_observations))
 
-    def test_immobility_analyzer_is_mobile(self):
-        """
-        Test a mobile Track
-        """
+        for count in range(21, 10, -1):
+            try:
+                config = ImmobilityAnalyzerConfig() # default values
+                last_result = SubjectAnalyzerResult(level=OK)
 
-        immobility_analyzer = ImmobilityAnalyzer()
-        analyzer_result = immobility_analyzer.analyze(self.mobile_track)
+                ia = ImmobilityAnalyzer(config=config, subject=test_subject)
+                result, event = ia.analyze(observations=test_observations[:count], last_result=last_result)
 
-        expected = NOMINAL
-        actual = analyzer_result.level
+                # Break when we get to an OK result
+                if result.level == OK:
+                    break
+            except analyzers.exceptions.InsufficientDataAnalyzerException:
+                break
 
-        self.assertEqual(actual, expected, 'actual value: {}'.format(analyzer_result.value))
+        # Assert we've broken from this for-loop at level=>OK and count=>17
+        # self.assertEqual(result.level, OK)
+        # self.assertEqual(count, 18) # Magic number, based on Ishango test dataset
 
-    def test_immobility_analyzer_is_critical_immobile(self):
-        """
-        Test an immobile Track
-        """
+    def test_integration_ishango_immobile(self):
 
-        analyzer = ImmobilityAnalyzer()
-        analyzer_result = analyzer.analyze(self.immobile_track)
+        # Grab prepared observation list from test data.
+        test_observations = ISHANGO_IMMOBILE
 
-        actual = analyzer_result.level
-        expected = CRITICAL
+        # Create models (Subject, SubjectSource and Source)
+        sub = models.Subject.objects.create(name='Ishango', subject_type='wildlife', subject_subtype= 'elephant')
+        source = models.Source.objects.create(manufacturer_id='ishango-collar')
+        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
 
-        self.assertEqual(actual, expected)
+        sg = models.SubjectGroup.objects.create(name='immobility_analyzer_group',)
+        sg.subjects.add(sub)
+        sg.save()
 
-    def test_immobility_analyzer_is_warning_immobile(self):
-        """
-        Test an immobile Track
-        """
-        analyzer = ImmobilityAnalyzer()
-        analyzer_result = analyzer.analyze(self.immobile_track)
+        ia = ImmobilityAnalyzerConfig.objects.create(subject_group=sg)
 
-        expected = CRITICAL
-        actual = analyzer_result.level
+        # parse recorded_at (from string to datetime).
+        test_observations = [parse_recorded_at(x) for x in test_observations]
 
-        self.assertEqual(actual, expected, "actual value: {}".format(analyzer_result.value))
+        # Create observations in database, so the Analyzer will find them.
+        for item in time_shift(test_observations):
 
-    def test_immobility_analyzer_is_nominal_with_a_few_outliers_but_less_than_threshold_ratio(self):
-        """
-        Test an immobile Track with a few outliers, but less than the threshold ratio.  Should still
-        be classified as immobile.
-        """
+            recorded_at = item['recorded_at']
+            location = Point(x=item['longitude'], y=item['latitude'])
+            obs = models.Observation.objects.create(recorded_at=recorded_at,
+                                             location=location,
+                                                    source=source, additional={})
 
-        analyzer = ImmobilityAnalyzer()
-        analyzer_result = analyzer.analyze(self.immobile_track_with_outliers)
+        analyze_subject(str(sub.id))
 
-        expected = WARNING
-        actual = analyzer_result.level
+        # self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
 
-        self.assertEqual(actual, expected, "actual value: {}".format(analyzer_result.value))
+        for e in Event.objects.all():
+            self.assertTrue(e.event_details.all().exists())
 
-    def test_immobility_analyzer_is_warning_with_more_outliers_than_the_threshold_ratio(self):
-        """
-        Test an immobile Track with enough outliers to exceed threshold ratio.
-        """
+        for e in Event.objects.all():
+            for ed in e.event_details.all():
+                print('Event Details: %s' % ed.data)
 
-        analyzer = ImmobilityAnalyzer(threshold_warning_cluster_ratio=0.95)
-        analyzer_result = analyzer.analyze(self.immobile_track_with_outliers)
+    def test_ishango_immobile(self):
+        print('Analyzing: ', 'Ishango')
+        test_subject = models.Subject(name='Ishango')
 
-        expected = NOMINAL
-        actual = analyzer_result.level
+        # parse recorded_at (from string to datetime)
+        test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE2]
 
-        self.assertEqual(actual, expected, "actual value: {}".format(analyzer_result.value))
+        def generate_observations(observations):
+            for item in observations:
+                recorded_at = item['recorded_at']
+                location = Point(x=item['longitude'], y=item['latitude'])
+                obs = models.Observation(recorded_at=recorded_at, location=location)
+                yield obs
+
+        # Grab prepared observation list from test data.
+        test_observations = list(generate_observations(test_observations))
+
+        last_result = None
+        for i in range(1, len(test_observations)):
+            try:
+                print('Current data-point: ', test_observations[i-1])
+
+                ia_config = ImmobilityAnalyzerConfig()
+                ia_config.threshold_time = 18000 # 5 hours
+
+                ia = ImmobilityAnalyzer(config=ia_config, subject=test_subject)
+                result, event = ia.analyze(observations=test_observations[:i+1], last_result=last_result)
+                last_result = result
+
+                print('Analyzer result: ', last_result)
+                print('Analyzer event: ', event)
+            except analyzers.exceptions.InsufficientDataAnalyzerException:
+                print('Insufficient data warning')
+                pass
+
+        self.assertTrue(True)
+
+    def test_immobility_event(self):
+        '''
+        Test creating an Immobility Event, along with EventDetails reflecting an ImmobilityAnalyzer result.
+        :return: 
+        '''
+        from analyzers.utils import save_analyzer_event
+
+        event_location_value = {
+            'longitude': 36.5,
+            'latitude': 1.5
+        }
+
+        analyzer_result_values = {
+            'probability_value': .80,
+            'cluster_radius': 13,
+            'cluster_fix_count': 6,
+            'total_fix_count': 26,
+        }
+
+        event_data = dict(
+            message='Woody is immobile',
+            event_time=pytz.utc.localize(datetime.utcnow()),
+            provenance=Event.PC_ANALYZER,
+            event_type='immobility',
+            priority=Event.PRI_URGENT,
+            location=event_location_value,
+            event_details=analyzer_result_values,
+        )
+
+        e = save_analyzer_event(event_data)
+
+        self.assertTrue(e.event_details.count() == 1)

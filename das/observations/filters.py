@@ -17,6 +17,7 @@ class SubjectObjectPermissionsFilter(BaseFilterBackend):
 
         allowed = self.get_user_subjects(user)
         values = allowed.values_list('id', flat=True)
+        queryset._hints['subjects_filtered'] = True
         return queryset.filter(id__in=values)
 
     def get_user_subjects(self, user):

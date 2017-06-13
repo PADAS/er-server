@@ -3,6 +3,7 @@ import datetime
 
 import dateutil.parser
 import pytz
+import sys
 from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 from django.http import Http404
@@ -32,6 +33,7 @@ except AttributeError:
     days = 16
 
 LAST_DAYS = datetime.timedelta(days=days)
+ONE_YEAR = datetime.timedelta(days=365)
 
 
 def default_since():
@@ -154,7 +156,8 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS)
         subject_group = self.request.query_params.get('subject_group', None)
         if subject_group:
-            queryset = queryset.by_user_subjects(self.request.user)
+            queryset = queryset.by_group(subject_group_id=subject_group.id)
+        queryset = queryset.by_user_subjects(self.request.user)
         queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
         return queryset
 
@@ -170,6 +173,10 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
 
     def get_queryset(self):
+        subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
+        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
+            raise PermissionDenied
+
         queryset = models.Subject.objects.all()
         queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
         return queryset
@@ -265,8 +272,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
         coordinates = []
         times = []
-        for ob in models.Observation.objects.get_source_range_observation_values(
-                sds, since, until):
+        for ob in models.Observation.objects.get_subject_source_observation_values(sds, since, until):
             coordinates.append(ob['location'].coords)
             times.append(zeroout_microseconds(ob['recorded_at']))
 
@@ -301,46 +307,69 @@ class SubjectTracksView(generics.RetrieveAPIView):
         context = super().get_serializer_context()
         subject = self.get_object()
 
-        # Get all the arguments
+        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
+            raise PermissionDenied
+
+        # Max number of observations in the track
         limit = self.request.query_params.get('limit', None)
-        until = self.request.query_params.get('until', datetime.datetime.now(tz=pytz.UTC))
-        since = self.request.query_params.get('since', datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS)
 
-        # Since and until could be passed as strings
-        if until and isinstance(until, str):
-            until = dateparse(until)
-        if since and isinstance(since, str):
-            since = dateparse(since)
+        # Find the min and max boundaries for track data
+        oldest_age_allowed = -1
+        newest_age_allowed = 999
+        mou_expiry_date = self.request.user.additional.get('expiry', None)
 
-        # Apply permissions
-        if self.request.user.has_any_perms(models.Subject.VIEW_POSITION_PERMS, subject):
-            context['subject'] = subject
-            try:
-                context['subject_state'] = subject.subjectstatus_set.get_last().additional['state']
-            except Exception:
-                pass
-        elif self.request.user.has_any_perms(models.Subject.VIEW_DELAYED_PERMS, subject):
-            # Make sure the date ranges are delayed
-            one_day = datetime.timedelta(hours=24)
-            until = min(until,datetime.datetime.now(tz=pytz.UTC) - one_day)
-            since = min(since, datetime.datetime.now(tz=pytz.UTC) - one_day)
-            if since >= until:
-                return None
-            try:
-                context['subject_state'] = subject.subjectstatus_set.get_delayed().additional['state']
-            except Exception:
-                pass
+        for permission_tuple in sorted(models.Subject.VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse=True):
+            if permission_tuple[1] > oldest_age_allowed and self.request.user.has_perm(permission_tuple[0]):
+                oldest_age_allowed = permission_tuple[1]
+                break
+
+        for permission_tuple in sorted(models.Subject.VIEW_END_WINDOWS, key=lambda _: _[1]):
+            if permission_tuple[1] < newest_age_allowed and self.request.user.has_perm(permission_tuple[0]):
+                newest_age_allowed = permission_tuple[1]
+                break
+
+        if oldest_age_allowed < 0 or newest_age_allowed > oldest_age_allowed:
+            raise PermissionDenied
+
+        requested_oldest_age = self.request.query_params.get('since', None)
+        requested_newest_age = self.request.query_params.get('until', None)
+        now = datetime.datetime.now()
+
+        if requested_oldest_age is None:
+            oldest_age = min(settings.SHOW_TRACK_DAYS, oldest_age_allowed)
         else:
-            return None
+            requested_oldest_age = (now - requested_oldest_age).days
+            oldest_age = min(requested_oldest_age, oldest_age_allowed)
 
-        sds = models.SubjectSource.objects.filter(subject=subject)
-        if not sds:
-            raise Http404
+        if requested_newest_age is None:
+            newest_age = newest_age_allowed
+        else:
+            requested_newest_age = (now - requested_newest_age).days
+            newest_age = max(requested_newest_age, newest_age_allowed)
+
+        if mou_expiry_date is not None:
+            now = pytz.utc.localize(datetime.datetime.utcnow())
+            mou_expiry_date = pytz.utc.localize(dateutil.parser.parse(mou_expiry_date))
+            mou_expiry_age = now - mou_expiry_date
+
+            newest_age = max(mou_expiry_age.days, newest_age)
+            if oldest_age < newest_age:
+                raise PermissionDenied
+
+        begin = now - datetime.timedelta(days=oldest_age)
+        until = now - datetime.timedelta(days=newest_age)
+
+        context['subject'] = subject
+        try:
+            context['subject_state'] = subject.subjectstatus_set.get_last().additional['state']
+        except Exception:
+            pass
 
         coordinates = []
         times = []
-        for ob in models.Observation.objects.get_source_range_observation_values(
-                sds, since=since, until=until, limit=limit):
+        for ob in models.Observation.objects.get_subject_observation_values(
+                subject, since=begin, until=until, limit=limit):
+
             coordinates.append(ob['location'].coords)
             times.append(zeroout_microseconds(ob['recorded_at']))
 

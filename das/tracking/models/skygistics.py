@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from dateutil.parser import parse as parse_date
 import pytz
 import copy
+from functools import reduce
 
 import requests
 
@@ -71,7 +72,7 @@ class SkygisticsSatelliteClient(SkygisticsClient):
     def _get_text(self, url, query):
         response_text = None
         try:
-            response = requests.get(url, query)
+            response = requests.get(url, query, timeout=5.0)
             # todo:  sad API, it returns a 500 if any param is bad or missing.
             #   check status code and do better
             if response.status_code != 200:
@@ -249,23 +250,6 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
                                        help_text='API endpoint for Skygistics service.',
                                        default='http://skyq1.skygistics.com')
 
-
-
-    def should_run(self, source_plugin):
-
-        # Don't bother running now if less than one hour has passed since the latest fix.
-        try:
-            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
-            if not latest_timestamp:
-                return True
-            latest_timestamp = parse_date(latest_timestamp)
-
-            if (datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
-                return True
-        except Exception as e:
-            return True
-        else:
-            return False
 
     def fetch(self, source, cursor_data=None):
 

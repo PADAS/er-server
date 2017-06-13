@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('observations', '0027_recorded_at_index'),
+        ('observations', '0028_merge'),
     ]
 
     operations = [

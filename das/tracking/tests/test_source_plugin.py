@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta
+import pytz
+
 from django.test import TestCase
 
 from tracking.models.plugin_base import SourcePlugin
@@ -70,4 +73,25 @@ class TestSourcePlugin(TestCase):
         self.assertTrue(len(source_plugins) == 1)
 
         self.assertEqual(source_plugins[0].id, expected.id)
+
+    def test_should_run(self):
+        plugin = SavannahPlugin.objects.create(name='dummy-savannah-plugin')
+        source = Source.objects.create(manufacturer_id='asdfas', additional={}, )
+
+        # The latest timestamp is very recent, so we should not run.
+        latest_timestamp = pytz.utc.localize(datetime.utcnow())
+        sp = SourcePlugin.objects.create(source=source, plugin=plugin, cursor_data={'latest_timestamp':latest_timestamp.isoformat()})
+        self.assertTrue(not sp.should_run())
+
+        # The latest timestamp is within the quiet period, should we should not run.
+        latest_timestamp_late = latest_timestamp - plugin.DEFAULT_REPORT_INTERVAL + timedelta(minutes=2)
+        sp = SourcePlugin.objects.create(source=source, plugin=plugin, cursor_data={'latest_timestamp':latest_timestamp_late.isoformat()})
+        self.assertTrue(not sp.should_run())
+
+        # We've reach a point where the plugin should run.
+        latest_timestamp_early = latest_timestamp - plugin.DEFAULT_REPORT_INTERVAL
+        sp = SourcePlugin.objects.create(source=source, plugin=plugin, cursor_data={'latest_timestamp':latest_timestamp_early.isoformat()})
+        self.assertTrue(sp.should_run())
+
+
 
