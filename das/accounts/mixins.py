@@ -206,6 +206,9 @@ class PermissionsMixin(models.Model):
         For example, if this user is a member of Group Five, and Group Five is a member of Group A,
         we return Group A and Group Five.
         """
+        if self.is_superuser:
+            return PermissionSet.objects.all()
+
         direct_ps = self.permission_sets.all()
         all_ps = set()
 
