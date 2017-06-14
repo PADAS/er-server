@@ -428,6 +428,7 @@ class EventFilesView(generics.ListCreateAPIView):
 from usercontent.serializers import get_stored_filename
 
 class EventFileView(generics.RetrieveUpdateDestroyAPIView):
+
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventFileSerializer
 
@@ -457,7 +458,8 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
         if content_type and content_type not in USERCONTENT_FORCE_DOWNLOAD:
 
             if isinstance(instance.usercontent.file, (versatileimagefield.files.VersatileImageFieldFile,)):
-                filename = get_stored_filename(instance.usercontent.file, rendition_set='default', rendition_key=desired_image_size )
+                filename = get_stored_filename(instance.usercontent.file, rendition_set='default',
+                                               rendition_key=desired_image_size )
                 try:
                     responsefile = instance.usercontent.file.field.storage.open(filename)
                 except OSError as oe:

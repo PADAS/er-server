@@ -576,6 +576,13 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
 
     usercontent = usercontent.serializers.UserContentSerializer(required=False)
 
+    created_by = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault()
+    )
+
+    comment = rest_framework.serializers.CharField(allow_blank=True, required=False,)
+
+
     class Meta:
         model = activity.models.EventFile
 
@@ -599,11 +606,13 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
     def to_representation(self, instance):
         rep = super().to_representation(instance)
 
+        rep['updates'] = self.render_updates(instance)
+
         if 'request' in self.context:
             request = self.context['request']
             rep['url'] = utils.add_base_url(request,
                                             reverse('event-view-file',
-                                                    args=[instance.event.id, instance.id, instance.usercontent.filename]))
+                                                    args=[instance.event.id, instance.id,]))
 
             # If attached usercontent is an ImageFileField, then render urls for renditions.
             if isinstance(instance.usercontent.file, (versatileimagefield.files.VersatileImageFieldFile,)):
@@ -616,7 +625,7 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
                                                         args=[instance.event.id, instance.id,
                                                               size, instance.usercontent.filename]))
                 if image_sizes:
-                    rep['image_sizes'] = image_sizes
+                    rep['images'] = image_sizes
 
 
         # Promote some usercontent attributes.
@@ -629,6 +638,22 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
             rep.pop(att, default=None)
 
         return rep
+
+    def render_updates(self, event_file):
+        def get_action(revision):
+            return revision.get_action_display()
+
+        return [
+            dict(message='File {action} by {user}'.format(
+                action=get_action(revision),
+                user=get_user_display(revision.user)),
+                time=revision.revision_at.isoformat(),
+                text=revision.data.get('text', ''),
+                user=UserDisplaySerializer().to_representation(revision.user),
+                type=get_update_type(revision),
+            )
+            for revision in event_file.revision.all_user()
+            ]
 
     def is_valid(self, raise_exception=False):
 
@@ -827,7 +852,8 @@ class EventSerializerMixin():
                                  'reported_by_id': 'Reported By',
                                  'provenance': 'Reporter',
                                  'event_type': 'Report Type is {0}',
-                                 'created_by_user': 'Report Author',}
+                                 'created_by_user': 'Report Author',
+                                 'title': 'Title'}
                 fieldnames = [field_mapping[k].format(event.get_display_value(k, v)) for k, v in revision.data.items() if
                               k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
@@ -969,7 +995,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     message = rest_framework.serializers.CharField(required=False, allow_blank=True)
     comment = rest_framework.serializers.CharField(required=False, allow_blank=True)
     title = rest_framework.serializers.CharField(required=False, allow_blank=True)
-    photos = EventPhotoSerializer(many=True, required=False)
+    # photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
 
@@ -1002,20 +1028,12 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         return super().validate(attrs)
 
     def get_out_relation(self, event, value):
-        # qs = activity.models.Event.objects.filter(out_relationship__type__value=value, out_relationship__from_event=event)
-        # serializer = EventHeaderSerializer(instance=qs, many=True, context=self.context)
-        # return serializer.data
-
         self.context['event_relationship_direction'] = 'out'
         qs = event.out_relationships.filter(type__value=value).all().order_by('ordernum')
         serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context,)
         return serializer.data
 
     def get_in_relation(self, event, value):
-        # qs = activity.models.Event.objects.filter(out_relationship__type__value=value, out_relationship__to_event=event)
-        # serializer = EventHeaderSerializer(instance=qs, many=True, context=self.context)
-        # return serializer.data
-
         qs = event.in_relationships.filter(type__value=value).all()
         self.context['event_relationship_direction'] = 'in'
         serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context,)
@@ -1028,16 +1046,16 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
-            'state', 'photos', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
+            'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
                  'files', ) + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if self.context.get('include_photos', True):
-            self.fields['photos'].context.update(self.context)
+        if self.context.get('include_files', True):
+            self.fields['files'].context.update(self.context)
         else:
-            self.fields.pop('photos')
+            self.fields.pop('files')
 
         if self.context.get('include_notes', True):
             self.fields['notes'].context.update(self.context)
@@ -1093,8 +1111,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             updates = self.render_updates(event)
             for note in rep.get('notes', []):
                 updates.extend(note['updates'])
-            for photo in rep.get('photos', []):
-                updates.extend(photo['updates'])
+            for f in rep.get('files', []):
+                updates.extend(f['updates'])
             rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
 
         if event.event_type:
