@@ -26,6 +26,9 @@ class UserQuerySet(models.QuerySet):
     def delete(self):
         self.update(active=False)
 
+    def by_is_active(self, active=True):
+        return self.filter(is_active=active)
+
     def _filter_or_exclude(self, mapper, *args, **kwargs):
         # 'name' is a field in your Model whose lookups you want case-insensitive by default
         if 'username' in kwargs:
