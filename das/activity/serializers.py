@@ -618,15 +618,15 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
                 if image_sizes:
                     rep['image_sizes'] = image_sizes
 
-        # Hide esoteric attributes
-        rep.pop('usercontent_id')
-        rep.pop('usercontent_type')
 
+        # Promote some usercontent attributes.
+        rep['filename'] = rep['usercontent'].get('filename')
+        rep['icon_url'] = rep['usercontent'].get('icon_url')
+        rep['file_type'] = rep['usercontent'].get('file_type')
 
-        rep['filename'] = rep['usercontent'].pop('filename')
-        rep['icon_url'] = rep['usercontent'].pop('icon_url')
-        rep.pop('usercontent')
-        rep.pop('event')
+        # Prune some unnecessary attributes.
+        for att in ('usercontent', 'event', 'usercontent_id', 'usercontent_type'):
+            rep.pop(att, default=None)
 
         return rep
 
@@ -637,8 +637,6 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
         except Exception as e:
             raise e
         return r
-
-
 
 
 class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):

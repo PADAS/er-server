@@ -24,7 +24,6 @@ def resolve_file_icon(filecontent):
     return static_image_finder.get_marker_icon([image_key, ]) or DEFAULT_FILE_ICON
 
 
-
 class FileContentSerializer(rest_framework.serializers.ModelSerializer):
 
     created_by = rest_framework.serializers.HiddenField(
@@ -32,9 +31,14 @@ class FileContentSerializer(rest_framework.serializers.ModelSerializer):
     )
 
     icon_url = rest_framework.serializers.SerializerMethodField()
+    file_type = rest_framework.serializers.SerializerMethodField()
 
     class Meta:
         model = usercontent.models.FileContent
+
+    def get_file_type(self, instance):
+        '''Static file_type that a client can rely on.'''
+        return 'file'
 
     def get_icon_url(self, filecontent):
         return utils.add_base_url(self.context['request'], resolve_file_icon(filecontent))
@@ -54,9 +58,14 @@ class ImageFileContentSerializer(rest_framework.serializers.ModelSerializer):
     )
 
     icon_url = rest_framework.serializers.SerializerMethodField()
+    file_type = rest_framework.serializers.SerializerMethodField()
 
     class Meta:
         model = usercontent.models.ImageFileContent
+
+    def get_file_type(self, instance):
+        '''Static file_type that a client can rely on.'''
+        return 'image'
 
     def get_icon_url(self, filecontent):
         return utils.add_base_url(self.context['request'], resolve_file_icon(filecontent))
