@@ -8,7 +8,6 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0054_generic-usercontent'),
         ('activity', '0055_event_title'),
     ]
 
