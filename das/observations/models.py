@@ -48,9 +48,13 @@ def to_rgb(color):
     except:
         raise
 
+
 DEFAULT_COLOR = '255,255,0'
 
-STATUS_COLORS = {'online': 'green', 'offline': 'gray', 'alarm': 'red', 'default': 'black'}
+STATUS_COLORS = {'online': 'green', 'offline': 'gray',
+                 'alarm': 'red', 'default': 'black'}
+
+
 def get_radio_color(state, additional):
     color = STATUS_COLORS.get(state, 'black')
     if state == 'online' \
@@ -60,7 +64,7 @@ def get_radio_color(state, additional):
 
 
 def random_rgb():
-    return ','.join([str(random.randint(0,255)) for i in range(3)])
+    return ','.join([str(random.randint(0, 255)) for i in range(3)])
 
 
 class SourceGroupManager(HierarchyManager):
@@ -117,21 +121,25 @@ class SourceManager(models.Manager):
         subject = kwargs.get('subject')
         with transaction.atomic():
 
-            provider, created = SourceProvider.objects.get_or_create(name=kwargs.get('provider'))
+            provider, created = SourceProvider.objects.get_or_create(
+                name=kwargs.get('provider'))
 
-            searchkey = dict(manufacturer_id=kwargs['manufacturer_id'], provider=provider)
+            searchkey = dict(
+                manufacturer_id=kwargs['manufacturer_id'], provider=provider)
             defaults = {
                 'source_type': kwargs.get('source_type'),
                 'model_name': kwargs.get('model_name'),
                 'additional': additional
             }
 
-            source, source_created = Source.objects.get_or_create(defaults=defaults, **searchkey)
+            source, source_created = Source.objects.get_or_create(
+                defaults=defaults, **searchkey)
 
             if source_created:
                 source.groups.set((SourceGroup.objects.get_default(),))
 
-            # If we've created a new Source, also create a subject with default values.
+            # If we've created a new Source, also create a subject with default
+            # values.
             if source_created:
                 if not subject:
                     subject = {'name': source.manufacturer_id}
@@ -146,20 +154,23 @@ class SourceProviderManager(models.Manager):
 
 
 DEFAULT_SOURCE_PROVIDER_ID = '697f25e4-562c-4305-af86-1333e9081f4c'
+
+
 def get_default_source_provider_id():
-    instance, created = SourceProvider.objects.get_or_create(id=DEFAULT_SOURCE_PROVIDER_ID, name='default')
+    instance, created = SourceProvider.objects.get_or_create(
+        id=DEFAULT_SOURCE_PROVIDER_ID, name='default')
     return instance.id
 
 
 class SourceProvider(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField('Friendly name for data provider', max_length=100, null='False', unique=True)
+    name = models.CharField('Friendly name for data provider',
+                            max_length=100, null='False', unique=True)
 
     objects = SourceProviderManager()
 
     def __str__(self):
         return self.name
-
 
 
 class Source(TimestampedModel):
@@ -179,7 +190,8 @@ class Source(TimestampedModel):
 
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
-    model_name = models.CharField('device model name', max_length=100, null=True)
+    model_name = models.CharField(
+        'device model name', max_length=100, null=True)
     additional = JSONField('additional data', default={})
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
@@ -196,18 +208,20 @@ class Source(TimestampedModel):
         return '%s:%s' % (self.manufacturer_id, self.model_name)
 
     def observations(self):
-        queryset = Observation.objects.filter(source=self,).order_by('-recorded_at')
+        queryset = Observation.objects.filter(
+            source=self,).order_by('-recorded_at')
         return queryset
 
 
-EMPTY_POINT = Point(0,0)
+EMPTY_POINT = Point(0, 0)
 
 
 class ObservationManager(models.GeoManager):
 
     def get_subject_observations(self, subject, since=None, until=None):
         queryset = Observation.objects.filter(source__subjectsource__subject=subject,
-                                              source__subjectsource__assigned_range__contains=F('recorded_at'),
+                                              source__subjectsource__assigned_range__contains=F(
+                                                  'recorded_at'),
                                               exclusion_flags=0)
 
         if since:
@@ -224,7 +238,8 @@ class ObservationManager(models.GeoManager):
         Generate a list of observations for the given subject.
         """
 
-        result = self.get_subject_observations(subject, since=since, until=until)
+        result = self.get_subject_observations(
+            subject, since=since, until=until)
 
         if limit:
             result = result[:limit]
@@ -235,7 +250,8 @@ class ObservationManager(models.GeoManager):
     def get_subject_source_observation_values(self, subject_source, since=None, until=None, limit=None):
 
         queryset = Observation.objects.filter(source__subjectsource=subject_source,
-                                              source__subjectsource__assigned_range__contains=F('recorded_at'),
+                                              source__subjectsource__assigned_range__contains=F(
+                                                  'recorded_at'),
                                               exclusion_flags=0)
 
         if since:
@@ -254,11 +270,13 @@ class ObservationManager(models.GeoManager):
 
     def set_flag(self, id_list, flags):
         '''Hide the nuances of manipulating a bitmap associated with an observation.'''
-        Observation.objects.filter(id__in=id_list).update(exclusion_flags=F('exclusion_flags').bitor(flags))
+        Observation.objects.filter(id__in=id_list).update(
+            exclusion_flags=F('exclusion_flags').bitor(flags))
 
     def unset_flag(self, id_list, flags):
         '''Hide the nuances of zeroing bits in a bitmap.'''
-        Observation.objects.filter(id__in=id_list).update(exclusion_flags=F('exclusion_flags').bitand(~flags))
+        Observation.objects.filter(id__in=id_list).update(
+            exclusion_flags=F('exclusion_flags').bitand(~flags))
 
     def add_observation(self, observation):
         '''
@@ -270,17 +288,17 @@ class ObservationManager(models.GeoManager):
         location = Point(x=observation.longitude, y=observation.latitude)
         additional = observation.additional or {}
         result, created = observations.models.Observation.objects.get_or_create(source_id=observation.source.id,
-                                                            recorded_at=observation.recorded_at,
-                                                            defaults=dict(
-                                                                location=location,
-                                                                additional=additional
-                                                            ))
+                                                                                recorded_at=observation.recorded_at,
+                                                                                defaults=dict(
+                                                                                    location=location,
+                                                                                    additional=additional
+                                                                                ))
         return result, created
-
 
     def get_max_recorded_at(self, source):
         '''Get the latest recorded timestamp for the source.'''
-        r = Observation.objects.filter(source=source).aggregate(Max('recorded_at'))
+        r = Observation.objects.filter(
+            source=source).aggregate(Max('recorded_at'))
         return r.get('recorded_at__max')
 
     def get_last_source_observation(self, source):
@@ -318,7 +336,8 @@ class ObservationManager(models.GeoManager):
             raise AttributeError('subject or subject_sources must not be None')
 
         if not subject_sources:
-            subject_sources = SubjectSource.objects.get_subject_sources(subject)
+            subject_sources = SubjectSource.objects.get_subject_sources(
+                subject)
 
         sorted_sources = sorted([s for s in subject_sources],
                                 key=lambda s: s.assigned_range.upper,
@@ -362,11 +381,14 @@ class Observation(models.Model):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     location = models.PointField('point location')
-    recorded_at = models.DateTimeField('recorded at', db_index=True)  # point in time of object at lat lon
-    created_at = models.DateTimeField('row created at', auto_now_add=True)  # date/time this row created
+    # point in time of object at lat lon
+    recorded_at = models.DateTimeField('recorded at', db_index=True)
+    created_at = models.DateTimeField(
+        'row created at', auto_now_add=True)  # date/time this row created
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     additional = JSONField()
-    exclusion_flags = models.BigIntegerField('Exclusion flags as a bitmap', null=False, default=0)
+    exclusion_flags = models.BigIntegerField(
+        'Exclusion flags as a bitmap', null=False, default=0)
 
     objects = ObservationManager()
 
@@ -389,7 +411,8 @@ class SubjectSourceManager(models.GeoManager):
         return sds
 
     def get_subject_source(self, subject, source_id):
-        sds = SubjectSource.objects.filter(subject_id=subject.id, source_id=source_id)
+        sds = SubjectSource.objects.filter(
+            subject_id=subject.id, source_id=source_id)
         return sds
 
     def ensure(self, source, subject, assigned_range=None):
@@ -403,7 +426,8 @@ class SubjectSourceManager(models.GeoManager):
 
         subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=subject,
                                                                       assigned_range=assigned_range,
-                                                                      defaults=dict(additional={},)
+                                                                      defaults=dict(
+                                                                          additional={},)
                                                                       )
 
         return subject_source
@@ -411,17 +435,18 @@ class SubjectSourceManager(models.GeoManager):
     def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None,
                               additional=None, subject_name=None):
 
-        # TODO: Deprecate the use of this function, in favor of the ensure(). And let the caller handle creating related objects if necessary.
+        # TODO: Deprecate the use of this function, in favor of the ensure().
+        # And let the caller handle creating related objects if necessary.
 
         additional = additional or {}
 
         # get the most recent Subject for this Source
         subject_source = SubjectSource \
-                            .objects \
-                            .filter(source=source, assigned_range__contains=timestamp)\
-                            .order_by('assigned_range')\
-                            .reverse()\
-                            .first()
+            .objects \
+            .filter(source=source, assigned_range__contains=timestamp)\
+            .order_by('assigned_range')\
+            .reverse()\
+            .first()
 
         created = False
 
@@ -430,18 +455,20 @@ class SubjectSourceManager(models.GeoManager):
             sub, created = Subject.objects.get_or_create(
                 subject_type=subject_type, subject_subtype=subject_subtype,
                 name=(subject_name or source.manufacturer_id),
-                defaults=dict(additional=dict(region='', country='', rgb=random_rgb()))
+                defaults=dict(additional=dict(
+                    region='', country='', rgb=random_rgb()))
             )
 
             if sub:
                 subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
-                                                                     defaults=dict(assigned_range=DEFAULT_ASSIGNED_RANGE,
-                                                                                   additional=additional))
-                
+                                                                              defaults=dict(assigned_range=DEFAULT_ASSIGNED_RANGE,
+                                                                                            additional=additional))
+
         return subject_source, created
 
     def get_for_source_at_time(self, source, at_time):
-        subject_sources = SubjectSource.objects.filter(source=source, assigned_range__contains=at_time)
+        subject_sources = SubjectSource.objects.filter(
+            source=source, assigned_range__contains=at_time)
         if subject_sources:
             return subject_sources[0]
 
@@ -451,7 +478,8 @@ class SubjectSource(models.Model):
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    assigned_range = DateTimeRangeField('time assigned to subject', default=DEFAULT_ASSIGNED_RANGE)
+    assigned_range = DateTimeRangeField(
+        'time assigned to subject', default=DEFAULT_ASSIGNED_RANGE)
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     subject = models.ForeignKey('Subject', on_delete=models.CASCADE)
     additional = JSONField('additional', default={})
@@ -469,10 +497,12 @@ class SubjectTrackSegmentFilterManager(models.Manager):
 
 class SubjectTrackSegmentFilter(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    subject_type = models.TextField(default="SUBTYPE_ELEPHANT") #Should reference SubjectTypes table
+    # Should reference SubjectTypes table
+    subject_type = models.TextField(default="SUBTYPE_ELEPHANT")
     speed_KmHr = models.FloatField(default=7.0)
     additional = JSONField()
     objects = SubjectTrackSegmentFilterManager()
+
 
 DEFAULT_SUBJECT_GROUP_ID = 'b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057'
 DEFAULT_SOURCE_GROUP_ID = '654e592c-fc5a-436d-98dd-fd1b36436a85'
@@ -508,7 +538,8 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
         queryset = Subject.objects.all()
         if active is not None:
             queryset = queryset.by_is_active(active=active)
-        queryset = queryset.prefetch_related(models.Prefetch('subjectstatus_set'))
+        queryset = queryset.prefetch_related(
+            models.Prefetch('subjectstatus_set'))
         queryset = queryset.filter(groups__in=sg_all)
         return queryset
 
@@ -535,7 +566,8 @@ class SubjectQuerySet(models.QuerySet):
 
     def by_user_subjects(self, user):
 
-        # Avoid checking for a user that does not have permission sets (ex. AnonymousUser)
+        # Avoid checking for a user that does not have permission sets (ex.
+        # AnonymousUser)
         if not hasattr(user, 'get_all_permission_sets'):
             return self.none()
 
@@ -572,7 +604,7 @@ class SubjectQuerySet(models.QuerySet):
 
 class SubjectManager(models.Manager):
     def create_subject(self, **kwargs):
-        #all subjects are added to the default subject group
+        # all subjects are added to the default subject group
         subject = super().create(**kwargs)
         subject.groups.set((SubjectGroup.objects.get_default(),))
         return subject
@@ -612,10 +644,10 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     SUBTYPE_PLANE = 'plane'
     SUBTYPE_HELICOPTER = 'helicopter'
+    SUBTYPE_DRONE = 'drone'
     SUBTYPE_UNASSIGNED = 'unassigned'
 
     SUBTYPE_UNASSIGNED = 'unassigned'
-
 
     TYPES_HIERARCHIES = [
         {
@@ -665,6 +697,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_PLANE, 'Plane'),
                 (SUBTYPE_HELICOPTER, 'Helicopter'),
+                (SUBTYPE_DRONE, 'Drone'),
             )
         },
         {
@@ -676,8 +709,10 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         }
     ]
 
-    TYPE_CHOICES = [(item['value'], item['name']) for item in TYPES_HIERARCHIES]
-    SUBTYPE_CHOICES = [(item['name'], item['subtypes']) for item in TYPES_HIERARCHIES]
+    TYPE_CHOICES = [(item['value'], item['name'])
+                    for item in TYPES_HIERARCHIES]
+    SUBTYPE_CHOICES = [(item['name'], item['subtypes'])
+                       for item in TYPES_HIERARCHIES]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_('name'), max_length=100)
@@ -686,7 +721,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='subjects', related_query_name='subject')
 
-    subject_type = models.CharField('subject type', max_length=100, default=TYPE_UNASSIGNED, choices=TYPE_CHOICES)
+    subject_type = models.CharField(
+        'subject type', max_length=100, default=TYPE_UNASSIGNED, choices=TYPE_CHOICES)
     subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_UNASSIGNED,
                                        choices=SUBTYPE_CHOICES)
     additional = JSONField('additional data', default={})
@@ -704,7 +740,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     class Meta:
         permissions = (
-            ('view_last_position', 'Permission to view the last reported position of a Subject only.'),
+            ('view_last_position',
+             'Permission to view the last reported position of a Subject only.'),
             ('view_real_time', 'Access to real-time observations.'),
             ('view_delayed', 'Access to a 24 hour delayed observation feed. No real-time or last reported position.'),
             ('view_subject', 'Permission to view subject information excluding location'),
@@ -724,21 +761,23 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             ('access_ends_7', 'Can view tracks no less than 7 days old'),
         )
 
-    VIEW_POSITION_PERMS = ('observations.view_last_position', 'observations.view_real_time')
+    VIEW_POSITION_PERMS = ('observations.view_last_position',
+                           'observations.view_real_time')
     VIEW_DELAYED_PERMS = ('observations.view_delayed',)
 
-    VIEW_BEGIN_WINDOWS=(('observations.access_begins_7', 7),
-                        ('observations.access_begins_16', 16),
-                        ('observations.access_begins_30', 30),
-                        ('observations.access_begins_60', 60),
-                        ('observations.access_begins_all', 100000000))
+    VIEW_BEGIN_WINDOWS = (('observations.access_begins_7', 7),
+                          ('observations.access_begins_16', 16),
+                          ('observations.access_begins_30', 30),
+                          ('observations.access_begins_60', 60),
+                          ('observations.access_begins_all', 100000000))
 
-    VIEW_END_WINDOWS=(('observations.access_ends_0', 0),
-                      ('observations.access_ends_1', 1),
-                      ('observations.access_ends_3', 3),
-                      ('observations.access_ends_7', 7))
+    VIEW_END_WINDOWS = (('observations.access_ends_0', 0),
+                        ('observations.access_ends_1', 1),
+                        ('observations.access_ends_3', 3),
+                        ('observations.access_ends_7', 7))
 
-    VIEW_SUBJECT_PERMS = ('observations.view_subject',) + VIEW_BEGIN_WINDOWS + VIEW_END_WINDOWS
+    VIEW_SUBJECT_PERMS = ('observations.view_subject',) + \
+        VIEW_BEGIN_WINDOWS + VIEW_END_WINDOWS
 
     @property
     def color(self):
@@ -773,7 +812,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         return Observation.objects.get_subject_observations(self, since=since, until=until)
 
-
     @property
     def image_url(self):
         image_url = static_image_finder.get_marker_icon(self._image_keys())
@@ -792,7 +830,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         yield key
         yield '-'.join((key, 'black'))
 
-
     def get_users_to_notify(self):
         """
         return a queryset of all users to be notified for this subject
@@ -804,7 +841,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             users = set()
             ps_ids = self.get_obj_permission_set_ids()
             for ps in PermissionSet.objects.filter(id__in=ps_ids):
-                 users.update(ps.user_set.all())
+                users.update(ps.user_set.all())
             return users
 
     def __str__(self):
@@ -813,13 +850,14 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
 OBSERVATION_DELAY_HRS = 72
 
+
 class SubjectStatusQuerySet(models.QuerySet):
     def get_last(self):
         for row in self:
             if row.delay_hours == 0:
                 return row
 
-    def get_delayed(self, delay = OBSERVATION_DELAY_HRS):
+    def get_delayed(self, delay=OBSERVATION_DELAY_HRS):
         for row in self:
             if row.delay_hours == delay:
                 return row
@@ -837,14 +875,14 @@ class SubjectStatusQuerySet(models.QuerySet):
         return range_start, range_end
 
 
-
 class SubjectStatusManager(models.Manager):
 
     def update_from_observation(self, observation, delay_hours=0):
 
-        ss = SubjectSource.objects.get_for_source_at_time(source=observation.source, at_time=observation.recorded_at)
+        ss = SubjectSource.objects.get_for_source_at_time(
+            source=observation.source, at_time=observation.recorded_at)
 
-        if not ss: # Coding error
+        if not ss:  # Coding error
             return
             # raise ValueError('No SubjectSource exists for observation {}'.format(observation))
 
@@ -852,15 +890,16 @@ class SubjectStatusManager(models.Manager):
             observation = Observation.objects.get_last_observation(ss.subject)
         else:
             ts = datetime.now(tz=pytz.UTC) - timedelta(hours=delay_hours)
-            observation = Observation.objects.get_delayed_observation(ss.subject, older_than=ts)
+            observation = Observation.objects.get_delayed_observation(
+                ss.subject, older_than=ts)
 
         if not observation:
             return
 
         substatus, created = SubjectStatus.objects.get_or_create(subject=ss.subject, delay_hours=delay_hours,
-                                                        defaults=dict(recorded_at=observation.recorded_at,
-                                                                      location=observation.location,
-                                                                      additional={}))
+                                                                 defaults=dict(recorded_at=observation.recorded_at,
+                                                                               location=observation.location,
+                                                                               additional={}))
 
         if created or substatus.recorded_at >= observation.recorded_at:
             pass
@@ -916,7 +955,8 @@ class Region(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     slug = models.SlugField('unique id', max_length=100, unique=True)
     region = models.CharField('region or pa', max_length=100)
-    country = models.CharField('country mostly containing region', max_length=100)
+    country = models.CharField(
+        'country mostly containing region', max_length=100)
 
     def save(self, *args, **kwargs):
         self.slug = slugify(self.region + ' ' + self.country)

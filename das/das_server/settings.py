@@ -14,6 +14,7 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 import os
 import sys
 
+from corsheaders.defaults import default_headers
 from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TCP
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -166,14 +167,14 @@ REST_FRAMEWORK = {
     #'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
     #'DEFAULT_VERSION': 'v1.0',
     'SECURITY_DEFINITIONS': {
-            'oauth2': {
-                'type': 'oauth2',
-                'name': '',
-                'authorizationUrl': 'http://swagger.io/api/oauth/dialog',
-                'flow': 'password',
-                'in': 'header',
-            }
-        },
+        'oauth2': {
+            'type': 'oauth2',
+            'name': '',
+            'authorizationUrl': 'http://swagger.io/api/oauth/dialog',
+            'flow': 'password',
+            'in': 'header',
+        }
+    },
 }
 
 AUTHENTICATION_BACKENDS = (
@@ -183,7 +184,7 @@ AUTHENTICATION_BACKENDS = (
 )
 
 SERIALIZATION_MODULES = {
-    'geojson' : 'core.serializers'
+    'geojson': 'core.serializers'
 }
 
 # Database
@@ -235,13 +236,17 @@ STATICFILES_DIRS = (
 
 SITE_ID = 1
 
-#socket.io uses the CORS_ORIGIN_WHITELIST as well
-#caveat is that socket.io matches against the whole ORIGIN ie: http://localhost
+# socket.io uses the CORS_ORIGIN_WHITELIST as well
+# caveat is that socket.io matches against the whole ORIGIN ie:
+# http://localhost
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ORIGIN_WHITELIST = (
-     )
+)
 CORS_REPLACE_HTTPS_REFERER = True
+CORS_ALLOW_HEADERS = default_headers + (
+    'user-profile',
+)
 
 ALLOWED_HOSTS = ['*']
 
@@ -273,12 +278,12 @@ SWAGGER_SETTINGS = {
     }
 }
 
-OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600*48}
+OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600 * 48}
 
-#RT API settings
+# RT API settings
 ASYNC_MODE = 'eventlet'
 
-#override these if your libraries are in a different place
+# override these if your libraries are in a different place
 GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'
 GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
 
@@ -297,8 +302,8 @@ Associate a plugin name with a plugin-configuration dict that will override the 
 DATA_INPUT_PLUGINS = {
 }
 
-#would want to set this to where you might have some MBTiles maps
-MAPPING = {'MBTILES': {'root': r'/tmp',}}
+# would want to set this to where you might have some MBTiles maps
+MAPPING = {'MBTILES': {'root': r'/tmp', }}
 
 REALTIME_BROKER_URL = 'redis://redis:6379/2'
 REALTIME_BROKER_OPTIONS = {'max_connections': 200}
@@ -306,9 +311,7 @@ PUBSUB_BROKER_URL = 'redis://redis:6379/1'
 PUBSUB_BROKER_OPTIONS = {'max_connections': 200}
 
 
-
-
-#Celery Settings
+# Celery Settings
 CELERY_BROKER_URL = 'redis://redis:6379'
 
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
@@ -342,24 +345,24 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
 DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
-#Used by password reset email
+# Used by password reset email
 EMAIL_HOST_USER = 'info@pamdas.org'
 
-SENDSMS_BACKEND='utils.smsbackend.AfricasTalkingBackend'
+SENDSMS_BACKEND = 'utils.smsbackend.AfricasTalkingBackend'
 
 # use these when you want to send SMS from kenya
-SENDSMS_AFRICAS_TALKING_USERNAME=''
-SENDSMS_AFRICAS_TALKING_API_KEY=''
+SENDSMS_AFRICAS_TALKING_USERNAME = ''
+SENDSMS_AFRICAS_TALKING_API_KEY = ''
 
 # use these when you don't want to send SMS from kenya
-SENDSMS_TWILIO_ACCOUNT_SID=''
-SENDSMS_TWILIO_AUTH_TOKEN=''
+SENDSMS_TWILIO_ACCOUNT_SID = ''
+SENDSMS_TWILIO_AUTH_TOKEN = ''
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'event_photo': [
         ('original', 'url'),
-        ('thumbnail', 'thumbnail__150x150'), # Resize to fit within
-        ('large', 'thumbnail__800x800') # Resize to fit within
+        ('thumbnail', 'thumbnail__150x150'),  # Resize to fit within
+        ('large', 'thumbnail__800x800')  # Resize to fit within
     ],
 }
 
@@ -410,9 +413,9 @@ SHOW_TRACK_DAYS = 16
 
 REALTIME_AUTH_TIMEOUT_SECONDS = 1.0
 
-NOTIFY_HIGH_PRIORITY_EVENT=None
-NOTIFY_MEDIUM_PRIORITY_EVENT=None
-NOTIFY_LOW_PRIORITY_EVENT=None
+NOTIFY_HIGH_PRIORITY_EVENT = None
+NOTIFY_MEDIUM_PRIORITY_EVENT = None
+NOTIFY_LOW_PRIORITY_EVENT = None
 
 EVENT_MATRIX_ENABLED = False
 
