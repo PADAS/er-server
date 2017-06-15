@@ -359,6 +359,7 @@ SENDSMS_TWILIO_AUTH_TOKEN=''
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'default': [
         ('original', 'url'),
+        ('icon', 'crop__64x64'), # Crop for use as icon
         ('thumbnail', 'thumbnail__150x150'), # Resize to fit within
         ('large', 'thumbnail__800x800') # Resize to fit within
     ],

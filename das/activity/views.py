@@ -183,7 +183,6 @@ class EventsView(generics.ListCreateAPIView):
     event_type
     state
     include_updates, true to include event updates
-    include_photos, true to include photos
     include_notes, true to include notes
     page, page number
     page_size, (default is {page_size}, max is {max_page_size})
@@ -200,7 +199,6 @@ class EventsView(generics.ListCreateAPIView):
         context = super().get_serializer_context()
         context['include_updates'] = parse_bool(query_params.get('include_updates', True))
         context['include_notes'] = parse_bool(query_params.get('include_notes', True))
-        context['include_photos'] = parse_bool(query_params.get('include_photos', True))
         context['include_details'] = parse_bool(query_params.get('include_details', True))
         context['include_related_events'] = parse_bool(query_params.get('include_related_events', False))
         return context
@@ -448,31 +446,30 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
 
     def get(self, request, *args, **kwargs):
 
-        if request.GET.get('data', 'false').lower() == 'true':
+        # if request.GET.get('data', 'false').lower() == 'true':
+        if self.kwargs.get('filename', None) == 'meta-data':
             return super().get(request, *args, **kwargs)
 
         instance = self.get_object()
 
         desired_image_size = self.kwargs.get('image_size', None)
         content_type, encoding = mimetypes.guess_type(instance.usercontent.filename)
-        if content_type and content_type not in USERCONTENT_FORCE_DOWNLOAD:
 
-            if isinstance(instance.usercontent.file, (versatileimagefield.files.VersatileImageFieldFile,)):
-                filename = get_stored_filename(instance.usercontent.file, rendition_set='default',
-                                               rendition_key=desired_image_size )
-                try:
-                    responsefile = instance.usercontent.file.field.storage.open(filename)
-                except OSError as oe:
-                    logger.warning('Failed attempt to open file %s. Will default to original file version.', filename)
-                    responsefile = instance.usercontent.file
+        if content_type in USERCONTENT_FORCE_DOWNLOAD:
+            content_type = 'application/octet-stream'
 
+        if isinstance(instance.usercontent.file, (versatileimagefield.files.VersatileImageFieldFile,)):
+            filename = get_stored_filename(instance.usercontent.file, rendition_set='default',
+                                           rendition_key=desired_image_size)
+            try:
+                response_file = instance.usercontent.file.field.storage.open(filename)
+            except OSError as oe:
+                logger.warning('Failed attempt to open file %s. Will default to original file version.', filename)
+                response_file = instance.usercontent.file
 
-            else:
-                responsefile = instance.usercontent.file
-
-            response = HttpResponse(responsefile, content_type=content_type)
+            response = HttpResponse(response_file, content_type=content_type)
         else:
-            response = HttpResponse(instance.usercontent.file, content_type='application/octet-stream')
+            response = HttpResponse(instance.usercontent.file, content_type=content_type)
             response['Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename
 
         return response

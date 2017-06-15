@@ -628,10 +628,15 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
                     rep['images'] = image_sizes
 
 
+
         # Promote some usercontent attributes.
         rep['filename'] = rep['usercontent'].get('filename')
-        rep['icon_url'] = rep['usercontent'].get('icon_url')
         rep['file_type'] = rep['usercontent'].get('file_type')
+
+        try:
+            rep['icon_url'] = rep['images']['icon']
+        except KeyError:
+            rep['icon_url'] = rep['usercontent'].get('icon_url')
 
         # Prune some unnecessary attributes.
         for att in ('usercontent', 'event', 'usercontent_id', 'usercontent_type'):

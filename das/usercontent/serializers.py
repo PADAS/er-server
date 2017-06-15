@@ -86,11 +86,11 @@ class UserContentSerializer(rest_framework.serializers.Serializer):
     file = rest_framework.serializers.FileField()
     filename = rest_framework.serializers.CharField(label='Name of uploaded file.', required=False)
 
-    image_url = rest_framework.serializers.SerializerMethodField()
-
-    def get_image_url(self, filecontent):
-        image_url = resolve_file_icon(filecontent)
-        return utils.add_base_url(self.context['request'], image_url)
+    # image_url = rest_framework.serializers.SerializerMethodField()
+    #
+    # def get_image_url(self, filecontent):
+    #     image_url = resolve_file_icon(filecontent)
+    #     return utils.add_base_url(self.context['request'], image_url)
 
     def to_representation(self, instance):
 
@@ -135,8 +135,10 @@ def get_stored_filename(file, rendition_set='default', rendition_key=None):
         rendition = renditions.get(rendition_key, 'None')
         rendition_type, key = rendition.split('__')
 
-        if rendition_type == 'thumbnail':
-            return file.thumbnail[key].name
+        # We can expect to see rendition_type in (thumbnail, crop)
+        if hasattr(file, rendition_type):
+            return getattr(file, rendition_type)[key].name
+
     except ValueError:
         pass
 
