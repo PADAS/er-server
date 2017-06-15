@@ -1,5 +1,5 @@
 # requirements needed to run continious integration
-# pip-compile --output-file requirements-ci.txt requirements-ci.in .\requirements.txt
+# pip-compile --output-file requirements-ci.txt requirements-ci.in .\requirements.txt --find-links ..\wheelhouse\
 #apt-get install sloccount
 coverage==4.1b2
 django-jenkins==0.18.1

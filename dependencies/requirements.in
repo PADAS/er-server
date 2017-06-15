@@ -2,7 +2,7 @@
 # Pinned github commit references are kept in requirements-pinned.txt
 # run the following command from pip-tools, to prepare a pinned set of
 # dependencies for the app
-#   pip-compile requirements.in
+#   pip-compile requirements.in --find-links ..\wheelhouse\
 # run this command to update versions:
 #   pip-compile --upgrade
 
@@ -65,7 +65,7 @@ docxtpl==0.2.3
 python-docx==0.8.6
 lxml==3.7.3
 
-pymet>=0.1.10
+pymet==0.1.10
 
 -e git+https://github.com/PADAS/python-socketio.git@3314c2243590fbbff327744b47fe10d29d00d402#egg=python-socketio
 
