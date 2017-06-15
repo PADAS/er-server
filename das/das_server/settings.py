@@ -62,6 +62,7 @@ INSTALLED_APPS = (
     'choices',
     'reports',
     'django_readonly_field',
+    'usercontent',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -359,6 +360,12 @@ SENDSMS_TWILIO_ACCOUNT_SID = ''
 SENDSMS_TWILIO_AUTH_TOKEN = ''
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
+    'default': [
+        ('original', 'url'),
+        ('icon', 'crop__64x64'), # Crop for use as icon
+        ('thumbnail', 'thumbnail__150x150'), # Resize to fit within
+        ('large', 'thumbnail__800x800') # Resize to fit within
+    ],
     'event_photo': [
         ('original', 'url'),
         ('thumbnail', 'thumbnail__150x150'),  # Resize to fit within
@@ -407,6 +414,22 @@ VERSATILEIMAGEFIELD_SETTINGS = {
     # Whether to create progressive JPEGs. Read more about progressive JPEGs
     # here: https://optimus.io/support/progressive-jpeg/
     'progressive_jpeg': True
+}
+
+USERCONTENT_SETTINGS = {
+    # For a file with one of these extensions, we'll attempt to save it as an ImageFile.
+    'imagefile_extensions': ('jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff'),
+
+    # Prohibit uploading files with these extensions.
+    'prohibited_extensions': ('bin', 'exe', 'dll', 'deb', 'sh',),
+
+    # Always serve files with these mime-types as application/octet-stream.
+    'force_download_mimetypes': ('text/html', 'text/javascript',),
+
+    # Edit these extensions by appending a .txt
+    'edit_extensions': ('html', 'htm', 'js', 'css', 'exe', 'sh', 'bin', 'dll', 'deb', 'dmg', 'iso', 'img', 'msi', 'msp',
+                   'msm')
+
 }
 
 SHOW_TRACK_DAYS = 16

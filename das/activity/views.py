@@ -1,24 +1,32 @@
 from collections import OrderedDict
 from datetime import timedelta
+import copy
+import mimetypes
+import logging
 
+from django.conf import settings
 from rest_framework import generics, status, response
+from django.http.response import HttpResponse
+
 from django.db.models import Prefetch
 from django.core.urlresolvers import reverse
 from django.template import Template, Context
+from rest_framework.response import Response
 
 import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
+import versatileimagefield.files
 
 from activity.models import Event, EventNote, EventPhoto, EventClass,\
-    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory
+    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
-    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer
+    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
-from activity.permissions import EventCategoryPermissions
+from activity.permissions import EventCategoryPermissions, EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
 import utils
@@ -26,7 +34,11 @@ from activity import schema_utils
 import accounts.serializers
 import accounts.models
 
+logger = logging.getLogger(__name__)
+
 LAST_DAYS = timedelta(days=3)
+
+USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get('force_download_mimetypes', set())
 
 
 class EventSchemaView(generics.ListCreateAPIView):
@@ -171,7 +183,6 @@ class EventsView(generics.ListCreateAPIView):
     event_type
     state
     include_updates, true to include event updates
-    include_photos, true to include photos
     include_notes, true to include notes
     page, page number
     page_size, (default is {page_size}, max is {max_page_size})
@@ -188,7 +199,6 @@ class EventsView(generics.ListCreateAPIView):
         context = super().get_serializer_context()
         context['include_updates'] = parse_bool(query_params.get('include_updates', True))
         context['include_notes'] = parse_bool(query_params.get('include_notes', True))
-        context['include_photos'] = parse_bool(query_params.get('include_photos', True))
         context['include_details'] = parse_bool(query_params.get('include_details', True))
         context['include_related_events'] = parse_bool(query_params.get('include_related_events', False))
         return context
@@ -365,6 +375,104 @@ class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
         obj = generics.get_object_or_404(queryset, **filters)
 
         return obj
+
+
+def resolve_first(dicts, keys):
+    for d in dicts:
+        for k in keys:
+            if k in d:
+                return d[k]
+                break
+
+from usercontent.serializers import UserContentSerializer
+class EventFilesView(generics.ListCreateAPIView):
+    permission_classes = (EventCategoryPermissions,)
+    serializer_class = EventFileSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def create(self, request, *args, **kwargs):
+
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['id'])
+
+        # TODO: This conditional is to handle the case where a file is uploaded via XHR. Figure out why.
+        if 'filecontent.file' not in request.data:
+            try:
+                # Ajax request.
+                request.data['filecontent.file'] = request.stream.FILES['filecontent.file']
+            except KeyError:
+                pass
+
+        this_data = copy.copy(request.data)
+        this_data['event'] = event.id
+
+        this_data['usercontent.file'] = this_data['filecontent.file']
+
+        serializer = self.get_serializer(data=this_data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+    def get_queryset(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['id'])
+
+        return event.files.all()
+
+
+from usercontent.serializers import get_stored_filename
+
+class EventFileView(generics.RetrieveUpdateDestroyAPIView):
+
+    permission_classes = (EventCategoryPermissions,)
+    serializer_class = EventFileSerializer
+
+    def get_queryset(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['event_id'])
+
+        qs = EventFile.objects.all().filter(event=event)
+        return qs
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        filters = {'id': self.kwargs['filecontent_id']}
+
+        obj = generics.get_object_or_404(queryset, **filters)
+        return obj
+
+    def get(self, request, *args, **kwargs):
+
+        # if request.GET.get('data', 'false').lower() == 'true':
+        if self.kwargs.get('filename', None) == 'meta-data':
+            return super().get(request, *args, **kwargs)
+
+        instance = self.get_object()
+
+        desired_image_size = self.kwargs.get('image_size', None)
+        content_type, encoding = mimetypes.guess_type(instance.usercontent.filename)
+
+        if content_type in USERCONTENT_FORCE_DOWNLOAD:
+            content_type = 'application/octet-stream'
+
+        if isinstance(instance.usercontent.file, (versatileimagefield.files.VersatileImageFieldFile,)):
+            filename = get_stored_filename(instance.usercontent.file, rendition_set='default',
+                                           rendition_key=desired_image_size)
+            try:
+                response_file = instance.usercontent.file.field.storage.open(filename)
+            except OSError as oe:
+                logger.warning('Failed attempt to open file %s. Will default to original file version.', filename)
+                response_file = instance.usercontent.file
+
+            response = HttpResponse(response_file, content_type=content_type)
+        else:
+            response = HttpResponse(instance.usercontent.file, content_type=content_type)
+            response['Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename
+
+        return response
 
 
 class EventRelationshipsView(generics.ListCreateAPIView):

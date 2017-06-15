@@ -22,6 +22,7 @@ from versatileimagefield.fields import VersatileImageField
 
 from utils.html import clean_user_text
 from core.models import TimestampedModel
+import usercontent.models
 from observations.models import Subject
 from revision.manager import Revision, RevisionMixin
 
@@ -296,6 +297,45 @@ class EventRelationshipManager(models.Manager):
             if ert.symmetrical:
                 EventRelationship.objects.filter(from_event=to_event, to_event=from_event, type=ert).delete()
 
+        return result
+
+
+class EventFile(TimestampedModel, RevisionMixin):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    event = models.ForeignKey('Event', related_name='files', related_query_name='file',
+                              on_delete=models.CASCADE)
+
+    comment = models.TextField(blank=True, null=False, default='', verbose_name='Comment about the file.')
+
+    relation_limits = models.Q(app_label='usercontent', model='filecontent') | \
+        models.Q(app_label='usercontent', model='imagefilecontent')
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='event_files', related_query_name='event_file')
+
+    # Generic foreign key to plugin
+    usercontent_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=relation_limits)
+    usercontent_id = models.UUIDField()
+    usercontent = GenericForeignKey('usercontent_type', 'usercontent_id')
+
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+    revision = Revision()
+    class Meta:
+        ordering = ['ordernum', '-updated_at']
+
+    @property
+    def event_type(self):
+        return self.event.event_type
+
+    def clean(self):
+        super().clean()
+        self.comment = clean_user_text(self.comment, 'EventFile.comment')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        result = super().save(*args, **kwargs)
+        self.event.dependent_table_updated()
         return result
 
 
