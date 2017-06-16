@@ -55,7 +55,8 @@ cython==0.25.2
 geopandas==0.2.1
 shapely==1.5.17
 
-boto==2.46.1
+# 2017-06-16, switch to boto3 (from boto==2.46.1)
+boto3==1.4.4
 PyYAML==3.12
 Pillow==4.0.0
 
