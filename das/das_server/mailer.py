@@ -17,7 +17,7 @@ ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
                  'priority', 'geojson', 'location', 'event_details', 'id',
                  'serial_number', 'state', 'photos', 'is_contained_in', 'url',
                  'event_category', 'is_collection', 'attributes', 'provenance',
-                 'priority_label', 'title']
+                 'priority_label', 'title', 'files']
 
 
 def extract_details(schema, details):
@@ -33,7 +33,7 @@ def extract_details(schema, details):
             yield email_separator_string.format(key_display, v)
         elif isinstance(v, list):
             yield email_separator_string.format(key_display, ', '.join([_.get('name') for
-                _ in v if isinstance(_, dict) and _.get('name') is not None]))
+                                                                        _ in v if isinstance(_, dict) and _.get('name') is not None]))
 
 
 def send_event_mail(event, user, revision, email_callback):
@@ -46,7 +46,8 @@ def send_event_mail(event, user, revision, email_callback):
                 display_value = event.get_display_value(key, value)
             except Exception:
                 display_value = value
-            updated_fields.append(email_separator_string.format(key, display_value))
+            updated_fields.append(
+                email_separator_string.format(key, display_value))
 
         newness = _('UPDATE')
     else:
@@ -62,7 +63,8 @@ def send_event_mail(event, user, revision, email_callback):
     schema_fields_and_values = None
     ed = event.event_details.first()
     if ed and ed.data and 'event_details' in ed.data:
-        schema_fields_and_values = list(extract_details(event.event_type.schema, ed.data['event_details']))
+        schema_fields_and_values = list(extract_details(
+            event.event_type.schema, ed.data['event_details']))
 
     event_fields_and_values = []
     serializer = EventSerializer()
@@ -80,9 +82,11 @@ def send_event_mail(event, user, revision, email_callback):
             except Exception:
                 display_value = value
         if display_value is not None:
-            event_fields_and_values.append(email_separator_string.format(key, display_value))
+            event_fields_and_values.append(
+                email_separator_string.format(key, display_value))
 
-    parent_event = Event.objects.filter(out_relationship__to_event=event, out_relationship__type__value='contains').first()
+    parent_event = Event.objects.filter(
+        out_relationship__to_event=event, out_relationship__type__value='contains').first()
     display_title = event.title if event.title is not None else _('No Title')
     parameters = {
         'id': event.serial_number,
@@ -140,5 +144,3 @@ def send_update_event_sms(event, changes, user):
     body = render_to_string('update_event_sms.txt', parameters)[:100]
     logger.info('Sending new event sms to {0}'.format(user.phone))
     user.send_sms(body, None)
-
-
