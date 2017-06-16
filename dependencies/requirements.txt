@@ -13,7 +13,9 @@ billiard==3.5.0.2         # via celery
 bkcharts==0.2             # via bokeh
 bleach==1.4.3
 bokeh==0.12.6             # via pymet
-boto==2.46.1
+boto3==1.4.4
+boto==2.46.1              # via django-ses
+botocore==1.5.69          # via boto3, s3transfer
 celery==4.0.2
 cffi==1.10.0              # via cryptography
 click-plugins==1.0.3      # via fiona
@@ -39,7 +41,7 @@ django-storages==1.5.2
 django-treebeard==4.1.0
 django==1.9.12
 djangorestframework==3.4.7
-docutils==0.13.1          # via sphinx
+docutils==0.13.1          # via botocore, sphinx
 docxtpl==0.2.3
 drf-extensions==0.3.1
 earthengine-api==0.1.114  # via pymet
@@ -58,6 +60,7 @@ html5lib==0.9999999       # via bleach
 httplib2==0.10.3          # via google-api-python-client, oauth2client
 idna==2.5                 # via cryptography
 jinja2==2.8.1
+jmespath==0.9.3           # via boto3, botocore
 kombu==4.0.2              # via celery
 lxml==3.7.3
 markupsafe==1.0           # via jinja2
@@ -89,6 +92,7 @@ pyyaml==3.12
 redis==2.10.5
 requests==2.13.0
 rsa==3.4.2                # via oauth2client
+s3transfer==0.1.10        # via boto3
 shapely==1.5.17
 simplejson==3.10.0
 six==1.10.0
