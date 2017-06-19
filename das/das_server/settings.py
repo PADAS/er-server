@@ -78,6 +78,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
+    'accounts.middleware.UserProfileMiddleware',
     'revision.middleware.RevisionMiddleware',
     'utils.middleware.RequestLoggingMiddleware'
     #'django.contrib.sites.middleware.CurrentSiteMiddleware',
@@ -362,9 +363,9 @@ SENDSMS_TWILIO_AUTH_TOKEN = ''
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'default': [
         ('original', 'url'),
-        ('icon', 'crop__64x64'), # Crop for use as icon
-        ('thumbnail', 'thumbnail__150x150'), # Resize to fit within
-        ('large', 'thumbnail__800x800') # Resize to fit within
+        ('icon', 'crop__64x64'),  # Crop for use as icon
+        ('thumbnail', 'thumbnail__150x150'),  # Resize to fit within
+        ('large', 'thumbnail__800x800')  # Resize to fit within
     ],
     'event_photo': [
         ('original', 'url'),
@@ -417,7 +418,8 @@ VERSATILEIMAGEFIELD_SETTINGS = {
 }
 
 USERCONTENT_SETTINGS = {
-    # For a file with one of these extensions, we'll attempt to save it as an ImageFile.
+    # For a file with one of these extensions, we'll attempt to save it as an
+    # ImageFile.
     'imagefile_extensions': ('jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff'),
 
     # Prohibit uploading files with these extensions.
@@ -428,7 +430,7 @@ USERCONTENT_SETTINGS = {
 
     # Edit these extensions by appending a .txt
     'edit_extensions': ('html', 'htm', 'js', 'css', 'exe', 'sh', 'bin', 'dll', 'deb', 'dmg', 'iso', 'img', 'msi', 'msp',
-                   'msm')
+                        'msm')
 
 }
 

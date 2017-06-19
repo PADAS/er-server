@@ -57,12 +57,10 @@ class PermissionSetAdmin(DjangoGroupAdmin):
             'fields': ('children', 'user_set')}),
     )
 
-
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == 'children':
             db_field.verbose_name = 'permission sets'
         return super().formfield_for_dbfield(db_field, **kwargs)
-
 
     def all_permissions(self, instance):
         permissions = instance.permissions.all()
@@ -119,8 +117,8 @@ class UserAdmin(DjangoUserAdmin):
                        )}
          ),
         (_('Permissions'), {
-            'fields': ('permission_sets', 'is_active', 'is_staff',
-                       'is_superuser',)}),
+            'fields': ('permission_sets', 'is_active', 'is_nologin', 'is_staff',
+                       'is_superuser', 'act_as_profiles')}),
     )
 
     list_display = ('display_name', 'member_permission_sets',
@@ -144,6 +142,7 @@ class UserAdmin(DjangoUserAdmin):
                               ' otherwise a password reset email is sent to the user')),
             'fields': ('password1', 'password2',)}),
         (_('Permissions'), {'fields': ('permission_sets',)}),
+        (_('User Profiles'), {'fields': ('act_as_profiles',)}),
     )
 
     def display_name(self, instance):
@@ -167,6 +166,15 @@ class UserAdmin(DjangoUserAdmin):
 
     member_permission_sets.short_description = 'Member Permission Sets'
     member_permission_sets.allow_tags = True
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == 'act_as_profiles':
+            queryset = User.objects.filter(is_staff=False)
+            #queryset = queryset.filter(is_nologin=True)
+            queryset = queryset.by_is_active()
+            queryset = queryset.exclude(pk=request.user.pk)
+            kwargs['queryset'] = queryset
+        return super(UserAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
 
     def reset_password(self, request, user_id):
         if not self.has_change_permission(request):
@@ -206,8 +214,8 @@ class UserAdmin(DjangoUserAdmin):
     def get_urls(self):
         urls = super(UserAdmin, self).get_urls()
         my_urls = [url(r'^(.+)/change/reset-password/?$',
-                   self.admin_site.admin_view(self.reset_password)
-                   ),
+                       self.admin_site.admin_view(self.reset_password)
+                       ),
                    ]
         return my_urls + urls
 
