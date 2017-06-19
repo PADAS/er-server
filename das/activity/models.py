@@ -124,7 +124,7 @@ class EventCategory(TimestampedModel):
     ordernum = models.SmallIntegerField(blank=True, null=True)
     objects = EventBaseManager()
 
-    type = models.CharField(max_length=40, default='user', choices=(
+    flag = models.CharField(max_length=40, default='user', choices=(
         ('user', 'User'), ('system', 'System')))
 
     def __str__(self):

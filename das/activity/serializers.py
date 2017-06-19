@@ -398,7 +398,7 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
 class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventCategory
-        read_only_fields = ('value', 'display', 'ordernum', 'type',)
+        read_only_fields = ('value', 'display', 'ordernum', 'flag',)
         fields = read_only_fields
 
     def to_representation(self, obj):
