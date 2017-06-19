@@ -3,17 +3,21 @@ import os
 import logging
 import glob
 
+from django.conf import settings
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import reverse, NoReverseMatch
 from django.utils.translation import ugettext_lazy as _
+from tagulous.models import TagField
 
 from core.models import TimestampedModel
 from utils.decorator import reify
 from mapping.app_settings import MBTILES
 from mapping.mbtiles import ExtractionError, GoogleProjection, MBTilesReader
 from mapping.mbtiles import InvalidFormatError
+from revision.manager import Revision, RevisionMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +75,7 @@ class FeatureType(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
-    presentation = JSONField(default={})
+    presentation = JSONField(default=dict)
     objects = FeatureTypeManager()
 
     def __str__(self):
@@ -93,12 +97,9 @@ class FeatureSet(TimestampedModel):
       ... better than handling as a layer group in UI as it allows grouping to be controlled in db?
     """
 
-    """TODO: Should be versioned"""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
     types = models.ManyToManyField(to=FeatureType, related_name='featuresets')
-    #features = models.ManyToManyField(to=GeoFeature, related_name='features')
 
     description = models.TextField(null=True, blank=True)
 
@@ -116,26 +117,22 @@ class Feature(TimestampedModel):
     A vector feature, e.g. a boundary, a hut, a village, a river ...
     """
 
-    """TODO: Should be versioned"""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80)
     type = models.ForeignKey(to=FeatureType)
+
     description = models.TextField(null=True, blank=True)
 
-    #Added by Jake
-    short_name = models.CharField(max_length=20)  # A shorter name used for cartographic display
-    categorization = JSONField(default={})  # Different types of categorization
-    attributes = JSONField(default={})  # Additional feature attribute data
-
     # attributes for presentation
-    presentation = JSONField(default={})
-    fields = JSONField(default={})
+    presentation = JSONField(default=dict)
+    fields = JSONField(default=dict)
     external_id = models.CharField(max_length=80, blank=True, null=True)
 
     # the feature set with which this feature is being grouped.
-    # todo:  evaluate whether many-to-many might be a better approach or stick with this simple approach
-    featureset = models.ForeignKey(to=FeatureSet, null=True)  # probably should be spelled feature_set
+    # todo:  evaluate whether many-to-many might be a better approach or stick
+    # with this simple approach
+    # probably should be spelled feature_set
+    featureset = models.ForeignKey(to=FeatureSet, null=True)
 
     @property
     def default_presentation(self):
@@ -151,14 +148,6 @@ class Feature(TimestampedModel):
     # todo:  perhaps type and name?
     def __str__(self):
         return u"{0}".format(self.name)
-
-
-class GeoFeature(Feature):
-    """
-        GeoFeature is a PostGIS type that can accept the gamut of spatial types and provides
-        better distance calculations when data spans large distances as opposed to a cartesian representation.
-    """
-    feature_geometry = models.GeometryField(geography=True, srid=4326)
 
 
 class PolygonFeature(Feature):
@@ -183,7 +172,8 @@ class MBTilesNotFoundError(Exception):
 
 class MBTilesFolderError(ImproperlyConfigured):
     def __init__(self, *args, **kwargs):
-        super(ImproperlyConfigured, self).__init__(_("MBTILES['root'] '%s' does not exist") % MBTILES['root'])
+        super(ImproperlyConfigured, self).__init__(
+            _("MBTILES['root'] '%s' does not exist") % MBTILES['root'])
 
 
 class MBTilesManager(object):
@@ -191,10 +181,12 @@ class MBTilesManager(object):
         source: https://github.com/makinacorpus/django-mbtiles.git
         license: Lesser GNU Public License
     """
+
     def __init__(self, *args, **kwargs):
         self.logger = logging.getLogger(self.__class__.__name__)
         if not os.path.exists(MBTILES['root']):
-            self.logger.error('MBTILES folder not set %s', MBTilesFolderError())
+            self.logger.error('MBTILES folder not set %s',
+                              MBTilesFolderError())
         self.folder = MBTILES['root']
 
     def filter(self, catalog=None):
@@ -252,7 +244,8 @@ class MBTilesManager(object):
         if os.path.exists(mbtiles_file):
             return mbtiles_file
 
-        raise MBTilesNotFoundError(_("'%s' not found in %s") % (mbtiles_file, basepath))
+        raise MBTilesNotFoundError(
+            _("'%s' not found in %s") % (mbtiles_file, basepath))
 
 
 class MBTiles(object):
@@ -264,7 +257,8 @@ class MBTiles(object):
         self.catalog = catalog
         self.fullpath = self.objects.fullpath(name, catalog)
         self.basename = os.path.basename(self.fullpath)
-        self._reader = MBTilesReader(self.fullpath, tilesize=MBTILES['tile_size'])
+        self._reader = MBTilesReader(
+            self.fullpath, tilesize=MBTILES['tile_size'])
 
     @property
     def id(self):
@@ -287,8 +281,9 @@ class MBTiles(object):
     def bounds(self):
         bounds = self.metadata.get('bounds', '').split(',')
         if len(bounds) != 4:
-            logger.warning(_("Invalid bounds metadata in '%s', fallback to whole world.") % self.name)
-            bounds = [-180,-90,180,90]
+            logger.warning(
+                _("Invalid bounds metadata in '%s', fallback to whole world.") % self.name)
+            bounds = [-180, -90, 180, 90]
         return tuple(map(float, bounds))
 
     @reify
@@ -301,12 +296,13 @@ class MBTiles(object):
             lon, lat, zoom = map(float, center)
             zoom = int(zoom)
             if zoom not in self.zoomlevels:
-                logger.warning(_("Invalid zoom level (%s), fallback to middle zoom (%s)") % (zoom, self.middlezoom))
+                logger.warning(_("Invalid zoom level (%s), fallback to middle zoom (%s)") % (
+                    zoom, self.middlezoom))
                 zoom = self.middlezoom
             return (lon, lat, zoom)
         # Invalid center from metadata, guess center from bounds
-        lat = self.bounds[1] + (self.bounds[3] - self.bounds[1])/2
-        lon = self.bounds[0] + (self.bounds[2] - self.bounds[0])/2
+        lat = self.bounds[1] + (self.bounds[3] - self.bounds[1]) / 2
+        lon = self.bounds[0] + (self.bounds[2] - self.bounds[0]) / 2
         return (lon, lat, self.middlezoom)
 
     @property
@@ -321,7 +317,7 @@ class MBTiles(object):
 
     @property
     def middlezoom(self):
-        return self.zoomlevels[int(len(self.zoomlevels)/2)]
+        return self.zoomlevels[int(len(self.zoomlevels) / 2)]
 
     @reify
     def zoomlevels(self):
@@ -357,15 +353,17 @@ class MBTiles(object):
         })
         # Additionnal info
         try:
-            kwargs = dict(name=self.id, x='{x}',y='{y}',z='{z}')
+            kwargs = dict(name=self.id, x='{x}', y='{y}', z='{z}')
             if self.catalog:
                 kwargs['catalog'] = self.catalog
             tilepattern = reverse("mapping:tile", kwargs=kwargs)
             gridpattern = reverse("mapping:grid", kwargs=kwargs)
         except NoReverseMatch:
             # In case django-mbtiles was not registered in namespace mbtilesmap
-            tilepattern = reverse("tile", kwargs=dict(name=self.id, x='{x}',y='{y}',z='{z}'))
-            gridpattern = reverse("grid", kwargs=dict(name=self.id, x='{x}',y='{y}',z='{z}'))
+            tilepattern = reverse("tile", kwargs=dict(
+                name=self.id, x='{x}', y='{y}', z='{z}'))
+            gridpattern = reverse("grid", kwargs=dict(
+                name=self.id, x='{x}', y='{y}', z='{z}'))
         tilepattern = request.build_absolute_uri(tilepattern)
         gridpattern = request.build_absolute_uri(gridpattern)
         tilepattern = tilepattern.replace('%7B', '{').replace('%7D', '}')
@@ -381,3 +379,144 @@ class MBTiles(object):
             "grids": [gridpattern]
         })
         return jsonp
+
+
+"""Below are new classes proposed by Jake for structuring spatial data in DAS"""
+
+
+class DisplayClassManager(models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
+class DisplayClass(models.Model):
+    """
+    If the clients wish to group layers in a control or for ease of administration
+    Boundaries, Water, Security etc.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=80, unique=True)
+
+    objects = DisplayClassManager()
+
+    def __str__(self):
+        return self.name
+
+    def natural_key(self):
+        return (self.name,)
+
+
+class SpatialFeatureGroupManager(models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
+class SpatialFeatureGroup(models.Model):
+    """
+    A grouping of features that should be toggled together on the map,
+      e.g. a set of camps or a system of rivers
+      ... better than handling as a layer group in UI as it allows grouping to be controlled in db?
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=80, unique=True)
+
+    description = models.TextField(null=True, blank=True)
+
+    objects = SpatialFeatureGroupManager()
+
+    def __str__(self):
+        return self.name
+
+    def natural_key(self):
+        return self.name
+
+
+class SpatialFeatureType(models.Model):
+    name = models.CharField(max_length=100)
+    # JSON field for storing the json schema for each unique feature type
+    attribute_schema = JSONField(default=dict)
+    tags = TagField()  # Tags will allow categorization according to different views (e.g., HF)
+
+    # presentation fields
+    # Boundaries, Water, Security etc.
+    display_class = models.ForeignKey(to='Displayclass')
+    # JSON Field for defining the basic presentation of the feature
+    presentation = JSONField(default=dict)
+
+    # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
+    # Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
+    # Polygons: https://www.mapbox.com/mapbox-gl-style-spec/#layers-fill
+
+    @property
+    def default_presentation(self):
+        if self.presentation:
+            return self.presentation
+        return {}
+
+
+class SpatialFeatureManager(models.Manager):
+    def create_spatialfeature(self, **values):
+        return self.create(**values)
+
+
+class SpatialFeature(RevisionMixin, TimestampedModel):
+    """
+    A vector feature, e.g. a boundary, a hut, a village, a river ...
+
+    GeoFeature is a PostGIS type that can accept the gamut of spatial types and provides
+        better distance calculations when data spans large distances as opposed to a cartesian representation.
+
+    """
+    objects = SpatialFeatureManager()
+
+    revision_ignore_fields = ('updated_at', )
+
+    # data fields
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    feature_types = models.ManyToManyField(SpatialFeatureType,
+                                           related_name='spatial_features')
+    display_class = models.ForeignKey(DisplayClass)
+    name = models.CharField(max_length=50, blank=True)
+    # A shorter name used for cartographic display
+    short_name = models.CharField(max_length=25, blank=True)
+    # for ste, this is the ste_guid
+    external_id = models.CharField(max_length=100, unique=True, blank=True,
+                                   null=True)
+
+    attributes = JSONField(default=dict)
+    # Status: Open/Closed/Seasonal/Unknown) <Roads Only>
+    # SpeedLimit <Roads Only>
+    # FenceHeight <Fenclines only>
+    # Status: Permanent/Temporary & Abandoned/Occupied <Human Settlement - Boma>
+    # Status: Active/Inactive <Airstrips>
+    # Seasonal Status: Permanent/Seasonal <Water & Rivers>
+    # Accessibility: Human/Livestock/Wildlife <Water>
+    # Notes
+
+    # where did the data come from? method?
+    provenance = JSONField(default=dict)
+    # collect_user # who collected the data?
+    # collect_method # the method used to collect the data (e.g., GPS, Satellite, etc.)
+    # collect_date # when was the data collected?
+    # ground_verified # has the spatial feature been checked on the ground?
+    # spatial_feature_owners # The person/entity who owns the given spatial feature. E.g., 'Government of Kenya'
+    # spatial_data_owners = # The person/entity/organization who owns the GIS data
+    # created_user # who created the feature in the STESpatial database
+    # created_date # when was the feature created in the STESpatial database
+    # last_edited_user # who last edited the feature in the STESpatial database
+    # last_edited_date # when was the feature last edited in the STESpatial database
+    # other_id # this will map from the other_id' column in STESpatial
+
+    feature_geometry = models.GeometryField(geography=True, srid=4326)
+    tags = TagField()
+
+    revision = Revision()
+
+    class Meta:
+        abstract = True
+
+    # todo:  perhaps type and name?
+    def __str__(self):
+        return u"{0}".format(self.name)
