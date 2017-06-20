@@ -168,6 +168,7 @@ class UserAdmin(DjangoUserAdmin):
     member_permission_sets.allow_tags = True
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
+        # TODO: for a user with is_nologin set, do not return a set of profiles
         if db_field.name == 'act_as_profiles':
             queryset = User.objects.filter(is_staff=False)
             #queryset = queryset.filter(is_nologin=True)

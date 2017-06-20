@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='user',
             name='act_as_profiles',
-            field=models.ManyToManyField(help_text='The list of user profiles that this user can act as.',
+            field=models.ManyToManyField(blank=True, help_text='The list of user profiles that this user can act as.',
                                          related_name='_user_act_as_profiles_+', to=settings.AUTH_USER_MODEL, verbose_name='user profiles'),
         ),
         migrations.AddField(
