@@ -44,7 +44,6 @@ class UserProfilesView(generics.ListAPIView):
         if self.kwargs[lookup_url_kwarg] == 'me':
             self.kwargs[lookup_url_kwarg] = self.request.user.id
 
-        queryset = get_user_model().objects.all()
-        queryset = queryset.by_is_active()
-        queryset = queryset.filter(is_staff=False)
+        user = self.request.user
+        queryset = user.act_as_profiles.all()
         return queryset
