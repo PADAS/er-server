@@ -486,6 +486,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
                                    null=True)
 
     attributes = JSONField(default=dict)
+
     # Status: Open/Closed/Seasonal/Unknown) <Roads Only>
     # SpeedLimit <Roads Only>
     # FenceHeight <Fenclines only>
