@@ -37,7 +37,6 @@ class UserProfilesView(generics.ListAPIView):
     queryset = get_user_model().objects.all()
     serializer_class = serializers.UserSerializer
     permission_classes = (UserObjectPermissions,)
-    filter_backends = (UserObjectPermissionsFilter,)
 
     def get_queryset(self):
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
