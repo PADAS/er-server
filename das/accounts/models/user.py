@@ -23,6 +23,7 @@ phone_regex = validators.RegexValidator(
 
 class UserQuerySet(models.QuerySet):
     """Don't allow users to be deleted, set them as inactive"""
+
     def delete(self):
         self.update(active=False)
 
@@ -67,7 +68,7 @@ class UserManager(BaseUserManager):
             raise ValueError('Superuser must have is_superuser=True.')
 
         return self._create_user(username, email, password, **extra_fields)
-    
+
     def get_queryset(self):
         return UserQuerySet(self.model, using=self._db)
 
@@ -142,7 +143,23 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         ),
     )
     date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
-    additional = JSONField('additional data', default={}, null=True, blank=True)
+    additional = JSONField('additional data', default={},
+                           null=True, blank=True)
+    is_nologin = models.BooleanField(
+        _('no login'),
+        default=False,
+        help_text=_('Prevent the user from logging in. '
+                    'The account is active, but the users password is not '
+                    'active.'
+                    ),
+    )
+    act_as_profiles = models.ManyToManyField(
+        'self', blank=True,
+        verbose_name=_('user profiles'),
+        help_text=_(
+            'The list of user profiles that this user can act as.'
+        ),
+    )
 
     objects = UserManager()
 
@@ -175,7 +192,8 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         """
         Sends an sms message to this User's cell phone if they have one
         """
-        api.send_sms(body=message, from_phone=from_phone, to=[self.phone], **kwargs)
+        api.send_sms(body=message, from_phone=from_phone,
+                     to=[self.phone], **kwargs)
 
 
 class User(AccountsAbstractUser):
@@ -196,7 +214,7 @@ class User(AccountsAbstractUser):
         """
         if obj and isinstance(obj, User) and self.id == obj.id:
             return super(User, self).get_user_permissions(obj)\
-                   + self.user_perms
+                + self.user_perms
 
         return set()
 
@@ -222,7 +240,7 @@ class User(AccountsAbstractUser):
             if user.pk != self.pk:
                 raise ValidationError(
                     {'username': ValidationError(
-                    _('{0} already in use'.format(self.username)), code='invalid')})
+                        _('{0} already in use'.format(self.username)), code='invalid')})
         except User.DoesNotExist:
             pass
 
