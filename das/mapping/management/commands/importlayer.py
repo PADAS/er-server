@@ -30,6 +30,11 @@ class Command(BaseCommand):
 
     name_field = 'Name'
     id_field = 'globalid'
+
+    # model for feature? could these be combined in to one dictionary attribute?
+    # stroke = 'stroke'
+    # stroke_width = 'stroke-width'
+    # stroke_opacity = 'stroke-opacity'
     utm = None
 
     def handle(self, *args, **options):

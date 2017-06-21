@@ -1,3 +1,4 @@
+## import geojson file (geofences) to dev db
 import logging
 from zipfile import ZipFile
 import tempfile
@@ -6,13 +7,13 @@ import os
 
 from django.core.management.base import BaseCommand
 from django.contrib.gis.gdal import DataSource
-from django.contrib.gis.utils import layermapping
+from django.contrib.gis.utils import LayerMapping
 from django.contrib.gis.geos import MultiPolygon, MultiPoint, MultiLineString
 from django.contrib.gis.gdal import (
     CoordTransform, DataSource, GDALException, OGRGeometry, OGRGeomType,
     SpatialReference,
 )
-from openpyxl import load_workbook
+# from openpyxl import load_workbook #needed for XLS
 
 
 from mapping import models
@@ -35,18 +36,18 @@ class Command(BaseCommand):
         if not spatial_mapping:
             spatial_mapping = 'STESpatial_DataModel.xlsx'
 
-        if not os.path.exists(spatial_mapping):
-            raise FileNotFoundError(
-                'Spatial mapping file not found {0}'.format(spatial_mapping))
+        # if not os.path.exists(spatial_mapping):
+        #     raise FileNotFoundError(
+        #         'Spatial mapping file not found {0}'.format(spatial_mapping))
 
-        spatial_mapping = self.load_mapping(spatial_mapping)
+        # spatial_mapping = self.load_mapping(spatial_mapping)
 
-        datasource = self.datasource_from_file(options['filename'])
+        data_source = self.datasource_from_file(options['filename']) #geojson input
 
         try:
-            self.import_layer(datasource, spatial_mapping)
+            self.import_layer(data_source, spatial_mapping)
         finally:
-            datasource = None
+            data_source = None
 
     def add_arguments(self, parser):
         parser.add_argument('filename', type=str,
@@ -64,12 +65,12 @@ class Command(BaseCommand):
         for row in row_iter:
             self.logger.debug('%s', row)
 
-    def datasource_from_file(self, filename):
+    def datasource_from_file(self, filename):                   # geojson file
         if filename.endswith('kmz'):
             tmpdir = tempfile.TemporaryDirectory()
             self.tmpdirs.append(tmpdir)
             zip = ZipFile(filename)
-            filename = zip.extract('doc.kml', tmpdir.name)
+            filename = zip.extract('doc.kml', tmpdir.name)      #use break
         return DataSource(filename)
 
     def get_feature_class(self, name):
@@ -91,7 +92,17 @@ class Command(BaseCommand):
         return external_id
 
     def import_layer(self, datasource, spatial_mapping):
-        raise NotImplementedError()
+        for feature in datasource[0]:
+
+            print(feature.fields)
+            # print(feature.geom_type)
+            # print(len(feature))
+            # print(feature.num_fields)
+            logger.info('%s', feature)
+            # mapping = {'title': 'Name'}
+            # lm = LayerMapping(SpatialFeature, datasource, mapping)
+            # lm.save(verbose=True)
+
 
     def make_multi(self, geom_type, model_field):
         """
