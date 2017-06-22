@@ -173,7 +173,8 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
 
     def get_queryset(self):
-        subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
+        subject = generics.get_object_or_404(
+            models.Subject.objects.all(), pk=self.kwargs['id'])
         if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
@@ -186,11 +187,14 @@ class SubjectSourcesView(generics.ListCreateAPIView):
     serializer_class = serializers.SourceSerializer
 
     def get_queryset(self):
-        subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
+        subject = generics.get_object_or_404(
+            models.Subject.objects.all(), pk=self.kwargs['id'])
         if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
-        subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
-        sources = models.Source.objects.filter(pk__in=subject_sources.values('source'))
+        subject_sources = models.SubjectSource.objects.get_subject_sources(
+            subject)
+        sources = models.Source.objects.filter(
+            pk__in=subject_sources.values('source'))
         return sources
 
     def create(self, request, *args, **kwargs):
@@ -204,11 +208,13 @@ class SubjectSourcesView(generics.ListCreateAPIView):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+
 class SourceSubjectsView(generics.ListCreateAPIView):
     serializer_class = serializers.SubjectSerializer
 
     def get_queryset(self):
-        source = generics.get_object_or_404(models.Source.objects.all(), pk=self.kwargs['id'])
+        source = generics.get_object_or_404(
+            models.Source.objects.all(), pk=self.kwargs['id'])
         # if not self.request.user.has_any_perms(models.Source.VIEW_SUBJECT_PERMS, source):
         #     raise PermissionDenied
         return models.Subject.objects.filter(subjectsource__source=source)
@@ -229,7 +235,8 @@ class SubjectSourceView(generics.RetrieveAPIView):
     serializer_class = serializers.SourceSerializer
 
     def get_queryset(self):
-        subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs['id'])
+        subject = generics.get_object_or_404(
+            models.Subject.objects.all(), pk=self.kwargs['id'])
         if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
@@ -263,7 +270,8 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
         if until:
             until = dateparse(until)
 
-        sds = models.SubjectSource.objects.get_subject_source(subject, source_id)
+        sds = models.SubjectSource.objects.get_subject_source(
+            subject, source_id)
         if not sds:
             raise Http404
 
@@ -349,7 +357,8 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         if mou_expiry_date is not None:
             now = pytz.utc.localize(datetime.datetime.utcnow())
-            mou_expiry_date = pytz.utc.localize(dateutil.parser.parse(mou_expiry_date))
+            mou_expiry_date = pytz.utc.localize(
+                dateutil.parser.parse(mou_expiry_date))
             mou_expiry_age = now - mou_expiry_date
 
             newest_age = max(mou_expiry_age.days, newest_age)
@@ -361,7 +370,13 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         context['subject'] = subject
         try:
-            context['subject_state'] = subject.subjectstatus_set.get_last().additional['state']
+            _ = subject.subjectstatus_set.get_last().additional
+            for k in ('last_voice_call_start_at', 'requested_location_at'):
+                if k in _:
+                    context[k] = _[k]
+            # TODO: Investigate why we use the alternative key for 'state'
+            context['subject_state'] = _['state']
+
         except Exception:
             pass
 
@@ -385,6 +400,7 @@ class ObservationView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     queryset = models.Observation.objects.all()
     serializer_class = serializers.ObservationSerializer
+
 
 class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     lookup_fields = ('id', 'manufacturer_id')
@@ -455,7 +471,8 @@ class SourceObservationsView(generics.ListAPIView):
     lookup_field = 'id'
 
     def get_queryset(self):
-        source = generics.get_object_or_404(models.Source.objects.all(), pk=self.kwargs['id'])
+        source = generics.get_object_or_404(
+            models.Source.objects.all(), pk=self.kwargs['id'])
         observations = models.Observation.objects.filter(source_id=source.id)
         return observations
 
@@ -478,7 +495,8 @@ class ObservationsView(generics.ListCreateAPIView):
         :param kwargs:
         :return:
         '''
-        serializer = serializers.ObservationSerializer(many=isinstance(request.data, list), data=request.data)
+        serializer = serializers.ObservationSerializer(
+            many=isinstance(request.data, list), data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST,)
         self.perform_create(serializer)
