@@ -17,6 +17,7 @@ from django.contrib.gis.gdal import (
 
 
 from mapping import models
+# from models import SpatialFeature   #added to import SpatialFeature class
 
 
 logger = logging.getLogger(__name__)
@@ -93,16 +94,33 @@ class Command(BaseCommand):
 
     def import_layer(self, datasource, spatial_mapping):
         for feature in datasource[0]:
-
-            print(feature.fields)
-            # print(feature.geom_type)
-            # print(len(feature))
-            # print(feature.num_fields)
+            # print(datasource[0])       #print datasource type
+            # print("Feature fields: " + str(feature.fields))
+            # print("Feature geom type: " + str(feature.geom_type))
+            # print("Feature length: " + str(len(feature)))
+            # print("Feature num of fields: " + str(feature.num_fields))
+            # [fld.__name__ for fld in feature.field_types] #field types    'Feature' object has no attribute 'field_types'
             logger.info('%s', feature)
-            # mapping = {'title': 'Name'}
-            # lm = LayerMapping(SpatialFeature, datasource, mapping)
-            # lm.save(verbose=True)
+            # logger.debug()
+            # print(feature)
 
+            ## mapping dictionary features 'model': 'datasource' field mapping
+            mapping = {#' ' : 'display_class',
+                       # ' ':'OBJECTID',
+                       # ' ': 'type',
+                       'title': 'name',
+                       'externalid': 'globalid',
+                       # 'feature_types': 'type'}     #nested under 'geometry' in geojson
+                       'feature_types': 'MULTILINESTRING'}  #OGC name
+                       # ' ': 'das_type',
+                       # ' ':'das_tags',
+                       #'feature_types': 'geometry.type'} #unsure how to map OGR type here
+
+            try:
+                lm = LayerMapping(models.SpatialFeature, datasource[0], mapping)
+                lm.save(verbose=True)
+            except:
+                logger.exception('Exception')
 
     def make_multi(self, geom_type, model_field):
         """
