@@ -827,6 +827,14 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             yield '-'.join((key, 'black', sex.lower()))
             yield '-'.join((key, sex.lower()))
 
+        status = self.subjectstatus_set.filter(delay_hours=0)
+        if status:
+            status = status[0]
+            if 'state' in status.additional:
+                color = get_radio_color(status.additional['state'],
+                                        status.additional)
+                yield '-'.join((key, color))
+
         yield key
         yield '-'.join((key, 'black'))
 
