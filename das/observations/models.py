@@ -629,6 +629,12 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_LION = 'lion'
     SUBTYPE_GIRAFFE = 'giraffe'
     SUBTYPE_ANTELOPE = 'antelope'
+    SUBTYPE_CHEETAH = 'cheetah'
+    SUBTYPE_COW = 'cow'
+    SUBTYPE_FOREST_ELEPHANT = 'forest_elephant'
+    SUBTYPE_SABLE = 'sable'
+    SUBTYPE_SCIMITAR_ORYX = 'scimitar_oryx'
+    SUBTYPE_UNDEPLOYED = 'undeployed'
 
     SUBTYPE_SECURITY = 'security_vehicle'
     SUBTYPE_RESEARCH = 'research'
@@ -641,6 +647,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_RANGER_TEAM = 'ranger_team'
     SUBTYPE_MANAGER = 'manager'
     SUBTYPE_DRIVER = 'driver'
+    SUBTYPE_EXPEDITION = 'expedition'
 
     SUBTYPE_PLANE = 'plane'
     SUBTYPE_HELICOPTER = 'helicopter'
@@ -660,6 +667,12 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 (SUBTYPE_LION, 'Lion'),
                 (SUBTYPE_GIRAFFE, 'Giraffe'),
                 (SUBTYPE_ANTELOPE, 'Antelope'),
+                (SUBTYPE_CHEETAH, 'Cheetah'),
+                (SUBTYPE_COW, 'Cow'),
+                (SUBTYPE_FOREST_ELEPHANT, 'Forest Elephant'),
+                (SUBTYPE_SABLE, 'Sable'),
+                (SUBTYPE_SCIMITAR_ORYX, 'Scimitar Oryx'),
+                (SUBTYPE_UNDEPLOYED, 'Undeployed'),
             )
 
         },
@@ -671,6 +684,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 (SUBTYPE_RANGER_TEAM, 'Ranger Team'),
                 (SUBTYPE_DRIVER, 'Driver'),
                 (SUBTYPE_MANAGER, 'Manager'),
+                (SUBTYPE_EXPEDITION, 'Expedition'),
             )
         },
         {
@@ -816,7 +830,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def image_url(self):
         image_url = static_image_finder.get_marker_icon(self._image_keys())
         if not image_url:
-            image_url = '/static/triangle.png'
+            image_url = '/static/unassigned-black.svg'
         return image_url
 
     def _image_keys(self):

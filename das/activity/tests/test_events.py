@@ -25,7 +25,7 @@ from core.tests import BaseAPITest
 from choices.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory
-from activity.models import get_sentinel_user, marker_icon
+from activity.models import get_sentinel_user
 from activity.serializers import ATTACHMENT_SERIALIZER_MAPPING
 from activity import views
 from observations.models import Subject
@@ -156,10 +156,11 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_find_all_event_type_icons(self):
+
         for et in EventType.objects.all():
             for p in Event.PRIORITY_CHOICES:
                 for s in Event.STATE_CHOICES:
-                    image = marker_icon(et.value,
+                    image = Event.marker_icon(et.value,
                                         p[0], s[0])
                     image = image[8:]
                     self.assertTrue(finders.find(image),
