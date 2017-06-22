@@ -197,10 +197,14 @@ class EventsView(generics.ListCreateAPIView):
     def get_serializer_context(self):
         query_params = self.request.query_params
         context = super().get_serializer_context()
+        request = context['request']
         context['include_updates'] = parse_bool(query_params.get('include_updates', True))
         context['include_notes'] = parse_bool(query_params.get('include_notes', True))
         context['include_details'] = parse_bool(query_params.get('include_details', True))
-        context['include_related_events'] = parse_bool(query_params.get('include_related_events', False))
+        #if this is a POST, returned any contained events
+        default_include_related_events = request._request.method == 'POST'
+        context['include_related_events'] = parse_bool(query_params.get('include_related_events',
+                                                                        default_include_related_events))
         return context
 
     def get_queryset(self):

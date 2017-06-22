@@ -1,5 +1,6 @@
 import os, tempfile, shutil
-
+import logging
+import json
 import copy
 import collections
 import string, random
@@ -28,6 +29,8 @@ from observations.models import Subject
 from accounts.serializers import UserDisplaySerializer
 from observations.serializers import SubjectSerializer
 
+
+logger = logging.getLogger(__name__)
 
 User = django.contrib.auth.get_user_model()
 ET_OTHER = 'other'
@@ -299,7 +302,8 @@ class TestEventView(BaseAPITest):
 
             self.force_authenticate(request, self.all_perms_user)
             response = views.EventFilesView.as_view()(request, id=my_event_id)
-            print(response.data)
+            logger.debug(response.data)
+
 
         # Make request for the new event and assert that it includes a new document.
         path = '/'.join((self.api_base, 'activity', 'event', my_event_id))
@@ -310,7 +314,7 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
         self.assertTrue(len(response.data['files']) == 1 )
-        # print(response.data)
+        # logger.debug(response.data)
 
     def test_create_event_file_with_permissions(self):
         event_data = dict(priority=0,
@@ -344,7 +348,7 @@ class TestEventView(BaseAPITest):
 
             self.force_authenticate(request, self.all_perms_user)
             response = views.EventFilesView.as_view()(request, id=my_event_id)
-            print(response.data)
+            logger.debug(response.data)
 
         # Make request for the new event and assert that it includes a new document.
         path = '/'.join((self.api_base, 'activity', 'event', my_event_id))
@@ -409,7 +413,7 @@ class TestEventView(BaseAPITest):
 
             self.force_authenticate(request, self.all_perms_user)
             response = views.EventFilesView.as_view()(request, id=my_event_id)
-            print(response.data)
+            logger.debug(response.data)
 
         # Make request for the new event and assert that it includes a new document.
         path = '/'.join((self.api_base, 'activity', 'event', my_event_id))
@@ -612,8 +616,21 @@ class TestEventView(BaseAPITest):
         request = self.factory.post(self.api_base + '/event/' + collection_id + '/relationships', rel_data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventRelationshipsView.as_view()(request, from_event_id=collection_id)
-        print(response)
+        logger.debug(response.data)
         self.assertEqual(response.status_code, 201)
+
+    def test_return_new_contained_events(self):
+
+        event_data = json.loads("""{"priority":0,"event_type":"incident_collection","message":"test parent message","title":"test parent title","contains":[{"message":"test contains message","title":"SIT-REP","event_type":"contact","time":"2017-06-21 14:43","event_details":{},"priority":0,"reported_by":null},{"message":"second test contains message","title":"Other","event_type":"other","time":"2017-06-21 14:44","event_details":{},"priority":0,"reported_by":null}]}""")
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        event = response.data
+
+        self.assertIn('contains', event)
+        self.assertEqual(len(event_data['contains']), len(event['contains']))
 
     def test_event_without_event_type(self):
         event_data = {'message': 'this has no event type', 'priority': '200'}
