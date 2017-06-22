@@ -20,65 +20,77 @@ SOURCE_PROVIDER_UPDATE = '''with provider as (select id, name from observations_
                     where provider.name = p.name;
                     '''
 
-ALL_UPDATES = ';'.join([SOURCE_PROVIDER_UPDATE.format(pn) for pn in plugin_table_names])
+ALL_UPDATES = ';'.join([SOURCE_PROVIDER_UPDATE.format(pn)
+                        for pn in plugin_table_names])
+
 
 class Migration(migrations.Migration):
 
     dependencies = [
         ('observations', '0030_source_provider'),
-        ('tracking', '0004_alter_source_plugin'),
+        ('tracking', '0003_awetelemetryplugin'),
     ]
 
     operations = [
         migrations.AddField(
             model_name='awetelemetryplugin',
             name='provider',
-            field=models.ForeignKey(default=observations.models.get_default_source_provider_id, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
+            field=models.ForeignKey(default=observations.models.get_default_source_provider_id,
+                                    on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
         ),
         migrations.AddField(
             model_name='awthttpplugin',
             name='provider',
-            field=models.ForeignKey(default=observations.models.get_default_source_provider_id, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
+            field=models.ForeignKey(default=observations.models.get_default_source_provider_id,
+                                    on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
         ),
         migrations.AddField(
             model_name='demosourceplugin',
             name='provider',
-            field=models.ForeignKey(default=observations.models.get_default_source_provider_id, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
+            field=models.ForeignKey(default=observations.models.get_default_source_provider_id,
+                                    on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
         ),
         migrations.AddField(
             model_name='firmsplugin',
             name='provider',
-            field=models.ForeignKey(default=observations.models.get_default_source_provider_id, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
+            field=models.ForeignKey(default=observations.models.get_default_source_provider_id,
+                                    on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
         ),
         migrations.AddField(
             model_name='inreachkmlplugin',
             name='provider',
-            field=models.ForeignKey(default=observations.models.get_default_source_provider_id, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
+            field=models.ForeignKey(default=observations.models.get_default_source_provider_id,
+                                    on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
         ),
         migrations.AddField(
             model_name='inreachplugin',
             name='provider',
-            field=models.ForeignKey(default=observations.models.get_default_source_provider_id, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
+            field=models.ForeignKey(default=observations.models.get_default_source_provider_id,
+                                    on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
         ),
         migrations.AddField(
             model_name='savannahplugin',
             name='provider',
-            field=models.ForeignKey(default=observations.models.get_default_source_provider_id, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
+            field=models.ForeignKey(default=observations.models.get_default_source_provider_id,
+                                    on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
         ),
         migrations.AddField(
             model_name='skygisticssatelliteplugin',
             name='provider',
-            field=models.ForeignKey(default=observations.models.get_default_source_provider_id, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
+            field=models.ForeignKey(default=observations.models.get_default_source_provider_id,
+                                    on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
         ),
         migrations.AddField(
             model_name='spidertracksplugin',
             name='provider',
-            field=models.ForeignKey(default=observations.models.get_default_source_provider_id, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
+            field=models.ForeignKey(default=observations.models.get_default_source_provider_id,
+                                    on_delete=django.db.models.deletion.CASCADE, related_name='+', to='observations.SourceProvider'),
         ),
         migrations.AlterField(
             model_name='awetelemetryplugin',
             name='service_url',
-            field=models.CharField(help_text='The API endpoint for the AWE Telemetry/AWT service.', max_length=50),
+            field=models.CharField(
+                help_text='The API endpoint for the AWE Telemetry/AWT service.', max_length=50),
         ),
         migrations.RunSQL(sql=ALL_UPDATES, reverse_sql=migrations.RunSQL.noop),
     ]
