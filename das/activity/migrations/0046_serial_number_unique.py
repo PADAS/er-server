@@ -33,11 +33,11 @@ class Migration(migrations.Migration):
             reverse_sql='''drop sequence activity_event_serial_number_seq ;'''
         ),
         migrations.RunSQL(
-            sql = "select setval('public.activity_event_serial_number_seq', (select max(serial_number) from activity_event), true);",
+            sql="select setval('public.activity_event_serial_number_seq', (select max(serial_number) from activity_event), true);",
             reverse_sql=migrations.RunSQL.noop
         ),
         migrations.RunSQL(
-            sql = "alter table activity_event alter column serial_number set default nextval('activity_event_serial_number_seq'::regclass);",
+            sql="alter table activity_event alter column serial_number set default nextval('activity_event_serial_number_seq'::regclass);",
             reverse_sql="alter table activity_event alter COLUMN serial_number drop default;"
         ),
         # migrations.AlterField(
@@ -49,6 +49,12 @@ class Migration(migrations.Migration):
             model_name='event',
             name='end_time',
             field=models.DateTimeField(null=True, verbose_name='End Time'),
+        ),
+        migrations.AlterField(
+            model_name='event',
+            name='serial_number',
+            field=models.BigIntegerField(
+                blank=True, null=True, unique=True, verbose_name='Serial Number'),
         ),
 
     ]

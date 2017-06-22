@@ -18,18 +18,15 @@ class Migration(migrations.Migration):
             name='related_events',
         ),
         migrations.AlterField(
-            model_name='event',
-            name='serial_number',
-            field=models.BigIntegerField(blank=True, null=True, unique=True, verbose_name='Serial Number'),
-        ),
-        migrations.AlterField(
             model_name='eventrelationship',
             name='from_event',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='out_relationships', related_query_name='out_relationship', to='activity.Event'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,
+                                    related_name='out_relationships', related_query_name='out_relationship', to='activity.Event'),
         ),
         migrations.AlterField(
             model_name='eventrelationship',
             name='to_event',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='in_relationships', related_query_name='in_relationship', to='activity.Event'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,
+                                    related_name='in_relationships', related_query_name='in_relationship', to='activity.Event'),
         ),
     ]
