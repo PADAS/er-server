@@ -79,8 +79,8 @@ group = None
 
 
 def create_actors():
-    # (163, 'Permission to subscribe to an alert on this Subject.'),
-    permission = Permission.objects.get(pk=163)
+    # ('subscribe_alerts', 'Permission to subscribe to an alert on this Subject.'),
+    permission = Permission.objects.get(codename='subscribe_alerts')
     permission_set = PermissionSet.objects.get_or_create(
         name='Demo PermissionSet')[0]
     permission_set.permissions.add(permission)
