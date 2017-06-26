@@ -3,5 +3,5 @@
   fields:
     created_at: "2017-06-01T1:00:00.000000+00:00"
     updated_at: "2017-06-01T1:00:00.000000+00:00"
-    name: Can Report Events
+    name: Reported By Users
     children: []

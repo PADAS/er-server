@@ -1,6 +1,7 @@
 import uuid
 import datetime
 import pytz
+import logging
 from operator import itemgetter, attrgetter
 
 import django.utils
@@ -28,6 +29,8 @@ from observations.models import Subject
 from accounts.models.permissionset import PermissionSet
 from revision.manager import Revision, RevisionMixin
 from core.utils import static_image_finder
+
+logger = logging.getLogger(__name__)
 
 
 def get_sentinel_user():
@@ -235,9 +238,11 @@ class EventManager(models.Manager):
                     for obj in reported_by_users.filter(is_active=True):
                         yield (obj.get_full_name().lower(), obj)
                 except PermissionSet.DoesNotExist:
-                    print('Someone has deleted the reported_by permission set')
+                    logger.warning(
+                        'Someone has deleted the reported_by permission set')
                 except AttributeError:
-                    print('Reported by permission set not specified in settings')
+                    logger.warning(
+                        'Reported by permission set not specified in settings')
 
                 # We also want subjects who are staff (rangers are tracked as
                 # subjects via their radio, but can report events
