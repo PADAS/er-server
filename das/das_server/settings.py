@@ -441,6 +441,8 @@ NOTIFY_HIGH_PRIORITY_EVENT = None
 NOTIFY_MEDIUM_PRIORITY_EVENT = None
 NOTIFY_LOW_PRIORITY_EVENT = None
 
+REPORTED_BY_PERMISSION_SET = 'b5057387-9f6c-4685-8ec1-46ad29684eea'
+
 EVENT_MATRIX_ENABLED = False
 
 # Default speed-threshold (in km/h) by subject-subtype. These are default values that maybe overridden in an
