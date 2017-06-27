@@ -1,6 +1,7 @@
 import uuid
 import datetime
 import pytz
+import logging
 from operator import itemgetter, attrgetter
 
 import django.utils
@@ -25,8 +26,11 @@ from utils.html import clean_user_text
 from core.models import TimestampedModel
 import usercontent.models
 from observations.models import Subject
+from accounts.models.permissionset import PermissionSet
 from revision.manager import Revision, RevisionMixin
 from core.utils import static_image_finder
+
+logger = logging.getLogger(__name__)
 
 
 def get_sentinel_user():
@@ -226,9 +230,22 @@ class EventManager(models.Manager):
     def get_reported_by_for_provenance(self, provenance):
         if Event.PC_STAFF == provenance:
             def get_staff():
-                for obj in get_user_model().objects.all().filter(
-                        is_active=True):
-                    yield (obj.get_full_name().lower(), obj)
+                # First get all user accounts in the reported by permission
+                # set, if it exists in the settings and the db
+                try:
+                    reported_by_users = PermissionSet.objects.get(
+                        id=settings.REPORTED_BY_PERMISSION_SET).user_set
+                    for obj in reported_by_users.filter(is_active=True):
+                        yield (obj.get_full_name().lower(), obj)
+                except PermissionSet.DoesNotExist:
+                    logger.warning(
+                        'Someone has deleted the reported_by permission set')
+                except AttributeError:
+                    logger.warning(
+                        'Reported by permission set not specified in settings')
+
+                # We also want subjects who are staff (rangers are tracked as
+                # subjects via their radio, but can report events
                 for obj in Subject.objects.all().get_staff().by_is_active():
                     yield (obj.name.lower(), obj)
             for staff in sorted(get_staff(), key=itemgetter(0)):

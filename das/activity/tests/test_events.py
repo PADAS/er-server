@@ -63,6 +63,8 @@ radio_room_user_permissions = [
 # Guest users can see logistics events and nothing else
 guest_user_permissions = ['logistics_read']
 
+reported_by_permission_set_id = 'b5057387-9f6c-4685-8ec1-46ad29684eea'
+
 
 class TestEventView(BaseAPITest):
     user_const = dict(last_name='last', first_name='first')
@@ -97,12 +99,17 @@ class TestEventView(BaseAPITest):
 
         self.sample_event = self.create_event(self.event_data)
 
+        self.reported_by_permission_set = PermissionSet.objects.get(
+            id=reported_by_permission_set_id)
+
         self.all_perms_permissionset = PermissionSet.objects.create(
             name='all_perms_set')
         for perm in all_permissions:
             self.all_perms_permissionset.permissions.add(
                 Permission.objects.get(codename=perm))
         self.all_perms_user.permission_sets.add(self.all_perms_permissionset)
+        self.all_perms_user.permission_sets.add(
+            self.reported_by_permission_set)
 
         self.power_user_permissionset = PermissionSet.objects.create(
             name='power_set')
@@ -110,6 +117,7 @@ class TestEventView(BaseAPITest):
             self.power_user_permissionset.permissions.add(
                 Permission.objects.get(codename=perm))
         self.power_user.permission_sets.add(self.power_user_permissionset)
+        self.power_user.permission_sets.add(self.reported_by_permission_set)
 
         self.radio_room_user_permissionset = PermissionSet.objects.create(
             name='radio_room_perms_set')
@@ -161,7 +169,7 @@ class TestEventView(BaseAPITest):
             for p in Event.PRIORITY_CHOICES:
                 for s in Event.STATE_CHOICES:
                     image = Event.marker_icon(et.value,
-                                        p[0], s[0])
+                                              p[0], s[0])
                     image = image[8:]
                     self.assertTrue(finders.find(image),
                                     'Failed to find image: {0}'.format(image))
@@ -691,6 +699,14 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
         self.assertEqual(response.data['title'], TITLE)
+
+    def test_reported_by_filtering(self):
+        reported_by_users = list(Event.objects.get_reported_by_for_provenance(
+            Event.PC_STAFF))
+
+        self.assertEquals(2, len(reported_by_users))
+        self.assertIn(self.all_perms_user, reported_by_users)
+        self.assertIn(self.power_user, reported_by_users)
 
     def test_add_event_category(self):
         value = 'new'
