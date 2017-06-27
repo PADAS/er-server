@@ -4,10 +4,10 @@ try:
 except ImportError:
     BUILD_NUMBER = 1
 
-VERSION = (0, 1, BUILD_NUMBER, 'alpha')
+VERSION = (1, 15, 1, 'dev', BUILD_NUMBER)
 
-if VERSION[-1] != "final": # pragma: no cover
-    __version__ = '.'.join(map(str, VERSION))
+if VERSION[3]: # pragma: no cover
+    __version__ = '{0}.{1}.{2}-{3}.{4}'.format(*VERSION)
 else: # pragma: no cover
-    __version__ = '.'.join(map(str, VERSION[:-1]))
+    __version__ = '.'.join(map(str, VERSION[0:2]))
 
