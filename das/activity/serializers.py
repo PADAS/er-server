@@ -1058,7 +1058,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     def get_out_relation(self, event, value):
         self.context['event_relationship_direction'] = 'out'
         qs = event.out_relationships.filter(
-            type__value=value).all().order_by('ordernum')
+            type__value=value).all().order_by('ordernum', 'to_event__created_at')
         serializer = EventRelationshipSerializer(
             instance=qs, many=True, context=self.context,)
         return serializer.data
