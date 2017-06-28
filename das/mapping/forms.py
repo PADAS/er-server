@@ -1,3 +1,4 @@
+from math import isclose
 from django import forms
 from mapping.models import Map
 from django.contrib.gis.geos import Point
@@ -55,5 +56,5 @@ class MapCenterForm(forms.ModelForm):
         return data
 
     def samepoint(self, point_a, point_b):
-        import math
-        return math.isclose(point_a.x, point_b.x, rel_tol=1e-10) and math.isclose(point_a.y, point_b.y, rel_tol=1e-10)
+        return isclose(point_a.x, point_b.x, rel_tol=1e-10) and \
+            isclose(point_a.y, point_b.y, rel_tol=1e-10)
