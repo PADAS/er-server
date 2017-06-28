@@ -556,28 +556,26 @@ class Event(RevisionMixin, TimestampedModel):
         return '{0}-{1}'.format(event_type, color)
 
     @staticmethod
-    def marker_icon(event_type, priority, state):
-        """support unit test that we have all icons"""
-        return '/static/{}.svg'.format(
-            Event.image_basename(event_type, priority, state))
+    def generate_image_keys(event_type_value, priority, state):
+        # Generate list from most to least preferable icon.
+        yield Event.image_basename(event_type_value, priority, state)
+
+        report_suffix = '_rep'
+        if event_type_value.endswith(report_suffix):
+            yield Event.image_basename(event_type_value[:-1 * len(report_suffix)], priority, state)
+        yield '{0}-{1}'.format(event_type_value, 'black')
+        yield Event.image_basename('generic', priority, state)
+        yield 'generic-black'
+
+    @staticmethod
+    def marker_icon(event_type_value, priority, state, default='/static/generic-black.svg'):
+        image_url = static_image_finder.get_marker_icon(
+            Event.generate_image_keys(event_type_value, priority, state))
+        return image_url or default
 
     @property
     def image_url(self):
-        image_url = static_image_finder.get_marker_icon(self._image_keys())
-        if not image_url:
-            image_url = '/static/generic-black.svg'
-        return image_url
-
-    def _image_keys(self):
-        """return the preferred key first"""
-        event_type_value = self.event_type.value
-        yield Event.image_basename(event_type_value, self.priority, self.state)
-        if event_type_value.endswith('_rep'):
-            yield Event.image_basename(event_type_value[:-4], self.priority,
-                                       self.state)
-        yield '{0}-{1}'.format(event_type_value, 'black')
-        yield Event.image_basename('generic', self.priority, self.state)
-        yield 'generic-black'
+        return Event.marker_icon(self.event_type.value, self.priority, self.state)
 
     @property
     def subjects(self):
