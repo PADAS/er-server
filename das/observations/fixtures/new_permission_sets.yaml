@@ -3,7 +3,7 @@
   fields:
     created_at: "2016-07-07T1:00:00.000000+00:00"
     updated_at: "2016-07-07T1:00:00.000000+00:00"
-    name: View All Time
+    name: View Tracks All Time
     children: []
     permissions:
     - [access_begins_all, observations, subject]
@@ -15,7 +15,7 @@
   fields:
     created_at: "2016-07-07T1:00:00.000000+00:00"
     updated_at: "2016-07-07T1:00:00.000000+00:00"
-    name: View Last 60 Days
+    name: View Tracks Last 60 Days
     children: []
     permissions:
     - [access_begins_60, observations, subject]
@@ -27,7 +27,7 @@
   fields:
     created_at: "2016-07-07T1:00:00.000000+00:00"
     updated_at: "2016-07-07T1:00:00.000000+00:00"
-    name: View Last 16 Days
+    name: View Tracks Last 16 Days
     children: []
     permissions:
     - [access_begins_16, observations, subject]
@@ -39,7 +39,7 @@
   fields:
     created_at: "2016-07-07T1:00:00.000000+00:00"
     updated_at: "2016-07-07T1:00:00.000000+00:00"
-    name: View Last 7 Days
+    name: View Tracks Last 7 Days
     children: []
     permissions:
     - [access_begins_7, observations, subject]
@@ -51,7 +51,7 @@
   fields:
     created_at: "2016-07-07T1:00:00.000000+00:00"
     updated_at: "2016-07-07T1:00:00.000000+00:00"
-    name: View Restricted Timeline
+    name: View Tracks Last 16 Days Delayed
     children: []
     permissions:
     - [access_begins_16, observations, subject]
