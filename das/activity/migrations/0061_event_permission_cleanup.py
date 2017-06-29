@@ -11,7 +11,8 @@ security_users = []
 monitoring_users = []
 
 old_set_names = ['security_events', 'View Security Events', 'View Reporting Events ',
-                 'Add/Edit Events', 'all_event_permissions', 'all_event_permissions']
+                 'Add/Edit Events', 'all_event_permissions', 'all_event_permissions',
+                 'restricted_event_permissions']
 new_security_group_name = 'Admin User Event Permissions'
 new_monitoring_group_name = 'Radio Room Operator Event Permissions'
 
