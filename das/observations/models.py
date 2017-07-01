@@ -932,8 +932,9 @@ class SubjectStatusManager(models.Manager):
         if created or substatus.recorded_at >= observation.recorded_at:
             pass
         else:
-            substatus.recorded_at = observation.recorded_at
+            # Update subject-status location only for non-empty points.
             if observation.location != EMPTY_POINT:
+                substatus.recorded_at = observation.recorded_at
                 substatus.location = observation.location
             substatus.additional = observation.additional
             substatus.save()
