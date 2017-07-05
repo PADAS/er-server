@@ -301,8 +301,18 @@ class ObservationManager(models.GeoManager):
             source=source).aggregate(Max('recorded_at'))
         return r.get('recorded_at__max')
 
-    def get_last_source_observation(self, source):
-        return Observation.objects.filter(source=source)(Max('recorded_at'))
+    def get_last_source_observation(self, source, delay_hours=0):
+
+        try:
+            qs = Observation.objects.filter(source=source)
+            if delay_hours:
+                end_time = pytz.utc.localize(
+                    datetime.utcnow()) - timedelta(hours=delay_hours)
+                qs = qs.filter(recorded_at__lt=end_time)
+            return qs.latest('recorded_at')
+
+        except Observation.DoesNotExist:
+            pass
 
     def get_last_observation(self, subject, newer_than=None):
         """get the last recorded observation of the subject
@@ -901,24 +911,20 @@ class SubjectStatusManager(models.Manager):
 
     def update_from_observation(self, observation, delay_hours=0):
 
-        ss = SubjectSource.objects.get_for_source_at_time(
-            source=observation.source, at_time=observation.recorded_at)
-
-        if not ss:  # Coding error
-            return
-            # raise ValueError('No SubjectSource exists for observation {}'.format(observation))
-
-        if not delay_hours:
-            observation = Observation.objects.get_last_observation(ss.subject)
-        else:
-            ts = datetime.now(tz=pytz.UTC) - timedelta(hours=delay_hours)
-            observation = Observation.objects.get_delayed_observation(
-                ss.subject, older_than=ts)
+        observation = Observation.objects.get_last_source_observation(
+            observation.source, delay_hours=delay_hours)
 
         if not observation:
             return
 
-        substatus, created = SubjectStatus.objects.get_or_create(subject=ss.subject, delay_hours=delay_hours,
+        try:
+            # TODO: Account for the case where multiple subjects are returned.
+            subject = Subject.objects.filter(subjectsource__source=observation.source,
+                                             subjectsource__assigned_range__contains=observation.recorded_at).first()
+        except Subject.DoesNotExist:
+            return
+
+        substatus, created = SubjectStatus.objects.get_or_create(subject=subject, delay_hours=delay_hours,
                                                                  defaults=dict(recorded_at=observation.recorded_at,
                                                                                location=observation.location,
                                                                                additional={}))
@@ -926,8 +932,10 @@ class SubjectStatusManager(models.Manager):
         if created or substatus.recorded_at >= observation.recorded_at:
             pass
         else:
-            substatus.recorded_at = observation.recorded_at
-            substatus.location = observation.location
+            # Update subject-status location only for non-empty points.
+            if observation.location != EMPTY_POINT:
+                substatus.recorded_at = observation.recorded_at
+                substatus.location = observation.location
             substatus.additional = observation.additional
             substatus.save()
 
