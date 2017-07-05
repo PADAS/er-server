@@ -381,20 +381,6 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
                             for row in self.get_queryset()))
 
 
-class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
-    class Meta:
-        model = activity.models.EventType
-        read_only_fields = ('value', 'display', 'ordernum', 'is_collection')
-        fields = read_only_fields
-
-    def to_representation(self, obj):
-        rep = super().to_representation(obj)
-        if obj.category:
-            rep['category'] = dict(value=obj.category.value,
-                                   display=obj.category.display)
-        return rep
-
-
 class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventCategory
@@ -403,6 +389,34 @@ class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, obj):
         rep = super().to_representation(obj)
+
+        # If we know the user requesting the category, include their permissions
+        # for that category
+        user = getattr(self.context.get('request', None), 'user', None)
+        if user is not None:
+            rep['permissions'] = self.get_allowed_actions_for_category(
+                user, rep['value'])
+        return rep
+
+    def get_allowed_actions_for_category(self, user, category_name):
+        allowed_actions = []
+        for action in ('create', 'update', 'read', 'delete'):
+            if user.has_perm('activity.{0}_{1}'.format(category_name, action)):
+                allowed_actions.append(action)
+        return allowed_actions
+
+
+class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
+    category = EventCategorySerializer(read_only=True)
+
+    class Meta:
+        model = activity.models.EventType
+        read_only_fields = ('value', 'display', 'ordernum',
+                            'is_collection', 'category')
+        fields = read_only_fields
+
+    def to_representation(self, obj):
+        rep = super().to_representation(obj, )
         return rep
 
 
