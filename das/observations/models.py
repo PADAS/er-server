@@ -581,13 +581,18 @@ class SubjectQuerySet(models.QuerySet):
         if not hasattr(user, 'get_all_permission_sets'):
             return self.none()
 
-        sg_all = set()
-        for sg in SubjectGroup.objects.all().filter(
-                permission_sets__in=user.get_all_permission_sets()):
-            sg_all.add(sg)
-            sg_all.update(sg.get_descendants())
+        if user.is_superuser:
+            return self.all()
 
-        return self.filter(groups__in=sg_all).distinct('name')
+        allowed_subject_groups = SubjectGroup.objects.all().filter(
+            permission_sets__in=user.get_all_permission_sets())
+
+        effective_subject_group_set = set()
+        for sg in allowed_subject_groups:
+            effective_subject_group_set.add(sg)
+            effective_subject_group_set.update(sg.get_descendants())
+
+        return self.filter(groups__in=effective_subject_group_set).distinct('name')
 
     def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
