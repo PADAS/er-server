@@ -592,7 +592,7 @@ class SubjectQuerySet(models.QuerySet):
             effective_subject_group_set.add(sg)
             effective_subject_group_set.update(sg.get_descendants())
 
-        return self.filter(groups__in=effective_subject_group_set).distinct('name')
+        return self.filter(groups__in=effective_subject_group_set).distinct('id')
 
     def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
