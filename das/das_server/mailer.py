@@ -50,6 +50,9 @@ def send_event_mail(event, user, revision, email_callback):
                 email_separator_string.format(key, display_value))
 
         newness = _('UPDATE')
+        if not updated_fields:
+            # No visible updates, so don't send
+            return
     else:
         newness = _('NEW')
 
