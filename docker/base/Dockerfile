@@ -19,7 +19,7 @@ RUN dpkg -i /workspace/dependencies/geos_3.6.1-1_amd64.deb
 ENV LD_LIBRARY_PATH "/usr/local/lib"
 
 RUN pip3 install -U "pip"
-RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt
+RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt -f /workspace/dependencies/wheelhouse
 RUN pip3 install -r /workspace/dependencies/requirements-dev.txt
 
 ADD ./das /var/www/app

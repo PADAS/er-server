@@ -1,0 +1,186 @@
+resources:
+################################################################################
+# 
+# Resources to fetch
+#
+################################################################################        
+# git resources
+- name: git-utility
+  type: git
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    paths: 
+      - docker/PostGIS/*
+      - docker/Nginx/*
+    private_key: ((server-private-key))
+
+- name: git-server
+  type: git
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    private_key: ((server-private-key))
+
+- name: git-web
+  type: git
+  source:
+    uri: git@github.com:PADAS/das-web.git
+    branch: ((web-branch-name))
+    private_key: ((web-private-key))
+
+#base docker resources
+- name: image-server-base
+  type: docker-image
+  source:
+    tag: $(cat<git-server-base/sha)
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/base
+
+# API, Beat, MQL, RT_API, Worker
+- name: image-server-worker
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/worker
+
+- name: image-server-rt-api
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/rt_api
+
+- name: image-server-mql
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/mql
+
+- name: image-server-beat
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/beat
+
+- name: image-server-api
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/api
+
+# docker resource images not dependentn on base / app
+- name: image-postgis
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/postgis
+
+- name: image-nginx
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/nginx
+
+# Web docker resources
+- name: image-web
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/web
+
+################################################################################
+# 
+# Jobs to run
+#
+################################################################################
+jobs:  
+- name: docker-build-server-base
+  plan:
+  - get: git-server
+    trigger: true
+  - put: image-server-base
+    params: {
+      build: git-server,
+      dockerfile: git-server/docker/base/Dockerfile,
+      tag_as_latest: true
+    }
+    get_params: {skip_download: true}
+
+#API, Beat, MQL, RT_API, Worker
+- name: docker-build-server
+  plan:
+  - aggregate:
+    - get: git-server
+      trigger: true
+      passed: [docker-build-server-base]
+    - get: image-server-base
+      trigger: true
+      passed: [docker-build-server-base]
+      params: { skip_download: true }
+  - aggregate:
+    - put: image-server-api
+      params: { build: git-server/docker/API,
+      tag_as_latest: true }
+      get_params: {skip_download: true}
+    - put: image-server-beat
+      params: { build: git-server/docker/Beat,
+      tag_as_latest: true }
+      get_params: {skip_download: true}
+    - put: image-server-mql
+      params: { build: git-server/docker/MQL,
+      tag_as_latest: true }
+      get_params: {skip_download: true}
+    - put: image-server-rt-api
+      params: { build: git-server/docker/RT_API,
+      tag_as_latest: true }
+      get_params: {skip_download: true}
+    - put: image-server-worker
+      params: { build: git-server/docker/Worker,
+      tag_as_latest: true }
+      get_params: {skip_download: true}
+
+- name: docker-build-utility
+  plan:
+  - get: git-utility
+    trigger: true
+  - aggregate: 
+    - put: image-postgis
+      params: { build: git-utility/docker/PostGIS,
+      tag_as_latest: true }
+      get_params: {skip_download: true}
+    - put: image-nginx
+      params: { build: git-utility/docker/Nginx,
+      tag_as_latest: true }
+      get_params: {skip_download: true}
+
+# Web Jobs
+- name: docker-build-web
+  serial: true
+  plan:
+  - get: git-web
+    trigger: true
+  - put: image-web
+    params: {
+      build: git-web,
+      dockerfile: git-web/docker/Dockerfile,
+      tag_as_latest: true
+    }        
+    get_params: {skip_download: true}
