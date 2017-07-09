@@ -3,10 +3,11 @@ import json
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.translation import ugettext_lazy as _
-from activity.serializers import EventSerializer
+from activity.serializers import EventSerializer, EventNoteSerializer
 from activity.models import Event
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 import activity.schema_utils as schema_utils
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,17 @@ def send_event_mail(event, user, revision, email_callback):
             continue
         elif key == 'time' and event.time is not None:
             display_value = event.time.strftime('%A, %B %d, %Y at %H:%M')
+        elif key == 'notes' and value is not None:
+            try:
+                display_value = ''
+                notes_serializer = EventNoteSerializer()
+                display_value = '\n'.join(
+                    [notes_serializer.get_display_value(note) for note in
+                     event.notes.all()])
+            except Exception:
+                display_value = value
+        elif key == 'reported_by' and value is not None:
+            display_value = value['username'] if 'username' in value else value
         else:
             try:
                 display_value = event.get_display_value(key, value)
