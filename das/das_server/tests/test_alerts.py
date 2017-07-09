@@ -157,7 +157,9 @@ message: {text}
 
 event_type: {type}
 
-notes: first last: some text'''
+notes: first last: some text
+
+reported_by: super'''
 
 
 class TestEventView(TestCase):
@@ -210,6 +212,8 @@ class TestEventView(TestCase):
         self.event_with_note = self.create_event(self.event_data)
         EventNote.objects.create_note(
             event_id=self.event_with_note.id, text='some text', created_by_user=self.user)
+
+        self.event_with_note.reported_by = self.user
 
     def time_to_string(self, time):
         return time.strftime('%A, %B %d, %Y at %H:%M')
