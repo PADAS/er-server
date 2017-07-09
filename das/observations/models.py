@@ -301,8 +301,18 @@ class ObservationManager(models.GeoManager):
             source=source).aggregate(Max('recorded_at'))
         return r.get('recorded_at__max')
 
-    def get_last_source_observation(self, source):
-        return Observation.objects.filter(source=source)(Max('recorded_at'))
+    def get_last_source_observation(self, source, delay_hours=0):
+
+        try:
+            qs = Observation.objects.filter(source=source)
+            if delay_hours:
+                end_time = pytz.utc.localize(
+                    datetime.utcnow()) - timedelta(hours=delay_hours)
+                qs = qs.filter(recorded_at__lt=end_time)
+            return qs.latest('recorded_at')
+
+        except Observation.DoesNotExist:
+            pass
 
     def get_last_observation(self, subject, newer_than=None):
         """get the last recorded observation of the subject
@@ -629,6 +639,12 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_LION = 'lion'
     SUBTYPE_GIRAFFE = 'giraffe'
     SUBTYPE_ANTELOPE = 'antelope'
+    SUBTYPE_CHEETAH = 'cheetah'
+    SUBTYPE_COW = 'cow'
+    SUBTYPE_FOREST_ELEPHANT = 'forest_elephant'
+    SUBTYPE_SABLE = 'sable'
+    SUBTYPE_SCIMITAR_ORYX = 'scimitar_oryx'
+    SUBTYPE_UNDEPLOYED = 'undeployed'
 
     SUBTYPE_SECURITY = 'security_vehicle'
     SUBTYPE_RESEARCH = 'research'
@@ -641,6 +657,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_RANGER_TEAM = 'ranger_team'
     SUBTYPE_MANAGER = 'manager'
     SUBTYPE_DRIVER = 'driver'
+    SUBTYPE_EXPEDITION = 'expedition'
 
     SUBTYPE_PLANE = 'plane'
     SUBTYPE_HELICOPTER = 'helicopter'
@@ -660,6 +677,12 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 (SUBTYPE_LION, 'Lion'),
                 (SUBTYPE_GIRAFFE, 'Giraffe'),
                 (SUBTYPE_ANTELOPE, 'Antelope'),
+                (SUBTYPE_CHEETAH, 'Cheetah'),
+                (SUBTYPE_COW, 'Cow'),
+                (SUBTYPE_FOREST_ELEPHANT, 'Forest Elephant'),
+                (SUBTYPE_SABLE, 'Sable'),
+                (SUBTYPE_SCIMITAR_ORYX, 'Scimitar Oryx'),
+                (SUBTYPE_UNDEPLOYED, 'Undeployed'),
             )
 
         },
@@ -671,6 +694,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 (SUBTYPE_RANGER_TEAM, 'Ranger Team'),
                 (SUBTYPE_DRIVER, 'Driver'),
                 (SUBTYPE_MANAGER, 'Manager'),
+                (SUBTYPE_EXPEDITION, 'Expedition'),
             )
         },
         {
@@ -816,7 +840,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def image_url(self):
         image_url = static_image_finder.get_marker_icon(self._image_keys())
         if not image_url:
-            image_url = '/static/triangle.png'
+            image_url = '/static/unassigned-black.svg'
         return image_url
 
     def _image_keys(self):
@@ -826,6 +850,14 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         if sex:
             yield '-'.join((key, 'black', sex.lower()))
             yield '-'.join((key, sex.lower()))
+
+        status = self.subjectstatus_set.filter(delay_hours=0)
+        if status:
+            status = status[0]
+            if 'state' in status.additional:
+                color = get_radio_color(status.additional['state'],
+                                        status.additional)
+                yield '-'.join((key, color))
 
         yield key
         yield '-'.join((key, 'black'))
@@ -879,24 +911,20 @@ class SubjectStatusManager(models.Manager):
 
     def update_from_observation(self, observation, delay_hours=0):
 
-        ss = SubjectSource.objects.get_for_source_at_time(
-            source=observation.source, at_time=observation.recorded_at)
-
-        if not ss:  # Coding error
-            return
-            # raise ValueError('No SubjectSource exists for observation {}'.format(observation))
-
-        if not delay_hours:
-            observation = Observation.objects.get_last_observation(ss.subject)
-        else:
-            ts = datetime.now(tz=pytz.UTC) - timedelta(hours=delay_hours)
-            observation = Observation.objects.get_delayed_observation(
-                ss.subject, older_than=ts)
+        observation = Observation.objects.get_last_source_observation(
+            observation.source, delay_hours=delay_hours)
 
         if not observation:
             return
 
-        substatus, created = SubjectStatus.objects.get_or_create(subject=ss.subject, delay_hours=delay_hours,
+        try:
+            # TODO: Account for the case where multiple subjects are returned.
+            subject = Subject.objects.filter(subjectsource__source=observation.source,
+                                             subjectsource__assigned_range__contains=observation.recorded_at).first()
+        except Subject.DoesNotExist:
+            return
+
+        substatus, created = SubjectStatus.objects.get_or_create(subject=subject, delay_hours=delay_hours,
                                                                  defaults=dict(recorded_at=observation.recorded_at,
                                                                                location=observation.location,
                                                                                additional={}))
@@ -904,8 +932,10 @@ class SubjectStatusManager(models.Manager):
         if created or substatus.recorded_at >= observation.recorded_at:
             pass
         else:
-            substatus.recorded_at = observation.recorded_at
-            substatus.location = observation.location
+            # Update subject-status location only for non-empty points.
+            if observation.location != EMPTY_POINT:
+                substatus.recorded_at = observation.recorded_at
+                substatus.location = observation.location
             substatus.additional = observation.additional
             substatus.save()
 

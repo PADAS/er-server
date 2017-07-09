@@ -37,14 +37,12 @@ class UserProfilesView(generics.ListAPIView):
     queryset = get_user_model().objects.all()
     serializer_class = serializers.UserSerializer
     permission_classes = (UserObjectPermissions,)
-    filter_backends = (UserObjectPermissionsFilter,)
 
     def get_queryset(self):
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
         if self.kwargs[lookup_url_kwarg] == 'me':
             self.kwargs[lookup_url_kwarg] = self.request.user.id
 
-        queryset = get_user_model().objects.all()
-        queryset = queryset.by_is_active()
-        queryset = queryset.filter(is_staff=False)
+        user = self.request.user
+        queryset = user.act_as_profiles.all()
         return queryset

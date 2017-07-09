@@ -1,6 +1,7 @@
 import uuid
 import datetime
 import pytz
+import logging
 from operator import itemgetter, attrgetter
 
 import django.utils
@@ -25,7 +26,11 @@ from utils.html import clean_user_text
 from core.models import TimestampedModel
 import usercontent.models
 from observations.models import Subject
+from accounts.models.permissionset import PermissionSet
 from revision.manager import Revision, RevisionMixin
+from core.utils import static_image_finder
+
+logger = logging.getLogger(__name__)
 
 
 def get_sentinel_user():
@@ -34,20 +39,6 @@ def get_sentinel_user():
                                       email='deleted@test.com',
                                       is_active=False,
                                       password=User.objects.make_random_password())[0]
-
-
-def image_basename(event_type, priority, state):
-    CONVERSION = {0: 'gray', 100: 'med_green', 200: 'amber', 300: 'red'}
-    color = CONVERSION.get(priority, 'black')
-    if state == Event.SC_RESOLVED:
-        color = 'lt_gray'
-    if not event_type:
-        event_type = 'other'
-    return '{0}-{1}'.format(event_type, color)
-
-
-def marker_icon(event_type, priority, state):
-    return '/static/{}.svg'.format(image_basename(event_type, priority, state))
 
 
 class CommunityManager(models.Manager):
@@ -112,12 +103,6 @@ class EventFactor(TimestampedModel):
 
 
 class EventCategory(TimestampedModel):
-    class Meta:
-        permissions = (
-            ('security_events', 'Permission to see security events'),
-            ('standard_events', 'Permission to see reporting events.'),
-        )
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
@@ -239,9 +224,22 @@ class EventManager(models.Manager):
     def get_reported_by_for_provenance(self, provenance):
         if Event.PC_STAFF == provenance:
             def get_staff():
-                for obj in get_user_model().objects.all().filter(
-                        is_active=True):
-                    yield (obj.get_full_name().lower(), obj)
+                # First get all user accounts in the reported by permission
+                # set, if it exists in the settings and the db
+                try:
+                    reported_by_users = PermissionSet.objects.get(
+                        id=settings.REPORTED_BY_PERMISSION_SET).user_set
+                    for obj in reported_by_users.filter(is_active=True):
+                        yield (obj.get_full_name().lower(), obj)
+                except PermissionSet.DoesNotExist:
+                    logger.warning(
+                        'Someone has deleted the reported_by permission set')
+                except AttributeError:
+                    logger.warning(
+                        'Reported by permission set not specified in settings')
+
+                # We also want subjects who are staff (rangers are tracked as
+                # subjects via their radio, but can report events
                 for obj in Subject.objects.all().get_staff().by_is_active():
                     yield (obj.name.lower(), obj)
             for staff in sorted(get_staff(), key=itemgetter(0)):
@@ -450,23 +448,32 @@ class Event(RevisionMixin, TimestampedModel):
 
     class Meta:
         permissions = (
-            ('view_event', 'Permission to view an event'),
-            ('admin_event', 'An admin permission to change which users can view a Subject and their view permission.'),
-
             ('security_create', 'Create security reports'),
             ('security_read', 'View security reports'),
             ('security_update', 'Modify security reports'),
             ('security_delete', 'Delete security reports'),
 
-            ('standard_create', 'Create monitoring reports'),
-            ('standard_read', 'View monitoring reports'),
-            ('standard_update', 'Modify monitoring reports'),
-            ('standard_delete', 'Delete monitoring reports'),
+            ('monitoring_create', 'Create monitoring reports'),
+            ('monitoring_read', 'View monitoring reports'),
+            ('monitoring_update', 'Modify monitoring reports'),
+            ('monitoring_delete', 'Delete monitoring reports'),
 
             ('logistics_create', 'Create logistics reports'),
             ('logistics_read', 'View logistics reports'),
             ('logistics_update', 'Modify logistics reports'),
             ('logistics_delete', 'Delete logistics reports'),
+
+            ('analyzer_event_create', 'Create logistics reports'),
+            ('analyzer_event_read', 'View logistics reports'),
+            ('analyzer_event_update', 'Modify logistics reports'),
+            ('analyzer_event_delete', 'Delete logistics reports'),
+
+            # These 4 permissions are deprecated (obviously) and should
+            # eventually be removed
+            ('standard__deprecated_read', 'View DEPRECATED monitoring reports'),
+            ('standard__deprecated_update', 'Modify DEPRECATED monitoring reports'),
+            ('security__deprecated_read', 'View DEPRECATED security reports'),
+            ('security__deprecated_update', 'Modify DEPRECATED security reports'),
         )
 
     class ReadonlyMeta:
@@ -541,10 +548,37 @@ class Event(RevisionMixin, TimestampedModel):
     def time(self):
         return self.event_time
 
-    # @property
-    # def image_url(self):
-    #     return marker_icon(self.event_type.value if self.event_type else None,
-    #                        self.priority, self.state)
+    @staticmethod
+    def image_basename(event_type, priority, state):
+        CONVERSION = {0: 'gray', 100: 'med_green', 200: 'amber', 300: 'red'}
+        color = CONVERSION.get(priority, 'black')
+        if state == Event.SC_RESOLVED:
+            color = 'lt_gray'
+        if not event_type:
+            event_type = 'other'
+        return '{0}-{1}'.format(event_type, color)
+
+    @staticmethod
+    def generate_image_keys(event_type_value, priority, state):
+        # Generate list from most to least preferable icon.
+        yield Event.image_basename(event_type_value, priority, state)
+
+        report_suffix = '_rep'
+        if event_type_value.endswith(report_suffix):
+            yield Event.image_basename(event_type_value[:-1 * len(report_suffix)], priority, state)
+        yield '{0}-{1}'.format(event_type_value, 'black')
+        yield Event.image_basename('generic', priority, state)
+        yield 'generic-black'
+
+    @staticmethod
+    def marker_icon(event_type_value, priority, state, default='/static/generic-black.svg'):
+        image_url = static_image_finder.get_marker_icon(
+            Event.generate_image_keys(event_type_value, priority, state))
+        return image_url or default
+
+    @property
+    def image_url(self):
+        return Event.marker_icon(self.event_type.value, self.priority, self.state)
 
     @property
     def subjects(self):

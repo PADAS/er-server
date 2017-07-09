@@ -1,8 +1,12 @@
-import os, tempfile, shutil
-
+import os
+import tempfile
+import shutil
+import logging
+import json
 import copy
 import collections
-import string, random
+import string
+import random
 
 import django.contrib.auth
 from django.db import transaction
@@ -21,13 +25,15 @@ from core.tests import BaseAPITest
 from choices.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory
-from activity.models import get_sentinel_user, marker_icon
+from activity.models import get_sentinel_user
 from activity.serializers import ATTACHMENT_SERIALIZER_MAPPING
 from activity import views
 from observations.models import Subject
 from accounts.serializers import UserDisplaySerializer
 from observations.serializers import SubjectSerializer
 
+
+logger = logging.getLogger(__name__)
 
 User = django.contrib.auth.get_user_model()
 ET_OTHER = 'other'
@@ -36,18 +42,20 @@ ET_SECURITY = 'carcass'
 ET_STANDARD = 'rhino_birth'
 ET_LOGISTICS = 'snare'
 
-### These permission lists are made up, and do not necessarily correspond to permission sets in production deployments
+# These permission lists are made up, and do not necessarily correspond to permission sets in production deployments
 # All perms user has... all perms
 all_permissions = [
     'security_create', 'security_read', 'security_update', 'security_delete',
     'standard_create', 'standard_read', 'standard_update', 'standard_delete',
     'logistics_create', 'logistics_read', 'logistics_update', 'logistics_delete']
-# Power user has all access to logistics and standard events, but can only read security events
+# Power user has all access to logistics and standard events, but can only
+# read security events
 power_user_permissions = [
     'security_read',
     'standard_create', 'standard_read', 'standard_update', 'standard_delete',
     'logistics_create', 'logistics_read', 'logistics_update', 'logistics_delete']
-# Radio room users can create any type of event, view/update standard and logistics events, and delete nothing
+# Radio room users can create any type of event, view/update standard and
+# logistics events, and delete nothing
 radio_room_user_permissions = [
     'security_create',
     'standard_create', 'standard_read', 'standard_update',
@@ -55,15 +63,18 @@ radio_room_user_permissions = [
 # Guest users can see logistics events and nothing else
 guest_user_permissions = ['logistics_read']
 
+reported_by_permission_set_id = 'b5057387-9f6c-4685-8ec1-46ad29684eea'
+
 
 class TestEventView(BaseAPITest):
     user_const = dict(last_name='last', first_name='first')
+
     def setUp(self):
         super().setUp()
         call_command('loaddata', 'initial_eventdata')
 
         self.no_perms_user = User.objects.create_user('no_perms_user',
-            'das_no_perms@vulcan.com', 'noperms', **self.user_const)
+                                                      'das_no_perms@vulcan.com', 'noperms', **self.user_const)
         self.guest_user = User.objects.create_user(
             'guest_user', 'das_guest_user@vulcan.com', 'guest_user',
             **self.user_const)
@@ -84,29 +95,40 @@ class TestEventView(BaseAPITest):
             event_type=ET_OTHER,
             priority=Event.PRI_REFERENCE,
             location=dict(longitude='40.1353', latitude='-1.891517')
-            )
+        )
 
         self.sample_event = self.create_event(self.event_data)
 
-        self.all_perms_permissionset = PermissionSet.objects.create(name='all_perms_set')
+        self.reported_by_permission_set = PermissionSet.objects.get(
+            id=reported_by_permission_set_id)
+
+        self.all_perms_permissionset = PermissionSet.objects.create(
+            name='all_perms_set')
         for perm in all_permissions:
             self.all_perms_permissionset.permissions.add(
                 Permission.objects.get(codename=perm))
         self.all_perms_user.permission_sets.add(self.all_perms_permissionset)
+        self.all_perms_user.permission_sets.add(
+            self.reported_by_permission_set)
 
-        self.power_user_permissionset = PermissionSet.objects.create(name='power_set')
+        self.power_user_permissionset = PermissionSet.objects.create(
+            name='power_set')
         for perm in power_user_permissions:
             self.power_user_permissionset.permissions.add(
                 Permission.objects.get(codename=perm))
         self.power_user.permission_sets.add(self.power_user_permissionset)
+        self.power_user.permission_sets.add(self.reported_by_permission_set)
 
-        self.radio_room_user_permissionset = PermissionSet.objects.create(name='radio_room_perms_set')
+        self.radio_room_user_permissionset = PermissionSet.objects.create(
+            name='radio_room_perms_set')
         for perm in radio_room_user_permissions:
             self.radio_room_user_permissionset.permissions.add(
                 Permission.objects.get(codename=perm))
-        self.radio_room_user.permission_sets.add(self.radio_room_user_permissionset)
+        self.radio_room_user.permission_sets.add(
+            self.radio_room_user_permissionset)
 
-        self.guest_user_permissionset = PermissionSet.objects.create(name='guest_set')
+        self.guest_user_permissionset = PermissionSet.objects.create(
+            name='guest_set')
         for perm in guest_user_permissions:
             self.guest_user_permissionset.permissions.add(
                 Permission.objects.get(codename=perm))
@@ -126,7 +148,8 @@ class TestEventView(BaseAPITest):
                 event_data['time'])
             del data['time']
         if isinstance(event_data.get('event_type', None), str):
-            data['event_type'] = EventType.objects.get_by_value(event_data['event_type'])
+            data['event_type'] = EventType.objects.get_by_value(
+                event_data['event_type'])
 
         if 'location' in data:
             data['location'] = PointField().to_internal_value(
@@ -141,14 +164,15 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_find_all_event_type_icons(self):
+
         for et in EventType.objects.all():
             for p in Event.PRIORITY_CHOICES:
                 for s in Event.STATE_CHOICES:
-                    image = marker_icon(et.value,
-                        p[0], s[0])
+                    image = Event.marker_icon(et.value,
+                                              p[0], s[0])
                     image = image[8:]
-                    self.assertTrue(finders.find(image), 'Failed to find image: {0}'.format(image))
-
+                    self.assertTrue(finders.find(image),
+                                    'Failed to find image: {0}'.format(image))
 
     def test_return_event_details(self):
         request = self.factory.get(self.api_base + '/event/')
@@ -171,16 +195,16 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
         response_data = response.data
-        response_data = {k:response_data[k] for k in event_data.keys()}
+        response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
     def test_create_matrix_event(self):
         event_data = {'priority': Event.PRI_REFERENCE,
                       'event_type': ET_OTHER,
                       'attributes': {
-                            'event_class': 'trespass',
-                            'event_factor': 'loss_of_life',
-                          },
+                          'event_class': 'trespass',
+                          'event_factor': 'loss_of_life',
+                      },
                       }
 
         request = self.factory.post(self.api_base + '/events/', event_data)
@@ -202,12 +226,12 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
         response_data = response.data
-        response_data = {k:response_data[k] for k in event_data.keys()}
+        response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
-    ### These tests don't pass anymore because of the permissions change, but
-    ### Since we're refactoring notes anyway, I'm going to leave them commented
-    ### out instead of fixing them so they pass.
+    # These tests don't pass anymore because of the permissions change, but
+    # Since we're refactoring notes anyway, I'm going to leave them commented
+    # out instead of fixing them so they pass.
     # def test_add_note(self):
     #     note_data = {'text': lorem_ipsum.paragraph()}
     #     request = self.factory.post(self.api_base
@@ -294,14 +318,17 @@ class TestEventView(BaseAPITest):
             f.write('The quick brown fox jumps over the lazy dog.')
 
         with open(filename, "rb") as f:
-            path = '/'.join((self.api_base, 'activity', 'event', my_event_id, 'files'))
-            request = self.factory.post(path, {'filecontent.file': f}, format='multipart')
+            path = '/'.join((self.api_base, 'activity',
+                             'event', my_event_id, 'files'))
+            request = self.factory.post(
+                path, {'filecontent.file': f}, format='multipart')
 
             self.force_authenticate(request, self.all_perms_user)
             response = views.EventFilesView.as_view()(request, id=my_event_id)
-            print(response.data)
+            logger.debug(response.data)
 
-        # Make request for the new event and assert that it includes a new document.
+        # Make request for the new event and assert that it includes a new
+        # document.
         path = '/'.join((self.api_base, 'activity', 'event', my_event_id))
         request = self.factory.get(path, event_data)
         self.force_authenticate(request, self.all_perms_user)
@@ -309,8 +336,8 @@ class TestEventView(BaseAPITest):
         response = views.EventView.as_view()(request, id=my_event_id)
         self.assertEqual(response.status_code, 200)
 
-        self.assertTrue(len(response.data['files']) == 1 )
-        # print(response.data)
+        self.assertTrue(len(response.data['files']) == 1)
+        # logger.debug(response.data)
 
     def test_create_event_file_with_permissions(self):
         event_data = dict(priority=0,
@@ -339,14 +366,17 @@ class TestEventView(BaseAPITest):
             f.write('The quick brown fox jumps over the lazy dog.')
 
         with open(filename, "rb") as f:
-            path = '/'.join((self.api_base, 'activity', 'event', my_event_id, 'files'))
-            request = self.factory.post(path, {'filecontent.file': f}, format='multipart')
+            path = '/'.join((self.api_base, 'activity',
+                             'event', my_event_id, 'files'))
+            request = self.factory.post(
+                path, {'filecontent.file': f}, format='multipart')
 
             self.force_authenticate(request, self.all_perms_user)
             response = views.EventFilesView.as_view()(request, id=my_event_id)
-            print(response.data)
+            logger.debug(response.data)
 
-        # Make request for the new event and assert that it includes a new document.
+        # Make request for the new event and assert that it includes a new
+        # document.
         path = '/'.join((self.api_base, 'activity', 'event', my_event_id))
         request = self.factory.get(path, event_data)
         self.force_authenticate(request, self.all_perms_user)
@@ -354,27 +384,31 @@ class TestEventView(BaseAPITest):
         response = views.EventView.as_view()(request, id=my_event_id)
         self.assertEqual(response.status_code, 200)
 
-        self.assertTrue(len(response.data['files']) == 1 )
+        self.assertTrue(len(response.data['files']) == 1)
 
         # Grab EventFile.id from response
         event_file_id = response.data['files'][0]['id']
 
         # Assert that an unauthenticated user may not see the EventFile
-        path = '/'.join((self.api_base, 'activity', 'event', my_event_id, 'file', event_file_id))
+        path = '/'.join((self.api_base, 'activity', 'event',
+                         my_event_id, 'file', event_file_id))
         request = self.factory.get(path)
-        response = views.EventFileView.as_view()(request, event_id=my_event_id, filecontent_id=event_file_id)
+        response = views.EventFileView.as_view()(
+            request, event_id=my_event_id, filecontent_id=event_file_id)
         self.assertEqual(response.status_code, 401)
 
         # Assert that a user with permissions may see the EventFile
         request = self.factory.get(path)
         self.force_authenticate(request, self.all_perms_user)
-        response = views.EventFileView.as_view()(request, event_id=my_event_id, filecontent_id=event_file_id)
+        response = views.EventFileView.as_view()(
+            request, event_id=my_event_id, filecontent_id=event_file_id)
         self.assertEqual(response.status_code, 200)
 
         # Assert that a user without permissions may not see the EventFile
         request = self.factory.get(path)
         self.force_authenticate(request, self.guest_user)
-        response = views.EventFileView.as_view()(request, event_id=my_event_id, filecontent_id=event_file_id)
+        response = views.EventFileView.as_view()(
+            request, event_id=my_event_id, filecontent_id=event_file_id)
         self.assertEqual(response.status_code, 403)
 
     def test_create_event_file_with_permissions(self):
@@ -404,14 +438,17 @@ class TestEventView(BaseAPITest):
             f.write('The quick brown fox jumps over the lazy dog.')
 
         with open(filename, "rb") as f:
-            path = '/'.join((self.api_base, 'activity', 'event', my_event_id, 'files'))
-            request = self.factory.post(path, {'filecontent.file': f}, format='multipart')
+            path = '/'.join((self.api_base, 'activity',
+                             'event', my_event_id, 'files'))
+            request = self.factory.post(
+                path, {'filecontent.file': f}, format='multipart')
 
             self.force_authenticate(request, self.all_perms_user)
             response = views.EventFilesView.as_view()(request, id=my_event_id)
-            print(response.data)
+            logger.debug(response.data)
 
-        # Make request for the new event and assert that it includes a new document.
+        # Make request for the new event and assert that it includes a new
+        # document.
         path = '/'.join((self.api_base, 'activity', 'event', my_event_id))
         request = self.factory.get(path, event_data)
         self.force_authenticate(request, self.all_perms_user)
@@ -419,15 +456,17 @@ class TestEventView(BaseAPITest):
         response = views.EventView.as_view()(request, id=my_event_id)
         self.assertEqual(response.status_code, 200)
 
-        self.assertTrue(len(response.data['files']) == 1 )
+        self.assertTrue(len(response.data['files']) == 1)
 
         # Grab EventFile.id from response
         event_file_id = response.data['files'][0]['id']
 
         # Assert that an unauthenticated user may not see the EventFile
-        path = '/'.join((self.api_base, 'activity', 'event', my_event_id, 'file', event_file_id))
+        path = '/'.join((self.api_base, 'activity', 'event',
+                         my_event_id, 'file', event_file_id))
         request = self.factory.get(path)
-        response = views.EventFileView.as_view()(request, event_id=my_event_id, filecontent_id=event_file_id)
+        response = views.EventFileView.as_view()(
+            request, event_id=my_event_id, filecontent_id=event_file_id)
         self.assertEqual(response.status_code, 401)
 
     def test_validate_serializer_schema(self):
@@ -448,7 +487,8 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_event_feed_category(self):
-        request = self.factory.get(self.api_base + '/events?event_category=standard&event_category=security')
+        request = self.factory.get(
+            self.api_base + '/events?event_category=standard&event_category=security')
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
@@ -456,7 +496,8 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_event_type_category(self):
-        request = self.factory.get(self.api_base + '/events/eventtypes?category=standard&event_category=security')
+        request = self.factory.get(
+            self.api_base + '/events/eventtypes?category=standard&event_category=security')
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventTypesView.as_view()(request)
@@ -507,8 +548,8 @@ class TestEventView(BaseAPITest):
         self.assertEqual(all_response.status_code, 200)
         self.assertEqual(some_response.status_code, 200)
 
-        self.assertGreater(all_response_data['count'], some_response_data['count'])
-
+        self.assertGreater(
+            all_response_data['count'], some_response_data['count'])
 
     def test_add_reported_by(self):
         event = self.create_event(self.event_data)
@@ -538,7 +579,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventStateView.as_view()(request,
-                                             id=str(event.id))
+                                                  id=str(event.id))
         self.assertEqual(response.status_code, 200)
         response_data = response.data
         self.assertEqual(response_data['state'], update_data['state'])
@@ -571,12 +612,10 @@ class TestEventView(BaseAPITest):
                                                   id=str(event.id))
         self.assertEqual(response.status_code, 403)
 
-
     def test_event_type_collection(self):
         event_type = EventType.objects.get_by_value('incident_collection')
 
         self.assertTrue(event_type.is_collection)
-
 
     def test_create_collection(self):
         event_data = copy.deepcopy(self.event_data)
@@ -609,11 +648,29 @@ class TestEventView(BaseAPITest):
 
         report_id = response.data['id']
         rel_data = {'to_event_id': report_id, 'type': 'contains'}
-        request = self.factory.post(self.api_base + '/event/' + collection_id + '/relationships', rel_data)
+        request = self.factory.post(
+            self.api_base + '/event/' + collection_id + '/relationships', rel_data)
         self.force_authenticate(request, self.all_perms_user)
-        response = views.EventRelationshipsView.as_view()(request, from_event_id=collection_id)
-        print(response)
+        response = views.EventRelationshipsView.as_view()(
+            request, from_event_id=collection_id)
+        logger.debug(response.data)
         self.assertEqual(response.status_code, 201)
+
+    def test_return_new_contained_events(self):
+
+        event_data = json.loads(
+            """{"priority":0,"event_type":"incident_collection","message":"test parent message","title":"test parent title","contains":[{"message":"test contains message","title":"SIT-REP","event_type":"contact","time":"2017-06-21 14:43","event_details":{},"priority":0,"reported_by":null},{"message":"second test contains message","title":"Other","event_type":"other","time":"2017-06-21 14:44","event_details":{},"priority":0,"reported_by":null}]}""")
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        event = response.data
+
+        self.assertIn('contains', event)
+        self.assertEqual(len(event_data['contains']), len(event['contains']))
+        self.assertEqual(event_data['contains'][0]['message'],
+                         event['contains'][0]['related_event']['message'])
 
     def test_event_without_event_type(self):
         event_data = {'message': 'this has no event type', 'priority': '200'}
@@ -624,11 +681,13 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 400)
 
-        self.assertTrue('event_type' in response.data, 'I cannot find "event_type" in response data.')
+        self.assertTrue('event_type' in response.data,
+                        'I cannot find "event_type" in response data.')
 
     def test_edit_event_title(self):
         event = self.create_event(self.event_data)
-        TITLE = ''.join([random.choice(string.ascii_letters + string.digits + string.punctuation) for x in range(30)])
+        TITLE = ''.join([random.choice(string.ascii_letters +
+                                       string.digits + string.punctuation) for x in range(30)])
         update_data = {'title': TITLE}
 
         request = self.factory.patch(
@@ -641,6 +700,14 @@ class TestEventView(BaseAPITest):
 
         self.assertEqual(response.data['title'], TITLE)
 
+    def test_reported_by_filtering(self):
+        reported_by_users = list(Event.objects.get_reported_by_for_provenance(
+            Event.PC_STAFF))
+
+        self.assertEquals(2, len(reported_by_users))
+        self.assertIn(self.all_perms_user, reported_by_users)
+        self.assertIn(self.power_user, reported_by_users)
+
     def test_add_event_category(self):
         value = 'new'
         display = 'new event permissions'
@@ -651,7 +718,8 @@ class TestEventView(BaseAPITest):
             self.assertIsNotNone(Permission.objects.get(codename=codename))
 
     def test_all_perms_user_permissions(self):
-        results = self.do_all_operations_on_all_event_types(self.all_perms_user)
+        results = self.do_all_operations_on_all_event_types(
+            self.all_perms_user)
 
         for k, v in results.items():
             self.assertTrue(v, 'All perms user failed {0}'.format(k))
@@ -666,7 +734,8 @@ class TestEventView(BaseAPITest):
                 self.assertFalse(v, 'Power user passed {0}'.format(k))
 
     def test_radio_room_operator_permissions(self):
-        results = self.do_all_operations_on_all_event_types(self.radio_room_user)
+        results = self.do_all_operations_on_all_event_types(
+            self.radio_room_user)
 
         for k, v in results.items():
             if k in radio_room_user_permissions:
@@ -685,9 +754,12 @@ class TestEventView(BaseAPITest):
 
     def do_all_operations_on_all_event_types(self, user):
         result = {}
-        result.update(self.do_all_event_operations(user, ET_LOGISTICS, 'logistics'))
-        result.update(self.do_all_event_operations(user, ET_STANDARD, 'standard'))
-        result.update(self.do_all_event_operations(user, ET_SECURITY, 'security'))
+        result.update(self.do_all_event_operations(
+            user, ET_LOGISTICS, 'logistics'))
+        result.update(self.do_all_event_operations(
+            user, ET_STANDARD, 'standard'))
+        result.update(self.do_all_event_operations(
+            user, ET_SECURITY, 'security'))
         return result
 
     def do_all_event_operations(self, user, event_type, event_type_name):
@@ -699,38 +771,47 @@ class TestEventView(BaseAPITest):
         event_data['event_type'] = event_type
 
         # Attempt to create a new logistics event
-        request = self.factory.post(self.api_base + '/activity/events/', event_data)
+        request = self.factory.post(
+            self.api_base + '/activity/events/', event_data)
         self.force_authenticate(request, user)
         response = views.EventsView.as_view()(request)
-        results['{0}_create'.format(event_type_name)] = response.status_code == 201
+        results['{0}_create'.format(event_type_name)
+                ] = response.status_code == 201
 
         # Because we don't know if the previous event creation failed, create
         # an event that we'll use for the next three tests
         event = Event.objects.create_event(message=lorem_ipsum.paragraph(),
                                            provenance=Event.PC_SYSTEM,
-                                           event_type=EventType.objects.get_by_value(event_type),
+                                           event_type=EventType.objects.get_by_value(
+                                               event_type),
                                            priority=Event.PRI_URGENT,
                                            attributes={},
                                            )
 
         # Attempt to read the event we just created
-        request = self.factory.get(self.api_base + '/event/{0}'.format(str(event.id)))
+        request = self.factory.get(
+            self.api_base + '/event/{0}'.format(str(event.id)))
         self.force_authenticate(request, user)
         response = views.EventView.as_view()(request, id=str(event.id))
-        results['{0}_read'.format(event_type_name)] = response.status_code == 200
+        results['{0}_read'.format(event_type_name)
+                ] = response.status_code == 200
 
         # Attempt to modify the event we just created
         event_data['message'] = 'this is the updated message'
-        request = self.factory.patch(self.api_base + '/event/{0}'.format(str(event.id)), event_data)
+        request = self.factory.patch(
+            self.api_base + '/event/{0}'.format(str(event.id)), event_data)
         self.force_authenticate(request, user)
         response = views.EventView.as_view()(request, id=str(event.id))
-        results['{0}_update'.format(event_type_name)] = response.status_code == 200
+        results['{0}_update'.format(event_type_name)
+                ] = response.status_code == 200
 
         # Attempt to delete the event we just created
-        request = self.factory.delete(self.api_base + '/event/{0}'.format(str(event.id)) + str(event.id))
+        request = self.factory.delete(
+            self.api_base + '/event/{0}'.format(str(event.id)) + str(event.id))
         self.force_authenticate(request, user)
         response = views.EventView.as_view()(request, id=str(event.id))
-        results['{0}_delete'.format(event_type_name)] = response.status_code == 204
+        results['{0}_delete'.format(event_type_name)
+                ] = response.status_code == 204
 
         return results
 
@@ -741,4 +822,3 @@ class TestSerializers(TestCase):
             q = dict(q.children)
             self.assertIn('.'.join((q['app_label'], q['model'])),
                           ATTACHMENT_SERIALIZER_MAPPING)
-

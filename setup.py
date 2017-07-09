@@ -4,8 +4,8 @@
 """
 Setup script for the DAS server
 """
-
 import sys
+
 try:
     from setuptools import setup
     extra = {}
@@ -18,14 +18,20 @@ if sys.version_info <= (3, 5):
     print(error, file=sys.stderr)
     sys.exit(1)
 
+
 from das.das_server import VERSION, __version__
 
-if VERSION[-1] == 'final':
+branch = VERSION[3]
+if not branch:
     STATUS = ['Development Status :: 5 - Production/Stable']
-elif 'beta' in VERSION[-1]:
-    STATUS = ['Development Status :: 4 - Beta']
+elif 'dev' in branch:
+    STATUS = ['Development Status :: 4 - Develop']
+elif 'rc' in branch:
+    STATUS = ['Development Status :: 4 - Release Candidate']
+elif 'sup' in branch:
+    STATUS = ['Development Status :: 4 - Support']
 else:
-    STATUS = ['Development Status :: 3 - Alpha']
+    STATUS = ['Development Status :: 3 - Unknown']
 
 
 def readme():

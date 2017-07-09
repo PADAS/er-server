@@ -999,9 +999,7 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
 
 
 def resolve_image_url(event):
-    image_key = activity.models.image_basename(
-        event.event_type.value, event.priority, event.state)
-    return static_image_finder.get_marker_icon([image_key, ]) or '/static/triangle.png'
+    return event.image_url
 
 
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
@@ -1060,7 +1058,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     def get_out_relation(self, event, value):
         self.context['event_relationship_direction'] = 'out'
         qs = event.out_relationships.filter(
-            type__value=value).all().order_by('ordernum')
+            type__value=value).all().order_by('ordernum', 'to_event__created_at')
         serializer = EventRelationshipSerializer(
             instance=qs, many=True, context=self.context,)
         return serializer.data

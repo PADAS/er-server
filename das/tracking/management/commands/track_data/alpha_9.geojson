@@ -4,32 +4,8 @@
     {
       "properties": [
         {
-          "state": "alarm",
-          "gps_fix": false
-        },
-        {
-          "state": "offline",
-          "gps_fix": true
-        },
-        {
-          "state": "alarm",
-          "gps_fix": true
-        },
-        {
           "state": "online",
           "gps_fix": false
-        },
-        {
-          "state": "alarm",
-          "gps_fix": true
-        },
-        {
-          "state": "alarm",
-          "gps_fix": true
-        },
-        {
-          "state": "alarm",
-          "gps_fix": true
         },
         {
           "state": "offline",
@@ -45,6 +21,30 @@
         },
         {
           "state": "online",
+          "gps_fix": true
+        },
+        {
+          "state": "online",
+          "gps_fix": true
+        },
+        {
+          "state": "online",
+          "gps_fix": true
+        },
+        {
+          "state": "offline",
+          "gps_fix": true
+        },
+        {
+          "state": "online",
+          "gps_fix": true
+        },
+        {
+          "state": "online",
+          "gps_fix": false
+        },
+        {
+          "state": "online",
           "gps_fix": false
         },
         {
@@ -52,11 +52,11 @@
           "gps_fix": true
         },
         {
-          "state": "alarm",
+          "state": "online",
           "gps_fix": true
         },
         {
-          "state": "alarm",
+          "state": "online",
           "gps_fix": true
         },
         {
@@ -72,15 +72,15 @@
           "gps_fix": true
         },
         {
-          "state": "alarm",
+          "state": "online",
           "gps_fix": false
         },
         {
-          "state": "alarm",
+          "state": "online",
           "gps_fix": false
         },
         {
-          "state": "alarm",
+          "state": "online",
           "gps_fix": false
         },
         {

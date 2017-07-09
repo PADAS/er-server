@@ -8,7 +8,7 @@ from accounts.models import User, PermissionSet
 from django.contrib.auth.models import Permission
 
 
-all_perms = ['standard_create',  'standard_read',  'standard_update',  'standard_delete',
+all_perms = ['monitoring_create',  'monitoring_read',  'monitoring_update',  'monitoring_delete',
              'security_create',  'security_read',  'security_update',  'security_delete',
              'logistics_create', 'logistics_read', 'logistics_update', 'logistics_delete']
 
@@ -31,11 +31,19 @@ def create_new_permission_sets(apps, schema_editor):
         name='security_events')
 
     for perm_name in all_perms:
-        perm = Permission.objects.get_by_natural_key(perm_name, 'activity', 'event')
-        all_group.permissions.add(perm)
+        try:
+            perm = Permission.objects.get_by_natural_key(
+                perm_name, 'activity', 'event')
+            all_group.permissions.add(perm)
+        except Permission.DoesNotExist:
+            pass
     for perm_name in restricted_perms:
-        perm = Permission.objects.get_by_natural_key(perm_name, 'activity', 'event')
-        restricted_group.permissions.add(perm)
+        try:
+            perm = Permission.objects.get_by_natural_key(
+                perm_name, 'activity', 'event')
+            restricted_group.permissions.add(perm)
+        except Permission.DoesNotExist:
+            pass
     for user in User.objects.all():
         if user.permission_sets.filter(name='security_events').exists():
             user.permission_sets.add(all_group)
@@ -56,5 +64,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(create_new_permission_sets, reverse_new_permission_sets),
+        migrations.RunPython(create_new_permission_sets,
+                             reverse_new_permission_sets),
     ]
