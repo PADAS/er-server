@@ -506,6 +506,9 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
         rep['updates'] = self.render_updates(note)
         return rep
 
+    def get_display_value(self, note):
+        return '{0}: {1}'.format(get_user_display(note.created_by_user), note.text)
+
     def render_updates(self, note):
         def get_action(revision):
             if revision.action == AC_UPDATED:

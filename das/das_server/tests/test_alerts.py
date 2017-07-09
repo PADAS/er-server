@@ -8,7 +8,7 @@ from django.core.management import call_command
 from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
-from activity.models import Event, EventType, EventRelationship, EventDetails
+from activity.models import Event, EventType, EventRelationship, EventDetails, EventNote
 from observations.models import Subject
 
 User = django.contrib.auth.get_user_model()
@@ -58,7 +58,7 @@ message: {text}
 
 event_type: {type}
 
-notes: []'''
+notes:'''
 
 update_event_body = '''DAS Green Alert UPDATE
 {serial}: {title}
@@ -84,7 +84,7 @@ message: {text}
 
 event_type: {type}
 
-notes: []'''
+notes:'''
 
 new_incident_body = '''DAS Green Alert
 {serial}: {title}
@@ -101,7 +101,7 @@ message: {text}
 
 event_type: {type}
 
-notes: []'''
+notes:'''
 
 update_incident_body = '''DAS Green Alert UPDATE
 {serial}: {title}
@@ -125,7 +125,7 @@ message: {text}
 
 event_type: {type}
 
-notes: []'''
+notes:'''
 
 new_contained_event = '''DAS Green Alert
 {serial}: {title} (contained in {parent})
@@ -144,7 +144,21 @@ message: {text}
 
 event_type: {type}
 
-notes: []'''
+notes:'''
+
+event_with_note_body = '''DAS Green Alert
+{serial}: {title}
+
+
+
+time: {time}
+
+message: {text}
+
+event_type: {type}
+
+notes: first last: some text'''
+
 
 class TestEventView(TestCase):
     def setUp(self):
@@ -159,7 +173,7 @@ class TestEventView(TestCase):
             'super', 'super@test.com', 'super', is_superuser=True,
             is_staff=True, **self.user_const)
         self.readonly_user = User.objects.create_user(
-            'readonly','readonly@test.com', 'readonly', **self.user_const)
+            'readonly', 'readonly@test.com', 'readonly', **self.user_const)
         self.no_perms_user = User.objects.create_user(
             'noperms', 'noperms@test.com', 'noperms', **self.user_const)
         self.staff = Subject.objects.create(name='Ranger 2', additional={})
@@ -193,9 +207,12 @@ class TestEventView(TestCase):
         self.event.refresh_from_db()
         self.incident.refresh_from_db()
 
+        self.event_with_note = self.create_event(self.event_data)
+        EventNote.objects.create_note(
+            event_id=self.event_with_note.id, text='some text', created_by_user=self.user)
+
     def time_to_string(self, time):
         return time.strftime('%A, %B %d, %Y at %H:%M')
-
 
     def create_event(self, event_data):
         data = copy.deepcopy(event_data)
@@ -204,15 +221,14 @@ class TestEventView(TestCase):
                 event_data['time'])
             del data['time']
         if isinstance(event_data.get('event_type', None), str):
-            data['event_type'] = EventType.objects.get_by_value(event_data['event_type'])
+            data['event_type'] = EventType.objects.get_by_value(
+                event_data['event_type'])
 
         if 'location' in data:
             data['location'] = PointField().to_internal_value(
                 data['location'])
 
-
         return Event.objects.create_event(**data)
-
 
     def create_incident(self, incident_data, event_data):
         data = copy.deepcopy(incident_data)
@@ -235,7 +251,6 @@ class TestEventView(TestCase):
         revision = event.revision.all_user().order_by('sequence').last()
         return revision
 
-
     def test_new_event_notifications(self):
         email_data = {}
 
@@ -256,7 +271,8 @@ class TestEventView(TestCase):
             text=self.event.message,
             type=self.event.event_type.display,
             is_collection='False',
-            provenance=self.event.get_display_value('provenance', self.event.provenance),
+            provenance=self.event.get_display_value(
+                'provenance', self.event.provenance),
             title='No Title',
             parent=0).strip()
         self.assertEquals(email_data['subject'], target_subject)
@@ -284,7 +300,8 @@ class TestEventView(TestCase):
             text=self.event.message,
             type=self.event.event_type.display,
             is_collection='False',
-            provenance=self.event.get_display_value('provenance', self.event.provenance),
+            provenance=self.event.get_display_value(
+                'provenance', self.event.provenance),
             title=self.event.title,
             parent=0).strip()
         self.assertEquals(email_data['subject'], target_subject)
@@ -311,7 +328,8 @@ class TestEventView(TestCase):
             text=self.incident.message,
             type=self.incident.event_type.display,
             is_collection='True',
-            provenance=self.incident.get_display_value('provenance', self.incident.provenance),
+            provenance=self.incident.get_display_value(
+                'provenance', self.incident.provenance),
             title='No Title',
             parent=0).strip()
 
@@ -329,7 +347,8 @@ class TestEventView(TestCase):
 
         revision = self.update_event(self.incident)
 
-        mailer.send_event_mail(self.incident, self.user, revision, mail_callback)
+        mailer.send_event_mail(self.incident, self.user,
+                               revision, mail_callback)
         target_subject = base_target_subject.format(
             serial=self.incident.serial_number,
             title=self.incident.title)
@@ -340,7 +359,8 @@ class TestEventView(TestCase):
             text=self.incident.message,
             type=self.incident.event_type.display,
             is_collection='True',
-            provenance=self.incident.get_display_value('provenance', self.incident.provenance),
+            provenance=self.incident.get_display_value(
+                'provenance', self.incident.provenance),
             title=self.incident.title,
             parent=0).strip()
         self.assertEquals(email_data['subject'], target_subject)
@@ -355,7 +375,8 @@ class TestEventView(TestCase):
             email_data['body'] = body.strip()
             email_data['from_address'] = from_address
 
-        mailer.send_event_mail(self.contained_event, self.user, None, email_callback=mail_callback)
+        mailer.send_event_mail(self.contained_event,
+                               self.user, None, email_callback=mail_callback)
         target_subject = base_target_subject.format(
             serial=self.contained_event.serial_number,
             title=self.contained_event.title)
@@ -366,9 +387,38 @@ class TestEventView(TestCase):
             text=self.contained_event.message,
             type=self.contained_event.event_type.display,
             is_collection='True',
-            provenance=self.contained_event.get_display_value('provenance', self.contained_event.provenance),
+            provenance=self.contained_event.get_display_value(
+                'provenance', self.contained_event.provenance),
             title='No Title',
             parent=self.incident.serial_number).strip()
+        self.assertEquals(email_data['subject'], target_subject)
+        self.assertEquals(email_data['body'], target_body)
+        self.assertEquals(email_data['from_address'], target_from_address)
+
+    def test__alert_with_notes(self):
+        email_data = {}
+
+        def mail_callback(subject, body, from_address):
+            email_data['subject'] = subject
+            email_data['body'] = body.strip()
+            email_data['from_address'] = from_address
+
+        mailer.send_event_mail(self.event_with_note, self.user, None,
+                               email_callback=mail_callback)
+        target_subject = base_target_subject.format(
+            serial=self.event_with_note.serial_number,
+            title=self.event_with_note.title)
+        target_body = event_with_note_body.format(
+            serial=self.event_with_note.serial_number,
+            id=self.event_with_note.id,
+            time=self.time_to_string(self.event_with_note.event_time),
+            text=self.event_with_note.message,
+            type=self.event_with_note.event_type.display,
+            is_collection='False',
+            provenance=self.event_with_note.get_display_value(
+                'provenance', self.event_with_note.provenance),
+            title='No Title',
+            parent=0).strip()
         self.assertEquals(email_data['subject'], target_subject)
         self.assertEquals(email_data['body'], target_body)
         self.assertEquals(email_data['from_address'], target_from_address)
