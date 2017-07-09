@@ -84,12 +84,9 @@ def send_event_mail(event, user, revision, email_callback):
             try:
                 display_value = ''
                 notes_serializer = EventNoteSerializer()
-                for note in event.notes.all():
-                    display_value += notes_serializer.get_display_value(note)
-                    display_value += os.linesep
-                # Trim off the final newline
-                if display_value:
-                    display_value = display_value[:-1]
+                display_value = '\n'.join(
+                    [notes_serializer.get_display_value(note) for note in
+                     event.notes.all()])
             except Exception:
                 display_value = value
         elif key == 'reported_by' and value is not None:
