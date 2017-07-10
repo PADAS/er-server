@@ -144,7 +144,9 @@ message: {text}
 
 event_type: {type}
 
-notes:'''
+notes: 
+
+reported_by: Ranger 2'''
 
 event_with_note_body = '''DAS Green Alert
 {serial}: {title}
@@ -197,6 +199,7 @@ class TestEventView(TestCase):
 
         self.incident, self.contained_event = self.create_incident(
             self.event_data, self.event_data)
+        self.contained_event.reported_by = Subject.objects.get(name='Ranger 2')
 
         details = EventDetails.objects.create_event_details(
             event=self.incident, data=incident_schema_data)
