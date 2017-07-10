@@ -68,6 +68,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('activity', '0060_event_category_flag'),
+        ('observations', '0010_use_al'),
     ]
 
     operations = [
