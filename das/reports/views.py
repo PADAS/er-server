@@ -1,4 +1,5 @@
-import pytz, datetime
+import pytz
+import datetime
 from collections import Counter
 
 from django.utils import timezone
@@ -14,6 +15,7 @@ from django.views.generic.base import TemplateResponseMixin, ContextMixin
 from reports.reports import get_events, get_conservancies, get_rhino_sightings, get_rhinos, get_security_event
 from reports.accumulator import accumulator, broadcast
 
+
 class ReportDateParameters(serializers.Serializer):
     since = serializers.DateTimeField(default=None)
     before = serializers.DateTimeField(default=None)
@@ -24,7 +26,6 @@ class ReportView(views.APIView):
         print(args, kwargs)
         if report_key == 'sitrep':
             return SituationReportView().dispatch(request, *args, **kwargs)
-
 
 
 def safe_get(val, keys, default=None):
@@ -38,6 +39,7 @@ def safe_get(val, keys, default=None):
         pass
     return default
 
+
 def extract_details(details):
 
     for k, v in details.items():
@@ -48,19 +50,23 @@ def extract_details(details):
         elif isinstance(v, str):
             yield {'name': k, 'value': escape(v)}
         elif isinstance(v, list):
-            yield {'name': k, 'value': escape(', '.join([_.get('name') for _ in v if  isinstance(_, dict) and _.get('name') is not None]))}
+            yield {'name': k, 'value': escape(', '.join([_.get('name') for _ in v if isinstance(_, dict) and _.get('name') is not None]))}
+
 
 def _listify(o):
 
     if o is None:
         return []
     if isinstance(o, dict):
-        return [o,]
+        return [o, ]
     if isinstance(o, list):
         return o
     return []
 
+
 EVENT_LIST_TIMESTAMP_FORMAT = '%-d-%b %H:%M'
+
+
 class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
     permission_classes = (permissions.IsAuthenticated,)
@@ -78,9 +84,8 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         qs = qs.validated_data
         now = timezone.now()
-        since = qs.get('since') or  (now - datetime.timedelta(hours=24))
+        since = qs.get('since') or (now - datetime.timedelta(hours=24))
         before = qs.get('before') or now
-
 
         context = self.get_context_data(since=since, before=before, **kwargs)
         return self.render_to_response(context)
@@ -89,7 +94,8 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         response = super().render_to_response(context, **response_kwargs)
         if 'openxmlformats' in self.content_type:
-            response['Content-Disposition'] = 'attachment; filename={}'.format(context['report_filename'])
+            response['Content-Disposition'] = 'attachment; filename={}'.format(
+                context['report_filename'])
             response['x-das-download-filename'] = context['report_filename']
         return response
 
@@ -103,10 +109,12 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         generated_at = timezone.now()
 
         # Get the events we're interested in. We just need this list once and we'll run it through a set of
-        # accumulotors that take whatever they need to hydrate the sit-rep report.
+        # accumulotors that take whatever they need to hydrate the sit-rep
+        # report.
         events = get_events(since, before)
 
         CONSERVANCY_UNSPECIFIED = '&lt;unspecified&gt;'
+
         def get_conservancy(event):
             ed = event.event_details.all().order_by('-created_at').first()
             if ed:
@@ -117,18 +125,19 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     pass
             return CONSERVANCY_UNSPECIFIED
 
-
-        conservancy_census = [('Lewa', 62, 66), ('Borana', 21, 0), ('Sera', 10, 0), (CONSERVANCY_UNSPECIFIED, 0, 0)]
+        conservancy_census = [('--Lewa--', 62, 66), ('--Borana--', 21, 0),
+                              ('--Sera--', 10, 0), (CONSERVANCY_UNSPECIFIED, 0, 0)]
         conservancy_census = dict(
-            (k.lower(), {'conservancy':k,
+            (k.lower(), {'conservancy': k,
                          'total_rhino_black': b,
                          'total_rhino_white': w,
                          'denominator': {
                              'black_rhino_sighting': b,
                              'white_rhino_sighting': w,
-                         'total': b+w}}) for (k,b,w) in conservancy_census)
+                             'total': b + w}}) for (k, b, w) in conservancy_census)
 
-        # Convenience method to initialize a 'wildlife_sightings' block for a single conservancy.
+        # Convenience method to initialize a 'wildlife_sightings' block for a
+        # single conservancy.
         def default_conservancy_ws(conservancy):
             c = {'total_sightings': 0,
                  'rhino_sightings': [
@@ -141,9 +150,10 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                       'count': 0,
                       'percentage': 0}
                  ]}
-            c.update(conservancy_census.get(conservancy.lower(), {}))
+            census = conservancy_census.get(
+                conservancy.lower()) or conservancy_census.get(CONSERVANCY_UNSPECIFIED)
+            c.update(census)
             return c
-
 
         # Accumulator for the 'Wildlife Sightings' portion of report.
         def rhino_sightings(accum, event):
@@ -152,18 +162,22 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 return
 
             conservancy = get_conservancy(event)
-            conservancy = accum.setdefault(conservancy, default_conservancy_ws(conservancy))
+            conservancy = accum.setdefault(
+                conservancy, default_conservancy_ws(conservancy))
 
             conservancy['total_sightings'] += 1
             denominator = conservancy['denominator'].get('total')
 
-            conservancy['percentage'] = '%d%%' % (100 * conservancy['total_sightings'] / denominator, ) if denominator else '-%'
+            conservancy['percentage'] = '%d%%' % (
+                100 * conservancy['total_sightings'] / denominator, ) if denominator else '-%'
             for item in conservancy['rhino_sightings']:
 
                 if item['event_type'] == event.event_type.value:
                     item['count'] += 1
-                    denominator = conservancy['denominator'].get(event.event_type.value)
-                    item['percentage'] = '%d%%' % (100 * item['count'] / denominator,) if denominator else '-%'
+                    denominator = conservancy['denominator'].get(
+                        event.event_type.value)
+                    item['percentage'] = '%d%%' % (
+                        100 * item['count'] / denominator,) if denominator else '-%'
         rhino_sightings = accumulator({}, rhino_sightings)
 
         # Accumulator for 'Rhino Births'
@@ -196,17 +210,19 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 return
             ed = ed.data['event_details']
 
-            rhino_names = ', '.join([_['name'] for _ in _listify(ed.get('rhino'))])
+            rhino_names = ', '.join([_['name']
+                                     for _ in _listify(ed.get('rhino'))])
             accum.append(
                 {'conservancy': conservancy,
-                  'color': safe_get(ed, ('color', 'name'), 'unspecified'),
-                  'rhinos': escape(rhino_names),
-                  'health': safe_get(ed, ('health', 'name'), 'unspecified'),
-                  'station': safe_get(ed, ('station', 'name'), 'unspecified'),
-                  'behavior': safe_get(ed, ('behavior', 'name'), 'unspecified'),
-                })
+                 'color': safe_get(ed, ('color', 'name'), 'unspecified'),
+                 'rhinos': escape(rhino_names),
+                 'health': safe_get(ed, ('health', 'name'), 'unspecified'),
+                 'station': safe_get(ed, ('station', 'name'), 'unspecified'),
+                 'behavior': safe_get(ed, ('behavior', 'name'), 'unspecified'),
+                 })
 
-        rhino_territorial_movement = accumulator([], rhino_territorial_movement)
+        rhino_territorial_movement = accumulator(
+            [], rhino_territorial_movement)
 
         # Accumulator for 'other wildlife sightings' per Conservancy
         def other_wildlife_sightings(accum, event):
@@ -216,7 +232,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             conservancy = get_conservancy(event)
             conservancy = accum.setdefault(conservancy.lower(), {'conservancy': conservancy,
                                                                  'total_sightings': 0,
-                                                                 'sightings': [] })
+                                                                 'sightings': []})
 
             ed = event.event_details.first()
             if not ed or not ed.data or 'event_details' not in ed.data:
@@ -234,7 +250,8 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     s['count'] += 1
                     break
             else:
-                conservancy['sightings'].append({'species':species, 'count': ed.get('numberAnimals', 0)})
+                conservancy['sightings'].append(
+                    {'species': species, 'count': ed.get('numberAnimals', 0)})
 
         other_wildlife_sightings = accumulator({}, other_wildlife_sightings)
 
@@ -268,10 +285,11 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             gap = safe_get(ed, ('wildlifeGap', 'name'), None)
             species = safe_get(ed, ('species', 'name'), 'unspecified')
-            if not gap: return
+            if not gap:
+                return
 
             for sum in accum:
-                if sum['gap_name'] == gap and sum['species']  == species:
+                if sum['gap_name'] == gap and sum['species'] == species:
                     sum['total_in'] += ed['number_in']
                     sum['total_out'] += ed['number_out']
                     break
@@ -282,7 +300,6 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                               'total_out': ed['number_out']})
 
         gap_movement = accumulator([], gap_movement)
-
 
         # TODO: Accumulate human wildlife conflict (security events)
 
@@ -320,14 +337,15 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 return
             ed = ed.data['event_details']
 
-            etime = event.event_time.astimezone(timezone.get_current_timezone())
+            etime = event.event_time.astimezone(
+                timezone.get_current_timezone())
             b = {'time': etime.strftime(EVENT_LIST_TIMESTAMP_FORMAT),
                  'section': safe_get(ed, ('fenceSection', 'name'), 'unspecified'),
                  'species': safe_get(ed, ('species', 'name'), 'unspecified'),
                  'animal_name': escape(ed.get('animal_name', '')),
                  'reported_by': escape(ed.get('reported_by', '')),
                  'action': safe_get(ed, ('actionTaken', 'name'), 'unspecified'),
-                'feedback': escape(ed.get('feedback', ''))
+                 'feedback': escape(ed.get('feedback', ''))
                  }
 
             accum.append(b)
@@ -350,10 +368,10 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             ed = ed.data['event_details']
 
             accum.append({'message': escape(event.message),
-                    'event_name': escape(event.event_type.display),
-                    'event_time': event.event_time.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
-                    'attributes': extract_details(ed)
-                    })
+                          'event_name': escape(event.event_type.display),
+                          'event_time': event.event_time.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
+                          'attributes': extract_details(ed)
+                          })
 
         security_events = accumulator([], security_events)
 
@@ -366,11 +384,10 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 return
             ed = ed.data['event_details']
             accum.append({'message': escape(event.message),
-                    'event_name': escape(event.event_type.display),
-                    'event_time': event.event_time.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
-                    'attributes': list(extract_details(ed))
-                    })
-
+                          'event_name': escape(event.event_type.display),
+                          'event_time': event.event_time.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
+                          'attributes': list(extract_details(ed))
+                          })
 
         human_wildlife_conflict = accumulator([], human_wildlife_conflict)
         b = broadcast((rhino_sightings, rhino_births, rhino_territorial_movement, other_wildlife_sightings, carcass,
@@ -397,7 +414,8 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         near_threshold = before - datetime.timedelta(days=3)
         far_threshold = before - datetime.timedelta(days=7)
         rhino_sighting_events = get_rhino_sightings(far_threshold, before)
-        missing_rhinos = dict((str(r.id), {'name': escape(r.name), 'days_ago': 1000000}) for r in get_rhinos())
+        missing_rhinos = dict((str(r.id), {'name': escape(
+            r.name), 'days_ago': 1000000}) for r in get_rhinos())
 
         for event in rhino_sighting_events:
             ed = event.event_details.first()
@@ -405,26 +423,31 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 continue
             ed = ed.data['event_details']
 
-            rhinos_in_event = _listify(ed.get('blackRhinos')) + _listify(ed.get('whiteRhinos'))
+            rhinos_in_event = _listify(
+                ed.get('blackRhinos')) + _listify(ed.get('whiteRhinos'))
             rhino_ids_in_event = [_.get('value') for _ in rhinos_in_event]
 
             for rhino_id in rhino_ids_in_event:
                 if rhino_id:
                     if event.event_time > near_threshold:
-                         missing_rhinos.pop(rhino_id, None)
+                        missing_rhinos.pop(rhino_id, None)
                     else:
-                        # Use Math.ceil(timedelta) to indicate 'days ago'. Ex. 3 days 5 hours => 4 days ago.
+                        # Use Math.ceil(timedelta) to indicate 'days ago'. Ex.
+                        # 3 days 5 hours => 4 days ago.
                         missing_rhinos[rhino_id]['days_ago'] = min(missing_rhinos[rhino_id]['days_ago'],
                                                                    (before - event.event_time).days + 1)
 
         # Post-process missing rhinos.
-        missing_rhinos = sorted(missing_rhinos.values(), key=lambda _: _['days_ago'], reverse=True)
+        missing_rhinos = sorted(missing_rhinos.values(), key=lambda _: _[
+                                'days_ago'], reverse=True)
         for r in missing_rhinos:
             r['days_ago'] = '> 7' if r['days_ago'] > 7 else str(r['days_ago'])
 
         REPORT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S %Z'
-        since_text = since.astimezone(timezone.get_current_timezone()).strftime(REPORT_TIMESTAMP_FORMAT)
-        before_text = before.astimezone(timezone.get_current_timezone()).strftime(REPORT_TIMESTAMP_FORMAT)
+        since_text = since.astimezone(
+            timezone.get_current_timezone()).strftime(REPORT_TIMESTAMP_FORMAT)
+        before_text = before.astimezone(
+            timezone.get_current_timezone()).strftime(REPORT_TIMESTAMP_FORMAT)
         context = {
             'report_filename': 'Daily-SitRep-{}.docx'.format(before.astimezone(timezone.get_current_timezone())
                                                              .strftime('%Y-%m-%d')),
@@ -459,4 +482,3 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         }
 
         return context
-
