@@ -1,6 +1,8 @@
 from django.contrib.gis import admin
 import activity.models as models
 from django.contrib.staticfiles.templatetags.staticfiles import static
+from django.forms import Textarea
+
 
 class EventAttachmentInline(admin.TabularInline):
     model=models.EventAttachment
@@ -47,7 +49,11 @@ class EventTypeAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventClass)
 class EventClassAdmin(admin.ModelAdmin):
-    pass
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        formfield = super().formfield_for_dbfield(db_field, **kwargs)
+        if db_field.name == 'display':
+            formfield.widget = Textarea(attrs=formfield.widget.attrs)
+        return formfield
 
 
 @admin.register(models.EventFactor)
