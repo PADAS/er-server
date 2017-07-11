@@ -42,6 +42,9 @@ DEFAULT_LOGGING = {
         'rt_api': {
             'level': 'WARN',
         },
+        'rt_api.pubsub_listener': {
+            'level': 'INFO',
+        },
         '': {
             'handlers': ['console'],
             'level': 'INFO',
