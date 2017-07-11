@@ -1,69 +1,81 @@
-version: "3"
+version: "3.2"
 
 services:
+  web:
+    image: gcr.io/padas-app/web/app
+    container_name: das_web
+    env_file: .env
+    ports:
+      - 9000:9000
+
   nginx:
     image: gcr.io/padas-app/nginx
     container_name: das_nginx
     links:
       - api
-      - rt_api
+      - rt-api
+      - web
     ports:
       - 8000:8000
-    volumes:
-        - user_uploads:/user-uploads
-
-  web:
-    image: gcr.io/padas-app/web
-    container_name: das_web
-    ports:
-      - 9000:9000
+      - 4652:4652
 
   api:
     image: gcr.io/padas-app/api
     container_name: das_api
+    env_file: .env
     links:
       - postgis
       - redis
-    volumes:
-        - user_uploads:/user-uploads
 
-  rt_api:
+  rt-api:
     image: gcr.io/padas-app/rt_api
     container_name: das_rt_api
+    env_file: .env
     links:
       - postgis
       - redis
+    depends_on:
+      - api
 
   mql:
     image: gcr.io/padas-app/mql
     container_name: das_mql
+    env_file: .env
     links:
       - postgis
       - redis
+    depends_on:
+      - rt-api
 
   worker:
     image: gcr.io/padas-app/worker
     container_name: das_worker
+    env_file: .env
     links:
       - postgis
       - redis
-    volumes:
-        - user_uploads:/user-uploads
+    depends_on:
+      - rt-api
 
   beat:
     image: gcr.io/padas-app/beat
     container_name: das_beat
+    env_file: .env
     links:
       - postgis
       - redis
+    depends_on:
+      - rt-api
 
   postgis:
     image: gcr.io/padas-app/postgis
     container_name: das_postgis
+    volumes:
+      - pgdata:/var/lib/postgresql/data/das
 
   redis:
     image: redis
     container_name: das_redis
 
 volumes:
-    user_uploads:
+  pgdata:

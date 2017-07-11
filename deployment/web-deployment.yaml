@@ -1,0 +1,24 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: web
+    spec:
+      imagePullSecrets:
+        - name: gcr-secret
+      containers:
+      - name: das-web
+        image: gcr.io/padas-app/web/app:${GIT_WEB_SHA}
+        ports:
+        - containerPort: 9000
+        env:
+        - name: APIENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: APIENDPOINT
+

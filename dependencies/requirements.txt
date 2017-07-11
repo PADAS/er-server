@@ -4,9 +4,6 @@
 #
 #    pip-compile --output-file requirements.txt requirements.in
 #
--e git+https://github.com/VulcanTechnologies/django-versatileimagefield.git@c2bf2d81c0c2f1d2a76e42db5c6dc4331f7c1cfe#egg=django-versatileimagefield
--e git+https://github.com/PADAS/fastkml.git@987a8372aa14b8bfd39ddb62c7557ae080ba30ed#egg=fastkml
--e git+https://github.com/PADAS/python-socketio.git@3314c2243590fbbff327744b47fe10d29d00d402#egg=python-socketio
 amqp==2.1.4               # via kombu
 asn1crypto==0.22.0        # via cryptography
 billiard==3.5.0.2         # via celery

@@ -1,0 +1,18 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: nginx
+    spec:
+      imagePullSecrets:
+        - name: gcr-secret
+      containers:
+      - image: gcr.io/padas-app/nginx:${GIT_UTILITY_SHA}
+        name: das-nginx
+        ports:
+        - containerPort: 8000
+        - containerPort: 9001

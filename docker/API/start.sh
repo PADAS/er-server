@@ -1,6 +1,6 @@
 #!/bin/sh
-. ./wait_for.sh
-wait_for
+. /startup/wait_for.sh
+wait_for $DB_HOST $DB_PORT
 
 python3 manage.py migrate
 python3 manage.py loaddata initial_admin initial_eventdata initial_dev_map

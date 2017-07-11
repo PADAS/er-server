@@ -19,15 +19,11 @@ RUN dpkg -i /workspace/dependencies/geos_3.6.1-1_amd64.deb
 ENV LD_LIBRARY_PATH "/usr/local/lib"
 
 RUN pip3 install -U "pip"
-RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt -f /workspace/dependencies/wheelhouse
-RUN pip3 install -r /workspace/dependencies/requirements-dev.txt
+RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt --no-cache-dir -f /workspace/dependencies/wheelhouse
 
-ADD ./das /var/www/app
-
-VOLUME /tmp
-WORKDIR /var/www/app
-ADD ./docker/base/wait_for.sh /var/www/app/wait_for.sh
-
-ENV DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
+RUN mkdir -p /var/www/app && mkdir -p /startup
 ADD ./docker/base/start.sh /var/www/app/start.sh
+ADD ./docker/base/wait_for.sh /startup/wait_for.sh
+
+
 ENTRYPOINT ["/var/www/app/start.sh"]
