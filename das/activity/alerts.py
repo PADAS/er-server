@@ -1,20 +1,40 @@
 from django.conf import settings
-from accounts.models import PermissionSet, User
+from accounts.models import User
 from activity.models import Event
+
+notify_high_priority_event = getattr(
+    settings, 'NOTIFY_HIGH_PRIORITY_EVENT', None)
+notify_medium_priority_event = getattr(
+    settings, 'NOTIFY_MEDIUM_PRIORITY_EVENT', None)
+notify_low_priority_event = getattr(
+    settings, 'NOTIFY_LOW_PRIORITY_EVENT', None)
 
 
 def get_alert_users(priority):
+    '''
+    Identify Users who should be alerted for an event having the given priority.
 
+    :param priority: an event priority or a list of event priority values.
+    :return: A Users queryset.
+    '''
     if not isinstance(priority, (list, set)):
         priority = [priority, ]
 
-    map = {Event.PRI_URGENT: settings.NOTIFY_HIGH_PRIORITY_EVENT,
-           Event.PRI_IMPORTANT: settings.NOTIFY_MEDIUM_PRIORITY_EVENT,
-           }
-    pset_names = [map.get(int(p), settings.NOTIFY_LOW_PRIORITY_EVENT) for p in priority]
-    pset_names = set([_ for _ in pset_names if _ is not None])
-    return get_users_in_permission_sets(pset_names)
+    priority_to_permissionset = {
+        Event.PRI_URGENT: notify_high_priority_event,
+        Event.PRI_IMPORTANT: notify_medium_priority_event,
+        Event.PRI_REFERENCE: notify_low_priority_event,
+    }
+    permissionset_names = [priority_to_permissionset.get(
+        int(p), None) for p in priority]
+    permissionset_names = set(
+        [v for v in permissionset_names if v is not None])
 
-def get_users_in_permission_sets(names):
-    permission_sets = PermissionSet.objects.filter(name__in=names)
-    return User.objects.filter(permission_sets__in=permission_sets).distinct().order_by('username')
+    # Short-circuit if we have no permission sets to filter by.
+    if not permissionset_names:
+        return User.objects.none()
+
+    return User.objects.filter(permission_sets__name__in=permissionset_names,
+                               is_email_alert=True,
+                               is_active=True
+                               ).distinct().order_by('username')
