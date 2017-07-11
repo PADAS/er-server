@@ -4,16 +4,17 @@ set -x
 
 COMMAND=$@
 CONTAINER_NAME="das_api"
-IMAGE_NAME="das/server"
+IMAGE_NAME="gcr.io/padas-app/api"
 DOCKER_COMMAND="exec"
-
+OPTS="-it -v $(pwd)/das:/var/www/app"
+TODO="manage.py $COMMAND --settings=das_server.local_settings_docker"
 
 if [[ -n "$COMMAND" ]]; then
     CID=$(docker ps -q -f name=$CONTAINER_NAME)
     if [[ -z $CID ]]; then
-        docker run -it --entrypoint="python3 /var/www/app/manage.py $COMMAND --settings=das_server.local_settings_docker" $IMAGE_NAME 
+        docker run $OPTS --entrypoint="python3" $IMAGE_NAME $TODO 
     else
-        docker exec -it $CONTAINER_NAME python3 /var/www/app/manage.py $COMMAND --settings=das_server.local_settings_docker
+        docker exec -it $CONTAINER_NAME python3 $TODO
     fi
 
 else

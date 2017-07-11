@@ -1,0 +1,15 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: redis
+    spec:
+      containers:
+      - image: redis
+        name: das-redis
+        ports:
+          - containerPort: 6379

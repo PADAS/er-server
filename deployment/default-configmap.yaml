@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: default-configmap
+data:
+  APIENDPOINT: localhost
+  DB_HOST: postgis.default.svc.cluster.local
+  DB_PORT: "5432"
+  API_HOST: api
+  API_PORT: "8000"

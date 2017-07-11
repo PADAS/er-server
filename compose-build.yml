@@ -1,55 +1,52 @@
-version: "3"
+version: "3.2"
 
 services:
   nginx:
     build:
       context: ./docker/Nginx
       
-  web:
-    build:
-      context: ../das-web
-      dockerfile: docker/Dockerfile
-
   api:
-    container_name: das_api
     build:
       context: ./docker/API/
     depends_on:
-      - base
+      - app
 
-  rt_api:
-    container_name: das_rt_api
+  rt-api:
     build:
       context: ./docker/RT_API/
     depends_on:
-      - base
+      - app
 
   mql:
-    container_name: das_mql
     build:
       context: ./docker/MQL
     depends_on:
-      - base
+      - app
 
   worker:
-    container_name: das_worker
     build:
       context: ./docker/Worker
     depends_on:
-      - base
+      - app
 
   beat:
-    container_name: das_beat
     build:
       context: docker/Beat
     depends_on:
-      - base
+      - app
 
   postgis:
-    container_name: das_postgis
     build:
       context: docker/PostGIS
-      
+
+  app:
+    image: gcr.io/padas-app/app
+    build:
+      context: ./
+      dockerfile: ./docker/App/Dockerfile
+    depends_on:
+      - base
+
   base:
     image: gcr.io/padas-app/base
     build:

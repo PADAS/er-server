@@ -1,0 +1,28 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: rt-api
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: rt-api
+    spec:
+      imagePullSecrets:
+        - name: gcr-secret
+      containers:
+      - image: gcr.io/padas-app/rt_api:${GIT_SERVER_SHA}
+        name: das-rt-api
+        ports:
+          - containerPort: 8000
+        env:
+        - name: API_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: API_HOST
+        - name: API_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: API_PORT

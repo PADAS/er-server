@@ -199,9 +199,6 @@ DATABASES = {
         'USER': 'das',
         'HOST': 'postgis',
         'PASSWORD': 'password',
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
     },
 }
 

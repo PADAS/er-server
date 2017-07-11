@@ -5,8 +5,18 @@ resources:
 #
 ################################################################################        
 # git resources
+- name: git-server-base
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    paths: 
+      - dependencies/* 
+      - docker/base/*
+    private_key: ((server-private-key))
+
 - name: git-utility
-  type: git
+  type: versioned-git-resource
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
@@ -16,14 +26,34 @@ resources:
     private_key: ((server-private-key))
 
 - name: git-server
-  type: git
+  type: versioned-git-resource
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
     private_key: ((server-private-key))
 
+- name: git-web-base
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-web.git
+    branch: ((web-branch-name))
+    paths:
+      - docker/build/base/*
+    private_key: ((web-private-key))
+
+- name: git-web-depends
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-web.git
+    branch: ((web-branch-name))
+    paths:
+      - docker/build/depends/*
+      - bower.json
+      - package.json
+    private_key: ((web-private-key))
+
 - name: git-web
-  type: git
+  type: versioned-git-resource
   source:
     uri: git@github.com:PADAS/das-web.git
     branch: ((web-branch-name))
@@ -39,7 +69,16 @@ resources:
     password: ((gcr-io-password))
     repository: gcr.io/padas-app/base
 
-# API, Beat, MQL, RT_API, Worker
+- name: image-server-app
+  type: docker-image
+  source:
+    tag: $(cat<git-server/sha)
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/app
+
+# AIS_Gap, AIS_Track, API, Beat, MQL, RT_AIS_API, RT_API, Worker
 - name: image-server-worker
   type: docker-image
   source:
@@ -80,6 +119,7 @@ resources:
     password: ((gcr-io-password))
     repository: gcr.io/padas-app/api
 
+
 # docker resource images not dependentn on base / app
 - name: image-postgis
   type: docker-image
@@ -98,13 +138,54 @@ resources:
     repository: gcr.io/padas-app/nginx
 
 # Web docker resources
-- name: image-web
+- name: image-web-base
   type: docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((gcr-io-password))
-    repository: gcr.io/padas-app/web
+    repository: gcr.io/padas-app/web/build/base
+
+- name: image-web-depends
+  type: docker-image
+  source:
+    tag: $(cat<git--web-depends/sha)
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/web/build/depends
+    
+- name: image-web-develop
+  type: docker-image
+  source:
+    tag: $(cat<git-web/sha)
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/web/develop
+
+- name: image-web-app
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-password))
+    repository: gcr.io/padas-app/web/app
+
+
+################################################################################
+# 
+# Custom Resource Types
+#
+################################################################################
+resource_types:
+- name: versioned-git-resource
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((gcr-io-infrastructure-password))
+    repository: gcr.io/ss-infrastructure/concourse/versioned-git-resource
 
 ################################################################################
 # 
@@ -114,47 +195,68 @@ resources:
 jobs:  
 - name: docker-build-server-base
   plan:
-  - get: git-server
+  - get: git-server-base
     trigger: true
   - put: image-server-base
     params: {
-      build: git-server,
-      dockerfile: git-server/docker/base/Dockerfile,
+      build: git-server-base,
+      dockerfile: git-server-base/docker/base/Dockerfile,
+      tag:  git-server-base/sha,
       tag_as_latest: true
     }
     get_params: {skip_download: true}
 
-#API, Beat, MQL, RT_API, Worker
+- name: docker-build-server-app
+  plan:
+  - aggregate:
+    - get: git-server-base
+      passed: [docker-build-server-base]
+    - get: image-server-base
+      passed: [docker-build-server-base]
+      trigger: true
+      params: {
+        skip_download: true
+      }
+    - get: git-server
+      trigger: true
+  - put: image-server-app
+    params: {
+      build: git-server,
+      dockerfile: git-server/docker/App/Dockerfile,
+      tag:  git-server/sha,
+      build_args_file: git-server-base/build_args,
+      tag_as_latest: true
+    }
+    get_params: {skip_download: true}
+
+# API, Beat, MQL, RT_AIS_API, RT_API, Worker
 - name: docker-build-server
   plan:
   - aggregate:
     - get: git-server
       trigger: true
-      passed: [docker-build-server-base]
-    - get: image-server-base
+      passed: [docker-build-server-app]
+    - get: image-server-app
       trigger: true
-      passed: [docker-build-server-base]
-      params: { skip_download: true }
+      passed: [docker-build-server-app]
+      params: {
+        skip_download: true
+      }
   - aggregate:
     - put: image-server-api
-      params: { build: git-server/docker/API,
-      tag_as_latest: true }
+      params: { build: git-server/docker/API, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: true }
       get_params: {skip_download: true}
     - put: image-server-beat
-      params: { build: git-server/docker/Beat,
-      tag_as_latest: true }
+      params: { build: git-server/docker/Beat, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: true }
       get_params: {skip_download: true}
     - put: image-server-mql
-      params: { build: git-server/docker/MQL,
-      tag_as_latest: true }
+      params: { build: git-server/docker/MQL, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: true }
       get_params: {skip_download: true}
     - put: image-server-rt-api
-      params: { build: git-server/docker/RT_API,
-      tag_as_latest: true }
+      params: { build: git-server/docker/RT_API, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: true }
       get_params: {skip_download: true}
     - put: image-server-worker
-      params: { build: git-server/docker/Worker,
-      tag_as_latest: true }
+      params: { build: git-server/docker/Worker, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: true }
       get_params: {skip_download: true}
 
 - name: docker-build-utility
@@ -163,24 +265,198 @@ jobs:
     trigger: true
   - aggregate: 
     - put: image-postgis
-      params: { build: git-utility/docker/PostGIS,
-      tag_as_latest: true }
+      params: { build: git-utility/docker/PostGIS, tag: git-utility/sha, tag_as_latest: true }
       get_params: {skip_download: true}
     - put: image-nginx
-      params: { build: git-utility/docker/Nginx,
-      tag_as_latest: true }
+      params: { build: git-utility/docker/Nginx, tag: git-utility/sha, tag_as_latest: true }
       get_params: {skip_download: true}
 
 # Web Jobs
-- name: docker-build-web
+- name: docker-build-web-base
   serial: true
   plan:
-  - get: git-web
+  - get: git-web-base
     trigger: true
-  - put: image-web
+  - put: image-web-base
     params: {
-      build: git-web,
-      dockerfile: git-web/docker/Dockerfile,
+      build: git-web-base,
+      dockerfile: git-web-base/docker/build/base/Dockerfile,
+      tag:  git-web-base/sha,
       tag_as_latest: true
     }        
     get_params: {skip_download: true}
+
+- name: docker-build-web-depends
+  serial: true
+  plan:
+  - aggregate:
+    - get: image-web-base
+      passed: [docker-build-web-base]
+      trigger: true
+      params: { skip_download: true }
+    - get: git-web-base
+      passed: [docker-build-web-base]
+    - get: git-web-depends
+      trigger: true
+  - put: image-web-depends
+    params: {
+      build: git-web-depends,
+      dockerfile: git-web-depends/docker/build/depends/Dockerfile,
+      tag:  git-web-depends/sha,
+      build_args_file: git-web-base/build_args,
+      tag_as_latest: true
+    }
+    get_params: {skip_download: true}
+
+- name: test-web-unit
+  serial: true
+  plan:
+  - aggregate:
+    - get: image-web-depends
+      passed: [docker-build-web-depends]
+      trigger: true
+      params: { save: true }
+    - get: git-web-depends
+      passed: [docker-build-web-depends]
+    - get: git-web
+      trigger: true
+  - task: test
+    image: image-web-depends
+    config:
+      platform: linux      
+      inputs:
+      - name: git-web
+      run:
+        dir: git-web
+        path: docker/build/compile/test.sh
+
+- name: docker-build-web-develop
+  serial: true
+  plan:
+  - aggregate:
+    - get: image-web-depends
+      passed: [test-web-unit]
+      trigger: true
+      params: { skip_download: true }
+    - get: git-web-depends
+      passed: [test-web-unit]
+    - get: git-web
+      passed: [test-web-unit]
+      trigger: true
+  - put: image-web-develop
+    params: {
+      build: git-web,
+      dockerfile: git-web/docker/develop/Dockerfile,
+      tag:  git-web/sha,
+      tag_as_latest: true,
+      build_args_file: git-web-depends/build_args
+    }
+    get_params: {skip_download: true}
+
+- name: docker-build-web-app
+  serial: true
+  plan:
+  - aggregate:
+    - get: image-web-depends
+      passed: [test-web-unit]
+      trigger: true
+    - get: git-web
+      passed: [test-web-unit]
+      trigger: true
+  - task: build
+    image: image-web-depends
+    config:
+      platform: linux
+      inputs:
+      - name: git-web
+      outputs: 
+      - name: web-distribution
+      run:
+        dir: git-web
+        path: docker/build/compile/build.sh
+  - put: image-web-app
+    params: {
+      build: web-distribution,
+      dockerfile: web-distribution/docker/app/Dockerfile,
+      tag:  git-web/sha,
+      tag_as_latest: true,
+    }
+    get_params: {skip_download: true}
+
+- name: deploy-to-k8s
+  plan:
+  - aggregate:
+    - get: git-utility
+      passed: [docker-build-utility]
+    - get: git-web
+      passed: [docker-build-web-app]
+    - get: git-server
+      passed: [docker-build-server]
+    - get: image-server-api
+      passed: [docker-build-server]
+      trigger: true
+      params: {skip_download: true}
+    - get: image-server-mql
+      passed: [docker-build-server]
+      trigger: true
+      params: {skip_download: true}
+    - get: image-server-beat
+      passed: [docker-build-server]
+      trigger: true
+      params: {skip_download: true}
+    - get: image-server-rt-api
+      passed: [docker-build-server]
+      trigger: true
+      params: {skip_download: true}
+    - get: image-server-worker
+      passed: [docker-build-server]
+      trigger: true
+      params: {skip_download: true}
+    - get: image-nginx
+      passed: [docker-build-utility]
+      trigger: true
+      params: {skip_download: true}
+    - get: image-postgis
+      passed: [docker-build-utility]
+      trigger: true
+      params: {skip_download: true}
+    - get: image-web-app
+      passed: [docker-build-web-app]
+      trigger: true
+      params: {skip_download: true}
+  - task: update-deployment-info
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source: {
+          repository: gcr.io/ss-infrastructure/utility/envsubst,
+          email: ((gcr-io-email)),
+          username: ((gcr-io-username)),
+          password: ((gcr-io-infrastructure-password))
+        }
+      inputs: 
+      - name: git-server
+      - name: git-utility
+      - name: git-web
+      outputs:
+      - name: deployment-info 
+      run:
+        path: git-server/ci/update.k8s.deployment.params.ci.sh
+  - task: deploy
+    config:
+      platform: linux
+      image_resource: 
+        type: docker-image
+        source: {repository: google/cloud-sdk}
+      inputs:
+      - name: git-server
+      - name: deployment-info
+      params: {
+        PROJECT_ID: ((project-id)),
+        CLUSTER_NAME: ((cluster-name)),
+        DEPLOY_PATH: deployment-info,
+        CLUSTER_ADMIN_PASSWORD: ((gcr-io-cluster-admin-password))
+      }
+      run:
+        path: git-server/ci/deploy.to.k8s.sh

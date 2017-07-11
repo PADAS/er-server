@@ -90,7 +90,7 @@ def send_event_mail(event, user, revision, email_callback):
             except Exception:
                 display_value = value
         elif key == 'reported_by' and value is not None:
-            display_value = value['username'] if 'username' in value else value
+            display_value = value.get('username') or value.get('name') or value
         else:
             try:
                 display_value = event.get_display_value(key, value)
