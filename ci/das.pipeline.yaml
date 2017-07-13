@@ -435,6 +435,9 @@ jobs:
           username: ((gcr-io-username)),
           password: ((gcr-io-infrastructure-password))
         }
+      params: {
+          STATIC_IP: ((static-ip))
+      }
       inputs: 
       - name: git-server
       - name: git-utility

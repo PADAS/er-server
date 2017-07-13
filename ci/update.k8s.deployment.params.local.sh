@@ -20,6 +20,7 @@ echo "INPUT_DIR=$INPUT_DIR"
 echo "GIT_SERVER_SHA=$GIT_SERVER_SHA"
 echo "GIT_WEB_SHA=$GIT_WEB_SHA"
 echo "GIT_UTILITY_SHA=$GIT_UTILITY_SHA"
+echo "STATIC_IP=$STATIC_IP"
 
 for k8sResource in $INPUT_DIR/*.yaml; do
     # envsubst reads the input file, replaces any ENV variables (not shell variables)
