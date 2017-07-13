@@ -7,14 +7,14 @@ import os
 
 from django.core.management.base import BaseCommand
 from django.contrib.gis.gdal import DataSource
-from django.contrib.gis.utils import LayerMapping
+from django.contrib.gis.utils import layermapping
 from django.contrib.gis.geos import MultiPolygon, MultiPoint, MultiLineString
 from django.contrib.gis.gdal import (
     CoordTransform, DataSource, GDALException, OGRGeometry, OGRGeomType,
     SpatialReference,
 )
 # from openpyxl import load_workbook #needed for XLS
-
+from openpyxl import load_workbook
 
 from mapping import models
 # from models import SpatialFeature   #added to import SpatialFeature class
@@ -92,14 +92,14 @@ class Command(BaseCommand):
                 external_id += '-' + str(feature[name].value)
         return external_id
 
-    def import_layer(self, datasource, spatial_mapping):
-        for feature in datasource[0]:
-            # print(datasource[0])       #print datasource type
-            # print("Feature fields: " + str(feature.fields))
+    def import_layer(self, DataSource, spatial_mapping):
+        for feature in DataSource[0]:
+            print(DataSource[0])       #print datasource type
+            print("Feature fields: " + str(feature.fields))
             # print("Feature geom type: " + str(feature.geom_type))
             # print("Feature length: " + str(len(feature)))
             # print("Feature num of fields: " + str(feature.num_fields))
-            # [fld.__name__ for fld in feature.field_types] #field types    'Feature' object has no attribute 'field_types'
+            print[fld.__name__ for fld in feature.field_types] #field types    'Feature' object has no attribute 'field_types'
             logger.info('%s', feature)
             # logger.debug()
             # print(feature)
@@ -117,7 +117,7 @@ class Command(BaseCommand):
                        #'feature_types': 'geometry.type'} #unsure how to map OGR type here
 
             try:
-                lm = LayerMapping(models.SpatialFeature, datasource[0], mapping)
+                lm = layermapping(models.SpatialFeature, DataSource[0], mapping)
                 lm.save(verbose=True)
             except:
                 logger.exception('Exception')
