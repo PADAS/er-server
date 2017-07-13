@@ -416,7 +416,8 @@ class SpatialFeatureGroup(models.Model):
     """
     A grouping of features that should be toggled together on the map,
       e.g. a set of camps or a system of rivers
-      ... better than handling as a layer group in UI as it allows grouping to be controlled in db?
+      ... better than handling as a layer group in UI as it allows grouping
+       to be controlled in db?
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -475,6 +476,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 
     # data fields
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+
     feature_types = models.ManyToManyField(SpatialFeatureType,
                                            related_name='spatial_features')
     display_class = models.ForeignKey(DisplayClass)
@@ -511,6 +513,8 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     # other_id # this will map from the other_id' column in STESpatial
 
     feature_geometry = models.GeometryField(geography=True, srid=4326)
+
+    #
     tags = TagField()
 
     revision = Revision()

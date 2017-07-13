@@ -1,4 +1,4 @@
-## import geojson file (geofences) to dev db
+# import geojson file (geofences) to dev db
 import logging
 from zipfile import ZipFile
 import tempfile
@@ -7,7 +7,7 @@ import os
 
 from django.core.management.base import BaseCommand
 from django.contrib.gis.gdal import DataSource
-from django.contrib.gis.utils import LayerMapping
+from django.contrib.gis.utils import layermapping
 from django.contrib.gis.geos import MultiPolygon, MultiPoint, MultiLineString
 from django.contrib.gis.gdal import (
     CoordTransform, DataSource, GDALException, OGRGeometry, OGRGeomType,
@@ -22,6 +22,15 @@ from mapping import models
 
 logger = logging.getLogger(__name__)
 
+ATTRIBUTE_FIELDS = ('',)
+PROVENANCE_FIELDS = ('collect_user', 'collect_method', 'collect_date',
+                     'ground_verified', 'spatial_feature_owners', 'spatial_data_owners',
+                     'created_user', 'created_date', 'last_edited_user', 'last_edited_date',
+                     'other_id')
+
+STE_TO_SPATIAL_MAPPING = {'short_name': 'short_name',
+                          'name': 'name'}
+
 
 class Command(BaseCommand):
     help = 'Import a spatial data layer'
@@ -33,45 +42,24 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
 
-        spatial_mapping = options['spatial_mapping']
-        if not spatial_mapping:
-            spatial_mapping = 'STESpatial_DataModel.xlsx'
-
-        # if not os.path.exists(spatial_mapping):
-        #     raise FileNotFoundError(
-        #         'Spatial mapping file not found {0}'.format(spatial_mapping))
-
-        # spatial_mapping = self.load_mapping(spatial_mapping)
-
-        data_source = self.datasource_from_file(options['filename']) #geojson input
+        # geojson input
+        data_source = self.datasource_from_file(options['filename'])
 
         try:
-            self.import_layer(data_source, spatial_mapping)
+            self.import_layer(data_source)
         finally:
             data_source = None
 
     def add_arguments(self, parser):
         parser.add_argument('filename', type=str,
                             help='spatial filename')
-        parser.add_argument('--spatial-mapping', type=str,
-                            help='spreadsheet with ste to das display class mapping')
-
-    def load_mapping(self, mapping_file):
-
-        wb = load_workbook(mapping_file, read_only=True)
-        ws = next(
-            iter([w for w in wb.worksheets if w.title == 'SpatialFeature']))
-        row_iter = ws.rows
-        first_row = next(row_iter)
-        for row in row_iter:
-            self.logger.debug('%s', row)
 
     def datasource_from_file(self, filename):                   # geojson file
         if filename.endswith('kmz'):
             tmpdir = tempfile.TemporaryDirectory()
             self.tmpdirs.append(tmpdir)
             zip = ZipFile(filename)
-            filename = zip.extract('doc.kml', tmpdir.name)      #use break
+            filename = zip.extract('doc.kml', tmpdir.name)  # use break
         return DataSource(filename)
 
     def get_feature_class(self, name):
@@ -92,35 +80,60 @@ class Command(BaseCommand):
                 external_id += '-' + str(feature[name].value)
         return external_id
 
-    def import_layer(self, datasource, spatial_mapping):
+    def import_layer(self, datasource):
         for feature in datasource[0]:
-            # print(datasource[0])       #print datasource type
-            # print("Feature fields: " + str(feature.fields))
-            # print("Feature geom type: " + str(feature.geom_type))
-            # print("Feature length: " + str(len(feature)))
-            # print("Feature num of fields: " + str(feature.num_fields))
-            # [fld.__name__ for fld in feature.field_types] #field types    'Feature' object has no attribute 'field_types'
-            logger.info('%s', feature)
-            # logger.debug()
-            # print(feature)
+            logger.debug('Feature fields: %s', str(feature.fields))
+            logger.debug('Feature geom type: %s', str(feature.geom_type))
+            logger.debug('Feature length: %s', str(len(feature)))
+            logger.debug('Feature num of fields: %s', str(feature.num_fields))
+            self._save_feature_to_table(feature)
 
-            ## mapping dictionary features 'model': 'datasource' field mapping
-            mapping = {#' ' : 'display_class',
-                       # ' ':'OBJECTID',
-                       # ' ': 'type',
-                       'title': 'name',
-                       'externalid': 'globalid',
-                       # 'feature_types': 'type'}     #nested under 'geometry' in geojson
-                       'feature_types': 'MULTILINESTRING'}  #OGC name
-                       # ' ': 'das_type',
-                       # ' ':'das_tags',
-                       #'feature_types': 'geometry.type'} #unsure how to map OGR type here
+    def _save_feature_to_table(self, feature):
+        global_id = feature['globalid'].value
+        das_type = feature['das_type'].value
+        das_tags = feature['das_tags'].value
 
-            try:
-                lm = LayerMapping(models.SpatialFeature, datasource[0], mapping)
-                lm.save(verbose=True)
-            except:
-                logger.exception('Exception')
+        feature_model = models.SpatialFeature
+        feature_geometry = feature['']
+
+        attributes = {feature_name: feature[feature_name]
+                      for feature_name in feature.fields if
+                      feature_name in ATTRIBUTE_FIELDS}
+
+        provenance = {feature_name: feature[feature_name]
+                      for feature_name in feature.fields if
+                      feature_name in PROVENANCE_FIELDS}
+
+        defaults = {'attributes': attributes, 'provenance': provenance}
+        for ste_field, spatial_field in STE_TO_SPATIAL_MAPPING.items():
+            if ste_field in feature.fields:
+                defaults[spatial_field] = feature.fields[ste_field]
+
+        feature_record, created = feature_model.objects.get_or_create(
+            defaults=defaults,
+            feature_geometry=feature_geometry,
+            external_id=global_id)
+
+        logger.info('Import feature: %s, created:%s',
+                    global_id, created)
+
+        feature_record.feature_types = self.get_feature_types(
+            self.feature_type_names(None))
+        feature_record.display_class = self.get_feature_class(
+            self.display_class_names(None))
+        if 'das_tags' in feature.fields:
+            feature_record.tags = feature.fields['das_tags'].split(',')
+        feature_record.feature_geometry = feature_geometry
+        for key, value in defaults.items():
+            setattr(feature_record, key, value)
+
+        feature_record.save()
+
+    def get_feature_types(self, feature_type_names, create_okay=True):
+        pass
+
+    def get_feature_class(self, display_class_names, create_okay=True):
+        pass
 
     def make_multi(self, geom_type, model_field):
         """
