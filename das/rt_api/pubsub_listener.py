@@ -41,7 +41,7 @@ def start(realtime_server):
 
     def pubsub_listener():
 
-        logger.debug('Starting pubsub listener')
+        logger.info('Starting pubsub listener')
         subscriptions = [
             {
                 'routing_key': 'das.tracking.source.observations.new',
