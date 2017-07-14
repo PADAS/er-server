@@ -13,6 +13,8 @@ from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from django.http import Http404
 
+from django.contrib.contenttypes.models import ContentType
+
 from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
 import rest_framework.serializers
@@ -22,6 +24,11 @@ from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from versatileimagefield.serializers import VersatileImageFieldSerializer
+import versatileimagefield.files
+
+# Make dictionaries from the IMAGE_SETS, to make lookups a little easier.
+from versatileimagefield.utils import get_resized_path, get_rendition_key_set, IMAGE_SETS
+IMAGE_RENDITION_SETS = dict((k, dict(v)) for k, v in IMAGE_SETS.items())
 
 import jsonschema
 import jsonschema.exceptions
@@ -32,10 +39,13 @@ import utils
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from observations.serializers import SubjectSerializer, SourceSerializer, get_subject_display
 from observations.models import Subject
+from analyzers.serializers import SubjectAnalyzerResultSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
 from activity import schema_utils
 from activity.models import EventRelationship
+
+import usercontent.serializers
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +90,9 @@ ATTACHMENT_SERIALIZER_MAPPING = {
                              'field': 'subject'},
     'observations.source': {'serializer': SourceSerializer,
                             'field': 'source'},
+    'analyzers.subjectanalyzerresult': {'serializer': SubjectAnalyzerResultSerializer,
+                                        'field': 'subject_analyzer_result'
+                                        }
 }
 
 REPORTED_SERIALIZER_MAPPING = {
@@ -102,7 +115,7 @@ def filter_blank_choice(choices):
                 continue
         except AttributeError:
             pass
-        yield value,display
+        yield value, display
 
 
 class EventJSONSchema(BaseMetadata):
@@ -171,7 +184,8 @@ class EventJSONSchema(BaseMetadata):
                 pass
             else:
                 # If user has appropriate permissions for the view, include
-                # appropriate metadata about the fields that should be supplied.
+                # appropriate metadata about the fields that should be
+                # supplied.
                 serializer = view.get_serializer()
                 return self.get_serializer_info(serializer)
             finally:
@@ -244,7 +258,7 @@ class EventJSONSchema(BaseMetadata):
                                                         strings_only=True)
                                 }
                                 for choice_value, choice_name in filter_blank_choice(values_iter)
-                                ]
+                            ]
                         else:
                             unassigned.append({
                                 'value': group,
@@ -260,7 +274,7 @@ class EventJSONSchema(BaseMetadata):
                             'title': force_text(choice_name, strings_only=True)
                         }
                         for choice_value, choice_name in filter_blank_choice(field.object_choices)
-                        ]
+                    ]
                     field_info['enum'] = [v['value'] for v in
                                           enum_ext]
                 field_info['enum_ext'] = enum_ext
@@ -271,7 +285,7 @@ class EventJSONSchema(BaseMetadata):
                         'title': force_text(choice_name, strings_only=True)
                     }
                     for choice_value, choice_name in filter_blank_choice(field.choices)
-                    ]
+                ]
                 field_info['enum'] = [v['value'] for v in
                                       field_info['enum_ext']]
 
@@ -327,11 +341,11 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
             # Ensure that field.choices returns something sensible
             # even when accessed with a read-only field.
             return {}
-
-        return {provenance: [(
-                                 self.to_representation(item),
-                                 self.display_value(item)) for item in values]
-                for provenance, values in queryset}
+        choices = []
+        for provenance, values in queryset:
+            choices += [(self.to_representation(item), self.display_value(item))
+                        for item in values]
+        return choices
 
 
 class AttachmentRelatedField(rest_framework.serializers.RelatedField):
@@ -367,17 +381,42 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
                             for row in self.get_queryset()))
 
 
-class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
+class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
-        model = activity.models.EventType
-        read_only_fields = ('value', 'display', 'ordernum', 'is_collection')
+        model = activity.models.EventCategory
+        read_only_fields = ('value', 'display', 'ordernum', 'flag',)
         fields = read_only_fields
 
     def to_representation(self, obj):
         rep = super().to_representation(obj)
-        if obj.category:
-            rep['category'] = dict(value=obj.category.value,
-                                   display=obj.category.display)
+
+        # If we know the user requesting the category, include their permissions
+        # for that category
+        user = getattr(self.context.get('request', None), 'user', None)
+        if user is not None:
+            rep['permissions'] = self.get_allowed_actions_for_category(
+                user, rep['value'])
+        return rep
+
+    def get_allowed_actions_for_category(self, user, category_name):
+        allowed_actions = []
+        for action in ('create', 'update', 'read', 'delete'):
+            if user.has_perm('activity.{0}_{1}'.format(category_name, action)):
+                allowed_actions.append(action)
+        return allowed_actions
+
+
+class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
+    category = EventCategorySerializer(read_only=True)
+
+    class Meta:
+        model = activity.models.EventType
+        read_only_fields = ('value', 'display', 'ordernum',
+                            'is_collection', 'category')
+        fields = read_only_fields
+
+    def to_representation(self, obj):
+        rep = super().to_representation(obj, )
         return rep
 
 
@@ -408,9 +447,11 @@ class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
 
 
 def get_update_type(revision, previous_revisions=[]):
-    field_mapping = (('location','update_location'), ('message','update_message'),
-                     ('event_time','update_datetime'), ('reported_by_id', 'update_reported_by'),
-                     ('state', 'update_event_state'), ('priority', 'update_event_priority'),
+    field_mapping = (('location', 'update_location'), ('message', 'update_message'),
+                     ('event_time', 'update_datetime'), ('reported_by_id',
+                                                         'update_reported_by'),
+                     ('state', 'update_event_state'), ('priority',
+                                                       'update_event_priority'),
                      ('event_type', 'update_event_type'))
     model_name = revision._meta.model_name
     action = revision.action
@@ -430,7 +471,7 @@ def get_update_type(revision, previous_revisions=[]):
                     if prev_state == activity.models.Event.SC_RESOLVED:
                         return 'unresolved'
                     if (prev_state == activity.models.Event.SC_NEW
-                        and event_state == activity.models.Event.SC_ACTIVE):
+                            and event_state == activity.models.Event.SC_ACTIVE):
                         return 'read'
                     break
         for k, v in field_mapping:
@@ -465,6 +506,9 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
         rep['updates'] = self.render_updates(note)
         return rep
 
+    def get_display_value(self, note):
+        return '{0}: {1}'.format(get_user_display(note.created_by_user), note.text)
+
     def render_updates(self, note):
         def get_action(revision):
             if revision.action == AC_UPDATED:
@@ -486,7 +530,7 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
                 type=get_update_type(revision),
             )
             for revision in note.revision.all_user()
-            ]
+        ]
 
 
 class EventStateSerializer(rest_framework.serializers.ModelSerializer):
@@ -520,11 +564,11 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
         rep['updates'] = self.render_updates(photo)
         if 'request' in self.context:
             rep['url'] = utils.add_base_url(self.context['request'],
-                                        reverse('event-view-photo',
-                                                args=[photo.event.id, photo.id ]))
+                                            reverse('event-view-photo',
+                                                    args=[photo.event.id, photo.id]))
         else:
-            logger.warn('missing request in EventPhotoSerializer context: %s',
-                        traceback.format_stack())
+            logger.warning('missing request in EventPhotoSerializer context: %s',
+                           traceback.format_stack())
 
         return rep
 
@@ -542,7 +586,109 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
                 type=get_update_type(revision),
             )
             for revision in photo.revision.all_user()
-            ]
+        ]
+
+
+class EventFileSerializer(rest_framework.serializers.ModelSerializer):
+
+    usercontent_id = rest_framework.serializers.UUIDField(required=False)
+    usercontent_type = rest_framework.serializers.PrimaryKeyRelatedField(
+        required=False, queryset=ContentType.objects.all())
+
+    usercontent = usercontent.serializers.UserContentSerializer(required=False)
+
+    created_by = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault()
+    )
+
+    comment = rest_framework.serializers.CharField(
+        allow_blank=True, required=False,)
+
+    class Meta:
+        model = activity.models.EventFile
+
+    def create(self, validated_data):
+
+        # Get uploaded file from request.
+        ser = usercontent.serializers.UserContentSerializer(
+            data=dict(file=self.context['request'].data['filecontent.file'],
+                      ),
+            context={'request': self.context['request']})
+
+        ser.is_valid(raise_exception=True)
+        filecontent = ser.create(ser.validated_data)
+
+        validated_data.pop('filecontent.file', None)
+
+        validated_data['usercontent'] = filecontent
+
+        return super().create(validated_data)
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+
+        rep['updates'] = self.render_updates(instance)
+
+        if 'request' in self.context:
+            request = self.context['request']
+            rep['url'] = utils.add_base_url(request,
+                                            reverse('event-view-file',
+                                                    args=[instance.event.id, instance.id, ]))
+
+            # If attached usercontent is an ImageFileField, then render urls
+            # for renditions.
+            if isinstance(instance.usercontent.file, (versatileimagefield.files.VersatileImageFieldFile,)):
+
+                # Image Sizes
+                image_sizes = {}
+                # '('thumbnail', 'large'):
+                for size in IMAGE_RENDITION_SETS['default'].keys():
+                    image_sizes[size] = utils.add_base_url(request,
+                                                           reverse('event-view-file-size',
+                                                                   args=[instance.event.id, instance.id,
+                                                                         size, instance.usercontent.filename]))
+                if image_sizes:
+                    rep['images'] = image_sizes
+
+        # Promote some usercontent attributes.
+        rep['filename'] = rep['usercontent'].get('filename')
+        rep['file_type'] = rep['usercontent'].get('file_type')
+
+        try:
+            rep['icon_url'] = rep['images']['icon']
+        except KeyError:
+            rep['icon_url'] = rep['usercontent'].get('icon_url')
+
+        # Prune some unnecessary attributes.
+        for att in ('usercontent', 'event', 'usercontent_id', 'usercontent_type'):
+            rep.pop(att, default=None)
+
+        return rep
+
+    def render_updates(self, event_file):
+        def get_action(revision):
+            return revision.get_action_display()
+
+        return [
+            dict(message='File {action} by {user}'.format(
+                action=get_action(revision),
+                user=get_user_display(revision.user)),
+                time=revision.revision_at.isoformat(),
+                text=revision.data.get('text', ''),
+                user=UserDisplaySerializer().to_representation(revision.user),
+                type=get_update_type(revision),
+            )
+            for revision in event_file.revision.all_user()
+        ]
+
+    def is_valid(self, raise_exception=False):
+
+        try:
+            r = super().is_valid(raise_exception=raise_exception)
+        except Exception as e:
+            raise e
+        return r
+
 
 class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
 
@@ -556,16 +702,19 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
 
-        # it's possibile that we weren't able to validate event data earlier, so do it now
+        # it's possibile that we weren't able to validate event data earlier,
+        # so do it now
         if '_internal_validated' in validated_data['event_details'] and not validated_data['event_details']['_internal_validated']:
             del(validated_data['event_details']['_internal_validated'])
-            validated_data = {'event_details': self._to_internal_value_inner(instance, validated_data['event_details'])}
+            validated_data = {'event_details': self._to_internal_value_inner(
+                instance, validated_data['event_details'])}
 
         # Get the current details object
         current_details = self.get_attribute(instance)
 
         if not current_details:
-            current_details = activity.models.EventDetails.objects.create(**{'event': instance, 'data': validated_data})
+            current_details = activity.models.EventDetails.objects.create(
+                **{'event': instance, 'data': validated_data})
 
         elif current_details.data != validated_data:
             current_details.data = validated_data
@@ -583,14 +732,16 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         if 'request' in self.context and 'event_type' in self.context['request'].data:
             new_event_type = self.context['request'].data['event_type']
             if new_event_type and new_event_type != instance.event_type.value:
-                event_type = activity.models.EventType.objects.get(value=new_event_type)
+                event_type = activity.models.EventType.objects.get(
+                    value=new_event_type)
 
         schema = event_type.schema
 
         if not schema:
             return super().to_internal_value(data)
 
-        replacement_fields = schema_utils.get_replacement_fields_in_schema(schema)
+        replacement_fields = schema_utils.get_replacement_fields_in_schema(
+            schema)
 
         parameters = {}
         for replacement_field in replacement_fields:
@@ -599,21 +750,26 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                 continue
 
             if replacement_field['lookup'] == 'enum':
-                parameters[replacement_field['field']] = schema_utils.get_enum_choices(replacement_field, as_string=False)
+                parameters[replacement_field['field']] = schema_utils.get_enum_choices(
+                    replacement_field, as_string=False)
             elif replacement_field['lookup'] == 'query':
-                parameters[replacement_field['field']] = schema_utils.get_dynamic_choices(replacement_field, as_string=False)
+                parameters[replacement_field['field']] = schema_utils.get_dynamic_choices(
+                    replacement_field, as_string=False)
             elif replacement_field['lookup'] == 'table':
-                parameters[replacement_field['field']] = schema_utils.get_table_choices(replacement_field, as_string=False)
+                parameters[replacement_field['field']] = schema_utils.get_table_choices(
+                    replacement_field, as_string=False)
 
         all_schema_fields = schema_utils.get_all_fields(schema)
 
-        # Append field information to the data we're getting so we know how to get back to the source
+        # Append field information to the data we're getting so we know how to
+        # get back to the source
         ret = {}
         for k, v in data.items():
             if k not in all_schema_fields:
                 continue
             if type(v) == dict and k in parameters and v['value'] in parameters[k]:
-                ret[k] = {'name': parameters[k][v['value']], 'value': v['value']}
+                ret[k] = {'name': parameters[k]
+                          [v['value']], 'value': v['value']}
             elif type(v) == list and k in parameters:
                 all_values = []
                 for value in v:
@@ -627,7 +783,6 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
             else:
                 ret[k] = v
         return ret
-
 
     def to_internal_value(self, data):
         return self._to_internal_value_inner(self.root.instance, data)
@@ -667,14 +822,16 @@ class EventSerializerMixin():
             details_data['event_details'] = validated_data['event_details']
             del validated_data['event_details']
 
-        rel_types = ('contains', 'is_linked_to',) # [_.type for _ in activity.models.EventRelationshipType.objects.all()]
+        # [_.type for _ in activity.models.EventRelationshipType.objects.all()]
+        rel_types = ('contains', 'is_linked_to',)
 
         relationship_data = {}
         for key in rel_types + ('collection',):
             if key in validated_data:
                 relationship_data[key] = validated_data.pop(key)
 
-        new_event = activity.models.Event.objects.create_event(**validated_data)
+        new_event = activity.models.Event.objects.create_event(
+            **validated_data)
         EventDetailsSerializer().update(new_event, details_data)
 
         for relationship_type in rel_types:
@@ -682,14 +839,14 @@ class EventSerializerMixin():
 
                 related = relationship_data.pop(relationship_type)
                 if not isinstance(related, (list, set)):
-                    related = [related,]
+                    related = [related, ]
 
-                children = [self.create_event(self.to_internal_value(child)) for child in related]
+                children = [self.create_event(
+                    self.to_internal_value(child)) for child in related]
 
                 for child in children:
                     activity.models.EventRelationship.objects.add_relationship(from_event=new_event, to_event=child,
                                                                                type=relationship_type)
-
 
         if 'collection' in relationship_data:
             parent = relationship_data.pop('collection')
@@ -697,7 +854,6 @@ class EventSerializerMixin():
             if parent:
                 activity.models.EventRelationship.objects.add_relationship(from_event=parent, to_event=new_event,
                                                                            type='contains')
-
 
         return activity.models.Event.objects.get(id=new_event.id)
 
@@ -732,7 +888,8 @@ class EventSerializerMixin():
                                  'reported_by_id': 'Reported By',
                                  'provenance': 'Reporter',
                                  'event_type': 'Report Type is {0}',
-                                 'created_by_user': 'Report Author',}
+                                 'created_by_user': 'Report Author',
+                                 'title': 'Title'}
                 fieldnames = [field_mapping[k].format(event.get_display_value(k, v)) for k, v in revision.data.items() if
                               k in field_mapping]
                 return '{0} fields: {1}'.format(revision.get_action_display(),
@@ -756,7 +913,7 @@ class EventSerializerMixin():
                 message='{action} by {user}'.format(
                     action=get_action(revision),
                     user=self.get_user_display(revision.user, event)
-                    ),
+                ),
                 time=revision.revision_at.isoformat(),
                 user=self.get_revision_user(revision.user, event),
                 type=get_update_type(revision, revisions))
@@ -773,7 +930,7 @@ class EventSerializerMixin():
     def get_revision_user(self, user, event):
         if user:
             return UserDisplaySerializer().to_representation(
-            user)
+                user)
         return {'first_name': event.get_provenance_display(),
                 'last_name': '',
                 'username': event.provenance}
@@ -789,7 +946,8 @@ class EventHeaderSerializer(EventSerializerMixin, rest_framework.serializers.Mod
 
     class Meta:
         model = activity.models.Event
-        fields = ('id', 'message', 'time', 'end_time', 'serial_number', 'priority', 'event_type')
+        fields = ('id', 'message', 'time', 'end_time',
+                  'serial_number', 'priority', 'event_type')
 
     def to_representation(self, event):
         rep = super().to_representation(event)
@@ -830,7 +988,7 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
             # serialization.
             rep['url'] = utils.add_base_url(request, reverse('event-view-relationship', args=[instance.from_event_id,
                                                                                               instance.type.value,
-                                                                                              instance.to_event_id,]))
+                                                                                              instance.to_event_id, ]))
         direction = self.context.get('event_relationship_direction', 'out')
         if direction == 'out':
             related_event = instance.to_event
@@ -839,14 +997,16 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
 
         # related_event = instance.to_event if direction == 'out' else instance.from_event
 
-        rep['related_event'] = EventHeaderSerializer(instance=related_event, many=False, context=self.context).data
+        rep['related_event'] = EventHeaderSerializer(
+            instance=related_event, many=False, context=self.context).data
 
         return rep
 
     def validate(self, attrs):
         to_event_id = attrs.get('to_event_id')
         if to_event_id and to_event_id == self.instance.from_event.id:
-            raise rest_framework.serializers.ValidationError('An event may not be related to itself.')
+            raise rest_framework.serializers.ValidationError(
+                'An event may not be related to itself.')
         return super().validate(attrs)
 
     class Meta:
@@ -854,9 +1014,9 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
         read_only_fields = ('created_at', 'updated_at',)
         fields = ('type', 'ordernum',)
 
+
 def resolve_image_url(event):
-    image_key = activity.models.image_basename(event.event_type.value, event.priority, event.state)
-    return static_image_finder.get_marker_icon([image_key, ]) or '/static/triangle.png'
+    return event.image_url
 
 
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
@@ -870,16 +1030,22 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         default=rest_framework.serializers.CurrentUserDefault()
     )
     notes = EventNoteSerializer(many=True, required=False)
-    reported_by = ReportedByRelatedField(required=False)
-    message = rest_framework.serializers.CharField(required=False)
-    comment = rest_framework.serializers.CharField(required=False)
-    photos = EventPhotoSerializer(many=True, required=False)
+    reported_by = ReportedByRelatedField(required=False, allow_null=True)
+    message = rest_framework.serializers.CharField(
+        required=False, allow_blank=True)
+    comment = rest_framework.serializers.CharField(
+        required=False, allow_blank=True)
+    title = rest_framework.serializers.CharField(
+        required=False, allow_blank=True)
+    # photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
 
     contains = rest_framework.serializers.SerializerMethodField()
     is_linked_to = rest_framework.serializers.SerializerMethodField()
     is_contained_in = rest_framework.serializers.SerializerMethodField()
+
+    files = EventFileSerializer(many=True, required=False, read_only=True)
 
     def get_contains(self, event):
         return self.get_out_relation(event, 'contains')
@@ -894,29 +1060,31 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
         end_time = attrs.get('end_time')
         if end_time is not None and end_time < self.instance.time:
-            raise rest_framework.serializers.ValidationError('Event end_time must not be earlier than event time.')
+            raise rest_framework.serializers.ValidationError(
+                'Event end_time must not be earlier than event time.')
 
+        # If we're creating an event, and event_type is not present in the
+        # request, raise ValidationError.
+        event_type = attrs.get('event_type')
+        if event_type is None and self.instance is None:
+            raise rest_framework.serializers.ValidationError(
+                {'event_type': 'Event type must be provided.'})
 
         return super().validate(attrs)
 
     def get_out_relation(self, event, value):
-        # qs = activity.models.Event.objects.filter(out_relationship__type__value=value, out_relationship__from_event=event)
-        # serializer = EventHeaderSerializer(instance=qs, many=True, context=self.context)
-        # return serializer.data
-
         self.context['event_relationship_direction'] = 'out'
-        qs = event.out_relationships.filter(type__value=value).all().order_by('ordernum')
-        serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context,)
+        qs = event.out_relationships.filter(
+            type__value=value).all().order_by('ordernum', 'to_event__created_at')
+        serializer = EventRelationshipSerializer(
+            instance=qs, many=True, context=self.context,)
         return serializer.data
 
     def get_in_relation(self, event, value):
-        # qs = activity.models.Event.objects.filter(out_relationship__type__value=value, out_relationship__to_event=event)
-        # serializer = EventHeaderSerializer(instance=qs, many=True, context=self.context)
-        # return serializer.data
-
         qs = event.in_relationships.filter(type__value=value).all()
         self.context['event_relationship_direction'] = 'in'
-        serializer = EventRelationshipSerializer(instance=qs, many=True, context=self.context,)
+        serializer = EventRelationshipSerializer(
+            instance=qs, many=True, context=self.context,)
         return serializer.data
 
     class Meta:
@@ -924,17 +1092,18 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         read_only_fields = ('updated_at',)
         fields = (
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
-            'event_type', 'priority', 'priority_label', 'attributes', 'comment',
+            'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
-            'state', 'photos', 'event_details', 'contains', 'is_linked_to', 'is_contained_in') + read_only_fields
+            'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
+            'files', ) + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if self.context.get('include_photos', True):
-            self.fields['photos'].context.update(self.context)
+        if self.context.get('include_files', True):
+            self.fields['files'].context.update(self.context)
         else:
-            self.fields.pop('photos')
+            self.fields.pop('files')
 
         if self.context.get('include_notes', True):
             self.fields['notes'].context.update(self.context)
@@ -954,6 +1123,14 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         rep = super().to_representation(event)
         if 'request' in self.context:
             request = self.context['request']
+
+            if event.event_type and event.event_type.category:
+                rep['event_category'] = event.event_type.category.value
+                permission_name = 'activity.{0}_read'.format(
+                    event.event_type.category.value)
+                if not request.user.has_perm(permission_name):
+                    return []
+
             rep['url'] = utils.add_base_url(request,
                                             reverse('event-view',
                                                     args=[event.id, ]))
@@ -990,9 +1167,10 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             updates = self.render_updates(event)
             for note in rep.get('notes', []):
                 updates.extend(note['updates'])
-            for photo in rep.get('photos', []):
-                updates.extend(photo['updates'])
-            rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
+            for f in rep.get('files', []):
+                updates.extend(f['updates'])
+            rep['updates'] = sorted(
+                updates, key=lambda u: u['time'], reverse=True)
 
         if event.event_type:
             rep['is_collection'] = event.event_type.is_collection
@@ -1018,7 +1196,7 @@ def make_feature(request, event):
     }
 
     properties = feature['properties']
-    if image_url: #hasattr(event, 'image_url'):
+    if image_url:  # hasattr(event, 'image_url'):
         properties['icon'] = {
             "iconUrl": image_url,
             "iconSize": [25, 25],
@@ -1051,11 +1229,10 @@ class EventClassFactorSerializer(rest_framework.serializers.ModelSerializer):
         c = instance.eventclass
         f = instance.eventfactor
         rep = dict(
-                value=instance.value,
-                class_value=c.value,
-                factor_value=f.value,
-                priority=instance.priority,
-                priority_label=instance.get_priority_display())
+            value=instance.value,
+            class_value=c.value,
+            factor_value=f.value,
+            priority=instance.priority,
+            priority_label=instance.get_priority_display())
 
         return rep
-

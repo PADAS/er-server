@@ -21,7 +21,6 @@ WARNING = 20
 CRITICAL = 30
 ERROR = 40
 
-
 class Schedule(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(null=False, max_length=50)
@@ -32,6 +31,9 @@ class Schedule(TimestampedModel):
             'Designates whether this Schedule is active. '
             'Set this False instead of deleting this record.'
         ))
+    class Meta:
+        app_label = 'analyzers'
+
 
 
 class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
@@ -60,6 +62,7 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
 
     class Meta:
         abstract = True
+        app_label = 'analyzers'
 
     def analyze(self, last_result=None):
         raise NotImplementedError()
@@ -123,4 +126,6 @@ class Annotator(RevisionMixin, TimestampedModel):
 
     class Meta:
         abstract = True
+        app_label = 'analyzers'
+
 

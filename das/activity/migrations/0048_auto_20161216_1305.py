@@ -3,6 +3,15 @@
 from __future__ import unicode_literals
 
 from django.db import migrations, models
+from django.contrib.auth.management import create_permissions
+from django.core.management import call_command
+
+
+def populate_initial_event_permission_sets(apps, schema_editor):
+    apps.models_module = True
+    create_permissions(apps, verbosity=0)
+    apps.models_module = None
+    call_command('loaddata', 'initial_event_permission_sets')
 
 
 class Migration(migrations.Migration):
@@ -16,4 +25,5 @@ class Migration(migrations.Migration):
             name='eventcategory',
             options={'permissions': (('security_events', 'Permission to see security events'), ('standard_events', 'Permission to see reporting events.'))},
         ),
+        migrations.RunPython(populate_initial_event_permission_sets),
     ]

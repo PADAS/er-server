@@ -1,67 +1,14 @@
 import os
 import logging
-import simplejson as json
 
+import simplejson as json
 from django.core.urlresolvers import reverse, NoReverseMatch
 import rest_framework.serializers as serializers
-from raster.models import RasterLayer
+
 import mapping.models as models
 
 
 logger = logging.getLogger(__name__)
-
-class RasterLayerSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RasterLayer
-        fields = ('id', 'name', 'description')
-
-    def to_representation(self, instance):
-        rep = super(RasterLayerSerializer, self).to_representation(instance)
-
-        rep.update(dict(tilejson='2.1.0',
-                        version='1.1.0',
-                        autoscale=False,
-                        ))
-
-        #rep['scheme'] = 'tms'
-        rep['legend'] = instance.legend.json
-        try:
-            rep['legend_json'] = json.loads(instance.legend.json)
-        except json.JSONDecodeError:
-            pass
-        #rep['maxzoom'] = instance.metadata.max_zoom
-        #rep['minzoom'] = 0
-        #left, bottom, right, top
-        #rep['bounds'] = [instance.metadata.uperleftx,
-        #                 instance.metadata.uperlefty- instance.metadata.height,
-        #                 instance.metadata.uperleftx + instance.metadata.width,
-        #                 instance.metadata.uperlefty]
-
-        request = self.context['request']
-        url = '{0}/tms/tiles/{1}'.format(os.path.dirname(request._request.path), str(instance.id))
-        url = request._request.build_absolute_uri(url)
-        url = '{0}/{{z}}/{{x}}/{{y}}.png'.format(url)
-
-        #does not currently work with the url spec.
-        #tilepattern = reverse("tms", kwargs=dict(layer=instance.id, format='.png', x='{x}',y='{y}',z='{z}'))
-        #tilepattern = request.build_absolute_uri(tilepattern)
-        #tilepattern = tilepattern.replace('%7B', '{').replace('%7D', '}')
-        rep['tiles'] = [url, ]
-
-        return rep
-
-
-class RedirectRasterLayerSerializer(serializers.Serializer):
-    class Meta:
-        model = models.TileLayer
-        fields = ('id', 'name', 'version')
-
-    def to_representation(self, instance):
-        request = self.context['request']
-        raster_layer = RasterLayer.objects.get(id=instance.attributes['rasterlayer_id'])
-        rep = RasterLayerSerializer(raster_layer, context={'request': request}).data
-        rep['version'] = instance.version
-        return rep
 
 
 class MBTilesSerializer(serializers.Serializer):
@@ -86,7 +33,6 @@ class ExternalTileSerializer(serializers.ModelSerializer):
 
 
 TILELAYER_SERIALIZERS = {
-    'raster': RedirectRasterLayerSerializer,
     'mbtiles': MBTilesSerializer,
     'external': ExternalTileSerializer
 }

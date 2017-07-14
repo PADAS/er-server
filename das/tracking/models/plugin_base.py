@@ -22,7 +22,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
 
-from observations.models import Source
+from observations.models import Source, SourceProvider, get_default_source_provider_id
 from core.models import TimestampedModel
 
 import observations
@@ -171,6 +171,8 @@ class TrackingPlugin(TimestampedModel):
 
     # A convenient relation to find the SourcePlugins that associate this Plugin.
     source_plugins = GenericRelation(SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id')
+
+    provider = models.ForeignKey(SourceProvider, related_name='+', null=False, default=get_default_source_provider_id)
 
     class Meta:
         abstract = True

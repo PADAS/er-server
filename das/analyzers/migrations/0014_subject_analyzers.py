@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('observations', '0032_annotations'),
+        ('observations', '0033_annotations'),
         ('contenttypes', '0002_remove_content_type_name'),
         ('analyzers', '0013_delete_old_analyzers'),
     ]

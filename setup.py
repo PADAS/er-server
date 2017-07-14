@@ -4,8 +4,8 @@
 """
 Setup script for the DAS server
 """
-
 import sys
+
 try:
     from setuptools import setup
     extra = {}
@@ -13,19 +13,25 @@ except ImportError:
     from distutils.core import setup
     extra = {}
 
-if sys.version_info <= (3, 4):
-    error = 'ERROR: das requires Python Version 3.4 or above...exiting.'
+if sys.version_info <= (3, 5):
+    error = 'ERROR: das requires Python Version 3.5 or above...exiting.'
     print(error, file=sys.stderr)
     sys.exit(1)
 
+
 from das.das_server import VERSION, __version__
 
-if VERSION[-1] == 'final':
+branch = VERSION[3]
+if not branch:
     STATUS = ['Development Status :: 5 - Production/Stable']
-elif 'beta' in VERSION[-1]:
-    STATUS = ['Development Status :: 4 - Beta']
+elif 'dev' in branch:
+    STATUS = ['Development Status :: 4 - Develop']
+elif 'rc' in branch:
+    STATUS = ['Development Status :: 4 - Release Candidate']
+elif 'sup' in branch:
+    STATUS = ['Development Status :: 4 - Support']
 else:
-    STATUS = ['Development Status :: 3 - Alpha']
+    STATUS = ['Development Status :: 3 - Unknown']
 
 
 def readme():
@@ -47,8 +53,8 @@ setup(name='das',
           'License :: OSI Approved :: BSD License',
           'Operating System :: OS Independent',
           'Topic :: Internet',
-          'Programming Language :: Python :: 3.4',
-          'Programming Language :: Python :: 3.5'],
+          'Programming Language :: Python :: 3.5',
+          'Programming Language :: Python :: 3.6'],
       **extra
       )
 

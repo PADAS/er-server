@@ -433,7 +433,6 @@ class TestEventView(TestCase):
         self.assertEquals(email_data['from_address'], target_from_address)
 
 
-
 target_subject_template = 'Immobility Report: {name} {time}'
 target_body_template = '''DAS Immobility Alert
 

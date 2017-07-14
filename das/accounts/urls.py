@@ -22,6 +22,7 @@ from accounts import views
 urlpatterns = [
     url(r'^users/?$', views.UsersView.as_view()),
     url(r'^user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.UserView.as_view()),
+    url(r'^user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/profiles/?$', views.UserProfilesView.as_view()),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

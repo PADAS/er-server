@@ -1,8 +1,14 @@
+from collections import OrderedDict
+
 from django.contrib.gis.geos import Point
 import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
-
+from drf_extra_fields.fields import DateTimeRangeField
+from django.db.utils import IntegrityError
 from django.core.urlresolvers import reverse
+
+from core.serializers import ContentTypeField
+
 from django.conf import settings
 from observations import models
 import utils.json
@@ -13,6 +19,7 @@ from datetime import datetime, timedelta
 import pytz
 import time
 import sys
+
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
@@ -42,7 +49,7 @@ class GroupSerializer(rest_framework.serializers.ModelSerializer):
     def to_representation(self, instance):
         user = getattr(self.context.get('request', None), 'user', None)
         data_serializer = self.serializer(context=self.context)
-        contained_field= self.contained_field
+        contained_field = self.contained_field
 
         queryset = getattr(instance, 'get_all_{0}'.format(contained_field))(
             user=user, active=True)
@@ -61,31 +68,44 @@ def get_subject_display(subject):
 
 
 class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
+
+    assigned_range = DateTimeRangeField()
+
     class Meta:
         model = models.SubjectSource
 
     def create(self, validated_data):
-        return models.SubjectSource(**validated_data)
+        return models.SubjectSource.objects.ensure(subject=validated_data['subject'],
+                                                   source=validated_data['source'],
+                                                   assigned_range=validated_data['assigned_range'])
 
-from django.db.utils import IntegrityError
+
 class SubjectSerializer(rest_framework.serializers.Serializer):
-    # content_type = ContentTypeField()
+
+    content_type = ContentTypeField(read_only=True)
 
     id = rest_framework.serializers.UUIDField(required=False,)
     name = rest_framework.serializers.CharField(max_length=100)
     subject_type = rest_framework.serializers.CharField(max_length=100, required=False)
     subject_subtype = rest_framework.serializers.CharField(max_length=100, required=False)
     additional = rest_framework.serializers.JSONField(label='Additional data', required=False)
+    created_at = rest_framework.serializers.DateTimeField(read_only=True)
+    updated_at = rest_framework.serializers.DateTimeField(read_only=True)
 
     additional_fields = ('region', 'country', 'sex',
                          'species', 'additional')
 
     def create(self, validated_data):
+
+        if 'request' in self.context:
+            request = self.context['request']
+            validated_data['owner'] = request.user
+
         return models.Subject.objects.create_subject(**validated_data)
 
     class Meta:
         model = models.Subject
-        readonly_fields = ('image_url', 'color', )
+        readonly_fields = ('image_url', 'color', 'content_type')
         fields = ('id', 'name', 'subject_type', 'subject_subtype', 'additional',) + readonly_fields
 
     def to_internal_value(self, data):
@@ -96,10 +116,12 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     def to_representation(self, instance):
         user = getattr(self.context.get('request', None), 'user', None)
         render_last_location = self.context.get('render_last_location', True)
+        model = self.Meta.model
 
         rep = super(SubjectSerializer, self).to_representation(instance)
         additional = instance.additional
-        additional = {k: additional[k] for k in self.additional_fields if k in additional}
+        additional = {k: additional[k] for k in self.additional_fields
+                      if k in additional}
         rep.update(additional)
         rep['tracks_available'] = False
         rep['image_url'] = instance.image_url
@@ -147,21 +169,50 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
 
     def create(self, validated_data):
+        if 'request' in self.context:
+            request = self.context['request']
+            validated_data['owner'] = request.user
+
         return models.Subject.objects.create_subject(**validated_data)
 
 
+class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
+    def get_queryset(self):
+        return models.SourceProvider.objects.all()
+
+    def to_representation(self, value):
+        return value.name if value else None
+
+    def to_internal_value(self, data):
+        if data:
+            try:
+                return models.SourceProvider.objects.get(name=data)
+            except models.SourceProvider.DoesNotExist:
+                raise rest_framework.serializers.ValidationError(
+                    {'provider_name': 'Value \'%s\' does not exist.' % data})
+        return None
+
+    @property
+    def choices(self):
+        return OrderedDict(((row.name, row.name)
+                            for row in self.get_queryset()))
+
 class SourceSerializer(rest_framework.serializers.Serializer):
+
     id = rest_framework.serializers.UUIDField(read_only=True)
     source_type = rest_framework.serializers.ChoiceField(allow_null=True, choices=(('tracking-device', 'Tracking Device'), ('trap', 'Trap'), ('seismic', 'Seismic sensor'), ('firms', 'FIRMS data'), ('gps-radio', 'gps radio')), label='Type of data expected', required=False)
     manufacturer_id = rest_framework.serializers.CharField(allow_null=True, label='Device manufacturer id', max_length=100, required=False)
     model_name = rest_framework.serializers.CharField(allow_null=True, label='Device model name', max_length=100, required=False)
     additional = rest_framework.serializers.JSONField(label='Additional data')
-
+    provider = SourceProviderRelatedField()
     subject = rest_framework.serializers.JSONField(label='Subject data', required=False)
+    content_type = ContentTypeField(read_only=True)
+    created_at = rest_framework.serializers.DateTimeField(read_only=True)
+    updated_at = rest_framework.serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = models.Source
-        fields = ('id', 'source_type', 'manufacturer_id', 'model_name', 'additional')
+        fields = ('id', 'source_type', 'manufacturer_id', 'model_name', 'additional', 'provider', 'owner')
 
     def to_representation(self, instance):
         rep = super(SourceSerializer, self).to_representation(instance)
@@ -172,12 +223,33 @@ class SourceSerializer(rest_framework.serializers.Serializer):
             rep['assigned_range'] = subject_source.assigned_range
         except (AttributeError, KeyError):
             pass
+
+        if 'request' in self.context:
+            request = self.context['request']
+
+            rep['url'] = utils.add_base_url(request, reverse('source-view', args=[instance.id,]))
+
         return rep
 
 
     def create(self, validated_data):
-        return models.Source.objects.create_source(**validated_data)
+        if 'request' in self.context:
+            request = self.context['request']
+            validated_data['owner'] = request.user
 
+        return models.Source.objects.ensure_source(**validated_data)
+
+class SourceProviderSerializer(rest_framework.serializers.Serializer):
+    id = rest_framework.serializers.UUIDField(read_only=True)
+    name = rest_framework.serializers.CharField(label='Source Provider', max_length=100, required=True)
+    class Meta:
+        model = models.SourceProvider
+        fields = ('id', 'name')
+
+    def create(self, validated_data):
+
+        instance, created = models.SourceProvider.objects.get_or_create(**validated_data)
+        return instance
 
 class TrackSerializer(rest_framework.serializers.Serializer):
 

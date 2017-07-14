@@ -33,7 +33,6 @@ class Map(TimestampedModel):
 
 
 TILE_TYPES = (
-    ('raster', 'Local Raster'),
     ('mbtiles', 'Local MBTiles'),
     ('external', 'External Tile Server'),
 )
@@ -48,7 +47,7 @@ class TileLayer(TimestampedModel):
     attributes = JSONField()
     version = models.CharField(max_length=80, default='1.0.0')
     tile_type = models.CharField(max_length=20,
-                                 choices=TILE_TYPES, default='raster')
+                                 choices=TILE_TYPES, default='mbtiles')
     maps = models.ManyToManyField(Map)
 
     def __str__(self):

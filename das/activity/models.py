@@ -1,17 +1,22 @@
 import uuid
-import datetime, pytz
+import datetime
+import pytz
+import logging
 from operator import itemgetter, attrgetter
 
 import django.utils
 from django.db import transaction
+from django.db.models.signals import post_save
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
+from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
@@ -19,8 +24,14 @@ from versatileimagefield.fields import VersatileImageField
 
 from utils.html import clean_user_text
 from core.models import TimestampedModel
+import usercontent.models
 from observations.models import Subject
+from accounts.models.permissionset import PermissionSet
 from revision.manager import Revision, RevisionMixin
+from core.utils import static_image_finder
+
+logger = logging.getLogger(__name__)
+
 
 def get_sentinel_user():
     User = get_user_model()
@@ -28,18 +39,6 @@ def get_sentinel_user():
                                       email='deleted@test.com',
                                       is_active=False,
                                       password=User.objects.make_random_password())[0]
-
-def image_basename(event_type, priority, state):
-    CONVERSION = {0: 'gray', 100: 'med_green', 200: 'amber', 300: 'red'}
-    color = CONVERSION.get(priority, 'black')
-    if state == Event.SC_RESOLVED:
-        color = 'lt_gray'
-    if not event_type:
-        event_type = 'other'
-    return '{0}-{1}'.format(event_type, color)
-
-def marker_icon(event_type, priority, state):
-    return '/static/{}.svg'.format(image_basename(event_type, priority, state))
 
 
 class CommunityManager(models.Manager):
@@ -104,22 +103,35 @@ class EventFactor(TimestampedModel):
 
 
 class EventCategory(TimestampedModel):
-    class Meta:
-        permissions = (
-            ('security_events', 'Permission to see security events'),
-            ('standard_events', 'Permission to see reporting events.'),
-        )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     objects = EventBaseManager()
 
+    flag = models.CharField(max_length=40, default='user', choices=(
+        ('user', 'User'), ('system', 'System')))
+
     def __str__(self):
         return self.display
 
     def natural_key(self):
         return (self.value,)
+
+
+@receiver(post_save, sender=EventCategory)
+def ensure_perms_exist(sender, **kwargs):
+    if kwargs.get('created', False):
+        content_type = ContentType.objects.get(
+            app_label='activity', model='event')
+        category_name = kwargs['instance'].value
+
+        for operation in ['create', 'read', 'update', 'delete']:
+            codename = '{0}_{1}'.format(category_name, operation)
+            defaults = {'name': 'Can {1} {0} events'.format(category_name, operation),
+                        'content_type': content_type}
+            Permission.objects.get_or_create(
+                codename=codename, defaults=defaults)
 
 
 class FilterFieldMixin(object):
@@ -212,9 +224,22 @@ class EventManager(models.Manager):
     def get_reported_by_for_provenance(self, provenance):
         if Event.PC_STAFF == provenance:
             def get_staff():
-                for obj in get_user_model().objects.all().filter(
-                        is_active=True):
-                    yield (obj.get_full_name().lower(), obj)
+                # First get all user accounts in the reported by permission
+                # set, if it exists in the settings and the db
+                try:
+                    reported_by_users = PermissionSet.objects.get(
+                        id=settings.REPORTED_BY_PERMISSION_SET).user_set
+                    for obj in reported_by_users.filter(is_active=True):
+                        yield (obj.get_full_name().lower(), obj)
+                except PermissionSet.DoesNotExist:
+                    logger.warning(
+                        'Someone has deleted the reported_by permission set')
+                except AttributeError:
+                    logger.warning(
+                        'Reported by permission set not specified in settings')
+
+                # We also want subjects who are staff (rangers are tracked as
+                # subjects via their radio, but can report events
                 for obj in Subject.objects.all().get_staff().by_is_active():
                     yield (obj.name.lower(), obj)
             for staff in sorted(get_staff(), key=itemgetter(0)):
@@ -223,10 +248,13 @@ class EventManager(models.Manager):
         elif Event.PC_COMMUNITY == provenance:
             for community in sorted(Community.objects.all(),
                                     key=attrgetter('name')):
-                    yield community
+                yield community
 
     def new_count(self):
-        return self.filter(state=Event.SC_NEW).count()
+        return self.new().count()
+
+    def new(self):
+        return self.filter(state=Event.SC_NEW)
 
 
 class EventRelationshipType(models.Model):
@@ -249,21 +277,22 @@ class EventRelationshipManager(models.Manager):
 
             if not from_event.event_type.is_collection:
                 raise ValidationError(
-                    {'is_collection': ValidationError(_('Event is not a collection'), code='invalid')}
+                    {'is_collection': ValidationError(
+                        _('Event is not a collection'), code='invalid')}
                 )
 
         except EventRelationshipType.DoesNotExist:
             raise ValidationError(
-               {'type': ValidationError(_('Invalid value for event relationship type.'),
-                                                           code='invalid')})
+                {'type': ValidationError(_('Invalid value for event relationship type.'),
+                                         code='invalid')})
         with transaction.atomic():
-            new_relation, created = EventRelationship.objects.get_or_create(from_event=from_event, to_event=to_event, type=ert)
+            new_relation, created = EventRelationship.objects.get_or_create(
+                from_event=from_event, to_event=to_event, type=ert)
             if ert.symmetrical:
                 rel, created = EventRelationship.objects.get_or_create(from_event=to_event, to_event=from_event,
                                                                        type=ert)
 
         return new_relation
-
 
     def remove_relationship(self, from_event, to_event, type):
         try:
@@ -274,10 +303,54 @@ class EventRelationshipManager(models.Manager):
                 {'event_relationship_type': ValidationError(_('Invalid value for event_relationship_type'),
                                                             code='invalid')})
         with transaction.atomic():
-            result = EventRelationship.objects.filter(from_event=from_event, to_event=to_event, type=ert).delete()
+            result = EventRelationship.objects.filter(
+                from_event=from_event, to_event=to_event, type=ert).delete()
             if ert.symmetrical:
-                EventRelationship.objects.filter(from_event=to_event, to_event=from_event, type=ert).delete()
+                EventRelationship.objects.filter(
+                    from_event=to_event, to_event=from_event, type=ert).delete()
 
+        return result
+
+
+class EventFile(TimestampedModel, RevisionMixin):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    event = models.ForeignKey('Event', related_name='files', related_query_name='file',
+                              on_delete=models.CASCADE)
+
+    comment = models.TextField(
+        blank=True, null=False, default='', verbose_name='Comment about the file.')
+
+    relation_limits = models.Q(app_label='usercontent', model='filecontent') | \
+        models.Q(app_label='usercontent', model='imagefilecontent')
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='event_files', related_query_name='event_file')
+
+    # Generic foreign key to plugin
+    usercontent_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, limit_choices_to=relation_limits)
+    usercontent_id = models.UUIDField()
+    usercontent = GenericForeignKey('usercontent_type', 'usercontent_id')
+
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+    revision = Revision()
+
+    class Meta:
+        ordering = ['ordernum', '-updated_at']
+
+    @property
+    def event_type(self):
+        return self.event.event_type
+
+    def clean(self):
+        super().clean()
+        self.comment = clean_user_text(self.comment, 'EventFile.comment')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        result = super().save(*args, **kwargs)
+        self.event.dependent_table_updated()
         return result
 
 
@@ -292,10 +365,11 @@ class EventRelationship(TimestampedModel):
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
     objects = EventRelationshipManager()
+    name = 'Event Relationship'
 
     class Meta:
         unique_together = ('type', 'from_event', 'to_event')
-        ordering = ['type', 'ordernum',]
+        ordering = ['type', 'ordernum', ]
 
     def __str__(self):
         return '<%s> : %s : <%s>' % (str(self.from_event), self.type.value, self.to_event)
@@ -318,7 +392,8 @@ class EventRelationship(TimestampedModel):
         result = super().delete(using, keep_parents)
         self.from_event.dependent_table_updated()
         self.id = myid
-        relation_deleted.send(sender=Event, relation=self, instance=self.from_event, related_query_name='relationship')
+        relation_deleted.send(sender=Event, relation=self,
+                              instance=self.from_event, related_query_name='relationship')
 
         return result
 
@@ -369,32 +444,60 @@ class Event(RevisionMixin, TimestampedModel):
         (300, 'Red')
     )
 
-    PRIORITY_LABELS_MAP = dict((x, y) for (x,y) in PRIORITY_CHOICES)
+    PRIORITY_LABELS_MAP = dict((x, y) for (x, y) in PRIORITY_CHOICES)
 
     class Meta:
         permissions = (
-            ('view_event',
-             'Permission to view an event'),
-            ('admin_event',
-             'An admin permission to change which users can view a Subject and their view permission.'),
+            ('security_create', 'Create security reports'),
+            ('security_read', 'View security reports'),
+            ('security_update', 'Modify security reports'),
+            ('security_delete', 'Delete security reports'),
+
+            ('monitoring_create', 'Create monitoring reports'),
+            ('monitoring_read', 'View monitoring reports'),
+            ('monitoring_update', 'Modify monitoring reports'),
+            ('monitoring_delete', 'Delete monitoring reports'),
+
+            ('logistics_create', 'Create logistics reports'),
+            ('logistics_read', 'View logistics reports'),
+            ('logistics_update', 'Modify logistics reports'),
+            ('logistics_delete', 'Delete logistics reports'),
+
+            ('analyzer_event_create', 'Create logistics reports'),
+            ('analyzer_event_read', 'View logistics reports'),
+            ('analyzer_event_update', 'Modify logistics reports'),
+            ('analyzer_event_delete', 'Delete logistics reports'),
+
+            # These 4 permissions are deprecated (obviously) and should
+            # eventually be removed
+            ('standard__deprecated_read', 'View DEPRECATED monitoring reports'),
+            ('standard__deprecated_update', 'Modify DEPRECATED monitoring reports'),
+            ('security__deprecated_read', 'View DEPRECATED security reports'),
+            ('security__deprecated_update', 'Modify DEPRECATED security reports'),
         )
 
     class ReadonlyMeta:
-        readonly = ['serial_number',]
+        readonly = ['serial_number', ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    serial_number = models.BigIntegerField(blank=True, unique=True, verbose_name='Serial Number')
+    serial_number = models.BigIntegerField(
+        blank=True, unique=True, null=True, verbose_name='Serial Number')
 
     message = models.TextField(blank=True)
-    comment = models.TextField(blank=True, null=True, verbose_name='Additional message text')
+    comment = models.TextField(
+        blank=True, null=True, verbose_name='Additional message text')
+
+    title = models.TextField(blank=True, null=True,
+                             verbose_name='Event Title.')
 
     created_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
         null=True, blank=True, related_name='events', related_query_name='event')
 
     event_time = models.DateTimeField(default=django.utils.timezone.now)
-    end_time = models.DateTimeField(null=True, blank=True, verbose_name='End Time')
+    end_time = models.DateTimeField(
+        null=True, blank=True, verbose_name='End Time')
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES,
                                   blank=True)
 
@@ -445,10 +548,37 @@ class Event(RevisionMixin, TimestampedModel):
     def time(self):
         return self.event_time
 
-    # @property
-    # def image_url(self):
-    #     return marker_icon(self.event_type.value if self.event_type else None,
-    #                        self.priority, self.state)
+    @staticmethod
+    def image_basename(event_type, priority, state):
+        CONVERSION = {0: 'gray', 100: 'med_green', 200: 'amber', 300: 'red'}
+        color = CONVERSION.get(priority, 'black')
+        if state == Event.SC_RESOLVED:
+            color = 'lt_gray'
+        if not event_type:
+            event_type = 'other'
+        return '{0}-{1}'.format(event_type, color)
+
+    @staticmethod
+    def generate_image_keys(event_type_value, priority, state):
+        # Generate list from most to least preferable icon.
+        yield Event.image_basename(event_type_value, priority, state)
+
+        report_suffix = '_rep'
+        if event_type_value.endswith(report_suffix):
+            yield Event.image_basename(event_type_value[:-1 * len(report_suffix)], priority, state)
+        yield '{0}-{1}'.format(event_type_value, 'black')
+        yield Event.image_basename('generic', priority, state)
+        yield 'generic-black'
+
+    @staticmethod
+    def marker_icon(event_type_value, priority, state, default='/static/generic-black.svg'):
+        image_url = static_image_finder.get_marker_icon(
+            Event.generate_image_keys(event_type_value, priority, state))
+        return image_url or default
+
+    @property
+    def image_url(self):
+        return Event.marker_icon(self.event_type.value, self.priority, self.state)
 
     @property
     def subjects(self):
@@ -475,7 +605,8 @@ class Event(RevisionMixin, TimestampedModel):
         :return: None
         '''
 
-        parents = Event.objects.filter(out_relationship__to_event=self, out_relationship__type__value='contains')
+        parents = Event.objects.filter(
+            out_relationship__to_event=self, out_relationship__type__value='contains')
         for parent in parents:
             parent.updated_at = self.updated_at
             parent.sort_at = self.sort_at
@@ -499,8 +630,8 @@ class Event(RevisionMixin, TimestampedModel):
             prev_state = None
 
         if (len(update_fields) == 1 and 'state' in update_fields and
-            self.state == self.SC_ACTIVE and prev_state == self.SC_NEW):
-                pass
+                self.state == self.SC_ACTIVE and prev_state == self.SC_NEW):
+            pass
         else:
             self.sort_at = timezone.now()
             save_fields.add('sort_at')
@@ -514,7 +645,8 @@ class Event(RevisionMixin, TimestampedModel):
         result = super().save(*args, **kwargs)
 
         if notify_parent_events:
-            self.update_parent_events(updated_at=self.updated_at, sort_at=self.sort_at)
+            self.update_parent_events(
+                updated_at=self.updated_at, sort_at=self.sort_at)
 
         return result
 
@@ -541,11 +673,11 @@ class Event(RevisionMixin, TimestampedModel):
         field = self._meta.get_field(field_name)
         if hasattr(self, 'get_{0}_display'.format(field_name)):
             return force_text(dict(field.flatchoices).get(value, value),
-                   strings_only=True)
+                              strings_only=True)
         if field_name == 'event_type':
             try:
                 return force_text(EventType.objects.get(value=value).display,
-                              strings_only=True)
+                                  strings_only=True)
             except EventType.DoesNotExist:
                 pass
         return value
@@ -561,7 +693,8 @@ class EventAttachmentManager(models.Manager):
 
 class EventAttachment(RevisionMixin, models.Model):
     # An event should allow attaching one or more other model objects. This model accommodates
-    # attaching an object for an arbitrary model as long as its id is of type UUID.
+    # attaching an object for an arbitrary model as long as its id is of type
+    # UUID.
 
     objects = EventAttachmentManager()
     TARGET = 'target'
@@ -579,8 +712,9 @@ class EventAttachment(RevisionMixin, models.Model):
     # Generic foreign key relation to any model within 'limits'. The technical constraint is the related model must
     # have id of type UUID.
     limits = models.Q(app_label='observations', model='subject') | models.Q(app_label='observations', model='source') \
-            | models.Q(app_label='analyzers', model='subjectanalyzerresult')
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
+        | models.Q(app_label='analyzers', model='subjectanalyzerresult')
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
     target_id = models.UUIDField()
     target = GenericForeignKey('content_type', 'target_id')
 
@@ -657,16 +791,19 @@ def upload_to(instance, filename):
     :param filename: default filename.
     :return: relative path for storing uploaded image
     '''
-    name, extension = filename.rsplit('.', 1) if '.' in filename else (filename, '')
+    name, extension = filename.rsplit(
+        '.', 1) if '.' in filename else (filename, '')
 
     d = datetime.datetime.now().replace(tzinfo=pytz.UTC)
     file_path = 'eventphotos/{year:04}/{month:02}/{day:02}/{pk!s}.{extension}'.format(year=d.year, month=d.month,
-                                                                                    day=d.day, pk=instance.id,
-                                                                                    extension=extension)
+                                                                                      day=d.day, pk=instance.id,
+                                                                                      extension=extension)
     return file_path
 
 
 from revision.manager import relation_deleted
+
+
 class EventPhoto(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -674,9 +811,11 @@ class EventPhoto(RevisionMixin, TimestampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
         null=True, blank=True, related_name='event_photos', related_query_name='event_photo')
     image = VersatileImageField(upload_to=upload_to, null=True, max_length=512)
-    filename = models.TextField(verbose_name='Name of uploaded image file.', default='noname')
+    filename = models.TextField(
+        verbose_name='Name of uploaded image file.', default='noname')
 
-    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='photos', related_query_name='photo')
+    event = models.ForeignKey(Event, on_delete=models.CASCADE,
+                              related_name='photos', related_query_name='photo')
 
     revision = Revision()
 
@@ -695,7 +834,8 @@ class EventPhoto(RevisionMixin, TimestampedModel):
         result = super().delete(using, keep_parents)
         self.event.dependent_table_updated()
         self.id = myid
-        relation_deleted.send(sender=Event, relation=self, instance=self.event, related_query_name='photo')
+        relation_deleted.send(sender=Event, relation=self,
+                              instance=self.event, related_query_name='photo')
 
         return result
 
@@ -716,5 +856,3 @@ class EventClassFactor(TimestampedModel):
 
     def __str__(self):
         return self.value
-
-

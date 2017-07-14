@@ -3,10 +3,11 @@ import json
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.translation import ugettext_lazy as _
-from activity.serializers import EventSerializer
+from activity.serializers import EventSerializer, EventNoteSerializer
 from activity.models import Event
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 import activity.schema_utils as schema_utils
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +18,13 @@ ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
                  'priority', 'geojson', 'location', 'event_details', 'id',
                  'serial_number', 'state', 'photos', 'is_contained_in', 'url',
                  'event_category', 'is_collection', 'attributes', 'provenance',
-                 'priority_label', 'title']
+                 'priority_label', 'title', 'files']
 
 
 def extract_details(schema, details):
     schema = schema_utils.get_rendered_schema(schema)
-    for k, v in details.items():
+    for k in sorted(details.keys()):
+        v = details[k]
         key_display = schema[k]['title']
         if isinstance(v, dict) and 'name' in v:
             yield email_separator_string.format(key_display, v['name'])
@@ -64,9 +66,13 @@ def send_event_mail(event, user, revision, email_callback):
                 display_value = event.get_display_value(key, value)
             except Exception:
                 display_value = value
-            updated_fields.append(email_separator_string.format(key, display_value))
+            updated_fields.append(
+                email_separator_string.format(key, display_value))
 
         newness = _('UPDATE')
+        if not updated_fields:
+            # No visible updates, so don't send
+            return
     else:
         newness = _('NEW')
 
@@ -80,7 +86,8 @@ def send_event_mail(event, user, revision, email_callback):
     schema_fields_and_values = None
     ed = event.event_details.first()
     if ed and ed.data and 'event_details' in ed.data:
-        schema_fields_and_values = list(extract_details(event.event_type.schema, ed.data['event_details']))
+        schema_fields_and_values = list(extract_details(
+            event.event_type.schema, ed.data['event_details']))
 
     event_fields_and_values = []
     serializer = EventSerializer()
@@ -92,15 +99,28 @@ def send_event_mail(event, user, revision, email_callback):
             continue
         elif key == 'time' and event.time is not None:
             display_value = event.time.strftime('%A, %B %d, %Y at %H:%M')
+        elif key == 'notes' and value is not None:
+            try:
+                display_value = ''
+                notes_serializer = EventNoteSerializer()
+                display_value = '\n'.join(
+                    [notes_serializer.get_display_value(note) for note in
+                     event.notes.all()])
+            except Exception:
+                display_value = value
+        elif key == 'reported_by' and value is not None:
+            display_value = value.get('username') or value.get('name') or value
         else:
             try:
                 display_value = event.get_display_value(key, value)
             except Exception:
                 display_value = value
         if display_value is not None:
-            event_fields_and_values.append(email_separator_string.format(key, display_value))
+            event_fields_and_values.append(
+                email_separator_string.format(key, display_value))
 
-    parent_event = Event.objects.filter(out_relationship__to_event=event, out_relationship__type__value='contains').first()
+    parent_event = Event.objects.filter(
+        out_relationship__to_event=event, out_relationship__type__value='contains').first()
     display_title = event.title if event.title is not None else _('No Title')
     parameters = {
         'id': event.serial_number,
@@ -158,5 +178,3 @@ def send_update_event_sms(event, changes, user):
     body = render_to_string('update_event_sms.txt', parameters)[:100]
     logger.info('Sending new event sms to {0}'.format(user.phone))
     user.send_sms(body, None)
-
-

@@ -14,6 +14,7 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 import os
 import sys
 
+from corsheaders.defaults import default_headers
 from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TCP
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -34,7 +35,6 @@ DEV = False
 
 INSTALLED_APPS = (
     'accounts.apps.AccountsConfig',
-    #'suit',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,7 +42,6 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
-    #'django.contrib.sites',
     'versatileimagefield',
     'storages',
     'treebeard',
@@ -50,7 +49,6 @@ INSTALLED_APPS = (
     'oauth2_provider',
     'rest_framework',
     'rest_framework_swagger',
-    'raster',
     'observations',
     'analyzers',
     'das_server',
@@ -64,7 +62,7 @@ INSTALLED_APPS = (
     'choices',
     'reports',
     'django_readonly_field',
-    'ste',
+    'usercontent',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -156,7 +154,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'oauth2_provider.ext.rest_framework.OAuth2Authentication',
+        'accounts.backends.NoLoginOAuth2Authentication',
         'utils.drf.SuperUserSessionAuthentication',
     ),
     #'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
@@ -170,24 +168,24 @@ REST_FRAMEWORK = {
     #'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
     #'DEFAULT_VERSION': 'v1.0',
     'SECURITY_DEFINITIONS': {
-            'oauth2': {
-                'type': 'oauth2',
-                'name': '',
-                'authorizationUrl': 'http://swagger.io/api/oauth/dialog',
-                'flow': 'password',
-                'in': 'header',
-            }
-        },
+        'oauth2': {
+            'type': 'oauth2',
+            'name': '',
+            'authorizationUrl': 'http://swagger.io/api/oauth/dialog',
+            'flow': 'password',
+            'in': 'header',
+        }
+    },
 }
 
 AUTHENTICATION_BACKENDS = (
-    'oauth2_provider.backends.OAuth2Backend',
+    'accounts.backends.NoLoginOAuth2Backend',
     'accounts.backends.AccountsModelBackend',
 
 )
 
 SERIALIZATION_MODULES = {
-    'geojson' : 'core.serializers'
+    'geojson': 'core.serializers'
 }
 
 # Database
@@ -198,24 +196,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': 'das',
-        'USER': 'postgres',
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
+        'USER': 'das',
+        'HOST': 'postgis',
+        'PASSWORD': 'password',
     },
-    # Optional, use to import vectroincs data into das
-    # 'vectronics': {
-    #     'ENGINE': 'django.contrib.gis.db.backends.postgis',
-    #     'NAME': 'gpsplus_wildlife',
-    #     'USER': 'vect_owner',
-    # },
-    #
-    # Optional, use to import STE data into das
-    # 'animaltracking': {
-    #     'ENGINE': 'django.contrib.gis.db.backends.postgis',
-    #     'NAME': 'AnimalTracking',
-    #     'USER': 'postgres',
-    # },
 }
 
 DATABASE_ROUTERS = [
@@ -250,13 +234,17 @@ STATICFILES_DIRS = (
 
 SITE_ID = 1
 
-#socket.io uses the CORS_ORIGIN_WHITELIST as well
-#caveat is that socket.io matches against the whole ORIGIN ie: http://localhost
+# socket.io uses the CORS_ORIGIN_WHITELIST as well
+# caveat is that socket.io matches against the whole ORIGIN ie:
+# http://localhost
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ORIGIN_WHITELIST = (
-     )
+)
 CORS_REPLACE_HTTPS_REFERER = True
+CORS_ALLOW_HEADERS = default_headers + (
+    'user-profile',
+)
 
 ALLOWED_HOSTS = ['*']
 
@@ -288,19 +276,19 @@ SWAGGER_SETTINGS = {
     }
 }
 
-OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600*48}
+OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600 * 48}
 
-#RT API settings
+# RT API settings
 ASYNC_MODE = 'eventlet'
 
-#override these if your libraries are in a different place
+# override these if your libraries are in a different place
 GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'
 GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
 
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
-        'LOCATION': '/tmp/django_cache',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
     }
 }
 
@@ -312,35 +300,73 @@ Associate a plugin name with a plugin-configuration dict that will override the 
 DATA_INPUT_PLUGINS = {
 }
 
-#would want to set this to where you might have some MBTiles maps
-MAPPING = {'MBTILES': {'root': r'\tmp',}}
+# would want to set this to where you might have some MBTiles maps
+MAPPING = {'MBTILES': {'root': r'/tmp', }}
 
-REALTIME_BROKER_URL = 'redis://localhost:6379/2'
+REALTIME_BROKER_URL = 'redis://redis:6379/2'
 REALTIME_BROKER_OPTIONS = {'max_connections': 200}
-PUBSUB_BROKER_URL = 'redis://localhost:6379/1'
+PUBSUB_BROKER_URL = 'redis://redis:6379/1'
 PUBSUB_BROKER_OPTIONS = {'max_connections': 200}
+
+
+# Celery Settings
+CELERY_BROKER_URL = 'redis://redis:6379'
+
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ENABLE_UTC = True
+CELERY_TIMEZONE = 'US/Pacific'
+
+CELERY_REDIS_MAX_CONNECTIONS = 500
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 100
+
+CELERY_RESULT_PERSISTENT = False
+CELERY_RESULT_EXPIRES = 300
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_TASK_STORE_ERRORS_EVEN_IF_IGNORED = True
+# TODO: update in production
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+# Enables error emails.
+CELERY_SEND_TASK_ERROR_EMAILS = False
+
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+CELERY_TASK_DEFAULT_EXCHANGE = 'default'
+CELERY_TASK_DEFAULT_ROUTING_KEY = 'default'
+
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'visibility_timeout': 3600,
+    'fanout_prefix': True
+}
 
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
 DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
-#Used by password reset email
+# Used by password reset email
 EMAIL_HOST_USER = 'info@pamdas.org'
 
-SENDSMS_BACKEND='utils.smsbackend.AfricasTalkingBackend'
+SENDSMS_BACKEND = 'utils.smsbackend.AfricasTalkingBackend'
 
 # use these when you want to send SMS from kenya
-SENDSMS_AFRICAS_TALKING_USERNAME=''
-SENDSMS_AFRICAS_TALKING_API_KEY=''
+SENDSMS_AFRICAS_TALKING_USERNAME = ''
+SENDSMS_AFRICAS_TALKING_API_KEY = ''
 
 # use these when you don't want to send SMS from kenya
-SENDSMS_TWILIO_ACCOUNT_SID=''
-SENDSMS_TWILIO_AUTH_TOKEN=''
+SENDSMS_TWILIO_ACCOUNT_SID = ''
+SENDSMS_TWILIO_AUTH_TOKEN = ''
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
+    'default': [
+        ('original', 'url'),
+        ('icon', 'crop__64x64'),  # Crop for use as icon
+        ('thumbnail', 'thumbnail__150x150'),  # Resize to fit within
+        ('large', 'thumbnail__800x800')  # Resize to fit within
+    ],
     'event_photo': [
         ('original', 'url'),
-        ('thumbnail', 'thumbnail__150x150'), # Resize to fit within
-        ('large', 'thumbnail__800x800') # Resize to fit within
+        ('thumbnail', 'thumbnail__150x150'),  # Resize to fit within
+        ('large', 'thumbnail__800x800')  # Resize to fit within
     ],
 }
 
@@ -387,13 +413,32 @@ VERSATILEIMAGEFIELD_SETTINGS = {
     'progressive_jpeg': True
 }
 
+USERCONTENT_SETTINGS = {
+    # For a file with one of these extensions, we'll attempt to save it as an
+    # ImageFile.
+    'imagefile_extensions': ('jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff'),
+
+    # Prohibit uploading files with these extensions.
+    'prohibited_extensions': ('bin', 'exe', 'dll', 'deb', 'sh',),
+
+    # Always serve files with these mime-types as application/octet-stream.
+    'force_download_mimetypes': ('text/html', 'text/javascript',),
+
+    # Edit these extensions by appending a .txt
+    'edit_extensions': ('html', 'htm', 'js', 'css', 'exe', 'sh', 'bin', 'dll', 'deb', 'dmg', 'iso', 'img', 'msi', 'msp',
+                        'msm')
+
+}
+
 SHOW_TRACK_DAYS = 16
 
 REALTIME_AUTH_TIMEOUT_SECONDS = 1.0
 
-NOTIFY_HIGH_PRIORITY_EVENT=None
-NOTIFY_MEDIUM_PRIORITY_EVENT=None
-NOTIFY_LOW_PRIORITY_EVENT=None
+NOTIFY_HIGH_PRIORITY_EVENT = None
+NOTIFY_MEDIUM_PRIORITY_EVENT = None
+NOTIFY_LOW_PRIORITY_EVENT = None
+
+REPORTED_BY_PERMISSION_SET = 'b5057387-9f6c-4685-8ec1-46ad29684eea'
 
 EVENT_MATRIX_ENABLED = False
 

@@ -17,7 +17,7 @@ class ContentTypeField(serializers.Field):
         return obj
 
     def get_value(self, dictionary):
-        return dictionary[self.field_name]
+        return dictionary.get(self.field_name)
 
 
 class Serializer(geojson.Serializer):

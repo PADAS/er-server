@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from django.contrib.gis.geos import Point
 from rest_framework import serializers, views, permissions
 
-from observations.models import Source, SubjectSource, Subject, Source, Observation
+from observations.models import Source, SubjectSource, Subject, Source, Observation, SourceProvider
 from observations.serializers import ObservationSerializer
 from tracking.pubsub_registry import notify_new_tracks
 
@@ -35,7 +35,7 @@ class GenericSensorHandler():
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def handle_observation(self, request, sensor_type, provider_key):
+    def handle_observation(self, request, sensor_type, provider_name):
 
         params = SensorPostParameters(data=request.data)
         if not params.is_valid():
@@ -57,14 +57,20 @@ class GenericSensorHandler():
         subject_type = params.get('subject_type', self.DEFAULT_SUBJECT_TYPE)
         subject_subtype = params.get('subject_subtype', self.DEFAULT_SUBJECT_SUBTYPE)
         source_type = params.get('source_type', self.DEFAULT_SOURCE_TYPE)
-        model_name = params.get('model_name', None) or '{}:{}'.format(sensor_type, provider_key)
+        model_name = params.get('model_name', None) or '{}:{}'.format(sensor_type, provider_name)
 
         subject_name = params.get('subject_name') or manufacturer_id
 
-        src, created = Source.objects.ensure_source(source_type,
-                                                    provider_name=provider_key,
+        src = Source.objects.ensure_source(source_type,
+                                                    provider=provider_name,
                                                     manufacturer_id=manufacturer_id,
-                                                    model_name=model_name)
+                                                    model_name=model_name,
+                                                    subject={
+                                                        'subject_type': subject_type,
+                                                        'subject_subtype': subject_subtype,
+                                                        'name': subject_name
+                                                        }
+                                                    )
 
         recorded_at = params.get('recorded_at') # self.__str2date(obj['recorded_at'])
         additional = params.get('additional', {})
@@ -72,16 +78,6 @@ class GenericSensorHandler():
         # Short-circuit if we already have this observation.
         if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
             return Response({}, status=status.HTTP_201_CREATED)
-
-        # If the Source already exists, assume the SubjectSource and Subject already exist.
-        if created:
-
-            ss, created = SubjectSource.objects.ensure_subject_source(src,
-                                                                      timestamp=recorded_at,
-                                                                      subject_type=subject_type,
-                                                                      subject_subtype=subject_subtype,
-                                                                      subject_name=subject_name,
-                                                                      )
 
         observation = {
             'location': location,
@@ -119,7 +115,7 @@ class DasRadioAgentHandler():
             dt = dt.replace(tzinfo=default_tzinfo)
         return dt
 
-    def handle_observation(self, request, provider_key):
+    def handle_observation(self, request, provider_name):
 
         obj = request.data
 
@@ -134,28 +130,25 @@ class DasRadioAgentHandler():
         except:
             location = None
 
-        model_name = '{}:{}'.format(self.SENSOR_TYPE, provider_key)
+        model_name = '{}:{}'.format(self.SENSOR_TYPE, provider_name)
         manufacturer_id = obj.get('manufacturer_id')
-        src, created = Source.objects.ensure_source(self.SOURCE_TYPE,
-                                                    provider_name=provider_key,
+
+        src = Source.objects.ensure_source(source_type=self.SOURCE_TYPE,
+                                                    provider=provider_name,
                                                     manufacturer_id=manufacturer_id,
-                                                    model_name=model_name)
+                                                    model_name=model_name,
+                                                    subject={
+                                                        'subject_type': self.DEFAULT_SUBJECT_TYPE,
+                                                        'subject_subtype': self.DEFAULT_SUBJECT_SUBTYPE,
+                                                        'name': manufacturer_id
+                                                        }
+                                                    )
 
         recorded_at = self.__str2date(obj['recorded_at'])
 
         # Short-circuit if we already have this observation.
         if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
             return Response({}, status=status.HTTP_201_CREATED)
-
-        # If the Source already exists, assume the SubjectSource and Subject already exist.
-        if created:
-
-            ss, created = SubjectSource.objects.ensure_subject_source(src,
-                                                                      timestamp=recorded_at,
-                                                                      subject_type=self.DEFAULT_SUBJECT_TYPE,
-                                                                      subject_subtype=self.DEFAULT_SUBJECT_SUBTYPE,
-                                                                      subject_name=obj.get('subject_name', manufacturer_id)
-                                                                      )
 
         observation = {
             'location': location,
@@ -253,7 +246,7 @@ class GsatHandler():
             and all(_ in qp for _ in GsatHandler.REQUIRED_PARAMS):
             return True
 
-    def handle_observation(self, request, provider_key):
+    def handle_observation(self, request, provider_name):
 
         self.logger.info('Gsat request: {}'.format(request.query_params))
 
@@ -266,11 +259,12 @@ class GsatHandler():
             else:
                 return Response({'data': 'Check query parameters and try again.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        obj['provider_key'] = provider_key
+        obj['provider_key'] = provider_name
 
-        model_name = '{}:{}'.format(GsatHandler.SENSOR_TYPE, provider_key)
+        model_name = '{}:{}'.format(GsatHandler.SENSOR_TYPE, provider_name)
+
         src, created = Source.objects.ensure_source(self.SOURCE_TYPE,
-                                                    provider_name=provider_key,
+                                                    provider_name=provider_name,
                                                     manufacturer_id=obj.get('manufacturer_id'),
                                                     model_name=model_name)
 

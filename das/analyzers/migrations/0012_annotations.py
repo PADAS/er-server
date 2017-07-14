@@ -12,8 +12,8 @@ import uuid
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('mapping', '0009_annotations'),
-        ('observations', '0032_annotations'),
+        ('mapping', '0010_annotations'),
+        ('observations', '0033_annotations'),
         ('analyzers', '0011_immobility_analyzer_result'),
     ]
 
