@@ -1141,13 +1141,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 geodata = make_feature(self.context['request'], event)
                 rep['geojson'] = geodata
 
-            if event.event_type:
-                if event.event_type.category:
-                    permission_name = 'activity.{0}_read'.format(event.event_type.category.value)
-                    if not request.user.has_perm(permission_name):
-                        raise PermissionDenied
-                    rep['event_category'] = event.event_type.category.value
-
         attachments = []
         subject_attachment = None
         for attach in event.attachments.all():
