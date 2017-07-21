@@ -1,81 +1,36 @@
 import io
-import http.client
 import requests
 import zipfile
 import re
-from functools import namedtuple
-import copy
-import urllib.request
-import urllib.parse
-import urllib.error
-
 import datetime
 import time
 from datetime import timedelta
 
 from dateutil.parser import parse as parse_date
 import pytz
+import json
 
 import logging
-from django.contrib.gis.db import models
 
 import fastkml
-import json
+
+from django.contrib.gis.db import models
 
 from tracking.models.plugin_base import Obs, TrackingPlugin, DasDefaultTarget
 from tracking.pubsub_registry import notify_new_tracks
 
-from observations.models import Source, SubjectSource, Subject
+from tracking.models.utils import split_link, parse_cookie
+from observations.models import Source
+
+logger = logging.getLogger(__name__)
 
 
-def __str2date(d, replace_tzinfo=pytz.utc):
-    '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
-    return parse_date(d).replace(tzinfo=replace_tzinfo)
-
-
-# Helpers for parsing lines from Savanna datasource.
-# Fix = namedtuple('Fix', ['collar_id', 'longitude', 'latitude', 'recorded_at', 'speed', 'heading', 'temperature', 'height'])
-# field_transform = (str, float, float, __str2date, float, float, str, int)
-
-def parse_cookie(cookie):
-    items = [_.split('=') for _ in cookie.split(';')]
-    cookies = dict(items)
-    return cookies
-
-
-def split_link(url):
-    url, qs = url.split('?')
-    params = dict([p.split('=') for p in qs.split('&')])
-    return (url, params)
-
-
-def get_kml(url, params):
-    """
-    Get kml and return raw contents.
-    """
-    headers = {
-        'cache-control': "no-cache",
-    }
-
-    headers = None
-    response = requests.request(
-        "GET", url, headers=headers, params=params, verify=False)
-
-    if response.status_code != 200:
-        return None
-
-    try:
-        bf = io.BytesIO(response.content)
-        kmz = zipfile.ZipFile(bf, 'r')
-        for name in kmz.namelist():
-            kmlbytes = kmz.read(name)
-        return kmlbytes
-    except:
-        return response.content
+# SirTrack server may be a little slow, so using a long timeout for first byte.
+DEFAULT_REQUEST_TIMEOUT = (1, 10)  # seconds for (connect, read)
+CSV_REQUEST_TIMEOUT = (1, 10)  # seconds
 
 
 class SirTrackClient(object):
-
     def __init__(self, service_api=None, username=None, password=None):
 
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -91,7 +46,8 @@ class SirTrackClient(object):
                       'params': [self.username, self.password]
                       }
 
-        result = requests.post(service_root, data=json.dumps(login_data))
+        result = requests.post(service_root, data=json.dumps(
+            login_data), timeout=DEFAULT_REQUEST_TIMEOUT)
 
         if result.status_code == 200:
             cookies = parse_cookie(result.headers['Set-Cookie'])
@@ -106,69 +62,109 @@ class SirTrackClient(object):
         cookie_val = '{}={}'.format(
             'vosao_session', cookies.get('vosao_session'))
         projects = requests.get('https://data.sirtrack.com/restlet/projects?_={}'.format(int(time.time() * 1000)),
-                                headers=dict(cookie=cookie_val))
+                                headers=dict(cookie=cookie_val), timeout=DEFAULT_REQUEST_TIMEOUT)
 
         projects_data = json.loads(projects.text)
         print('projects data: %s' % (projects_data,))
 
         return projects_data
 
-    def download_csv_files(self, projects_data):
+    def get_csv_links(self, projects_data):
         # Fetch the top-level KML document from Sirtrack and use its NetworkLinks to download
         # CSV files of track data.
+
+        if not projects_data:
+            return
+
         for pd in projects_data:
             kml_url = 'https://data.sirtrack.com/restlet/geo/{id}/{name}.kmz'.format(
                 **pd)
-            kmldata = get_kml(kml_url, params=dict(key=pd['geoJsonKey']))
+            kmldata = self.get_kml(kml_url, params=dict(key=pd['geoJsonKey']))
 
             if not kmldata:
                 self.logger.exception(
                     'Failed to download KML at %s' % (kml_url,))
-                raise Exception('Failed to download KML at %s' % (kml_url,))
+                raise Exception('Failed to fetch KML at %s' % (kml_url,))
 
             k = fastkml.kml.KML()
             k.from_string(kmldata)
 
             for f in k.features():
                 if hasattr(f, 'link'):
-                    csv_link = f.link.replace('.kmz', '.csv')
-                    try:
-                        (filename, httpmessage) = urllib.request.urlretrieve(csv_link)
-                        yield filename, httpmessage
-                    except urllib.request.HTTPError as e:
-                        self.logger.error(
-                            'Failed to download SirTrack data at %s', csv_link)
+                    yield f.link.replace('.kmz', '.csv').replace(' ', '+')
 
-    def parsefile(filename):
+    def parse_csv_link(self, link):
+        '''
+        Read chunked response as a CSV file and yield a dictionary for each row.
+        :param link: A link to a CSV file.
+        :return: generate records as dict() objects, using CSV headers as keys.
+        '''
 
-        with open(filename, 'r') as fo:
+        response = None
+        try:
 
-            line = fo.readline()
-            keys = line.strip().split(',')
+            response = requests.get(
+                link, timeout=CSV_REQUEST_TIMEOUT, stream=True)
 
-            # Scrub the keys a little.
-            keys = [re.sub('[^a-zA-Z0-9]', '_', k).strip('_').lower()
-                    for k in keys]
+            if response.headers['Content-Type'] == 'text/csv':
 
-            line = fo.readline()
-            while line:
-                item = dict(zip(keys, line.strip().split(',')))
-                if item['longitude'] and item['latitude']:
-                    yield item
-                line = fo.readline()
+                keys = None
+                for line in response.iter_lines():
+                    line = line.decode('utf-8')
+                    if not line:
+                        continue
+                    if not keys:
+                        keys = line.strip().split(',')
+                        # Scrub the keys a little.
+                        keys = [re.sub('[^a-zA-Z0-9]', '_', k).strip('_').lower()
+                                for k in keys]
+                        continue
+
+                    item = dict(zip(keys, line.strip().split(',')))
+                    if item['longitude'] and item['latitude']:
+                        yield item
+
+        except (requests.ConnectionError, requests.ReadTimeout) as e:
+            self.logger.exception('Failed to read CSV file at %s', link)
+            raise
+        except Exception as e:
+            self.logger.exception(
+                'Unexpected error reading CSV file at %s', link)
+        finally:
+            if hasattr(response, 'close'):
+                response.close()
 
     def fetch_observations(self):
 
         login_cookies = self.login()
         projects_data = self.get_projects(login_cookies)
 
-        if not projects_data:
-            return
+        for csv_link in self.get_csv_links(projects_data):
+            yield from self.parse_csv_link(csv_link)
 
-        for filename, httpmessage in self.download_csv_files(projects_data):
+    def get_kml(self, url, params):
+        """
+        Get kml and return raw contents.
+        """
+        try:
+            response = requests.request(
+                "GET", url, headers=None, params=params, verify=False, timeout=DEFAULT_REQUEST_TIMEOUT)
+            if response.status_code != 200:
+                return None
 
-            if filename and httpmessage.code == 200:
-                yield from self.parsefile(filename)
+        except (requests.ConnectTimeout, requests.ReadTimeout) as e:
+            logger.exception('Time out for url %s', url)
+        else:
+
+            # Assume the data is zipped and otherwise return the content.
+            try:
+                bf = io.BytesIO(response.content)
+                kmz = zipfile.ZipFile(bf, 'r')
+                for name in kmz.namelist():
+                    kmlbytes = kmz.read(name)
+                return kmlbytes
+            except:
+                return response.content
 
 
 class SirtrackPlugin(TrackingPlugin):
@@ -176,7 +172,7 @@ class SirtrackPlugin(TrackingPlugin):
     Fetch data from SirTrack API.
     '''
     DEFAULT_START_OFFSET = timedelta(days=14)
-    DEFAULT_REPORT_INTERVAL = timedelta(minutes=30)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=15)
 
     service_username = models.CharField(max_length=50,
                                         help_text='The username for querying the SirTrack service.')
@@ -237,7 +233,7 @@ class SirtrackPlugin(TrackingPlugin):
         for fix in client.fetch_observations():
             try:
 
-                fix_time = parse_date('{utc_date} {utc_time}'.format(**fix))
+                fix_time = _resolve_recorded_at(fix)
                 if fix_time < st:
                     continue
 
@@ -277,7 +273,7 @@ class SirtrackPlugin(TrackingPlugin):
 
     def _transform(self, fix, source):
 
-        recorded_at = parse_date('{utc_date} {utc_time}'.format(**fix))
+        recorded_at = _resolve_recorded_at(fix)
         latitude = float(fix['latitude'])
         longitude = float(fix['longitude'])
 
@@ -285,3 +281,7 @@ class SirtrackPlugin(TrackingPlugin):
                          for k in fix.keys() - set(('latitude', 'longitude',)))
         return Obs(source=source, recorded_at=recorded_at, latitude=latitude, longitude=longitude,
                    additional=side_data)
+
+
+def _resolve_recorded_at(fix):
+    return pytz.utc.localize(parse_date('{utc_date} {utc_time}'.format(**fix)))
