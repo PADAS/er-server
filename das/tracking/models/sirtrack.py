@@ -53,9 +53,8 @@ class SirTrackClient(object):
             cookies = parse_cookie(result.headers['Set-Cookie'])
             return cookies
         else:
-            print('Unable to log in.')
-            print('result.code: %s, result.data: %s' %
-                  (result.status_code, result.data))
+            self.logger.error('Unable to log in to Sirtrack. result.code: %s, result.data: %s',
+                              result.status_code, result.data)
 
     def get_projects(self, cookies):
 
@@ -63,11 +62,7 @@ class SirTrackClient(object):
             'vosao_session', cookies.get('vosao_session'))
         projects = requests.get('https://data.sirtrack.com/restlet/projects?_={}'.format(int(time.time() * 1000)),
                                 headers=dict(cookie=cookie_val), timeout=DEFAULT_REQUEST_TIMEOUT)
-
-        projects_data = json.loads(projects.text)
-        print('projects data: %s' % (projects_data,))
-
-        return projects_data
+        return json.loads(projects.text)
 
     def get_csv_links(self, projects_data):
         # Fetch the top-level KML document from Sirtrack and use its NetworkLinks to download
