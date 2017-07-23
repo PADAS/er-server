@@ -34,8 +34,27 @@ def extract_details(schema, details):
             yield email_separator_string.format(key_display, v)
         elif isinstance(v, list):
             yield email_separator_string.format(key_display, ', '.join([_.get('name') for
-                                                                        _ in v if isinstance(_, dict) and _.get('name') is not None]))
+                _ in v if isinstance(_, dict) and _.get('name') is not None]))
 
+def send_immobility_mail(event, user, email_callback):
+    subject= _('Immobility Report: {name} {time}').format(
+        name=event.subjects[0].name if len(event.subjects) > 0 else 'No Name',
+        time=event.time.strftime('%A, %B %d, %Y at %H:%M'))
+
+    details = event.event_details.first().data
+    parameters = {
+        'subject_name': event.subjects[0].name if len(event.subjects) > 0 else 'No Name',
+        'time': event.time.strftime('%A, %B %d, %Y at %H:%M'),
+        'probability': details['probability_value'],
+        'sample': details['total_fix_count'],
+        'radius': details['cluster_radius'],
+        'lat': event.location.x,
+        'lon': event.location.y,
+    }
+
+    body = render_to_string(_('immobility_email.txt'), parameters)
+    logger.info('emailing {} from {}'.format(user.email, settings.FROM_EMAIL))
+    email_callback(subject, body, settings.FROM_EMAIL)
 
 def send_event_mail(event, user, revision, email_callback):
     if revision is not None:

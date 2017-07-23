@@ -104,22 +104,22 @@ def create_realtime_handler(sios):
 
         @sios.on_error(namespace='/')
         def on_root_error(e):
-            logger.error('RT socket error in root namespace', e)
+            logger.exception('RT socket error in root namespace')
 
         @sios.on_error(namespace='/das')
         def on_das_error(e):
-            logger.error('RT socket error in das namespace', e)
+            logger.exception('RT socket error in das namespace')
 
         @sios.on_error_default  # handles all namespaces without an explicit error handler
         def default_error_handler(e):
-            logger.error('RT socket error', e)
+            logger.exception('RT socket error')
 
 
         @staticmethod
         def emit(message_type, data, user=None):
             if user not in sios.server.environ:
                 redis_client.hdel('realtime_connections', str(user))
-                logger.warn('Tried to send a message to a disconnected client: {0}'.format(str(user)))
+                logger.warning('Tried to send a message to a disconnected client: {0}'.format(str(user)))
                 return
             try:
                 if user is None:
@@ -129,7 +129,7 @@ def create_realtime_handler(sios):
 
             except Exception as ex:
                 redis_client.hdel('realtime_connections', str(user))
-                logger.error("Error emitting event over socket", ex)
+                logger.exception('Error emitting event over socket')
 
         @staticmethod
         def send_realtime_message(message_data):
@@ -138,7 +138,7 @@ def create_realtime_handler(sios):
                                       message_data['data'],
                                       message_data['sid'])
             else:
-                logger.error('Realtime server received invald message type',
+                logger.error('Realtime server received invald message type: %s',
                              message_data['type'])
 
     return RealtimeServices
