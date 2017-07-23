@@ -4,13 +4,13 @@ import tempfile
 import datetime
 
 from django.core.management.base import BaseCommand
-from django.contrib.gis.gdal import DataSource
 from django.contrib.gis.utils import layermapping
-from django.contrib.gis.geos import MultiPolygon, MultiPoint, MultiLineString
 from django.contrib.gis.gdal import (
     CoordTransform, DataSource, GDALException, OGRGeometry, OGRGeomType,
     SpatialReference,
 )
+
+from utils.spatial import GeometryMapper
 from mapping import models
 
 logger = logging.getLogger(__name__)
@@ -36,6 +36,7 @@ class Command(BaseCommand):
     # stroke_width = 'stroke-width'
     # stroke_opacity = 'stroke-opacity'
     utm = None
+    geometry_mapper = GeometryMapper()
 
     def handle(self, *args, **options):
         logger.debug('Featureset: %s, FeatureType: %s',
@@ -142,8 +143,8 @@ class Command(BaseCommand):
             i += 1
             external_id = self.make_external_id(layer, feature)
             if not feature[self.name_field].value:
-                logger.warn('Missing name field %s for this feature: %s',
-                            self.name_field, feature)
+                logger.warning('Missing name field %s for this feature: %s',
+                               self.name_field, feature)
                 continue
 
             if not has_unique_keys:
@@ -160,8 +161,9 @@ class Command(BaseCommand):
 
             feature_model = self.get_feature_class(feature.geom_type.name)
             model_fieldname = 'feature_geometry'
-            model_field = feature_model._meta.get_field(model_fieldname)
-            feature_geometry = self.verify_geom(feature.geom, model_field)
+            model_field_type = feature_model._meta.get_field(model_fieldname)
+            feature_geometry = self.geometry_mapper.get_db_geom(
+                feature.geom, model_field_type)
             defaults = {'feature_geometry': feature_geometry, 'fields': fields}
             feature_record, created = feature_model.objects.get_or_create(
                 defaults=defaults,
@@ -181,41 +183,3 @@ class Command(BaseCommand):
             except KeyError:
                 pass
             feature_record.save()
-
-    def make_multi(self, geom_type, model_field):
-        """
-        Given the OGRGeomType for a geometry and its associated GeometryField,
-        determine whether the geometry should be turned into a GeometryCollection.
-        """
-        return (geom_type.num in layermapping.LayerMapping.MULTI_TYPES and
-                model_field.__class__.__name__ == 'Multi%s' % geom_type.django)
-
-    def verify_geom(self, geom, model_field):
-        """
-        FROM layermapping.py
-
-        Verifies the geometry -- will construct and return a GeometryCollection
-        if necessary (for example if the model field is MultiPolygonField while
-        the mapped shapefile only contains Polygons).
-        """
-        coord_dim = model_field.dim
-        # Downgrade a 3D geom to a 2D one, if necessary.
-        if coord_dim != geom.coord_dim:
-            geom.coord_dim = coord_dim
-
-        if self.make_multi(geom.geom_type, model_field):
-            # Constructing a multi-geometry type to contain the single geometry
-            multi_type = layermapping.LayerMapping.MULTI_TYPES[geom.geom_type.num]
-            g = OGRGeometry(multi_type)
-            g.add(geom)
-        else:
-            g = geom
-
-        # Transforming the geometry with our Coordinate Transformation object,
-        # but only if the class variable `transform` is set w/a CoordTransform
-        # object.
-        if False:  # self.transform:
-            g.transform(self.transform)
-
-        # Returning the WKT of the geometry.
-        return g.wkt

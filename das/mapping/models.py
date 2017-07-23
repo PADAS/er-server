@@ -10,6 +10,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import reverse, NoReverseMatch
 from django.utils.translation import ugettext_lazy as _
 from tagulous.models import TagField
+from model_utils.managers import InheritanceManager
 
 from core.models import TimestampedModel
 from utils.decorator import reify
@@ -384,12 +385,12 @@ class MBTiles(object):
 """Below are new classes proposed by Jake for structuring spatial data in DAS"""
 
 
-class DisplayClassManager(models.Manager):
+class DisplayCategoryManager(models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class DisplayClass(models.Model):
+class DisplayCategory(models.Model):
     """
     If the clients wish to group layers in a control or for ease of administration
     Boundaries, Water, Security etc.
@@ -398,7 +399,7 @@ class DisplayClass(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
 
-    objects = DisplayClassManager()
+    objects = DisplayCategoryManager()
 
     def __str__(self):
         return self.name
@@ -407,7 +408,7 @@ class DisplayClass(models.Model):
         return (self.name,)
 
 
-class SpatialFeatureGroupManager(models.Manager):
+class SpatialFeatureGroupManager(InheritanceManager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
@@ -422,8 +423,7 @@ class SpatialFeatureGroup(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
-
-    description = models.TextField(null=True, blank=True)
+    description = models.TextField(blank=True)
 
     objects = SpatialFeatureGroupManager()
 
@@ -434,7 +434,26 @@ class SpatialFeatureGroup(models.Model):
         return self.name
 
 
+class SpatialFeatureGroupQuery(SpatialFeatureGroup):
+    pass
+
+
+class SpatialFeatureGroupStatic(SpatialFeatureGroup):
+    """Static group of features
+    """
+    features = models.ManyToManyField(to='SpatialFeature', related_name='groups',
+                                      blank=True)
+
+
+class SpatialFeatureTypeManager(models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
 class SpatialFeatureType(models.Model):
+    objects = SpatialFeatureTypeManager()
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict)
@@ -442,9 +461,13 @@ class SpatialFeatureType(models.Model):
 
     # presentation fields
     # Boundaries, Water, Security etc.
-    display_class = models.ForeignKey(to='Displayclass')
+    display_category = models.ForeignKey(to='DisplayCategory')
     # JSON Field for defining the basic presentation of the feature
     presentation = JSONField(default=dict)
+    provenance = JSONField(default=dict)
+    external_id = models.CharField(max_length=100, unique=True, blank=True,
+                                   null=True)
+    external_source = models.CharField(max_length=25, blank=True)
 
     # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
     # Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
@@ -455,6 +478,12 @@ class SpatialFeatureType(models.Model):
         if self.presentation:
             return self.presentation
         return {}
+
+    def __str__(self):
+        return self.name
+
+    def natural_key(self):
+        return self.name
 
 
 class SpatialFeatureManager(models.Manager):
@@ -477,15 +506,15 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     # data fields
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    feature_types = models.ManyToManyField(SpatialFeatureType,
-                                           related_name='spatial_features')
-    display_class = models.ForeignKey(DisplayClass)
+    feature_type = models.ForeignKey(SpatialFeatureType)
+
     name = models.CharField(max_length=50, blank=True)
     # A shorter name used for cartographic display
     short_name = models.CharField(max_length=25, blank=True)
     # for ste, this is the ste_guid
     external_id = models.CharField(max_length=100, unique=True, blank=True,
                                    null=True)
+    external_source = models.CharField(max_length=25, blank=True)
 
     attributes = JSONField(default=dict)
 
@@ -514,14 +543,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 
     feature_geometry = models.GeometryField(geography=True, srid=4326)
 
-    #
-    tags = TagField()
-
     revision = Revision()
 
-    class Meta:
-        abstract = True
-
-    # todo:  perhaps type and name?
     def __str__(self):
-        return u"{0}".format(self.name)
+        return '{0}-{1}-{2}'.format(self.feature_type.name, self.id, self.name)

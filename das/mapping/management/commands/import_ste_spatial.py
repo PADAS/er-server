@@ -3,82 +3,98 @@ import logging
 from zipfile import ZipFile
 import tempfile
 import datetime
-import os
 
 from django.core.management.base import BaseCommand
+from django.db.utils import IntegrityError
 from django.contrib.gis.gdal import DataSource
-from django.contrib.gis.utils import layermapping
-from django.contrib.gis.geos import MultiPolygon, MultiPoint, MultiLineString
-from django.contrib.gis.gdal import (
-    CoordTransform, DataSource, GDALException, OGRGeometry, OGRGeomType,
-    SpatialReference,
-)
-# from openpyxl import load_workbook #needed for XLS
-
 
 from mapping import models
-# from models import SpatialFeature   #added to import SpatialFeature class
-
+import utils.json
+from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
 
-ATTRIBUTE_FIELDS = ('',)
+
+def shortname_validator(value):
+    if value:
+        value = value[:25]
+    return value
+
+
 PROVENANCE_FIELDS = ('collect_user', 'collect_method', 'collect_date',
-                     'ground_verified', 'spatial_feature_owners', 'spatial_data_owners',
-                     'created_user', 'created_date', 'last_edited_user', 'last_edited_date',
+                     'ground_verified', 'spatial_feature_owners',
+                     'spatial_data_owners',
+                     'created_user', 'created_date', 'last_edited_user',
+                     'last_edited_date',
                      'other_id')
 
-STE_TO_SPATIAL_MAPPING = {'short_name': 'short_name',
-                          'name': 'name'}
+TYPE_PROVENANCE_FIELDS = ('last_edited_user',
+                          'last_edited_date',
+                          'other_id')
+
+STE_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validator': shortname_validator},
+                          'name': {'field': 'name', 'validator': lambda v: v}
+                          }
+
+SOURCE_NAME = 'STE'
+
+
+def fields_iter(feature):
+    for field_name in feature.fields:
+        yield field_name.decode('utf8')
+
+
+def reduce_json(document):
+    '''reduce python object fields to simple types, convert datetime to str'''
+    if not isinstance(document, dict):
+        return document
+
+    reduced = {}
+    for key, value in document.items():
+        if isinstance(value, (datetime.date, datetime.datetime)):
+            value = utils.json.date_to_isoformat(value)
+        reduced[key] = value
+    return reduced
 
 
 class Command(BaseCommand):
     help = 'Import a spatial data layer'
     tmpdirs = []
 
-    name_field = 'Name'
-    id_field = 'globalid'
-    utm = None
+    geometry_mapper = GeometryMapper()
 
     def handle(self, *args, **options):
 
-        # geojson input
-        data_source = self.datasource_from_file(options['filename'])
-
         try:
-            self.import_layer(data_source)
+            feature_types_file = options['feature_types']
+            if feature_types_file:
+                logger.info('Importing feature types from file: %s',
+                            feature_types_file)
+                data_source = self.datasource_from_file(feature_types_file)
+                self.import_feature_types(data_source)
+
+            for filename in options['filename']:
+                logger.info('Importing features from file: %s',
+                            filename)
+                data_source = self.datasource_from_file(filename)
+                self.import_layer(data_source)
+
         finally:
             data_source = None
 
     def add_arguments(self, parser):
-        parser.add_argument('filename', type=str,
-                            help='spatial filename')
+        parser.add_argument('filename', type=str, nargs='*',
+                            help='spatial file, for example: import_ste_spatial "STESpatial_GeoJSON\lines.geojson" "points.geojson" "polygons.geojson" --feature-types "spatial_feature_types.geojson" --settings=das_server.local_settings')
+        parser.add_argument('--feature-types',
+                            help='spatial feature types file')
 
-    def datasource_from_file(self, filename):                   # geojson file
+    def datasource_from_file(self, filename):  # geojson file
         if filename.endswith('kmz'):
             tmpdir = tempfile.TemporaryDirectory()
             self.tmpdirs.append(tmpdir)
             zip = ZipFile(filename)
             filename = zip.extract('doc.kml', tmpdir.name)  # use break
         return DataSource(filename)
-
-    def get_feature_class(self, name):
-        name_lower = name.lower()
-        if 'polygon' in name_lower:
-            return models.PolygonFeature
-        if 'linestring' in name_lower:
-            return models.LineFeature
-        if 'point' in name_lower:
-            return models.PointFeature
-        raise KeyError('DAS Feature class not found for {0}'.format(name))
-
-    def make_external_id(self, layer, feature):
-        external_id = '-'.join((layer.name, feature[self.name_field].value))
-        for name in feature.fields:
-            name = name.decode('utf8')
-            if self.id_field and name == self.id_field:
-                external_id += '-' + str(feature[name].value)
-        return external_id
 
     def import_layer(self, datasource):
         for feature in datasource[0]:
@@ -88,87 +104,131 @@ class Command(BaseCommand):
             logger.debug('Feature num of fields: %s', str(feature.num_fields))
             self._save_feature_to_table(feature)
 
-    def _save_feature_to_table(self, feature):
+    def _save_feature_to_table(self, feature, model=models.SpatialFeature):
         global_id = feature['globalid'].value
-        das_type = feature['das_type'].value
-        das_tags = feature['das_tags'].value
+        fields = list(fields_iter(feature))
+        feature_type_name = feature['type'].value
 
-        feature_model = models.SpatialFeature
-        feature_geometry = feature['']
+        try:
+            feature_type = self.get_feature_type(feature_type_name)
+        except models.SpatialFeatureType.DoesNotExist:
+            logger.warning('SpatielFeatureType %s not found for %s',
+                           feature_type_name, global_id)
+            return
 
-        attributes = {feature_name: feature[feature_name]
-                      for feature_name in feature.fields if
-                      feature_name in ATTRIBUTE_FIELDS}
+        model_fieldname = 'feature_geometry'
+        model_field_type = model._meta.get_field(model_fieldname)
+        feature_geometry = self.geometry_mapper.get_db_geom(
+            feature.geom, model_field_type)
 
-        provenance = {feature_name: feature[feature_name]
-                      for feature_name in feature.fields if
+        attribute_fields = feature_type.attribute_schema
+
+        attributes = {feature_name: feature[feature_name].value
+                      for feature_name in fields if
+                      feature_name in attribute_fields}
+        attributes = reduce_json(attributes)
+
+        provenance = {feature_name: feature[feature_name].value
+                      for feature_name in fields if
                       feature_name in PROVENANCE_FIELDS}
+        provenance = reduce_json(provenance)
 
-        defaults = {'attributes': attributes, 'provenance': provenance}
+        defaults = {'attributes': attributes, 'provenance': provenance,
+                    'external_source': SOURCE_NAME}
         for ste_field, spatial_field in STE_TO_SPATIAL_MAPPING.items():
-            if ste_field in feature.fields:
-                defaults[spatial_field] = feature.fields[ste_field]
+            if ste_field in fields:
+                defaults[spatial_field['field']] = spatial_field['validator'](
+                    feature[ste_field].value)
 
-        feature_record, created = feature_model.objects.get_or_create(
-            defaults=defaults,
-            feature_geometry=feature_geometry,
-            external_id=global_id)
+        try:
 
-        logger.info('Import feature: %s, created:%s',
-                    global_id, created)
+            created = False
+            feature_record = model.objects.get(external_id=global_id)
+        except model.DoesNotExist:
+            feature_record = None
 
-        feature_record.feature_types = self.get_feature_types(
-            self.feature_type_names(None))
-        feature_record.display_class = self.get_feature_class(
-            self.display_class_names(None))
-        if 'das_tags' in feature.fields:
-            feature_record.tags = feature.fields['das_tags'].split(',')
+        if not feature_record:
+            try:
+                feature_record = model.objects.create_spatialfeature(
+                    feature_geometry=feature_geometry,
+                    feature_type=feature_type,
+                    external_id=global_id)
+                created = True
+            except IntegrityError:
+                logger.warning('Feature has null geometry: global_id=%s, %s',
+                               global_id, defaults)
+                return
+
+        logger.debug('Import feature: %s, created:%s',
+                     global_id, created)
+
+        feature_record.feature_type = feature_type
+
+        if 'tags' in feature.fields:
+            feature_record.tags = [value.strip()
+                                   for value in feature['tags'].value.split(',')]
         feature_record.feature_geometry = feature_geometry
         for key, value in defaults.items():
             setattr(feature_record, key, value)
 
         feature_record.save()
 
-    def get_feature_types(self, feature_type_names, create_okay=True):
-        pass
+    def get_feature_type(self, type_name, create_okay=True):
+        return models.SpatialFeatureType.objects.get_by_natural_key(type_name)
 
-    def get_feature_class(self, display_class_names, create_okay=True):
-        pass
+    def get_display_category(self, display_category_name, create_okay=True):
+        try:
+            display_category = models.DisplayCategory.objects.get_by_natural_key(
+                display_category_name)
+        except models.DisplayCategory.DoesNotExist:
+            if create_okay:
+                display_category = models.DisplayCategory.objects.create(
+                    name=display_category_name)
+            else:
+                raise
+        return display_category
 
-    def make_multi(self, geom_type, model_field):
-        """
-        Given the OGRGeomType for a geometry and its associated GeometryField,
-        determine whether the geometry should be turned into a GeometryCollection.
-        """
-        return (geom_type.num in layermapping.LayerMapping.MULTI_TYPES and
-                model_field.__class__.__name__ == 'Multi%s' % geom_type.django)
+    def import_feature_types(self, datasource, model=models.SpatialFeatureType):
+        #{ "display_category": "POI", "attribute_schema": "{\"notes\":\"\"}\n", "created_user": "JOELM", "created_date": "2017\/07\/13 23:38:47", "last_edited_user": "JOELM", "last_edited_date": "2017\/07\/13 23:38:47", "globalid": "{0BBB7E88-8E7A-4E66-AA9F-2E9A7B259C5F}" }, "geometry": null },
+        for feature in datasource[0]:
+            fields = list(fields_iter(feature))
+            global_id = feature['globalid'].value
+            name = feature['type'].value
 
-    def verify_geom(self, geom, model_field):
-        """
-        FROM layermapping.py
+            provenance = {feature_name: feature[feature_name].value
+                          for feature_name in fields if
+                          feature_name in TYPE_PROVENANCE_FIELDS}
+            provenance = reduce_json(provenance)
 
-        Verifies the geometry -- will construct and return a GeometryCollection
-        if necessary (for example if the model field is MultiPolygonField while
-        the mapped shapefile only contains Polygons).
-        """
-        coord_dim = model_field.dim
-        # Downgrade a 3D geom to a 2D one, if necessary.
-        if coord_dim != geom.coord_dim:
-            geom.coord_dim = coord_dim
+            attribute_schema = feature['attribute_schema'].value if 'attribute_schema' in fields else None
+            if attribute_schema:
+                try:
+                    attribute_schema = utils.json.loads(attribute_schema)
+                except utils.json.JSONDecodeError as ex:
+                    logger.warning('FeatureType attribute_schema not JSON for globalid=%s: %s',
+                                   global_id, ex)
+                    attribute_schema = {}
 
-        if self.make_multi(geom.geom_type, model_field):
-            # Constructing a multi-geometry type to contain the single geometry
-            multi_type = layermapping.LayerMapping.MULTI_TYPES[geom.geom_type.num]
-            g = OGRGeometry(multi_type)
-            g.add(geom)
-        else:
-            g = geom
+            defaults = {'provenance': provenance, 'attribute_schema': attribute_schema,
+                        'external_source': SOURCE_NAME}
 
-        # Transforming the geometry with our Coordinate Transformation object,
-        # but only if the class variable `transform` is set w/a CoordTransform
-        # object.
-        if False:  # self.transform:
-            g.transform(self.transform)
+            type_record, created = model.objects.get_or_create(
+                name=name,
+                defaults=defaults,
+                display_category=self.get_display_category(
+                    feature['display_category'].value),
+                external_id=global_id)
 
-        # Returning the WKT of the geometry.
-        return g.wkt
+            logger.debug('Import feature_type: %s, created:%s',
+                         global_id, created)
+
+            if 'tags' in fields:
+                type_record.tags = [value.strip()
+                                    for value in feature['tags'].value.split(',')]
+            type_record.display_category = self.get_display_category(
+                feature['display_category'].value)
+            type_record.name = name
+            for key, value in defaults.items():
+                setattr(type_record, key, value)
+
+            type_record.save()
