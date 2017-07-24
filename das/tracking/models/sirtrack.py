@@ -77,9 +77,7 @@ class SirTrackClient(object):
             kmldata = self.get_kml(kml_url, params=dict(key=pd['geoJsonKey']))
 
             if not kmldata:
-                self.logger.exception(
-                    'Failed to download KML at %s' % (kml_url,))
-                raise Exception('Failed to fetch KML at %s' % (kml_url,))
+                self.logger.error('Failed to download KML at %s', kml_url)
 
             k = fastkml.kml.KML()
             k.from_string(kmldata)
@@ -120,7 +118,8 @@ class SirTrackClient(object):
                         yield item
 
         except (requests.ConnectionError, requests.ReadTimeout) as e:
-            self.logger.exception('Failed to read CSV file at %s', link)
+            self.logger.warning(
+                'Failed to read CSV file at %s, ex=%s', link, e)
             raise
         except Exception as e:
             self.logger.exception(
@@ -148,7 +147,7 @@ class SirTrackClient(object):
                 return None
 
         except (requests.ConnectTimeout, requests.ReadTimeout) as e:
-            logger.exception('Time out for url %s', url)
+            self.logger.warning('Failed to read KML file at %s, ex=%s', url, e)
         else:
 
             # Assume the data is zipped and otherwise return the content.
@@ -258,7 +257,7 @@ class SirtrackPlugin(TrackingPlugin):
                 # keep track of latest timestamp.
                 lt = max(lt, fix_time) if lt else fix_time
             except Exception as e:
-                self.logger.exception('processing SirTrack.')
+                self.logger.error('processing SirTrack. Ex=%s', e)
 
         if lt:  # Update cursor data.
             self.additional['latest_timestamp'] = lt.isoformat()
