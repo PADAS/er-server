@@ -2,17 +2,17 @@ import logging
 import pymet
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point
-from django.contrib.postgres.fields import JSONField
 
 from activity.models import EventType
-# from .analyzer import Analyzer, AnalyzerResult, OK, CRITICAL
-from analyzers.models import SubjectAnalyzerResult
+from analyzers.models import SubjectAnalyzerResult, GeofenceAnalyzerConfig, OK, WARNING, CRITICAL
+
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from mapping.models import FeatureType, LineFeature, GeoFeature, FeatureSet
 from observations.models import Observation, SubjectTrackSegmentFilter
-from analyzers import  SubjectAnalyzer
+from analyzers import SubjectAnalyzer
 
-logger = logging.getLogger(__name__)
+
+#logger = logging.getLogger(__name__)
 
 
 # class GeofenceAnalyzerResult(AnalyzerResult):
@@ -34,6 +34,15 @@ class GeofenceAnalyzer(SubjectAnalyzer):
      crosses a set of virtual fences.
      Return: a list of GeofenceAnalyzerResult
      """
+
+    def __init__(self, subject=None, config=None):
+        SubjectAnalyzer.__init__(subject, config)
+        self.logger = logging.getLogger(__name__)
+
+    @classmethod
+    def get_subject_analyzers(cls, subject):
+        for ac in GeofenceAnalyzerConfig.objects.filter(subject_group__subjects=subject):
+            yield cls(subject=subject, config=ac)
 
     # TODO: Should be versioned
 

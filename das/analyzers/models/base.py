@@ -21,6 +21,7 @@ WARNING = 20
 CRITICAL = 30
 ERROR = 40
 
+
 class Schedule(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(null=False, max_length=50)
@@ -35,18 +36,19 @@ class Schedule(TimestampedModel):
         app_label = 'analyzers'
 
 
-
 class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
-    '''
+    """
     An implementation of SubjectAnalyzerConfig is meant to associate a specific set of parameter values with 
     a SubjectGroup that it applies to. 
-    '''
+    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(null=False, unique=True, max_length=100,
                             verbose_name='A friendly, unique name for the analyzer.')
     notes = models.TextField(blank=True, default='')
     schedule = ArrayField(models.CharField(max_length=50), default=[],
-                          verbose_name='Array of crontab schedule patterns that an analyzer can use to determine whether to run.')
+                          verbose_name='Array of crontab schedule patterns that '
+                                       'an analyzer can use to determine whether to run.')
 
     subject_group = models.ForeignKey(to=SubjectGroup, on_delete=models.CASCADE,
                                       verbose_name='This analyzer applies to subjects in this SubjectGroup.')
@@ -60,18 +62,12 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
             'Set this False instead of deleting this record.'
         ))
 
+    search_time_hours = models.FloatField(null=False, default=24.0,
+                                          verbose_name='The period over which to run the subject analyzer')
+
     class Meta:
         abstract = True
         app_label = 'analyzers'
-
-    def analyze(self, last_result=None):
-        raise NotImplementedError()
-
-    def save_analyzer_result(self, last_result=None, this_result=None):
-        raise NotImplementedError()
-
-    def create_analyzer_event(self, last_result=None, this_result=None):
-        raise NotImplementedError()
 
 
 class SubjectAnalyzerResultManager(models.Manager):

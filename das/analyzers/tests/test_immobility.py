@@ -22,6 +22,7 @@ from analyzers.immobility import ImmobilityAnalyzer
 # Function to apply to plain/JSON observations to convert recorded_at to datetime.
 parse_recorded_at = partial(typify, dict(recorded_at=dp.parse))
 
+
 def generate_random_positions(start_time=None, x=37.5, y=1.41):
     recorded_at = start_time or pytz.utc.localize(datetime.utcnow()) - timedelta(hours=24)
 

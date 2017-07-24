@@ -8,7 +8,7 @@ from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.utils.translation import ugettext_lazy as _
 
 from analyzers.utils import save_analyzer_event
-from observations.models import SubjectTrackSegmentFilter
+
 from activity.models import Event, EventType
 from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
 
@@ -20,6 +20,7 @@ EVENT_PRIORITY_MAP = {
     WARNING: Event.PRI_IMPORTANT,
     OK: Event.PRI_REFERENCE,
 }
+
 
 class ImmobilityAnalyzer(SubjectAnalyzer):
 
@@ -38,78 +39,16 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         must be inside a cluster to generate a CRITICAL.  Default 0.8 as in Wall
 
      """
-    def __init__(self, subject, config):
+    def __init__(self, subject=None, config=None):
+        SubjectAnalyzer.__init__(self, subject, config)
         self.logger = logging.getLogger(__name__)
-        self.config = config
-        self.subject = subject
 
     @classmethod
-    def get_subject_analyzers(cls, subject):
+    def get_subject_analyzers(cls, subject=None):
         for ac in ImmobilityAnalyzerConfig.objects.filter(subject_group__subjects=subject):
             yield cls(subject=subject, config=ac)
 
-    def _create_trajectory(self, observations, trajectory_filter_params=None):
-        """
-        Hydrate the trajectory
-        """
-        def create_fix(observation):
-            gp = pymet.base.GeoPoint(observation.location.x, observation.location.y, 0.0)
-            fix = pymet.base.Fix(gp, observation.recorded_at)
-            return fix
-
-        # Create a relocations object
-        fixes = [create_fix(x) for x in observations]
-        relocs = pymet.base.Relocations(fixes)
-
-        # Filter the relocations for junk coordinates
-        coord_filter = pymet.base.RelocsCoordinateFilter()
-        relocs.apply_fix_filter(coord_filter)
-
-        # Filter the relocations based on speed
-        speed_threshold = float('Inf')
-
-        if trajectory_filter_params is not None:
-            speed_threshold = trajectory_filter_params.speed_KmHr
-        speed_filter = pymet.base.RelocsSpeedFilter(max_speed_kmhr=speed_threshold)
-        relocs.apply_fix_filter(speed_filter)
-
-        # Create a trajectory from the relocations
-        traj = pymet.base.Trajectory(relocs)
-
-        return traj
-
-    def default_observations(self):
-        '''
-        Default set of observation is fetched from the database, based on this analyzer's configuration.
-        :return: a queryset of Observations
-        '''
-        return self.subject.observations(last_hours=self.config.search_time_hours)
-
-    def default_trajectory_filter(self):
-        # Get trajectory filter based on subject. Might not exist.
-        try:
-            return SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
-        except SubjectTrackSegmentFilter.DoesNotExist:
-            pass
-
-    def analyze(self, observations=None, trajectory_filter=None, last_result=None):
-
-        # Get default observations list if one isn't provided
-        observations = observations or self.default_observations()
-
-        # Use default trajectory_filter if one isn't provided
-        trajectory_filter = trajectory_filter or self.default_trajectory_filter()
-
-        # Create Trajectory which is the input to the analysis.
-        trajectory = self._create_trajectory(observations=observations, trajectory_filter_params=trajectory_filter)
-        result = self.analyze_trajectory(trajectory)
-
-        self.save_analyzer_result(last_result=last_result, this_result=result)
-        this_event = self.create_analyzer_event(last_result=last_result, this_result=result)
-
-        return result, this_event
-
-    def analyze_trajectory(self, traj):
+    def analyze_trajectory(self, traj=None):
         """
 
         A function to search for immobility within a movement trajectory. Assumes we start with a filtered
@@ -163,7 +102,6 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                              test_cluster.relocs.fix_count
 
             cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
-
 
             if (cluster_pvalue >= self.config.threshold_probability) and \
                     (cluster_timespan_seconds > self.config.threshold_time):

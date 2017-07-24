@@ -22,6 +22,5 @@ class ImmobilityAnalyzerConfig(SubjectAnalyzerConfig):
     threshold_radius = models.FloatField(null=False, default=13.0)
     threshold_time = models.IntegerField(null=False, default=18000)  # 5 hours
     threshold_probability = models.FloatField(null=False, default=0.8)
-    search_time_hours = models.FloatField(null=False, default=24.0)
 
 
