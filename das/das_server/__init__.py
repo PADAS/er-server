@@ -4,9 +4,9 @@ try:
 except ImportError:
     BUILD_NUMBER = 1
 
-VERSION = (1, 15, 1, 'rc', BUILD_NUMBER)
+VERSION = (1, 16, 1, 'dev', BUILD_NUMBER)
 
 if VERSION[3]:  # pragma: no cover
     __version__ = '{0}.{1}.{2}-{3}.{4}'.format(*VERSION)
 else:  # pragma: no cover
-    __version__ = '.'.join(map(str, VERSION[0:2]))
+    __version__ = '.'.join(map(str, VERSION[0:3]))

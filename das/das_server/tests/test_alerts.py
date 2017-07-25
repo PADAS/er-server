@@ -1,6 +1,8 @@
 import copy
+import pytz
 import das_server.mailer as mailer
 import django.contrib.auth
+from datetime import datetime
 from django.utils import lorem_ipsum
 from django.test import TestCase
 from django.utils import timezone
@@ -17,19 +19,19 @@ ET_OTHER = 'other'
 ET_INCIDENT = 'incident_collection'
 
 
-event_schema_data = {q
-                     "event_details": {
-                         "conservancy": {
-                             "name": "Sera",
-                             "value": "19778984-f5aa-42df-9e0c-29ae2e4a4884"
-                         },
-                         "sectionArea": [{
-                             "name": "Corner Safi",
-                             "value": "1ec47dea-7e8e-4761-a15a-da6b01633cf8"
-                         }],
-                         "details": 'some details about the event',
-                     }
-                     }
+event_schema_data = {
+    "event_details": {
+        "conservancy": {
+            "name": "Sera",
+            "value": "19778984-f5aa-42df-9e0c-29ae2e4a4884"
+        },
+        "sectionArea": [{
+            "name": "Corner Safi",
+            "value": "1ec47dea-7e8e-4761-a15a-da6b01633cf8"
+        }],
+        "details": 'some details about the event',
+    }
+}
 
 incident_schema_data = {
     "event_details": {

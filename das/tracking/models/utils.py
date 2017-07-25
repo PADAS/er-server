@@ -12,3 +12,15 @@ def dictify(r, root=True):
             d[x.tag] = []
         d[x.tag].append(dictify(x, False))
     return d
+
+
+def parse_cookie(cookie):
+    items = [_.split('=') for _ in cookie.split(';')]
+    cookies = dict(items)
+    return cookies
+
+
+def split_link(url):
+    url, qs = url.split('?')
+    params = dict([p.split('=') for p in qs.split('&')])
+    return (url, params)
