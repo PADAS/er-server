@@ -26,7 +26,7 @@ CSRF_COOKIE_SECURE = False
 
 STATIC_URL = '/static/'
 
-#add the path to your local copy of the das-web static root dir that contains index.html
+# add the path to your local copy of the das-web static root dir that contains index.html
 #STATICFILES_DIRS = STATICFILES_DIRS + (os.path.join(BASE_DIR, 'www'),)
 
 """
@@ -52,3 +52,7 @@ AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 FROM_EMAIL = 'notifications@pamdas.org'
 #DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
 #SHOW_TRACK_DAYS = 100
+
+NOTIFY_HIGH_PRIORITY_EVENT = 'high_priority_alerts'
+NOTIFY_MEDIUM_PRIORITY_EVENT = 'medium_priority_alerts'
+NOTIFY_LOW_PRIORITY_EVENT = 'low_priority_alerts'
