@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 @celery.app.task()
-def send_user_event_notification(username, event_id, revision_id = None):
+def send_user_event_notification(username, event_id, revision_id=None):
     # First load the user and the event
     user = User.objects.get(username=username)
 
@@ -53,6 +53,12 @@ def notify_new_event(event_id):
     logger.info('event mailer event_id: {}'.format(event_id))
     event = Event.objects.get(pk=event_id)
 
+    # Don't alert for new incidents; we'll alert when the child event is
+    # associated with the incident, then there will only be one alert
+    # for a new incident with a contained event inside
+    if event.is_collection:
+        return
+
     # Get all priorities this alert has ever had
     priorities = []
     revisions = list(iter(event.revision.all_user().order_by('sequence')))
@@ -66,7 +72,7 @@ def notify_new_event(event_id):
     # Alert each user according to their contact preferences
     for user in user_list:
         celery.app.send_task('das_server.tasks.send_user_event_notification',
-            args=(user.username, event_id))
+                             args=(user.username, event_id))
 
 
 @celery.app.task()
@@ -88,6 +94,4 @@ def notify_update_event(event_id):
     # Alert each user according to their contact preferences
     for user in userlist:
         celery.app.send_task('das_server.tasks.send_user_event_notification',
-            args=(user.username, event_id, str(latest_revision.id)))
-
-
+                             args=(user.username, event_id, str(latest_revision.id)))
