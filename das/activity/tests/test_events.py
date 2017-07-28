@@ -24,7 +24,9 @@ from drf_extra_fields.geo_fields import PointField
 from core.tests import BaseAPITest
 from choices.models import Choice
 from accounts.models import PermissionSet
-from activity.models import Event, EventAttachment, EventType, EventCategory
+from activity.models import Event, EventAttachment, EventType, EventCategory,\
+    EventRelationship, EventRelationshipType
+
 from activity.models import get_sentinel_user
 from activity.serializers import ATTACHMENT_SERIALIZER_MAPPING
 from activity import views
@@ -495,6 +497,28 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         self.assertEqual(response.status_code, 200)
 
+    def test_event_feed_filter_contained_events(self):
+        incident_data = copy.deepcopy(self.event_data)
+        incident_data['event_type'] = 'incident_collection'
+
+        incident = self.create_event(incident_data)
+        contained_event = self.create_event(self.event_data)
+
+        EventRelationship.objects.add_relationship(
+            from_event=incident, to_event=contained_event,
+            type='contains')
+
+        request = self.factory.get(
+            self.api_base + '/events?is_not_contained=true')
+
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            ['failed' for r in response_data['results'] if len(r['is_contained_in'])])
+
     def test_event_type_category(self):
         request = self.factory.get(
             self.api_base + '/events/eventtypes?category=standard&event_category=security')
@@ -732,6 +756,19 @@ class TestEventView(BaseAPITest):
                 self.assertTrue(v, 'Power user failed {0}'.format(k))
             else:
                 self.assertFalse(v, 'Power user passed {0}'.format(k))
+
+    def test_radio_room_operator_create_but_not_view(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        event_data['provenance'] = Event.PC_STAFF
+        event_data['event_type'] = ET_SECURITY
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.radio_room_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        self.assertDictEqual(response_data, {})
 
     def test_radio_room_operator_permissions(self):
         results = self.do_all_operations_on_all_event_types(
