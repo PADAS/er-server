@@ -42,12 +42,30 @@ FIXTURE_DIRS = list(os.path.join(BASE_DIR, x) for x in _test_fixtures)
 
 
 #MIDDLEWARE_CLASSES = MIDDLEWARE_CLASSES + ('django_ses',)
+'''email-smtp.us-west-2.amazonaws.com 
+Use TLS 
+IAM user: ses-smtp-user-dev 
+username: AKIAIWFES6QEYXXNWIJQ 
+pass: AsMURTCqQSHenF1Hj1BAVGjLn1a2nqd7IADJBbsY8s28
+'''
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
-EMAIL_BACKEND = 'django_ses.SESBackend'
-# can use console output for email in dev
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-AWS_SES_REGION_NAME = 'us-west-2'
-AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
+# Host for sending e-mail.
+EMAIL_HOST = 'email-smtp.us-west-2.amazonaws.com'
+
+# Port for sending e-mail.
+EMAIL_PORT = 1025
+
+# Optional SMTP authentication information for EMAIL_HOST.
+EMAIL_HOST_USER = 'AKIAIWFES6QEYXXNWIJQ'
+EMAIL_HOST_PASSWORD = 'AsMURTCqQSHenF1Hj1BAVGjLn1a2nqd7IADJBbsY8s28'
+EMAIL_USE_TLS = True
+
+# EMAIL_BACKEND = 'django_ses.SESBackend'
+# # can use console output for email in dev
+# # EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# AWS_SES_REGION_NAME = 'us-west-2'
+# AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
 #DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
