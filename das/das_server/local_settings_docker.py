@@ -42,21 +42,9 @@ FIXTURE_DIRS = list(os.path.join(BASE_DIR, x) for x in _test_fixtures)
 
 
 #MIDDLEWARE_CLASSES = MIDDLEWARE_CLASSES + ('django_ses',)
-'''email-smtp.us-west-2.amazonaws.com 
-Use TLS 
-IAM user: ses-smtp-user-dev 
-username: AKIAIWFES6QEYXXNWIJQ 
-pass: AsMURTCqQSHenF1Hj1BAVGjLn1a2nqd7IADJBbsY8s28
-'''
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
-# Host for sending e-mail.
 EMAIL_HOST = 'email-smtp.us-west-2.amazonaws.com'
-
-# Port for sending e-mail.
 EMAIL_PORT = 1025
-
-# Optional SMTP authentication information for EMAIL_HOST.
 EMAIL_HOST_USER = 'AKIAIWFES6QEYXXNWIJQ'
 EMAIL_HOST_PASSWORD = 'AsMURTCqQSHenF1Hj1BAVGjLn1a2nqd7IADJBbsY8s28'
 EMAIL_USE_TLS = True
