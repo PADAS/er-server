@@ -2,7 +2,7 @@
 PROJECT=padas-app
 
 CUR_REF_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-INFRA_DIR="$CUR_REF_DIR/../../../infrastructure"
+INFRA_DIR="$CUR_REF_DIR/../../infrastructure"
 DAS_DIR="$INFRA_DIR/deployments/$PROJECT"
 
 source $INFRA_DIR/ci/utility/ci.for.ci.utilities.sh
@@ -21,5 +21,5 @@ fly -t $PROJECT set-pipeline -p $PIPELINE \
     -v gcr-io-infrastructure-password="$(cat<$INFRA_DIR/deployments/ss-infrastructure/container-registry/container-registry-pull.key)" \
     -v gcr-io-email=1234@5678.com \
     -v gcr-io-username=_json_key \
-    -l $CUR_REF_DIR/../../../infrastructure/deployments/padas-app/k8s/integration.params.yml \
+    "$(set_var_file_if_exists "$DAS_DIR/k8s/$PIPELINE.params.yml")" \
     $OVERRIDES \  
