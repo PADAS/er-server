@@ -202,7 +202,7 @@ jobs:
       build: git-server-base,
       dockerfile: git-server-base/docker/base/Dockerfile,
       tag:  git-server-base/sha,
-      tag_as_latest: true
+      tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
 
@@ -225,7 +225,7 @@ jobs:
       dockerfile: git-server/docker/App/Dockerfile,
       tag:  git-server/sha,
       build_args_file: git-server-base/build_args,
-      tag_as_latest: true
+      tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
 
@@ -244,19 +244,19 @@ jobs:
       }
   - aggregate:
     - put: image-server-api
-      params: { build: git-server/docker/API, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: true }
+      params: { build: git-server/docker/API, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-beat
-      params: { build: git-server/docker/Beat, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: true }
+      params: { build: git-server/docker/Beat, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-mql
-      params: { build: git-server/docker/MQL, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: true }
+      params: { build: git-server/docker/MQL, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-rt-api
-      params: { build: git-server/docker/RT_API, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: true }
+      params: { build: git-server/docker/RT_API, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-worker
-      params: { build: git-server/docker/Worker, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: true }
+      params: { build: git-server/docker/Worker, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
 
 - name: docker-build-utility
@@ -265,10 +265,10 @@ jobs:
     trigger: true
   - aggregate: 
     - put: image-postgis
-      params: { build: git-utility/docker/PostGIS, tag: git-utility/sha, tag_as_latest: true }
+      params: { build: git-utility/docker/PostGIS, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-nginx
-      params: { build: git-utility/docker/Nginx, tag: git-utility/sha, tag_as_latest: true }
+      params: { build: git-utility/docker/Nginx, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
 
 # Web Jobs
@@ -282,7 +282,7 @@ jobs:
       build: git-web-base,
       dockerfile: git-web-base/docker/build/base/Dockerfile,
       tag:  git-web-base/sha,
-      tag_as_latest: true
+      tag_as_latest: ((tag-as-latest))
     }        
     get_params: {skip_download: true}
 
@@ -304,7 +304,7 @@ jobs:
       dockerfile: git-web-depends/docker/build/depends/Dockerfile,
       tag:  git-web-depends/sha,
       build_args_file: git-web-base/build_args,
-      tag_as_latest: true
+      tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
 
@@ -348,7 +348,7 @@ jobs:
       build: git-web,
       dockerfile: git-web/docker/develop/Dockerfile,
       tag:  git-web/sha,
-      tag_as_latest: true,
+      tag_as_latest: ((tag-as-latest)),
       build_args_file: git-web-depends/build_args
     }
     get_params: {skip_download: true}
@@ -379,7 +379,7 @@ jobs:
       build: web-distribution,
       dockerfile: web-distribution/docker/app/Dockerfile,
       tag:  git-web/sha,
-      tag_as_latest: true,
+      tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
 
