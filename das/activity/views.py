@@ -241,16 +241,16 @@ class EventsView(generics.ListCreateAPIView):
             queryset = queryset.by_event_type(event_type)
 
         is_collection = query_params.get('is_collection', None)
-        is_not_contained = query_params.get('is_not_contained', None)
-        if is_collection and is_not_contained:
+        exclude_contained = query_params.get('exclude_contained', None)
+        if is_collection and exclude_contained:
             raise ValueError(
-                'invalid use of is_collection and is_not_contained in the same call')
+                'invalid use of is_collection and exclude_contained in the same call')
 
         if is_collection:
             queryset = queryset.by_is_collection(parse_bool(is_collection))
-        if is_not_contained:
-            queryset = queryset.by_is_not_contained(
-                parse_bool(is_not_contained))
+        if exclude_contained:
+            queryset = queryset.by_exclude_contained(
+                parse_bool(exclude_contained))
 
         event_categories = query_params.getlist('event_category', None)
         if event_categories is None or len(event_categories) == 0:

@@ -509,7 +509,7 @@ class TestEventView(BaseAPITest):
             type='contains')
 
         request = self.factory.get(
-            self.api_base + '/events?is_not_contained=true')
+            self.api_base + '/events?exclude_contained=true')
 
         self.force_authenticate(request, self.all_perms_user)
 
