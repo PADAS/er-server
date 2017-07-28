@@ -2,7 +2,7 @@
 # Pinned github commit references are kept in requirements-pinned.txt
 # run the following command from pip-tools, to prepare a pinned set of
 # dependencies for the app
-#   pip-compile requirements.in --find-links ..\wheelhouse\
+#   pip-compile requirements.in --find-links ./wheelhouse
 # run this command to update versions:
 #   pip-compile --upgrade
 

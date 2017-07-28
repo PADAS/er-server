@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 
 LAST_DAYS = timedelta(days=3)
 
-USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get('force_download_mimetypes', set())
+USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get(
+    'force_download_mimetypes', set())
 
 
 class EventSchemaView(generics.ListCreateAPIView):
@@ -96,25 +97,31 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         if not eventtype.schema:
             return generics.views.Response(None)
 
-        schema_fields = schema_utils.get_replacement_fields_in_schema(eventtype.schema)
+        schema_fields = schema_utils.get_replacement_fields_in_schema(
+            eventtype.schema)
 
         parameters = {}
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
-                parameters[schema_field['tag']] = schema_utils.get_enum_choices(schema_field)
+                parameters[schema_field['tag']
+                           ] = schema_utils.get_enum_choices(schema_field)
             elif schema_field['lookup'] == 'query':
-                parameters[schema_field['tag']] = schema_utils.get_dynamic_choices(schema_field)
+                parameters[schema_field['tag']
+                           ] = schema_utils.get_dynamic_choices(schema_field)
             elif schema_field['lookup'] == 'table':
-                parameters[schema_field['tag']] = schema_utils.get_table_choices(schema_field)
+                parameters[schema_field['tag']
+                           ] = schema_utils.get_table_choices(schema_field)
 
         if len(parameters) > 0:
             template = Template(eventtype.schema)
-            rendered_template = template.render(Context(parameters, autoescape=False))
+            rendered_template = template.render(
+                Context(parameters, autoescape=False))
             schema = loads(rendered_template, object_pairs_hook=OrderedDict)
         else:
             schema = loads(eventtype.schema, object_pairs_hook=OrderedDict)
 
-        schema['schema']['id'] = utils.add_base_url(request, reverse('event-schema-eventtype', args=[eventtype.value, ]))
+        schema['schema']['id'] = utils.add_base_url(request, reverse(
+            'event-schema-eventtype', args=[eventtype.value, ]))
 
         return generics.views.Response(schema)
 
@@ -134,9 +141,11 @@ class EventFactorsView(generics.ListAPIView):
 
 class EventClassFactorsView(generics.ListAPIView):
     serializer_class = EventClassFactorSerializer
+
     def get_queryset(self):
         queryset = EventClassFactor.objects.all()
-        queryset = queryset.order_by('eventclass__ordernum', 'eventfactor__ordernum')
+        queryset = queryset.order_by(
+            'eventclass__ordernum', 'eventfactor__ordernum')
 
         return queryset
 
@@ -150,9 +159,10 @@ class EventCountView(generics.ListAPIView):
 
     def get(self, request, *args, **kwargs):
 
-        queryset  = Event.objects.new()
+        queryset = Event.objects.new()
 
-        event_categories = self.request.query_params.getlist('event_category', None)
+        event_categories = self.request.query_params.getlist(
+            'event_category', None)
         if event_categories is None or len(event_categories) == 0:
             event_categories = EventCategory.objects.values_list(
                 'value').distinct()
@@ -168,7 +178,6 @@ class EventCountView(generics.ListAPIView):
             queryset = queryset.by_category(allowed_event_categories)
         else:
             raise rest_framework.exceptions.PermissionDenied
-
 
         data = {'count': queryset.count()}
         return generics.views.Response(data)
@@ -187,7 +196,7 @@ class EventsView(generics.ListCreateAPIView):
     page, page number
     page_size, (default is {page_size}, max is {max_page_size})
     """.format(page_size=StandardResultsSetPagination.page_size,
-                    max_page_size=StandardResultsSetPagination.max_page_size)
+               max_page_size=StandardResultsSetPagination.max_page_size)
     permission_classes = (EventCategoryPermissions,)
     filter_backends = (EventObjectPermissionsFilter,)
     serializer_class = EventSerializer
@@ -198,10 +207,13 @@ class EventsView(generics.ListCreateAPIView):
         query_params = self.request.query_params
         context = super().get_serializer_context()
         request = context['request']
-        context['include_updates'] = parse_bool(query_params.get('include_updates', True))
-        context['include_notes'] = parse_bool(query_params.get('include_notes', True))
-        context['include_details'] = parse_bool(query_params.get('include_details', True))
-        #if this is a POST, returned any contained events
+        context['include_updates'] = parse_bool(
+            query_params.get('include_updates', True))
+        context['include_notes'] = parse_bool(
+            query_params.get('include_notes', True))
+        context['include_details'] = parse_bool(
+            query_params.get('include_details', True))
+        # if this is a POST, returned any contained events
         default_include_related_events = request._request.method == 'POST'
         context['include_related_events'] = parse_bool(query_params.get('include_related_events',
                                                                         default_include_related_events))
@@ -229,12 +241,21 @@ class EventsView(generics.ListCreateAPIView):
             queryset = queryset.by_event_type(event_type)
 
         is_collection = query_params.get('is_collection', None)
+        exclude_contained = query_params.get('exclude_contained', None)
+        if is_collection and exclude_contained:
+            raise ValueError(
+                'invalid use of is_collection and exclude_contained in the same call')
+
         if is_collection:
             queryset = queryset.by_is_collection(parse_bool(is_collection))
+        if exclude_contained:
+            queryset = queryset.by_exclude_contained(
+                parse_bool(exclude_contained))
 
         event_categories = query_params.getlist('event_category', None)
         if event_categories is None or len(event_categories) == 0:
-            event_categories = EventCategory.objects.values_list('value').distinct()
+            event_categories = EventCategory.objects.values_list(
+                'value').distinct()
             event_categories = [x[0] for x in event_categories]
 
         allowed_event_categories = []
@@ -279,15 +300,18 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
             self.check_object_permissions(self.request, obj)
         return super().get(request, *args, **kwargs)
 
-
     def get_serializer_context(self):
         query_params = self.request.query_params
         context = super().get_serializer_context()
 
-        context['include_updates'] = parse_bool(query_params.get('include_updates', True))
-        context['include_notes'] = parse_bool(query_params.get('include_notes', True))
-        context['include_photos'] = parse_bool(query_params.get('include_photos', True))
-        context['include_related_events'] = parse_bool(query_params.get('include_related_events', True))
+        context['include_updates'] = parse_bool(
+            query_params.get('include_updates', True))
+        context['include_notes'] = parse_bool(
+            query_params.get('include_notes', True))
+        context['include_photos'] = parse_bool(
+            query_params.get('include_photos', True))
+        context['include_related_events'] = parse_bool(
+            query_params.get('include_related_events', True))
         return context
 
 
@@ -343,7 +367,8 @@ class EventPhotosView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         request.data['event'] = self.kwargs['id']
 
-        # TODO: This conditional is to handle the case where a file is uploaded via XHR. Figure out why.
+        # TODO: This conditional is to handle the case where a file is uploaded
+        # via XHR. Figure out why.
         if 'image' not in request.data:
             try:
                 # Ajax request.
@@ -388,7 +413,10 @@ def resolve_first(dicts, keys):
                 return d[k]
                 break
 
+
 from usercontent.serializers import UserContentSerializer
+
+
 class EventFilesView(generics.ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventFileSerializer
@@ -399,7 +427,8 @@ class EventFilesView(generics.ListCreateAPIView):
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['id'])
 
-        # TODO: This conditional is to handle the case where a file is uploaded via XHR. Figure out why.
+        # TODO: This conditional is to handle the case where a file is uploaded
+        # via XHR. Figure out why.
         if 'filecontent.file' not in request.data:
             try:
                 # Ajax request.
@@ -419,7 +448,6 @@ class EventFilesView(generics.ListCreateAPIView):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-
     def get_queryset(self):
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['id'])
@@ -428,6 +456,7 @@ class EventFilesView(generics.ListCreateAPIView):
 
 
 from usercontent.serializers import get_stored_filename
+
 
 class EventFileView(generics.RetrieveUpdateDestroyAPIView):
 
@@ -457,7 +486,8 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
         instance = self.get_object()
 
         desired_image_size = self.kwargs.get('image_size', None)
-        content_type, encoding = mimetypes.guess_type(instance.usercontent.filename)
+        content_type, encoding = mimetypes.guess_type(
+            instance.usercontent.filename)
 
         if content_type in USERCONTENT_FORCE_DOWNLOAD:
             content_type = 'application/octet-stream'
@@ -466,14 +496,17 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
             filename = get_stored_filename(instance.usercontent.file, rendition_set='default',
                                            rendition_key=desired_image_size)
             try:
-                response_file = instance.usercontent.file.field.storage.open(filename)
+                response_file = instance.usercontent.file.field.storage.open(
+                    filename)
             except OSError as oe:
-                logger.warning('Failed attempt to open file %s. Will default to original file version.', filename)
+                logger.warning(
+                    'Failed attempt to open file %s. Will default to original file version.', filename)
                 response_file = instance.usercontent.file
 
             response = HttpResponse(response_file, content_type=content_type)
         else:
-            response = HttpResponse(instance.usercontent.file, content_type=content_type)
+            response = HttpResponse(
+                instance.usercontent.file, content_type=content_type)
             response['Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename
 
         return response
@@ -493,13 +526,13 @@ class EventRelationshipsView(generics.ListCreateAPIView):
         type = request.data.get('type')
 
         from_event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['from_event_id'])
+                                                pk=self.kwargs['from_event_id'])
 
         to_event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=request.data.get('to_event_id'))
+                                              pk=request.data.get('to_event_id'))
 
         relation = EventRelationship.objects.add_relationship(from_event=from_event, to_event=to_event,
-                                                          type=type,)
+                                                              type=type,)
 
         serializer = self.get_serializer(relation)
         headers = self.get_success_headers(serializer.data)
@@ -517,6 +550,7 @@ class EventRelationshipsView(generics.ListCreateAPIView):
 
         return EventRelationship.objects.filter(**filter)
 
+
 class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventRelationshipSerializer
@@ -531,11 +565,10 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
     def delete(self, request, *args, **kwargs):
 
         from_event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['from_event_id'])
+                                                pk=self.kwargs['from_event_id'])
 
         to_event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['to_event_id'])
-
+                                              pk=self.kwargs['to_event_id'])
 
         EventRelationship.objects.remove_relationship(
             from_event=from_event,

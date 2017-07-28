@@ -216,6 +216,11 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_is_collection(self, value):
         return self.filter_field('event_type__is_collection', value)
 
+    def by_exclude_contained(self, value):
+        if not value:
+            return self
+        return self.exclude(in_relationship__type__value='contains')
+
 
 class EventManager(models.Manager):
     def create_event(self, **values):
