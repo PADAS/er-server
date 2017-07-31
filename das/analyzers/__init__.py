@@ -1,5 +1,7 @@
 import pymet
 from observations.models import SubjectTrackSegmentFilter
+from analyzers.models import SubjectAnalyzerResult
+
 '''
 Base objects for Analyzer code.
 '''
@@ -66,7 +68,17 @@ class SubjectAnalyzer:
         except SubjectTrackSegmentFilter.DoesNotExist:
             pass
 
-    def analyze(self, observations=None, trajectory_filter=None, last_result=None):
+    def get_last_result(self):
+        try:
+            last_result = SubjectAnalyzerResult.objects.filter(subject=self.subject,
+                                                               subject_analyzer_id=self.config.id). \
+                latest('estimated_time')
+        except SubjectAnalyzerResult.DoesNotExist:
+            last_result = None
+
+        return last_result
+
+    def analyze(self, observations=None, trajectory_filter=None):
 
         # Get default observations list if one isn't provided
         observations = observations or self.default_observations()
@@ -76,12 +88,25 @@ class SubjectAnalyzer:
 
         # Create Trajectory which is the input to the analysis.
         trajectory = self.create_trajectory(observations=observations, trajectory_filter_params=trajectory_filter)
-        result = self.analyze_trajectory(trajectory)
 
-        self.save_analyzer_result(last_result=last_result, this_result=result)
-        this_event = self.create_analyzer_event(last_result=last_result, this_result=result)
+        results = self.analyze_trajectory(trajectory)
 
-        return result, this_event
+        analyze_results = []
+
+        for this_result in results:
+
+            # Get the last analyzer result
+            last_result = self.get_last_result()
+
+            # Save the current result in the context of the last result saved
+            self.save_analyzer_result(last_result=last_result, this_result=this_result)
+
+            # Create an event based on the result
+            this_event = self.create_analyzer_event(last_result=last_result, this_result=this_result)
+
+            analyze_results.append((this_result, this_event))
+
+        return analyze_results
 
     class Meta:
         abstract = True

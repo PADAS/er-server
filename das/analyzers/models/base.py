@@ -21,6 +21,12 @@ WARNING = 20
 CRITICAL = 30
 ERROR = 40
 
+EVENT_PRIORITY_MAP = {
+    CRITICAL: Event.PRI_URGENT,
+    WARNING: Event.PRI_IMPORTANT,
+    OK: Event.PRI_REFERENCE,
+}
+
 
 class Schedule(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -55,9 +61,7 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
 
     revision = Revision()
 
-    is_active = models.BooleanField(_('active'),
-        default=True,
-        help_text=_(
+    is_active = models.BooleanField(_('active'), default=True, help_text=_(
             'Designates whether this analyzer is active. '
             'Set this False instead of deleting this record.'
         ))
@@ -93,8 +97,9 @@ class SubjectAnalyzerResult(TimestampedModel):
     # images
 
     # Remaining attributes are to reference the analyzer that created me.
-    limits = models.Q(app_label='analyzers', model='immobilityanalyzer')
-    # | models.Q(app_label='analyzers', model='geofenceanalyzer')
+    limits = models.Q(app_label='analyzers', model='immobilityanalyzer') | \
+             models.Q(app_label='analyzers', model='geofenceanalyzer')
+
     subject_analyzer_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
     subject_analyzer_id = models.UUIDField()
     subject_analyzer = GenericForeignKey('subject_analyzer_content_type', 'subject_analyzer_id')
@@ -123,5 +128,3 @@ class Annotator(RevisionMixin, TimestampedModel):
     class Meta:
         abstract = True
         app_label = 'analyzers'
-
-

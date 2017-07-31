@@ -1,25 +1,17 @@
 from datetime import timedelta
 
 import logging
-import pymet.base, pymet.cluster
+import pymet
 
 from django.contrib.gis.geos import Point as DjangoPoint
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.utils.translation import ugettext_lazy as _
-
 from analyzers.utils import save_analyzer_event
-
-from activity.models import Event, EventType
+from activity.models import Event
 from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
-
+from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers import SubjectAnalyzer
-
-EVENT_PRIORITY_MAP = {
-    CRITICAL: Event.PRI_URGENT,
-    WARNING: Event.PRI_IMPORTANT,
-    OK: Event.PRI_REFERENCE,
-}
 
 
 class ImmobilityAnalyzer(SubjectAnalyzer):
@@ -105,7 +97,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
             if (cluster_pvalue >= self.config.threshold_probability) and \
                     (cluster_timespan_seconds > self.config.threshold_time):
-                # Todo: gte comparison  on the timespan but switched to achieve parity with STE system
+                # TODO: gte comparison  on the timespan but switched to achieve parity with STE system
                 # Modify analyzer result
                 result.level = CRITICAL
                 result.message = self.subject.name + str(_(' is immobile'))
@@ -117,13 +109,25 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                     'cluster_fix_count': test_cluster.threshold_point_count(self.config.threshold_radius),
                     'total_fix_count': test_cluster.relocs.fix_count,
                 }
-                #break
 
         self.logger.info(result.message)
 
-        return result
+        return [result]
+
+    def save_analyzer_result(self, last_result=None, this_result=None):
+
+        if this_result is not None:
+            # Save if result is critical or warning
+            if this_result.level in (CRITICAL, WARNING):
+                this_result.save()
+
+            if last_result is not None:
+                # Save the result if there was a transition from Critical/Warning to OK
+                if (this_result.level is OK) and (last_result.level in (CRITICAL, WARNING)):
+                    this_result.save()
 
     def create_analyzer_event(self, last_result=None, this_result=None):
+
         # no data to create an event so exit
         if not this_result:
             return
@@ -151,29 +155,17 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         # Notify if there is a state transition from Critical/Warning back to OK
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
-                message= this_result.message,
+                message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='immobility_all_clear',
                 priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
-                event_details = this_result.values,
+                event_details=this_result.values,
             )
 
         if event_data:
             return save_analyzer_event(event_data)
-
-    def save_analyzer_result(self, last_result=None, this_result=None):
-
-        if this_result is not None:
-            # Save if result is critical or warning
-            if this_result.level in (CRITICAL, WARNING):
-                this_result.save()
-
-            if last_result is not None:
-                # Save the result if there was a transition from Critical/Warning to OK
-                if (this_result.level is OK) and (last_result.level in (CRITICAL, WARNING)):
-                    this_result.save()
 
 
 

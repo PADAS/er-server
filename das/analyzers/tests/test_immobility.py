@@ -28,13 +28,13 @@ def generate_random_positions(start_time=None, x=37.5, y=1.41):
 
     while True:
         yield recorded_at, Point(x=x, y=y)
-        x += (random.random()  - 0.5)/10000
-        y += (random.random()  - 0.5)/10000
+        x += (random.random() - 0.5)/10000
+        y += (random.random() - 0.5)/10000
         recorded_at = recorded_at + timedelta(minutes=30)
 
 
 def time_shift(items, time_key='recorded_at', start_time=None):
-    '''
+    """
     Time-shift the items in the list using each item's 'time_key' key.
     Anchor the new list at start_time or a time calculated based on the item data.
     
@@ -42,7 +42,7 @@ def time_shift(items, time_key='recorded_at', start_time=None):
     :param time_key: The key to use for getting a datetime from each item.
     :param start_time: Anchor the new list at this datetime if it's provided.
     :return: generator which yields a new 'time-shifted' list of the items.
-    '''
+    """
 
     if not items:
         return
@@ -65,7 +65,8 @@ class TestImmobilityAnalyzer(TestCase):
     # fixtures = ['initial_eventtype.yaml', 'analyzer_eventtype.yaml']
 
     def setUp(self):
-        pass
+        # Create one 'OK' record in the db
+        SubjectAnalyzerResult(level=OK).save()
 
     def test_immobility_with_moving_observations_list(self):
 
@@ -86,12 +87,11 @@ class TestImmobilityAnalyzer(TestCase):
 
         for count in range(21, 10, -1):
             try:
-                config = ImmobilityAnalyzerConfig() # default values
-                last_result = SubjectAnalyzerResult(level=OK)
+                config = ImmobilityAnalyzerConfig()  # default values
 
                 ia = ImmobilityAnalyzer(config=config, subject=test_subject)
-                result, event = ia.analyze(observations=test_observations[:count], last_result=last_result)
-
+                results = ia.analyze(observations=test_observations[:count])
+                result, event = results[0]
                 # Break when we get to an OK result
                 if result.level == OK:
                     break
@@ -108,7 +108,7 @@ class TestImmobilityAnalyzer(TestCase):
         test_observations = ISHANGO_IMMOBILE
 
         # Create models (Subject, SubjectSource and Source)
-        sub = models.Subject.objects.create(name='Ishango', subject_type='wildlife', subject_subtype= 'elephant')
+        sub = models.Subject.objects.create(name='Ishango', subject_type='wildlife', subject_subtype='elephant')
         source = models.Source.objects.create(manufacturer_id='ishango-collar')
         models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
 
@@ -116,7 +116,7 @@ class TestImmobilityAnalyzer(TestCase):
         sg.subjects.add(sub)
         sg.save()
 
-        ia = ImmobilityAnalyzerConfig.objects.create(subject_group=sg)
+        ImmobilityAnalyzerConfig.objects.create(subject_group=sg)
 
         # parse recorded_at (from string to datetime).
         test_observations = [parse_recorded_at(x) for x in test_observations]
@@ -126,9 +126,7 @@ class TestImmobilityAnalyzer(TestCase):
 
             recorded_at = item['recorded_at']
             location = Point(x=item['longitude'], y=item['latitude'])
-            obs = models.Observation.objects.create(recorded_at=recorded_at,
-                                             location=location,
-                                                    source=source, additional={})
+            models.Observation.objects.create(recorded_at=recorded_at, location=location, source=source, additional={})
 
         analyze_subject(str(sub.id))
 
@@ -158,16 +156,18 @@ class TestImmobilityAnalyzer(TestCase):
         # Grab prepared observation list from test data.
         test_observations = list(generate_observations(test_observations))
 
-        last_result = None
         for i in range(1, len(test_observations)):
             try:
                 print('Current data-point: ', test_observations[i-1])
 
                 ia_config = ImmobilityAnalyzerConfig()
-                ia_config.threshold_time = 18000 # 5 hours
+                ia_config.threshold_time = 18000  # 5 hours
 
                 ia = ImmobilityAnalyzer(config=ia_config, subject=test_subject)
-                result, event = ia.analyze(observations=test_observations[:i+1], last_result=last_result)
+
+                results = ia.analyze(observations=test_observations[:i+1])
+                result, event = results[0]
+
                 last_result = result
 
                 print('Analyzer result: ', last_result)
@@ -179,10 +179,10 @@ class TestImmobilityAnalyzer(TestCase):
         self.assertTrue(True)
 
     def test_immobility_event(self):
-        '''
+        """
         Test creating an Immobility Event, along with EventDetails reflecting an ImmobilityAnalyzer result.
         :return: 
-        '''
+        """
         from analyzers.utils import save_analyzer_event
 
         event_location_value = {
