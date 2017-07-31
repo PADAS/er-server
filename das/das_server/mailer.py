@@ -53,12 +53,11 @@ def extract_event_data(event, user, revision):
     revised_fields = revision.data.keys(
     ) if revision is not None and revision.object_id == event.id else []
     priority_str = event.get_display_value('priority', event.priority)
-    schema_fields_and_values = None
     ed = event.event_details.first()
     schema_fields_and_values = list(extract_details(
-        event.event_type.schema, ed.data['event_details'], revised_fields)) if ed and ed.data and 'event_details' in ed.data else None
+        event.event_type.schema, ed.data['event_details'], revised_fields)) if ed and ed.data and 'event_details' in ed.data else []
     child_events = Event.objects.filter(
-        out_relationship__to_event=event, in_relationship__type__value='contains')
+        in_relationship__from_event=event, in_relationship__type__value='contains')
     child_event_data = []
     for child_event in child_events:
         child_event_data.append(
