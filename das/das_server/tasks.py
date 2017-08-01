@@ -71,14 +71,21 @@ def notify_new_event(event_id):
 
     # Alert each user according to their contact preferences
     for user in user_list:
-        celery.app.send_task('das_server.tasks.send_user_event_notification',
-                             args=(user.username, event_id))
+        celery.app.send_task(
+            'das_server.tasks.send_user_event_notification', args=(user.username, event_id))
 
 
 @celery.app.task()
 def notify_update_event(event_id):
     logger.info('event mailer event_id: {}'.format(event_id))
     event = Event.objects.get(pk=event_id)
+
+    # If an event has a parent, skip this one and alert on the parent only.
+    # That way we don't send out multiple alerts for one change
+    if Event.objects.filter(out_relationship__to_event=event,
+                            out_relationship__type__value='contains').exists():
+        return
+
     latest_revision = event.revision.all_user().order_by('sequence').last()
 
     # Get all priorities this alert has ever had
@@ -93,5 +100,5 @@ def notify_update_event(event_id):
 
     # Alert each user according to their contact preferences
     for user in userlist:
-        celery.app.send_task('das_server.tasks.send_user_event_notification',
-                             args=(user.username, event_id, str(latest_revision.id)))
+        celery.app.send_task('das_server.tasks.send_user_event_notification', args=(
+            user.username, event_id, str(latest_revision.id)))
