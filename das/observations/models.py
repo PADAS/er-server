@@ -656,8 +656,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_TOURIST_VEHICLE = 'tourist_vehicle'
     SUBTYPE_MOTORCYCLE = 'motorcycle'
     SUBTYPE_BOAT = 'ranger_boat'
-    SUBTYPE_CAMERA_TRAP = 'camera-trap'
-    SUBTYPE_WEATHER_STATION = 'weather-station'
+    SUBTYPE_CAMERA_TRAP = 'camera_trap'
+    SUBTYPE_WEATHER_STATION = 'weather_station'
 
     SUBTYPE_RANGER = 'ranger'
     SUBTYPE_RANGER_TEAM = 'ranger_team'
