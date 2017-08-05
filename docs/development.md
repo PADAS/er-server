@@ -1,8 +1,8 @@
 ## Development Standards and Information
 
-###OnBoarding### {#PAGE_43847657}
+### OnBoarding
 
-####Source Code####
+#### Source Code ####
 
 Find the source code repositories on GitHub\. Ask project lead to add you to the list of users\.
 
@@ -14,9 +14,9 @@ create a local directory on your machine to put the code repos for DAS\. Clone t
 
 [https://github\.com/PADAS/das\-web](https://github\.com/PADAS/das\-web)
 
-####Development Environment Setup####
+#### Development Environment Setup
 
-#####Development Tools to install#####
+##### Development Tools to install
 
 Depending on the platform you develop code on, here are some instructions\. If you are hard core, you could just get the source code, write code using VIM and deploy into your local docker\.
 
@@ -76,7 +76,7 @@ To tell Django how to find the libraries you've just installed on your Mac, you'
 
 __Ubuntu__
 
-#####Local Docker#####
+##### Local Docker #####
 
 We use docker for development and deployment\. Double check your code runs locally in Docker before pushing to the repo and subsequent staging\.
 
@@ -115,7 +115,7 @@ docker-compose -f docker-compose.yml -f compose-dev.yml up -d
 
 
 
-###Git Flow### {#PAGE_44027300}
+### Git Flow
 
 Our source code control use is governed by the Git Flow pattern\.
 
@@ -123,7 +123,7 @@ Specifically we use the following naming conventions for the feature, release an
 
 
 
-#####Helpful Links#####
+##### Helpful Links #####
 
 GitFlow: [https://datasift\.github\.io/gitflow/IntroducingGitFlow\.html](https://datasift\.github\.io/gitflow/IntroducingGitFlow\.html)
 
@@ -131,7 +131,7 @@ Semantic Versioning: [http://semver\.org/](http://semver\.org/)
 
 
 
-#####Branches#####
+##### Branches #####
 
 __Feature Branches__
 

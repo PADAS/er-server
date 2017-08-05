@@ -1,13 +1,13 @@
 ## Releases
 
 
-###Release 1\.15### {#PAGE_44666044}
+### Release 1\.15
 
-####Overview####
+#### Overview
 
 This release incorporates redesigned UI in support of Input Report collections and streamlined data entry\.
 
-####DAS Web Change Log####
+#### DAS Web Change Log ####
 
 __1\.15\.1\.rc\.48__
 
@@ -64,7 +64,7 @@ __1\.15\.1\.rc\.44__
 
 + update sit\_rep to radio\_rep
 
-####DAS Server Change Log####
+#### DAS Server Change Log ####
 
 __1\.15\.1\.rc\.67__
 
@@ -82,7 +82,7 @@ __1\.15\.1\.rc\.65__
 
 __1\.15\.1\.rc\.63__
 
-#####Builds#####
+##### Builds #####
 
 das server: [http://tools\.pamdas\.org:8080/view/Production/job/das\-server\-build\-release1\.15\.1/](http://tools\.pamdas\.org:8080/view/Production/job/das\-server\-build\-release1\.15\.1/)
 
