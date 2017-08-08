@@ -9,7 +9,7 @@ from analyzers.utils import save_analyzer_event
 from analyzers.models import SubjectAnalyzerResult, GeofenceAnalyzerConfig, WARNING, CRITICAL
 from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers import SubjectAnalyzer
+from analyzers.base import SubjectAnalyzer
 import logging
 logger = logging.getLogger(__name__)
 

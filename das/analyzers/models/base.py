@@ -83,7 +83,7 @@ class SubjectAnalyzerResult(TimestampedModel):
     objects = SubjectAnalyzerResultManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    analyzer_revision = models.IntegerField()
+    analyzer_revision = models.IntegerField(default=1)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
     geometry_collection = models.GeometryCollectionField()
     estimated_time = models.DateTimeField()

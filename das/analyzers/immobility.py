@@ -11,7 +11,7 @@ from activity.models import Event
 from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
 from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers import SubjectAnalyzer
+from analyzers.base import SubjectAnalyzer
 
 
 class ImmobilityAnalyzer(SubjectAnalyzer):

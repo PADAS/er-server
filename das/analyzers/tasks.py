@@ -2,12 +2,9 @@ import logging
 
 from django.conf import settings
 
-from analyzers.models import OK, WARNING, CRITICAL, SubjectAnalyzerResult
 from analyzers.exceptions import InsufficientDataAnalyzerException
-
 from das_server import celery
 from observations.models import Subject, SubjectSource
-from observations.track import Track
 from analyzers.models import ObservationAnnotator
 from analyzers.finder import get_subject_analyzers
 
