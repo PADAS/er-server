@@ -24,7 +24,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
     EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer
 
-from activity.alerts import get_alert_users
+from activity.alerts import AlertUtils
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventCategoryPermissions, EventObjectPermissions
 from utils.drf import StandardResultsSetPagination
@@ -599,6 +599,6 @@ class EventAlertTargetsListView(generics.ListAPIView):
 
         priority = [int(_) for _ in priority]
         if priority:
-            return get_alert_users(priority)
+            return AlertUtils.get_alert_users(priority)
 
         return accounts.models.User.objects.none()
