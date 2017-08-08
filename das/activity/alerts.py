@@ -10,15 +10,15 @@ notify_low_priority_event = getattr(
     settings, 'NOTIFY_LOW_PRIORITY_EVENT', None)
 
 
-class AlertUtils():
+class AlertUtils:
     @staticmethod
     def get_alert_users(priority):
-        '''
+        """
         Identify Users who should be alerted for an event having the given priority.
 
         :param priority: an event priority or a list of event priority values.
         :return: A Users queryset.
-        '''
+        """
         if not isinstance(priority, (list, set)):
             priority = [priority, ]
 

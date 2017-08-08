@@ -2,13 +2,15 @@
 import logging
 
 from accounts.models import User
+from activity.alerts import AlertUtils
 from activity.models import Event
 from activity.views import EventView
-from activity.alerts import AlertUtils
-from das_server import celery, mailer, redis
+from django.conf import settings
+from das_server import celery, mailer
 from observations.views import SubjectView
-
 from rt_api.rest_api_interface.dummy_request import DummyRequest
+from utils import redis as redis_utils
+import redis
 
 logger = logging.getLogger(__name__)
 
@@ -68,13 +70,13 @@ def event_change_cooldown_period(event_id):
         child_events = Event.objects.filter(in_relationship__from_event=parent_event,
                                             in_relationship__type__value='contains')
 
-        cacher = redis.get_cache()
-        cacher['brand_new_id'] = 5
-        cacher.rpush(REFRESH_USER_KEY.format(parent_event.id), 'hello')
+        redis_client = redis.from_url(settings.CELERY_BROKER_URL)
+        parent_key = REFRESH_USER_KEY.format(parent_event.id)
+        redis_client.rpush(parent_key, 0)
         for child_event in child_events:
-            cacher.lpop(REFRESH_USER_KEY.format(child_event.id))
+            redis_client.delete(REFRESH_USER_KEY.format(child_event.id))
 
-        count = cacher.llen(REFRESH_USER_KEY.format(parent_event.id))
+        count = redis_client.llen(parent_key)
         notify_event.apply_async(
             args=(event_id, count), countdown=DELAY_PERIOD)
     except:
@@ -85,20 +87,20 @@ def event_change_cooldown_period(event_id):
 def notify_event(event_id, queue_len):
     logger.info('event mailer event_id: {}'.format(event_id))
 
-    cacher = redis.get_cache()
+    redis_client = redis.from_url(settings.CELERY_BROKER_URL)
     key = REFRESH_USER_KEY.format(event_id)
     lock_key = REFRESH_USER_LOCK_KEY.format(event_id)
-    count = cacher.llen(key)
+    count = redis_client.llen(key)
 
     if count and count == queue_len:
-        with redis.lock(cacher, lock_key, LOCK_TIMEOUT) as l:
+        with redis_utils.lock(redis_client, lock_key, LOCK_TIMEOUT) as l:
             if l and count and count == queue_len:
                 try:
                     logger.debug("sending alert for %s", event_id)
                     send_alerts_for_event.delay(args=event_id)
                     logger.debug("Finished sending alert for %s", event_id)
                 finally:
-                    cacher.ltrim(key, count, -1)
+                    redis_client.ltrim(key, count, -1)
 
 
 @celery.app.task()
@@ -119,32 +121,3 @@ def send_alerts_for_event(event_id):
     for user in user_list:
         celery.app.send_task(
             'das_server.tasks.send_user_event_notification', args=(user.username, event_id))
-
-
-# @celery.app.task()
-# def notify_update_event(event_id):
-#     logger.info('event mailer event_id: {}'.format(event_id))
-#     event = Event.objects.get(pk=event_id)
-#
-#     # If an event has a parent, skip this one and alert on the parent only.
-#     # That way we don't send out multiple alerts for one change
-#     if Event.objects.filter(out_relationship__to_event=event,
-#                             out_relationship__type__value='contains').exists():
-#         return
-#
-#     latest_revision = event.revision.all_user().order_by('sequence').last()
-#
-#     # Get all priorities this alert has ever had
-#     priorities = []
-#     revisions = list(iter(event.revision.all_user().order_by('sequence')))
-#     for revision in revisions:
-#         if 'priority' in revision.data:
-#             priorities.append(revision.data['priority'])
-#
-#     # Get alert user list based on priority history
-#     userlist = get_alert_users(priorities)
-#
-#     # Alert each user according to their contact preferences
-#     for user in userlist:
-#         celery.app.send_task('das_server.tasks.send_user_event_notification', args=(
-#             user.username, event_id, str(latest_revision.id)))

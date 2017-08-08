@@ -42,11 +42,3 @@ def lock(redis_client=None, key=None, timeout=60, blocking=False):
     finally:
         if lock_acquired:
             lock.release()
-
-
-def get_cache():
-    global shared_cache
-    if not shared_cache:
-        shared_cache = redis.Redis('localhost')
-
-    return shared_cache
