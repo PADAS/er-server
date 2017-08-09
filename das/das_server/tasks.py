@@ -59,28 +59,25 @@ def send_user_event_notification(username, event_id, revision_id=None):
 
 @celery.app.task()
 def event_change_cooldown_period(event_id):
-    try:
-        # Queue an update for the parent event and clear all updates for child
-        # events
-        changed_event = Event.objects.get(id=event_id)
-        parent_event = Event.objects.filter(
-            out_relationship__to_event=changed_event,
-            out_relationship__type__value='contains').first() or changed_event
+    # Queue an update for the parent event and clear all updates for child
+    # events
+    changed_event = Event.objects.get(id=event_id)
+    parent_event = Event.objects.filter(
+        out_relationship__to_event=changed_event,
+        out_relationship__type__value='contains').first() or changed_event
 
-        child_events = Event.objects.filter(in_relationship__from_event=parent_event,
-                                            in_relationship__type__value='contains')
+    child_events = Event.objects.filter(in_relationship__from_event=parent_event,
+                                        in_relationship__type__value='contains')
 
-        redis_client = redis.from_url(settings.CELERY_BROKER_URL)
-        parent_key = REFRESH_USER_KEY.format(parent_event.id)
-        redis_client.rpush(parent_key, 0)
-        for child_event in child_events:
-            redis_client.delete(REFRESH_USER_KEY.format(child_event.id))
+    redis_client = redis.from_url(settings.CELERY_BROKER_URL)
+    parent_key = REFRESH_USER_KEY.format(parent_event.id)
+    redis_client.rpush(parent_key, 0)
+    for child_event in child_events:
+        redis_client.delete(REFRESH_USER_KEY.format(child_event.id))
 
-        count = redis_client.llen(parent_key)
-        notify_event.apply_async(
-            args=(event_id, count), countdown=DELAY_PERIOD)
-    except:
-        pass
+    count = redis_client.llen(parent_key)
+    notify_event.apply_async(
+        args=(event_id, count), countdown=DELAY_PERIOD)
 
 
 @celery.app.task()
@@ -97,7 +94,7 @@ def notify_event(event_id, queue_len):
             if l and count and count == queue_len:
                 try:
                     logger.debug("sending alert for %s", event_id)
-                    send_alerts_for_event.delay(args=event_id)
+                    send_alerts_for_event.delay(event_id)
                     logger.debug("Finished sending alert for %s", event_id)
                 finally:
                     redis_client.ltrim(key, count, -1)
