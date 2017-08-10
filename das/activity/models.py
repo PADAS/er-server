@@ -618,13 +618,13 @@ class Event(RevisionMixin, TimestampedModel):
             parent.save(notify_parent_events=False)
 
     def save(self, *args, notify_parent_events=True, **kwargs):
-        '''
+        """
 
         :param args:
         :param notify_parent_events: whether to update 'parent' events (those that are collections and contain this event.)
         :param kwargs:
         :return:
-        '''
+        """
         self.full_clean()
         update_fields = kwargs.get('update_fields', [])
         save_fields = set()
