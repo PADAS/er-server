@@ -240,3 +240,8 @@ class SpoorAgeAdmin(admin.ModelAdmin):
 @admin.register(models.SpoorFootType)
 class SpoorFootTypeAdmin(admin.ModelAdmin):
     pass
+
+
+@admin.register(models.SnareAction)
+class SnareActionAdmin(admin.ModelAdmin):
+    pass

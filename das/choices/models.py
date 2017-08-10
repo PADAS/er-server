@@ -562,3 +562,13 @@ class SpoorFootType(models.Model):
     class Meta:
         verbose_name = _('SPOOR Foot Type')
         verbose_name_plural = _('SPOOR Foot Types')
+
+
+class SnareAction(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Snare Action')
+        verbose_name_plural = _('Snare Actions')
