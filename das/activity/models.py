@@ -673,6 +673,7 @@ class Event(RevisionMixin, TimestampedModel):
                     _('Invalid value for provenance {0} and reported_by fields'.format(self.provenance)), code='invalid')})
 
         self.message = clean_user_text(self.message, 'Event.message')
+        self.title = clean_user_text(self.title, 'Event.title')
 
     def get_display_value(self, field_name, value):
         field = self._meta.get_field(field_name)

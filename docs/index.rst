@@ -8,13 +8,39 @@ Welcome to the DAS API documentation!
 
 Contents:
 
+* :ref:`Overview`
+* :ref:`Development`
+* :ref:`API`
+
+.. _overview:
+
 .. toctree::
    :maxdepth: 2
+   :caption: Overview
+
+   das
+   changelog
+
+.. _development:
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Development
+
+   development
+   docker
+   documentation
+   confluence
+
+.. _api:
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API
 
    oauth2
    user
    region
-   changes
    realtime
 
 

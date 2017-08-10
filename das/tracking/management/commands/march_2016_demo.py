@@ -25,10 +25,13 @@ from tracking.pubsub_registry import notify_new_tracks
 
 
 def gen_random_rgb():
-    return ','.join([str(random.randint(50,200)) for i in range(3)])
+    return ','.join([str(random.randint(50, 200)) for i in range(3)])
 
-# For observations, animal and ranger movements, this is how far we'll go back to start.
-HISTORY_HOURS=24
+
+# For observations, animal and ranger movements, this is how far we'll go
+# back to start.
+HISTORY_HOURS = 24
+
 
 def delete_subject_analyzers():
     pass
@@ -61,19 +64,24 @@ def get_or_create_user(username='chrisd', email='chrisdo@vulcan.com', permission
 
 
 def varypoint(p):
-    return [p[0]+random.random()*0.01, p[1]+random.random()* 0.01]
+    return [p[0] + random.random() * 0.01, p[1] + random.random() * 0.01]
 
 
 def load_track_geojson(name):
-    filename = os.path.join(os.path.dirname(__file__), 'track_data/{0}.geojson'.format(name))
+    filename = os.path.join(os.path.dirname(__file__),
+                            'track_data/{0}.geojson'.format(name))
     with open(filename, 'r') as f:
         return json.load(f)
 
+
 group = None
+
+
 def create_actors():
     # (163, 'Permission to subscribe to an alert on this Subject.'),
     permission = Permission.objects.get(codename='subscribe_alerts')
-    permission_set = PermissionSet.objects.get_or_create(name='Demo PermissionSet')[0]
+    permission_set = PermissionSet.objects.get_or_create(
+        name='Demo PermissionSet')[0]
     permission_set.permissions.add(permission)
 
     users = (
@@ -85,8 +93,8 @@ def create_actors():
         get_or_create_user(username=username, email=email, permission_set=permission_set,
                            last_name=last_name, first_name=first_name)
 
-
-    Community.objects.get_or_create(id='9ec20ec8-516c-40bd-a4a3-9a2b49f5ea40', name='Informant')
+    Community.objects.get_or_create(
+        id='9ec20ec8-516c-40bd-a4a3-9a2b49f5ea40', name='Informant')
 
     global group
     group, created = SubjectGroup.objects.get_or_create(name='demo_group')
@@ -99,11 +107,13 @@ class DemoDriver():
         datetime(2015, 11, 1, tzinfo=pytz.utc),
         datetime(3030, 1, 1, tzinfo=pytz.utc)
     )
+
     def __init__(self, name=None, source_id=None, subject_id=None, group=None, **kwargs):
         self.source_id = source_id
         self.subject_id = subject_id
         self.name = name
-        self.manufacturer_id = kwargs.pop('manufacturer_id', name.lower().replace(' ', '_'))
+        self.manufacturer_id = kwargs.pop(
+            'manufacturer_id', name.lower().replace(' ', '_'))
         self.group = group
         self.subject_type = kwargs.pop('subject_type', 'person')
         self.subject_subtype = kwargs.pop('subject_subtype', 'ranger')
@@ -112,21 +122,22 @@ class DemoDriver():
     def hydrate(self):
         self.source = Source.objects.create(
             id=self.source_id,
-            additional = {},
+            additional={},
             manufacturer_id=self.manufacturer_id,
             model_name='Super model. The best money can buy!'
-            )
+        )
 
         subadd = {'rgb': gen_random_rgb()}
-        subadd.update(self.kwargs) # In case attributes includes species, sex, etc.
+        # In case attributes includes species, sex, etc.
+        subadd.update(self.kwargs)
 
         self.subject = Subject(
             id=self.subject_id,
-            name = self.name,
+            name=self.name,
             additional=subadd,
             subject_type=self.subject_type,
             subject_subtype=self.subject_subtype,
-            )
+        )
         self.source.save()
         self.subject.save()
         self.group.subjects.add(self.subject)
@@ -139,15 +150,14 @@ class DemoDriver():
         )
 
     # def create_analyzers(self):
-    # 
+    #
     #     PolygonFeature.objects.filter(name="TEAM SIX's Container").delete()
-    # 
+    #
     #     FeatureType.objects.filter(name="TEAM SIX's Geofence FeatureType").delete()
     #     line_feature = LineFeature.objects.filter(name__contains='Major highway - A2').first()
-    # 
+    #
     #     PolygonFeature.objects.filter(name="TEAM SIX's Proximity Feature").delete()
     #     # SpeedAnalyzer.objects.create(subject=self.subject, max_speed=10000000)
-
 
     def drive(self):
 
@@ -164,7 +174,7 @@ class DemoDriver():
             points = points['features'][0]['geometry']['coordinates']
             plist = [varypoint(p) for p in points]
             for i, point in enumerate(plist):
-                dt = timedelta(minutes=i*30)
+                dt = timedelta(minutes=i * 30)
                 t = t0 + dt
 
                 _ = Observation.objects.create(
@@ -173,13 +183,15 @@ class DemoDriver():
                     recorded_at=t,
                     additional={},
                 )
-                transaction.on_commit(lambda: notify_new_tracks(self.source.id))
+                transaction.on_commit(
+                    lambda: notify_new_tracks(self.source.id))
                 transaction.commit()
                 yield
 
     @staticmethod
     def get_time():
-        last_time = datetime.now(tz=pytz.UTC) - timedelta(hours=HISTORY_HOURS*2)
+        last_time = datetime.now(tz=pytz.UTC) - \
+            timedelta(hours=HISTORY_HOURS * 2)
         time_increment = timedelta(minutes=30)
         while True:
             last_time = last_time + time_increment
@@ -195,11 +207,13 @@ class DemoDriver():
         Observation.objects.filter(source_id=self.source_id).delete()
 
     def delete_events(self):
-        EventAttachment.objects.all().delete()
-        Event.objects.all().delete()
+        # EventAttachment.objects.all().delete()
+        # Event.objects.all().delete()
+        pass
 
     def delete_driven_events(self, time):
-        Event.objects.filter(event_time__gt=time).delete()
+        # Event.objects.filter(event_time__gt=time).delete()
+        pass
 
     def delete_analyzers(self):
         pass
@@ -216,7 +230,10 @@ class DemoDriver():
         self.hydrate()
         # self.create_analyzers()
 
+
 demodatafile = {}
+
+
 def read_demo_data(file=None):
 
     global demodatafile
@@ -239,6 +256,7 @@ def generate_events():
     demo_data = read_demo_data()
     yield from demo_data['events']
 
+
 def inject_random_events():
 
     times = DemoDriver.get_time()
@@ -246,6 +264,7 @@ def inject_random_events():
         for e in sorted(list(generate_events()), key=lambda x: random.random()):
             store_event(e, None, next(times))
             yield
+
 
 def add_demo_data(subject=None):
 
@@ -257,19 +276,22 @@ def add_demo_data(subject=None):
         for evt in generate_events():
             store_event(evt, subject, next(times))
 
+
 def store_event(evt, subject, t):
     title = evt.get('title', evt.get('message', ''))
     print(evt)
-    event = Event(message=evt['message'], title=evt['title'], event_type=EventType.objects.get(value=evt['event_type']))
+    event = Event(message=evt['message'], title=evt['title'],
+                  event_type=EventType.objects.get(value=evt['event_type']))
     event.event_time = t
     if evt.get('center', None):
         event.location = Point(*evt['center'])
 
-    for k,v in evt.items():
+    for k, v in evt.items():
         if k == 'event_type':
             continue
         if k == 'reported_by':
-            event.reported_by_content_type = ContentType.objects.get_by_natural_key(*v['content_type'].split('.'))
+            event.reported_by_content_type = ContentType.objects.get_by_natural_key(
+                *v['content_type'].split('.'))
             event.reported_by_id = v['id']
             continue
         if hasattr(event, k):
@@ -288,7 +310,8 @@ def import_geojson():
         name='Demo feature set name',
         description='Demo feature set description'
     )
-    data_pattern = os.path.join(os.path.dirname(__file__), 'march_2016_demo_data/*.geojson')
+    data_pattern = os.path.join(os.path.dirname(
+        __file__), 'march_2016_demo_data/*.geojson')
 
     for data_file in glob.glob(data_pattern):
         with open(data_file) as f:
@@ -346,6 +369,7 @@ def import_geojson():
                         featureset=feature_set
                     )
 
+
 class Command(BaseCommand):
 
     help = 'Run the March 2016 demo track'
@@ -359,10 +383,9 @@ class Command(BaseCommand):
             help='Number of seconds to wait between updates. Default is 0, meaning wait for keyboard input.',
         )
 
-
     def handle(self, *args, **options):
 
-        #import_geojson()
+        # import_geojson()
 
         interval = int(options['interval'])
 
@@ -372,7 +395,6 @@ class Command(BaseCommand):
             driver = DemoDriver(group=group, **sub)
             driver.ignition()
             drivers.append(driver)
-
 
         # We have some canned events that are associated with the first RADIO.
         add_demo_data(subject=drivers[0].subject)

@@ -15,6 +15,9 @@
 import sys
 import os
 
+from recommonmark.parser import CommonMarkParser
+from recommonmark.transform import AutoStructify
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -25,6 +28,10 @@ sys.path.insert(0, src_dir)
 sys.path.append(os.path.abspath('.'))
 
 # -- General configuration ------------------------------------------------
+source_parsers = {
+    '.md': CommonMarkParser,
+}
+
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #needs_sphinx = '1.0'
@@ -32,14 +39,15 @@ sys.path.append(os.path.abspath('.'))
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinxcontrib.httpdomain', 'sphinx.ext.autodoc',
+extensions = ['sphinxcontrib.httpdomain',
+              'sphinx.ext.autodoc',
               'pygsonsetup']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = ['.rst', '.md']
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -187,22 +195,22 @@ htmlhelp_basename = 'DASdoc'
 # -- Options for LaTeX output ---------------------------------------------
 
 latex_elements = {
-# The paper size ('letterpaper' or 'a4paper').
-#'papersize': 'letterpaper',
+    # The paper size ('letterpaper' or 'a4paper').
+    #'papersize': 'letterpaper',
 
-# The font size ('10pt', '11pt' or '12pt').
-#'pointsize': '10pt',
+    # The font size ('10pt', '11pt' or '12pt').
+    #'pointsize': '10pt',
 
-# Additional stuff for the LaTeX preamble.
-#'preamble': '',
+    # Additional stuff for the LaTeX preamble.
+    #'preamble': '',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'DAS.tex', u'DAS Documentation',
-   u'Vulcan Inc', 'manual'),
+    ('index', 'DAS.tex', u'DAS Documentation',
+     u'Vulcan Inc', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -245,9 +253,9 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'DAS', u'DAS Documentation',
-   u'Vulcan Inc', 'DAS', 'One line description of project.',
-   'Miscellaneous'),
+    ('index', 'DAS', u'DAS Documentation',
+     u'Vulcan Inc', 'DAS', 'One line description of project.',
+     'Miscellaneous'),
 ]
 
 # Documents to append as an appendix to all manuals.
@@ -262,3 +270,14 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
 
+# app setup hook
+
+
+def setup(app):
+    app.add_config_value('recommonmark_config', {
+        #'url_resolver': lambda url: github_doc_root + url,
+        'auto_toc_tree_section': 'Contents',
+        'enable_eval_rst': True,
+        'enable_auto_doc_ref': True,
+    }, True)
+    app.add_transform(AutoStructify)
