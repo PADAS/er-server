@@ -270,6 +270,76 @@ To list the running apps
 
 The command to view the current
 
+##### Passing arguments into pipelines (such as passwords or other sensitive data) #####
+
+SS's infrastructure will create a docker container based on the configuration files you generate as described in this document. Sometimes however, you will not be able to or want to specify certain pieces of information in your configuration. For example, you might have sensitive information like a password you'd like to provide when creating the container, but not leave the password in the config file on github.
+
+Let's walk through a scenario where we'd like to supply a password for an SMTP email service. This password should be provided when the contaner is created, but never in a file that will be on github. When the container is created, the password should be stored in an environment variable called EMAIL-PASSWORD
+
+In this case, we want the API container to cointain the environment variable, so let's edit deployment/api-deployment.yaml
+
+~~~~~~
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: api
+    spec:
+      imagePullSecrets:
+        - name: gcr-secret
+      containers:
+      - image: gcr.io/padas-app/api:${GIT_SERVER_SHA}
+        name: das-api
+        ports:
+          - containerPort: 8000
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: DB_PORT
+        - name: EMAIL_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: EMAIL_PASSWORD
+
+~~~~~~
+
+You can see the list of environment variables that will be created includes DB_HOST, DB_PORT, and EMAIL_PASSWORD. Obviously, EMAIL_PASSWORD is the important bit here. This specifies that the variable's value will come from the config map. So let's look at that next...
+
+ci/demo.params.yaml is an example of a parameters file:
+
+~~~~~~
+
+project-id: padas-app
+cluster-name: demo
+server-branch-name: demo
+web-branch-name: develop
+
+~~~~~~
+
+It contains a simple set of key-value pairs that correspond to the variables used in the concourse pipeline and container container specification. Note that it doesn't contain email password! This is generally where we'd put things that change from pipeline to pipeline, but this file will get checked into github, so we can't put the password in here. Instead, we will just specify it on the command line when creating the pipeline
+
+~~~~~~
+
+./set.pipeline.sh demo -v email-password=h@rdT0gu3S5
+
+~~~~~~
+
+Here we're telling set.pipeline to use the demo params, and passing in an extra parameter not specified in the params file: the email password
+
+
 ### Developing in a Dockerized Environment FAQ
 
 __How do I remote into an image running on a GCP kubernetes cluster?__
@@ -296,17 +366,7 @@ This will give you a link to open in your favorite web browser which will prompt
 
 ~~~~~~~
 root@69c7d34860a5:/# gcloud config set project padas-app
-~~~~~~~
-
-
-
-~~~~~~~
 root@69c7d34860a5:/# gcloud config set compute/zone us-west1-a
-~~~~~~~
-
-
-
-~~~~~~~
 root@69c7d34860a5:/# gcloud container clusters get-credentials integration
 ~~~~~~~
 
@@ -315,57 +375,17 @@ Now your environment is configured and ready to start doing stuff\. Take a look 
 
 
 ~~~~~~~
-root@69c7d34860a5:/# kubectl get pods
-~~~~~~~
+``root@69c7d34860a5:/# kubectl get pods``
 
-
-
-~~~~~~~
 NAME                      READY     STATUS    RESTARTS   AGE
-~~~~~~~
-
-
-~~~~~~~
 api-4041812951-2dmmx      1/1       Running   0          18h
-~~~~~~~
-
-
-~~~~~~~
 beat-1939016954-mrrxv     1/1       Running   0          18h
-~~~~~~~
-
-
-~~~~~~~
 mql-1451428868-ch3q8      1/1       Running   0          18h
-~~~~~~~
-
-
-~~~~~~~
 nginx-2615626993-frxtz    1/1       Running   0          2d
-~~~~~~~
-
-
-~~~~~~~
 postgis-0                 1/1       Running   0          5d
-~~~~~~~
-
-
-~~~~~~~
 redis-472649242-rk447     1/1       Running   0          5d
-~~~~~~~
-
-
-~~~~~~~
 rt-api-869413010-cl8d6    1/1       Running   0          18h
-~~~~~~~
-
-
-~~~~~~~
 web-415869906-2d9hr       1/1       Running   0          23h
-~~~~~~~
-
-
-~~~~~~~
 worker-1000738804-mc9s1   1/1       Running   0          18h
 ~~~~~~~
 
@@ -378,4 +398,6 @@ root@69c7d34860a5:/# kubectl exec -it api-4041812951-2dmmx -- bash
 ~~~~~~~
 
 Now you have a bash terminal in the API server\. Have fun\!
+
+
 
