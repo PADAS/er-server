@@ -5,6 +5,7 @@ from django.db.models.fields import BLANK_CHOICE_DASH
 from django.utils.functional import lazy, curry
 from django.utils.translation import ugettext_lazy as _
 
+
 class ChoiceQuerySet(models.QuerySet):
     def get_choices_for_field(self, model, field):
         result = self.get_choices(model, field)
@@ -23,7 +24,8 @@ class ChoiceQuerySet(models.QuerySet):
 
     def get_filtered_choices(self, parent_model, parent_field, parent_value):
         """after calling get_choices(), filter choices by parent values"""
-        parent = self.all().get_choices(parent_model, parent_field).filter(value=parent_value)
+        parent = self.all().get_choices(
+            parent_model, parent_field).filter(value=parent_value)
         return self.filter(sub_choice_of=parent)
 
 
@@ -34,6 +36,7 @@ class DynamicChoice(models.Model):
     value_col = models.CharField(max_length=100, verbose_name='Value column')
     display_col = models.CharField(max_length=100,
                                    verbose_name='Display column')
+
 
 class Choice(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -46,11 +49,13 @@ class Choice(models.Model):
                                            symmetrical=False)
 
     objects = ChoiceQuerySet.as_manager()
+
     class Meta:
         unique_together = (('model', 'field', 'value'),)
 
     def __str__(self):
         return ', '.join((self.model, self.field, self.value, self.display))
+
 
 class ChoiceCharField(models.CharField):
     """Choices are stored in a Choice database table."""
@@ -95,7 +100,7 @@ class ChoiceCharField(models.CharField):
         return errors
 
     def _check_choices(self):
-        #override to avoid validation of DB data
+        # override to avoid validation of DB data
         return []
 
     def _check_filter_field_attribute(self, **kwargs):
@@ -142,7 +147,7 @@ class ChoiceCharField(models.CharField):
             choices = [(k, v) for k, v in choices.items()]
 
         first_choice = (blank_choice if include_blank and
-                                        not blank_defined else [])
+                        not blank_defined else [])
         return first_choice + list(choices)
 
     def validate(self, value, model_instance):
@@ -385,65 +390,78 @@ class ActionTaken(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+
 class Conservancy(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
 
 class Behavior(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+
 class Color(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
 
 class Health(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+
 class FenceSection(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
 
 class Team(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+
 class PoachingMean(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
 
 class Tribe(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+
 class IllegalActivity(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
 
 class Livestock(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+
 class ContactType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+
 class WildlifeGap(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
 
 class IncidentStatus(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -454,6 +472,7 @@ class IncidentStatus(models.Model):
         verbose_name = _('Incident Status')
         verbose_name_plural = _('Incident Statuses')
 
+
 class Nationality(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
@@ -463,6 +482,7 @@ class Nationality(models.Model):
         verbose_name = _('Nationality')
         verbose_name_plural = _('Nationalities')
 
+
 class Village(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
@@ -471,6 +491,7 @@ class Village(models.Model):
     class Meta:
         verbose_name = _('Village')
         verbose_name_plural = _('Villages')
+
 
 class ArrestViolation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -482,4 +503,62 @@ class ArrestViolation(models.Model):
         verbose_name_plural = _('Arrest Violations')
 
 
+# Liwonde specific tables
+class AnimalCondition(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Animal Condition')
+        verbose_name_plural = _('Animal Conditions')
+
+
+class ArrestNationality(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Arrest Nationality')
+        verbose_name_plural = _('Arrest Nationalities')
+
+
+class ReasonForArrest(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Reason for Arrest')
+        verbose_name_plural = _('Reasons for Arrest')
+
+
+class ArrestVillageName(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Arrest Village Name')
+        verbose_name_plural = _('Arrest Village Names')
+
+
+class SpoorAge(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('SPOOR Age')
+        verbose_name_plural = _('SPOOR Ages')
+
+
+class SpoorFootType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('SPOOR Foot Type')
+        verbose_name_plural = _('SPOOR Foot Types')
