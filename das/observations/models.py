@@ -928,6 +928,8 @@ class SubjectStatusManager(models.Manager):
                                              subjectsource__assigned_range__contains=observation.recorded_at).first()
         except Subject.DoesNotExist:
             return
+        if not subject:
+            return
 
         substatus, created = SubjectStatus.objects.get_or_create(subject=subject, delay_hours=delay_hours,
                                                                  defaults=dict(recorded_at=observation.recorded_at,
