@@ -9,7 +9,7 @@ Base objects for Analyzer code.
 
 class SubjectAnalyzer:
 
-    def __init__(self, subject, config):
+    def __init__(self, subject=None, config=None):
         self.config = config
         self.subject = subject
 

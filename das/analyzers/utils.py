@@ -64,7 +64,7 @@ def save_analyzer_event(event_data):
     request = HttpRequest()
     request.user = get_system_user()
     ser = EventSerializer(data=event_data,
-                          context={ 'request': request})
+                          context={'request': request})
 
     if ser.is_valid():
         return ser.create(ser.validated_data)

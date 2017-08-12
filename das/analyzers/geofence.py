@@ -11,6 +11,7 @@ from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.base import SubjectAnalyzer
 import logging
+from osgeo import ogr
 logger = logging.getLogger(__name__)
 
 
@@ -22,7 +23,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
      """
 
     def __init__(self, subject=None, config=None):
-        SubjectAnalyzer.__init__(subject=subject, config=config)
+        SubjectAnalyzer.__init__(self, subject=subject, config=config)
         self.logger = logging.getLogger(__name__)
 
     @classmethod
@@ -32,21 +33,22 @@ class GeofenceAnalyzer(SubjectAnalyzer):
 
     ''' Hydrate GeofenceAnalysisParams'''
     def _create_geofence_analysis_param(self):
-
+        #logger.info('Creating Geofence Anlaysis Params')
         gfs, crs = [], []
 
         # Get the SpatialFeatureGroupStatic containing the fences
         if self.config.geofences is not None:
-            fs = self.config.geofences.get().features.all()
+            fs = self.config.geofences.features.all()
             for feat in fs:
-                if feat.type == 'Geofence_Primary':
-                    vf = pymet.geofence.Geofence(ogr_geometry=feat.feature_geometry,
+                if feat.feature_type.name == 'Geofence_Primary':
+                    print('Geofence GeoType:', type(feat.feature_geometry))
+                    vf = pymet.geofence.Geofence(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
                                                  fence_name=feat.name,
                                                  unique_id=feat.id,
                                                  warn_level='CRITICAL')
                     gfs.append(vf)
-                elif feat.type == 'Geofence_Warning':
-                    vf = pymet.geofence.Geofence(ogr_geometry=feat.feature_geometry,
+                elif feat.feature_type.name == 'Geofence_Warning':
+                    vf = pymet.geofence.Geofence(ogr_geometry=ogr.CreateGeometryFromWkt(wkt=feat.feature_geometry.wkt),
                                                  fence_name=feat.name,
                                                  unique_id=feat.id,
                                                  warn_level='WARNING')
@@ -54,9 +56,10 @@ class GeofenceAnalyzer(SubjectAnalyzer):
 
         # Get the SpatialFeatureGroupStatic containing the containment regions
         if self.config.containment_regions is not None:
-            rgns = self.config.containment_regions.get().features.all()
+            rgns = self.config.containment_regions.features.all()
             for feat in rgns:
-                cr = pymet.base.Region(ogr_geometry=feat.feature_geometry,
+                print('ContaianRegion Geo Type:', type(feat.feature_geometry))
+                cr = pymet.base.Region(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
                                        region_name=feat.name,
                                        unique_id=feat.id)
                 crs.append(cr)
@@ -69,6 +72,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         determine where/when the polylines were crossed and what the containment of the individual was before and
         after any geofence crossings
         """
+        #logger.info('Geofencing analyzing trajectory')
 
         # Check to see if we have data that spans the threshold time otherwise impossible to calculate
         if timedelta(seconds=traj.relocs.timespan_seconds) < timedelta(seconds=self.config.threshold_time):
@@ -149,7 +153,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                 message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='geofence',
+                event_type='analyzer_geofence',
                 priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
                 event_details=this_result.values,
