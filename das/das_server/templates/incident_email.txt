@@ -2,7 +2,7 @@ DAS {{id}}: {{title}}
 Priority: {{color}}
 
 {% for field in fields %} {{field}}
-{% endfor %}{% if children|length > 1 %}
+{% endfor %}{% if children|length >= 1 %}
 
  - Contained Reports:
 {% for child in children %}

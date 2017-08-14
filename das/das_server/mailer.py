@@ -106,11 +106,10 @@ def extract_event_data(event, user, revision):
         'priority': priority_str,
         'fields': schema_fields_and_values + model_fields_and_values,
         'children': child_event_data,
-
     }
 
 
-def send_event_mail(event, user, revision, email_callback):
+def send_event_mail(event, user, revision):
     alert_target = Event.objects.filter(
         out_relationship__to_event=event,
         out_relationship__type__value='contains').first() or event
@@ -124,7 +123,8 @@ def send_event_mail(event, user, revision, email_callback):
 
     body = render_to_string(_('incident_email.txt'), data)
     logger.info('emailing {} from {}'.format(user.email, settings.FROM_EMAIL))
-    email_callback(subject, body, settings.FROM_EMAIL)
+
+    user.email_user(subject, body, settings.FROM_EMAIL)
 
 
 def send_new_event_sms(event, user):
