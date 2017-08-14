@@ -159,8 +159,8 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                 event_details=this_result.values,
             )
 
-        if event_data:
-            return save_analyzer_event(event_data)
+        # if event_data:
+        #     return save_analyzer_event(event_data)
 
     """Original code from Joseph which I think can be deprecated"""
     """

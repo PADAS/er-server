@@ -5,19 +5,18 @@ from analyzers.geofence import GeofenceAnalyzer
 # Use python unit test here to persist results in test DB
 from unittest import TestCase
 from django.core import management
-logger = logging.getLogger(__name__)
-
-
 from .geofence_test_data import *
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, Observation, DEFAULT_ASSIGNED_RANGE
 from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
 from .analyzer_test_utils import *
 from analyzers.tasks import analyze_subject
+from activity.models import Event, EventCategory, EventType
+logger = logging.getLogger(__name__)
 
 
 class TestGeofenceAnalyzer(TestCase):
 
-    fixtures = ['analyzer_eventtype.yaml', ]
+    #fixtures = ['analyzer_eventtype.yaml', ]
 
     def setUp(self):
 
@@ -26,6 +25,15 @@ class TestGeofenceAnalyzer(TestCase):
                                 './analyzers/fixtures/lines.geojson',
                                 './analyzers/fixtures/polygons.geojson',
                                 '--feature-types=./analyzers/fixtures/spatial_feature_types.geojson')
+
+        ec, created = EventCategory.objects.get_or_create(value='analyzer_event',
+                                                                          defaults=dict(display='Analyzer Events'))
+
+        EventType.objects.get_or_create(value='analyzer_geofence', category=ec,
+                                                        defaults=dict(
+                                                            display='Geofence Analyzer'
+                                                        ))
+
 
     def test_geofence_integration(self):
         """ Test the functioning of the geofence algorithm logic"""
@@ -85,5 +93,10 @@ class TestGeofenceAnalyzer(TestCase):
         # Todo: not sure how to get results specific to this subject?
         results = SubjectAnalyzerResult.objects.all()
         logger.info('There were %s geofence breaks' % len(results))
-        # assert(len(results)>0)
-        assert (True)
+
+        for e in Event.objects.all():
+            self.assertTrue(e.event_details.all().exists())
+
+        for e in Event.objects.all():
+            for ed in e.event_details.all():
+                print('Event Details: %s' % ed.data)
