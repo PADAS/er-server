@@ -1,0 +1,104 @@
+import pytz
+from datetime import datetime, timedelta
+import random
+
+from django.contrib.gis.db import models
+from django.contrib.gis.geos import Point
+from django.test import TestCase
+
+from analyzers.models import EnvironmentalSubjectAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
+from observations import models
+from activity.models import Event, EventType, EventCategory
+from analyzers.tasks import analyze_subject
+import analyzers.exceptions
+
+import activity.models
+
+
+def generate_random_positions(start_time=None, x=37.5, y=0.56, ts_days=1):  # Samburu
+    recorded_at = start_time or pytz.utc.localize(datetime.utcnow())
+
+    while (pytz.utc.localize(datetime.utcnow()) - recorded_at).days < ts_days:
+        yield recorded_at, Point(x=x, y=y)
+        x += (random.random() - 0.5) / 10000
+        y += (random.random() - 0.5) / 10000
+        recorded_at = recorded_at - timedelta(minutes=30)
+
+
+class TestEnvironmentAnalyzer(TestCase):
+
+    fixtures = ['initial_eventtype.yaml', 'analyzer_eventtype.yaml', ]
+
+    def setUp(self):
+
+        ec, created = activity.models.EventCategory.objects.get_or_create(value='analyzer_event',
+                                                                          defaults=dict(display='Analyzer Events'))
+
+        activity.models.EventType.objects.get_or_create(value='environmental_value', category=ec,
+                                                        defaults=dict(
+                                                            display='Environmental Value'
+                                                        ))
+        activity.models.EventType.objects.get_or_create(value='environmental_all_clear', category=ec,
+                                                        defaults=dict(
+                                                            display='Environmental All Clear'
+                                                        ))
+
+    def test_integration_environmental_analyzer(self):
+
+        # Grab random observations
+        test_observations = [x for x in generate_random_positions()]
+
+        # Create models (Subject, SubjectSource and Source)
+        sub = models.Subject.objects.create(name='RandomWalkElephant', subject_type='wildlife',
+                                            subject_subtype='elephant')
+
+        source = models.Source.objects.create(manufacturer_id='random-collar')
+
+        models.SubjectSource.objects.create(
+            subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+
+        sg = models.SubjectGroup.objects.create(
+            name='environmental_analyzer_group',)
+        sg.subjects.add(sub)
+        sg.save()
+
+        # Setup the event types and category
+        ec, created = EventCategory.objects.get_or_create(value='analyzer_event',
+                                                          defaults=dict(display='Analyzer Events'))
+
+        EventType.objects.get_or_create(value='environmental_value', category=ec,
+                                        defaults=dict(
+                                            display='Environmental Value'
+                                        ))
+        EventType.objects.get_or_create(value='environmental_all_clear', category=ec,
+                                        defaults=dict(
+                                            display='Environmental All Clear'
+                                        ))
+
+        ia = EnvironmentalSubjectAnalyzerConfig.objects.create(subject_group=sg,
+                                                               search_time_hours=5.0,
+                                                               threshold_value=10.0,  # use a low elevation
+                                                               scale_meters=500.0,
+                                                               GEE_img_name='USGS/SRTMGL1_003',
+                                                               GEE_img_band_name='elevation',
+                                                               short_description='Elevation')
+
+        # Create observations in database, so the Analyzer will find them.
+        for item in test_observations:
+            recorded_at = item[0]
+            location = item[1]
+            obs = models.Observation.objects.create(recorded_at=recorded_at,
+                                                    location=location,
+                                                    source=source, additional={})
+
+        analyze_subject(str(sub.id))
+
+        self.assertTrue(
+            SubjectAnalyzerResult.objects.filter(subject=sub).exists())
+
+        for e in Event.objects.all():
+            self.assertTrue(e.event_details.all().exists())
+
+        for e in Event.objects.all():
+            for ed in e.event_details.all():
+                print('Event Details: %s' % ed.data)
