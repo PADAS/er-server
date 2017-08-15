@@ -1,9 +1,8 @@
 from django.contrib.gis.db import models
 from django.test import TestCase
 
-from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
+from analyzers.models import ImmobilityAnalyzerConfig, OK
 from analyzers.immobility import ImmobilityAnalyzer
-from observations import models
 from activity.models import Event
 from .immobility_test_data import *
 from analyzers.tasks import analyze_subject
@@ -13,11 +12,9 @@ from .analyzer_test_utils import *
 
 class TestImmobilityAnalyzer(TestCase):
 
-    # fixtures = ['initial_eventtype.yaml', 'analyzer_eventtype.yaml']
+    fixtures = ['analyzer_eventtype.yaml', ]
 
     def setUp(self):
-        # Create one 'OK' record in the db
-        #SubjectAnalyzerResult(level=OK).save()
         pass
 
     def test_immobility_with_moving_observations_list(self):
@@ -26,15 +23,6 @@ class TestImmobilityAnalyzer(TestCase):
 
         # parse recorded_at (from string to datetime).
         test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE]
-
-        def generate_observations(observations):
-            for item in time_shift(observations):
-
-                recorded_at = item['recorded_at']
-                location = Point(x=item['longitude'], y=item['latitude'])
-                obs = models.Observation(recorded_at=recorded_at, location=location)
-                yield obs
-
         test_observations = list(generate_observations(test_observations))
 
         for count in range(21, 10, -1):
@@ -95,17 +83,8 @@ class TestImmobilityAnalyzer(TestCase):
         print('Analyzing: ', 'Ishango')
         test_subject = models.Subject(name='Ishango')
 
-        # parse recorded_at (from string to datetime)
-        test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE2]
-
-        def generate_observations(observations):
-            for item in observations:
-                recorded_at = item['recorded_at']
-                location = Point(x=item['longitude'], y=item['latitude'])
-                obs = models.Observation(recorded_at=recorded_at, location=location)
-                yield obs
-
         # Grab prepared observation list from test data.
+        test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE2]
         test_observations = list(generate_observations(test_observations))
 
         for i in range(1, len(test_observations)):

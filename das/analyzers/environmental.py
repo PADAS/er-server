@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 import logging
 import pymet.base
 import pymet.eetools
@@ -9,18 +7,11 @@ from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.utils.translation import ugettext_lazy as _
 
 from analyzers.utils import save_analyzer_event
-from observations.models import SubjectTrackSegmentFilter
-from activity.models import Event, EventType
+from activity.models import Event
 from analyzers.models import EnvironmentalSubjectAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
-
+from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.base import SubjectAnalyzer
-
-EVENT_PRIORITY_MAP = {
-    CRITICAL: Event.PRI_URGENT,
-    WARNING: Event.PRI_IMPORTANT,
-    OK: Event.PRI_REFERENCE,
-}
 
 
 class EnvironmentalAnalyzer(SubjectAnalyzer):
@@ -30,56 +21,23 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
     """
 
     def __init__(self, subject, config):
+        SubjectAnalyzer.__init__(self, subject=subject, config=config)
         self.logger = logging.getLogger(__name__)
-        self.config = config
-        self.subject = subject
 
     @classmethod
     def get_subject_analyzers(cls, subject):
         for ac in EnvironmentalSubjectAnalyzerConfig.objects.filter(subject_group__subjects=subject):
             yield cls(subject=subject, config=ac)
 
-    def default_observations(self):
-        '''
-        Default set of observation is fetched from the database, based on this analyzer's configuration.
-        :return: a queryset of Observations
-        '''
-        return self.subject.observations(last_hours=self.config.search_time_hours)
-
-    def default_trajectory_filter(self):
-        # Get trajectory filter based on subject. Might not exist.
-        try:
-            return SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
-        except SubjectTrackSegmentFilter.DoesNotExist:
-            pass
-
-    # def analyze(self, observations=None, trajectory_filter=None, last_result=None):
-    #
-    #     # Get default observations list if one isn't provided
-    #     observations = observations or self.default_observations()
-    #
-    #     # Use default trajectory_filter if one isn't provided
-    #     trajectory_filter = trajectory_filter or self.default_trajectory_filter()
-    #
-    #     # Create Trajectory which is the input to the analysis.
-    #     trajectory = self._create_trajectory(observations=observations, trajectory_filter_params=trajectory_filter)
-    #     result = self.analyze_trajectory(trajectory)
-    #
-    #     self.save_analyzer_result(last_result=last_result, this_result=result)
-    #     this_event = self.create_analyzer_event(last_result=last_result, this_result=result)
-    #
-    #     return result, this_event
-
-    def analyze_trajectory(self, traj):
+    def analyze_trajectory(self, traj=None):
         """
         TODO: Add description.
 
         """
 
-        # Get the relocation fixes in descending order
         fixes = traj.relocs.get_fixes('DESC')
 
-        # Check to see if we have at least some data within the search time
+         # Check to see if we have at least some data within the search time
         if len(fixes) == 0:
             raise InsufficientDataAnalyzerException
 

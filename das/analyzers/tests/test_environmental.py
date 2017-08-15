@@ -1,47 +1,33 @@
-import pytz
-from datetime import datetime, timedelta
-import random
-
 from django.contrib.gis.db import models
-from django.contrib.gis.geos import Point
 from django.test import TestCase
-
 from analyzers.models import EnvironmentalSubjectAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
 from observations import models
 from activity.models import Event, EventType, EventCategory
 from analyzers.tasks import analyze_subject
-import analyzers.exceptions
+from .analyzer_test_utils import generate_random_positions
 
 import activity.models
 
 
-def generate_random_positions(start_time=None, x=37.5, y=0.56, ts_days=1):  # Samburu
-    recorded_at = start_time or pytz.utc.localize(datetime.utcnow())
-
-    while (pytz.utc.localize(datetime.utcnow()) - recorded_at).days < ts_days:
-        yield recorded_at, Point(x=x, y=y)
-        x += (random.random() - 0.5) / 10000
-        y += (random.random() - 0.5) / 10000
-        recorded_at = recorded_at - timedelta(minutes=30)
-
-
 class TestEnvironmentAnalyzer(TestCase):
 
-    fixtures = ['initial_eventtype.yaml', 'analyzer_eventtype.yaml', ]
+    fixtures = ['analyzer_eventtype.yaml', ]
 
     def setUp(self):
 
-        ec, created = activity.models.EventCategory.objects.get_or_create(value='analyzer_event',
-                                                                          defaults=dict(display='Analyzer Events'))
-
-        activity.models.EventType.objects.get_or_create(value='environmental_value', category=ec,
-                                                        defaults=dict(
-                                                            display='Environmental Value'
-                                                        ))
-        activity.models.EventType.objects.get_or_create(value='environmental_all_clear', category=ec,
-                                                        defaults=dict(
-                                                            display='Environmental All Clear'
-                                                        ))
+        # ec, created = activity.models.EventCategory.objects.get_or_create(
+        #      value='analyzer_event', defaults=dict(display='Analyzer Events'))
+        #
+        # activity.models.EventType.objects.get_or_create(value='environmental_value', category=ec,
+        #                                                 defaults=dict(
+        #                                                     display='Environmental Value',
+        #                                                     is_collection=False, ))
+        #
+        # activity.models.EventType.objects.get_or_create(value='environmental_all_clear', category=ec,
+        #                                                 defaults=dict(
+        #                                                     display='Environmental All Clear',
+        #                                                     is_collection=False, ))
+        pass
 
     def test_integration_environmental_analyzer(self):
 
@@ -62,20 +48,7 @@ class TestEnvironmentAnalyzer(TestCase):
         sg.subjects.add(sub)
         sg.save()
 
-        # Setup the event types and category
-        ec, created = EventCategory.objects.get_or_create(value='analyzer_event',
-                                                          defaults=dict(display='Analyzer Events'))
-
-        EventType.objects.get_or_create(value='environmental_value', category=ec,
-                                        defaults=dict(
-                                            display='Environmental Value'
-                                        ))
-        EventType.objects.get_or_create(value='environmental_all_clear', category=ec,
-                                        defaults=dict(
-                                            display='Environmental All Clear'
-                                        ))
-
-        ia = EnvironmentalSubjectAnalyzerConfig.objects.create(subject_group=sg,
+        EnvironmentalSubjectAnalyzerConfig.objects.create(subject_group=sg,
                                                                search_time_hours=5.0,
                                                                threshold_value=10.0,  # use a low elevation
                                                                scale_meters=500.0,
@@ -87,9 +60,10 @@ class TestEnvironmentAnalyzer(TestCase):
         for item in test_observations:
             recorded_at = item[0]
             location = item[1]
-            obs = models.Observation.objects.create(recorded_at=recorded_at,
-                                                    location=location,
-                                                    source=source, additional={})
+            models.Observation.objects.create(
+                recorded_at=recorded_at,
+                location=location,
+                source=source, additional={})
 
         analyze_subject(str(sub.id))
 

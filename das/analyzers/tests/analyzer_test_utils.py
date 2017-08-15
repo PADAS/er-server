@@ -6,6 +6,7 @@ import copy
 import random
 from analyzers.utils import typify
 from django.contrib.gis.geos import Point
+from observations import models
 
 # Function to apply to plain/JSON observations to convert recorded_at to datetime.
 parse_recorded_at = partial(typify, dict(recorded_at=dp.parse))
@@ -38,11 +39,21 @@ def time_shift(items, time_key='recorded_at', start_time=None):
         yield new_item
 
 
-def generate_random_positions(start_time=None, x=37.5, y=1.41):
-    recorded_at = start_time or pytz.utc.localize(datetime.utcnow()) - timedelta(hours=24)
+def generate_random_positions(start_time=None, x=37.5, y=0.56, ts_days=1):  # Samburu
+    recorded_at = start_time or pytz.utc.localize(datetime.utcnow())
 
-    while True:
+    while (pytz.utc.localize(datetime.utcnow()) - recorded_at).days < ts_days:
         yield recorded_at, Point(x=x, y=y)
-        x += (random.random() - 0.5)/10000
-        y += (random.random() - 0.5)/10000
-        recorded_at = recorded_at + timedelta(minutes=30)
+        x += (random.random() - 0.5) / 10000
+        y += (random.random() - 0.5) / 10000
+        recorded_at = recorded_at - timedelta(minutes=30)
+
+
+def generate_observations(observations):
+    for item in time_shift(observations):
+        recorded_at = item['recorded_at']
+        location = Point(x=item['longitude'], y=item['latitude'])
+        obs = models.Observation(recorded_at=recorded_at, location=location)
+        yield obs
+
+

@@ -1,6 +1,5 @@
 import logging
 from analyzers.models import SubjectAnalyzerResult, GeofenceAnalyzerConfig
-from analyzers.geofence import GeofenceAnalyzer
 #from django.test import TestCase
 # Use python unit test here to persist results in test DB
 from unittest import TestCase
@@ -11,12 +10,55 @@ from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
 from .analyzer_test_utils import *
 from analyzers.tasks import analyze_subject
 from activity.models import Event, EventCategory, EventType
+import json
+import yaml
+
 logger = logging.getLogger(__name__)
 
 
 class TestGeofenceAnalyzer(TestCase):
 
-    #fixtures = ['analyzer_eventtype.yaml', ]
+    # fixtures = ['analyzer_eventtype.yaml', ]
+
+    @classmethod
+    def event_schema_json(cls):
+        schema_yaml = '''
+            schema:
+              $schema: http://json-schema.org/draft-04/schema#
+              definition:
+              - name
+              - details
+              - geofence_name
+              - contain_regions
+              - subject_speed_kmhr
+              - subject_heading
+              - total_fix_count
+              properties:
+                name:
+                  title: Name of subject
+                  type: string
+                details:
+                  title: Details
+                  type: string
+                geofence_name:
+                  title: Geofence Name
+                  type: string
+                contain_regions:
+                  title: Current Region
+                  type: string
+                subject_speed_kmhr:
+                  title: Subject Speed
+                  type: number
+                subject_heading:
+                  title: Subject Heading
+                  type: number
+                total_fix_count:
+                  title: Total Fix Count
+                  type: number
+              title: EventType Geofencing
+              type: object
+            '''
+        return json.dumps(yaml.load(schema_yaml))
 
     def setUp(self):
 
@@ -26,14 +68,13 @@ class TestGeofenceAnalyzer(TestCase):
                                 './analyzers/fixtures/polygons.geojson',
                                 '--feature-types=./analyzers/fixtures/spatial_feature_types.geojson')
 
-        ec, created = EventCategory.objects.get_or_create(value='analyzer_event',
-                                                                          defaults=dict(display='Analyzer Events'))
+        ec, created = EventCategory.objects.get_or_create(
+            value='analyzer_event', defaults=dict(display='Analyzer Events'))
 
-        EventType.objects.get_or_create(value='analyzer_geofence', category=ec,
-                                                        defaults=dict(
-                                                            display='Geofence Analyzer'
-                                                        ))
-
+        EventType.objects.get_or_create(
+            value='analyzer_geofence',
+            category=ec,
+            defaults=dict(display='Geofence Analyzer', schema=self.event_schema_json()))
 
     def test_geofence_integration(self):
         """ Test the functioning of the geofence algorithm logic"""
@@ -60,8 +101,7 @@ class TestGeofenceAnalyzer(TestCase):
             Observation.objects.create(
                 recorded_at=recorded_at, location=location, source=source, additional={})
 
-        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2'
-        # geofence
+        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2' geofence
         geofences = SpatialFeature.objects.filter(
             name__iexact='Ol Donyo Farm 2')
         logger.info('Geofence count: %s' % str(len(geofences)))
@@ -79,10 +119,8 @@ class TestGeofenceAnalyzer(TestCase):
         cr_grp.features.add(*contain_rgns)
         cr_grp.save()
 
-        logger.info('got here...')
-
         # Create the Geofence Analyzer Config object
-        config = GeofenceAnalyzerConfig.objects.create(
+        GeofenceAnalyzerConfig.objects.create(
             subject_group=sg, geofences=gf_grp, containment_regions=cr_grp)
 
         # Run the analyzer
@@ -92,7 +130,9 @@ class TestGeofenceAnalyzer(TestCase):
         # assert number
         # Todo: not sure how to get results specific to this subject?
         results = SubjectAnalyzerResult.objects.all()
-        logger.info('There were %s geofence breaks' % len(results))
+        self.assertTrue(len(results) > 0)
+        for result in results:
+            print('Geofence Result: %s' % result)
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())

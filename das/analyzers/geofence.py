@@ -11,6 +11,7 @@ from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.base import SubjectAnalyzer
 import logging
+
 from osgeo import ogr
 logger = logging.getLogger(__name__)
 
@@ -106,15 +107,19 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                 result.level = CRITICAL
 
             # Get the geofence name and final containing region names to form the analyzer result message
-            vf_name = SpatialFeature.objects.get(pk=cross.geofence_id).short_name
-            contain_names = []
-            for contain_id in cross.end_region_ids:
-                contain_names.append(SpatialFeature.objects.get(pk=contain_id).short_name)
+            vf_name = SpatialFeature.objects.get(pk=cross.geofence_id).name
             result.message = self.subject.name + str(_(' crossed ')) + vf_name + '.'
-            if len(contain_names) > 0:
-                result.message += str(_(' Subject now in: ')) + ",".join(contain_names)
+
+            contain_names = ','.join([SpatialFeature.objects.get(pk=contain_id).name
+                                      for contain_id in cross.end_region_ids])
+            if not contain_names:
+                contain_names = 'Unknown region'
+
+            result.message += str(_(' Subject now in: ')) + contain_names
 
             result.values = {
+                'geofence_name': vf_name,
+                'contain_regions': contain_names,
                 'total_fix_count': traj.relocs.fix_count,
                 'subject_speed_kmhr': cross.subject_speed_kmhr,
                 'subject_heading': cross.subject_heading,
@@ -159,8 +164,8 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                 event_details=this_result.values,
             )
 
-        # if event_data:
-        #     return save_analyzer_event(event_data)
+        if event_data:
+            return save_analyzer_event(event_data)
 
     """Original code from Joseph which I think can be deprecated"""
     """
