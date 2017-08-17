@@ -46,3 +46,28 @@ class PointFeatureAdmin(admin.OSMGeoAdmin):
 @admin.register(models.FeatureType)
 class FeatureTypeAdmin(admin.ModelAdmin):
     pass
+
+
+@admin.register(models.SpatialFeatureGroup)
+class SpatialFeatureGroupAdmin(admin.ModelAdmin):
+    search_fields = ('name',)
+
+
+@admin.register(models.SpatialFeatureGroupStatic)
+class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
+    search_fields = ('name',)
+
+
+@admin.register(models.SpatialFeatureType)
+class SpatialFeatureTypeAdmin(admin.ModelAdmin):
+    search_fields = ('name',)
+
+
+@admin.register(models.DisplayCategory)
+class DisplayCategegoryAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(models.SpatialFeature)
+class SpatialFeatureAdmin(BaseFeatureAdmin):
+    search_fields = ('name', 'short_name', 'external_id',)

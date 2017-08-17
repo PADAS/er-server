@@ -3,7 +3,9 @@ import copy
 import datetime
 from itertools import islice, chain
 from types import GeneratorType
-import simplejson as json
+import simplejson
+from simplejson.scanner import JSONDecodeError
+
 try:
     import psycopg2.extras
     psycopg2_imported = True
@@ -34,26 +36,31 @@ from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
 class JsonEncodedString(object):
     """A python class that contains a string that is json encoded.
     This class is recognized in our ExtendedJSONEncode"""
+
     def __init__(self, data):
         self.data = data
 
 
-class ExtendedJSONEncoder(json.JSONEncoder):
+def date_to_isoformat(o):
+    datetime.MINYEAR
+    if not hasattr(o, 'second'):
+        tmpval = datetime.datetime(o.year, o.month, o.day)
+        formatted_value = tmpval.isoformat()
+    else:
+        formatted_value = o.isoformat() if o.microsecond is None \
+            else o.replace(microsecond=0).isoformat()
+    return formatted_value
+
+
+class ExtendedJSONEncoder(simplejson.JSONEncoder):
     def _iterencode_default(self, o, markers=None):
         if isinstance(o, JsonEncodedString):
             return o.data
-        return json.JSONEncoder._iterencode_default(self, o, markers)
+        return simplejson.JSONEncoder._iterencode_default(self, o, markers)
 
-    def default(self, o):# pylint: disable-msg=E0202
+    def default(self, o):  # pylint: disable-msg=E0202
         if isinstance(o, (datetime.datetime, datetime.date)):
-            datetime.MINYEAR
-            if not hasattr(o, 'second'):
-                tmpval = datetime.datetime(o.year, o.month, o.day)
-                formatted_value = tmpval.isoformat()
-            else:
-                formatted_value = o.isoformat() if o.microsecond is None\
-                    else o.replace(microsecond=0).isoformat()
-            return formatted_value
+            return date_to_isoformat(o)
         elif bson_imported and isinstance(o, ObjectId):
             # needed for supporting the MongoDB ObjectId
             return """{u'$oid': u'%s'}""" % str(o)
@@ -69,7 +76,7 @@ class ExtendedJSONEncoder(json.JSONEncoder):
             return o.tuple
         elif d_proxy_imported and isinstance(o, d_proxy.Promise):
             return str(o)
-        return json.JSONEncoder.default(self, o)
+        return simplejson.JSONEncoder.default(self, o)
 
 
 class ExtendedJSONRenderer(JSONRenderer):
@@ -103,11 +110,11 @@ def dumps(obj, **kwargs):
     custom_args = dict(cls=ExtendedJSONEncoder, ensure_ascii=True,
                        bigint_as_string=True)
     dumps_args.update(custom_args)
-    return json.dumps(obj, **dumps_args)
+    return simplejson.dumps(obj, **dumps_args)
 
 
-def loads(s,**kwargs):
-    return json.loads(s, **kwargs)
+def loads(s, **kwargs):
+    return simplejson.loads(s, **kwargs)
 
 
 def parse_bool(text):
@@ -127,9 +134,9 @@ def json_string(objects, pretty_output=False):
     charset=UTF-8
     """
     if pretty_output is True:
-        return json.dumps(objects, sort_keys=True, indent=4,
-                      cls=ExtendedJSONEncoder, ensure_ascii=True, bigint_as_string=True)
-    return json.dumps(objects, cls=ExtendedJSONEncoder, ensure_ascii=True, bigint_as_string=True)
+        return simplejson.dumps(objects, sort_keys=True, indent=4,
+                                cls=ExtendedJSONEncoder, ensure_ascii=True, bigint_as_string=True)
+    return simplejson.dumps(objects, cls=ExtendedJSONEncoder, ensure_ascii=True, bigint_as_string=True)
 
 
 def empty_geojson_featurecollection():
@@ -142,7 +149,7 @@ def empty_geojson_featurecollection():
             }
         },
         "features": []
-        }
+    }
 
 
 def empty_geojson_feature():
@@ -155,7 +162,7 @@ def empty_geojson_feature():
             }
         },
         "geometry": {}
-        }
+    }
 
 
 def zeroout_microseconds(value):

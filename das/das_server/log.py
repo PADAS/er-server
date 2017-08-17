@@ -39,6 +39,11 @@ DEFAULT_LOGGING = {
             'propagate': False,
             'level': 'INFO',
         },
+        'django.server': {
+            'handlers': ['console'],
+            'propagate': False,
+            'level': 'INFO',
+        },
         'rt_api': {
             'level': 'WARN',
         },

@@ -4,13 +4,13 @@ import tempfile
 import datetime
 
 from django.core.management.base import BaseCommand
-from django.contrib.gis.gdal import DataSource
 from django.contrib.gis.utils import layermapping
-from django.contrib.gis.geos import MultiPolygon, MultiPoint, MultiLineString
 from django.contrib.gis.gdal import (
     CoordTransform, DataSource, GDALException, OGRGeometry, OGRGeomType,
     SpatialReference,
 )
+
+from utils.spatial import GeometryMapper
 from mapping import models
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,9 @@ FEATURE_TYPES = {
     'Primary': 'Primary Roads',
     'Secondary': 'Secondary Roads',
     'Old': 'Old Roads',
+    'Tertiary': 'Tertiary Roads',
 }
+
 
 class Command(BaseCommand):
     help = 'Import a spatial data layer'
@@ -28,19 +30,29 @@ class Command(BaseCommand):
 
     name_field = 'Name'
     id_field = 'globalid'
+
+    # model for feature? could these be combined in to one dictionary attribute?
+    # stroke = 'stroke'
+    # stroke_width = 'stroke-width'
+    # stroke_opacity = 'stroke-opacity'
     utm = None
+    geometry_mapper = GeometryMapper()
 
     def handle(self, *args, **options):
-        logger.debug('Featureset: %s, FeatureType: %s', options['featureset'], options['featuretype'])
-        featureset = models.FeatureSet.objects.get_by_natural_key(options['featureset'])
-        featuretype = models.FeatureType.objects.get_by_natural_key(options['featuretype'])
+        logger.debug('Featureset: %s, FeatureType: %s',
+                     options['featureset'], options['featuretype'])
+        featureset = models.FeatureSet.objects.get_by_natural_key(
+            options['featureset'])
+        featuretype = models.FeatureType.objects.get_by_natural_key(
+            options['featuretype'])
         datasource = self.datasource_from_file(options['filename'])
         self.name_field = options['name_field'] if options['name_field'] else self.name_field
         self.id_field = options['id_field'] if options[
             'id_field'] else self.id_field
         self.utm = options['utm'] if options['utm'] else self.utm
 
-        logger.debug('Data Source: %s, layercount %s', datasource.name, datasource.layer_count)
+        logger.debug('Data Source: %s, layercount %s',
+                     datasource.name, datasource.layer_count)
 
         if datasource.layer_count > 1 and options['layer'] is None:
             logger.warn('multiple layers not supported...')
@@ -53,7 +65,6 @@ class Command(BaseCommand):
             self.import_layer(featureset, featuretype, datasource[layer_num])
         finally:
             datasource = None
-
 
     def add_arguments(self, parser):
         parser.add_argument('filename', type=str,
@@ -124,15 +135,16 @@ class Command(BaseCommand):
         return unique_keys
 
     def import_layer(self, featureset, featuretype, layer):
-        logger.debug('Importing layer: %s, type: %s, fields: %s', layer.name, layer.geom_type, layer.fields)
+        logger.debug('Importing layer: %s, type: %s, fields: %s',
+                     layer.name, layer.geom_type, layer.fields)
         has_unique_keys = self.contains_unique_keys_in_layer(layer)
         i = 0
         for feature in layer:
-            i+=1
+            i += 1
             external_id = self.make_external_id(layer, feature)
             if not feature[self.name_field].value:
-                logger.warn('Missing name field %s for this feature: %s',
-                            self.name_field, feature)
+                logger.warning('Missing name field %s for this feature: %s',
+                               self.name_field, feature)
                 continue
 
             if not has_unique_keys:
@@ -147,19 +159,21 @@ class Command(BaseCommand):
                     value = value.isoformat()
                 fields[name] = value
 
-
             feature_model = self.get_feature_class(feature.geom_type.name)
             model_fieldname = 'feature_geometry'
-            model_field = feature_model._meta.get_field(model_fieldname)
-            feature_geometry = self.verify_geom(feature.geom, model_field)
+            model_field_type = feature_model._meta.get_field(model_fieldname)
+            feature_geometry = self.geometry_mapper.get_db_geom(
+                feature.geom, model_field_type)
             defaults = {'feature_geometry': feature_geometry, 'fields': fields}
             feature_record, created = feature_model.objects.get_or_create(
                 defaults=defaults,
                 featureset=featureset,
-                type=self.get_feature_type_for_feature(feature, default=featuretype),
+                type=self.get_feature_type_for_feature(
+                    feature, default=featuretype),
                 external_id=external_id)
 
-            logger.debug('Import feature: %s, created:%s', external_id, created)
+            logger.debug('Import feature: %s, created:%s',
+                         external_id, created)
 
             feature_record.feature_geometry = feature_geometry
             feature_record.fields = fields
@@ -169,41 +183,3 @@ class Command(BaseCommand):
             except KeyError:
                 pass
             feature_record.save()
-
-    def make_multi(self, geom_type, model_field):
-        """
-        Given the OGRGeomType for a geometry and its associated GeometryField,
-        determine whether the geometry should be turned into a GeometryCollection.
-        """
-        return (geom_type.num in layermapping.LayerMapping.MULTI_TYPES and
-                model_field.__class__.__name__ == 'Multi%s' % geom_type.django)
-
-    def verify_geom(self, geom, model_field):
-        """
-        FROM layermapping.py
-
-        Verifies the geometry -- will construct and return a GeometryCollection
-        if necessary (for example if the model field is MultiPolygonField while
-        the mapped shapefile only contains Polygons).
-        """
-        coord_dim = model_field.dim
-        # Downgrade a 3D geom to a 2D one, if necessary.
-        if coord_dim != geom.coord_dim:
-            geom.coord_dim = coord_dim
-
-        if self.make_multi(geom.geom_type, model_field):
-            # Constructing a multi-geometry type to contain the single geometry
-            multi_type = layermapping.LayerMapping.MULTI_TYPES[geom.geom_type.num]
-            g = OGRGeometry(multi_type)
-            g.add(geom)
-        else:
-            g = geom
-
-        # Transforming the geometry with our Coordinate Transformation object,
-        # but only if the class variable `transform` is set w/a CoordTransform
-        # object.
-        if False: #self.transform:
-            g.transform(self.transform)
-
-        # Returning the WKT of the geometry.
-        return g.wkt
