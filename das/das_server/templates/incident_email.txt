@@ -1,0 +1,13 @@
+DAS {{id}}: {{title}}
+Priority: {{color}}
+
+{% for field in fields %} {{field}}
+{% endfor %}{% if children|length >= 1 %}
+
+ - Contained Reports:
+{% for child in children %}
+    - DAS {{child.id}}: {{child.title}}
+    - Priority: {{child.color}}
+{% for event_field in child.fields %}      {{ event_field }}
+{% endfor %}{% endfor %}{% endif %}
+

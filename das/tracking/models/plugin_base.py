@@ -32,14 +32,18 @@ from tracking.pubsub_registry import notify_new_tracks
 
 logger = logging.getLogger(__name__)
 
+
 class DasPluginException(Exception):
     pass
+
 
 class DasPluginConfigurationError(DasPluginException):
     pass
 
+
 class DasPluginConnectionError(DasPluginException):
     pass
+
 
 class DasPluginFetchError(DasPluginException):
     pass
@@ -55,10 +59,11 @@ class DasPluginInsertError(DasPluginException):
 
 logger = logging.getLogger(__name__)
 
+
 class SourcePluginResult(object):
-    count=0
-    plugin_type=None
-    source_id=None
+    count = 0
+    plugin_type = None
+    source_id = None
 
     def to_dict(self):
         """ returns a dict of attributes of this object """
@@ -67,7 +72,6 @@ class SourcePluginResult(object):
             'plugin_type': self.plugin_type,
             'source_id': self.source_id
         }
-
 
 
 class SourcePlugin(TimestampedModel):
@@ -94,19 +98,20 @@ class SourcePlugin(TimestampedModel):
         models.Q(app_label='tracking', model='awetelemetryplugin')
 
     # Generic foreign key to plugin
-    plugin_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
+    plugin_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
     plugin_id = models.UUIDField()
     plugin = GenericForeignKey('plugin_type', 'plugin_id')
 
     source = models.ForeignKey(Source, on_delete=models.CASCADE,
-                              related_name='source_plugins',
-                              related_query_name='source_plugin')
+                               related_name='source_plugins',
+                               related_query_name='source_plugin')
 
     cursor_data = JSONField(null=True)
     status = models.CharField(max_length=15, default=STATUS_ENABLED)
 
     # last_run: datetime.min implies it hasn't ever been executed.
-    last_run = models.DateTimeField(default=pytz.utc.localize(datetime(2000,1,1)),
+    last_run = models.DateTimeField(default=pytz.utc.localize(datetime(2000, 1, 1)),
                                     verbose_name='Timestamp for when this plugin last executed.')
 
     def execute(self, target=None):
@@ -146,7 +151,8 @@ class SourcePlugin(TimestampedModel):
         else:
             return True
 
-        # return self.plugin.should_run(self) if hasattr(self.plugin, 'should_run') else True
+        # return self.plugin.should_run(self) if hasattr(self.plugin,
+        # 'should_run') else True
 
     def __str__(self):
         return '%s: source: %s, manufacturer_id: %s' % (self.id, self.source_id, self.source.manufacturer_id)
@@ -165,14 +171,19 @@ class TrackingPlugin(TimestampedModel):
                       )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=50, null=True, unique=True, verbose_name='Unique name to identify the plugin.')
-    status = models.CharField(max_length=15, default=STATUS_ENABLED, choices=STATUS_CHOICES)
+    name = models.CharField(max_length=50, null=True, unique=True,
+                            verbose_name='Unique name to identify the plugin.')
+    status = models.CharField(
+        max_length=15, default=STATUS_ENABLED, choices=STATUS_CHOICES)
     additional = JSONField(null=True)
 
-    # A convenient relation to find the SourcePlugins that associate this Plugin.
-    source_plugins = GenericRelation(SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id')
+    # A convenient relation to find the SourcePlugins that associate this
+    # Plugin.
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id')
 
-    provider = models.ForeignKey(SourceProvider, related_name='+', null=False, default=get_default_source_provider_id)
+    provider = models.ForeignKey(
+        SourceProvider, related_name='+', null=False, default=get_default_source_provider_id)
 
     class Meta:
         abstract = True
@@ -185,13 +196,17 @@ class TrackingPlugin(TimestampedModel):
 
         now = pytz.utc.localize(datetime.utcnow())
 
-        # Don't bother running now if less than one hour has passed since the latest fix.
+        # Don't bother running now if less than one hour has passed since the
+        # latest fix.
         try:
-            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
-            latest_timestamp = parse_date(latest_timestamp) if latest_timestamp else pytz.utc.localize(datetime.min)
+            latest_timestamp = source_plugin.cursor_data.get(
+                'latest_timestamp')
+            latest_timestamp = parse_date(
+                latest_timestamp) if latest_timestamp else pytz.utc.localize(datetime.min)
 
             print('latest_timestamp: %s' % latest_timestamp)
-            # If we haven't seen data from over 30 days, then use 24 hours as polling interval.
+            # If we haven't seen data from over 30 days, then use 24 hours as
+            # polling interval.
             if now - latest_timestamp > timedelta(days=30):
                 wait_interval = timedelta(hours=24)
             else:
@@ -200,8 +215,8 @@ class TrackingPlugin(TimestampedModel):
             should_run_message = {'plugin': str(self),
                                   'source': str(source_plugin.source),
                                   'wait_interval': str(wait_interval),
-                                  'time_since_last': str(now-latest_timestamp),
-                                  'should_run': (now- wait_interval) >= latest_timestamp
+                                  'time_since_last': str(now - latest_timestamp),
+                                  'should_run': (now - wait_interval) >= latest_timestamp
                                   }
             logger.info(json.dumps(should_run_message))
 
@@ -209,7 +224,8 @@ class TrackingPlugin(TimestampedModel):
                 return True
 
         except Exception as e:
-            logger.exception('Failed to determine whether source-plugin %s should run.', source_plugin)
+            logger.exception(
+                'Failed to determine whether source-plugin %s should run.', source_plugin)
 
             if (now - source_plugin.last_run) > self.DEFAULT_REPORT_INTERVAL:
                 return True
@@ -222,18 +238,21 @@ class TrackingPlugin(TimestampedModel):
         '''
         for sp in self.source_plugins.all():
             try:
-                logger.debug('Running plugin {} for source {}'.format(sp, sp.source))
+                logger.debug(
+                    'Running plugin {} for source {}'.format(sp, sp.source))
                 result = sp.execute()
                 logger.debug(
                     'Finished running plugin {} for source {} with result.count={}'.format(sp, sp.source, result.count))
             except DasPluginException as dpe:
-                logger.exception('Running plugin {} for source {}'.format(sp, sp.source))
+                logger.exception(
+                    'Running plugin {} for source {}'.format(sp, sp.source))
 
 
 class PluginTarget(object):
     '''
     A contextmanager and co-routine for saving Observation data somewhere. A subclass must implement _handle_item.
     '''
+
     def __init__(self, config=None):
         self.__config = config
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -252,7 +271,7 @@ class PluginTarget(object):
         :return: coroutine with wraps _handle_item.
         '''
 
-        def _():
+        def func():
             accumulator = {'count': 0, 'created': 0}
             cnt = 0
             try:
@@ -264,11 +283,11 @@ class PluginTarget(object):
                     accumulator['created'] += 1 if created else 0
             except GeneratorExit:
                 self.logger.info("Target received %d messages, created %d items.", accumulator['count'],
-                                 accumulator['created'] )
+                                 accumulator['created'])
             except Exception as e:
                 self.logger.exception("Exception in plugin handler.")
 
-        r = _()
+        r = func()
         next(r)
         self._r = r
         return r
@@ -286,27 +305,22 @@ class DasDefaultTarget(PluginTarget):
     '''
     Default target that writes to the Observations model.
     '''
+
     def _handle_item(self, item):
 
         location = Point(x=item.longitude, y=item.latitude)
         additional = item.additional or {}
         result, created = observations.models.Observation.objects.get_or_create(source_id=item.source.id,
-                                                            recorded_at=item.recorded_at,
-                                                            defaults=dict(
-                                                                location=location,
-                                                                additional=additional
-                                                            ))
+                                                                                recorded_at=item.recorded_at,
+                                                                                defaults=dict(
+                                                                                    location=location,
+                                                                                    additional=additional
+                                                                                ))
         return result, created
-
 
 
 '''
 Observation Football; meant to provide a consistent way for passing essential observation data between functions.
 '''
-Obs = namedtuple('Obs', ('source', 'latitude', 'longitude', 'recorded_at', 'additional'))
-
-
-
-
-
-
+Obs = namedtuple('Obs', ('source', 'latitude',
+                         'longitude', 'recorded_at', 'additional'))

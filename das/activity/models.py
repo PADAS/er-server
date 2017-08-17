@@ -216,6 +216,11 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_is_collection(self, value):
         return self.filter_field('event_type__is_collection', value)
 
+    def by_exclude_contained(self, value):
+        if not value:
+            return self
+        return self.exclude(in_relationship__type__value='contains')
+
 
 class EventManager(models.Manager):
     def create_event(self, **values):
@@ -613,13 +618,13 @@ class Event(RevisionMixin, TimestampedModel):
             parent.save(notify_parent_events=False)
 
     def save(self, *args, notify_parent_events=True, **kwargs):
-        '''
+        """
 
         :param args:
         :param notify_parent_events: whether to update 'parent' events (those that are collections and contain this event.)
         :param kwargs:
         :return:
-        '''
+        """
         self.full_clean()
         update_fields = kwargs.get('update_fields', [])
         save_fields = set()
@@ -668,6 +673,7 @@ class Event(RevisionMixin, TimestampedModel):
                     _('Invalid value for provenance {0} and reported_by fields'.format(self.provenance)), code='invalid')})
 
         self.message = clean_user_text(self.message, 'Event.message')
+        self.title = clean_user_text(self.title, 'Event.title')
 
     def get_display_value(self, field_name, value):
         field = self._meta.get_field(field_name)

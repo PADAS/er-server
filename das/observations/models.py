@@ -655,11 +655,13 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_RESEARCH = 'research'
     SUBTYPE_TOURIST_VEHICLE = 'tourist_vehicle'
     SUBTYPE_MOTORCYCLE = 'motorcycle'
-    SUBTYPE_CAMERA_TRAP = 'camera-trap'
-    SUBTYPE_WEATHER_STATION = 'weather-station'
+    SUBTYPE_BOAT = 'ranger_boat'
+    SUBTYPE_CAMERA_TRAP = 'camera_trap'
+    SUBTYPE_WEATHER_STATION = 'weather_station'
 
     SUBTYPE_RANGER = 'ranger'
     SUBTYPE_RANGER_TEAM = 'ranger_team'
+    SUBTYPE_DOG_TEAM = 'dog_team'
     SUBTYPE_MANAGER = 'manager'
     SUBTYPE_DRIVER = 'driver'
     SUBTYPE_EXPEDITION = 'expedition'
@@ -697,6 +699,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_RANGER, 'Ranger'),
                 (SUBTYPE_RANGER_TEAM, 'Ranger Team'),
+                (SUBTYPE_DOG_TEAM, 'Dog Team'),
                 (SUBTYPE_DRIVER, 'Driver'),
                 (SUBTYPE_MANAGER, 'Manager'),
                 (SUBTYPE_EXPEDITION, 'Expedition'),
@@ -710,6 +713,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 (SUBTYPE_RESEARCH, 'Research Vehicle'),
                 (SUBTYPE_TOURIST_VEHICLE, 'Tourist Vehicle'),
                 (SUBTYPE_MOTORCYCLE, 'Motorcycle'),
+                (SUBTYPE_BOAT, 'Boat'),
             )
         },
         {
@@ -927,6 +931,8 @@ class SubjectStatusManager(models.Manager):
             subject = Subject.objects.filter(subjectsource__source=observation.source,
                                              subjectsource__assigned_range__contains=observation.recorded_at).first()
         except Subject.DoesNotExist:
+            return
+        if not subject:
             return
 
         substatus, created = SubjectStatus.objects.get_or_create(subject=subject, delay_hours=delay_hours,

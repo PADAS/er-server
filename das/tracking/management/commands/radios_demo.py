@@ -246,7 +246,8 @@ class DemoDriver():
     #     Event.objects.all().delete()
 
     def delete_driven_events(self, time):
-        Event.objects.filter(event_time__gt=time).delete()
+        pass
+        # Event.objects.filter(event_time__gt=time).delete()
 
     def delete_analyzers(self):
         # for klass in all_analyzers:
