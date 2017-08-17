@@ -1,9 +1,9 @@
 from datetime import datetime
-
 from django.test import TestCase
 from observations.models import Subject, Observation
-
 from analyzers.models import ObservationAnnotator
+
+
 class TestAnnotator(TestCase):
 
     fixtures = [
