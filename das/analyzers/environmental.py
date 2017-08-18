@@ -44,6 +44,8 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
         # Create the analyzer result
         result = SubjectAnalyzerResult(subject_analyzer=self.config,
                                        level=OK,
+                                       title=self.subject.name + str(_(': low ' +
+                                                                         self.config.short_description)),
                                        message=self.subject.name + str(_(' is in a low ' +
                                                                          self.config.short_description + ' area.')),
                                        analyzer_revision=1,
@@ -74,6 +76,8 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
             if mean_value > self.config.threshold_value:
                 # Modify analyzer result
                 result.level = CRITICAL
+                result.title = self.subject.name + str(_(': high ' +
+                                                  self.config.short_description))
                 result.message = self.subject.name + \
                     str(_(' is in a high ' + self.config.short_description + ' area.'))
         return [result, ]
@@ -94,6 +98,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
         # Notify if result is critical or warning
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
+                title=this_result.title,
                 message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
@@ -108,6 +113,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
         # OK
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
+                title=this_result.title,
                 message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,

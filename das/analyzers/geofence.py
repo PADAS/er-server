@@ -90,6 +90,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
 
             # Create the analyzer result
             result = SubjectAnalyzerResult(subject_analyzer=self.config,
+                                           title=self.subject.name,
                                            message=self.subject.name,
                                            analyzer_revision=1,
                                            subject=self.subject)
@@ -108,14 +109,14 @@ class GeofenceAnalyzer(SubjectAnalyzer):
 
             # Get the geofence name and final containing region names to form the analyzer result message
             vf_name = SpatialFeature.objects.get(pk=cross.geofence_id).name
-            result.message = self.subject.name + str(_(' crossed ')) + vf_name + '.'
+            result.title = self.subject.name + str(_(' crossed ')) + vf_name + '.'
 
             contain_names = ','.join([SpatialFeature.objects.get(pk=contain_id).name
                                       for contain_id in cross.end_region_ids])
             if not contain_names:
                 contain_names = 'Unknown region'
 
-            result.message += str(_(' Subject now in: ')) + contain_names
+            result.message = result.title + str(_(' Subject now in: ')) + contain_names
 
             result.values = {
                 'geofence_name': vf_name,
@@ -155,6 +156,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         # Notify if result is critical or warning
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
+                title=this_result.title,
                 message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,

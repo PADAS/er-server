@@ -90,6 +90,7 @@ class SubjectAnalyzerResult(TimestampedModel):
     level = models.IntegerField()
     observations = models.ManyToManyField(Observation, related_name='+')
     values = JSONField(default={}, blank=True)
+    title = models.TextField(default='', blank=True)
     message = models.TextField(default='', blank=True)
 
     # TODO: Reference GeoFeature table, and FileContent (which will soon exist as models).
@@ -98,7 +99,8 @@ class SubjectAnalyzerResult(TimestampedModel):
 
     # Remaining attributes are to reference the analyzer that created me.
     limits = models.Q(app_label='analyzers', model='immobilityanalyzer') | \
-             models.Q(app_label='analyzers', model='geofenceanalyzer')
+             models.Q(app_label='analyzers', model='geofenceanalyzer') | \
+             models.Q(app_label='analyzers', model='environmentalanalyzer')
 
     subject_analyzer_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
     subject_analyzer_id = models.UUIDField()
@@ -108,7 +110,7 @@ class SubjectAnalyzerResult(TimestampedModel):
     def __str__(self):
         _tmp_str = 'Subject: ' + self.subject.name + ', ' + \
            'Values: ' + str(self.values) + ', ' + \
-           'Message: ' + str(self.message) + ', ' + \
+           'Title: ' + str(self.title) + ', ' + \
            'Est.Time: ' + str(self.estimated_time) + ', ' + \
            'Geometry: ' + str(self.geometry_collection)
         return _tmp_str
