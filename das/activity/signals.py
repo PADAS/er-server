@@ -9,7 +9,6 @@ from das_server import celery
 from activity.models import Event, EventNote, EventAttachment, EventPhoto
 from das_server import pubsub
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -29,11 +28,14 @@ def event_post_delete(sender, instance, **kwargs):
         {'event_id': str(instance.pk)},
         'das.event.delete')
 
+
 @receiver(post_save, sender=EventPhoto)
 def warm_EventPhoto_image(sender, instance, **kwargs):
     transaction.on_commit(lambda:
-        celery.app.send_task('activity.tasks.warm_eventphotos', args=(str(instance.id),))
-    )
+                          celery.app.send_task(
+                              'activity.tasks.warm_eventphotos', args=(str(instance.id),))
+                          )
+
 
 @receiver(post_delete, sender=EventPhoto)
 def delete_EventPhoto_products(sender, instance, **kwargs):
