@@ -100,7 +100,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 # TODO: gte comparison  on the timespan but switched to achieve parity with STE system
                 # Modify analyzer result
                 result.level = CRITICAL
-                result.message = self.subject.name + str(_(' is immobile'))
+                result.title = self.subject.name + str(_(' is immobile'))
+                result.message = result.title
                 result.geometry_collection = DjangoGeoColl([DjangoPoint(test_cluster.centroid.GetX(),
                                                                         test_cluster.centroid.GetY())])
                 result.values = {
@@ -143,6 +144,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         # Notify if result is critical or warning
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
+                title=this_result.title,
                 message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
@@ -155,6 +157,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         # Notify if there is a state transition from Critical/Warning back to OK
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
+                title=this_result.title,
                 message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
