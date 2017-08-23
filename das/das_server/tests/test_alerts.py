@@ -226,7 +226,7 @@ class TestEventView(TestCase):
     # @patch.object(AccountsAbstractUser, 'email_user')
     # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
     # @patch('activity.alerts.get_alert_users')
-    # def test_create_new_standalone_event(self, mock_get_alert_users, mock_task, mock_send_email):
+    # def test_create_new_standalone_event(self, mock_get_alert_users):
     #
     #     # Configure mocks
     #     mock_get_alert_users.return_value = [self.user]
@@ -317,41 +317,41 @@ class TestEventView(TestCase):
     #     mock_send_email.assert_called_with(
     #         target_subject, target_body, target_from_address)
     #
-    @patch.object(AccountsAbstractUser, 'email_user')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_update_child_event(self, mock_get_alert_users, mock_task, mock_send_email):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        # Create the events and the relationship between them
-        self.child_one.title = 'Now I have a new title'
-        self.child_one.save()
-
-        # Generate the target email fields
-        target_body = new_parent_child_body.format(
-            parent_serial=self.parent_one.serial_number,
-            parent_title=self.parent_one.title or 'No Title',
-            parent_time=self.time_to_string(self.parent_one.time),
-            child_serial=self.child_one.serial_number,
-            child_title=self.child_one.title or 'No Title',
-            child_time=self.time_to_string(self.child_one.time)).strip()
-        target_subject = base_target_subject.format(
-            serial=self.parent_one.serial_number,
-            title=self.parent_one.title)
-
-        # Make sure the mocks were called the correct number of times with the correct values
-        # TODO database signaling is working differently during tests,which
-        # is causing three emails to be sent instead of 2. In a real scenario,
-        # the creation of the incident and the relationship would be batched
-        # into one transaction and result in one fewer email. If they aren't
-        # batched, three emails is the correct amount
-        self.assertEquals(mock_task.call_count, 1, "mock_task called {0} times".format(
-            mock_task.call_count))
-        self.assertEquals(mock_send_email.call_count, 1, "mock_send_email called {0} times".format(
-            mock_send_email.call_count))
-        mock_send_email.assert_called_with(
-            target_subject, target_body, target_from_address)
+    # @patch.object(AccountsAbstractUser, 'email_user')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_update_child_event(self, mock_get_alert_users, mock_task, mock_send_email):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     # Create the events and the relationship between them
+    #     self.child_one.title = 'Now I have a new title'
+    #     self.child_one.save()
+    #
+    #     # Generate the target email fields
+    #     target_body = new_parent_child_body.format(
+    #         parent_serial=self.parent_one.serial_number,
+    #         parent_title=self.parent_one.title or 'No Title',
+    #         parent_time=self.time_to_string(self.parent_one.time),
+    #         child_serial=self.child_one.serial_number,
+    #         child_title=self.child_one.title or 'No Title',
+    #         child_time=self.time_to_string(self.child_one.time)).strip()
+    #     target_subject = base_target_subject.format(
+    #         serial=self.parent_one.serial_number,
+    #         title=self.parent_one.title)
+    #
+    #     # Make sure the mocks were called the correct number of times with the correct values
+    #     # TODO database signaling is working differently during tests,which
+    #     # is causing three emails to be sent instead of 2. In a real scenario,
+    #     # the creation of the incident and the relationship would be batched
+    #     # into one transaction and result in one fewer email. If they aren't
+    #     # batched, three emails is the correct amount
+    #     self.assertEquals(mock_task.call_count, 1, "mock_task called {0} times".format(
+    #         mock_task.call_count))
+    #     self.assertEquals(mock_send_email.call_count, 1, "mock_send_email called {0} times".format(
+    #         mock_send_email.call_count))
+    #     mock_send_email.assert_called_with(
+    #         target_subject, target_body, target_from_address)
     #
     # @patch.object(AccountsAbstractUser, 'email_user')
     # @patch('das_server.celery.app.send_task',
