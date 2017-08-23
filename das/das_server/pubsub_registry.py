@@ -7,12 +7,12 @@ logger = logging.getLogger(__name__)
 
 def new_event_handler(body, message):
     event_id = body.get('event_id')
-    tasks.event_change_cooldown_period(event_id)
+    tasks.queue_event_alert(event_id)
 
 
 def update_event_handler(body, message):
     event_id = body.get('event_id')
-    tasks.event_change_cooldown_period(event_id)
+    tasks.queue_event_alert(event_id)
 
 
 # Define the mapping between routing_keys and callbacks
