@@ -2,7 +2,7 @@
 import logging
 
 from accounts.models import User
-from activity.alerts import AlertUtils
+from activity.alerts import get_alert_users
 from activity.models import Event
 from revision.manager import RevisionManager
 from activity.views import EventView
@@ -142,7 +142,8 @@ def queue_alert_for_all_users(event_id):
         if revision and 'priority' in revision.data:
             priorities.add(revision.data['priority'])
 
-    user_list = AlertUtils.get_alert_users(priorities)
+    # Get alert user list based on priority history
+    user_list = get_alert_users(priorities)
 
     for user in user_list:
         # celery.app.send_task(
