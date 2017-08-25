@@ -308,7 +308,6 @@ REALTIME_BROKER_OPTIONS = {'max_connections': 200}
 PUBSUB_BROKER_URL = 'redis://redis:6379/1'
 PUBSUB_BROKER_OPTIONS = {'max_connections': 200}
 
-
 # Celery Settings
 CELERY_BROKER_URL = 'redis://redis:6379'
 
