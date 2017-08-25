@@ -34,12 +34,13 @@ def extract_details(schema, details, updated):
     if not details or not details.data or 'event_details' not in details.data:
         return
 
+    details_dictionary = details.data['event_details']
     schema = schema_utils.get_rendered_schema(schema)
-    for k in sorted(details.keys()):
+    for k in sorted(details_dictionary.keys()):
         if k not in schema:
             continue
         update_indicator = '*' if k in updated else '-'
-        v = details[k]
+        v = details_dictionary[k]
         key_display = schema[k]['title']
         if isinstance(v, dict) and 'name' in v:
             yield email_separator_string.format(update_indicator, key_display, v['name'])
@@ -94,8 +95,18 @@ def get_updated_field_names_for_revisions(event_revisions):
 
 
 def get_updated_schema_fields(details_revisions):
-    if len(details_revisions) < 2:
-        return []
+    if len(details_revisions) == 0:
+        return set()
+    elif len(details_revisions) < 2:
+        revision = details_revisions[0]
+        if details_revisions[0].sequence == 1:
+            return set(revision.data['data']['event_details'].keys())
+        else:
+            event = Event.objects.get(id=revision.data['event'])
+            details_revisions.add(
+                event.details.first().revision.all_user().filter(
+                    sequence__lt=revision.sequence).sorted(revision.sequence).last()
+            )
 
     before = None
     after = None
@@ -114,7 +125,8 @@ def extract_event_data(event, user, revisions):
     event_revisions, details_revisions = get_revisions_for_event(
         event, revisions)
     updated_fields = get_updated_field_names_for_revisions(event_revisions)
-    updated_fields += get_updated_schema_fields(details_revisions)
+    updated_fields = updated_fields.union(
+        get_updated_schema_fields(details_revisions))
 
     event_details = event.event_details.first()
     schema_fields_and_values = list(extract_details(
@@ -183,10 +195,10 @@ def send_event_mail(event, user, revisions):
         id=data['id'],
         title=data['title'])
 
-    body = render_to_string(_('incident_email.txt'), data)
+    body = render_to_string(_('incident_email.txt'), data).strip()
     logger.info('emailing {} from {}'.format(user.email, settings.FROM_EMAIL))
 
-    # user.email_user(subject, body, settings.FROM_EMAIL)
+    user.email_user(subject, body, settings.FROM_EMAIL)
 
 
 def send_event_sms(event, user, revisions):

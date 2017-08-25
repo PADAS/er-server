@@ -4,9 +4,9 @@ import logging
 from accounts.models import User
 from activity.alerts import get_alert_users
 from activity.models import Event
-from revision.manager import RevisionManager
 from activity.views import EventView
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from das_server import celery, mailer
 from observations.views import SubjectView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
@@ -30,8 +30,12 @@ DELAY_PERIOD = 5  # seconds
 def queue_event_alert(event_id):
     event = Event.objects.get(id=event_id)
     revision = event.revision.all_user().order_by('sequence').last()
-    details_revision = event.event_details.first(
-    ).revision.all_user().order_by('sequence').last()
+    try:
+        details_revision = event.event_details.first(
+        ).revision.all_user().order_by('sequence').last()
+    except AttributeError:
+        event_change_cooldown_period(event_id, revision.id, None)
+        return
 
     # We end up in this code path in a few ways. Some data associated with the
     # event has changed, but it could be the event itself or the event_details
@@ -83,11 +87,8 @@ def event_change_cooldown_period(event_id, event_revision_id=None, details_revis
     # In DELAY_PERIOD seconds, send an alert if there hasn't been any more
     # churn
     count = redis_client.llen(parent_key)
-    # check_event_activity.apply_async(args=(event_id, count), countdown=DELAY_PERIOD)
-
-    import time
-    time.sleep(DELAY_PERIOD)
-    check_event_activity(event_id, count)
+    check_event_activity.apply_async(
+        args=(event_id, count), countdown=DELAY_PERIOD)
 
 
 def consolidate_all_child_alerts_into_parent(parent_key, child_events):
@@ -116,8 +117,7 @@ def check_event_activity(event_id, queue_len):
             if l and redis_client.llen(key) == queue_len:
                 try:
                     logger.debug("sending alert for %s", event_id)
-                    # queue_alert_for_all_users.delay(event_id)
-                    queue_alert_for_all_users(event_id)
+                    queue_alert_for_all_users.delay(event_id)
                     logger.debug("Finished sending alert for %s", event_id)
                 finally:
                     redis_client.ltrim(key, count, -1)
@@ -138,20 +138,19 @@ def queue_alert_for_all_users(event_id):
         rev_type, rev_id = revision_id.split(';')
         if rev_id == '0' or rev_type == 'd':
             continue
-        revision = event.revision.all_user().get(id=rev_id)
-        if revision and 'priority' in revision.data:
-            priorities.add(revision.data['priority'])
+        try:
+            revision = event.revision.all_user().get(id=rev_id)
+            if revision and 'priority' in revision.data:
+                priorities.add(revision.data['priority'])
+        except ObjectDoesNotExist:
+            pass
 
     # Get alert user list based on priority history
     user_list = get_alert_users(priorities)
 
     for user in user_list:
-        # celery.app.send_task(
-        #     'das_server.tasks.send_alert_to_specific_user', args=(user.username, event_id, revision_ids))
-
-        import das_server.tasks
-        das_server.tasks.send_alert_to_specific_user(
-            user.username, event_id, revision_ids)
+        celery.app.send_task(
+            'das_server.tasks.send_alert_to_specific_user', args=(user.username, event_id, revision_ids))
 
 
 @celery.app.task()
