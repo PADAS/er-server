@@ -303,14 +303,13 @@ DATA_INPUT_PLUGINS = {
 # would want to set this to where you might have some MBTiles maps
 MAPPING = {'MBTILES': {'root': r'/tmp', }}
 
-REALTIME_BROKER_URL = 'redis://localhost:6379/2'
+REALTIME_BROKER_URL = 'redis://redis:6379/2'
 REALTIME_BROKER_OPTIONS = {'max_connections': 200}
-PUBSUB_BROKER_URL = 'redis://localhost:6379/1'
+PUBSUB_BROKER_URL = 'redis://redis:6379/1'
 PUBSUB_BROKER_OPTIONS = {'max_connections': 200}
 
-
 # Celery Settings
-CELERY_BROKER_URL = 'redis://localhost:6379/'
+CELERY_BROKER_URL = 'redis://redis:6379'
 
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ['application/json']
