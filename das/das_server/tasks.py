@@ -173,5 +173,5 @@ def send_alert_to_specific_user(username, event_id, revision_ids=None):
     if user.is_email_alert:
         mailer.send_event_mail(event, user, revision_ids)
 
-    # if user.is_sms_alert:
-    #     mailer.send_event_sms(event, user, revision_ids)
+    if user.is_sms_alert:
+        mailer.send_event_sms(event, user, revision_ids)

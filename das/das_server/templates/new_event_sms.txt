@@ -1,4 +1,1 @@
-{{event_id}}
-Priority: {{priority}}
-Created: {{time}}
-By: {{created_by}}
+DAS {{color}} Alert: {{serial}} {{title}}

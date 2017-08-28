@@ -1,15 +1,17 @@
 import logging
 from django.conf import settings
 from sendsms.backends.base import BaseSmsBackend
-from twilio.rest import TwilioRestClient
 import requests
 
 logger = logging.getLogger(__name__)
 
 
 class TwilioSmsBackend(BaseSmsBackend):
+    from twilio.rest import Client
+
     TWILIO_ACCOUNT_SID = getattr(settings, 'SENDSMS_TWILIO_ACCOUNT_SID', '')
     TWILIO_AUTH_TOKEN = getattr(settings, 'SENDSMS_TWILIO_AUTH_TOKEN', '')
+    TWILIO_FROM_NUMBER = getattr(settings, 'SENDSMS_TWILIO_FROM_NUMBER', '')
 
     def send_messages(self, messages):
         # This is an example backend that uses Twilio to send SMS messages
@@ -22,16 +24,18 @@ class TwilioSmsBackend(BaseSmsBackend):
         #    SENDSMS_TWILIO_AUTH_TOKEN=[YOUR TRIAL ACCOUNT INFO]
 
         logger.info("Send message via Twilio")
+        if not self.TWILIO_FROM_NUMBER:
+            raise ValueError("Invalid Twilio phone number")
 
-        client = TwilioRestClient(self.TWILIO_ACCOUNT_SID,
-                                  self.TWILIO_AUTH_TOKEN)
+        client = self.Client(self.TWILIO_ACCOUNT_SID,
+                             self.TWILIO_AUTH_TOKEN)
         for message in messages:
             for to in message.to:
                 try:
-                    client.sms.messages.create(
+                    client.messages.create(
                         to=to,
-                        from_=message.from_phone,
-                        body=message.body
+                        from_=self.TWILIO_FROM_NUMBER,
+                        body=message.body[0:122]  # Trial account restriction
                     )
                 except:
                     if not self.fail_silently:

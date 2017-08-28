@@ -3,6 +3,8 @@
 target_subject = 'DAS Green Alert: {serial} {title}'
 target_from_address = 'notifications@pamdas.org'
 
+sms_message = 'DAS Green Alert: {serial} {title}'
+
 standalone_event_update = '''DAS {serial}: {title}
 Priority: Green
 
