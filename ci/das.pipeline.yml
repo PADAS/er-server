@@ -437,6 +437,8 @@ jobs:
         }
       params: {
           STATIC_IP: ((static-ip)),
+          EMAIL_HOST: ((email-host)),
+          EMAIL_USERNAME: ((email-username)),
           EMAIL_PASSWORD: ((email-password))
       }
       inputs: 

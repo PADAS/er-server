@@ -137,7 +137,15 @@ Here is a slightly more complicated job\. Note that it consumes multiple resourc
 
 It also includes triggers to ensure this job only runs if the jobs that create its input resources completed successfully\. You can check the latest status of a concourse job just by specifying the job's name, so that's all that's needed here\. All triggers and passed items must resolve to true for the job to happen\. Any failures will prevent the job from kicking off\.
 
+Once the concouse pipeline configuration is complete, push it up to concourse with the command:
 
+~~~~~~
+
+./set.pipeline.sh pipeline_name
+
+~~~~~~
+
+To pass variables into the configuration, see the section [_Passing arguments into pipelines_](#Passing-arguments-into-pipelines)
 
 ### Configuring Docker
 
@@ -270,7 +278,7 @@ To list the running apps
 
 The command to view the current
 
-##### Passing arguments into pipelines (such as passwords or other sensitive data) #####
+##### Passing arguments into pipelines
 
 SS's infrastructure will create a docker container based on the configuration files you generate as described in this document. Sometimes however, you will not be able to or want to specify certain pieces of information in your configuration. For example, you might have sensitive information like a password you'd like to provide when creating the container, but not leave the password in the config file on github.
 
