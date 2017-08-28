@@ -204,16 +204,11 @@ def send_event_mail(event, user, revisions):
 def send_event_sms(event, user, revisions):
     data = extract_event_data(event, user, revisions)
 
-    parameters = {
-        'event_id': event.id,
-        'time': event.time,
-        'priority': data['color'],
-        'created_by': 'unknown'
-    }
-    if event.reported_by is not None:
-        parameters['created_by'] = event.reported_by['name']
+    parameters = {'serial': data['id'],
+                  'color': data['color'],
+                  'title': data['title']}
 
-    body = render_to_string('new_event_sms.txt', parameters)
+    body = render_to_string('new_event_sms.txt', parameters).strip()
     logger.info('Sending new event sms to {0}'.format(user.phone))
 
-    user.send_sms(body, None)
+    user.send_sms(body)
