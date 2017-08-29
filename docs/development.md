@@ -168,10 +168,10 @@ buildnum \- there is no build number for a master branch release, the version al
 
 
 tag the branch and push it to the repo:
-
-git tag \-a 1\.15\.1 \-m "release 1\.15\.1"
-git push origin 1\.15\.1
-
+```bash
+git tag -a 1.15.1 -m "release 1.15.1"
+git push origin 1.15.1
+```
 __Support Branch__
 
 In the case where we want to support an older software version, use a 'support' branch\. For instance Master has moved on and released code for version 1\.16\.1\. Now we need to perform some bug fixes on the 1\.15 branch\. In this instance, create a support/1\.15 branch we will use for maintaining the 1\.15 series\. The initial support branch is performed from that specific tag found on the master branch\. There is no intention to merge code fixes from the support branch into 'develop' or 'master'\.
