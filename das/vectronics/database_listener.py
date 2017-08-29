@@ -27,7 +27,8 @@ def handle_notify(notify):
         position = GpsPlusPositions.objects.get(pk=notify.payload)
         handle_gps_plus_position(position)
     except GpsPlusPositions.DoesNotExist:
-        logger.warning('Notified for id_position: %s, but it does not exist in the database.', notify.payload)
+        logger.warning(
+            'Notified for id_position: %s, but it does not exist in the database.', notify.payload)
 
 
 def handle_gps_plus_position(position):
@@ -35,18 +36,19 @@ def handle_gps_plus_position(position):
                 position.id_position,
                 position.id_collar, position.acquisition_time.isoformat(), position.longitude, position.latitude)
 
-    provider, created = SourceProvider.objects.get_or_create(name=SOURCE_PROVIDER_NAME)
+    provider, created = SourceProvider.objects.get_or_create(
+        name=SOURCE_PROVIDER_NAME)
     manufacturer_id = position.id_collar
-    source, created = Source.objects.ensure_source(source_type=SOURCE_TYPE,
-                                                   manufacturer_id=position.id_collar,
-                                                   model_name=MODEL_NAME,
-                                                   provider=provider.name,
-                                                   subject={
-                                                       'subject_type': Subject.TYPE_UNASSIGNED,
-                                                       'subject_subtype': Subject.SUBTYPE_UNASSIGNED,
-                                                       'name': manufacturer_id
-                                                   }
-                                                   )
+    source = Source.objects.ensure_source(source_type=SOURCE_TYPE,
+                                          manufacturer_id=position.id_collar,
+                                          model_name=MODEL_NAME,
+                                          provider=provider.name,
+                                          subject={
+                                              'subject_type': Subject.TYPE_UNASSIGNED,
+                                              'subject_subtype': Subject.SUBTYPE_UNASSIGNED,
+                                              'name': manufacturer_id
+                                          }
+                                          )
 
     logger.debug('{} source ({}) for collar_id: {}'.format('Created' if created else 'Found', source.id,
                                                            position.id_collar))
@@ -87,7 +89,8 @@ def start_listening():
 
     cursor = connections['vectronics'].cursor()
     db_connection = connections['vectronics'].connection
-    db_connection.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+    db_connection.set_isolation_level(
+        psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
     cursor.execute('LISTEN ' + channel_name + ';')
 
     msg = 'Waiting for notifications: ' + channel_name
@@ -103,4 +106,3 @@ def start_listening():
                     handle_notify(notify)
         except psycopg2.OperationalError as oe:
             logger.exception('Caught exception in select loop.')
-
