@@ -1,10 +1,31 @@
 ## Releases
 
+
+### Unreleased
+#### Overview
+Support SMS output for alerts. Simplify template used to render SMS txt.
+Fix bug in vectronics collar data import ensuring the source record. Prevented new data from being added to db.
+Fix bug in web editing an existing report that contained a number field in the data model. A null value in the number field was not handled, causing the report to not be displayed. Resolved reports displayed correctly.
+Fix bug showing fields that changed in an alert email so that a consolidate alert email correctly shows all fields that changed over multiple edits. Today only the last change is annotated in an alert email.
+
+
+
+
+### Release 1.17
+
+#### Overview
+Fix bug when creating a new Report, the previous data model schema was used.
+
+
 ### Release 1.16
 
 #### Overview
 
-Small release to 
+Filter reports displayed in the Reports feed, so that reports contained in an incident are not displayed.
+Consolidate alert emails so that consecutive changes to a Report in a short amount of time do not generate multiple email updates.
+Choice tables for Liwonde (a few spoor related tables orphaned on an old branch)
+Fix bug that was escaping "&" signs in report titles. We clean any text typed in by a user looking for HTML based attacks.
+Fix bug preventing a report appearing in an alert email when an incident only had one report. 
 
 #### DAS Web Change Log ####
 __1\.16\.1\.rc\.3__
