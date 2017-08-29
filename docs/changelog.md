@@ -3,8 +3,11 @@
 
 ### Unreleased
 #### Overview
+Support SMS output for alerts. Simplify template used to render SMS txt.
 Fix bug in vectronics collar data import ensuring the source record. Prevented new data from being added to db.
 Fix bug in web editing an existing report that contained a number field in the data model. A null value in the number field was not handled, causing the report to not be displayed. Resolved reports displayed correctly.
+Fix bug showing fields that changed in an alert email so that a consolidate alert email correctly shows all fields that changed over multiple edits. Today only the last change is annotated in an alert email.
+
 
 
 
