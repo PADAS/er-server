@@ -1,4 +1,5 @@
 import uuid
+
 from django.contrib.gis.db import models
 from django.core import checks, exceptions
 from django.db.models.fields import BLANK_CHOICE_DASH
