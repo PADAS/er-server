@@ -1,0 +1,23 @@
+[
+{
+  "model": "mapping.map",
+  "pk": "03bd4486-9dee-404e-a666-055afee90434",
+  "fields": {
+    "created_at": "2017-06-12T17:44:44.017Z",
+    "updated_at": "2017-06-13T20:53:19.390Z",
+    "name": "Seattle",
+    "attributes": {
+      "default": true,
+      "id": "seattle",
+      "icon": {
+        "src": "https://cdn1.iconfinder.com/data/icons/world-top-cities-1/512/18-Seattle-256.png",
+        "bottom": 0,
+        "height": 34
+      },
+      "title": "Seattle"
+    },
+    "center": "SRID=4326;POINT (-122.3286437817934456 47.5894941057947491)",
+    "zoom": 12
+  }
+}
+]

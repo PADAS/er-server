@@ -1,0 +1,24 @@
+[
+{
+  "model": "accounts.user",
+  "pk": "3880239a-ffcd-47a8-9035-0ce3c9d90bdd",
+  "fields": {
+    "password": "pbkdf2_sha256$24000$G4MN6hT9Lw2Z$qOrfjK8SbKlih5D9tt1hOoBPgDYtGJzTPWdsBzHWfY4=",
+    "last_login": null,
+    "is_superuser": true,
+    "username": "admin",
+    "first_name": "Admin",
+    "last_name": "Admin",
+    "email": "admin@admin.admin",
+    "phone": "",
+    "is_email_alert": false,
+    "is_sms_alert": false,
+    "is_staff": true,
+    "is_active": true,
+    "additional": {},
+    "is_nologin": false,
+    "permission_sets": [],
+    "act_as_profiles": []
+  }
+}
+]
