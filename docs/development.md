@@ -1,8 +1,8 @@
-## Development Standards and Information
+# Development Standards and Information
 
-### OnBoarding
+## OnBoarding
 
-#### Source Code ####
+### Source Code
 
 Find the source code repositories on GitHub\. Ask project lead to add you to the list of users\.
 
@@ -76,7 +76,7 @@ To tell Django how to find the libraries you've just installed on your Mac, you'
 
 __Ubuntu__
 
-##### Local Docker #####
+### Local Docker
 
 We use docker for development and deployment\. Double check your code runs locally in Docker before pushing to the repo and subsequent staging\.
 
@@ -102,8 +102,7 @@ cd das
 If you see the following when bringing up a local pipeline, then you should re-run the above command to refresh your credentials:
 ERROR: pull access denied for [gcr.io/padas-app/web/develop](http://gcr.io/padas-app/web/develop)^[http://gcr.io/padas-app/web/develop], repository does not exist or may require 'docker login'
 
-4. To build and run with local docker contains, execute the following docker-compose command. Your local repos will be mounted in these docker containers allowing you to develop code running in docker containers.
-
+4. To build and run with local docker containers, execute the following docker-compose command. Your local repos will be mounted in these docker containers allowing you to develop code running in docker containers.
 
 ~~~~~~~
 cd das
@@ -111,11 +110,36 @@ docker-compose -f docker-compose.yml -f compose-dev.yml up -d
 ~~~~~~~
 
 
-5. 
+5. Other commands
+ * Simple command to run the site
+~~~
+cd das
+./docker/run_site.sh
+~~~  
+ * Rebuild a specific container
+ ~~~
+ cd das
+ ./docker/build.sh <container name>
+ ~~~ 
+ * View Logs
+ ~~~
+ cd das
+ docker-compose logs -f
+ ~~~
+ * Verify all containers are running
+ ~~~
+ cd das
+ docker-compose ps
+ ~~~
+ 
+6. Login to DAS
 
+[http://localhost](http://localhost)
 
+* user: admin
+* password: Password1!
 
-### Git Flow
+## Git Flow
 
 Our source code control use is governed by the Git Flow pattern\.
 
@@ -123,7 +147,7 @@ Specifically we use the following naming conventions for the feature, release an
 
 
 
-##### Helpful Links #####
+### Helpful Links
 
 GitFlow: [https://datasift\.github\.io/gitflow/IntroducingGitFlow\.html](https://datasift\.github\.io/gitflow/IntroducingGitFlow\.html)
 
@@ -131,9 +155,9 @@ Semantic Versioning: [http://semver\.org/](http://semver\.org/)
 
 
 
-##### Branches #####
+### Branches ####
 
-__Feature Branches__
+#### Feature Branches
 
 Feature branches are based on the current develop branch\. For feature branches, include the JIRA ticket when possible\. For example: 'feature/DAS\-1111'\. Once the feature work is completed, code is merged back into develop through a pull request on GitHub\.
 
@@ -141,7 +165,7 @@ version number includes the 'dev' designation for builds: 1\.15\.1\-dev\.buildnu
 
 The version number in the develop branch should always reflect the latest version number found in either the release or hot fix branch\.
 
-__Release Branches__
+#### Release Branches
 
 When it is time to organize a release, branch from develop at the appropriate point\. The prefix for a release is 'release/'\. A release should be numbered as well\. An example release branch name would be 'release/1\.15\.0'\. See Master Branch below for how this branch is moved into master for release\.
 
@@ -149,7 +173,7 @@ version number includes the 'rc' designation for builds: 1\.15\.1\-rc\.buildnum
 
 buildnum \- reset this whenever the version number changes
 
-__Hot Fix Branches__
+#### Hot Fix Branches
 
 Hot fix branches are based from the appropriate master tag\. Prefix a hot fix branch with 'hotfix/', for example 'hotfix/1\.15\.1'
 
@@ -157,7 +181,7 @@ version number includes the 'rc' designation for builds: 1\.15\.1\-rc\.buildnum
 
 buildnum \- reset this whenever the version number changes
 
-__Master Branch__
+#### Master Branch
 
 Once a release is ready for production release to customers, merge the release branch into master and create a tag marking the release on master\. The production build is done from this tag on the master branch\. An example tag: '1\.15\.1'
 
@@ -167,12 +191,27 @@ buildnum \- there is no build number for a master branch release, the version al
 
 
 
-tag the branch and push it to the repo:
-```bash
-git tag -a 1.15.1 -m "release 1.15.1"
-git push origin 1.15.1
-```
-__Support Branch__
+Tag the branch and push it to the repo using these steps.
+1. merge from the release branch using --no-ff
+~~~~
+git merge release/1.15.1 --no-ff
+~~~~
+2. resolve any conflicts
+3. update the VERSION tuple in das/das_server/__init__.py
+~~~~
+VERSION = (1, 15, 1, '', BUILD_NUMBER)
+~~~~
+4. commit and push changes
+~~~~
+git push origin master
+~~~~
+5. tag the build and push to github
+~~~~
+    git tag -a 1.15.1 -m "release 1.15.1"
+    git push origin 1.15.1
+~~~~
+
+#### Support Branch
 
 In the case where we want to support an older software version, use a 'support' branch\. For instance Master has moved on and released code for version 1\.16\.1\. Now we need to perform some bug fixes on the 1\.15 branch\. In this instance, create a support/1\.15 branch we will use for maintaining the 1\.15 series\. The initial support branch is performed from that specific tag found on the master branch\. There is no intention to merge code fixes from the support branch into 'develop' or 'master'\.
 
@@ -182,7 +221,7 @@ version number includes the 'sup' designation for builds: 1\.15\.1\-sup\.buildnu
 
 buildnum \- reset this whenever the version number changes
 
-__Example workflow for a feature branch__
+### Example workflow for a feature branch
 
 + git checkout develop
 
@@ -202,7 +241,7 @@ once you have completed work, use the Github interface to start a Pull Request o
 
 delete your feature branch once it has been approved and merged into 'develop'
 
-__Release Numbers__
+### Release Numbers
 
 Major Change 1\.x to 2\.x
 

@@ -23,11 +23,24 @@ Once these tools have been set up and handed off, further deployment configurati
 For details regarding configuring and using the build tools, see the following links:
 
 
+### Setup ###
+The tools and scripts for managing pipelines require access to a bash shell. Preferred to use ubuntu, but some have had success with other platforms.
+
+#### fly ####
+[fly](https://concourse.ci/fly-cli.html) is the command line tool to control concourse
+Look for the script install.fly.cli.sh found in the infrastucture repo 
+run it:
+
+    ./docker/utility/fly/install/install.fly.cli.sh
+
+
+#### ? ####
 
 
 ### Configuring Concourse
 
-Concourse lives here: [https://35\.197\.37\.215](https://35\.197\.37\.215)
+Concourse lives here: [https://35.197.37.215](https://35\.197\.37\.215)
+Concourse for VDP is here: [https://35.199.175.103](https://35.199.175.103)
 
 Concourse pipelines are configured by creating a set of resources, jobs, and gates\. A resource is a _thing_  like a file (local or hosted somewhere else), a git repository, or a docker container\. A job is an _action_  that takes one or more resources as input, performs an operation on them, and usually outputs a new resource\. Some examples of jobs are cloning or pulling a git repo, compiling code, running unit tests, and executing a script\. A gate is a _condition_  that must happen before a job is performed\. Most often this is "Did the unit tests pass?" or "Did the build/script/whatever complete successfully?"
 
@@ -141,8 +154,14 @@ Once the concouse pipeline configuration is complete, push it up to concourse wi
 
 ~~~~~~
 
-./set.pipeline.sh pipeline_name
+./set.pipeline.sh [pipeline_name]
 
+~~~~~~
+
+To delete an existing concourse pipeline, use the following command:
+~~~~~~
+
+fly -t padas-app destroy-pipeline -p [pipeline_name]
 ~~~~~~
 
 To pass variables into the configuration, see the section [_Passing arguments into pipelines_](#Passing-arguments-into-pipelines)
