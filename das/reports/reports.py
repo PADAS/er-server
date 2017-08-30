@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import pytz
 import json
+import html
 from django.utils import timezone
 from django.db.models import *
 from activity.models import Event
@@ -352,7 +353,7 @@ def get_daily_report_data(since, before, **kwargs):
         en = event.notes.all().order_by('created_at')
 
         def build_note(note):
-            return {'text': note.text,
+            return {'text': html.escape(note.text),
                     'username': note.created_by_user.username,
                     'created_at': note.created_at.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
                     }
@@ -378,7 +379,7 @@ def get_daily_report_data(since, before, **kwargs):
         en = event.notes.all().order_by('created_at')
 
         def build_note(note):
-            return {'text': note.text,
+            return {'text': html.escape(note.text),
                     'username': note.created_by_user.username,
                     'created_at': note.created_at.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
                     }
