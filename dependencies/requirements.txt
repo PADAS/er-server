@@ -99,5 +99,6 @@ six==1.10.0
 sphinx==1.2.3             # via docxtpl
 sphinxcontrib-napoleon==0.6.1  # via docxtpl
 tornado==4.5.1            # via bokeh
+twilio==6.5.2
 uritemplate==3.0.0        # via google-api-python-client
 vine==1.1.3               # via amqp
