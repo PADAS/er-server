@@ -46,7 +46,7 @@ class Command(BaseCommand):
 
     def migrate_definition(self, event_type):
         schema_raw = event_type.schema
-        schema = schema_utils.get_rendered_schema(schema_raw)
+        schema = schema_utils.get_rendered_schema(schema_raw)['properties']
 
     def save_event_type(self, event_type):
         logger.info('Saving EventType: %s', event_type)

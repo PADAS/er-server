@@ -30,18 +30,35 @@ def get_display_value_for_key(key):
     return display.title()
 
 
+def get_key_title(key, schema):
+    properties = schema['properties']
+    if key in properties and 'title' in properties[key]:
+        return properties[key]['title']
+
+    definitions = schema['defintions'] if 'definitions' in schema else []
+
+    for definition_dictionary in [x for x in definitions if isinstance(x, dict)]:
+        if definition_dictionary['key'] == key:
+            return definition_dictionary['title']
+
+    return None
+
+
 def extract_details(schema, details, updated):
     if not details or not details.data or 'event_details' not in details.data:
         return
 
     details_dictionary = details.data['event_details']
     schema = schema_utils.get_rendered_schema(schema)
+    properties = schema['properties']
     for k in sorted(details_dictionary.keys()):
-        if k not in schema:
+        if k not in properties:
             continue
         update_indicator = '*' if k in updated else '-'
         v = details_dictionary[k]
-        key_display = schema[k]['title']
+        key_display = get_key_title(k, schema)
+        if not key_display:
+            continue
         if isinstance(v, dict) and 'name' in v:
             yield email_separator_string.format(update_indicator, key_display, v['name'])
         elif isinstance(v, (int, float, bool)):
