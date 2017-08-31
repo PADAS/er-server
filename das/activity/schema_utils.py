@@ -9,6 +9,7 @@ from utils.json import loads, dumps
 
 logger = logging.getLogger(__name__)
 
+
 def get_replacement_fields_in_schema(schema):
     template = Template(schema)
 
@@ -27,6 +28,7 @@ def get_replacement_fields_in_schema(schema):
 
     return fields
 
+
 def get_rendered_schema(schema):
     try:
         template = Template(schema)
@@ -37,15 +39,17 @@ def get_rendered_schema(schema):
                 empty_params[node.token.contents] = []
 
         if len(empty_params) > 0:
-            rendered_schema = template.render(Context(empty_params, autoescape=False))
+            rendered_schema = template.render(
+                Context(empty_params, autoescape=False))
             schema_json = loads(rendered_schema)
         else:
             schema_json = loads(schema)
 
-        return schema_json['schema']['properties']
+        return schema_json['schema']
     except Exception as ex:
         logger.error("Error rendering schema with empty data", ex)
         return []
+
 
 def get_all_fields(schema):
     try:
@@ -57,7 +61,8 @@ def get_all_fields(schema):
                 empty_params[node.token.contents] = []
 
         if len(empty_params) > 0:
-            rendered_schema = template.render(Context(empty_params, autoescape=False))
+            rendered_schema = template.render(
+                Context(empty_params, autoescape=False))
             schema_json = loads(rendered_schema)
         else:
             schema_json = loads(schema)
@@ -69,7 +74,8 @@ def get_all_fields(schema):
 
 
 def get_dynamic_choices(field_details, as_string=True):
-    dynamic_choice = DynamicChoice.objects.filter(id=field_details['field']).first()
+    dynamic_choice = DynamicChoice.objects.filter(
+        id=field_details['field']).first()
     model_to_filter = apps.get_model(dynamic_choice.model_name)
 
     options = OrderedDict()
@@ -77,7 +83,6 @@ def get_dynamic_choices(field_details, as_string=True):
         value = getattr(row, dynamic_choice.value_col, None)
         display = getattr(row, dynamic_choice.display_col, None)
         options[str(value)] = str(display)
-
 
     if field_details['type'] == 'names':
         return_val = options

@@ -105,7 +105,8 @@ def consolidate_all_child_alerts_into_parent(parent_key, child_events):
 def check_event_activity(event_id, queue_len):
     logger.info('event mailer event_id: {}'.format(event_id))
 
-    redis_client = redis.from_url(settings.CELERY_BROKER_URL)
+    redis_client = redis.from_url(
+        settings.CELERY_BROKER_URL, decode_responses=True)
     key = REFRESH_USER_KEY.format(event_id)
 
     # quick check to see if it's worth acquiring a lock, we'll do a threadsafe
@@ -117,23 +118,18 @@ def check_event_activity(event_id, queue_len):
             if l and redis_client.llen(key) == queue_len:
                 try:
                     logger.debug("sending alert for %s", event_id)
-                    queue_alert_for_all_users.delay(event_id)
+                    queue_alert_for_all_users.delay(
+                        event_id, redis_client.lrange(key, 0, count))
                     logger.debug("Finished sending alert for %s", event_id)
                 finally:
                     redis_client.ltrim(key, count, -1)
 
 
 @celery.app.task()
-def queue_alert_for_all_users(event_id):
+def queue_alert_for_all_users(event_id, revision_ids):
     event = Event.objects.get(pk=event_id)
-    event_key = REFRESH_USER_KEY.format(event_id)
-    redis_client = redis.from_url(
-        settings.CELERY_BROKER_URL, decode_responses=True)
 
-    revision_ids = redis_client.lrange(
-        event_key, 0, redis_client.llen(event_key))
-
-    priorities = set([event.priority])
+    priorities = {event.priority}
     for revision_id in revision_ids:
         rev_type, rev_id = revision_id.split(';')
         if rev_id == '0' or rev_type == 'd':
