@@ -1,13 +1,38 @@
 import logging
-
-from choices.models import Choice, DynamicChoice
 from collections import OrderedDict
+
 from django.apps import apps
 from django.template import Template, Context
 from django.template.base import VariableNode
+
+from choices.models import Choice, DynamicChoice
 from utils.json import loads, dumps
 
 logger = logging.getLogger(__name__)
+
+
+LOOKUP_ATTR = 'lookup'
+FIELD_ATTR = 'field'
+TYPE_ATTR = 'type'
+TAG_ATTR = 'tag'
+
+
+def get_empty_params(schema):
+    template = Template(schema)
+    empty_params = {}
+    for node in template.nodelist:
+        if type(node) is VariableNode:
+            empty_params[node.token.contents] = []
+    return empty_params
+
+
+def render_schema_template(schema, parameters):
+    rendered_template = schema
+    if len(parameters) > 0:
+        template = Template(schema)
+        rendered_template = template.render(
+            Context(parameters, autoescape=False))
+    return loads(rendered_template, object_pairs_hook=OrderedDict)
 
 
 def get_replacement_fields_in_schema(schema):
@@ -45,7 +70,7 @@ def get_rendered_schema(schema):
         else:
             schema_json = loads(schema)
 
-        return schema_json['schema']
+        return schema_json['schema']['properties']
     except Exception as ex:
         logger.error("Error rendering schema with empty data", ex)
         return []

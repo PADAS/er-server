@@ -161,6 +161,9 @@ class EventTypeManager(EventBaseManager):
     def create_type(self, **values):
         return self.create(**values)
 
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
 
 class EventType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
