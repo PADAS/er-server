@@ -65,6 +65,5 @@ class AfricasTalkingBackend(BaseSmsBackend):
                         logger.error(err_msg)
 
                 except Exception as ex:
-                    err_msg = 'Error sending an sms to {0): {1}'.format(
-                        to, response)
-                    logger.error(err_msg, ex)
+                    err_msg = 'Error sending an sms to {0)'.format(to)
+                    logger.exception(err_msg)
