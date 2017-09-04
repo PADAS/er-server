@@ -62,7 +62,8 @@ def validate(event, schema=None, raise_exception=False):
     except:
         if raise_exception:
             raise
-        return False
+
+    return False
 
 
 def extractor(schema_item, value):
