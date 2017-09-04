@@ -68,9 +68,9 @@ def varypoint(p):
     return [p[0] + random.random() * 0.01, p[1] + random.random() * 0.01]
 
 
-def load_track_geojson(name):
+def load_track_geojson(profile, name):
     filename = os.path.join(os.path.dirname(__file__),
-                            'track_data/{0}.geojson'.format(name))
+                            'track_data/{0}/{1}.geojson'.format(profile, name))
     with open(filename, 'r') as f:
         return json.load(f)
 
@@ -173,7 +173,7 @@ class DemoDriver():
         # PolygonFeature.objects.filter(name="TEAM SIX's Proximity Feature").delete()
         # # SpeedAnalyzer.objects.create(subject=self.subject, max_speed=10000000)
 
-    def drive(self, delay=0):
+    def drive(self, delay=0, profile='default'):
 
         begin_time = pytz.utc.localize(
             datetime.utcnow()) - timedelta(hours=HISTORY_HOURS)
@@ -187,7 +187,7 @@ class DemoDriver():
             self.delete_observations()
 
             td = timedelta(minutes=delay)
-            tracks = load_track_geojson(self.manufacturer_id)
+            tracks = load_track_geojson(profile, self.manufacturer_id)
             points = tracks['features'][0]['geometry']['coordinates']
             states = tracks['features'][0]['properties']
             if not states:
@@ -415,11 +415,19 @@ class Command(BaseCommand):
             help='Number of minutes to delay the recorded_at time for observations. Default is zero.',
         )
 
+        parser.add_argument(
+            '--profile',
+            action='store',
+            dest='profile',
+            default='default',
+            help='Profile of pre-computed track data.',
+        )
+
     def handle(self, *args, **options):
 
         interval = int(options['interval'])
         delay = int(options['delay'])
-
+        profile = options['profile']
         create_actors()
         drivers = []
         for sub in read_demo_data()['subjects']:
@@ -430,7 +438,8 @@ class Command(BaseCommand):
         # We have some canned events that are associated with the first RADIO.
         add_demo_data(subject=drivers[0].subject)
 
-        generators = list(driver.drive(delay=delay) for driver in drivers)
+        generators = list(driver.drive(delay=delay, profile=profile)
+                          for driver in drivers)
         # prime the DB with an observation
         for g in generators:
             next(g)

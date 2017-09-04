@@ -70,7 +70,7 @@ def get_rendered_schema(schema):
         else:
             schema_json = loads(schema)
 
-        return schema_json['schema']['properties']
+        return schema_json['schema']
     except Exception as ex:
         logger.error("Error rendering schema with empty data", ex)
         return []
