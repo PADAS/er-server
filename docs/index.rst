@@ -31,6 +31,7 @@ Contents:
    docker
    documentation
    confluence
+   datamodel
 
 .. _api:
 
