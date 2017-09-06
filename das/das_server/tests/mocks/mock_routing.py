@@ -54,4 +54,4 @@ def simulate_five_second_wait():
     time.sleep(2)
     for args in pending_calls_to_check_event_activity:
         tasks.check_event_activity(args[0], args[1])
-    time.sleep(2)
+    pending_calls_to_check_event_activity = []
