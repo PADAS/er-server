@@ -13,7 +13,7 @@ resources:
     paths: 
       - dependencies/* 
       - docker/base/*
-    private_key: ((server-private-key))
+    private_key: ((das-github))
 
 - name: git-utility
   type: versioned-git-resource
@@ -23,14 +23,14 @@ resources:
     paths: 
       - docker/PostGIS/*
       - docker/Nginx/*
-    private_key: ((server-private-key))
+    private_key: ((das-github))
 
 - name: git-server
   type: versioned-git-resource
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
-    private_key: ((server-private-key))
+    private_key: ((das-github))
 
 - name: git-web-base
   type: versioned-git-resource
@@ -39,7 +39,7 @@ resources:
     branch: ((web-branch-name))
     paths:
       - docker/build/base/*
-    private_key: ((web-private-key))
+    private_key: ((das-web-github))
 
 - name: git-web-depends
   type: versioned-git-resource
@@ -50,14 +50,14 @@ resources:
       - docker/build/depends/*
       - bower.json
       - package.json
-    private_key: ((web-private-key))
+    private_key: ((das-web-github))
 
 - name: git-web
   type: versioned-git-resource
   source:
     uri: git@github.com:PADAS/das-web.git
     branch: ((web-branch-name))
-    private_key: ((web-private-key))
+    private_key: ((das-web-github))
 
 #base docker resources
 - name: image-server-base
@@ -66,7 +66,7 @@ resources:
     tag: $(cat<git-server-base/sha)
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/base
 
 - name: image-server-app
@@ -75,7 +75,7 @@ resources:
     tag: $(cat<git-server/sha)
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/app
 
 # AIS_Gap, AIS_Track, API, Beat, MQL, RT_AIS_API, RT_API, Worker
@@ -84,7 +84,7 @@ resources:
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/worker
 
 - name: image-server-rt-api
@@ -92,7 +92,7 @@ resources:
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/rt_api
 
 - name: image-server-mql
@@ -100,7 +100,7 @@ resources:
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/mql
 
 - name: image-server-beat
@@ -108,7 +108,7 @@ resources:
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/beat
 
 - name: image-server-api
@@ -116,17 +116,17 @@ resources:
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/api
 
 
-# docker resource images not dependentn on base / app
+# docker resource images not dependent on base / app
 - name: image-postgis
   type: docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/postgis
 
 - name: image-nginx
@@ -134,7 +134,7 @@ resources:
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/nginx
 
 # Web docker resources
@@ -143,7 +143,7 @@ resources:
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/build/base
 
 - name: image-web-depends
@@ -152,7 +152,7 @@ resources:
     tag: $(cat<git--web-depends/sha)
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/build/depends
     
 - name: image-web-develop
@@ -161,7 +161,7 @@ resources:
     tag: $(cat<git-web/sha)
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/develop
 
 - name: image-web-app
@@ -169,7 +169,7 @@ resources:
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-password))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/app
 
 
@@ -184,7 +184,7 @@ resource_types:
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((gcr-io-infrastructure-password))
+    password: ((ss-instrastructure-container-registry-pull))
     repository: gcr.io/ss-infrastructure/concourse/versioned-git-resource
 
 ################################################################################
@@ -433,7 +433,7 @@ jobs:
           repository: gcr.io/ss-infrastructure/utility/envsubst,
           email: ((gcr-io-email)),
           username: ((gcr-io-username)),
-          password: ((gcr-io-infrastructure-password))
+          password: ((ss-instrastructure-container-registry-pull))
         }
       params: {
           STATIC_IP: ((static-ip)),
@@ -462,7 +462,7 @@ jobs:
         PROJECT_ID: ((project-id)),
         CLUSTER_NAME: ((cluster-name)),
         DEPLOY_PATH: deployment-info,
-        CLUSTER_ADMIN_PASSWORD: ((gcr-io-cluster-admin-password))
+        CLUSTER_ADMIN_PASSWORD: ((padas-app-k8s-cluster-admin))
       }
       run:
         path: git-server/ci/deploy.to.k8s.sh
