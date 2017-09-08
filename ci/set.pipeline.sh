@@ -17,4 +17,4 @@ fly -t $PROJECT set-pipeline -p $PIPELINE \
     -v gcr-io-email=1234@5678.com \
     -v gcr-io-username=_json_key \
     "$(set_var_file_if_exists "$DAS_DIR/k8s/$PIPELINE.params.yml")" \
-    $OVERRIDES \  
+    $OVERRIDES
