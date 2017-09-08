@@ -2,128 +2,59 @@ resources:
 - name: git-deployment
   type: git
   source:
-    uri: git@github.com:VulcanTechnologies/vic_server.git
+    uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
     paths:
       - deployment/*
-    private_key: ((vic-server-github-repo-private-key))
-
-- name: git-version
-  type: semver
-  source:
-    driver: git
-    file: ((version-suffix)).version
-    uri: git@github.com:VulcanTechnologies/skylight.versions.git
-    branch: master
-    private_key: ((skylight-versions-github-repo-private-key))
-
-- name: slack-alert
-  type: slack-notification
-  source:
-    url: https://hooks.slack.com/services/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
-
-resource_types:
-- name: slack-notification
-  type: docker-image
-  source:
-    repository: cfcommunity/slack-notification-resource
-    tag: v1.2.0
+    private_key: ((das-github))
 
 jobs:
 - name: deploy-to-k8s
   serial: true
   plan:
-  - do:
-    - aggregate:
-      - get: git-version
-      - get: git-deployment
-    - do:
-      - task: ensure-disks-exist
-        config:
-          platform: linux
-          image_resource:
-            type: docker-image
-            source: {repository: google/cloud-sdk}
-          inputs:
-          - name: git-deployment
-          params: {
-            PROJECT_ID: ((project-id)),
-            COMPUTE_EDITOR_PASSWORD: ((gcp-compute-editor-password)),
-            CLUSTER_NAME: ((cluster-name)),
-            DISK_NAMESPACE: ((disk-namespace)),
-            CREATOR: ((creator)),
-            BUILD_PIPELINE_NAME: ((pipeline-name)),
-            GCP_COMPUTE_ZONE: ((gcp-compute-zone))
-          }
-          run:
-            path: git-deployment/deployment/utility/create.from.csv.sh
-            args:
-            - git-deployment/deployment/storage/default.disks.csv
-      - task: update-deployment-info
-        config:
-          platform: linux
-          image_resource:
-            type: docker-image
-            source: {
-              repository: gcr.io/ss-infrastructure/utility/envsubst,
-              email: ((gcr-io-email)),
-              username: ((gcr-io-username)),
-              password: ((infrastructure-gcr-io-pull-key))
-            }
-          inputs:
-          - name: git-version
-          - name: git-deployment
-          params: {
-            COLLECTOR_SOURCE: ((collector-source)),
-            ORBCOMM_PROFILE: ((orbcomm-profile)),
-            PLAY_BUCKET_NAME: ((play-bucket-name)),
-            COLLECTOR_START_DATE: ((collector-start-date)),
-            COLLECTOR_PLAY_RATE: ((collector-play-rate)),
-            STATIC_IP: ((static-ip)),
-            UTILITY_STATIC_IP: ((utility-static-ip)),
-            CLUSTER_NAME: ((cluster-name)),
-            DISK_NAMESPACE: ((disk-namespace)),
-            UPLOAD_BUCKET_NAME: ((upload-bucket-name)),
-            UPLOAD_DELETE: ((upload-delete)),
-            OBJECT_STORAGE_TYPE: ((object-storage-type)),
-            VTRACK_REPLICA_COUNT: ((vtrack-replica-count)),
-            GCP_CREDENTIALS: ((gcp-storage-key))
-          }
-          outputs:
-          - name: deployment-info
-          run:
-            path: git-deployment/deployment/utility/update.k8s.deployment.params.version.sh
-      - task: deploy
-        config:
-          platform: linux
-          image_resource:
-            type: docker-image
-            source: {repository: google/cloud-sdk}
-          inputs:
-          - name: git-deployment
-          - name: deployment-info
-          params: {
-            PROJECT_ID: ((project-id)),
-            CLUSTER_NAME: ((cluster-name)),
-            DEPLOY_PATH: deployment-info,
-            CLUSTER_ADMIN_PASSWORD: ((k8s-cluster-admin-password)),
-            GCP_COMPUTE_ZONE: ((gcp-compute-zone))
-          }
-          run:
-            path: git-deployment/deployment/utility/deploy.to.k8s.sh
-    on_failure:
-      do:
-      - put: slack-alert
-        params:
-          channel: ((slack-notification-channel))
-          text: |
-            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed to deploy to kubernetes.
-            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
-    on_success:
-      do:
-      - put: slack-alert
-        params:
-          channel: ((slack-notification-channel))
-          text: |
-            :white_check_mark: $BUILD_PIPELINE_NAME pipeline succeeded in deploying to kubernetes.
-            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+  - aggregate:
+    - get: git-server
+    - get: git-utility
+    - get: git-web
+  - task: update-deployment-info
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source: {
+          repository: gcr.io/ss-infrastructure/utility/envsubst,
+          email: ((gcr-io-email)),
+          username: ((gcr-io-username)),
+          password: ((ss-infrastructure-container-registry-pull))
+        }
+      params: {
+        STATIC_IP: ((static-ip)),
+        EMAIL_HOST: ((email-host)),
+        EMAIL_USERNAME: ((email-username)),
+        EMAIL_PASSWORD: ((email-password))
+      }
+      inputs:
+      - name: git-server
+      - name: git-utility
+      - name: git-web
+      outputs:
+      - name: deployment-info
+      run:
+      path: git-server/ci/update.k8s.deployment.params.ci.sh
+  - task: deploy
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source: {repository: google/cloud-sdk}
+      inputs:
+      - name: git-server
+      - name: deployment-info
+      params: {
+        PROJECT_ID: ((project-id)),
+        CLUSTER_NAME: ((cluster-name)),
+        DEPLOY_PATH: deployment-info,
+        CLUSTER_ADMIN_PASSWORD: ((padas-app-k8s-cluster-admin))
+      }
+      run:
+        path: git-server/ci/deploy.to.k8s.sh
