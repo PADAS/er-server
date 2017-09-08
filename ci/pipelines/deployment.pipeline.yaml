@@ -1,12 +1,36 @@
 resources:
-- name: git-deployment
-  type: git
+- name: git-server
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    private_key: ((das-github))
+
+- name: git-utility
+  type: versioned-git-resource
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
     paths:
-      - deployment/*
+      - docker/PostGIS/*
+      - docker/Nginx/*
     private_key: ((das-github))
+
+- name: git-web
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-web.git
+    branch: ((web-branch-name))
+    private_key: ((das-web-github))
+
+resource_types:
+- name: versioned-git-resource
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((ss-infrastructure-container-registry-pull))
+    repository: gcr.io/ss-infrastructure/concourse/versioned-git-resource
 
 jobs:
 - name: deploy-to-k8s
@@ -40,7 +64,7 @@ jobs:
       outputs:
       - name: deployment-info
       run:
-      path: git-server/ci/update.k8s.deployment.params.ci.sh
+        path: git-server/ci/update.k8s.deployment.params.ci.sh
   - task: deploy
     config:
       platform: linux
