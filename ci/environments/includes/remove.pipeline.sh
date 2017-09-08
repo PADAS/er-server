@@ -5,7 +5,7 @@
 # This is to be run by humans
 # This will remove a pipeline from concourse. If you run this on the wrong pipeline, 
 #   we can always recreate the pipeline, it is afterall stored in git, we can't however
-#   recreated the build history so proceed carefully
+#   recreat the build history so proceed carefully
 #
 # ARGS:
 #  1: PIPELINE=REQUIRED What is the name of the pipeline to remove

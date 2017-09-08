@@ -8,7 +8,6 @@
 CREATOR="$(whoami)"
 __SET_PIPELINE_DIR__="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-
 function set-pipeline()
 {
     local PIPELINE=${1}
@@ -29,7 +28,7 @@ function set-pipeline()
 
     login_to_concourse $PROJECT $PROJECT_DIR
 
-    #SET_PIPELINE_NON_INTERACTIVE is set by concourse as an envionmental variable. ignore it when running locally
+    #SET_PIPELINE_NON_INTERACTIVE is set by concourse as an environment variable. ignore it when running locally
     fly -t $PROJECT sp -p $PIPELINE_NAME $SET_PIPELINE_NON_INTERACTIVE \
         -c $YAML_PATH/pipelines/$PIPELINE_TYPE.pipeline.yaml \
         -l $YAML_PATH/params/default.safe.params.yaml \
