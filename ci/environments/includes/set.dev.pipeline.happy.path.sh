@@ -3,7 +3,7 @@
 ############################################################################
 # 
 # This is to be run by humans or other scripts.
-# As Dev's we often want to spin up an entire stack, from ci pipeline to cluster 
+# As Devs we often want to spin up an entire stack, from ci pipeline to cluster
 # We also want this to happen automagically.
 # 
 # In this new world there are lots and lots of moving parts.
@@ -50,4 +50,4 @@ CLUSTER_NAME=${2-$BRANCH_NAME}
 
 $SET_PIPELINE_DIR/set.das.pipeline.sh $BRANCH_NAME \
     -v server-branch-name=$BRANCH_NAME \
-    -v cluster-name=$CLUSTER_NAME"
+    -v cluster-name=$CLUSTER_NAME
