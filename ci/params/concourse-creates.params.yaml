@@ -1,0 +1,5 @@
+project-id: padas-app
+cluster-name: concourse-creates
+server-branch-name: develop
+web-branch-name: develop
+tag-as-latest: false
