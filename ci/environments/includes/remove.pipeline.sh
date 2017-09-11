@@ -24,11 +24,7 @@ PIPELINE=${1-integration}
 
 PROJECT=padas-app
 
-INFRA_DIR="$REMOVE_PIPELINE_DIR/../../../../infrastructure"
-DEPLOYMENTS_DIR="$INFRA_DIR/deployments"
-PROJECT_DIR="$DEPLOYMENTS_DIR/$PROJECT"
-
-source $INFRA_DIR/ci/utility/ci.for.ci.utilities.sh
+source $REMOVE_PIPELINE_DIR/ci.for.ci.utilities.sh
 
 login_to_concourse $PROJECT $PROJECT_DIR
 
