@@ -184,7 +184,7 @@ resource_types:
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((ss-instrastructure-container-registry-pull))
+    password: ((ss-infrastructure-container-registry-pull))
     repository: gcr.io/ss-infrastructure/concourse/versioned-git-resource
 
 ################################################################################
@@ -433,13 +433,13 @@ jobs:
           repository: gcr.io/ss-infrastructure/utility/envsubst,
           email: ((gcr-io-email)),
           username: ((gcr-io-username)),
-          password: ((ss-instrastructure-container-registry-pull))
+          password: ((ss-infrastructure-container-registry-pull))
         }
       params: {
-          STATIC_IP: ((static-ip)),
-          EMAIL_HOST: ((email-host)),
-          EMAIL_USERNAME: ((email-username)),
-          EMAIL_PASSWORD: ((email-password))
+        STATIC_IP: ((static-ip)),
+        EMAIL_HOST: ((email-host)),
+        EMAIL_USERNAME: ((email-username)),
+        EMAIL_PASSWORD: ((email-password))
       }
       inputs: 
       - name: git-server
