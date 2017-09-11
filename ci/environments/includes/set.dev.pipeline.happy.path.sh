@@ -50,6 +50,4 @@ CLUSTER_NAME=${2-$BRANCH_NAME}
 
 $SET_PIPELINE_DIR/set.das.pipeline.sh $BRANCH_NAME \
     -v server-branch-name=$BRANCH_NAME \
-    -v cluster-name=$CLUSTER_NAME \
-    -v disk-namespace=$CLUSTER_NAME \
-    -v version-suffix="$BRANCH_NAME"
+    -v cluster-name=$CLUSTER_NAME"

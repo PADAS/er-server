@@ -41,8 +41,5 @@ fly -t $PROJECT dp -p $ENVIRONMENT_NAME
 INFRA_DIR_X="$DEV_CREATE_DIR/../../../infrastructure"
 $INFRA_DIR_X/resources/k8s/delete.gcp.cluster.sh $PROJECT $ENVIRONMENT_NAME
 
-##################################################################################
-# Delete Disks
-##################################################################################
-DEFAULT_DISKS_LOCATION="$DEV_CREATE_DIR/../../deployment/storage/default.disks.csv"
-$INFRA_DIR_X/resources/cloud/gcp/disks/delete.from.csv.sh $PROJECT $ENVIRONMENT_NAME $DEFAULT_DISKS_LOCATION
+echo "Concourse pipeline and Kubernetes cluster for $ENVIRONMENT_NAME have been deleted."
+echo "Persistent disks in Google Cloud MUST BE DELETED MANUALLY."

@@ -34,7 +34,6 @@ function set-pipeline()
         -l $YAML_PATH/params/default.safe.params.yaml \
         "$(set_var_file_if_exists "$YAML_PATH/params/$PIPELINE.params.yaml")" \
         "$(set_var_file_if_exists "$PROJECT_DIR/k8s/$PIPELINE.params.yml")" \
-        "$(set_var_file_if_exists "$PROJECT_DIR/k8s/$PIPELINE-utility.params.yml")" \
         -v creator=$CREATOR \
         -v pipeline-name=$PIPELINE_NAME \
         -v gcr-io-email=1234@5678.com \
