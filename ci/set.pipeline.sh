@@ -9,4 +9,4 @@
 
 CI_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-$CI_DIR/environments/includes/set.das.pipeline.sh integration
+$CI_DIR/environments/includes/set.das.pipeline.sh das

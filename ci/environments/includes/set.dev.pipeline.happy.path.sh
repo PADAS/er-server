@@ -22,7 +22,7 @@
 # This script attempts to set the most possibly destructive variables in a way that ensure we don't accidentally
 # do any harm. It is created for a 'happy path'. 
 # Specifically, this will work for you as-is, provided:
-#   1) You have changes only to vic_server
+#   1) You have changes only to das
 #   2) You don't want to run a collector (this should be change to a more useful default when we have 'realtime' again)
 #   3) You have created or will create a k8s cluster `./infrastructure/resources/k8s/create.gcp.cluster.sh`
 #

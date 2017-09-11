@@ -15,13 +15,13 @@
 #   The more automated, the safer.
 #
 # ARGS:
-#  1: SERVER_BRANCH_NAME=REQUIRED Which vic_server project branch to pull from
+#  1: SERVER_BRANCH_NAME=REQUIRED Which branch to pull from
 ############################################################################
 
 if [ $# -eq 0 ]; then
     echo "Create a pipeline, Create a cluster, and Enable that pipeline to deploy to that cluster"
     echo "USAGE:"
-    echo "  1: SERVER_BRANCH_NAME=REQUIRED Which vic_server project branch to pull from"
+    echo "  1: SERVER_BRANCH_NAME=REQUIRED Which branch to pull from"
     echo "  Note: SERVER_BRANCH_NAME will also be the name of the k8s cluster and Concoures pipeline that are created"
     echo "  Note: SERVER_BRANCH_NAME will override the 'server-branch-name' setting in your custom params file, if you created one"
     echo "  Note: Google does not like _ and special characters in cluster name; lowercase letters/numbers with - is best"
