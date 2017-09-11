@@ -47,11 +47,3 @@ fi
 
 #HACK, copy/pasta 'deploy-to-' one of many things to clean up in future interations.
 fly -t $PROJECT unpause-pipeline -p deploy-to-$ENVIRONMENT_NAME
-
-# NOT CREATING DISKS. THE CI BUILD ALREADY DOES THAT, BETTER TO HAVE A RECORD OF THEM THERE
-# BEFORE TO LONG WE CAN HAVE THE CI BUILD CREATE THE CLUSTER TO AND THEN THIS ISN'T NEEDED
-
-##################################################################################
-# Create Cluster
-##################################################################################
-$DEV_CREATE_DIR/../../../infrastructure/resources/k8s/create.gcp.cluster.sh $PROJECT $ENVIRONMENT_NAME n1-highmem-4 6 false skip
