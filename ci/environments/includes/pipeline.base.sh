@@ -17,14 +17,10 @@ function set-pipeline()
 
     local PROJECT=padas-app
 
-    local INFRA_DIR="$__SET_PIPELINE_DIR__/../../../../infrastructure"
-    local DEPLOYMENTS_DIR="$INFRA_DIR/deployments"
-    local PROJECT_DIR="$DEPLOYMENTS_DIR/$PROJECT"
-    local SS_INFRA_DIR="$DEPLOYMENTS_DIR/ss-infrastructure"
     local YAML_PATH="$__SET_PIPELINE_DIR__/../.."
     local PIPELINE_NAME="$PIPELINE_NAME_PREFIX$PIPELINE"
 
-    source $INFRA_DIR/ci/utility/ci.for.ci.utilities.sh
+    source $__SET_PIPELINE_DIR__/ci.for.ci.utilities.sh
 
     login_to_concourse $PROJECT $PROJECT_DIR
 
@@ -33,7 +29,6 @@ function set-pipeline()
         -c $YAML_PATH/pipelines/$PIPELINE_TYPE.pipeline.yaml \
         -l $YAML_PATH/params/default.safe.params.yaml \
         "$(set_var_file_if_exists "$YAML_PATH/params/$PIPELINE.params.yaml")" \
-        "$(set_var_file_if_exists "$PROJECT_DIR/k8s/$PIPELINE.params.yml")" \
         -v creator=$CREATOR \
         -v pipeline-name=$PIPELINE_NAME \
         -v gcr-io-email=1234@5678.com \
