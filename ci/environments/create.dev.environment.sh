@@ -38,12 +38,3 @@ SERVER_BRANCH_NAME=$1
 ##################################################################################
 $DEV_CREATE_DIR/includes/set.dev.pipeline.happy.path.sh $SERVER_BRANCH_NAME
 fly -t $PROJECT unpause-pipeline -p $SERVER_BRANCH_NAME
-
-# NOT CREATING DISKS. THE CI BUILD ALREADY DOES THAT, BETTER TO HAVE A RECORD OF THEM THERE
-# BEFORE TO LONG WE CAN HAVE THE CI BUILD CREATE THE CLUSTER TO AND THEN THIS ISN'T NEEDED
-
-##################################################################################
-# Create Cluster
-##################################################################################
-LABELS="creator=$(whoami),environment-name=$SERVER_BRANCH_NAME,source-type=create-dev-env"
-$DEV_CREATE_DIR/../../../infrastructure/resources/k8s/create.gcp.cluster.sh $PROJECT $SERVER_BRANCH_NAME n1-highmem-4 6 false skip $LABELS
