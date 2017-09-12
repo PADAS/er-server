@@ -28,6 +28,7 @@ function set-pipeline()
     fly -t $PROJECT sp -p $PIPELINE_NAME $SET_PIPELINE_NON_INTERACTIVE \
         -c $YAML_PATH/pipelines/$PIPELINE_TYPE.pipeline.yaml \
         -l $YAML_PATH/params/default.safe.params.yaml \
+        "$(set_var_file_if_exists "$YAML_PATH/params/$PIPELINE.params.yaml")" \
         -v creator=$CREATOR \
         -v pipeline-name=$PIPELINE_NAME \
         -v gcr-io-email=1234@5678.com \

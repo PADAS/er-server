@@ -31,23 +31,22 @@
 # You will i'm sure get reminded to delete it at PR time :)
 #
 # ARGS:
-#  1: BRANCH_NAME=REQUIRED What is the name of your branch (this will also be your pipeline name as well as your cluster name if cluster name is not also provided)
-#  2: CLUSTER_NAME=OPTIONAL Name of cluster. If omitted, will take the value of BRANCH_NAME
+#  1: ENVIRONMENT_NAME=REQUIRED What is the name of your branch (this will also be your pipeline name as well as your cluster name if cluster name is not also provided)
+#  2: CLUSTER_NAME=OPTIONAL Name of cluster. If omitted, will take the value of ENVIRONMENT_NAME
 ############################################################################
 
 if [ $# -eq 0 ]; then
     echo "Create a pipeline to deploy to your cluster"
     echo "USAGE:"
-    echo "  1: BRANCH_NAME=REQUIRED This is the name of the branch you are building. We will also set it as the pipeline name, as well as cluster name if cluster name is not provided."
-    echo "  2: CLUSTER_NAME=OPTIONAL This is the name of the cluster. If omitted, BRANCH_NAME will be used for the cluster name."
+    echo "  1: ENVIRONMENT_NAME=REQUIRED Name of the environment This is the name of the branch you are building. We will also set it as the pipeline name, as well as cluster name if cluster name is not provided."
+    echo "  2: CLUSTER_NAME=OPTIONAL This is the name of the cluster. If omitted, ENVIRONMENT_NAME will be used for the cluster name."
     echo "This script can be run from anywhere."
     exit 1
 fi
 SET_PIPELINE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-BRANCH_NAME=$1
-CLUSTER_NAME=${2-$BRANCH_NAME}
+ENVIRONMENT_NAME=$1
+CLUSTER_NAME=${2-$ENVIRONMENT_NAME}
 
-$SET_PIPELINE_DIR/set.das.pipeline.sh $BRANCH_NAME \
-    -v server-branch-name=$BRANCH_NAME \
+$SET_PIPELINE_DIR/set.das.pipeline.sh $ENVIRONMENT_NAME \
     -v cluster-name=$CLUSTER_NAME

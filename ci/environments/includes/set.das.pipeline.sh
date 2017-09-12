@@ -4,7 +4,7 @@
 # This script is meant to be run by humans or concourse
 # To satisfy concourse it should be run from the parent directory of das and the infrastructure repo
 # It will set all the parameters as well as the credentials that previously lived in 
-# credentials.yaml. That file requried copy and paste of the creds and was likely to get out of date
+# credentials.yaml. That file required copy and paste of the creds and was likely to get out of date
 # 
 # To override specific parameters `-v <param name>=<value>` ie
 # to set a specific branch `-v branch-name=the_branch`
