@@ -2,10 +2,11 @@ import logging
 import copy
 
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from django.db.models import Count
 from django.contrib.contenttypes.models import ContentType
 
-from activity.models import EventType, Event, EventDetails
+from activity.models import EventType, Event, EventDetails, EventCategory
 from activity import schema_utils
 import choices.models as choices
 from utils import json
@@ -18,12 +19,20 @@ class Command(BaseCommand):
     dry_run = False
 
     SUB_COMMANDS = ('dumptypes', 'deleteunusedtypes', 'migratetypes')
-    PREVIOUS_FIELD = 'previous_property_name'
+    PREVIOUS_EVENT_FIELD = 'previous_value'
+    PREVIOUS_PROPERTY_FIELD = 'previous_property_name'
+    CURRENT_PROPERTY_NAME = 'property_name'
+    TABLE_FIELD_VALUE = 'field'
+    TABLE_MODEL_VALUE = 'model'
+
+    COMMAND_IGNORE = 'IGNORE'
+    COMMAND_DELETE = 'DELETE'
+    COMMAND_HARDCODE = 'HC:'
 
     def handle(self, *args, **options):
         sub_command = options['sub-command']
         self.dry_run = options['dry_run']
-        self.migration_file = options['migration-file']
+        self.migration_file = options['migration_file']
         self.output = options['o']
         self.summary_only = options['summary']
 
@@ -35,7 +44,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('sub-command', type=str,
                             help='supported commands are {0}'.format(Command.SUB_COMMANDS))
-        parser.add_argument('migration-file', type=str, nargs='?')
+        parser.add_argument('--migration-file', type=str,
+                            help='input filename for migration plan')
         parser.add_argument(
             '-o', type=str, help='output filename for dumptypes')
         parser.add_argument('--summary', action='store_true',
@@ -65,8 +75,8 @@ class Command(BaseCommand):
                       'updated_at': event_type.updated_at,
                       'value': event_type.value,
                       'display': event_type.display,
-                      'category_value': event_type.category.value,
-                      'category_id': event_type.category.id,
+                      'category_value': getattr(event_type.category, 'value', None),
+                      'category_id': getattr(event_type.category, 'id', 0),
                       'ordernum': event_type.ordernum,
                       'schema': event_type.schema,
                       'is_collection': event_type.is_collection,
@@ -92,8 +102,8 @@ class Command(BaseCommand):
         with open(self.output, mode='w') as fh:
             fh.write(json.dumps(records, indent=4))
 
+    @transaction.atomic
     def deleteunusedtypes(self):
-        raise NotImplementedError("deleteunusedtypes not implemented")
         types_to_delete = []
         for event_type in EventType.objects.all():
             count = self.get_event_type_count(event_type)
@@ -106,16 +116,43 @@ class Command(BaseCommand):
             for event_type in types_to_delete:
                 event_type.delete()
 
+    @transaction.atomic
     def migratetypes(self):
-        raise NotImplementedError('migratetypes not implemented yet')
+        with open(self.migration_file, mode='r') as fh:
+            records = json.loads(fh.read())
+
+        for record in records:
+            try:
+                if 'fields' not in record:
+                    continue
+
+                if self.should_update_event_type(record):
+                    self.update_event_event_type(record)
+
+                if self.should_update_choice_tables(record['tables']):
+                    for table in record['tables']:
+                        self.migrate_choices_table(
+                            table['table_name'].lower(), table['model'], table['field'])
+
+                if self.should_update_fields_with_event_type(record['fields']):
+                    event_type = EventType.objects.get(value=record['value'])
+                    self.update_fields_with_event_type(
+                        record['fields'], event_type)
+
+            except Exception as ex:
+                print(ex)
+                raise
+
+        if self.dry_run:
+            raise Exception(
+                "Just-in-case exception to prevent atomic operation from completing")
 
     def render_schema(self, schema):
         if not schema:
             return
 
         return schema_utils.render_schema_template(
-            schema,
-            schema_utils.get_empty_params(schema))
+            schema, schema_utils.get_empty_params(schema))
 
     def get_event_type_count(self, event_type):
         for row in Event.objects.filter(event_type_id=event_type.id).values('event_type_id').annotate(ecount=Count('event_type_id')):
@@ -145,37 +182,84 @@ class Command(BaseCommand):
 
     def make_value(self, name):
         name = name.lower()
-        name.replace(' ', '_')
+        return name.replace(' ', '_')
 
-    def should_update_fields_with_event_type(self, fields):
-        for field in fields:
-            if self.PREVIOUS_FIELD in field:
+    def should_update_event_type(self, record):
+        return self.PREVIOUS_EVENT_FIELD in record
+
+    def should_update_choice_tables(self, tables):
+        for table in tables:
+            if self.TABLE_FIELD_VALUE in table and self.TABLE_MODEL_VALUE in table:
                 return True
         return False
 
+    def should_update_fields_with_event_type(self, fields):
+        for field in fields:
+            if self.PREVIOUS_PROPERTY_FIELD in field:
+                return True
+        return False
+
+    def update_event_event_type(self, record):
+        old_event_type_value = record.get(self.PREVIOUS_EVENT_FIELD)
+        if old_event_type_value:
+            old_event_type = EventType.objects.get(value=old_event_type_value)
+            new_event_type_exists = EventType.objects.filter(
+                value=record['value']).count() > 0
+            if not new_event_type_exists:
+                self.create_new_event_type(record)
+            new_event_type = EventType.objects.get(value=record.get('value'))
+            for event in Event.objects.filter(event_type_id=old_event_type.id):
+                if not self.dry_run:
+                    event.event_type = new_event_type
+                    event.save()
+
+    def create_new_event_type(self, event_type_data):
+
+        category = EventCategory.objects.get(
+            value=event_type_data['category_value'])
+
+        if not self.dry_run:
+            EventType.objects.create(id=event_type_data['id'],
+                                     value=event_type_data['value'],
+                                     display=event_type_data['display'],
+                                     category=category,
+                                     ordernum=event_type_data['ordernum'],
+                                     schema=event_type_data['schema'],
+                                     is_collection=event_type_data['is_collection'])
+
     def update_fields_with_event_type(self, fields, event_type):
         for event in Event.objects.filter(event_type_id=event_type.id):
-            event_details = event.event_details
+            event_details = event.event_details.first()
             if event_details:
-                data = copy.copy(event_details.data)
+                new_data = {}
+                old_data = copy.copy(event_details.data['event_details'])
                 dirty = False
                 for field in fields:
-                    previous_property_name = field.get(self.PREVIOUS_FIELD)
-                    property_name = field['property_name']
-                    if previous_property_name:
-                        try:
-                            data[property_name] = data[previous_property_name]
-                            del data[previous_property_name]
-                            dirty = True
-                        except KeyError:
-                            pass
+                    previous_property_name = field.get(
+                        self.PREVIOUS_PROPERTY_FIELD, self.COMMAND_IGNORE)
+                    property_name = field.get(self.CURRENT_PROPERTY_NAME)
+
+                    if previous_property_name == self.COMMAND_IGNORE or property_name == self.COMMAND_DELETE:
+                        continue
+
+                    try:
+                        if self.COMMAND_HARDCODE in previous_property_name:
+                            new_data[property_name] = previous_property_name.split(':')[
+                                1]
+                        else:
+                            new_data[property_name] = old_data[previous_property_name]
+                        dirty = True
+                    except KeyError:
+                        pass
 
                 if not self.dry_run and dirty:
-                    event_details.data = data
+                    event_details.data = {'event_details': new_data}
                     event_details.save()
 
     def migrate_choices_table(self, table_name, model, field):
-        table = ContentType.objects.get(app_label='choices', model=table_name)
+        table_ct = ContentType.objects.get(
+            app_label='choices', model=table_name)
+        table = table_ct.model_class()
 
         for row in table.objects.all():
             try:
@@ -184,7 +268,12 @@ class Command(BaseCommand):
                 choice_row = choices.Choice.objects.get(id=row.id)
                 logger.info('For choice table %s, row name %s, found existing Choice row %s',
                             table_name, row.name, choice_row)
-                continue
+                if choice_row.display == row.name and choice_row.id == row.id:
+                    logger.info(
+                        "And it already has all the correct values, so it's okay to leave it")
+                    continue
+                else:
+                    raise Exception
             except choices.Choice.DoesNotExist:
                 pass
 
