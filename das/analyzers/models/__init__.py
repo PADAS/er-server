@@ -3,3 +3,4 @@ from analyzers.models.annotations import ObservationAnnotator
 from analyzers.models.immobility import ImmobilityAnalyzerConfig
 from analyzers.models.geofence import GeofenceAnalyzerConfig
 from analyzers.models.environmental import EnvironmentalSubjectAnalyzerConfig
+from analyzers.models.low_speed import LowSpeedAnalyzerConfig

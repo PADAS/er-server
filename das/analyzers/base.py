@@ -22,37 +22,37 @@ class SubjectAnalyzer:
     def create_analyzer_event(self, last_result=None, this_result=None):
         raise NotImplementedError()
 
-    @classmethod
-    def create_trajectory(cls, observations=None, trajectory_filter_params=None):
-        """
-        Hydrate the trajectory
-        """
-
-        def create_fix(observation):
-            gp = pymet.base.GeoPoint(observation.location.x, observation.location.y, 0.0)
-            fix = pymet.base.Fix(gp, observation.recorded_at)
-            return fix
-
-        # Create a relocations object
-        fixes = [create_fix(x) for x in observations]
-        relocs = pymet.base.Relocations(fixes)
-
-        # Filter the relocations for junk coordinates
-        coord_filter = pymet.base.RelocsCoordinateFilter()
-        relocs.apply_fix_filter(coord_filter)
-
-        # Filter the relocations based on speed
-        speed_threshold = float('Inf')
-
-        if trajectory_filter_params is not None:
-            speed_threshold = trajectory_filter_params.speed_KmHr
-        speed_filter = pymet.base.RelocsSpeedFilter(max_speed_kmhr=speed_threshold)
-        relocs.apply_fix_filter(speed_filter)
-
-        # Create a trajectory from the relocations
-        traj = pymet.base.Trajectory(relocs)
-
-        return traj
+    # @classmethod
+    # def create_trajectory(cls, observations=None, trajectory_filter_params=None):
+    #     """
+    #     Hydrate the trajectory
+    #     """
+    #
+    #     def create_fix(observation):
+    #         gp = pymet.base.GeoPoint(observation.location.x, observation.location.y, 0.0)
+    #         fix = pymet.base.Fix(gp, observation.recorded_at)
+    #         return fix
+    #
+    #     # Create a relocations object
+    #     fixes = [create_fix(x) for x in observations]
+    #     relocs = pymet.base.Relocations(fixes)
+    #
+    #     # Filter the relocations for junk coordinates
+    #     coord_filter = pymet.base.RelocsCoordinateFilter()
+    #     relocs.apply_fix_filter(coord_filter)
+    #
+    #     # Filter the relocations based on speed
+    #     speed_threshold = float('Inf')
+    #
+    #     if trajectory_filter_params is not None:
+    #         speed_threshold = trajectory_filter_params.speed_KmHr
+    #     speed_filter = pymet.base.RelocsSpeedFilter(max_speed_kmhr=speed_threshold)
+    #     relocs.apply_fix_filter(speed_filter)
+    #
+    #     # Create a trajectory from the relocations
+    #     traj = pymet.base.Trajectory(relocs)
+    #
+    #     return traj
 
     def default_observations(self):
         """
@@ -61,12 +61,12 @@ class SubjectAnalyzer:
         """
         return self.subject.observations(last_hours=self.config.search_time_hours)
 
-    def default_trajectory_filter(self):
-        # Get trajectory filter based on subject. Might not exist.
-        try:
-            return SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
-        except SubjectTrackSegmentFilter.DoesNotExist:
-            pass
+    # def default_trajectory_filter(self):
+    #     # Get trajectory filter based on subject. Might not exist.
+    #     try:
+    #         return SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
+    #     except SubjectTrackSegmentFilter.DoesNotExist:
+    #         pass
 
     def get_last_result(self):
         try:
@@ -84,10 +84,11 @@ class SubjectAnalyzer:
         observations = observations or self.default_observations()
 
         # Use default trajectory_filter if one isn't provided
-        trajectory_filter = trajectory_filter or self.default_trajectory_filter()
+        trajectory_filter = trajectory_filter or self.subject.default_trajectory_filter()
 
         # Create Trajectory which is the input to the analysis.
-        trajectory = self.create_trajectory(observations=observations, trajectory_filter_params=trajectory_filter)
+        trajectory = self.subject.create_trajectory(obs=observations,
+                                                    trajectory_filter_params=trajectory_filter)
 
         results = self.analyze_trajectory(trajectory)
 

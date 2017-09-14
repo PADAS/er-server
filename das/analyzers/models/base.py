@@ -38,8 +38,19 @@ class Schedule(TimestampedModel):
             'Designates whether this Schedule is active. '
             'Set this False instead of deleting this record.'
         ))
+
+
+
     class Meta:
         app_label = 'analyzers'
+
+    # def dt_in_schedule(self, dt):
+    #     """Check whether the input datetime falls within the schedule"""
+    #     if self.is_active:
+    #         # ToDo: Implement this method
+    #         return True
+    #     else:
+    #         return True
 
 
 class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):

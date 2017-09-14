@@ -32,6 +32,7 @@ from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
+import pymet
 
 SOURCE_TYPES = (
     ('tracking-device', 'Tracking Device'),
@@ -844,6 +845,45 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             since = until - timedelta(hours=last_hours)
 
         return Observation.objects.get_subject_observations(self, since=since, until=until)
+
+    def default_trajectory_filter(self):
+        # Get trajectory filter based on subject. Might not exist.
+        try:
+            return SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject_subtype).first()
+        except SubjectTrackSegmentFilter.DoesNotExist:
+            pass
+
+    @classmethod
+    def create_trajectory(cls, obs=None, trajectory_filter_params=None):
+        """
+        Hydrate the trajectory
+        """
+
+        def create_fix(observation):
+            gp = pymet.base.GeoPoint(observation.location.x, observation.location.y, 0.0)
+            fix = pymet.base.Fix(gp, observation.recorded_at)
+            return fix
+
+        # Create a relocations object
+        fixes = [create_fix(x) for x in obs]
+        relocs = pymet.base.Relocations(fixes)
+
+        # Filter the relocations for junk coordinates
+        coord_filter = pymet.base.RelocsCoordinateFilter()
+        relocs.apply_fix_filter(coord_filter)
+
+        # Filter the relocations based on speed
+        speed_threshold = float('Inf')
+
+        if trajectory_filter_params is not None:
+            speed_threshold = trajectory_filter_params.speed_KmHr
+        speed_filter = pymet.base.RelocsSpeedFilter(max_speed_kmhr=speed_threshold)
+        relocs.apply_fix_filter(speed_filter)
+
+        # Create a trajectory from the relocations
+        traj = pymet.base.Trajectory(relocs)
+
+        return traj
 
     @property
     def image_url(self):

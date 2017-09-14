@@ -18,8 +18,6 @@ logger = logging.getLogger(__name__)
 
 class TestGeofenceAnalyzer(TestCase):
 
-    # fixtures = ['analyzer_eventtype.yaml', ]
-
     @classmethod
     def event_schema_json(cls):
         schema_yaml = '''

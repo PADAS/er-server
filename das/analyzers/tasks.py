@@ -69,3 +69,16 @@ def handle_source(source_id):
         handle_subject(str(subject_source.subject_id))
     else:
         logger.warning('Asked to handle source %s, but could not find SubjectSource record.', str(source_id))
+
+
+# @celery.app.task()
+# def build_subject_speed_profile(subject_id):
+#
+#     logger.debug('Building speed profile for subject: %s', str(subject_id))
+#
+#     try:
+#         sub = Subject.objects.get(id=subject_id)
+#
+#     except Subject.DoesNotExist:
+#         logger.warning('Unable to run speed profiler for subject ID: %s, because it does not exist.', subject_id)
+#         return
