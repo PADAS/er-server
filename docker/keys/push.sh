@@ -12,3 +12,4 @@ docker push gcr.io/das-app/worker:latest
 docker push gcr.io/das-app/mql:latest
 docker push gcr.io/das-app/nginx:latest
 docker push gcr.io/das-app/web:latest
+docker push gcr.io/das-app/web-react:latest

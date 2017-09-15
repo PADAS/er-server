@@ -59,6 +59,34 @@ resources:
     branch: ((web-branch-name))
     private_key: ((das-web-github))
 
+#REACT Port
+- name: git-web-react-base
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-react.git
+    branch: ((web-react-branch-name))
+    paths:
+      - docker/build/base/*
+    private_key: ((das-web-react-github))
+
+- name: git-web-react-depends
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-web.git
+    branch: ((web-branch-name))
+    paths:
+      - docker/build/depends/*
+      - bower.json
+      - package.json
+    private_key: ((das-web-github))
+
+- name: git-web-react
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-react.git
+    branch: ((web-react-branch-name))
+    private_key: ((das-web-react-github))
+
 #base docker resources
 - name: image-server-base
   type: docker-image
@@ -172,6 +200,40 @@ resources:
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/app
 
+# Web React docker resources
+- name: image-web-react-base
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/web-react/build/base
+
+- name: image-web-react-depends
+  type: docker-image
+  source:
+    tag: $(cat<git--web-depends/sha)
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/web-react/build/depends
+
+- name: image-web-react-develop
+  type: docker-image
+  source:
+    tag: $(cat<git-web-react/sha)
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/web-react/develop
+
+- name: image-web-react-app
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/web-react/app
 
 ################################################################################
 # 
@@ -383,6 +445,113 @@ jobs:
     }
     get_params: {skip_download: true}
 
+# Web React Jobs
+- name: docker-build-web-react-base
+  plan:
+  - get: git-web-react-base
+    trigger: true
+  - put: image-web-react-base
+    params: {
+      build: git-web-react-base,
+      dockerfile: git-web-react-base/docker/build/base/Dockerfile,
+      tag:  git-web-react-base/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+
+- name: docker-build-web-react-depends
+  plan:
+  - aggregate:
+    - get: image-web-react-base
+      passed: [docker-build-web-react-base]
+      trigger: true
+      params: { skip_download: true }
+    - get: git-web-react-base
+      passed: [docker-build-web-react-base]
+    - get: git-web-react-depends
+      trigger: true
+  - put: image-web-react-depends
+    params: {
+      build: git-web-react-depends,
+      dockerfile: git-web-react-depends/docker/build/depends/Dockerfile,
+      tag:  git-web-react-depends/sha,
+      build_args_file: git-web-react-base/build_args,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+
+- name: test-web-react-unit
+  plan:
+  - aggregate:
+    - get: image-web-react-depends
+      passed: [docker-build-web-react-depends]
+      trigger: true
+      params: { save: true }
+    - get: git-web-react-depends
+      passed: [docker-build-web-react-depends]
+    - get: git-web-react
+      trigger: true
+  - task: test
+    image: image-web-react-depends
+    config:
+      platform: linux
+      inputs:
+      - name: git-web-react
+      run:
+        dir: git-web-react
+        path: docker/build/compile/docker-test.sh
+
+- name: docker-build-web-react-develop
+  plan:
+  - aggregate:
+    - get: image-web-react-depends
+      passed: [test-web-react-unit]
+      trigger: true
+      params: { skip_download: true }
+    - get: git-web-react-depends
+      passed: [test-web-react-unit]
+    - get: git-web-react
+      passed: [test-web-react-unit]
+      trigger: true
+  - put: image-web-react-develop
+    params: {
+      build: git-web-react,
+      dockerfile: git-web-react/docker/develop/Dockerfile,
+      tag:  git-web-react/sha,
+      tag_as_latest: ((tag-as-latest)),
+      build_args_file: git-web-react-depends/build_args
+    }
+    get_params: {skip_download: true}
+
+- name: docker-build-web-react-app
+  plan:
+  - aggregate:
+    - get: image-web-react-depends
+      passed: [test-web-react-unit]
+      trigger: true
+    - get: git-web-react
+      passed: [test-web-react-unit]
+      trigger: true
+  - task: build
+    image: image-web-react-depends
+    config:
+      platform: linux
+      inputs:
+      - name: git-web-react
+      outputs:
+      - name: web-react-distribution
+      run:
+        dir: git-web-react
+        path: docker/build/compile/docker-build.sh
+  - put: image-web-react-app
+    params: {
+      build: web-react-distribution,
+      dockerfile: web-react-distribution/docker/app/Dockerfile,
+      tag:  git-web-react/sha,
+      tag_as_latest: ((tag-as-latest)),
+    }
+    get_params: {skip_download: true}
+
 - name: deploy-to-k8s
   serial: true
   plan:
@@ -391,6 +560,8 @@ jobs:
         passed: [docker-build-utility]
       - get: git-web
         passed: [docker-build-web-app]
+      - get: git-web-react
+        passed: [docker-build-web-react-app]
       - get: git-server
         passed: [docker-build-server]
       - get: image-server-api
@@ -423,6 +594,10 @@ jobs:
         params: {skip_download: true}
       - get: image-web-app
         passed: [docker-build-web-app]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-web-react-app
+        passed: [docker-build-web-react-app]
         trigger: true
         params: {skip_download: true}
     - do:
@@ -472,6 +647,7 @@ jobs:
           - name: git-server
           - name: git-utility
           - name: git-web
+          - name: git-web-react
           outputs:
           - name: deployment-info 
           run:
