@@ -184,7 +184,7 @@ resource_types:
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
-    password: ((ss-instrastructure-container-registry-pull))
+    password: ((ss-infrastructure-container-registry-pull))
     repository: gcr.io/ss-infrastructure/concourse/versioned-git-resource
 
 ################################################################################
@@ -384,85 +384,112 @@ jobs:
     get_params: {skip_download: true}
 
 - name: deploy-to-k8s
+  serial: true
   plan:
-  - aggregate:
-    - get: git-utility
-      passed: [docker-build-utility]
-    - get: git-web
-      passed: [docker-build-web-app]
-    - get: git-server
-      passed: [docker-build-server]
-    - get: image-server-api
-      passed: [docker-build-server]
-      trigger: true
-      params: {skip_download: true}
-    - get: image-server-mql
-      passed: [docker-build-server]
-      trigger: true
-      params: {skip_download: true}
-    - get: image-server-beat
-      passed: [docker-build-server]
-      trigger: true
-      params: {skip_download: true}
-    - get: image-server-rt-api
-      passed: [docker-build-server]
-      trigger: true
-      params: {skip_download: true}
-    - get: image-server-worker
-      passed: [docker-build-server]
-      trigger: true
-      params: {skip_download: true}
-    - get: image-nginx
-      passed: [docker-build-utility]
-      trigger: true
-      params: {skip_download: true}
-    - get: image-postgis
-      passed: [docker-build-utility]
-      trigger: true
-      params: {skip_download: true}
-    - get: image-web-app
-      passed: [docker-build-web-app]
-      trigger: true
-      params: {skip_download: true}
-  - task: update-deployment-info
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source: {
-          repository: gcr.io/ss-infrastructure/utility/envsubst,
-          email: ((gcr-io-email)),
-          username: ((gcr-io-username)),
-          password: ((ss-instrastructure-container-registry-pull))
-        }
-      params: {
-          STATIC_IP: ((static-ip)),
-          EMAIL_HOST: ((email-host)),
-          EMAIL_USERNAME: ((email-username)),
-          EMAIL_PASSWORD: ((email-password))
-      }
-      inputs: 
-      - name: git-server
-      - name: git-utility
-      - name: git-web
-      outputs:
-      - name: deployment-info 
-      run:
-        path: git-server/ci/update.k8s.deployment.params.ci.sh
-  - task: deploy
-    config:
-      platform: linux
-      image_resource: 
-        type: docker-image
-        source: {repository: google/cloud-sdk}
-      inputs:
-      - name: git-server
-      - name: deployment-info
-      params: {
-        PROJECT_ID: ((project-id)),
-        CLUSTER_NAME: ((cluster-name)),
-        DEPLOY_PATH: deployment-info,
-        CLUSTER_ADMIN_PASSWORD: ((padas-app-k8s-cluster-admin))
-      }
-      run:
-        path: git-server/ci/deploy.to.k8s.sh
+    - aggregate:
+      - get: git-utility
+        passed: [docker-build-utility]
+      - get: git-web
+        passed: [docker-build-web-app]
+      - get: git-server
+        passed: [docker-build-server]
+      - get: image-server-api
+        passed: [docker-build-server]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-server-mql
+        passed: [docker-build-server]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-server-beat
+        passed: [docker-build-server]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-server-rt-api
+        passed: [docker-build-server]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-server-worker
+        passed: [docker-build-server]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-nginx
+        passed: [docker-build-utility]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-postgis
+        passed: [docker-build-utility]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-web-app
+        passed: [docker-build-web-app]
+        trigger: true
+        params: {skip_download: true}
+    - do:
+      - task: ensure-cluster-exists
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure/provisioning/k8s,
+              email: ((gcr-io-email)),
+              username: ((gcr-io-username)),
+              password: ((ss-infrastructure-container-registry-pull))
+            }
+          params: {
+            PROJECT_ID: ((project-id)),
+            CLUSTER_NAME: ((cluster-name)),
+            CREATOR: ((creator)),
+            BUILD_PIPELINE_NAME: ((pipeline-name)),  
+            CLUSTER_ADMIN_PASSWORD: ((padas-app-k8s-cluster-admin)),
+            PROJECT_CONTAINER_REGISTRY_SECRET: ((padas-app-container-registry-pull)),
+            INFRASTRUCTURE_CONTAINER_REGISTRY_SECRET: ((ss-infrastructure-container-registry-pull)),
+            MACHINE_TYPE: n1-standard-1,
+            NUM_NODES: 3,
+            GCP_COMPUTE_ZONE: ((gcp-compute-zone))
+          }
+          run:
+            path: /utility/provision.k8s.cluster.sh
+      - task: update-deployment-info
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure/utility/envsubst,
+              email: ((gcr-io-email)),
+              username: ((gcr-io-username)),
+              password: ((ss-infrastructure-container-registry-pull))
+            }
+          params: {
+            STATIC_IP: ((static-ip)),
+            EMAIL_HOST: ((email-host)),
+            EMAIL_USERNAME: ((email-username)),
+            EMAIL_PASSWORD: ((email-password))
+          }
+          inputs: 
+          - name: git-server
+          - name: git-utility
+          - name: git-web
+          outputs:
+          - name: deployment-info 
+          run:
+            path: git-server/ci/update.k8s.deployment.params.ci.sh
+      - task: deploy
+        config:
+          platform: linux
+          image_resource: 
+            type: docker-image
+            source: {repository: google/cloud-sdk}
+          inputs:
+          - name: git-server
+          - name: deployment-info
+          params: {
+            PROJECT_ID: ((project-id)),
+            CLUSTER_NAME: ((cluster-name)),
+            DEPLOY_PATH: deployment-info,
+            CLUSTER_ADMIN_PASSWORD: ((padas-app-k8s-cluster-admin))
+          }
+          run:
+            path: git-server/ci/deploy.to.k8s.sh

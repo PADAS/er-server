@@ -31,6 +31,13 @@ Using Windows for development takes some work to setup support for Docker as wel
 3. Enable Shared Drives in Docker for Windows so that we can mount or code in the containers.
 
 4. Install Linux subsystem for Windows by following this [guide](https://msdn.microsoft.com/en-us/commandline/wsl/install_guide)^[https://msdn.microsoft.com/en-us/commandline/wsl/install_guide].
+5. Mount your C drive directly in the root of your ubuntu shell. Modify .bashrc
+````
+export DOCKER_HOST="tcp://127.0.0.1:2376"
+sudo ln -s /mnt/c /c
+````
+6. At this point your bash shell is ready to have the docker tooling installed see __Ubuntu__ below.
+
 
 __Mac__
 
@@ -81,13 +88,13 @@ __Ubuntu__
 We use docker for development and deployment\. Double check your code runs locally in Docker before pushing to the repo and subsequent staging\.
 
 1. Install the Docker Community Edition (17.05 or greater) Be sure to install the edge version of this.
+[Docker Community Edition](https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-docker-ce)
 
 2. Install Docker Compose > 1.12
 
-
 ~~~~~~~
 sudo bash
-curl -L https://github.com/docker/compose/releases/download/1.15.0/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
+curl -L https://github.com/docker/compose/releases/download/1.16.1/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 ~~~~~~~
 
