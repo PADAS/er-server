@@ -9,12 +9,13 @@ from das_server import __version__
 
 
 def index(request):
-    return render_to_response('www/index.html')
+    return render_to_response('www/realtime.html')
 
 
 class VersionSerializer(rest_framework.serializers.Serializer):
     version = rest_framework.serializers.CharField(read_only=True)
-    event_matrix_enabled = rest_framework.serializers.BooleanField(read_only=True)
+    event_matrix_enabled = rest_framework.serializers.BooleanField(
+        read_only=True)
 
 
 class StatusView(generics.RetrieveAPIView):
@@ -27,7 +28,7 @@ class StatusView(generics.RetrieveAPIView):
     serializer_class = VersionSerializer
 
     def get_object(self):
-        resp = {'version': __version__} #request.version}
+        resp = {'version': __version__}  # request.version}
 
         resp['event_matrix_enabled'] = settings.EVENT_MATRIX_ENABLED
 

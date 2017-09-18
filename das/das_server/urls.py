@@ -30,14 +30,16 @@ urlpatterns = [
     url(r'^api/v1.0/sensors/', include('sensors.urls')),
     url(r'^api/v1.0/activity/', include('activity.urls')),
     url(r'^api/v1.0/', include('rt_api.urls')),
-    url(r'^api/v1.0/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    url(r'^api/v1.0/api-auth/',
+        include('rest_framework.urls', namespace='rest_framework')),
     url(r'^api/v1.0/docs/', include('rest_framework_swagger.urls')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^accounts/', include('accounts.urls_user')),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^oauth2/token$', oauth2_views.TokenView.as_view(), name="token"),
     url(r'^api/v1.0/reports/', include('reports.urls', namespace='reports')),
-    url(r'^api/v1.0/usercontent/', include('usercontent.urls', namespace='usercontent')),
+    url(r'^api/v1.0/usercontent/',
+        include('usercontent.urls', namespace='usercontent')),
 ]
 
 
@@ -46,9 +48,9 @@ django.conf.urls.handler404 = 'utils.drf.error404View'
 
 if settings.DEV:
     urlpatterns += [
-        url(r'^(?:index.html)?$', django.contrib.staticfiles.views.serve,
-            kwargs={'path': 'index.html'}),
+        url(r'^(?:realtime.html)?$', django.contrib.staticfiles.views.serve,
+            kwargs={'path': 'realtime.html'}),
         url(r'^(?P<path>.*)$', django.contrib.staticfiles.views.serve),
-                ]
+    ]
 else:
-    urlpatterns += [url(r'^$', views.index),]
+    urlpatterns += [url(r'^$', views.index), ]

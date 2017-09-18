@@ -34,6 +34,9 @@ def dumps_helper(obj):
     raise TypeError("Type not serializable: " + type(obj).__name__)
 
 
+from observations.models import SocketClient
+
+
 def _event_handler(event_id, type):
     try:
         logger.debug('Processing update on event_id {0}'.format(event_id))
@@ -45,17 +48,24 @@ def _event_handler(event_id, type):
                 connected_sid = sid.decode('UTF-8')
                 username = username.decode('UTF-8')
 
-                logger.debug('Creating observation payload for user {0}: {1}'.format(
+                logger.debug('Creating event payload for user {0}: {1}'.format(
                     username[0], connected_sid))
-                user = User.objects.filter(username=username).first()
-                if not user:
+
+                try:
+                    user = User.objects.get(username=username)
+                except User.DoesNotExist:
                     # Probably shouldn't get here, but maybe the user got
                     # deleted just now?
                     redis_client.hdel('realtime_connections', connected_sid)
                     continue
 
+                socket_client = SocketClient.objects.get(id=sid)
+                qp = {
+                    'filter': json.dumps(socket_client.event_filter)
+                }
                 # Fake an API call for free permission enforcement
-                request = DummyRequest('/event/', 'GET', user=user)
+                request = DummyRequest(
+                    '/event/', 'GET', user=user, query_parameters=qp)
                 result = view(request, id=event_id)
 
                 # If there's nothing to send, no need to send it
@@ -107,9 +117,9 @@ def _observation_handler(subject_id):
                 logger.debug('Creating observation payload for user {0}: {1}'.format(
                     username[0], connected_sid))
 
-                user = User.objects.filter(username=username).first()
-
-                if not user:
+                try:
+                    user = User.objects.get(username=username)
+                except User.DoesNotExist:
                     # Probably shouldn't get here, but maybe the user got
                     # deleted just now?
                     redis_client.hdel('realtime_connections', connected_sid)
