@@ -33,6 +33,14 @@ Contents:
    confluence
    datamodel
 
+.. _support::
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Deployment and Support
+
+   support
+
 .. _api:
 
 .. toctree::
