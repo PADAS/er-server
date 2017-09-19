@@ -4,6 +4,13 @@ Here are the topics and procedures for troubleshooting DAS.
 ## Tier 1
 
 ## Tier 2
+### Real-time Feed
+
+#### Troubleshooting
+* verify the realtime service is running, by opening a shell on the API server.
+```
+sudo supervisorctl status
+```
 
 ## Tier 3
 If after review of the logs and or web console we don't have resolution in the Tier 2 and Tier 3 sections we consider it a Tier 3 issue.
