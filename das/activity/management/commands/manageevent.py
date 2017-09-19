@@ -10,6 +10,7 @@ from activity.models import EventType, Event, EventDetails, EventCategory
 from activity import schema_utils
 import choices.models as choices
 from utils import json
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +135,8 @@ class Command(BaseCommand):
                                         for table in record['tables']]
 
             except Exception as ex:
-                print(ex)
+                logger.exception(
+                    "Exception while migrating types or choice table fields")
                 raise
 
         # Need to migrate all choices tables before we muck with the stored
@@ -150,7 +152,7 @@ class Command(BaseCommand):
                     self.update_fields_with_event_type(
                         record['fields'], event_type, migrated_tables)
             except Exception as ex:
-                print(ex)
+                logger.exception('Exception while migrating event details')
                 raise
 
         if self.dry_run:
@@ -240,10 +242,16 @@ class Command(BaseCommand):
                                  schema=event_type_data['schema'],
                                  is_collection=event_type_data['is_collection'])
 
+    def is_uuid(self, str):
+        try:
+            uuid = UUID(str)
+            return True
+        except:
+            return False
+
     def update_fields_with_event_type(self, fields, event_type, former_tables):
         for event in Event.objects.filter(event_type_id=event_type.id):
-            event_details = event.event_details.first()
-            if event_details:
+            for event_details in event.event_details.all():
                 new_data = {}
                 old_data = copy.copy(event_details.data['event_details'])
                 dirty = False
@@ -260,12 +268,12 @@ class Command(BaseCommand):
                             new_data[property_name] = previous_property_name.split(':')[
                                 1]
                         elif previous_property_name in old_data:
-                            if previous_property_name in former_tables and isinstance(old_data[previous_property_name], dict):
+                            if self.make_value(previous_property_name) in former_tables and self.is_uuid(old_data[previous_property_name]):
                                 try:
                                     choice_object = choices.Choice.objects.get(
                                         id=old_data[previous_property_name])
                                     new_data[property_name] = str(
-                                        choice_object.id)
+                                        choice_object.value)
                                 except TypeError:
                                     new_data[property_name] = old_data[
                                         previous_property_name]
@@ -293,8 +301,18 @@ class Command(BaseCommand):
                 logger.info('For choice table %s, row name %s, found existing Choice row %s',
                             table_name, row.name, choice_row)
                 if choice_row.display == row.name and choice_row.id == row.id:
-                    logger.info(
-                        "And it already has all the correct values, so it's okay to leave it")
+                    # We have a choice that's _almost_ correct, but it's for the
+                    # wrong event type. Since event types are encoded in the
+                    # choice field's value, we need to create a new one. As long
+                    # as we reference the old one by value and not ID, everything
+                    # will still work as expected
+                    logger.info('Making new choice for alternate event type')
+                    values = {'model': model,
+                              'field': field,
+                              'value': self.make_value(row.name),
+                              'display': row.name,
+                              'ordernum': row.ordernum}
+                    choices.Choice.objects.create(**values)
                     continue
                 else:
                     raise Exception
