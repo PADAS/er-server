@@ -12,7 +12,7 @@ spec:
         - name: gcr-secret
       containers:
       - name: das-web-react
-        image: gcr.io/padas-app/web-react/app:${GIT_WEB_SHA}
+        image: gcr.io/padas-app/web-react/app:${GIT_WEB_REACT_SHA}
         ports:
         - containerPort: 9000
         env:

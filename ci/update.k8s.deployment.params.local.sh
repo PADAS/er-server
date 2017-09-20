@@ -13,7 +13,8 @@ OUTPUT_DIR=${1:?Output Dir Required}
 INPUT_DIR=${2:?Input Dir Required}
 export GIT_SERVER_SHA=${3:?Server SHA Required}
 export GIT_WEB_SHA=${4:?WEB SHA Required}
-export GIT_UTILITY_SHA=${5:?Utility SHA Required}
+export GIT_WEB__REACT_SHA=${5:?WEB REACT SHA Required}
+export GIT_UTILITY_SHA=${6:?Utility SHA Required}
 
 echo "OUTPUT_DIR=$OUTPUT_DIR"
 echo "INPUT_DIR=$INPUT_DIR"

@@ -76,7 +76,7 @@ resources:
     branch: ((web-react-branch-name))
     paths:
       - docker/build/depends/*
-      - bower.json
+      - docker/build/app/*
       - package.json
       - yarn.lock
       - dependencies/*
@@ -507,13 +507,14 @@ jobs:
   plan:
   - aggregate:
     - get: image-web-react-depends
-      passed: [test-web-react-unit]
+      #passed: [test-web-react-unit]
+      passed: [docker-build-web-react-depends]
       trigger: true
       params: { skip_download: true }
     - get: git-web-react-depends
-      passed: [test-web-react-unit]
+      #passed: [test-web-react-unit]
+      passed: [docker-build-web-react-depends]
     - get: git-web-react
-      passed: [test-web-react-unit]
       trigger: true
   - put: image-web-react-develop
     params: {
@@ -529,10 +530,12 @@ jobs:
   plan:
   - aggregate:
     - get: image-web-react-depends
-      passed: [test-web-react-unit]
+      #passed: [test-web-react-unit]
+      passed: [docker-build-web-react-develop]
       trigger: true
     - get: git-web-react
-      passed: [test-web-react-unit]
+      #passed: [test-web-react-unit]
+      passed: [docker-build-web-react-develop]
       trigger: true
   - task: build
     image: image-web-react-depends
