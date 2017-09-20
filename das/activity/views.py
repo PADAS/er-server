@@ -246,30 +246,13 @@ class EventsView(generics.ListCreateAPIView):
         if event_type:
             queryset = queryset.by_event_type(event_type)
 
-        filter = query_params.get('filter', None)
-
-        logger.info('Filtering using %s', filter)
-        try:
-            if filter:
-                filter = json.loads(filter)
-                text_search = filter.get('text')
-                # TODO: Move this to QueryFilter mixin
-                filter = Q(title__unaccent__icontains=text_search) \
-                    | Q(note__text__unaccent__icontains=text_search) \
-                    | Q(event_type__display__unaccent__icontains=text_search)
-
-                if re.match('[0-9]+', text_search):
-                    logger.info('Querying on numeric. %s', text_search)
-                    queryset = queryset.annotate(serial_number_text=Func(F('serial_number'),
-                                                                         function='bigint_to_char'))
-                    # 'startswith' witll use an index.
-                    filter = filter | Q(
-                        serial_number_text__startswith=text_search)
-
-                queryset = queryset.filter(filter)
-        except:
-            logger.info('Failed to add filter. %s', filter)
-            pass
+        event_filter = self.request.query_params.get('filter', None)
+        if event_filter:
+            try:
+                event_filter = json.loads(event_filter)
+                queryset = queryset.by_search_filter(event_filter)
+            except:
+                logger.warning('Invalid filter expression %s', event_filter)
 
         is_collection = query_params.get('is_collection', None)
         exclude_contained = query_params.get('exclude_contained', None)
