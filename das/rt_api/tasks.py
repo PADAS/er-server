@@ -44,7 +44,7 @@ def dumps_helper(obj):
 def _event_handler(event_id, type):
     try:
         logger.debug('Processing type=%s on event=%s', type, event_id)
-        event_view = EventView.as_view()
+        event_view = EventView()
         all_connections = redis_client.hgetall(client.CLIENT_LIST_KEY)
 
         logger.debug('handling event for all_connections=%s', all_connections)
