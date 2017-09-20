@@ -26,7 +26,7 @@ CSRF_COOKIE_SECURE = False
 
 STATIC_URL = '/static/'
 
-# add the path to your local copy of the das-web static root dir that contains realtime.html
+# add the path to your local copy of the das-web static root dir that contains index.html
 #STATICFILES_DIRS = STATICFILES_DIRS + (os.path.join(BASE_DIR, 'www'),)
 
 """
