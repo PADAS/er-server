@@ -163,7 +163,9 @@
     </form>
 </div>
 <div id="right-side">
-    <h3>Responses</h3>
+    <div style="display:inline-block;padding:10px;"><strong>Responses</strong></div>
+    <div style="display: inline-block;">
+        <span style="color:#c00;" onclick="document.querySelector('#log').innerHTML = '';">clear</span></div>
     <div id="log"></div>
 </div>
 </div>
@@ -261,7 +263,7 @@
     <script type="text/javascript">
             $(document).ready(function(){
             namespace = '/das'; // change to an empty string to use the global namespace
-            var socket = null
+            var socket = null;
 
             // handlers for the different forms in the page
             // these send data to the server in a variety of ways
