@@ -5,6 +5,8 @@ ADD ./nginx.conf /etc/nginx/
 ADD ./default.conf /etc/nginx/sites-available/default.conf
 RUN mkdir -p /etc/nginx/sites-enabled
 RUN ln -s /etc/nginx/sites-available/default.conf /etc/nginx/sites-enabled/
+ADD ./start.sh /startup/start.sh
 
-ENTRYPOINT ["/usr/sbin/nginx",  "-g", "daemon off;"]
+ENTRYPOINT ["/startup/start.sh"]
+
 EXPOSE 8000

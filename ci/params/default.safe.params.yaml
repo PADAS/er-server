@@ -11,3 +11,4 @@ version-suffix: ""
 tag-as-latest: false
 slack-notification-channel: ""
 gcp-compute-zone: "us-west1-a"
+web-service-name: "web"

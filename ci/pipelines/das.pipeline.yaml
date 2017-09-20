@@ -179,7 +179,7 @@ resources:
 - name: image-web-depends
   type: docker-image
   source:
-    tag: $(cat<git--web-depends/sha)
+    tag: $(cat<git-web-depends/sha)
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
@@ -214,7 +214,7 @@ resources:
 - name: image-web-react-depends
   type: docker-image
   source:
-    tag: $(cat<git--web-depends/sha)
+    tag: $(cat<git-web-react-depends/sha)
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
@@ -646,7 +646,8 @@ jobs:
             STATIC_IP: ((static-ip)),
             EMAIL_HOST: ((email-host)),
             EMAIL_USERNAME: ((email-username)),
-            EMAIL_PASSWORD: ((email-password))
+            EMAIL_PASSWORD: ((email-password)),
+            WEB_SERVICE_NAME: ((web-service-name))
           }
           inputs: 
           - name: git-server

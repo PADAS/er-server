@@ -89,7 +89,8 @@ jobs:
           STATIC_IP: ((static-ip)),
           EMAIL_HOST: ((email-host)),
           EMAIL_USERNAME: ((email-username)),
-          EMAIL_PASSWORD: ((email-password))
+          EMAIL_PASSWORD: ((email-password)),
+          WEB_SERVICE_NAME: ((web-service-name))
         }
         inputs:
         - name: git-server
