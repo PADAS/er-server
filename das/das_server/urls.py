@@ -48,8 +48,8 @@ django.conf.urls.handler404 = 'utils.drf.error404View'
 
 if settings.DEV:
     urlpatterns += [
-        url(r'^(?:realtime.html)?$', django.contrib.staticfiles.views.serve,
-            kwargs={'path': 'realtime.html'}),
+        url(r'^(?:index.html)?$', django.contrib.staticfiles.views.serve,
+            kwargs={'path': 'index.html'}),
         url(r'^(?P<path>.*)$', django.contrib.staticfiles.views.serve),
     ]
 else:
