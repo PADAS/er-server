@@ -35,18 +35,13 @@ class LowSpeedAnalyzer(SubjectAnalyzer):
         low_speed_threshold_percentile = self.config.low_threshold_percentile
         low_speed_threshold_value = self.config.default_value
         if hasattr(self.subject, 'subjectspeedprofile'):
-            # Check whether the subject has a SubjectSpeedProfile
-            #SubjectSpeedProfile.objects.filter(pk=self.subject)
-
             for sd in self.subject.subjectspeedprofile.SpeedDistros.all():
-                # Loop through the different speed distributions for this speed profile
                 try:
                     ''' ToDo: Add logic to test whether the latest position falls within the 
                      schedule of the given speed distribution '''
-                    low_speed_threshold_value = sd.percentiles.get(low_speed_threshold_percentile)
-                #except ObjectDoesNotExist:
-                except Exception as ex:
-                    pass
+                    low_speed_threshold_value = sd.percentiles[str(low_speed_threshold_percentile)]
+                except KeyError:
+                    low_speed_threshold_value = self.config.default_value
 
         # Get the relocation fixes in descending order
         fixes = traj.relocs.get_fixes('DESC')
@@ -131,7 +126,7 @@ class LowSpeedAnalyzer(SubjectAnalyzer):
                 message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='low_speed_all_clear',
+                event_type='analyzer_low_speed_all_clear',
                 priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
                 event_details=this_result.values,

@@ -511,7 +511,7 @@ class SubjectTrackSegmentFilter(TimestampedModel):
     # Should reference SubjectTypes table
     subject_type = models.TextField(default="SUBTYPE_ELEPHANT")
     speed_KmHr = models.FloatField(default=7.0)
-    additional = JSONField()
+    additional = JSONField(default={})
     objects = SubjectTrackSegmentFilterManager()
 
 
@@ -834,14 +834,14 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         return subject_source.source
 
-    def observations(self, last_hours=None):
+    def observations(self, last_hours=None, until=None):
         """ returns all observations for this Subject, spanning
         Sources as necessary """
         since = None
-        until = None
 
         if last_hours:
-            until = datetime.now(tz=pytz.UTC)
+            if not until:
+                until = datetime.now(tz=pytz.UTC)
             since = until - timedelta(hours=last_hours)
 
         return Observation.objects.get_subject_observations(self, since=since, until=until)

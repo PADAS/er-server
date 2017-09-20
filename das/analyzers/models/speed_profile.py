@@ -9,7 +9,7 @@ import pymet
 class SubjectSpeedProfile(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    subject = models.OneToOneField(Subject, on_delete=models.CASCADE, primary_key=True,)
+    subject = models.OneToOneField(to=Subject, on_delete=models.CASCADE, null=True, blank=True)
 
 
 class SpeedDistro(TimestampedModel):
@@ -18,17 +18,19 @@ class SpeedDistro(TimestampedModel):
     The distro percentiles/parameters are only valid for the corresponding schedule
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    percentiles = JSONField()
+    percentiles = JSONField(blank=True, default={})
     subject_speed_profile = models.ForeignKey(to=SubjectSpeedProfile,
                                               on_delete=models.CASCADE,
-                                              related_name='SpeedDistros')
+                                              related_name='SpeedDistros',
+                                              null=True, blank=True)
 
-    # schedules = models.ManyToManyField(to=Schedule, related_name='schedules')
+    # schedule = models.ManyToManyField(to=Schedule)
 
-    def update_percentiles(self, percentiles, trajectory_filter=None):
-
+    def update_percentiles(self, percentiles, trajectory_filter=None, end=None):
         """ Determine the speed distribution based on the current subject + schedule"""
-        obs = self.subject_speed_profile.subject.observations()  # ToDo: use obs from current schedule period only
+
+        # ToDo: use obs from current schedule period only
+        obs = self.subject_speed_profile.subject.observations(until=end)
 
         # Use default trajectory_filter if one isn't provided
         trajectory_filter = trajectory_filter or self.subject_speed_profile.subject.default_trajectory_filter()
@@ -40,7 +42,7 @@ class SpeedDistro(TimestampedModel):
         speed_percentiles = traj.speed_percentiles(percentiles=percentiles)
 
         # Copy the percentile speed values from the trajectory object dict
-        for p, v in speed_percentiles.iteritems():
+        for p, v in speed_percentiles.items():
             try:
                 self.percentiles[p] = v
             except:
