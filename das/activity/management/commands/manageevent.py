@@ -129,7 +129,7 @@ class Command(BaseCommand):
 
                 if self.should_update_choice_tables(record['tables']):
                     for table in record['tables']:
-                        self.migrate_choices_table(
+                        mapped_table = self.migrate_choices_table(
                             table['table_name'].lower(), table['model'], table['field'])
                     migrated_tables += [self.make_value(table['table_name'])
                                         for table in record['tables']]
@@ -150,7 +150,7 @@ class Command(BaseCommand):
                     event_type = EventType.objects.get(value=record['value'])
 
                     self.update_fields_with_event_type(
-                        record['fields'], event_type, migrated_tables)
+                        record, event_type, migrated_tables)
             except Exception as ex:
                 logger.exception('Exception while migrating event details')
                 raise
@@ -249,26 +249,49 @@ class Command(BaseCommand):
         except:
             return False
 
-    def update_fields_with_event_type(self, fields, event_type, former_tables):
+    def should_lookup_value_for_field(self, record, previous_property_name, current_property_name, former_tables, old_data):
+
+        # If it isn't a guid to begin with,
+        if not self.is_uuid(old_data[previous_property_name]):
+            return False
+
+        # If we migrated this table, then definitely look up the value
+        if self.make_value(previous_property_name) in former_tables:
+            return True
+
+        # Because some choice tables were used by multiple_schemas, see if
+        # the table was migrated under a name we didn't expect
+        for table in record['tables']:
+            if table['field'] == current_property_name:
+                return True
+
+        return False
+
+    def update_fields_with_event_type(self, record, event_type, former_tables):
         for event in Event.objects.filter(event_type_id=event_type.id):
             for event_details in event.event_details.all():
                 new_data = {}
                 old_data = copy.copy(event_details.data['event_details'])
                 dirty = False
-                for field in fields:
+                for field in record['fields']:
                     previous_property_name = field.get(
                         self.PREVIOUS_PROPERTY_FIELD, self.COMMAND_IGNORE)
                     property_name = field.get(self.CURRENT_PROPERTY_NAME)
 
+                    # Mapping specifies to skip this field
                     if previous_property_name == self.COMMAND_IGNORE or property_name == self.COMMAND_DELETE:
                         continue
 
                     try:
+                        # New value is hardcoded to a specific value regardless
+                        # of existing data
                         if self.COMMAND_HARDCODE in previous_property_name:
                             new_data[property_name] = previous_property_name.split(':')[
                                 1]
+
+                        # Previous value exists in data, so migrate it
                         elif previous_property_name in old_data:
-                            if self.make_value(previous_property_name) in former_tables and self.is_uuid(old_data[previous_property_name]):
+                            if self.should_lookup_value_for_field(record, previous_property_name, property_name, former_tables, old_data):
                                 try:
                                     choice_object = choices.Choice.objects.get(
                                         id=old_data[previous_property_name])
@@ -280,6 +303,8 @@ class Command(BaseCommand):
                             else:
                                 new_data[property_name] = old_data[previous_property_name]
                         dirty = True
+
+                    # There is no previous value, so skip it
                     except KeyError:
                         pass
 
