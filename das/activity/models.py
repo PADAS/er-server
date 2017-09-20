@@ -3,9 +3,11 @@ import datetime
 import pytz
 import logging
 from operator import itemgetter, attrgetter
+import re
 
 import django.utils
 from django.db import transaction
+from django.db.models import Prefetch, Q, F, Func
 from django.db.models.signals import post_save
 from django.core.exceptions import ValidationError
 from django.conf import settings
@@ -223,6 +225,26 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         if not value:
             return self
         return self.exclude(in_relationship__type__value='contains')
+
+    def by_search_filter(self, filter):
+        if 'text' not in filter:
+            return self
+
+        text_search = filter['text']
+        filter = Q(title__unaccent__icontains=text_search) \
+            | Q(note__text__unaccent__icontains=text_search) \
+            | Q(event_type__display__unaccent__icontains=text_search)
+
+        queryset = self
+        if re.match('[0-9]+', text_search):
+            logger.info('Querying on numeric. %s', text_search)
+            queryset = self.annotate(serial_number_text=Func(F('serial_number'),
+                                                             function='bigint_to_char'))
+            # 'startswith' witll use an index.
+            filter = filter | Q(
+                serial_number_text__startswith=text_search)
+
+        return queryset.filter(filter)
 
 
 class EventManager(models.Manager):

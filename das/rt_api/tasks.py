@@ -14,6 +14,13 @@ from observations.models import SubjectSource
 from observations.views import SubjectTracksView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
+from rt_api import client
+import urllib.parse
+
+from activity.permissions import EventCategoryPermissions
+from activity.serializers import EventSerializer
+
+from observations.models import SocketClient
 
 
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
@@ -34,64 +41,76 @@ def dumps_helper(obj):
     raise TypeError("Type not serializable: " + type(obj).__name__)
 
 
-from observations.models import SocketClient
-
-
 def _event_handler(event_id, type):
     try:
-        logger.debug('Processing update on event_id {0}'.format(event_id))
-        view = EventView.as_view()
-        all_connections = redis_client.hgetall('realtime_connections')
+        logger.debug('Processing type=%s on event=%s', type, event_id)
+        event_view = EventView.as_view()
+        all_connections = redis_client.hgetall(client.CLIENT_LIST_KEY)
 
-        for sid, username in all_connections.items():
+        logger.debug('handling event for all_connections=%s', all_connections)
+        for sid, session_data in all_connections.items():
             try:
-                connected_sid = sid.decode('UTF-8')
-                username = username.decode('UTF-8')
 
-                logger.debug('Creating event payload for user {0}: {1}'.format(
-                    username[0], connected_sid))
+                session_data = json.loads(session_data.decode('utf-8'))
+                sid = sid.decode('UTF-8')
+                username = session_data['username']
+
+                logger.debug(
+                    'Creating event payload for user=%s, sid=%s', username, sid)
 
                 try:
                     user = User.objects.get(username=username)
                 except User.DoesNotExist:
-                    # Probably shouldn't get here, but maybe the user got
-                    # deleted just now?
-                    redis_client.hdel('realtime_connections', connected_sid)
+                    logger.warning(
+                        'Lookup by username=%s found no user.', username)
+                    client.remove_client(sid)
                     continue
 
-                socket_client = SocketClient.objects.get(id=sid)
-                qp = {
-                    'filter': json.dumps(socket_client.event_filter)
-                }
-                # Fake an API call for free permission enforcement
-                request = DummyRequest(
-                    '/event/', 'GET', user=user, query_parameters=qp)
-                result = view(request, id=event_id)
+                request = DummyRequest(user=user, http_method='GET')
+                queryset = Event.objects.filter(id=event_id)
 
-                # If there's nothing to send, no need to send it
-                if result.status_code != 200 or not result.data:
-                    continue
+                try:
+                    socket_client = SocketClient.objects.get(id=sid)
+                    queryset = queryset.by_search_filter(
+                        socket_client.event_filter)
+                except SocketClient.DoesNotExist:
+                    logger.debug('SocketClient does not exist for sid=%s', sid)
 
-                emit_data = {
-                    'type': type,
-                    'sid': connected_sid,
-                    'object_id': event_id,
-                    'data': {'type': type, 'event_id': event_id, 'event_data': result.data}
-                }
-                count_data = {
-                    'type': 'count_event',
-                    'sid': connected_sid,
-                    'data': Event.objects.new_count()
-                }
+                event = queryset.first()
 
-                pubsub.publish(json.dumps(
-                    emit_data, default=dumps_helper), 'das.realtime.emit')
-                pubsub.publish(json.dumps(
-                    count_data, default=dumps_helper), 'das.realtime.emit')
+                # With search filter, it's possible to have no matching Event.
+                if not event:
+                    return
+
+                try:
+                    event_view.check_object_permissions(
+                        request=request, obj=event)
+                    data = EventSerializer(event).data
+
+                    emit_data = {
+                        'type': type,
+                        'sid': sid,
+                        'object_id': event_id,
+                        'data': {'type': type, 'event_id': event_id, 'event_data': data}
+                    }
+                    # count_data = {
+                    #     'type': 'count_event',
+                    #     'sid': sid,
+                    #     'data': Event.objects.new_count()
+                    # }
+
+                    logger.debug(
+                        'Publish das.realtime.emit.  data=%s', emit_data)
+                    pubsub.publish(json.dumps(
+                        emit_data, default=dumps_helper), 'das.realtime.emit')
+                    # pubsub.publish(json.dumps(
+                    # count_data, default=dumps_helper), 'das.realtime.emit')
+                except:
+                    logger.exception('Permission denied.')
 
             except Exception as ex:
                 logger.exception(
-                    'Error creating custom payload for event: ' + event_id)
+                    'Error creating custom payload for event: %s', event_id)
             finally:
                 close_old_connections()
 
@@ -102,27 +121,29 @@ def _event_handler(event_id, type):
 def _observation_handler(subject_id):
     try:
         logger.debug(
-            'Processing new observation for subject_id {0}'.format(subject_id))
+            'Processing new observation for subject_id=%s', subject_id)
 
         # Curry this getter to re-use the view in the for-loop below.
         get_subject_payload = partial(
             get_subject_view_details, SubjectTracksView.as_view())
-        all_connections = redis_client.hgetall('realtime_connections')
+        all_connections = redis_client.hgetall(client.CLIENT_LIST_KEY)
 
-        for sid, username in all_connections.items():
+        for sid, session_data in all_connections.items():
             try:
-                connected_sid = sid.decode('UTF-8')
-                username = username.decode('UTF-8')
+                session_data = json.loads(session_data.decode('utf-8'))
+                sid = sid.decode('UTF-8')
+                username = session_data['username']
 
-                logger.debug('Creating observation payload for user {0}: {1}'.format(
-                    username[0], connected_sid))
+                logger.debug(
+                    'Create observation payload. username=%s, sid=%s', username, sid)
 
                 try:
+                    logger.debug('Lookup username=%s', username)
                     user = User.objects.get(username=username)
                 except User.DoesNotExist:
-                    # Probably shouldn't get here, but maybe the user got
-                    # deleted just now?
-                    redis_client.hdel('realtime_connections', connected_sid)
+                    logger.warning(
+                        'Lookup by username. username=%s does not exist.', username)
+                    client.remove_client(sid)
                     continue
 
                 # If subject-view payload is not None, then emit it.
@@ -130,7 +151,7 @@ def _observation_handler(subject_id):
                 if payload:
                     emit_data = {
                         'type': 'subject_position_update',
-                        'sid': connected_sid,
+                        'sid': sid,
                         'object_id': subject_id,
                         'data': payload
                     }
@@ -138,9 +159,9 @@ def _observation_handler(subject_id):
                     pubsub.publish(json.dumps(
                         emit_data, default=dumps_helper), 'das.realtime.emit')
 
-            except Exception as ex:
+            except:
                 logger.exception(
-                    'Error creating payload data for observation: ' + subject_id)
+                    'Error creating observation payload. session_data=%s', session_data)
             finally:
                 close_old_connections()
     finally:
@@ -182,26 +203,26 @@ def get_subject_view_details(view, user, subject_id):
 
 @celery.app.task()
 def handle_new_event(event_id):
-    logger.info('Celery worker handling new event_id: {}'.format(event_id))
+    logger.info('Celery worker handling new event_id: %s', event_id)
     _event_handler(event_id, 'new_event')
 
 
 @celery.app.task()
 def handle_update_event(event_id):
-    logger.info('Celery worker handling update event_id: {}'.format(event_id))
+    logger.info('Celery worker handling update event_id: %s', event_id)
     _event_handler(event_id, 'update_event')
 
 
 @celery.app.task()
 def handle_delete_event(event_id):
-    logger.info('Celery worker handling delete event_id: {}'.format(event_id))
+    logger.info('Celery worker handling delete event_id: %s', event_id)
     _event_handler(event_id, 'delete_event')
 
 
 @celery.app.task()
 def handle_new_source_observation(source_id):
     logger.info(
-        'Celery worker handling new source observation: {}'.format(source_id))
+        'Celery worker handling new observation. source_id=%s', source_id)
     subject_source = SubjectSource.objects.filter(source=source_id)\
         .order_by('assigned_range').reverse().first()
     _observation_handler(subject_source.subject_id)
@@ -210,10 +231,10 @@ def handle_new_source_observation(source_id):
 @celery.app.task()
 def handle_new_subject_observation(subject_id):
     logger.info(
-        'Celery worker handling new subject observation: {}'.format(subject_id))
+        'Celery worker handling new observation. subject_id=%s', subject_id)
     _observation_handler(subject_id)
 
 
 @celery.app.task()
 def handle_emit_data(event_id):
-    logger.info('event mailer event_id: {}'.format(event_id))
+    logger.info('event mailer event_id: %s', event_id)

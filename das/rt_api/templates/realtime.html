@@ -9,11 +9,27 @@
             font-family: consolas, arial;
         }
 
-
         textarea {
             font-family: consolas, arial;
         }
 
+        #login-container {
+            display:block;
+            height:200px;
+        }
+        #login_form {
+            display:block;
+            float:left;
+            width: 300px;
+        }
+        #login_status {
+            display:block;
+            float:right;
+        }
+        .login_block {
+            height: 100px;
+
+        }
         #thingz {
             color: #07a;
             display: block;
@@ -22,12 +38,20 @@
             transition: opacity .8s, height .8s;
         }
 
+        #page-content{
+            display:block;
+            clear:both;
+        }
         #left-side {
-            float: left;
+            display: block;
             width: 48%;
+            float:left;
+            clear:left;
         }
         #right-side {
-            float: right;
+            display: block;
+            float:right;
+            clear:right;
             width: 48%;
             border: 1px solid gray;
         }
@@ -35,6 +59,22 @@
             display:none;
             margin-bottom:10px;
 
+        }
+        pre {
+           background-color: #f5f5f5;
+           border: 1px solid silver;
+           padding: 10px 20px;
+           margin: 20px;
+            border-radius: 5px;
+           }
+        .json-key {
+           color: navy;
+        }
+        .json-value {
+           color: green;
+        }
+        .json-string {
+           color: darkgreen;
         }
     </style>
     <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
@@ -56,23 +96,17 @@
 </head>
 <body>
 
----
+<div id="login-container">
 
-
-<div id="loginformtoggle" onclick='fadein(document.querySelector("#loginform"));'>
-    login form
-</div>
-<div id="loginform">
-    <label for="username">Username: </label><input name="username" id="username" type="text">
-    <label for="password">Password: </label><input name="password" id="password" type="password">
-    <div onclick='login(document.querySelector("#apistatus"));'>
-        sign in
+    <div id='login_form' class="login_block">
+        <label for="username">Username: </label><input name="username" id="username" type="text">
+        <label for="password">Password: </label><input name="password" id="password" type="password">
+        <span onclick='login(document.querySelector("#login_status"));'>sign in</span>
     </div>
-</div>
-<div id='apistatus'>
-    status
+    <div id='login_status' class="login_block"></div>
 </div>
 
+<div id="page-content">
 <div id="left-side">
     <h2>DAS RTM Test</h2>
     <h3>Send:</h3>
@@ -131,6 +165,7 @@
 <div id="right-side">
     <h3>Responses</h3>
     <div id="log"></div>
+</div>
 </div>
 </body>
 <script type='text/javascript'>
@@ -216,7 +251,7 @@
         dasclient = DasClient(document.querySelector('#username').value, document.querySelector('#password').value);
         elem.innerHTML = 'logging in...';
         dasclient.authenticate((data) => {
-            elem.innerHTML += JSON.stringify(data);
+            elem.innerHTML = pp.json.prettypre(data);
         });
     };
 
@@ -241,45 +276,44 @@
                 // event handler for server sent data
                 // the data is displayed in the "Received" section of the page
                 socket.on('resp_authorization', function(msg) {
-                    $('#log').append('<br>Received #' + msg.resp_id + ': ' + msg.status.message);
+                    $('#log').prepend('<br>Received #' + msg.resp_id + ': ' + msg.status.message);
                 });
 
                 // event handler for new connections
                 socket.on('connect', function() {
                     socket.emit('authorization', {'type': 'authorization', 'id': 1, authorization: 'Bearer ' + $('#bearer_token').val()});
-//                    socket.emit('authorization', {'id': 1, authorization: 'Bearer ' + 'BAD TOKEN'});
                 });
 
                 socket.on('echo_resp', function(msg){
-                    $('#log').append('<br>Received #' + msg.resp_id + ': ' + msg.message);
+                    $('#log').prepend('<br>Received #' + pp.json.prettypre(msg));
                 });
 
                 socket.on('bbox_resp', function(msg){
-                    $('#log').append('<br>bbox reponse: ' + msg.message);
+                    $('#log').prepend('<br>bbox reponse: ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('event_filter_response', function(msg){
-                    $('#log').append('<br>event_filter_response: ' + msg.message);
+                    $('#log').prepend('<br>event_filter_response: ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('subject_position_update', function(msg) {
-                    $('#log').append('<br>Received position update:  ' + msg);
+                    $('#log').prepend('<br>Received position update:  ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('new_event', function(msg) {
-                    $('#log').append('<br>Received new event:  ' + msg);
+                    $('#log').prepend('<br>Received new event:  ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('update_event', function(msg) {
-                    $('#log').append('<br>Received update event:  ' + msg);
+                    $('#log').prepend('<br>Received update event:  ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('delete_event', function(msg) {
-                    $('#log').append('<br>Received delete event:  ' + msg);
+                    $('#log').prepend('<br>Received delete event:  ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('disconnect', function() {
-                     $('#log').append('<br>Disconnected');
+                     $('#log').prepend('<br>Disconnected');
                     socket = null;
                 });
                 return false;
@@ -340,4 +374,33 @@
         });
     </script>
 
+
+    <script type="text/javascript">
+        if (!pp)
+            var pp = {};
+
+        pp.json = {
+            replacer: function (match, pIndent, pKey, pVal, pEnd) {
+                var key = '<span class=json-key>';
+                var val = '<span class=json-value>';
+                var str = '<span class=json-string>';
+                var r = pIndent || '';
+                if (pKey)
+                    r = r + key + pKey.replace(/[": ]/g, '') + '</span>: ';
+                if (pVal)
+                    r = r + (pVal[0] == '"' ? str : val) + pVal + '</span>';
+                return r + (pEnd || '');
+            },
+            pretty: function (obj) {
+                var jsonLine = /^( *)("[\w]+": )?("[^"]*"|[\w.+-]*)?([,[{])?$/mg;
+                return JSON.stringify(obj, null, 3)
+                    .replace(/&/g, '&amp;').replace(/\\"/g, '&quot;')
+                    .replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                    .replace(jsonLine, pp.json.replacer);
+            },
+            prettypre: function(obj) {
+                return '<pre>' + pp.json.pretty(obj) + '</pre>';
+            }
+        };
+    </script>
 </html>

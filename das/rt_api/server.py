@@ -1,4 +1,3 @@
-
 import eventlet
 import logging
 
@@ -6,40 +5,18 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.db import close_old_connections, connection
 from rt_api.rest_api_interface.dummy_request import DummyRequest
-from utils import gis
+
 from . import client
-import zlib
-import json
+
 
 logger = logging.getLogger(__name__)
 
 
 def create_realtime_handler(sios):
-
     class RealtimeServices():
 
         supported_message_types = ['new_event', 'update_event', 'delete_event',
                                    'count_event', 'subject_position_update']
-
-        subjects_sql = """
-select jsonb_build_object('type', 'FeatureCollection', 'features', jsonb_agg(t.feature))::text as payload
-  from (select jsonb_build_object(
-          'type', 'Feature',
-          'geometry', st_asgeojson(ss.location)::jsonb,
-          'properties', jsonb_build_object(
-            'id', s.id,
-            'n', s.name,
-            'h', (ss.additional ->> 'heading')::numeric
-          )) as feature
-          from observations_subjectstatus ss, observations_subject s
-         where ss.subject_id=s.id
-           and ss.updated_at > (current_timestamp - interval '%s days')
-       ) as t;
-"""
-        try:
-            days = int(settings.VIEWPORT_FILTER_DAYS)
-        except AttributeError:
-            days = 2
 
         @sios.on('connect', namespace='/')
         def on_connect(sid, socket, *args):
@@ -47,6 +24,7 @@ select jsonb_build_object('type', 'FeatureCollection', 'features', jsonb_agg(t.f
             socket['authed'] = False
 
             def confirm_authed(sid, socket):
+                logger.debug('confirming auth for sid=%s', sid)
                 if not client.is_client(sid):
                     logger.info(
                         "Disconnecting unauthenticated socket connection")
@@ -69,9 +47,13 @@ select jsonb_build_object('type', 'FeatureCollection', 'features', jsonb_agg(t.f
                     if param not in data:
                         sios.emit('resp_authorization',
                                   {'resp_id': data['id'],
-                                   'status': {'code': 400, 'message': 'Required fields: "type", "authorization", "id"'}},
+                                   'status': {'code': 400,
+                                              'message': 'Required fields: "type", "authorization", "id"'}},
                                   room=str(sid),
                                   namespace='/das')
+
+                        logger.debug(
+                            'Inside on_authenticate, disconnecting. params=%s', data)
                         sios.server.disconnect(sid)
 
                 # To authenticate the token, we need to create a fake http
@@ -79,15 +61,14 @@ select jsonb_build_object('type', 'FeatureCollection', 'features', jsonb_agg(t.f
                 request = DummyRequest(
                     headers={'Authorization': data['authorization']})
                 user = authenticate(**{'request': request})
-
                 # The token checks out
                 if user is not None:
                     logger.info(
-                        "Socket {0} user authenticted successfully".format(sid))
+                        'Socket sid=%s, user=%s authenticated successfully', sid, user)
 
                     # Put the user into redis
-                    client_data = client.ClientData(sid=sid, username=user.username,
-                                                    bbox=None)
+                    client_data = client.ClientData(
+                        sid=sid, username=user.username, bbox=None)
                     client.add_client(sid, client_data)
 
                     # Put the connection into the correct rooms
@@ -102,13 +83,15 @@ select jsonb_build_object('type', 'FeatureCollection', 'features', jsonb_agg(t.f
                               namespace='/das')
 
                 else:
+                    logger.warning(
+                        'User is None, so disconnecting. sid=%s, data=%s', sid, data)
                     sios.emit('resp_authorization',
                               {'type': 'resp_authorization',
                                'resp_id': data['id'],
                                'status': {'code': 401, 'message': 'Invalid credentials'}},
                               room=str(sid),
                               namespace='/das')
-                    sios.server.disconnect(sid)
+                    # sios.server.disconnect(sid)
 
             except:
                 sios.emit('resp_authorization',
@@ -117,6 +100,7 @@ select jsonb_build_object('type', 'FeatureCollection', 'features', jsonb_agg(t.f
                            'status': {'code': 401, 'message': 'Authentication error'}},
                           room=str(sid),
                           namespace='/das')
+                logger.exception('Disconnecting session. data=%s', data)
                 sios.server.disconnect(sid)
             finally:
                 close_old_connections()
@@ -136,58 +120,49 @@ select jsonb_build_object('type', 'FeatureCollection', 'features', jsonb_agg(t.f
             client.update_client(sid, bbox=bbox)
             sios.emit('bbox_resp',
                       {'type': 'bbox_resp',
-                       'message': 'bbox saved!'},
+                       'message': 'bbox saved.',
+                       'bbox': bbox
+                       },
                       room=str(sid),
                       namespace='/das')
 
         @sios.on('event_filter', namespace='/das')
-        def on_event_filter(sid, data):
-            # data should be a dict of
-            logger.info('event_filter data: %s', data)
-            # TODO: implment validate_event_filter
+        def on_event_filter(sid, event_filter):
+            '''
+            This is expecting a dict containing custom filter attributes.
 
-            def validate_event_filter(x): return x.get('data', {})
+            :param event_filter: Event filter (Ex. {'text': 'arrest'}) can also be an empty dict.
+            :return: None
+            '''
+            logger.info('event_filter data: %s', event_filter)
+
+            def validate_event_filter(ef):
+                ef = ef.get('data', {})
+
+                if not isinstance(ef.get('text', ''), (str, bytes)):
+                    raise ValueError(
+                        'Event filter is invalid. value=%s', str(ef))
+                return ef
+
             try:
-                data = validate_event_filter(data)
+                event_filter = validate_event_filter(event_filter)
 
-                client.update_client(sid, event_filter=data)
+                client.update_client(sid, event_filter=event_filter)
                 sios.emit('event_filter_response',
                           {
-                              'message': 'event text filter saved.',
-                              'filter': data,
+                              'message': 'Event filter has been saved.',
+                              'filter': event_filter,
                           },
                           room=str(sid),
                           namespace='/das')
-            except:
+            except ValueError as ve:
                 sios.emit('event_filter_response',
                           {
-                              'error': 'Filter is invalid.',
+                              'message': 'Failed to set event_filter.',
+                              'error': str(ve),
                           },
                           room=str(sid),
                           namespace='/das')
-
-        # @sios.on('subjects', namespace='/das')
-        # def subjects(sid, data):
-        #     logger.info("Subjects call received from client.")
-        #     bbox = data.get('bbox', None)
-        #     if bbox:
-        #         bbox = bbox.split(',')
-        #         bbox = [float(v) for v in bbox]
-        #         if len(bbox) != 4:
-        #             raise ValueError("invalid bbox param")
-        #         bbox = gis.validate_bbox(bbox)
-        #
-        #     payload = None
-        #     with connection.cursor() as cursor:
-        #         cursor.execute(RealtimeServices.subjects_sql, [RealtimeServices.days])
-        #         payload = cursor.fetchone()[0]
-        #
-        #     if payload:
-        #         sios.emit('subjects_resp',
-        #                   {'type': 'subjects_medium',
-        #                    'message': zlib.compress(str.encode(payload))},
-        #                   room=str(sid),
-        #                   namespace='/das')
 
         @sios.on('echo', namespace='/das')
         def on_echo(sid, *args):
@@ -200,22 +175,22 @@ select jsonb_build_object('type', 'FeatureCollection', 'features', jsonb_agg(t.f
 
         @sios.on_error(namespace='/')
         def on_root_error(e):
-            logger.error('RT socket error in root namespace: %s', e)
+            logger.error('Realtime / unhandled error. error=%s', e)
 
         @sios.on_error(namespace='/das')
         def on_das_error(e):
-            logger.error('RT socket error in das namespace: %s', e)
+            logger.error('Realtime /das unhandled error. error=%s', e)
 
         @sios.on_error_default  # handles all namespaces without an explicit error handler
         def default_error_handler(e):
-            logger.error('RT socket error', e)
+            logger.error('Realtime unhandled error. error=%s', e)
 
         @staticmethod
         def emit(message_type, data, user=None):
             if user not in sios.server.environ:
                 client.remove_client(user)
                 logger.warning(
-                    'Tried to send a message to a disconnected client: {0}'.format(str(user)))
+                    'Tried to send a message to a disconnected client. user=%s', user)
                 return
             try:
                 if user is None:

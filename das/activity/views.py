@@ -311,7 +311,6 @@ class EventsView(generics.ListCreateAPIView):
         if parse_bool(query_params.get('include_files', False)):
             queryset = queryset.prefetch_related(Prefetch('files'))
 
-        logger.info('Event query: %s', str(queryset.query))
         return queryset
 
 
@@ -323,7 +322,7 @@ def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
 class EventView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventSerializer
-    queryset = Event.objects.all()
+
     lookup_field = 'id'
 
     @etag(etag_func=calculate_event_etag)
@@ -346,6 +345,18 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
         context['include_related_events'] = parse_bool(
             query_params.get('include_related_events', True))
         return context
+
+    def get_queryset(self):
+        queryset = Event.objects.all()
+
+        event_filter = self.request.query_params.get('filter', None)
+        if event_filter:
+            try:
+                event_filter = json.loads(event_filter)
+                return queryset.by_search_filter(event_filter)
+            except:
+                logger.warning('Invalid filter expression %s', event_filter)
+        return queryset
 
 
 class EventStateView(generics.RetrieveUpdateAPIView):

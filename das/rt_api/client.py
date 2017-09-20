@@ -2,6 +2,7 @@ import logging
 import collections
 import redis
 import datetime
+import pytz
 
 from django.contrib.gis.geos import Polygon, MultiPolygon
 from observations.models import SocketClient
@@ -20,14 +21,14 @@ ClientData = collections.namedtuple('ClientData', FIELDS)
 BBOX_FIELDS = ['west', 'south', 'east', 'north']
 Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
 
-import pytz
-
 
 def now(tz=pytz.utc):
     return tz.localize(datetime.datetime.utcnow())
 
 
 def update_client(sid, bbox=None, event_filter=None):
+
+    logger.info('update_client, sid: %s', sid)
     client_data = get_client(sid)
 
     # Sometimes we get back None from get_client (per messages in
@@ -60,7 +61,12 @@ def get_client_list():
 
 
 def add_client(sid, data):
-    redis_client.hset(CLIENT_LIST_KEY, str(sid), json.dumps(data))
+    logger.info('Adding socket client. sid=%s, data=%s', sid, data)
+    logger.info('Adding client to session list. key=%s, sid=%s, data=%s',
+                CLIENT_LIST_KEY, sid, json.dumps(data))
+    hset_result = redis_client.hset(
+        CLIENT_LIST_KEY, str(sid), json.dumps(data))
+    logger.info('hset_result = %s', hset_result)
 
 
 def _restore_client_data(data):
@@ -75,7 +81,11 @@ def _restore_client_data(data):
 
 
 def get_client(sid):
+
+    logger.debug('Get client for sid=%s', sid)
     data = redis_client.hget(CLIENT_LIST_KEY, str(sid))
+
+    logger.debug('Got client for sid=%s, data=%s', sid, data)
     if data:
         return _restore_client_data(data)
 
@@ -85,5 +95,6 @@ def is_client(sid):
 
 
 def remove_client(sid):
+    logger.debug('Removing client for sid: %s', sid)
     redis_client.hdel(CLIENT_LIST_KEY, str(sid))
     SocketClient.objects.filter(id=sid).delete()
