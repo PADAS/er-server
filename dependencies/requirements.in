@@ -71,3 +71,5 @@ lxml==3.7.3
 openpyxl==2.4.8
 
 pymet==0.1.10
+
+mockredispy==2.9.3
