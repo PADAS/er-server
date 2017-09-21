@@ -12,7 +12,7 @@ docker tag gcr.io/das-app/worker gcr.io/das-app/worker:release
 docker tag gcr.io/das-app/mql gcr.io/das-app/mql:release
 docker tag gcr.io/das-app/nginx gcr.io/das-app/nginx:release
 docker tag gcr.io/das-app/web/app gcr.io/das-app/web/app:release
-
+docker tag gcr.io/das-app/web/app gcr.io/das-app/web-react/app:release
 
 
 docker push gcr.io/das-app/base:release
@@ -25,4 +25,5 @@ docker push gcr.io/das-app/worker:release
 docker push gcr.io/das-app/mql:release
 docker push gcr.io/das-app/nginx:release
 docker push gcr.io/das-app/web/app:release
+docker push gcr.io/das-app/web-react/app:release
 

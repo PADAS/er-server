@@ -1,24 +1,24 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: nginx
+  name: web-react
 spec:
   template:
     metadata:
       labels:
-        das.component: nginx
+        das.component: web-react
     spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/nginx:${GIT_UTILITY_SHA}
-        name: das-nginx
+      - name: das-web-react
+        image: gcr.io/padas-app/web-react/app:${GIT_WEB_REACT_SHA}
         ports:
-        - containerPort: 8000
-        - containerPort: 9001
+        - containerPort: 9000
         env:
-        - name: WEB_SERVICE_NAME
+        - name: APIENDPOINT
           valueFrom:
             configMapKeyRef:
               name: default-configmap
-              key: WEB_SERVICE_NAME
+              key: APIENDPOINT
+

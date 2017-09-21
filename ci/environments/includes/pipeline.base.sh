@@ -7,6 +7,11 @@
 
 CREATOR="$(whoami)"
 __SET_PIPELINE_DIR__="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+INFRA_DIR="$__SET_PIPELINE_DIR__/../../../../infrastructure"
+DEPLOYMENTS_DIR="$INFRA_DIR/deployments"
+PADAS_DIR="$DEPLOYMENTS_DIR/padas-app"
+
+
 
 function set-pipeline()
 {
@@ -30,6 +35,9 @@ function set-pipeline()
         -l $YAML_PATH/params/default.safe.params.yaml \
         "$(set_var_file_if_exists "$YAML_PATH/params/$PIPELINE.params.yaml")" \
         -v creator=$CREATOR \
+        -v das-web-react-github="$(cat $PADAS_DIR/ci/keys/das.web.react)" \
+        -v das-web-github="$(cat $PADAS_DIR/ci/keys/das.web)" \
+        -v das-github="$(cat $PADAS_DIR/ci/keys/das.server)" \
         -v pipeline-name=$PIPELINE_NAME \
         -v gcr-io-email=1234@5678.com \
         -v gcr-io-username=_json_key \
