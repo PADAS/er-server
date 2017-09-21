@@ -442,7 +442,7 @@ jobs:
             CLUSTER_NAME: ((cluster-name)),
             CREATOR: ((creator)),
             BUILD_PIPELINE_NAME: ((pipeline-name)),  
-            CLUSTER_ADMIN_PASSWORD: ((padas-app-k8s-cluster-admin)),
+            CLUSTER_ADMIN_PASSWORD: ((padas-app-cluster-admin)),
             PROJECT_CONTAINER_REGISTRY_SECRET: ((padas-app-container-registry-pull)),
             INFRASTRUCTURE_CONTAINER_REGISTRY_SECRET: ((ss-infrastructure-container-registry-pull)),
             MACHINE_TYPE: n1-standard-1,
@@ -489,7 +489,7 @@ jobs:
             PROJECT_ID: ((project-id)),
             CLUSTER_NAME: ((cluster-name)),
             DEPLOY_PATH: deployment-info,
-            CLUSTER_ADMIN_PASSWORD: ((padas-app-k8s-cluster-admin))
+            CLUSTER_ADMIN_PASSWORD: ((padas-app-cluster-admin))
           }
           run:
             path: git-server/ci/deploy.to.k8s.sh
