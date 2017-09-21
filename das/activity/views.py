@@ -253,6 +253,8 @@ class EventsView(generics.ListCreateAPIView):
                 queryset = queryset.by_search_filter(event_filter)
             except:
                 logger.warning('Invalid filter expression %s', event_filter)
+                raise ValueError(
+                    'Invalid event filter argument. filter={}'.format(event_filter))
 
         is_collection = query_params.get('is_collection', None)
         exclude_contained = query_params.get('exclude_contained', None)
