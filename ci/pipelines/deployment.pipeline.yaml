@@ -28,7 +28,7 @@ resources:
   source:
     uri: git@github.com:PADAS/das-react.git
     branch: ((web-react-branch-name))
-    private_key: ((das-web-react-github))
+    private_key: ((das-react-github))
 
 resource_types:
 - name: versioned-git-resource

@@ -35,9 +35,6 @@ function set-pipeline()
         -l $YAML_PATH/params/default.safe.params.yaml \
         "$(set_var_file_if_exists "$YAML_PATH/params/$PIPELINE.params.yaml")" \
         -v creator=$CREATOR \
-        -v das-web-react-github="$(cat $PADAS_DIR/ci/keys/das.web.react)" \
-        -v das-web-github="$(cat $PADAS_DIR/ci/keys/das.web)" \
-        -v das-github="$(cat $PADAS_DIR/ci/keys/das.server)" \
         -v pipeline-name=$PIPELINE_NAME \
         -v gcr-io-email=1234@5678.com \
         -v gcr-io-username=_json_key \
