@@ -369,6 +369,25 @@ Here we're telling set.pipeline to use the demo params, and passing in an extra 
 
 ### Developing in a Dockerized Environment FAQ
 
+#### To get a management web view of the current cluster configuration
+Parameters for view.k8s.cluster.proxy are:
+* Project
+* Cluster Name
+* Port (default is 8001)
+~~~
+../../infrastructure/resources/k8s/view.k8s.cluster.proxy.sh padas-app integ
+ration 8003
+~~~
+
+#### To remote into a pod running on an existing cluster
+Use the script manage.existing.cluster.sh
+* Project
+* Cluster Name
+````
+../../infrastructure/resources/k8s/manage.existing.cluster.sh padas-app integ
+ration
+````
+
 __How do I remote into an image running on a GCP kubernetes cluster?__
 
 First, you'll want to get the gcloud command line tools\.
@@ -425,6 +444,8 @@ root@69c7d34860a5:/# kubectl exec -it api-4041812951-2dmmx -- bash
 ~~~~~~~
 
 Now you have a bash terminal in the API server\. Have fun\!
+
+
 
 
 
