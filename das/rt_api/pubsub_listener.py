@@ -12,14 +12,19 @@ logger = logging.getLogger(__name__)
 def start(realtime_server):
 
     def new_event_handler(data, message):
+        logger.debug('new_event_handler. data=%s, message=%s', data, message)
         celery.app.send_task('rt_api.tasks.handle_new_event',
                              args=(data['event_id'],))
 
     def update_event_handler(data, message):
+        logger.debug(
+            'update_event_handler. data=%s, message=%s', data, message)
         celery.app.send_task('rt_api.tasks.handle_update_event',
                              args=(data['event_id'],))
 
     def delete_event_handler(data, message):
+        logger.debug(
+            'delete_event_handler. data=%s, message=%s', data, message)
         celery.app.send_task('rt_api.tasks.handle_delete_event',
                              args=(data['event_id'],))
 
@@ -60,7 +65,8 @@ def start(realtime_server):
                 'callback': emit_handler},
         ]
         for subscription in subscriptions:
-            subscription['name'] = 'rt_api.{0}'.format(subscription['callback'].__name__)
+            subscription['name'] = 'rt_api.{0}'.format(
+                subscription['callback'].__name__)
         pubsub.subscribe(subscriptions)
 
     eventlet.spawn_n(pubsub_listener)

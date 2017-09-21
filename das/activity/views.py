@@ -3,12 +3,13 @@ from datetime import timedelta
 import copy
 import mimetypes
 import logging
-
+import json
+import re
 from django.conf import settings
 from rest_framework import generics, status, response
 from django.http.response import HttpResponse
 
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q, F, Func
 from django.core.urlresolvers import reverse
 from django.template import Template, Context
 from rest_framework.response import Response
@@ -17,10 +18,10 @@ import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
 
-from activity.models import Event, EventNote, EventPhoto, EventClass,\
+from activity.models import Event, EventNote, EventClass,\
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile
 from activity.serializers import EventSerializer, EventNoteSerializer,\
-    EventJSONSchema, EventStateSerializer, EventPhotoSerializer,\
+    EventJSONSchema, EventStateSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
     EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer
 
@@ -213,6 +214,9 @@ class EventsView(generics.ListCreateAPIView):
             query_params.get('include_notes', True))
         context['include_details'] = parse_bool(
             query_params.get('include_details', True))
+        context['include_files'] = parse_bool(
+            query_params.get('include_files', True))
+
         # if this is a POST, returned any contained events
         default_include_related_events = request._request.method == 'POST'
         context['include_related_events'] = parse_bool(query_params.get('include_related_events',
@@ -222,7 +226,9 @@ class EventsView(generics.ListCreateAPIView):
     def get_queryset(self):
 
         # TODO: Update to allow passing last_days constraint.
+
         queryset = Event.objects.all_sort()
+
         query_params = self.request.query_params
         bbox = query_params.get('bbox', None)
         if bbox:
@@ -239,6 +245,16 @@ class EventsView(generics.ListCreateAPIView):
         event_type = query_params.getlist('event_type', None)
         if event_type:
             queryset = queryset.by_event_type(event_type)
+
+        event_filter = self.request.query_params.get('filter', None)
+        if event_filter:
+            try:
+                event_filter = json.loads(event_filter)
+                queryset = queryset.by_search_filter(event_filter)
+            except json.JSONDecodeError:
+                logger.exception(
+                    'Invalid filter expression. filter=%s', event_filter)
+                raise
 
         is_collection = query_params.get('is_collection', None)
         exclude_contained = query_params.get('exclude_contained', None)
@@ -277,8 +293,9 @@ class EventsView(generics.ListCreateAPIView):
 
         if parse_bool(query_params.get('include_notes', False)):
             queryset = queryset.prefetch_related(Prefetch('notes'))
-        if parse_bool(query_params.get('include_photos', False)):
-            queryset = queryset.prefetch_related(Prefetch('photos'))
+        if parse_bool(query_params.get('include_files', False)):
+            queryset = queryset.prefetch_related(Prefetch('files'))
+
         return queryset
 
 
@@ -290,7 +307,7 @@ def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
 class EventView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventSerializer
-    queryset = Event.objects.all()
+
     lookup_field = 'id'
 
     @etag(etag_func=calculate_event_etag)
@@ -308,11 +325,23 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
             query_params.get('include_updates', True))
         context['include_notes'] = parse_bool(
             query_params.get('include_notes', True))
-        context['include_photos'] = parse_bool(
-            query_params.get('include_photos', True))
+        context['include_files'] = parse_bool(
+            query_params.get('include_files', True))
         context['include_related_events'] = parse_bool(
             query_params.get('include_related_events', True))
         return context
+
+    def get_queryset(self):
+        queryset = Event.objects.all()
+
+        event_filter = self.request.query_params.get('filter', None)
+        if event_filter:
+            try:
+                event_filter = json.loads(event_filter)
+                return queryset.by_search_filter(event_filter)
+            except:
+                logger.warning('Invalid filter expression %s', event_filter)
+        return queryset
 
 
 class EventStateView(generics.RetrieveUpdateAPIView):
@@ -353,53 +382,6 @@ class EventNoteView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         queryset = self.get_queryset()
         filters = {'id': self.kwargs['note_id']}
-
-        obj = generics.get_object_or_404(queryset, **filters)
-
-        return obj
-
-
-class EventPhotosView(generics.ListCreateAPIView):
-    permission_classes = (EventCategoryPermissions,)
-    serializer_class = EventPhotoSerializer
-    pagination_class = StandardResultsSetPagination
-
-    def create(self, request, *args, **kwargs):
-        request.data['event'] = self.kwargs['id']
-
-        # TODO: This conditional is to handle the case where a file is uploaded
-        # via XHR. Figure out why.
-        if 'image' not in request.data:
-            try:
-                # Ajax request.
-                request.data['image'] = request.stream.FILES['image']
-            except KeyError:
-                pass
-
-        return super().create(request, *args, **kwargs)
-
-    def get_queryset(self):
-        event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['id'])
-
-        photos = EventPhoto.objects.all().filter(event=event)
-        return photos
-
-
-class EventPhotoView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (EventCategoryPermissions,)
-    serializer_class = EventPhotoSerializer
-
-    def get_queryset(self):
-        event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['id'])
-
-        photos = EventPhoto.objects.all().filter(event=event)
-        return photos
-
-    def get_object(self):
-        queryset = self.get_queryset()
-        filters = {'id': self.kwargs['photo_id']}
 
         obj = generics.get_object_or_404(queryset, **filters)
 

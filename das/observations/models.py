@@ -1009,4 +1009,17 @@ class Region(models.Model):
         return '%s, %s' % (self.region, self.country)
 
 
+class SocketClient(TimestampedModel):
+    '''
+    Associate a socket ID with a user and a set of session-related data.
+    '''
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, db_column="sid")
+    username = models.CharField(
+        'Das username associated with session', max_length=30)
+    bbox = models.MultiPolygonField(
+        'Viewport bounding box.', null=True, blank=True)
+    event_filter = JSONField('Event filter', default={})
+
+
 import observations.signals

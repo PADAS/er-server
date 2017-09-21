@@ -724,6 +724,39 @@ class TestEventView(BaseAPITest):
 
         self.assertEqual(response.data['title'], TITLE)
 
+    def test_event_with_search_filter(self):
+
+        title_text = 'Testing search/filter API'
+        search_text = title_text[5:-5]
+
+        event = Event.objects.create_event(title=title_text,
+                                           provenance=Event.PC_SYSTEM,
+                                           event_type=EventType.objects.get_by_value(
+                                               'other'),
+                                           priority=Event.PRI_URGENT,
+                                           attributes={},
+                                           )
+
+        request = self.factory.get(self.api_base + '/event/' + str(event.id))
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventView.as_view()(request, id=str(event.id))
+        self.assertEqual(response.status_code, 200)
+
+        # This is a valid filter (for use in query_string.
+        query = {'filter': json.dumps({'text': search_text})}
+        request = self.factory.get(self.api_base + '/events', data=query)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        # This will be invalid.
+        query = {'filter': {'text': search_text}}
+        request = self.factory.get(self.api_base + '/events', data=query)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 500)
+
     def test_reported_by_filtering(self):
         reported_by_users = list(Event.objects.get_reported_by_for_provenance(
             Event.PC_STAFF))

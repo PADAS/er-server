@@ -37,6 +37,10 @@
                     $('#log').append('<br>Received #' + msg.resp_id + ': ' + msg.message);
                 });
 
+                socket.on('bbox_resp', function(msg){
+                    $('#log').append('<br>bbox reponse: ' + msg.message);
+                });
+
                 socket.on('subject_position_update', function(msg) {
                     $('#log').append('<br>Received position update:  ' + msg);
                 });
@@ -61,6 +65,10 @@
             });
             $('form#emit').submit(function(event) {
                 socket.emit('echo', {data: $('#emit_data').val()});
+                return false;
+            });
+            $('form#bbox').submit(function(event) {
+                socket.emit('bbox', {data: $('#bbox_data').val()});
                 return false;
             });
             $('form#broadcast').submit(function(event) {
@@ -100,6 +108,10 @@
     <form id="emit" method="POST" action='#'>
         <input type="text" name="emit_data" id="emit_data" placeholder="Message">
         <input type="submit" value="Echo">
+    </form>
+    <form id="bbox" method="POST" action='#'>
+        <input type="text" name="bbox_data" id="bbox_data" placeholder="Message">
+        <input type="submit" value="Send bbox">
     </form>
     <form id="broadcast" method="POST" action='#'>
         <input type="text" name="broadcast_data" id="broadcast_data" placeholder="Message">
