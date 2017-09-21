@@ -9,7 +9,7 @@ from das_server import __version__
 
 
 def index(request):
-    return render_to_response('www/realtime.html')
+    return render_to_response('www/index.html')
 
 
 class VersionSerializer(rest_framework.serializers.Serializer):
