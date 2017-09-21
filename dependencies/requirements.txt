@@ -65,7 +65,6 @@ kombu==4.0.2              # via celery
 lxml==3.7.3
 markupsafe==1.0           # via jinja2
 matplotlib==2.0.0         # via descartes
-mockredispy==2.9.3
 munch==2.1.1              # via fiona
 numpy==1.12.1
 oauth2client==4.1.1       # via google-api-python-client
