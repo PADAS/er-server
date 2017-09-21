@@ -2,6 +2,7 @@ import logging
 import copy
 
 from django.core.management.base import BaseCommand
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction, connection
 from django.db.models import Count
 from django.contrib.contenttypes.models import ContentType
@@ -124,8 +125,7 @@ class Command(BaseCommand):
                 if 'fields' not in record:
                     continue
 
-                if self.should_update_event_type(record):
-                    self.update_event_event_type(record)
+                self.update_event_event_type(record)
 
                 if self.should_update_choice_tables(record['tables']):
                     for table in record['tables']:
@@ -212,14 +212,31 @@ class Command(BaseCommand):
         return False
 
     def update_event_event_type(self, record):
+
+        # Create all event types in the target document even if we aren't
+        # migrating any actual events to the new type
+        try:
+            new_event_type = EventType.objects.get(value=record['value'])
+            with connection.cursor() as conn:
+                # ordernum can be 0, so only check for None
+                if 'ordernum' in record and record['ordernum'] is not None:
+                    conn.execute(
+                        "UPDATE activity_eventtype SET ordernum = %s WHERE id = %s",
+                        [record['ordernum'], new_event_type.id])
+                if 'display' in record and record['display']:
+                    conn.execute(
+                        'UPDATE activity_eventtype SET display = %s WHERE id = %s',
+                        [record['display'], new_event_type.id])
+                if 'schema' in record and record['schema']:
+                    conn.execute(
+                        'UPDATE activity_eventtype SET schema = %s WHERE id = %s',
+                        [record['schema'], new_event_type.id])
+        except ObjectDoesNotExist:
+            new_event_type = self.create_new_event_type(record)
+
         old_event_type_value = record.get(self.PREVIOUS_EVENT_FIELD)
         if old_event_type_value:
             old_event_type = EventType.objects.get(value=old_event_type_value)
-            new_event_type_exists = EventType.objects.filter(
-                value=record['value']).count() > 0
-            if not new_event_type_exists:
-                self.create_new_event_type(record)
-            new_event_type = EventType.objects.get(value=record.get('value'))
 
             if old_event_type.id == new_event_type.id:
                 return
@@ -229,18 +246,22 @@ class Command(BaseCommand):
                     cursor.execute('UPDATE activity_event SET event_type_id = %s WHERE id = %s', [
                                    new_event_type.id, event.id])
 
+            with connection.cursor() as conn:
+                conn.execute('DELETE FROM activity_eventtype WHERE id = %s', [
+                             old_event_type.id])
+
     def create_new_event_type(self, event_type_data):
 
         category = EventCategory.objects.get(
             value=event_type_data['category_value'])
 
-        EventType.objects.create(id=event_type_data['id'],
-                                 value=event_type_data['value'],
-                                 display=event_type_data['display'],
-                                 category=category,
-                                 ordernum=event_type_data['ordernum'],
-                                 schema=event_type_data['schema'],
-                                 is_collection=event_type_data['is_collection'])
+        return EventType.objects.create(id=event_type_data['id'],
+                                        value=event_type_data['value'],
+                                        display=event_type_data['display'],
+                                        category=category,
+                                        ordernum=event_type_data['ordernum'],
+                                        schema=event_type_data['schema'],
+                                        is_collection=event_type_data['is_collection'])
 
     def is_uuid(self, str):
         try:
