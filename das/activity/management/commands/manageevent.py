@@ -2,6 +2,7 @@ import logging
 import copy
 
 from django.core.management.base import BaseCommand
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction, connection
 from django.db.models import Count
 from django.contrib.contenttypes.models import ContentType
@@ -124,12 +125,11 @@ class Command(BaseCommand):
                 if 'fields' not in record:
                     continue
 
-                if self.should_update_event_type(record):
-                    self.update_event_event_type(record)
+                self.update_event_event_type(record)
 
                 if self.should_update_choice_tables(record['tables']):
                     for table in record['tables']:
-                        self.migrate_choices_table(
+                        mapped_table = self.migrate_choices_table(
                             table['table_name'].lower(), table['model'], table['field'])
                     migrated_tables += [self.make_value(table['table_name'])
                                         for table in record['tables']]
@@ -150,7 +150,7 @@ class Command(BaseCommand):
                     event_type = EventType.objects.get(value=record['value'])
 
                     self.update_fields_with_event_type(
-                        record['fields'], event_type, migrated_tables)
+                        record, event_type, migrated_tables)
             except Exception as ex:
                 logger.exception('Exception while migrating event details')
                 raise
@@ -212,14 +212,31 @@ class Command(BaseCommand):
         return False
 
     def update_event_event_type(self, record):
+
+        # Create all event types in the target document even if we aren't
+        # migrating any actual events to the new type
+        try:
+            new_event_type = EventType.objects.get(value=record['value'])
+            with connection.cursor() as conn:
+                # ordernum can be 0, so only check for None
+                if 'ordernum' in record and record['ordernum'] is not None:
+                    conn.execute(
+                        "UPDATE activity_eventtype SET ordernum = %s WHERE id = %s",
+                        [record['ordernum'], new_event_type.id])
+                if 'display' in record and record['display']:
+                    conn.execute(
+                        'UPDATE activity_eventtype SET display = %s WHERE id = %s',
+                        [record['display'], new_event_type.id])
+                if 'schema' in record and record['schema']:
+                    conn.execute(
+                        'UPDATE activity_eventtype SET schema = %s WHERE id = %s',
+                        [record['schema'], new_event_type.id])
+        except ObjectDoesNotExist:
+            new_event_type = self.create_new_event_type(record)
+
         old_event_type_value = record.get(self.PREVIOUS_EVENT_FIELD)
         if old_event_type_value:
             old_event_type = EventType.objects.get(value=old_event_type_value)
-            new_event_type_exists = EventType.objects.filter(
-                value=record['value']).count() > 0
-            if not new_event_type_exists:
-                self.create_new_event_type(record)
-            new_event_type = EventType.objects.get(value=record.get('value'))
 
             if old_event_type.id == new_event_type.id:
                 return
@@ -229,18 +246,22 @@ class Command(BaseCommand):
                     cursor.execute('UPDATE activity_event SET event_type_id = %s WHERE id = %s', [
                                    new_event_type.id, event.id])
 
+            with connection.cursor() as conn:
+                conn.execute('DELETE FROM activity_eventtype WHERE id = %s', [
+                             old_event_type.id])
+
     def create_new_event_type(self, event_type_data):
 
         category = EventCategory.objects.get(
             value=event_type_data['category_value'])
 
-        EventType.objects.create(id=event_type_data['id'],
-                                 value=event_type_data['value'],
-                                 display=event_type_data['display'],
-                                 category=category,
-                                 ordernum=event_type_data['ordernum'],
-                                 schema=event_type_data['schema'],
-                                 is_collection=event_type_data['is_collection'])
+        return EventType.objects.create(id=event_type_data['id'],
+                                        value=event_type_data['value'],
+                                        display=event_type_data['display'],
+                                        category=category,
+                                        ordernum=event_type_data['ordernum'],
+                                        schema=event_type_data['schema'],
+                                        is_collection=event_type_data['is_collection'])
 
     def is_uuid(self, str):
         try:
@@ -249,26 +270,49 @@ class Command(BaseCommand):
         except:
             return False
 
-    def update_fields_with_event_type(self, fields, event_type, former_tables):
+    def should_lookup_value_for_field(self, record, previous_property_name, current_property_name, former_tables, old_data):
+
+        # If it isn't a guid to begin with,
+        if not self.is_uuid(old_data[previous_property_name]):
+            return False
+
+        # If we migrated this table, then definitely look up the value
+        if self.make_value(previous_property_name) in former_tables:
+            return True
+
+        # Because some choice tables were used by multiple_schemas, see if
+        # the table was migrated under a name we didn't expect
+        for table in record['tables']:
+            if table['field'] == current_property_name:
+                return True
+
+        return False
+
+    def update_fields_with_event_type(self, record, event_type, former_tables):
         for event in Event.objects.filter(event_type_id=event_type.id):
             for event_details in event.event_details.all():
                 new_data = {}
                 old_data = copy.copy(event_details.data['event_details'])
                 dirty = False
-                for field in fields:
+                for field in record['fields']:
                     previous_property_name = field.get(
                         self.PREVIOUS_PROPERTY_FIELD, self.COMMAND_IGNORE)
                     property_name = field.get(self.CURRENT_PROPERTY_NAME)
 
+                    # Mapping specifies to skip this field
                     if previous_property_name == self.COMMAND_IGNORE or property_name == self.COMMAND_DELETE:
                         continue
 
                     try:
+                        # New value is hardcoded to a specific value regardless
+                        # of existing data
                         if self.COMMAND_HARDCODE in previous_property_name:
                             new_data[property_name] = previous_property_name.split(':')[
                                 1]
+
+                        # Previous value exists in data, so migrate it
                         elif previous_property_name in old_data:
-                            if self.make_value(previous_property_name) in former_tables and self.is_uuid(old_data[previous_property_name]):
+                            if self.should_lookup_value_for_field(record, previous_property_name, property_name, former_tables, old_data):
                                 try:
                                     choice_object = choices.Choice.objects.get(
                                         id=old_data[previous_property_name])
@@ -280,6 +324,8 @@ class Command(BaseCommand):
                             else:
                                 new_data[property_name] = old_data[previous_property_name]
                         dirty = True
+
+                    # There is no previous value, so skip it
                     except KeyError:
                         pass
 
