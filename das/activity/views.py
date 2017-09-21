@@ -251,10 +251,10 @@ class EventsView(generics.ListCreateAPIView):
             try:
                 event_filter = json.loads(event_filter)
                 queryset = queryset.by_search_filter(event_filter)
-            except:
-                logger.warning('Invalid filter expression %s', event_filter)
-                raise ValueError(
-                    'Invalid event filter argument. filter={}'.format(event_filter))
+            except json.JSONDecodeError:
+                logger.exception(
+                    'Invalid filter expression. filter=%s', event_filter)
+                raise
 
         is_collection = query_params.get('is_collection', None)
         exclude_contained = query_params.get('exclude_contained', None)

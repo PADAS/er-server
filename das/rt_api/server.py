@@ -6,7 +6,7 @@ from django.contrib.auth import authenticate
 from django.db import close_old_connections, connection
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 
-from . import client
+from rt_api import client
 
 
 logger = logging.getLogger(__name__)
@@ -137,8 +137,6 @@ def create_realtime_handler(sios):
             logger.info('event_filter data: %s', event_filter)
 
             def validate_event_filter(ef):
-                ef = ef.get('data', {})
-
                 if not isinstance(ef.get('text', ''), (str, bytes)):
                     raise ValueError(
                         'Event filter is invalid. value=%s', str(ef))

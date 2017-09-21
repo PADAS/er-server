@@ -10,18 +10,16 @@ from activity.views import EventView
 from das_server import celery, pubsub
 from django.conf import settings
 from django.db import close_old_connections
+
 from observations.models import SubjectSource
 from observations.views import SubjectTracksView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
 from rt_api import client
-import urllib.parse
 
-from activity.permissions import EventCategoryPermissions
 from activity.serializers import EventSerializer
 
 from observations.models import SocketClient
-
 
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
 
@@ -66,7 +64,8 @@ def _event_handler(event_id, type):
                     client.remove_client(sid)
                     continue
 
-                request = DummyRequest(user=user, http_method='GET')
+                request = DummyRequest(
+                    user=user, http_method='GET', query_parameters={})
                 queryset = Event.objects.filter(id=event_id)
 
                 try:
@@ -85,7 +84,12 @@ def _event_handler(event_id, type):
                 try:
                     event_view.check_object_permissions(
                         request=request, obj=event)
-                    data = EventSerializer(event).data
+                except:
+                    logger.debug(
+                        'Permission denied. user=%s, event=%s', username, event.id)
+                else:
+                    data = EventSerializer(
+                        event, context={'request': request}).data
 
                     emit_data = {
                         'type': type,
@@ -93,26 +97,15 @@ def _event_handler(event_id, type):
                         'object_id': event_id,
                         'data': {'type': type, 'event_id': event_id, 'event_data': data}
                     }
-                    # count_data = {
-                    #     'type': 'count_event',
-                    #     'sid': sid,
-                    #     'data': Event.objects.new_count()
-                    # }
 
                     logger.debug(
                         'Publish das.realtime.emit.  data=%s', emit_data)
                     pubsub.publish(json.dumps(
                         emit_data, default=dumps_helper), 'das.realtime.emit')
-                    # pubsub.publish(json.dumps(
-                    # count_data, default=dumps_helper), 'das.realtime.emit')
-                except:
-                    logger.exception('Permission denied.')
 
-            except Exception as ex:
+            except Exception:
                 logger.exception(
                     'Error creating custom payload for event: %s', event_id)
-            finally:
-                close_old_connections()
 
     finally:
         close_old_connections()
