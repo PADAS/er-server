@@ -7,6 +7,11 @@
 
 CREATOR="$(whoami)"
 __SET_PIPELINE_DIR__="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+INFRA_DIR="$__SET_PIPELINE_DIR__/../../../../infrastructure"
+DEPLOYMENTS_DIR="$INFRA_DIR/deployments"
+PADAS_DIR="$DEPLOYMENTS_DIR/padas-app"
+
+
 
 function set-pipeline()
 {

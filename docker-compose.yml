@@ -26,6 +26,25 @@ services:
     links:
       - postgis
       - redis
+    volumes:
+      - user-uploads:/user-uploads
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v1.0/status']
+      interval: 30s
+      timeout: 1s
+      retries: 5
+
+  notebook:
+    image: gcr.io/padas-app/notebook
+    container_name: das_notebook
+    env_file: .env
+    links:
+      - postgis
+      - redis
+    ports:
+      - 9888:8888
+    volumes:
+      - user-uploads:/user-uploads
 
   rt-api:
     image: gcr.io/padas-app/rt_api
@@ -56,6 +75,8 @@ services:
       - redis
     depends_on:
       - rt-api
+    volumes:
+      - user-uploads:/user-uploads
 
   beat:
     image: gcr.io/padas-app/beat
@@ -79,3 +100,5 @@ services:
 
 volumes:
   pgdata:
+  notebooks:
+  user-uploads:

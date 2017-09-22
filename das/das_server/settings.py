@@ -63,6 +63,8 @@ INSTALLED_APPS = (
     'reports',
     'django_readonly_field',
     'usercontent',
+    'django.contrib.postgres',
+
 )
 
 MIDDLEWARE_CLASSES = (

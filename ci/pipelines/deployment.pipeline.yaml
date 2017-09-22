@@ -23,6 +23,13 @@ resources:
     branch: ((web-branch-name))
     private_key: ((das-web-github))
 
+- name: git-web-react
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-react.git
+    branch: ((web-react-branch-name))
+    private_key: ((das-react-github))
+
 resource_types:
 - name: versioned-git-resource
   type: docker-image
@@ -40,6 +47,7 @@ jobs:
     - get: git-server
     - get: git-utility
     - get: git-web
+    - get: git-web-react
   - do:
     - task: ensure-cluster-exists
       config:
@@ -57,7 +65,7 @@ jobs:
           CLUSTER_NAME: ((cluster-name)),
           CREATOR: ((creator)),
           BUILD_PIPELINE_NAME: ((pipeline-name)),
-          CLUSTER_ADMIN_PASSWORD: ((padas-app-k8s-cluster-admin)),
+          CLUSTER_ADMIN_PASSWORD: ((padas-app-cluster-admin)),
           PROJECT_CONTAINER_REGISTRY_SECRET: ((padas-app-container-registry-pull)),
           INFRASTRUCTURE_CONTAINER_REGISTRY_SECRET: ((ss-infrastructure-container-registry-pull)),
           MACHINE_TYPE: n1-standard-1,
@@ -81,12 +89,14 @@ jobs:
           STATIC_IP: ((static-ip)),
           EMAIL_HOST: ((email-host)),
           EMAIL_USERNAME: ((email-username)),
-          EMAIL_PASSWORD: ((email-password))
+          EMAIL_PASSWORD: ((email-password)),
+          WEB_SERVICE_NAME: ((web-service-name))
         }
         inputs:
         - name: git-server
         - name: git-utility
         - name: git-web
+        - name: git-web-react
         outputs:
         - name: deployment-info
         run:
@@ -104,7 +114,7 @@ jobs:
           PROJECT_ID: ((project-id)),
           CLUSTER_NAME: ((cluster-name)),
           DEPLOY_PATH: deployment-info,
-          CLUSTER_ADMIN_PASSWORD: ((padas-app-k8s-cluster-admin))
+          CLUSTER_ADMIN_PASSWORD: ((padas-app-cluster-admin))
         }
         run:
           path: git-server/ci/deploy.to.k8s.sh

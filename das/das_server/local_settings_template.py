@@ -41,10 +41,11 @@ DATABASES = {
 GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'
 GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
 if platform.system().lower() == 'windows':
-    # On Windows, after pip install GDAL, set the geos library path appropriately
+    # On Windows, after pip install GDAL, set the geos library path
+    # appropriately
     GEOS_LIBRARY_PATH = 'C:\projects\das\dasvir\Lib\site-packages\osgeo\geos_c.dll'
     GDAL_LIBRARY_PATH = 'C:\projects\das\dasvir\Lib\site-packages\osgeo\gdal111.dll'
-    #also set environment variables
+    # also set environment variables
     # GDAL_DATA=C:\projects\das\dasvir\Lib\site-packages\osgeo\data\gdal
     # GDAL_DRIVER_PATH=C:\projects\das\dasvir\Lib\site-packages\osgeo\gdalplugins
     # PATH=C:\projects\das\dasvir\Lib\site-packages\osgeo
@@ -58,7 +59,7 @@ TIME_ZONE = 'US/Pacific'
 
 STATIC_URL = '/static/'
 
-#add the path to your local copy of the das-web static root dir that contains index.html
+# add the path to your local copy of the das-web static root dir that contains index.html
 #STATICFILES_DIRS = STATICFILES_DIRS + (os.path.join(BASE_DIR, 'www'),)
 
 """

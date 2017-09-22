@@ -1,3 +1,466 @@
 [
-
+{
+  "model": "activity.eventcategory",
+  "pk": "007a45d3-2aba-4ed1-b3fc-e09fc0ad41f8",
+  "fields": {
+    "created_at": "2016-10-20T15:36:41.978Z",
+    "updated_at": "2017-08-02T18:45:10.029Z",
+    "value": "security",
+    "display": "Security",
+    "ordernum": 1,
+    "flag": "user"
+  }
+},
+{
+  "model": "activity.eventcategory",
+  "pk": "2f7ecd77-43db-4687-adba-58fcd42fac14",
+  "fields": {
+    "created_at": "2017-08-02T18:46:37.156Z",
+    "updated_at": "2017-08-02T18:46:37.156Z",
+    "value": "logistics",
+    "display": "Logistics",
+    "ordernum": 30,
+    "flag": "user"
+  }
+},
+{
+  "model": "activity.eventcategory",
+  "pk": "e31f75e3-d86d-4e20-b397-5bb9fe46c5cf",
+  "fields": {
+    "created_at": "2017-08-02T18:46:28.248Z",
+    "updated_at": "2017-08-02T18:46:28.248Z",
+    "value": "monitoring",
+    "display": "Monitoring",
+    "ordernum": 20,
+    "flag": "user"
+  }
+},
+{
+  "model": "activity.eventcategory",
+  "pk": "ef230385-5afc-40d1-ad07-c811f6da2b3c",
+  "fields": {
+    "created_at": "2017-08-02T04:14:23.774Z",
+    "updated_at": "2017-08-02T05:07:26.257Z",
+    "value": "analyzer_event",
+    "display": "Analyzer Event",
+    "ordernum": 1,
+    "flag": "system"
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "009793a4-e233-42fc-b068-b3245e93935e",
+  "fields": {
+    "created_at": "2017-06-07T18:24:12.167Z",
+    "updated_at": "2017-08-02T18:48:44.511Z",
+    "value": "fence_rep",
+    "display": "Fence",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": null,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Fence Report (fence_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"fencerep_location\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 1: Section\",\r\n                \"enum\": {{enum___fencerep_location___values}},\r\n                \"enumNames\": {{enum___fencerep_location___names}}   \r\n            },           \r\n            \"fencerep_voltage\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 2 : Voltage\",\r\n                \"minimum\":0\r\n            },\r\n            \"fencerep_damage\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3 : Damage\",\r\n                \"enum\": {{enum___fencerep_damage___values}},\r\n                \"enumNames\": {{enum___fencerep_damage___names}}   \r\n            },\r\n            \"fencerep_vegetation\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4 : Vegetation clearing required\",\r\n                \"enum\": {{enum___yesno___values}},\r\n                \"enumNames\": {{enum___yesno___names}}   \r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"fencerep_location\",\r\n   \"fencerep_voltage\",\r\n   \"fencerep_damage\",\r\n   \"fencerep_vegetation\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "06fe0a93-b34c-47f3-ad4b-b4818eb91d2a",
+  "fields": {
+    "created_at": "2016-10-20T15:39:20.371Z",
+    "updated_at": "2017-06-06T20:21:12.884Z",
+    "value": "sit_rep",
+    "display": "SIT-REP",
+    "category": [
+      "security"
+    ],
+    "ordernum": 100,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Sit Rep Report (sit_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"sitrep_currentactivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Update of current activity\"\r\n            },\r\n            \"sitrep_futureactivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4: Planned Future Activity\"\r\n            },\r\n            \"sitrep_other\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 5: Other\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"sitrep_currentactivity\",\r\n   \"sitrep_futureactivity\",\r\n   \"sitrep_other\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "0a91ff26-238f-4e21-a5f6-96da52eaab80",
+  "fields": {
+    "created_at": "2016-10-20T15:39:40.827Z",
+    "updated_at": "2017-06-06T19:51:19.051Z",
+    "value": "contact_rep",
+    "display": "Contact",
+    "category": [
+      "security"
+    ],
+    "ordernum": 40,
+    "schema": "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"Contact Report (contact_rep)\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n            \"contactrep_poachinggroupsize\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Line 3.1: Size of the Poaching Group\",\r\n                \"minimum\": 0\r\n            },\r\n            \"contactrep_whoinitiatedcontact\": {\r\n                \"type\":\"string\",\r\n                \"title\": \"Line 3.2: Who initiated contact\", \r\n                \"enum\": {{enum___contactrep_whoinitiatedcontact___values}},\r\n                \"enumNames\": {{enum___contactrep_whoinitiatedcontact___names}}                  \r\n            },\r\n            \"contactrep_patrolactivity\": {\r\n                \"type\":\"string\",\r\n                \"title\": \"Line 4: What happened? Patrol activity\",\r\n                \"enum\": {{enum___contactrep_patrolactivity___values}},\r\n                \"enumNames\": {{enum___contactrep_patrolactivity___names}}                  \r\n            },\r\n            \"contactrep_rangerresponse\": {\r\n                \"type\":\"string\",\r\n                \"title\": \"Line 5: What is the response?\"\r\n            },             \r\n            \"contactrep_rangercasualties\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Line 6.1: Ranger Casualties\"\r\n            },\r\n            \"contactrep_oppositioncasualties\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Line 6.2: Opposition Casualties\"\r\n            }, \r\n            \"contactrep_arrests\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Line 6.3: Arrests\"\r\n            }, \r\n            \"contactrep_seizedweapons\": {\r\n                \"type\":\"string\",\r\n                \"title\": \"Line 6.4: Seized weapons, equipment, evidence, etc.\"\r\n            },\r\n            \"contactrep_ammunitionusedbypatrol\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Line 6.5: Ammunition used by patrol\"\r\n            }            \r\n        }\r\n    },\r\n  \"definition\": [\r\n    \"contactrep_poachinggroupsize\",\r\n    \"contactrep_whoinitiatedcontact\",\r\n    \"contactrep_patrolactivity\",\r\n    \"contactrep_rangerresponse\",\r\n    \"contactrep_rangercasualties\",\r\n    \"contactrep_oppositioncasualties\",\r\n    \"contactrep_arrests\",\r\n    \"contactrep_seizedweapons\",\r\n    \"contactrep_ammunitionusedbypatrol\"\r\n  ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "125eabe7-85b3-4d82-a915-66fad942a33d",
+  "fields": {
+    "created_at": "2016-10-20T20:48:40.667Z",
+    "updated_at": "2017-08-02T18:48:24.441Z",
+    "value": "rhino_sighting_rep",
+    "display": "Rhino Sighting",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": 120,
+    "schema": "{\r\n    \"schema\": {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"Rhino Sighting (rhino_sighting_rep)\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n            \"rhinosightingrep_Rhino\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Individual ID\",\r\n                \"enum\": {{query___blackRhinos___values}},\r\n                \"enumNames\": {{query___blackRhinos___names}}\r\n            },\r\n            \"rhinosightingrep_earnotchcount\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Line 4: Ear notch count\"\r\n            },\r\n            \"rhinosightingrep_condition\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 5: Condition\",\r\n               \"enum\": {{enum___rhinosightingrep_condition___values}},\r\n               \"enumNames\": {{enum___rhinosightingrep_condition___names}}                   \r\n            },\r\n            \"rhinosightingrep_activity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Activity\",\r\n               \"enum\": {{enum___rhinosightingrep_activity___values}},\r\n               \"enumNames\": {{enum___rhinosightingrep_activity___names}}            \r\n            }\r\n        }\r\n    },\r\n    \"definition\": [\r\n        \"rhinosightingrep_Rhino\",\r\n        \"rhinosightingrep_earnotchcount\",\r\n        \"rhinosightingrep_condition\",\r\n        \"rhinosightingrep_activity\"\r\n    ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "17cf470e-d708-439c-983e-a7fe06c45ab1",
+  "fields": {
+    "created_at": "2016-10-20T15:41:01.423Z",
+    "updated_at": "2017-06-23T19:27:18.051Z",
+    "value": "traffic_rep",
+    "display": "DET REP Traffic",
+    "category": [
+      "security"
+    ],
+    "ordernum": 7,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"DET REP Traffic (traffic_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"trafficrep_sightingdescription\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: What was seen?\",\r\n                \"enum\": {{enum___trafficrep_sightingdescription___values}},\r\n                \"enumNames\": {{enum___trafficrep_sightingdescription___names}}  \r\n            },\r\n            \"trafficrep_bearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 4: Bearing\",\r\n                \"minimum\": 0,\r\n                \"maximum\": 360\r\n            }, \r\n            \"trafficrep_distance\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 5: Distance (m)\",\r\n                \"minimum\": 0\r\n            },                         \r\n            \"trafficrep_sightingactivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Activity of vehicle\",\r\n                \"enum\": {{enum___trafficrep_sightingactivity___values}},\r\n                \"enumNames\": {{enum___trafficrep_sightingactivity___names}} \r\n            },\r\n            \"trafficrep_vehicleregistration\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 7: Vehicle Registration Number\"\r\n            },   \r\n            \"trafficrep_vehiclemakemodel\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 8: Vehicle Make and Model\"\r\n            },              \r\n            \"trafficrep_currentpatrolactivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 9: Patrols response/intent\"\r\n            }\r\n         \r\n       }\r\n   },\r\n \"definition\": [\r\n   \"trafficrep_sightingdescription\",\r\n   \"trafficrep_bearing\",\r\n   \"trafficrep_distance\",\r\n   \"trafficrep_sightingactivity\",\r\n   \"trafficrep_vehicleregistration\",\r\n   \"trafficrep_vehiclemakemodel\",\r\n   \"trafficrep_currentpatrolactivity\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "1f20b27c-95f2-42f3-bacc-94642399dc46",
+  "fields": {
+    "created_at": "2016-10-20T20:49:51.179Z",
+    "updated_at": "2017-08-02T18:48:16.838Z",
+    "value": "wildlife_sighting_rep",
+    "display": "Other Wildlife Sightings",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": 110,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Other Wildlife Sighting Report (wildlife_sighting_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"wildlifesightingrep_species\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Key Species\",\r\n                \"enum\": {{enum___wildlifesightingrep_species___values}},\r\n                \"enumNames\": {{enum___wildlifesightingrep_species___names}}   \r\n            },           \r\n           \"wildlifesightingrep_collared\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4 : Are Animals Collared\",\r\n                \"enum\": {{enum___yesno___values}},\r\n                \"enumNames\": {{enum___yesno___names}}                   \r\n           },\r\n           \"wildlifesightingrep_numberanimals\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 5 : Count\",\r\n                \"minimum\":0\r\n           }           \r\n       }\r\n   },\r\n \"definition\": [\r\n   \"wildlifesightingrep_species\",\r\n   \"wildlifesightingrep_collared\",  \r\n   \"wildlifesightingrep_numberanimals\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "2adf7302-ecef-42af-9f7c-45992ce52dd0",
+  "fields": {
+    "created_at": "2017-05-03T22:24:14.968Z",
+    "updated_at": "2017-06-06T18:27:27.183Z",
+    "value": "arrest_rep",
+    "display": "Arrest",
+    "category": [
+      "security"
+    ],
+    "ordernum": 20,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Arrest Report (arrest_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"arrestrep_name\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Name of Arrestee\"\r\n            },   \r\n            \"arrestrep_age\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 4: Age\",\r\n                \"minimum\": 0\r\n            },                      \r\n            \"arrestrep_dateofbirth\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 5: Date of Birth\"\r\n            },              \r\n            \"arrestrep_villagename\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Village Name\"\r\n            },\r\n            \"arrestrep_nationality\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 7: Nationality\",\r\n               \"enum\": {{enum___arrestrep_nationality___values}},\r\n               \"enumNames\": {{enum___arrestrep_nationality___names}}   \r\n            },\r\n            \"arrestrep_reaonforarrest\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 8: Reason for Arrest\",\r\n               \"enum\": {{enum___arrestrep_reasonforarrest___values}},\r\n               \"enumNames\": {{enum___arrestrep_reasonforarrest___names}}                  \r\n            },\r\n            \"arrestrep_timeofarrest\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 9: Time of Arrest\"\r\n            },\r\n            \"arrestrep_placeofarrest\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 10: Place of Arrest\"\r\n            },\r\n            \"arrestrep_arrestingranger\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 11: Arresting Ranger\"\r\n            },\r\n            \"arrestrep_witness\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 12: Witness (may be multiple)\"\r\n            }\r\n\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"arrestrep_name\",\r\n   \"arrestrep_age\",\r\n   {\r\n     \"key\": \"arrestrep_dateofbirth\",\r\n     \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n     \"readonly\": false\r\n   },\r\n   \"arrestrep_villagename\",\r\n   \"arrestrep_nationality\",\r\n   \"arrestrep_reaonforarrest\",\r\n   {\r\n   \"key\": \"arrestrep_timeofarrest\",\r\n   \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n   \"readonly\": false\r\n   },\r\n   \"arrestrep_placeofarrest\",\r\n   \"arrestArrestingRanger\",\r\n   \"arrestrep_arrestingranger\",\r\n   \"arrestrep_witness\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "55537836-0f99-4bfd-8c0b-be7f20a8c887",
+  "fields": {
+    "created_at": "2016-10-20T15:40:44.514Z",
+    "updated_at": "2017-06-23T19:27:46.258Z",
+    "value": "medevac_rep",
+    "display": "MEDEVAC",
+    "category": [
+      "security"
+    ],
+    "ordernum": 60,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Med Evac Report (medevac_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"medevacrep_location\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Location of Pickup Site\"\r\n            },   \r\n            \"medevacrep_bestcommunication\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4: Communication method (radio frequency, patrol call sign, sat phone number, etc\"\r\n            },\r\n            \"medevacrep_urgentpatients\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 5A: # of Urgent Patients (1 hour/ASAP)\",\r\n                \"minimum\": 0\r\n            },     \r\n            \"medevacrep_prioritypatients\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 5B: # of Priority Patients (within 6-12 hours)\",\r\n                \"minimum\": 0\r\n            },                 \r\n            \"medevacrep_routinepatients\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 5C: # of Routine Patients (within 24 hours)\",\r\n                \"minimum\": 0\r\n            },                 \r\n            \"medevacrep_specialequipment\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Special Equipment Required\",\r\n                \"enum\": {{enum___medevacrep_specialequipment___values}},\r\n                \"enumNames\": {{enum___medevacrep_specialequipment___names}}   \r\n            },                        \r\n            \"medevacrep_ambulatorycasualties\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 7A: Number of walking casualties\",\r\n                \"minimum\": 0\r\n            },\r\n            \"medevacrep_stretchercasualties\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 7B: Number of stretcher casualties\",\r\n                \"minimum\": 0\r\n            },\r\n            \"medevacrep_security\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 8: Security at Pickup Site\",\r\n                \"enum\": {{enum___medevacrep_security___values}},\r\n                \"enumNames\": {{enum___medevacrep_security___names}}   \r\n            },\r\n            \"medevacrep_other\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 9: Other\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"medevacrep_location\",\r\n   \"medevacrep_bestcommunication\",\r\n   \"medevacrep_urgentpatients\",\r\n   \"medevacrep_prioritypatients\",\r\n   \"medevacrep_routinepatients\",\r\n   \"medevacrep_specialequipment\",\r\n   \"medevacrep_ambulatorycasualties\",\r\n   \"medevacrep_stretchercasualties\",\r\n   \"medevacrep_security\",\r\n   \"medevacrep_other\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "57914f8f-fb76-4997-a94d-d1f0a99cba07",
+  "fields": {
+    "created_at": "2017-05-03T22:15:42.557Z",
+    "updated_at": "2017-06-07T17:19:26.731Z",
+    "value": "animal_control_rep",
+    "display": "Animal Control",
+    "category": [
+      "security"
+    ],
+    "ordernum": 10,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Animal Control Report (animal_control_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"animalcontrolrep_species\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Animal Species\",\r\n               \"enum\": {{enum___animalcontrolrep_species___values}},\r\n               \"enumNames\": {{enum___animalcontrolrep_species___names}}   \r\n            },\r\n            \"animalcontrolrep_numberanimals\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 4: # of Animals\",\r\n                \"minimum\": 0\r\n            },\r\n            \"animalcontrolrep_reason\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 5: Reason\"\r\n            },\r\n            \"animalcontrolrep_shotsfired\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 6: Number of Shots Fired\",\r\n                \"minimum\": 0\r\n            }            \r\n       }\r\n   },\r\n \"definition\": [\r\n   \"animalcontrolrep_species\",\r\n   \"animalcontrolrep_numberanimals\",\r\n   \"animalcontrolrep_reason\",\r\n   \"animalcontrolrep_shotsfired\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "58bde7d9-4a5c-43bf-a5c7-06803a3aaec8",
+  "fields": {
+    "created_at": "2016-10-20T15:40:29.382Z",
+    "updated_at": "2017-06-23T19:29:22.554Z",
+    "value": "spoor_rep",
+    "display": "Spoor Rep",
+    "category": [
+      "security"
+    ],
+    "ordernum": 120,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Spoor Report (spoor_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"spoorrep_numberpeopletracked\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 3: Number of people being tracked\",\r\n                \"minimum\": 0\r\n            },\r\n            \"spoorrep_bearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 4: Bearing Spoor is going\",\r\n                \"minimum\": 0,\r\n                \"maximum\": 360\r\n            },     \r\n            \"spoorrep_age\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 5: Age of the spoor\",\r\n               \"enum\": {{enum___spoorrep_age___values}},\r\n               \"enumNames\": {{enum___spoorrep_age___names}}                \r\n            },            \r\n            \"spoorrep_type\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Type of spoor\"\r\n            },     \r\n            \"spoorrep_comments\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 7: Comments/other information\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"spoorrep_numberpeopletracked\",\r\n   \"spoorrep_bearing\",\r\n   \"spoorrep_age\",\r\n   \"spoorrep_type\",\r\n   \"spoorrep_comments\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "5b7bc8f2-5e08-4d26-a55a-b35ded392fa0",
+  "fields": {
+    "created_at": "2017-05-04T16:56:07.111Z",
+    "updated_at": "2017-06-06T17:15:02.809Z",
+    "value": "activity_rep",
+    "display": "DET REP Activity",
+    "category": [
+      "security"
+    ],
+    "ordernum": 6,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"DET REP Activity Report (activity_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"activityrep_whatseen\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: What was seen?\"\r\n            },\r\n            \"activityrep_bearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 4: Bearing\",\r\n                \"minimum\": 0,\r\n                \"maximum\": 360\r\n            },\r\n            \"activityrep_distance\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 5: Distance (m)\",\r\n                \"minimum\": 0\r\n            },            \r\n            \"activityrep_patrolresponse\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Patrols response/intent\"\r\n            }                \r\n       }\r\n   },\r\n \"definition\": [\r\n   \"activityrep_whatseen\",\r\n   \"activityrep_bearing\",\r\n   \"activityrep_distance\",\r\n   \"activityrep_patrolresponse\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "6408afcf-c3b6-4f4b-a440-2d87d87f8424",
+  "fields": {
+    "created_at": "2017-02-01T01:20:02.653Z",
+    "updated_at": "2017-02-01T01:20:02.653Z",
+    "value": "incident_collection",
+    "display": "Incident Collection",
+    "category": [
+      "security"
+    ],
+    "ordernum": 0,
+    "schema": "{\r\n  \"schema\": {\r\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n    \"id\": \"http://localhost/api/v1.0/activity/events/schema/incident_collection\",\r\n    \"title\": \"Incident Collection\",\r\n    \"type\": \"object\",\r\n    \"properties\": {\r\n      \"conservancy\": {\r\n                  \"type\":\"string\",\r\n                  \"title\": \"Conservancy (Incident Field)\",\r\n                  \"enum\": {{table___conservancy___values}},\r\n                  \"enumNames\": {{table___conservancy___names}}\r\n          },\r\n      \"station\": {\r\n          \"type\": \"string\",\r\n        \"title\": \"Reporting Station (Incident Field)\",\r\n        \"enum\": {{table___station___values}},\r\n        \"enumNames\": {{table___station___names}}\r\n      },\r\n    \"reportingTime\":{\r\n        \"type\": \"string\",\r\n        \"title\": \"Reporting Time (Incident Field)\"\r\n    }\r\n  }\r\n  },\r\n  \"definition\": [\"conservancy\", \"station\", \r\n    {\r\n        \"key\": \"reportingTime\",\r\n        \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n        \"readonly\": false\r\n        }\r\n        ]\r\n}",
+    "is_collection": true
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "6bf94758-c189-4fb8-96c5-6d6ad67dd8dd",
+  "fields": {
+    "created_at": "2017-05-04T16:43:37.789Z",
+    "updated_at": "2017-06-06T20:07:39.644Z",
+    "value": "mist_rep",
+    "display": "MIST",
+    "category": [
+      "security"
+    ],
+    "ordernum": 70,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"MIST Report (mist_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"mistrep_Method\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: M - Method of injury (how did the casualty occur?)\"\r\n            },\r\n            \"mistrep_Injury\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4: I - Injury or Illness details\"\r\n            },\r\n            \"mistrep_Symptoms\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 5: S - Signs and Symptoms\"\r\n            },\r\n            \"mistrep_Treatment\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: T - Treatment given so far\"\r\n            }   \r\n       }\r\n   },\r\n \"definition\": [\r\n   \"mistrep_Method\",\r\n   \"mistrep_Injury\",\r\n   \"mistrep_Symptoms\",\r\n   \"mistrep_Treatment\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "74941f0d-4b89-48be-a62a-a74c78db8383",
+  "fields": {
+    "created_at": "2017-06-06T21:49:14.580Z",
+    "updated_at": "2017-08-02T18:48:50.815Z",
+    "value": "fire_rep",
+    "display": "Fire",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": null,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Fire Report (fire_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"firerep_status\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 1: Status\",\r\n               \"enum\": {{enum___firerep_status___values}},\r\n               \"enumNames\": {{enum___firerep_status___names}}   \r\n            },           \r\n            \"firerep_cause\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 2: Cause\",\r\n               \"enum\": {{enum___firerep_cause___values}},\r\n               \"enumNames\": {{enum___firerep_cause___names}}   \r\n            },           \r\n            \"firerep_direction\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Direction Fire is Moving\",\r\n               \"enum\": {{enum___firerep_direction___values}},\r\n               \"enumNames\": {{enum___firerep_direction___names}}   \r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"firerep_status\",\r\n   \"firerep_cause\",\r\n   \"firerep_direction\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "8bf325e7-2880-447a-b2d8-156c66bc5708",
+  "fields": {
+    "created_at": "2017-08-02T04:14:23.781Z",
+    "updated_at": "2017-08-02T04:14:23.781Z",
+    "value": "immobility_all_clear",
+    "display": "Immobility All Clear",
+    "category": [
+      "analyzer_event"
+    ],
+    "ordernum": 301,
+    "schema": "{\n      \"schema\": {\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n        \"title\": \"EventType Immobility\",\n        \"type\": \"object\",\n        \"properties\": {\n          \"details\": {\n            \"type\": \"string\",\n            \"title\": \"Details\"\n          },\n          \"name\": {\n            \"type\": \"string\",\n            \"title\": \"Name of animal\"\n          },\n          \"cluster_fix_count\": {\n            \"type\": \"number\",\n            \"title\": \"Cluster Fix Count\"\n          },\n          \"total_fix_count\": {\n            \"type\": \"number\",\n            \"title\": \"Total Fix Count\"\n          },\n          \"cluster_radius\": {\n            \"type\": \"number\",\n            \"title\": \"Cluster Search Radius\"\n          },\n          \"probability_value\": {\n            \"type\": \"number\",\n            \"title\": \"Probability\"\n          }\n        },\n        \"definition\": [\n          \"name\",\n          \"details\",\n          \"probability_value\",\n          \"total_fix_count\",\n          \"cluster_fix_count\",\n          \"cluster_radius\"\n        ]\n      }\n    }",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "8e2812d8-4ac9-4874-b1b2-1adc5ea192b5",
+  "fields": {
+    "created_at": "2017-05-04T17:16:12.830Z",
+    "updated_at": "2017-06-23T19:29:10.669Z",
+    "value": "snare_rep",
+    "display": "Snare",
+    "category": [
+      "security"
+    ],
+    "ordernum": 110,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Snare Report (snare_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"snarerep_status\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Status\",\r\n               \"enum\": {{enum___snarerep_status___values}},\r\n               \"enumNames\": {{enum___snarerep_status___names}}   \r\n            },       \r\n            \"snarerep_action\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4: Planned Action\",\r\n               \"enum\": {{enum___snarerep_action___values}},\r\n               \"enumNames\": {{enum___snarerep_action___names}}   \r\n            },\r\n            \"snarerep_comments\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 5: Comments\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"snarerep_status\",\r\n   \"snarerep_action\",\r\n   \"snarerep_comments\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "97a18051-6fd9-4ff1-ab98-1ff1e8c17a86",
+  "fields": {
+    "created_at": "2017-05-04T16:40:49.809Z",
+    "updated_at": "2017-06-23T19:27:04.393Z",
+    "value": "light_rep",
+    "display": "DET REP Light",
+    "category": [
+      "security"
+    ],
+    "ordernum": 8,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"DET REP Light Report\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"lightrep_whatdetected\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: What was detected\",\r\n               \"enum\": {{enum___lightrep_whatdetected___values}},\r\n               \"enumNames\": {{enum___lightrep_whatdetected___names}}   \r\n            },   \r\n            \"lightrep_bearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 4: Bearing\",\r\n                \"minimum\": 0,\r\n                \"maximum\": 360\r\n            },\r\n            \"lightrep_distance\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 5: Distance (m)\",\r\n                \"minimum\": 0\r\n            },                                  \r\n            \"lightrep_activity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Description of activity\"\r\n            },\r\n            \"lightrep_patrolresponse\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 7: Patrols response/intent\"\r\n            }            \r\n       }\r\n   },\r\n \"definition\": [\r\n   \"lightrep_whatdetected\",\r\n   \"lightrep_bearing\",\r\n   \"lightrep_distance\",\r\n   \"lightrep_activity\",\r\n   \"lightrep_patrolresponse\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "984531ca-3e69-4b6a-876c-e293b81dbc75",
+  "fields": {
+    "created_at": "2016-11-01T19:07:15.477Z",
+    "updated_at": "2017-08-02T18:48:08.544Z",
+    "value": "all_posts",
+    "display": "All Posts",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": 100,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"EventType Data\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n           \"post\": {\r\n               \"type\":\"string\",\r\n               \"title\": \"Line 1: Post\",\r\n               \"enum\": {{table___station___values}},\r\n               \"enumNames\": {{table___station___names}}\r\n           },\r\n           \"numRangers\": {\r\n               \"type\": \"number\",\r\n               \"title\": \"Line 2A : Number of Rangers on Patrol\",\r\n               \"minimum\":0\r\n           },\r\n           \"numSickRangers\": {\r\n               \"type\": \"number\",\r\n               \"title\": \"Line 2B : Number of Rangers Sick\",\r\n               \"minimum\":0\r\n           },\r\n           \"numRangersOffDuty\": {\r\n               \"type\": \"number\",\r\n               \"title\": \"Line 2C : Number of Rangers off Duty\",\r\n               \"minimum\":0\r\n           },\r\n           \"numRangersAtPost\": {\r\n               \"type\": \"number\",\r\n               \"title\": \"Line 2D : Number of Rangers at Post\",\r\n               \"minimum\":0\r\n           },\r\n            \"sectionArea\": {\r\n                \"key\": \"sectionArea\"\r\n            },\r\n           \"additionalInfo\": {\r\n               \"type\":\"string\",\r\n               \"title\": \"Line 4: Additional Information\"\r\n           }\r\n       }\r\n   },\r\n \"definition\": [\r\n  \"post\",\r\n   \"numRangers\",\r\n   \"numSickRangers\",\r\n   \"numRangersOffDuty\",\r\n   \"numRangersAtPost\",\r\n        {\r\n            \"key\": \"sectionArea\",\r\n            \"type\": \"checkboxes\",\r\n            \"title\": \"Line 3: Planned Patrol Areas\",\r\n            \"titleMap\": {{table___sectionArea___map}},\r\n            \"htmlClass\": \"json-schema-checkbox-wrapper\"\r\n        },   \r\n   \"additionalInfo\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "b0d66402-34cb-4e9a-9715-2ac4eeebb574",
+  "fields": {
+    "created_at": "2017-06-06T21:16:19.536Z",
+    "updated_at": "2017-08-02T18:48:38.391Z",
+    "value": "carcass_rep",
+    "display": "Carcass",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": null,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Animal Carcass Report (carcass_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"carcassrep_species\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Species\",\r\n               \"enum\": {{enum___carcassrep_species___values}},\r\n               \"enumNames\": {{enum___carcassrep_species___names}}   \r\n            },           \r\n            \"carcassrep_sex\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4: Sex of Animal\",\r\n               \"enum\": {{enum___carcassrep_sex___values}},\r\n               \"enumNames\": {{enum___carcassrep_sex___names}}   \r\n            },           \r\n            \"carcassrep_ageofanimal\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 5: Age of Animal\",\r\n               \"enum\": {{enum___carcassrep_ageofanimal___values}},\r\n               \"enumNames\": {{enum___carcassrep_ageofanimal___names}}   \r\n            },           \r\n            \"carcassrep_ageofcarcass\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Age of Carcass\",\r\n               \"enum\": {{enum___carcassrep_ageofcarcass___values}},\r\n               \"enumNames\": {{enum___carcassrep_ageofcarcass___names}}   \r\n            },           \r\n            \"carcassrep_trophystatus\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 7: Trophy Status\",\r\n               \"enum\": {{enum___carcassrep_trophystatus___values}},\r\n               \"enumNames\": {{enum___carcassrep_trophystatus___names}}   \r\n            },           \r\n            \"carcassrep_causeofdeath\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 8: Cause of Death\",\r\n               \"enum\": {{enum___carcassrep_causeofdeath___values}},\r\n               \"enumNames\": {{enum___carcassrep_causeofdeath___names}}   \r\n            }      \r\n       }\r\n   },\r\n \"definition\": [\r\n   \"carcassrep_species\",\r\n   \"carcassrep_sex\",\r\n   \"carcassrep_ageofanimal\",\r\n   \"carcassrep_ageofcarcass\",\r\n   \"carcassrep_trophystatus\",\r\n   \"carcassrep_causeofdeath\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "b4ecee53-4b37-49b2-8ddc-b85a7d76e50c",
+  "fields": {
+    "created_at": "2017-06-06T23:11:43.735Z",
+    "updated_at": "2017-08-02T18:49:05.571Z",
+    "value": "injured_animal_rep",
+    "display": "Injured Animal",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": null,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Injured Animal Report (injured_animal_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"injuredanimalrep_keyspecies\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Species\",\r\n                \"enum\": {{enum___injuredanimalrep_keyspecies___values}},\r\n                \"enumNames\": {{enum___injuredanimalrep_keyspecies___names}}   \r\n            },           \r\n            \"injuredanimalrep_injurycause\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4: Cause of Injury\",\r\n                \"enum\": {{enum___injuredanimalrep_injurycause___values}},\r\n                \"enumNames\": {{enum___injuredanimalrep_injurycause___names}}   \r\n            },           \r\n            \"injuredanimalrep_injurytype\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 5: Type of Injury\",\r\n                \"enum\": {{enum___injuredanimalrep_injurytype___values}},\r\n                \"enumNames\": {{enum___injuredanimalrep_injurytype___names}}   \r\n            },\r\n            \"injuredanimalrep_actiontaken\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Action Taken\",\r\n                \"enum\": {{enum___injuredanimalrep_actiontaken___values}},\r\n                \"enumNames\": {{enum___injuredanimalrep_actiontaken___names}}   \r\n            }            \r\n       }\r\n   },\r\n \"definition\": [\r\n   \"injuredanimalrep_keyspecies\",\r\n   \"injuredanimalrep_injurycause\",\r\n   \"injuredanimalrep_injurytype\",\r\n   \"injuredanimalrep_actiontaken\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "b923ccf7-c0c4-4967-8a54-c17d27c00b80",
+  "fields": {
+    "created_at": "2017-05-04T16:47:58.420Z",
+    "updated_at": "2017-06-06T20:19:28.261Z",
+    "value": "poacher_camp_rep",
+    "display": "Poachers Camp",
+    "category": [
+      "security"
+    ],
+    "ordernum": 80,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Poacher Camp Report (poacher_camp_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"poachercamprep_status\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Status of Camp\",\r\n               \"enum\": {{enum___poachercamprep_status___values}},\r\n               \"enumNames\": {{enum___poachercamprep_status___names}}   \r\n            },\r\n            \"poachercamprep_numberofpeople\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 3: Estimated Number of People\",\r\n                \"minimum\": 0\r\n            },\r\n            \"poachercamprep_description\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4: Description of what was detected\"\r\n            }                \r\n       }\r\n   },\r\n \"definition\": [\r\n   \"poachercamprep_status\",\r\n   \"poachercamprep_numberofpeople\",\r\n   \"poachercamprep_description\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "bdfffdc5-0195-4c0a-9e42-bced05f4e0c4",
+  "fields": {
+    "created_at": "2017-05-03T22:38:31.396Z",
+    "updated_at": "2017-06-06T18:31:12.997Z",
+    "value": "confiscation_rep",
+    "display": "Confiscation",
+    "category": [
+      "security"
+    ],
+    "ordernum": 30,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Confiscation Report (confiscation_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"confiscationrep_vehicletype\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Vehicle Type\" \r\n            },\r\n            \"confiscationrep_numberofweapons\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 4: Number of Weapons\",\r\n                \"minimum\": 0\r\n            },\r\n            \"confiscationrep_numberoftrophies\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 5: Number of Trophies\"\r\n            },          \r\n            \"confiscationrep_numberofequipment\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 6: Number of Equipment\"\r\n            }                  \r\n       }\r\n   },\r\n \"definition\": [\r\n   \"confiscationrep_vehicletype\",\r\n   \"confiscationrep_numberofweapons\",\r\n   \"confiscationrep_numberoftrophies\",\r\n   \"confiscationrep_numberofequipment\"   \r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "be060c4f-c8c8-4ba3-9df9-01335ab60980",
+  "fields": {
+    "created_at": "2017-06-06T22:39:40.465Z",
+    "updated_at": "2017-08-02T18:48:56.919Z",
+    "value": "hwc_rep",
+    "display": "Human Wildlife Contact",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": null,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Human Wildlife Conflict Report (hwc_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"hwcrep_species\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Species\",\r\n               \"enum\": {{enum___hwcrep_species___values}},\r\n               \"enumNames\": {{enum___hwcrep_species___names}}   \r\n            },                      \r\n            \"hwcrep_cropdamaged\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4: Type of Crop Damage\",\r\n               \"enum\": {{enum___hwcrep_cropdamaged___values}},\r\n               \"enumNames\": {{enum___hwcrep_cropdamaged___names}}   \r\n            },              \r\n            \"hwcrep_livestocktypes\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 5a: Type of livestock injured/killed\",\r\n                \"enum\": {{enum___hwcrep_livestocktypes___values}},\r\n                \"enumNames\": {{enum___hwcrep_livestocktypes___names}}                   \r\n            },              \r\n            \"hwcrep_livestockInjuredKilled\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 5b: Number of livestock injured/killed\",\r\n                \"minimum\": 0\r\n            },  \r\n            \"hwcrep_humaninjury\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Human Injury\",\r\n                \"enum\": {{enum___yesno___values}},\r\n                \"enumNames\": {{enum___yesno___names}}   \r\n            },\r\n            \"hwcrep_humandeath\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 7: Human Death\",\r\n                \"enum\": {{enum___yesno___values}},\r\n                \"enumNames\": {{enum___yesno___names}}   \r\n            },\r\n            \"hwcrep_propertydamage\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 8A: Property Damage\",\r\n                \"enum\": {{enum___yesno___values}},\r\n                \"enumNames\": {{enum___yesno___names}}   \r\n            },\r\n            \"hwcrep_propertydamagetype\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 8B: Property Damage\",\r\n                \"enum\": {{enum___hwcrep_propertydamagetype___values}},\r\n                \"enumNames\": {{enum___hwcrep_propertydamagetype___names}}\r\n            }                        \r\n       }\r\n   },\r\n \"definition\": [\r\n   \"hwcrep_species\",\r\n   \"hwcrep_cropdamaged\",\r\n   \"hwcrep_livestocktypes\",\r\n   \"hwcrep_livestockInjuredKilled\",\r\n   \"hwcrep_humaninjury\",\r\n   \"hwcrep_humandeath\",\r\n   \"hwcrep_propertydamage\",\r\n   \"hwcrep_propertydamagetype\"\r\n]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "c419acac-874d-422e-8b7b-54470afe56c5",
+  "fields": {
+    "created_at": "2017-08-02T04:14:23.778Z",
+    "updated_at": "2017-08-02T04:14:23.778Z",
+    "value": "immobility",
+    "display": "Immobility",
+    "category": [
+      "analyzer_event"
+    ],
+    "ordernum": 300,
+    "schema": "{\n      \"schema\": {\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n        \"title\": \"EventType Immobility\",\n        \"type\": \"object\",\n        \"properties\": {\n          \"details\": {\n            \"type\": \"string\",\n            \"title\": \"Details\"\n          },\n          \"name\": {\n            \"type\": \"string\",\n            \"title\": \"Name of animal\"\n          },\n          \"cluster_fix_count\": {\n            \"type\": \"number\",\n            \"title\": \"Cluster Fix Count\"\n          },\n          \"total_fix_count\": {\n            \"type\": \"number\",\n            \"title\": \"Total Fix Count\"\n          },\n          \"cluster_radius\": {\n            \"type\": \"number\",\n            \"title\": \"Cluster Search Radius\"\n          },\n          \"probability_value\": {\n            \"type\": \"number\",\n            \"title\": \"Probability\"\n          }\n        },\n        \"definition\": [\n          \"name\",\n          \"details\",\n          \"probability_value\",\n          \"total_fix_count\",\n          \"cluster_fix_count\",\n          \"cluster_radius\"\n        ]\n      }\n    }",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "d17b0bd4-3866-41fe-b335-7100451d8e97",
+  "fields": {
+    "created_at": "2017-06-16T21:37:31.504Z",
+    "updated_at": "2017-08-02T18:48:31.236Z",
+    "value": "rainfall_rep",
+    "display": "Rainfall",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": 998,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Rainfall Report (rainfall_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"rainfallrep_rainfall\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 3: Rainfall (mm)\",\r\n                \"minimum\": 0\r\n\t            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"rainfallrep_rainfall\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "f804e01e-006d-41d0-aa7d-fe6e798e4852",
+  "fields": {
+    "created_at": "2016-10-20T15:40:03.222Z",
+    "updated_at": "2017-06-06T17:06:59.805Z",
+    "value": "shot_rep",
+    "display": "DET REP Shot",
+    "category": [
+      "security"
+    ],
+    "ordernum": 5,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"DET REP Report (shot_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"shotrep_location\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 1: UTM grid reference of your location at time of detection\"\r\n            },            \r\n            \"shotrep_timeofshot\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 2: Time when shot was heard\"\r\n            },\r\n            \"shotrep_whatdetected\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: What was detected\"\r\n            },            \r\n            \"shotrep_bearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 4: Bearing to Shot\",\r\n                \"minimum\": 0,\r\n                \"maximum\":  360\r\n            },                      \r\n            \"shotrep_distance\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 5: Distance of Shots (m)\",\r\n                \"minimum\": 0\r\n            },                      \r\n            \"shotrep_numberofshots\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 6.1: Number of Shots\",\r\n                \"minimum\": 0\r\n            },\r\n            \"shotrep_typeofshots\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6.2. Rate of Fire\",\r\n                \"enum\": {{enum___shotrep_typeofshot___values}},\r\n                \"enumNames\": {{enum___shotrep_typeofshot___names}}                  \r\n            },              \r\n            \"shotrep_estimatedcaliber\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6.3: Estimated Caliber\",\r\n                \"enum\": {{enum___shotrep_estimatedcaliber___values}},\r\n                \"enumNames\": {{enum___shotrep_estimatedcaliber___names}}                  \r\n            },\r\n            \"shotrep_patrolresponse\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 7: Patrols Response/Intent\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"shotrep_location\",\r\n   {\r\n   \"key\": \"shotrep_timeofshot\",\r\n   \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n   \"readonly\": false\r\n   },\r\n   \"shotrep_whatdetected\",\r\n   \"shotrep_bearing\",\r\n   \"shotrep_distance\",\r\n   \"shotrep_numberofshots\",\r\n   \"shotrep_typeofshots\",\r\n   \"shotrep_estimatedcaliber\",\r\n   \"shotrep_patrolresponse\"\r\n ]\r\n}",
+    "is_collection": false
+  }
+}
 ]
