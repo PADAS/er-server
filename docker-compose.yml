@@ -5,8 +5,6 @@ services:
     image: gcr.io/padas-app/web/app
     container_name: das_web
     env_file: .env
-    ports:
-      - 9000:9000
 
   nginx:
     image: gcr.io/padas-app/nginx
@@ -17,7 +15,6 @@ services:
       - web
     ports:
       - 8000:8000
-      - 4652:4652
 
   api:
     image: gcr.io/padas-app/api
