@@ -860,7 +860,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         """
 
         def create_fix(observation):
-            gp = pymet.base.GeoPoint(observation.location.x, observation.location.y, 0.0)
+            gp = pymet.base.GeoPoint(
+                observation.location.x, observation.location.y, 0.0)
             fix = pymet.base.Fix(gp, observation.recorded_at)
             return fix
 
@@ -877,7 +878,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         if trajectory_filter_params is not None:
             speed_threshold = trajectory_filter_params.speed_KmHr
-        speed_filter = pymet.base.RelocsSpeedFilter(max_speed_kmhr=speed_threshold)
+        speed_filter = pymet.base.RelocsSpeedFilter(
+            max_speed_kmhr=speed_threshold)
         relocs.apply_fix_filter(speed_filter)
 
         # Create a trajectory from the relocations
@@ -1047,6 +1049,19 @@ class Region(models.Model):
 
     def _____str__(self):
         return '%s, %s' % (self.region, self.country)
+
+
+class SocketClient(TimestampedModel):
+    '''
+    Associate a socket ID with a user and a set of session-related data.
+    '''
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, db_column="sid")
+    username = models.CharField(
+        'Das username associated with session', max_length=30)
+    bbox = models.MultiPolygonField(
+        'Viewport bounding box.', null=True, blank=True)
+    event_filter = JSONField('Event filter', default={})
 
 
 import observations.signals

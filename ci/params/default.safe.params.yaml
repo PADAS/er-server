@@ -1,0 +1,14 @@
+project-id: padas-app
+cluster-name: 
+server-branch-name: develop
+web-branch-name: develop
+web-react-branch-name: develop
+static-ip: ""
+email-host: ""
+email-username: ""
+disk-namespace: ""
+version-suffix: ""
+tag-as-latest: false
+slack-notification-channel: ""
+gcp-compute-zone: "us-west1-a"
+web-service-name: "web"

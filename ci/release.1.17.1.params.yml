@@ -1,5 +1,0 @@
-project-id: padas-app
-cluster-name: release-1-17-1
-server-branch-name: release/1.17.1
-web-branch-name: release/1.17.1
-tag-as-latest: true

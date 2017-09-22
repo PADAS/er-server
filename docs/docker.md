@@ -23,11 +23,24 @@ Once these tools have been set up and handed off, further deployment configurati
 For details regarding configuring and using the build tools, see the following links:
 
 
+### Setup ###
+The tools and scripts for managing pipelines require access to a bash shell. Preferred to use ubuntu, but some have had success with other platforms.
+
+#### fly ####
+[fly](https://concourse.ci/fly-cli.html) is the command line tool to control concourse
+Look for the script install.fly.cli.sh found in the infrastucture repo 
+run it:
+
+    ./docker/utility/fly/install/install.fly.cli.sh
+
+
+#### ? ####
 
 
 ### Configuring Concourse
 
-Concourse lives here: [https://35\.197\.37\.215](https://35\.197\.37\.215)
+Concourse lives here: [https://35.197.37.215](https://35\.197\.37\.215)
+Concourse for VDP is here: [https://35.199.175.103](https://35.199.175.103)
 
 Concourse pipelines are configured by creating a set of resources, jobs, and gates\. A resource is a _thing_  like a file (local or hosted somewhere else), a git repository, or a docker container\. A job is an _action_  that takes one or more resources as input, performs an operation on them, and usually outputs a new resource\. Some examples of jobs are cloning or pulling a git repo, compiling code, running unit tests, and executing a script\. A gate is a _condition_  that must happen before a job is performed\. Most often this is "Did the unit tests pass?" or "Did the build/script/whatever complete successfully?"
 
@@ -141,8 +154,14 @@ Once the concouse pipeline configuration is complete, push it up to concourse wi
 
 ~~~~~~
 
-./set.pipeline.sh pipeline_name
+./set.pipeline.sh [pipeline_name]
 
+~~~~~~
+
+To delete an existing concourse pipeline, use the following command:
+~~~~~~
+
+fly -t padas-app destroy-pipeline -p [pipeline_name]
 ~~~~~~
 
 To pass variables into the configuration, see the section [_Passing arguments into pipelines_](#Passing-arguments-into-pipelines)
@@ -244,35 +263,42 @@ It may seem trivial to make a whole separate step just to start the server\. The
 
 ##### Infrastructure Scripts #####
 
-The code repo for all of the configuration and helper scripts is located [here](https://github\.com/VulcanTechnologies/infrastructure)^[https://github\.com/VulcanTechnologies/infrastructure]\. clone it locally for easy access\.
+The code repo for all of the configuration and helper scripts is located [here](https://github\.com/VulcanTechnologies/infrastructure)^[https://github\.com/VulcanTechnologies/infrastructure]. clone it locally for easy access.
 
-This also assumes you have docker installed ([instructions here](https://vulcan\.atlassian\.net/wiki/display/IUU/OnBoarding)^[https://vulcan\.atlassian\.net/wiki/display/IUU/OnBoarding]) and you have a bash shell available\.
+This also assumes you have docker installed ([instructions here](https://vulcan\.atlassian\.net/wiki/display/IUU/OnBoarding)^[https://vulcan\.atlassian\.net/wiki/display/IUU/OnBoarding]) and you have a bash shell available.
 
-These scripts will be referenced below\. The scripts managing K8s clusters use a docker version of gcloud sdk to execute the actual commands\. Those K8s management scripts mount the current directory in the gcloud container under /code\. 
+These scripts will be referenced below\. The scripts managing K8s clusters use a docker version of gcloud sdk to execute the actual commands\. Those K8s management scripts mount the current directory in the gcloud container under /code. 
 
 ##### Creating a new Pipeline #####
 
-\>infrastructure/resources/k8s/create\.gcp\.cluster padas\-app \<clustername\>
+```
+infrastructure/resources/k8s/create.gcp.cluster padas-app <clustername>
+```
 
 at which point configuration files are created for the \<clustername\> in deployments/padas\-app/k8s
 
-open deployments/padas\-app/k8s/\<clustername\>\.docker\.versions using a text editor
+open
+```
+deployments/padas-app/k8s/<clustername>.docker.versions
+```
+using a text editor
+Add the SHAs for the docker images you want used for the pipeline.
 
-Add the SHAs for the docker images you want used for the pipeline\.
 
 
+<put an example here>
 
-\<put an example here\>
-
-Once entered, deploy and restart cluster\. CD to the das/deployments directory that contains the yaml configurations for all of the servers\. Then execute the following:
-
-\> deploy\.to\.cluster padas\-app \<clustername\> \./ \<clustername\>\.docker\.versions
-
+Once entered, deploy and restart cluster. CD to the das/deployments directory that contains the yaml configurations for all of the servers. Then execute the following:
+```
+deploy.to.cluster padas-app <clustername> ./ <clustername>.docker.versions
+```
 
 
 To list the running apps
 
-\>kubectl get pods
+```
+kubectl get pods
+```
 
 ##### Web view of Pipeline #####
 
@@ -350,6 +376,29 @@ Here we're telling set.pipeline to use the demo params, and passing in an extra 
 
 ### Developing in a Dockerized Environment FAQ
 
+#### To get a management web view of the current cluster configuration
+Parameters for view.k8s.cluster.proxy are:
+* Project
+* Cluster Name
+* Port (default is 8001)
+~~~
+../infrastructure/resources/k8s/view.k8s.cluster.proxy.sh padas-app integration 8003
+~~~
+
+#### To remote into a pod running on an existing cluster
+Use the script manage.existing.cluster.sh. This also mounts the current directory in the docker container as /code
+* Project
+* Cluster Name
+````
+../infrastructure/resources/k8s/manage.existing.cluster.sh padas-app integration
+````
+
+#### To delete an existing cluster
+Use the script delete.gcp.cluster.sh
+```
+../infrastructure/resources/k8s/delete.gcp.cluster.sh padas-app integration
+```
+
 __How do I remote into an image running on a GCP kubernetes cluster?__
 
 First, you'll want to get the gcloud command line tools\.
@@ -406,6 +455,8 @@ root@69c7d34860a5:/# kubectl exec -it api-4041812951-2dmmx -- bash
 ~~~~~~~
 
 Now you have a bash terminal in the API server\. Have fun\!
+
+
 
 
 

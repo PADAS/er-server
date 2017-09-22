@@ -21,7 +21,7 @@ REFRESH_USER_KEY = "{0}:queue"
 REFRESH_USER_LOCK_KEY = "{0}:lock"
 
 EVENT_REVISION_KEY = "e;{0}"
-DETAILS_REVISION_KEY = "d;{0}"
+DETAILS_REVISION_KEY = "d;{0};{1}"
 
 DELAY_PERIOD = 5  # seconds
 
@@ -31,10 +31,10 @@ def queue_event_alert(event_id):
     event = Event.objects.get(id=event_id)
     revision = event.revision.all_user().order_by('sequence').last()
     try:
-        details_revision = event.event_details.first(
+        details_revision = event.event_details.order_by('updated_at').last(
         ).revision.all_user().order_by('sequence').last()
     except AttributeError:
-        event_change_cooldown_period(event_id, revision.id, None)
+        event_change_cooldown_period(event_id, revision, None)
         return
 
     # We end up in this code path in a few ways. Some data associated with the
@@ -51,15 +51,15 @@ def queue_event_alert(event_id):
     # together
     if abs(diff) < 1:
         event_change_cooldown_period(
-            event_id, revision.id, details_revision.id)
+            event_id, revision, details_revision)
     # If the changes are farther apart, take the later one only
     elif diff < 0:
-        event_change_cooldown_period(event_id, None, details_revision.id)
+        event_change_cooldown_period(event_id, None, details_revision)
     else:
-        event_change_cooldown_period(event_id, revision.id, None)
+        event_change_cooldown_period(event_id, revision, None)
 
 
-def event_change_cooldown_period(event_id, event_revision_id=None, details_revision_id=None):
+def event_change_cooldown_period(event_id, event_revision=None, details_revision=None):
     """
     Instead of sending an alert immediately, wait a few seconds in case other
     updates come through, then send all updates in one single alert
@@ -79,10 +79,12 @@ def event_change_cooldown_period(event_id, event_revision_id=None, details_revis
     # Save all the revision ids under the parent event's kay in redis
     parent_key = REFRESH_USER_KEY.format(parent_event.id)
     consolidate_all_child_alerts_into_parent(parent_event, child_events)
-    redis_client.rpush(parent_key,
-                       EVENT_REVISION_KEY.format(event_revision_id or '0'))
-    redis_client.rpush(parent_key,
-                       DETAILS_REVISION_KEY.format(details_revision_id or '0'))
+    if event_revision is not None:
+        redis_client.rpush(parent_key,
+                           EVENT_REVISION_KEY.format(event_revision.id))
+    if details_revision is not None:
+        redis_client.rpush(parent_key,
+                           DETAILS_REVISION_KEY.format(details_revision.id, details_revision.object_id))
 
     # In DELAY_PERIOD seconds, send an alert if there hasn't been any more
     # churn
@@ -105,7 +107,8 @@ def consolidate_all_child_alerts_into_parent(parent_key, child_events):
 def check_event_activity(event_id, queue_len):
     logger.info('event mailer event_id: {}'.format(event_id))
 
-    redis_client = redis.from_url(settings.CELERY_BROKER_URL)
+    redis_client = redis.from_url(
+        settings.CELERY_BROKER_URL, decode_responses=True)
     key = REFRESH_USER_KEY.format(event_id)
 
     # quick check to see if it's worth acquiring a lock, we'll do a threadsafe
@@ -117,29 +120,24 @@ def check_event_activity(event_id, queue_len):
             if l and redis_client.llen(key) == queue_len:
                 try:
                     logger.debug("sending alert for %s", event_id)
-                    queue_alert_for_all_users.delay(event_id)
+                    queue_alert_for_all_users.delay(
+                        event_id, redis_client.lrange(key, 0, count))
                     logger.debug("Finished sending alert for %s", event_id)
                 finally:
                     redis_client.ltrim(key, count, -1)
 
 
 @celery.app.task()
-def queue_alert_for_all_users(event_id):
+def queue_alert_for_all_users(event_id, revision_ids):
     event = Event.objects.get(pk=event_id)
-    event_key = REFRESH_USER_KEY.format(event_id)
-    redis_client = redis.from_url(
-        settings.CELERY_BROKER_URL, decode_responses=True)
 
-    revision_ids = redis_client.lrange(
-        event_key, 0, redis_client.llen(event_key))
-
-    priorities = set([event.priority])
+    priorities = {event.priority}
     for revision_id in revision_ids:
-        rev_type, rev_id = revision_id.split(';')
-        if rev_id == '0' or rev_type == 'd':
+        rev_info = revision_id.split(';')
+        if rev_info[1] == '0' or rev_info[0] == 'd':
             continue
         try:
-            revision = event.revision.all_user().get(id=rev_id)
+            revision = event.revision.all_user().get(id=rev_info[1])
             if revision and 'priority' in revision.data:
                 priorities.add(revision.data['priority'])
         except ObjectDoesNotExist:

@@ -1,0 +1,120 @@
+resources:
+- name: git-server
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    private_key: ((das-github))
+
+- name: git-utility
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    paths:
+      - docker/PostGIS/*
+      - docker/Nginx/*
+    private_key: ((das-github))
+
+- name: git-web
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-web.git
+    branch: ((web-branch-name))
+    private_key: ((das-web-github))
+
+- name: git-web-react
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-react.git
+    branch: ((web-react-branch-name))
+    private_key: ((das-react-github))
+
+resource_types:
+- name: versioned-git-resource
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((ss-infrastructure-container-registry-pull))
+    repository: gcr.io/ss-infrastructure/concourse/versioned-git-resource
+
+jobs:
+- name: deploy-to-k8s
+  serial: true
+  plan:
+  - aggregate:
+    - get: git-server
+    - get: git-utility
+    - get: git-web
+    - get: git-web-react
+  - do:
+    - task: ensure-cluster-exists
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure/provisioning/k8s,
+            email: ((gcr-io-email)),
+            username: ((gcr-io-username)),
+            password: ((ss-infrastructure-container-registry-pull))
+          }
+        params: {
+          PROJECT_ID: ((project-id)),
+          CLUSTER_NAME: ((cluster-name)),
+          CREATOR: ((creator)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          CLUSTER_ADMIN_PASSWORD: ((padas-app-cluster-admin)),
+          PROJECT_CONTAINER_REGISTRY_SECRET: ((padas-app-container-registry-pull)),
+          INFRASTRUCTURE_CONTAINER_REGISTRY_SECRET: ((ss-infrastructure-container-registry-pull)),
+          MACHINE_TYPE: n1-standard-1,
+          NUM_NODES: 3,
+          GCP_COMPUTE_ZONE: ((gcp-compute-zone))
+        }
+        run:
+          path: /utility/provision.k8s.cluster.sh
+    - task: update-deployment-info
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure/utility/envsubst,
+            email: ((gcr-io-email)),
+            username: ((gcr-io-username)),
+            password: ((ss-infrastructure-container-registry-pull))
+          }
+        params: {
+          STATIC_IP: ((static-ip)),
+          EMAIL_HOST: ((email-host)),
+          EMAIL_USERNAME: ((email-username)),
+          EMAIL_PASSWORD: ((email-password)),
+          WEB_SERVICE_NAME: ((web-service-name))
+        }
+        inputs:
+        - name: git-server
+        - name: git-utility
+        - name: git-web
+        - name: git-web-react
+        outputs:
+        - name: deployment-info
+        run:
+          path: git-server/ci/update.k8s.deployment.params.ci.sh
+    - task: deploy
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {repository: google/cloud-sdk}
+        inputs:
+        - name: git-server
+        - name: deployment-info
+        params: {
+          PROJECT_ID: ((project-id)),
+          CLUSTER_NAME: ((cluster-name)),
+          DEPLOY_PATH: deployment-info,
+          CLUSTER_ADMIN_PASSWORD: ((padas-app-cluster-admin))
+        }
+        run:
+          path: git-server/ci/deploy.to.k8s.sh

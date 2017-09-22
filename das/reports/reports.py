@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import pytz
 import json
+import html
 from django.utils import timezone
 from django.db.models import *
 from activity.models import Event
@@ -10,6 +11,8 @@ from observations.models import Subject
 from django.utils.html import escape
 
 from reports.accumulator import accumulator, broadcast
+
+from reports.event_utils import schema_renderer, generate_details
 
 
 def safe_get(val, keys, default=None):
@@ -22,19 +25,6 @@ def safe_get(val, keys, default=None):
     except KeyError:
         pass
     return default
-
-
-def extract_details(details):
-
-    for k, v in details.items():
-        if isinstance(v, dict) and 'name' in v:
-            yield {'name': k, 'value': escape(v['name'])}
-        elif isinstance(v, (int, float, bool)):
-            yield {'name': k, 'value': str(v)}
-        elif isinstance(v, str):
-            yield {'name': k, 'value': escape(v)}
-        elif isinstance(v, list):
-            yield {'name': k, 'value': escape(', '.join([_.get('name') for _ in v if isinstance(_, dict) and _.get('name') is not None]))}
 
 
 def _listify(o):
@@ -90,6 +80,8 @@ def get_daily_report_data(since, before, **kwargs):
     '''
     generated_at = timezone.now()
 
+    render_schema = schema_renderer()
+
     # Get the events we're interested in. We just need this list once and we'll run it through a set of
     # accumulotors that take whatever they need to hydrate the sit-rep
     # report.
@@ -103,7 +95,6 @@ def get_daily_report_data(since, before, **kwargs):
             try:
                 return ed.data['event_details']['conservancy']['name']
             except Exception as e:
-                print(e)
                 pass
         return CONSERVANCY_UNSPECIFIED
 
@@ -344,23 +335,20 @@ def get_daily_report_data(since, before, **kwargs):
         if event.event_type.value == 'human_wildlife_conflict':
             return
 
-        ed = event.event_details.first()
-        if not ed or not ed.data or 'event_details' not in ed.data:
-            return
-        ed = ed.data['event_details']
-
+        event_details = generate_details(
+            event, render_schema(event.event_type.schema))
         en = event.notes.all().order_by('created_at')
 
         def build_note(note):
-            return {'text': note.text,
+            return {'text': html.escape(note.text),
                     'username': note.created_by_user.username,
                     'created_at': note.created_at.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
                     }
 
-        accum.append({'title': escape(event.message),
-                      'event_name': escape(event.event_type.display),
+        accum.append({'title': '{}: {}'.format(event.serial_number, escape(event.title)),
+                      'event_name': '{}: {}'.format(event.serial_number, escape(event.title)),
                       'event_time': event.event_time.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
-                      'attributes': extract_details(ed),
+                      'attributes': sorted(event_details, key=lambda x: x['order']),
                       'notes': [build_note(n) for n in en]
                       })
 
@@ -370,23 +358,26 @@ def get_daily_report_data(since, before, **kwargs):
     def human_wildlife_conflict(accum, event):
         if event.event_type.value != 'human_wildlife_conflict':
             return
-        ed = event.event_details.first()
-        if not ed or not ed.data or 'event_details' not in ed.data:
-            return
-        ed = ed.data['event_details']
+        # ed = event.event_details.first()
+        # if not ed or not ed.data or 'event_details' not in ed.data:
+        #     return
+        # ed = ed.data['event_details']
+
+        event_details = generate_details(
+            event, render_schema(event.event_type.schema))
 
         en = event.notes.all().order_by('created_at')
 
         def build_note(note):
-            return {'text': note.text,
+            return {'text': html.escape(note.text),
                     'username': note.created_by_user.username,
                     'created_at': note.created_at.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
                     }
 
-        accum.append({'title': escape(event.message),
-                      'event_name': escape(event.event_type.display),
+        accum.append({'title': '{}: {}'.format(event.serial_number, escape(event.title)),
+                      'event_name': '{}: {}'.format(event.serial_number, escape(event.title)),
                       'event_time': event.event_time.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
-                      'attributes': list(extract_details(ed)),
+                      'attributes': sorted(event_details, key=lambda x: x['order']),
                       'notes': [build_note(n) for n in en]
                       })
 

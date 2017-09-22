@@ -15,9 +15,11 @@ import requests
 
 from tracking.models.plugin_base import Obs, TrackingPlugin
 
+
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
     return parse_date(d).replace(tzinfo=replace_tzinfo)
+
 
 class BasicAuthClient(object):
 
@@ -25,6 +27,7 @@ class BasicAuthClient(object):
         auth = '%s:%s' % (self.username, self.password)
         auth = base64.b64encode(bytes(auth, 'utf8'))
         return 'Basic {}'.format(auth.decode('utf8'))
+
 
 class InreachException(Exception):
     pass
@@ -40,7 +43,6 @@ class InreachClient(BasicAuthClient):
         self.password = password
 
     def fetch_observations(self, imei=None, **kwargs):
-
         '''
         :param region_id:
         :param kwargs:
@@ -49,7 +51,8 @@ class InreachClient(BasicAuthClient):
 
         conn = http.client.HTTPSConnection('explore.delorme.com')
 
-        start_ts = kwargs.get('after', (datetime.datetime.now() - timedelta(days=31)))
+        start_ts = kwargs.get(
+            'after', (datetime.datetime.now() - timedelta(days=31)))
         end_ts = start_ts + timedelta(days=60)
         payload = {
             'IMEIs': imei,
@@ -59,11 +62,10 @@ class InreachClient(BasicAuthClient):
 
         qs = urllib.parse.urlencode(payload)
 
-
-        headers = { 'accept': "*/*",
-                    'content-type': 'application/json',
-                    'Authorization': super(InreachClient, self).auth_header()
-                    }
+        headers = {'accept': "*/*",
+                   'content-type': 'application/json',
+                   'Authorization': super(InreachClient, self).auth_header()
+                   }
 
         path = '/ipcinbound/V1/Location.svc/History?{}'.format(qs)
         conn.request('GET', path, None, headers)
@@ -77,7 +79,8 @@ class InreachClient(BasicAuthClient):
                 yield self.__class__.parse_line(h)
 
         else:
-            self.logger.debug('Failed to get good response from Inreach API. [%s %s]', res.status, res.reason)
+            self.logger.debug(
+                'Failed to get good response from Inreach API. [%s %s]', res.status, res.reason)
 
     @classmethod
     def parse_line(cls, s, **kwargs):
@@ -87,8 +90,9 @@ class InreachClient(BasicAuthClient):
         :return:
         '''
 
-        (ts, offset) = re.match(r'/Date\((\d{13})-?(\d{4})?\)/', s.pop('Timestamp')).groups()
-        ts = float(ts)/1000
+        (ts, offset) = re.match(
+            r'/Date\((\d{13})-?(\d{4})?\)/', s.pop('Timestamp')).groups()
+        ts = float(ts) / 1000
 
         s['recorded_at'] = datetime.datetime.fromtimestamp(ts, tz=pytz.utc)
         coordinate = s.pop('Coordinate', {'Latitude': 0.0, 'Longitude': 0.0})
@@ -108,7 +112,7 @@ class InreachPlugin(TrackingPlugin):
     '''
 
     service_username = models.CharField(max_length=50,
-                                       help_text='The username for querying the InReach API service.')
+                                        help_text='The username for querying the InReach API service.')
     service_password = models.CharField(max_length=50,
                                         help_text='The password for querying the InReach API service.')
     service_api_host = models.CharField(max_length=50,
@@ -119,9 +123,11 @@ class InreachPlugin(TrackingPlugin):
 
     def should_run(self, source_plugin):
 
-        # Don't bother running now if less than 20 minutes has passed since the latest fix.
+        # Don't bother running now if less than 20 minutes has passed since the
+        # latest fix.
         try:
-            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
+            latest_timestamp = source_plugin.cursor_data.get(
+                'latest_timestamp')
             if not latest_timestamp:
                 return True
             latest_timestamp = parse_date(latest_timestamp)
@@ -146,7 +152,8 @@ class InreachPlugin(TrackingPlugin):
                                     password=self.service_password)
 
         try:
-            default_starttime = datetime.datetime.now(tz=pytz.utc) - self.DEFAULT_START_OFFSET
+            default_starttime = datetime.datetime.now(
+                tz=pytz.utc) - self.DEFAULT_START_OFFSET
             _ = self.cursor_data['latest_timestamp']
             latest_ts = parse_date(_)
             latest_ts = max(default_starttime, latest_ts)
@@ -155,25 +162,26 @@ class InreachPlugin(TrackingPlugin):
             self.cursor_data = self.cursor_data or {}
             latest_ts = default_starttime
 
-        self.logger.debug("Fetching data for manufacturer_id %s after %s" % (source.manufacturer_id, latest_ts))
+        self.logger.debug("Fetching data for manufacturer_id %s after %s" % (
+            source.manufacturer_id, latest_ts))
 
         for observation in self.client.fetch_observations(imei=source.manufacturer_id, after=latest_ts):
             latest_ts = max(latest_ts, observation['recorded_at'])
             yield self._transform(source, observation)
 
-        self.logger.debug("Saving latest timestamp for source %s at %s", source.manufacturer_id, latest_ts)
+        self.logger.debug(
+            "Saving latest timestamp for source %s at %s", source.manufacturer_id, latest_ts)
         self.cursor_data['latest_timestamp'] = latest_ts.isoformat()
 
     def _transform(self, source, observation):
 
         # Copy any none-standard fields into Obs.additional
-        side_data = dict((k, observation.get(k)) for k in observation.keys() if k not in Obs._fields)
+        side_data = dict((k, observation.get(k))
+                         for k in observation.keys() if k not in Obs._fields)
         return Obs(source=source, recorded_at=observation.get('recorded_at'),
                    latitude=observation.get('latitude'),
                    longitude=observation.get('longitude'),
                    additional=side_data)
-
-
 
     def _maintenance(self):
 
@@ -206,12 +214,16 @@ class InreachPlugin(TrackingPlugin):
 
 
 import random
+
+
 def gen_random_rgb():
     return ','.join([str(random.randint(0, 255)) for i in range(3)])
+
 
 from observations.models import Subject, SubjectSource, Source
 from django.contrib.contenttypes.models import ContentType
 from tracking.models import SourcePlugin
+
 
 def str2date(d, default_tzinfo=pytz.UTC):
     '''Parse a date and if it's naive, replace tzinfo with default_tzinfo.'''
@@ -221,13 +233,16 @@ def str2date(d, default_tzinfo=pytz.UTC):
     return dt
 
 # Helper functions for hydrating Source and Subject for the given message.
+
+
 def ensure_source(inreach_device):
     src, created = Source.objects.get_or_create(source_type='gps-radio',
-                                   manufacturer_id=inreach_device['IMEI'],
-                                   defaults={'model_name':'type:{}, product:{}'.format(inreach_device['Type'], inreach_device['Product']),
-                                             'additional': {'note': 'Created automatically during maintenance.'}})
+                                                manufacturer_id=inreach_device['IMEI'],
+                                                defaults={'model_name': 'type:{}, product:{}'.format(inreach_device['Type'], inreach_device['Product']),
+                                                          'additional': {'note': 'Created automatically during maintenance.'}})
 
     return src
+
 
 def ensure_source_plugin(source, tracking_plugin):
 
@@ -236,43 +251,43 @@ def ensure_source_plugin(source, tracking_plugin):
         # cursor_data={}
     )
 
-
     plugin_type = ContentType.objects.get_for_model(tracking_plugin)
     v, created = SourcePlugin.objects.get_or_create(defaults=defaults,
-                                          source=source,
-                                          plugin_id=tracking_plugin.id,
-                                                       plugin_type=plugin_type)
+                                                    source=source,
+                                                    plugin_id=tracking_plugin.id,
+                                                    plugin_type=plugin_type)
 
     return v
+
 
 def ensure_subject_source(source, event_time, subject_name=None):
     # get the most recent Subject for this Source
     subject_source = SubjectSource \
-                        .objects \
-                        .filter(source=source, assigned_range__contains=event_time)\
-                        .order_by('assigned_range')\
-                        .reverse()\
-                        .first()
+        .objects \
+        .filter(source=source, assigned_range__contains=event_time)\
+        .order_by('assigned_range')\
+        .reverse()\
+        .first()
 
     if not subject_source:
 
-        subject_name = subject_name or 'sky-{}'.format(source.manufacturer_id)
+        subject_name = subject_name or 'inreach-{}'.format(
+            source.manufacturer_id)
 
         sub, created = Subject.objects.get_or_create(
-            subject_type='wildlife', subject_subtype='elephant',
+            subject_type='person', subject_subtype='ranger',
             name=subject_name,
             defaults=dict(additional=dict(region='', country='', ))
         )
 
-        d1 = event_time - timedelta(days=30)
-        d2 = d1 + timedelta(days=5*365)
+        d1 = pytz.utc.localize(datetime.datetime.min)
+        d2 = pytz.utc.localize(datetime.datetime.max)
         if sub:
             subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
-                                                                 defaults=dict(assigned_range=(d1, d2), additional={
-                                                                     'note': 'Created automatically during feed sync.'}))
+                                                                          defaults=dict(assigned_range=(d1, d2), additional={
+                                                                              'note': 'Created automatically during feed sync.'}))
 
     return subject_source
-
 
 
 class InreachAccountClient(BasicAuthClient):
@@ -288,7 +303,8 @@ class InreachAccountClient(BasicAuthClient):
 
         conn = http.client.HTTPSConnection(self.host)
 
-        headers = {'authorization': super(InreachAccountClient, self).auth_header()}
+        headers = {'authorization': super(
+            InreachAccountClient, self).auth_header()}
 
         conn.request("GET", "/V1/Users", headers=headers)
 
@@ -303,7 +319,8 @@ class InreachAccountClient(BasicAuthClient):
 
         conn = http.client.HTTPSConnection(self.host)
 
-        headers = {'authorization': super(InreachAccountClient, self).auth_header()}
+        headers = {'authorization': super(
+            InreachAccountClient, self).auth_header()}
 
         conn.request("GET", "/V1/Devices", headers=headers)
 
@@ -317,10 +334,12 @@ class InreachAccountClient(BasicAuthClient):
     def user_for_device(self, imei):
         conn = http.client.HTTPSConnection(self.host)
 
-        headers = {'authorization': super(InreachAccountClient, self).auth_header()}
+        headers = {'authorization': super(
+            InreachAccountClient, self).auth_header()}
 
-        params = {'imei' : imei}
-        r = requests.get('https://%s/V1/Users' % self.host, params=params, headers=headers)
+        params = {'imei': imei}
+        r = requests.get('https://%s/V1/Users' %
+                         self.host, params=params, headers=headers)
 
         if r.status_code == requests.codes.ok:
 
@@ -329,5 +348,3 @@ class InreachAccountClient(BasicAuthClient):
             data = data.decode('utf-8') if hasattr(data, 'decode') else data
             res = json.loads(data)
             yield from res['Users']
-
-

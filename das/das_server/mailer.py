@@ -30,18 +30,35 @@ def get_display_value_for_key(key):
     return display.title()
 
 
+def get_key_title(key, schema):
+    properties = schema['properties']
+    if key in properties and 'title' in properties[key]:
+        return properties[key]['title']
+
+    definitions = schema['defintions'] if 'definitions' in schema else []
+
+    for definition_dictionary in [x for x in definitions if isinstance(x, dict)]:
+        if definition_dictionary['key'] == key:
+            return definition_dictionary['title']
+
+    return None
+
+
 def extract_details(schema, details, updated):
     if not details or not details.data or 'event_details' not in details.data:
         return
 
     details_dictionary = details.data['event_details']
     schema = schema_utils.get_rendered_schema(schema)
+    properties = schema['properties']
     for k in sorted(details_dictionary.keys()):
-        if k not in schema:
+        if k not in properties:
             continue
         update_indicator = '*' if k in updated else '-'
         v = details_dictionary[k]
-        key_display = schema[k]['title']
+        key_display = get_key_title(k, schema)
+        if not key_display:
+            continue
         if isinstance(v, dict) and 'name' in v:
             yield email_separator_string.format(update_indicator, key_display, v['name'])
         elif isinstance(v, (int, float, bool)):
@@ -61,27 +78,27 @@ def get_revisions_for_event(event, revisions):
     details_revisions = []
 
     for revision in revisions:
-        rev_type, rev_id = revision.split(';')
-        if rev_id == '0':
+        rev_info = revision.split(';')
+        if rev_info[1] == '0':
             continue
-        if rev_type == 'e':
-            event_rev_ids.append(rev_id)
+        if rev_info[0] == 'e':
+            event_rev_ids.append(rev_info[1])
         else:
-            details_ids.append(rev_id)
+            details_ids.append((rev_info[1], rev_info[2]))
 
     for event_rev_id in event_rev_ids:
         try:
             event_revisions.append(
                 event.revision.all_user().get(id=event_rev_id))
         except Exception as ex:
-            print(ex)
+            logger.exception('Error getting revision')
 
     for details_id in details_ids:
         try:
             details_revisions.append(
-                event.event_details.first().revision.all_user().get(id=details_id))
+                event.event_details.get(id=details_id[1]).revision.all_user().get(id=details_id[0]))
         except Exception as ex:
-            print(ex)
+            logger.exception('Error getting revision')
 
     return event_revisions, details_revisions
 
@@ -94,28 +111,27 @@ def get_updated_field_names_for_revisions(event_revisions):
     return set(updated_fields)
 
 
-def get_updated_schema_fields(details_revisions):
+def get_updated_schema_fields(event, details_revisions):
     if len(details_revisions) == 0:
         return set()
-    elif len(details_revisions) < 2:
-        revision = details_revisions[0]
-        if details_revisions[0].sequence == 1:
-            return set(revision.data['data']['event_details'].keys())
+    elif len(details_revisions) == 1:
+        all_details_objects = list(
+            event.event_details.all().order_by('updated_at'))
+        if len(all_details_objects) == 1:
+            return set(details_revisions[0].data['data']['event_details'].keys())
         else:
-            event = Event.objects.get(id=revision.data['event'])
-            details_revisions.add(
-                event.details.first().revision.all_user().filter(
-                    sequence__lt=revision.sequence).sorted(revision.sequence).last()
-            )
+            details_revisions.append(all_details_objects[-2].revision.first())
 
     before = None
-    after = None
     diff = []
     for details_state in details_revisions:
+        safe_details = []
+        for item in details_state.data['data']['event_details'].items():
+            safe_details.append((item[0], json.dumps(item[1])))
         if not before:
-            before = set(details_state.data['data']['event_details'].items())
+            before = set(safe_details)
             continue
-        after = set(details_state.data['data']['event_details'].items())
+        after = set(safe_details)
         diff += before ^ after
         before = after
     return set([item[0] for item in diff])
@@ -126,9 +142,9 @@ def extract_event_data(event, user, revisions):
         event, revisions)
     updated_fields = get_updated_field_names_for_revisions(event_revisions)
     updated_fields = updated_fields.union(
-        get_updated_schema_fields(details_revisions))
+        get_updated_schema_fields(event, details_revisions))
 
-    event_details = event.event_details.first()
+    event_details = event.event_details.all().order_by('updated_at').last()
     schema_fields_and_values = list(extract_details(
         event.event_type.schema, event_details, updated_fields))
 
@@ -148,7 +164,7 @@ def extract_event_data(event, user, revisions):
         update_indicator = '*' if key in updated_fields else '-'
         if key == 'title':
             display_value = value or 'No Title'
-        if key in ignore_fields or value is None:
+        elif key in ignore_fields or value is None:
             continue
         elif key == 'time' and event.time is not None:
             display_value = event.time.strftime('%A, %B %d, %Y at %H:%M')

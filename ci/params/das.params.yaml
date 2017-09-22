@@ -1,0 +1,8 @@
+project-id: padas-app
+cluster-name: integration
+server-branch-name: develop
+web-branch-name: develop
+web-react-branch-name: develop
+tag-as-latest: false
+static-ip: 35.197.23.193
+web-service-name: "web-react"
