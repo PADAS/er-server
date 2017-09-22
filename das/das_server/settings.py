@@ -199,7 +199,7 @@ DATABASES = {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': 'das',
         'USER': 'das',
-        'HOST': 'localhost',
+        'HOST': 'postgis',
         'PASSWORD': 'password',
     },
 }

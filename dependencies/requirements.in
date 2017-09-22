@@ -70,4 +70,4 @@ python-docx==0.8.6
 lxml==3.7.3
 openpyxl==2.4.8
 
-pymet==0.1.12
+pymet==0.1.13
