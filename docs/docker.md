@@ -387,7 +387,7 @@ now you're running in a docker container with the gcloud command line tools alre
 root@69c7d34860a5:/# gcloud auth login
 ~~~~~~~
 
-This will give you a link to open in your favorite web browser which will prompt you for your login info, and then give you an auth code to paste back into your command line\. Next you need to set some environment variables
+This will give you a link to open in your favorite web browser which will prompt you for your login info, and then give you an auth code to paste back into your command line\. Next you need to set some environment variables. Note the 3rd command is picking the integration pipeline, replace this with whatever pipeline you want to see
 
 
 
@@ -426,5 +426,58 @@ root@69c7d34860a5:/# kubectl exec -it api-4041812951-2dmmx -- bash
 
 Now you have a bash terminal in the API server\. Have fun\!
 
+__How do I restore a database dump to a pipeline running on kubernetes?__
 
+Restoring a pg_dump to a postgres machine running on google's kubernetes system is a complicted process. There are a few hurdles to get through:
+1. Connecting to the postgres database
+2. Copying the dump file to a place where you can restore it
+3. Clearing out database locks so you can do the restore
+4. Bringing the system back up
+
+So let's get started!
+
+___Connect to the postgres database___
+The simplest way is to connect to the actual machine running postgres using the method above (How do I remote into an image running on a GCP kubernetes cluster?) However, in the final step, insted of picking the api machine and remoting into it, choose the postgres instance. Unlike the API, this will always have the same ID, so you can skip the `kubectl get pods` commmand and just use `postgis-0`
+
+___Copy the dump file to a place you can restore it___
+
+Now that you're on the postgres box, we will copy the dump file to it. We're going to use the google cloud command line tool to grab a dump that we've previously uploaded to a storage bucket.
+
+1. We'll need to install a few tools first. Curl to download the gcloud app, and python2.7 because gcloud requires it
+sudo sed -i -e 's/us.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/sources.list
+~~~~~
+sudo apt-get update
+sudo apt-get install curl
+sudo apt-get install python2.7
+~~~~~
+
+2. Now we can download and install gcloud. The first command will run the installer, the second restarts the shell to pick up the changes to the environment
+~~~~~
+curl https://sdk.cloud.google.com | bash
+exec -l $SHELL
+~~~~~
+
+3. Now we can download the dump from cloud storage to the machine. This example assumes there's a file called liwonde_dump in the padas-tmp storage bucket, update with your buckey/dump file
+~~~~~
+gsutil cp gs://padas-tmp/liwonde_dump ./liwonde_dump
+~~~~~
+
+___Release locks on the database___
+
+Other kubernetes pods are running components that lock the database. We'll need to kill them so they release their locks, but if we don't do it right, kubernetes will "help" and bring them back up. Here's how to kill them dead for sure.
+
+1. Shared services has a script that manages docker configuration, so start off by running that. SS scripts are in the infrastructure repository; they are _not_ in the das repo. Note that you should do this from your local machine, not from the postgres box that you're remoted into (but you should keep the connection, so do this in a new window)
+~~~~~
+infrastructure/resources/k8s/view.k8s.cluster.proxy.sh padas-app liwonde-post-migration
+~~~~~
+
+2. Now go to your browser of choice and visit `http://localhost:8001/ui` From here, you can manage the pipeline's kubernetes cluster. From the ... menu on the right of each deployment, delete 'api', 'mql', 'rt_api', and 'worker'. Then delete these again from the Pods section at the bottom of the page.
+
+3. Those apps will take a little time to shut down, but now you can go back to the kubernetes postgres machine and continue the restore.
+
+4. Do the actual database restore
+
+___Bring the system back up___
+
+Now the data is all sorted out, all that's left to do is re-create the pods we deleted. Go to concourse (concourse.pamdas.org) and navigate to the pipeline you're modifying. Select the last step (deploy_to_k8s) and use the + button at the top right to rebuild it. This will recreate all the stuff you deleted earlier. Note that you don't need to do a complete rebuild, you only need to re-deploy the previous build output.
 
