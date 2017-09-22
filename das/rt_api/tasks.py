@@ -77,31 +77,28 @@ def _event_handler(event_id, type):
 
                 event = queryset.first()
 
-                # With search filter, it's possible to have no matching Event.
-                if not event:
-                    return
+                if event:
+                    try:
+                        event_view.check_object_permissions(
+                            request=request, obj=event)
+                    except:
+                        logger.debug(
+                            'Permission denied. user=%s, event=%s', username, event.id)
+                    else:
+                        data = EventSerializer(
+                            event, context={'request': request}).data
 
-                try:
-                    event_view.check_object_permissions(
-                        request=request, obj=event)
-                except:
-                    logger.debug(
-                        'Permission denied. user=%s, event=%s', username, event.id)
-                else:
-                    data = EventSerializer(
-                        event, context={'request': request}).data
+                        emit_data = {
+                            'type': type,
+                            'sid': sid,
+                            'object_id': event_id,
+                            'data': {'type': type, 'event_id': event_id, 'event_data': data}
+                        }
 
-                    emit_data = {
-                        'type': type,
-                        'sid': sid,
-                        'object_id': event_id,
-                        'data': {'type': type, 'event_id': event_id, 'event_data': data}
-                    }
-
-                    logger.debug(
-                        'Publish das.realtime.emit.  data=%s', emit_data)
-                    pubsub.publish(json.dumps(
-                        emit_data, default=dumps_helper), 'das.realtime.emit')
+                        logger.debug(
+                            'Publish das.realtime.emit.  data=%s', emit_data)
+                        pubsub.publish(json.dumps(
+                            emit_data, default=dumps_helper), 'das.realtime.emit')
 
             except Exception:
                 logger.exception(
