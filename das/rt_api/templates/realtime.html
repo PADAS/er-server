@@ -4,8 +4,9 @@
 
     <style type="text/css">
         body {
-            padding: 15px;
-            color: #444;
+            font-size: 10pt;
+            padding: 10px;
+            color: #222;
             font-family: consolas, arial;
         }
 
@@ -13,47 +14,14 @@
             font-family: consolas, arial;
         }
 
-        #login-container {
-            display:block;
-            height:200px;
-        }
-        #login_form {
-            display:block;
-            float:left;
-            width: 300px;
-        }
-        #login_status {
-            display:block;
-            float:right;
-        }
-        .login_block {
-            height: 100px;
-
-        }
-        #thingz {
-            color: #07a;
-            display: block;
-            height: 0px;
-            opacity: 0;
-            transition: opacity .8s, height .8s;
-        }
-
-        #page-content{
-            display:block;
-            clear:both;
-        }
         #left-side {
-            display: block;
+{#            display: block;#}
             width: 35%;
-            float:left;
-            clear:left;
+{#            float:left;#}
+{#            clear:left;#}
         }
         #right-side {
-            display: block;
-            float:right;
-            clear:right;
-            width: 60%;
-            border: 1px solid gray;
+            width:100%;
         }
         #event_filter_message {
             display:none;
@@ -77,98 +45,173 @@
         .json-string {
            color: darkgreen;
         }
+
+        .form-button {
+            border: 1px solid silver;
+            border-radius: 5px;
+            font-size: 9pt;
+            font-weight: bold;
+            display:inline;
+            padding: 2px 4px;
+            background-color: #f5f5f5;
+            cursor: pointer;
+        }
+        .flexcontainer {
+            border: 1px solid #096380;
+            border-radius: 5px;
+            padding: 4px;
+            display: -webkit-flex;
+            display: flex;
+            margin:5px;
+        }
+        .right {
+           -webkit-flex-direction: column;
+           flex-direction: column;
+           -webkit-align-items: flex-end;
+           align-items: flex-end;
+        }
+
+        .left {
+           -webkit-flex-direction: column;
+           flex-direction: column;
+           -webkit-align-items: flex-start;
+           align-items: flex-start;
+        }
+
+        .row-left {
+           -webkit-flex-direction: row;
+           flex-direction: row;
+            -webkit-justify-content: flex-start;
+            justify-content:flex-start;
+        }
+
+        .container-header {
+            font-weight: bold;
+            display:inline-block;
+            margin-bottom:10px;
+        }
+
+        #login_form {
+            -webkit-flex: 1 0 0;
+            flex: 1 0 0;
+            padding:5px;
+        }
+
+        #login_status {
+            -webkit-flex: 5 0 0;
+            flex: 5 0 0;
+        }
+        .borderless {
+            border: none;
+        }
+        .seeme {
+            color:#c00;
+        }
+
     </style>
     <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
-
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.5/socket.io.min.js"></script>
-    <script type="text/javascript">
-        var fadein = function(elem) {
-            var curval = elem.style.display;
-            if (elem.style.height == '100px') {
-                requestAnimationFrame(() => {elem.style.opacity = 0; elem.style.height="0px";});
-            }
-            else {
-                requestAnimationFrame(() => {elem.style.opacity = 1; elem.style.height="100px";});
-            }
-        }
-    </script>
-
 
 </head>
 <body>
 
-<div id="login-container">
+<div id="header-messgae" class="flexcontainer borderless left">
+    <strong>DAS Realtime Test Harness - Instructions</strong>
+    <p>Use this page to experiment with socket connections for DAS. You can login with DAS credentials, and if you see
+        a valid Oauth2 token appear on the left, then you're in.</p>
+    <p>A successful login will pre-populate the <em>Connect</em> form. <span class="seeme">It's up to you to click connect, and when you
+        do you'll see a message in the Responses section.</span>
+    </p>
+</div>
+<div id="top-content" class="flexcontainer row-left borderless">
 
-    <div id='login_form' class="login_block">
-        <label for="username">Username: </label><input name="username" id="username" type="text">
-        <label for="password">Password: </label><input name="password" id="password" type="password">
-        <span onclick='login(document.querySelector("#login_status"));'>sign in</span>
+
+
+    <div id='signin-section' class="flexcontainer left">
+
+        <div class="container-header flexcontainer row-left borderless">Sign In</div>
+
+        <div class="flexcontainer borderless row-left">
+            <div id="login_form" class="flexcontainer right borderless">
+                <form id="loginform">
+                <div>
+                    <label for="username">Username: </label><input name="username" id="username" type="text">
+                </div>
+                <div>
+                    <label for="password">Password: </label><input name="password" id="password" type="password">
+                </div>
+                </form>
+                <button class="form-button" onclick='login(document.querySelector("#login_status"));'>sign in
+                </button>
+            </div>
+        </div>
     </div>
-    <div id='login_status' class="login_block"></div>
+    <div id='login_status' class="flexcontainer left"></div>
 </div>
 
-<div id="page-content">
-<div id="left-side">
-    <h2>DAS RTM Test</h2>
-    <h3>Send:</h3>
-    <form id="connect" method="POST" action='#'>
-        <input type="text" name="bearer_token" id="bearer_token" placeholder="Token">
-        <input type="submit" value="Connect">
-         {% csrf_token %}
-    </form>
-    <form id="emit" method="POST" action='#'>
-        <input type="text" name="emit_data" id="emit_data" placeholder="Message">
-        <input type="submit" value="Echo">
-         {% csrf_token %}
-    </form>
-    <form id="bbox" method="POST" action='#'>
-        <input type="text" name="bbox_data" id="bbox_data" placeholder="Message">
-        <input type="submit" value="Send bbox">
-         {% csrf_token %}
-    </form>
-    <form id="event_filter" method="POST" action='#'>
-        <textarea width="40" height="6" id="event_filter_data" name="event_filter_data" placeholder="{event_filter}"></textarea>
-        <input type="submit" value="Send event_filter">
-         {% csrf_token %}
-    </form>
-    <div id="event_filter_message"></div>
-    <form id="broadcast" method="POST" action='#'>
-        <input type="text" name="broadcast_data" id="broadcast_data" placeholder="Message">
-        <input type="submit" value="Broadcast">
-         {% csrf_token %}
-    </form>
-    <form id="join" method="POST" action='#'>
-        <input type="text" name="join_room" id="join_room" placeholder="Room Name">
-        <input type="submit" value="Join Room">
-         {% csrf_token %}
-    </form>
-    <form id="leave" method="POST" action='#'>
-        <input type="text" name="leave_room" id="leave_room" placeholder="Room Name">
-        <input type="submit" value="Leave Room">
-         {% csrf_token %}
-    </form>
-    <form id="send_room" method="POST" action='#'>
-        <input type="text" name="room_name" id="room_name" placeholder="Room Name">
-        <input type="text" name="room_data" id="room_data" placeholder="Message">
-        <input type="submit" value="Send to Room">
-         {% csrf_token %}
-    </form>
-    <form id="close" method="POST" action="#">
-        <input type="text" name="close_room" id="close_room" placeholder="Room Name">
-        <input type="submit" value="Close Room">
-         {% csrf_token %}
-    </form>
-    <form id="disconnect" method="POST" action="#">
-        <input type="submit" value="Disconnect">
-         {% csrf_token %}
-    </form>
-</div>
-<div id="right-side">
-    <div style="display:inline-block;padding:10px;"><strong>Responses</strong></div>
-    <div style="display: inline-block;">
-        <span style="color:#c00;" onclick="document.querySelector('#log').innerHTML = '';">clear</span></div>
-    <div id="log"></div>
-</div>
+<div id="page-content" class="flexcontainer row-left borderless">
+    <div id="left-side" class="flexcontainer left">
+        <div class="container-header">Realtime Messages</div>
+
+        <form id="connect" method="POST" action='#'>
+            <input type="text" name="bearer_token" id="bearer_token" placeholder="Token">
+            <input type="submit" value="Connect">
+             {% csrf_token %}
+        </form>
+        <form id="emit" method="POST" action='#'>
+            <input type="text" name="emit_data" id="emit_data" placeholder="Message">
+            <input type="submit" value="Echo">
+             {% csrf_token %}
+        </form>
+        <form id="bbox" method="POST" action='#'>
+            <input type="text" name="bbox_data" id="bbox_data" placeholder="Message">
+            <input type="submit" value="Send bbox">
+             {% csrf_token %}
+        </form>
+        <form id="event_filter" method="POST" action='#'>
+            <textarea width="40" height="6" id="event_filter_data" name="event_filter_data" placeholder="{event_filter}"></textarea>
+            <input type="submit" value="Send event_filter">
+             {% csrf_token %}
+        </form>
+        <div id="event_filter_message"></div>
+        <form id="broadcast" method="POST" action='#'>
+            <input type="text" name="broadcast_data" id="broadcast_data" placeholder="Message">
+            <input type="submit" value="Broadcast">
+             {% csrf_token %}
+        </form>
+        <form id="join" method="POST" action='#'>
+            <input type="text" name="join_room" id="join_room" placeholder="Room Name">
+            <input type="submit" value="Join Room">
+             {% csrf_token %}
+        </form>
+        <form id="leave" method="POST" action='#'>
+            <input type="text" name="leave_room" id="leave_room" placeholder="Room Name">
+            <input type="submit" value="Leave Room">
+             {% csrf_token %}
+        </form>
+        <form id="send_room" method="POST" action='#'>
+            <input type="text" name="room_name" id="room_name" placeholder="Room Name">
+            <input type="text" name="room_data" id="room_data" placeholder="Message">
+            <input type="submit" value="Send to Room">
+             {% csrf_token %}
+        </form>
+        <form id="close" method="POST" action="#">
+            <input type="text" name="close_room" id="close_room" placeholder="Room Name">
+            <input type="submit" value="Close Room">
+             {% csrf_token %}
+        </form>
+        <form id="disconnect" method="POST" action="#">
+            <input type="submit" value="Disconnect">
+             {% csrf_token %}
+        </form>
+    </div>
+    <div id="right-side" class="flexcontainer left">
+        <div class="container-header">Responses
+            <button class="form-button" onclick='document.querySelector("#log").innerHTML = "";'>clear log
+            </button>
+        </div>
+        <div id="log"></div>
+    </div>
 </div>
 </body>
 <script type='text/javascript'>
