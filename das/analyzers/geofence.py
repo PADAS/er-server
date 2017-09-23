@@ -1,31 +1,19 @@
-import logging
 import pymet
-from django.contrib.gis.db import models
-from django.contrib.gis.geos import Point
-from django.contrib.postgres.fields import JSONField
-
-from activity.models import EventType
-# from .analyzer import Analyzer, AnalyzerResult, OK, CRITICAL
-from analyzers.models import SubjectAnalyzerResult
+from datetime import timedelta
+from django.utils.translation import ugettext_lazy as _
+from django.contrib.gis.geos import Point as DjangoPoint
+from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
+from mapping.models import SpatialFeature
+from activity.models import Event
+from analyzers.utils import save_analyzer_event
+from analyzers.models import SubjectAnalyzerResult, GeofenceAnalyzerConfig, WARNING, CRITICAL
+from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.exceptions import InsufficientDataAnalyzerException
-from mapping.models import FeatureType, LineFeature, GeoFeature, FeatureSet
-from observations.models import Observation, SubjectTrackSegmentFilter
-from analyzers import  SubjectAnalyzer
+from analyzers.base import SubjectAnalyzer
+import logging
 
+from osgeo import ogr
 logger = logging.getLogger(__name__)
-
-
-# class GeofenceAnalyzerResult(AnalyzerResult):
-#
-#     crosstime = models.DateTimeField()
-#     crosspoint = models.PointField()
-#     analyzer = models.ForeignKey(to='GeofenceAnalyzer', on_delete=models.CASCADE)
-#     total_fix_count = models.IntegerField()
-#     observations = models.ManyToManyField(to=Observation, related_name='+')
-#     additional = JSONField()
-#     # TODO: Store the before and after containment regions
-#     # TODO: Store the virtual fence
-#     # TODO: A way to store git hash for both pymet and DAS
 
 
 class GeofenceAnalyzer(SubjectAnalyzer):
@@ -35,112 +23,151 @@ class GeofenceAnalyzer(SubjectAnalyzer):
      Return: a list of GeofenceAnalyzerResult
      """
 
-    # TODO: Should be versioned
+    def __init__(self, subject=None, config=None):
+        SubjectAnalyzer.__init__(self, subject=subject, config=config)
+        self.logger = logging.getLogger(__name__)
 
-    @property
-    def event_type(self):
-        return EventType.objects.get_by_value('analyzer_geofence')
+    @classmethod
+    def get_subject_analyzers(cls, subject):
+        for ac in GeofenceAnalyzerConfig.objects.filter(subject_group__subjects=subject):
+            yield cls(subject=subject, config=ac)
 
-    virtual_fences = models.ForeignKey(
-        to=FeatureSet,
-        on_delete=models.CASCADE,
-        null=True,
-        related_name='virtualfences'
-    )
+    ''' Hydrate GeofenceAnalysisParams'''
+    def _create_geofence_analysis_param(self):
+        #logger.info('Creating Geofence Anlaysis Params')
+        gfs, crs = [], []
 
-    containment_regions = models.ForeignKey(
-        to=FeatureSet,
-        on_delete=models.CASCADE,
-        null=True,
-        related_name='containmentregions'
-    )
-
-    search_time_hours = models.FloatField(null=False, default=24.0)
-
-    """ Hydrate GeofenceAnalysisParams"""
-    def create_geofence_analysis_param(self):
-
-        vfs, crs = [], []
-
-        # Get the FeatureSet containing the fences
-        if self.virtual_fences is not None:
-            fs = self.virtual_fences.Feature_set.all()
+        # Get the SpatialFeatureGroupStatic containing the fences
+        if self.config.geofences is not None:
+            fs = self.config.geofences.features.all()
             for feat in fs:
-                vf = pymet.geofence.VirtualFence(ogr_geometry=feat.feature_geometry,
+                if feat.feature_type.name == 'Geofence_Primary':
+                    print('Geofence GeoType:', type(feat.feature_geometry))
+                    vf = pymet.geofence.Geofence(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
                                                  fence_name=feat.name,
-                                                 unique_id=feat.id)
-                vfs.append(vf)
+                                                 unique_id=feat.id,
+                                                 warn_level='CRITICAL')
+                    gfs.append(vf)
+                elif feat.feature_type.name == 'Geofence_Warning':
+                    vf = pymet.geofence.Geofence(ogr_geometry=ogr.CreateGeometryFromWkt(wkt=feat.feature_geometry.wkt),
+                                                 fence_name=feat.name,
+                                                 unique_id=feat.id,
+                                                 warn_level='WARNING')
+                    gfs.append(vf)
 
-        # Get the FeatureSet containing the containment regions
-        if self.containment_regions is not None:
-            rgns = self.containment_regions.Feature_set.all()
+        # Get the SpatialFeatureGroupStatic containing the containment regions
+        if self.config.containment_regions is not None:
+            rgns = self.config.containment_regions.features.all()
             for feat in rgns:
-                cr = pymet.base.Region(ogr_geometry=feat.feature_geometry,
+                print('ContaianRegion Geo Type:', type(feat.feature_geometry))
+                cr = pymet.base.Region(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
                                        region_name=feat.name,
                                        unique_id=feat.id)
                 crs.append(cr)
 
-        return pymet.geofence.GeofenceAnalysisParams(virtualfences=vfs, regions=crs)
+        return pymet.geofence.GeofenceAnalysisParams(geofences=gfs, regions=crs)
 
-    """Get the relevant observations for the given subject"""
-    def get_observations(self):
-        return self.subject.observations(last_hours=self.search_time_hours)
-
-    """ Hydrate the trajectory """
-    def create_trajectory(self):
-
-        def create_fix(observation):
-            gp = pymet.base.GeoPoint(observation.location.x, observation.location.y, 0.0)
-            fix = pymet.base.Fix(gp, observation.recorded_at)
-            return fix
-
-        fixes = [create_fix(x) for x in self.get_observations()]
-        relocs = pymet.base.Relocations(fixes)
-        traj = pymet.base.Trajectory(relocs)
-
-        # Look up the StraightTrackSegmentFilter settings for the given SubjectType
-        traj_filter_params = SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject.subject_subtype).first()
-        if traj_filter_params is not None:
-            traj_filter = pymet.base.TrajSegFilter(max_speed_kmhr=traj_filter_params.speed_KmHr)
-            traj.traj_seg_filter = traj_filter  # Set the trajectory segment filter on the trajectory
-
-        return traj
-
-    def analyze(self, track=None):
-        super().analyze()
-        traj = self.create_trajectory()
-        analysis_params = self.create_geofence_analysis_param()
-        return self.analyze_jake(traj, analysis_params)
-
-    def analyze_jake(self, traj, geofence_analysis_params):
+    def analyze_trajectory(self, traj=None):
         """
         A function to analyze the trajectory of a subject in relation to a set of virtual fences and regions to
         determine where/when the polylines were crossed and what the containment of the individual was before and
         after any geofence crossings
         """
+        #logger.info('Geofencing analyzing trajectory')
 
-        if traj.relocs.fix_count < 2:
+        # Check to see if we have data that spans the threshold time otherwise impossible to calculate
+        if timedelta(seconds=traj.relocs.timespan_seconds) < timedelta(seconds=self.config.threshold_time):
             raise InsufficientDataAnalyzerException
 
-        #Generate a list of crossings
-        cross_results = pymet.geofence.GeofenceAnalysis.calc_crossings(geofence_analysis_params, [traj])
+        _analysis_params = self._create_geofence_analysis_param()
+
+        # Generate a list of crossings
+        cross_results = pymet.geofence.GeofenceAnalysis.calc_crossings(_analysis_params, [traj])
 
         das_analyzer_results = []
         for cross in cross_results.geofence_crossings:
-            #Create a DAS Analyser result based on each crossing event
-            result = SubjectAnalyzerResult(self)
-            result.analyzer_type = self.__class__.__name__
-            result.analyzer = self
-            result.crosstime = cross.est_cross_fix.fixtime
-            result.crosspoint = Point(cross.est_cross_fix.geopoint.ogr_geometry.GetX(),
-                                      cross.est_cross_fix.geopoint.ogr_geometry.GetY())
-            result.total_fix_count = traj.relocs.fix_count
-            result.observations = self.get_observations()
-            result.title = 'Crossed virtual fence'
+            # Create a DAS Analyser result based on each crossing event
+
+            # Create the analyzer result
+            result = SubjectAnalyzerResult(subject_analyzer=self.config,
+                                           title=self.subject.name,
+                                           message=self.subject.name,
+                                           analyzer_revision=1,
+                                           subject=self.subject)
+
+            # Define the latest fix as the estimated time
+            result.estimated_time = cross.est_cross_fix.fixtime
+
+            # Define the geometry to be the latest fix geometry
+            result.geometry_collection = DjangoGeoColl([DjangoPoint(cross.est_cross_fix.geopoint.ogr_geometry.GetX(),
+                                                                    cross.est_cross_fix.geopoint.ogr_geometry.GetY())])
+            # Set the event status level
+            if cross.warn_level == 'WARNING':
+                result.level = WARNING
+            else:
+                result.level = CRITICAL
+
+            # Get the geofence name and final containing region names to form the analyzer result message
+            vf_name = SpatialFeature.objects.get(pk=cross.geofence_id).name
+            result.title = self.subject.name + str(_(' crossed ')) + vf_name + '.'
+
+            contain_names = ','.join([SpatialFeature.objects.get(pk=contain_id).name
+                                      for contain_id in cross.end_region_ids])
+            if not contain_names:
+                contain_names = 'Unknown region'
+
+            result.message = result.title + str(_(' Subject now in: ')) + contain_names
+
+            result.values = {
+                'geofence_name': vf_name,
+                'contain_regions': contain_names,
+                'total_fix_count': traj.relocs.fix_count,
+                'subject_speed_kmhr': cross.subject_speed_kmhr,
+                'subject_heading': cross.subject_heading,
+            }
+
+            self.logger.info(result.message)
+
             das_analyzer_results.append(result)
 
         return das_analyzer_results
 
+    def save_analyzer_result(self, last_result=None, this_result=None):
+
+        if this_result is not None:
+            # Save if result is critical or warning
+            if this_result.level in (CRITICAL, WARNING):
+                this_result.save()
+
+    def create_analyzer_event(self, last_result=None, this_result=None):
+
+        # no data to create an event so exit
+        if not this_result:
+            return
+
+        event_data = None
+
+        # Create a dict() location to satisfy our EventSerializer.
+        event_location_value = {
+            'longitude': this_result.geometry_collection[0].x,
+            'latitude': this_result.geometry_collection[0].y
+        }
+
+        # Notify if result is critical or warning
+        if this_result.level in (CRITICAL, WARNING):
+            event_data = dict(
+                title=this_result.title,
+                message=this_result.message,
+                event_time=this_result.estimated_time,
+                provenance=Event.PC_ANALYZER,
+                event_type='analyzer_geofence',
+                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT),
+                location=event_location_value,
+                event_details=this_result.values,
+            )
+
+        if event_data:
+            return save_analyzer_event(event_data)
 
     """Original code from Joseph which I think can be deprecated"""
     """
@@ -225,6 +252,3 @@ class GeofenceAnalyzer(SubjectAnalyzer):
 
 
 """
-
-
-

@@ -84,7 +84,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('filename', type=str, nargs='*',
-                            help='spatial file, for example: import_ste_spatial "STESpatial_GeoJSON\lines.geojson" "points.geojson" "polygons.geojson" --feature-types "spatial_feature_types.geojson" --settings=das_server.local_settings')
+                            help='spatial file, for example: import_ste_spatial "STESpatial_GeoJSON\lines.geojson"'
+                                 ' "points.geojson" "polygons.geojson"'
+                                 ' --feature-types "spatial_feature_types.geojson"'
+                                 ' --settings=das_server.local_settings')
         parser.add_argument('--feature-types',
                             help='spatial feature types file')
 

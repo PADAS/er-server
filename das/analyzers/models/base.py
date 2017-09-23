@@ -21,6 +21,13 @@ WARNING = 20
 CRITICAL = 30
 ERROR = 40
 
+EVENT_PRIORITY_MAP = {
+    CRITICAL: Event.PRI_URGENT,
+    WARNING: Event.PRI_IMPORTANT,
+    OK: Event.PRI_REFERENCE,
+}
+
+
 class Schedule(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(null=False, max_length=50)
@@ -31,47 +38,51 @@ class Schedule(TimestampedModel):
             'Designates whether this Schedule is active. '
             'Set this False instead of deleting this record.'
         ))
+
+
+
     class Meta:
         app_label = 'analyzers'
 
+    # def dt_in_schedule(self, dt):
+    #     """Check whether the input datetime falls within the schedule"""
+    #     if self.is_active:
+    #         # ToDo: Implement this method
+    #         return True
+    #     else:
+    #         return True
 
 
 class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
-    '''
+    """
     An implementation of SubjectAnalyzerConfig is meant to associate a specific set of parameter values with 
     a SubjectGroup that it applies to. 
-    '''
+    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(null=False, unique=True, max_length=100,
                             verbose_name='A friendly, unique name for the analyzer.')
     notes = models.TextField(blank=True, default='')
     schedule = ArrayField(models.CharField(max_length=50), default=[],
-                          verbose_name='Array of crontab schedule patterns that an analyzer can use to determine whether to run.')
+                          verbose_name='Array of crontab schedule patterns that '
+                                       'an analyzer can use to determine whether to run.')
 
     subject_group = models.ForeignKey(to=SubjectGroup, on_delete=models.CASCADE,
                                       verbose_name='This analyzer applies to subjects in this SubjectGroup.')
 
     revision = Revision()
 
-    is_active = models.BooleanField(_('active'),
-        default=True,
-        help_text=_(
+    is_active = models.BooleanField(_('active'), default=True, help_text=_(
             'Designates whether this analyzer is active. '
             'Set this False instead of deleting this record.'
         ))
 
+    search_time_hours = models.FloatField(null=False, default=24.0,
+                                          verbose_name='The period over which to run the subject analyzer')
+
     class Meta:
         abstract = True
         app_label = 'analyzers'
-
-    def analyze(self, last_result=None):
-        raise NotImplementedError()
-
-    def save_analyzer_result(self, last_result=None, this_result=None):
-        raise NotImplementedError()
-
-    def create_analyzer_event(self, last_result=None, this_result=None):
-        raise NotImplementedError()
 
 
 class SubjectAnalyzerResultManager(models.Manager):
@@ -83,13 +94,14 @@ class SubjectAnalyzerResult(TimestampedModel):
     objects = SubjectAnalyzerResultManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    analyzer_revision = models.IntegerField()
+    analyzer_revision = models.IntegerField(default=1)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
     geometry_collection = models.GeometryCollectionField()
     estimated_time = models.DateTimeField()
     level = models.IntegerField()
     observations = models.ManyToManyField(Observation, related_name='+')
     values = JSONField(default={}, blank=True)
+    title = models.TextField(default='', blank=True)
     message = models.TextField(default='', blank=True)
 
     # TODO: Reference GeoFeature table, and FileContent (which will soon exist as models).
@@ -97,8 +109,10 @@ class SubjectAnalyzerResult(TimestampedModel):
     # images
 
     # Remaining attributes are to reference the analyzer that created me.
-    limits = models.Q(app_label='analyzers', model='immobilityanalyzer')
-    # | models.Q(app_label='analyzers', model='geofenceanalyzer')
+    limits = models.Q(app_label='analyzers', model='immobilityanalyzer') | \
+             models.Q(app_label='analyzers', model='geofenceanalyzer') | \
+             models.Q(app_label='analyzers', model='environmentalanalyzer')
+
     subject_analyzer_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
     subject_analyzer_id = models.UUIDField()
     subject_analyzer = GenericForeignKey('subject_analyzer_content_type', 'subject_analyzer_id')
@@ -107,7 +121,7 @@ class SubjectAnalyzerResult(TimestampedModel):
     def __str__(self):
         _tmp_str = 'Subject: ' + self.subject.name + ', ' + \
            'Values: ' + str(self.values) + ', ' + \
-           'Message: ' + str(self.message) + ', ' + \
+           'Title: ' + str(self.title) + ', ' + \
            'Est.Time: ' + str(self.estimated_time) + ', ' + \
            'Geometry: ' + str(self.geometry_collection)
         return _tmp_str
@@ -127,5 +141,3 @@ class Annotator(RevisionMixin, TimestampedModel):
     class Meta:
         abstract = True
         app_label = 'analyzers'
-
-
