@@ -32,4 +32,5 @@ class StatusView(generics.RetrieveAPIView):
 
         resp['event_matrix_enabled'] = settings.EVENT_MATRIX_ENABLED
 
+        resp['event_search_enabled'] = True
         return resp
