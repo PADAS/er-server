@@ -3,7 +3,7 @@ version: "3.2"
 services:
   web:
     image: gcr.io/padas-app/web/develop
-    volumes: 
+    volumes:
       - ../das-web:/var/www/app
 
   api:
@@ -40,3 +40,10 @@ services:
       - ./dependencies:/workspace/dependencies
       - ./docker/base/wait_for.sh:/startup/wait_for.sh
       - ./docker/Beat/start.sh:/var/www/app/start.sh
+
+  postgis:
+    volumes:
+      - ${DAS_POSTGRES_DATA:-pgdata}:/var/lib/postgresql/data/das
+    ports:
+      - 6432:5432
+

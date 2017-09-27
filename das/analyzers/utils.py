@@ -5,6 +5,8 @@ from shapely.geometry.multipoint import MultiPoint
 from django.http.request import HttpRequest
 from activity.models import Event
 from activity.serializers import EventSerializer
+from django.contrib.auth import get_user_model
+
 
 def latest_event_for(analyzer):
     """ Returns the most recent event or None for a given subject and analyzer """
@@ -18,12 +20,14 @@ def latest_event_for(analyzer):
 
     return event
 
+
 def distance_to_exterior_point(polygon, point):
     """ for a point outside polygon, return the distance in meters
     to that point """
     d = polygon.boundary.project(point)
     p = polygon.boundary.interpolate(d)
     return distance(p.coords, point.coords).m
+
 
 def cluster(track, radius):
     """ returns the probability (in the range 0-1 inclusive) of a
@@ -41,7 +45,6 @@ def cluster(track, radius):
 
     return probability
 
-from django.contrib.auth import get_user_model
 
 def get_system_user():
     User = get_user_model()
@@ -54,19 +57,20 @@ def get_system_user():
 
 
 def save_analyzer_event(event_data):
-    '''
-    TODO: I create a blank request here, in order to provide EventSerializer with a valid context that includes
-    a User.
-    '''
+
+    # TODO: I create a blank request here, in order to provide
+    # EventSerializer with a valid context that includes a User.
+
     request = HttpRequest()
     request.user = get_system_user()
     ser = EventSerializer(data=event_data,
-                          context={ 'request': request})
+                          context={'request': request})
 
     if ser.is_valid():
         return ser.create(ser.validated_data)
 
     raise ValueError('Analyzer Event is invalid, errors=%s' % (ser.errors,))
+
 
 def typify(fmap, item):
     '''
@@ -75,8 +79,9 @@ def typify(fmap, item):
     :param item: A dictionary to which we'll apply the functions.
     :return: A new dict
     '''
+
     r = copy.copy(item)
-    for k,f in fmap.items():
+    for k, f in fmap.items():
         r[k] = f(r[k])
     return r
 

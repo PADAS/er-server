@@ -5,8 +5,6 @@ services:
     image: gcr.io/padas-app/web/app
     container_name: das_web
     env_file: .env
-    ports:
-      - 9000:9000
 
   nginx:
     image: gcr.io/padas-app/nginx
@@ -17,7 +15,6 @@ services:
       - web
     ports:
       - 8000:8000
-      - 4652:4652
 
   api:
     image: gcr.io/padas-app/api
@@ -33,18 +30,6 @@ services:
       interval: 30s
       timeout: 1s
       retries: 5
-
-  notebook:
-    image: gcr.io/padas-app/notebook
-    container_name: das_notebook
-    env_file: .env
-    links:
-      - postgis
-      - redis
-    ports:
-      - 9888:8888
-    volumes:
-      - user-uploads:/user-uploads
 
   rt-api:
     image: gcr.io/padas-app/rt_api

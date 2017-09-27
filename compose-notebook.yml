@@ -1,0 +1,41 @@
+version: "3.2"
+
+services:
+
+#  api-unittest:
+#    context: ./docker/api_unittest/
+#    image: gcr.io/padas-app/api
+#    container_name: das_api_unittest
+#    env_file: .env
+#    links:
+#      - postgis
+#      - redis
+#    volumes:
+#      - ./das:/var/www/app
+#      - ./dependencies:/workspace/dependencies
+#      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+#      - ./docker/api_unittest/start.sh:/var/www/app/start.sh
+#    depends_on:
+#      - app
+
+  notebook:
+    build:
+      context: ./docker/Notebook/
+    image: gcr.io/padas-app/notebook
+    container_name: das_notebook
+    env_file: .env
+    links:
+      - postgis
+      - redis
+    ports:
+      - 9888:8888
+    volumes:
+      - user-uploads:/user-uploads
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+      - ./docker/Notebook/start.sh:/var/www/app/start.sh
+      - ${DAS_NOTEBOOKS_DIR:-notebooks}:/var/notebooks
+    depends_on:
+      - app
+

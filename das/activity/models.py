@@ -174,7 +174,16 @@ class EventType(TimestampedModel):
     category = models.ForeignKey(EventCategory, null=True,
                                  on_delete=models.PROTECT)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    schema = models.TextField(blank=True)
+    schema = models.TextField(blank=True, default='''{
+                "schema": 
+                {
+                    "$schema": "http://json-schema.org/draft-04/schema#",
+                    "title": "Empty Event Schema",
+                    "type": "object",
+                    "properties": {}
+                },
+                "definition": []
+                }''')
 
     is_collection = models.BooleanField(default=False)
 
@@ -244,7 +253,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             filter = filter | Q(
                 serial_number_text__startswith=text_search)
 
-        return queryset.filter(filter)
+        return queryset.filter(filter).distinct()
 
 
 class EventManager(models.Manager):

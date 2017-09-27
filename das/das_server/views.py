@@ -16,6 +16,8 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     version = rest_framework.serializers.CharField(read_only=True)
     event_matrix_enabled = rest_framework.serializers.BooleanField(
         read_only=True)
+    event_search_enabled = rest_framework.serializers.BooleanField(
+        read_only=True)
 
 
 class StatusView(generics.RetrieveAPIView):
@@ -32,4 +34,5 @@ class StatusView(generics.RetrieveAPIView):
 
         resp['event_matrix_enabled'] = settings.EVENT_MATRIX_ENABLED
 
+        resp['event_search_enabled'] = True
         return resp
