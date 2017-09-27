@@ -253,7 +253,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             filter = filter | Q(
                 serial_number_text__startswith=text_search)
 
-        return queryset.filter(filter)
+        return queryset.filter(filter).distinct()
 
 
 class EventManager(models.Manager):
