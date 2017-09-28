@@ -10,4 +10,4 @@ RUN chmod +x /startup/start.sh
 
 ENTRYPOINT ["/startup/start.sh"]
 
-EXPOSE 8000
+EXPOSE 8000 443
