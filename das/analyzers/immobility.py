@@ -60,6 +60,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             4) algorithm provenance
 
         """
+        if traj is None:
+            return
 
         # Check to see if we have data that spans the threshold time otherwise impossible to calculate
         if timedelta(seconds=traj.relocs.timespan_seconds) < timedelta(seconds=self.config.threshold_time):
@@ -73,6 +75,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
         # Create the analyzer result
         result = SubjectAnalyzerResult(subject_analyzer=self.config,
+                                       title=self.subject.name,
                                        level=OK,
                                        message=self.subject.name + str(_(' is moving')),
                                        analyzer_revision=1,
