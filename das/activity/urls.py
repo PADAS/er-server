@@ -1,9 +1,9 @@
 from django.conf.urls import url, include
 from activity import views
 
-
 urlpatterns = [
     url(r'^events/?$', views.EventsView.as_view()),
+    url(r'^events/export/?$', views.EventsExportView.as_view()),
     url(r'^events/schema/?$', views.EventSchemaView.as_view()),
     url(r'^events/schema/eventtype/(?P<eventtype>[a-z0-9-_]+)?$',
         views.EventTypeSchemaView.as_view(), name='event-schema-eventtype'),
@@ -44,4 +44,3 @@ urlpatterns = [
         r'^event/(?P<from_event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/relationship/(?P<relationship_type>[0-9a-zA-Z_]+)/(?P<to_event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.EventRelationshipView.as_view(), name='event-view-relationship'),
 ]
-

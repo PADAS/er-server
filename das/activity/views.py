@@ -15,6 +15,7 @@ from django.template import Template, Context
 from rest_framework.response import Response
 
 import rest_framework.exceptions
+from rest_framework import views
 from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
 
@@ -34,6 +35,11 @@ import utils
 from activity import schema_utils
 import accounts.serializers
 import accounts.models
+
+
+from rest_framework import serializers, views, permissions
+from django.views.generic.base import TemplateResponseMixin, ContextMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +188,38 @@ class EventCountView(generics.ListAPIView):
 
         data = {'count': queryset.count()}
         return generics.views.Response(data)
+
+
+class EventsExportView(views.APIView, ContextMixin):
+
+    permission_classes = (EventCategoryPermissions,)
+    serializer_class = EventNoteSerializer
+
+    def get(self, request, *args, **kwargs):
+
+        try:
+            filter = loads(request.query_params)
+            if filter.contains('text'):
+                pass
+            if filter.contains('bbox'):
+                pass
+        except:
+            pass
+
+        context = self.get_context_data(**kwargs)
+        return self.render_to_response(context)
+
+    def render_to_response(self, context, **response_kwargs):
+
+        response = HttpResponse()
+        response['Content-Disposition'] = 'attachment; filename={}'.format(
+            'example_csv.csv')
+        response['x-das-download-filename'] = 'example_csv.csv'
+        response['content-type'] = 'text/csv'
+        return response
+
+    def get_context_data(self, **kwargs):
+        return {}
 
 
 class EventsView(generics.ListCreateAPIView):
