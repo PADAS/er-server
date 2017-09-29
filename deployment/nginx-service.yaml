@@ -8,5 +8,9 @@ spec:
   ports:
   - port: 80
     targetPort: 8000
+    name: http-port
+  - port: 443
+    targetPort: 443
+    name: https-port
   selector:
     das.component: nginx
