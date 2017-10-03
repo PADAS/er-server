@@ -99,7 +99,7 @@ python-engineio==1.3.0
 python-json-logger==0.1.7
 pytz==2016.10
 pyyaml==3.12
-rasterio==0.36.0
+rasterio==1.0a9
 rasterstats==0.12.0
 redis==2.10.5
 requests==2.13.0
