@@ -380,6 +380,8 @@ class SubjectTracksView(generics.RetrieveAPIView):
         except Exception:
             pass
 
+        begin = begin.replace(tzinfo=pytz.utc)
+        until = until.replace(tzinfo=pytz.utc)
         coordinates = []
         times = []
         for ob in models.Observation.objects.get_subject_observation_values(
