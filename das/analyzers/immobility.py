@@ -74,7 +74,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         test_cluster = pymet.cluster.Cluster()
 
         # Create the analyzer result
-        title = self.subject.name + _(' is moving')
+        title = '{} {}'.format(str(self.subject.name), str(_(' is moving')))
+
         result = SubjectAnalyzerResult(subject_analyzer=self.config,
                                        level=OK,
                                        title=title,
@@ -105,7 +106,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 # TODO: gte comparison  on the timespan but switched to achieve parity with STE system
                 # Modify analyzer result
                 result.level = CRITICAL
-                result.title = self.subject.name + str(_(' is immobile'))
+                result.title = '{} {}'.format(
+                    str(self.subject.name), str(_(' is immobile')))
                 result.message = result.title
                 result.geometry_collection = DjangoGeoColl([DjangoPoint(test_cluster.centroid.GetX(),
                                                                         test_cluster.centroid.GetY())])

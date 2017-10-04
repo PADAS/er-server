@@ -445,6 +445,8 @@ EVENT_MATRIX_ENABLED = False
 
 # Default speed-threshold (in km/h) by subject-subtype. These are default values that maybe overridden in an
 # ObservationAnnotation instance.
+# If a subject_sub-type is not found here, then the annotation routine
+# will not do anything.
 ANNOTATION_SETTINGS = {
     'speed_thresholds': {
         'forest_elephant': 7.0,
