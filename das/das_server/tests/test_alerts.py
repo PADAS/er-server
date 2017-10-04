@@ -12,6 +12,7 @@ from activity.models import Event, EventType, EventRelationship, EventDetails
 from observations.models import Subject
 
 from unittest.mock import patch
+from unittest import mock
 from mockredis import mock_redis_client
 
 import das_server.tests.mocks.mock_routing as mock_routing
@@ -223,9 +224,9 @@ class TestEventView(TestCase):
 
         # Make sure the mocks were called the correct number of times with the
         # correct values
-        mock_get_alert_users.assert_called_once()
-        mock_send_email.assert_called_once_with(target_subject, target_body,
-                                                alert_targets.target_from_address)
+        assert mock_get_alert_users.call_count == 1
+        assert mock_send_email.call_args == mock.call(
+            target_subject, target_body, alert_targets.target_from_address)
 
     @patch.object(AccountsAbstractUser, 'email_user')
     @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
@@ -251,9 +252,9 @@ class TestEventView(TestCase):
 
         # Make sure the mocks were called the correct number of times with the
         # correct values
-        mock_get_alert_users.assert_called_once()
-        mock_send_email.assert_called_once_with(target_subject, target_body,
-                                                alert_targets.target_from_address)
+        assert mock_get_alert_users.call_count == 1
+        assert mock_send_email.call_args == mock.call(target_subject, target_body,
+                                                      alert_targets.target_from_address)
 
     @patch.object(AccountsAbstractUser, 'email_user')
     @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
@@ -287,8 +288,8 @@ class TestEventView(TestCase):
             serial=parent.serial_number,
             title=parent.title)
 
-        mock_get_alert_users.assert_called_once()
-        mock_send_email.assert_called_once_with(
+        assert mock_get_alert_users.call_count == 1
+        assert mock_send_email.call_args == mock.call(
             target_subject, target_body, alert_targets.target_from_address)
 
     @patch.object(AccountsAbstractUser, 'email_user')
@@ -316,8 +317,8 @@ class TestEventView(TestCase):
             serial=self.parent_one.serial_number,
             title=self.parent_one.title)
 
-        mock_get_alert_users.assert_called_once()
-        mock_send_email.assert_called_once_with(
+        assert mock_get_alert_users.call_count == 1
+        assert mock_send_email.call_args == mock.call(
             target_subject, target_body, alert_targets.target_from_address)
 
     @patch.object(AccountsAbstractUser, 'email_user')
@@ -347,8 +348,8 @@ class TestEventView(TestCase):
             serial=self.parent_two.serial_number,
             title=self.parent_two.title)
 
-        mock_get_alert_users.assert_called_once()
-        mock_send_email.assert_called_once_with(
+        assert mock_get_alert_users.call_count == 1
+        assert mock_send_email.call_args == mock.call(
             target_subject, target_body, alert_targets.target_from_address)
 
     @patch.object(AccountsAbstractUser, 'email_user')
@@ -382,8 +383,8 @@ class TestEventView(TestCase):
             serial=self.new_event.serial_number,
             title=self.new_event.title)
 
-        mock_get_alert_users.assert_called_once()
-        mock_send_email.assert_called_once_with(
+        assert mock_get_alert_users.call_count == 1
+        assert mock_send_email.call_args == mock.call(
             target_subject, target_body, alert_targets.target_from_address)
 
     @patch.object(AccountsAbstractUser, 'email_user')
@@ -415,8 +416,8 @@ class TestEventView(TestCase):
             serial=self.new_event.serial_number,
             title=self.new_event.title)
 
-        mock_get_alert_users.assert_called_once()
-        mock_send_email.assert_called_once_with(
+        assert mock_get_alert_users.call_count == 1
+        assert mock_send_email.call_args == mock.call(
             target_subject, target_body, alert_targets.target_from_address)
 
         def event_manipulations_two():
@@ -437,5 +438,5 @@ class TestEventView(TestCase):
             serial=self.new_event.serial_number,
             title=self.new_event.title)
 
-        mock_send_email.assert_called_with(
+        assert mock_send_email.call_args == mock.call(
             target_subject, target_body, alert_targets.target_from_address)
