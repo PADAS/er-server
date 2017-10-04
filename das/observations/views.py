@@ -341,7 +341,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         requested_oldest_age = self.request.query_params.get('since', None)
         requested_newest_age = self.request.query_params.get('until', None)
-        now = datetime.datetime.now()
+        now = pytz.utc.localize(datetime.datetime.utcnow())
 
         if requested_oldest_age is None:
             oldest_age = min(settings.SHOW_TRACK_DAYS, oldest_age_allowed)
@@ -380,8 +380,6 @@ class SubjectTracksView(generics.RetrieveAPIView):
         except Exception:
             pass
 
-        begin = begin.replace(tzinfo=pytz.utc)
-        until = until.replace(tzinfo=pytz.utc)
         coordinates = []
         times = []
         for ob in models.Observation.objects.get_subject_observation_values(
