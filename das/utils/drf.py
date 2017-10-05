@@ -14,7 +14,7 @@ from rest_framework.compat import set_rollback
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.metadata import BaseMetadata
+from rest_framework import serializers
 
 
 logger = logging.getLogger('django.request')
@@ -39,7 +39,7 @@ class SuperUserSessionAuthentication(SessionAuthentication):
         if not user or not user.is_active or not user.is_superuser:
             return None
 
-        #self.enforce_csrf(request)
+        # self.enforce_csrf(request)
 
         # CSRF passed with authenticated user
         return (user, None)
@@ -97,6 +97,10 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 
-class NoMetaData(BaseMetadata):
-    def determine_metadata(self, request, view):
-        return None
+class PointValidator:
+    """Check that the point field is valid in the latitude and longitude values
+    we do this by checking Point.valid is True"""
+
+    def __call__(self, value):
+        if not value.valid:
+            raise serializers.ValidationError(value.valid_reason)
