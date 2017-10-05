@@ -157,7 +157,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'accounts.backends.NoLoginOAuth2Authentication',
-        'utils.drf.SuperUserSessionAuthentication',
+        'utils.authentication.SuperUserSessionAuthentication',
     ),
     #'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
     'DEFAULT_RENDERER_CLASSES': (
