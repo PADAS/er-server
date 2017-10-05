@@ -26,10 +26,10 @@ class TestEnvironmentAnalyzer(TestCase):
         # activity.models.EventType.objects.get_or_create(value='environmental_all_clear', category=ec,
         #                                                 defaults=dict(
         #                                                     display='Environmental All Clear',
-        #                                                     is_collection=False, ))
+        # is_collection=False, ))
         pass
 
-    def test_integration_environmental_analyzer(self):
+    def integration_test_environmental_analyzer(self):
 
         # Grab random observations
         test_observations = [x for x in generate_random_positions()]
@@ -49,12 +49,12 @@ class TestEnvironmentAnalyzer(TestCase):
         sg.save()
 
         EnvironmentalSubjectAnalyzerConfig.objects.create(subject_group=sg,
-                                                               search_time_hours=5.0,
-                                                               threshold_value=10.0,  # use a low elevation
-                                                               scale_meters=500.0,
-                                                               GEE_img_name='USGS/SRTMGL1_003',
-                                                               GEE_img_band_name='elevation',
-                                                               short_description='Elevation')
+                                                          search_time_hours=5.0,
+                                                          threshold_value=10.0,  # use a low elevation
+                                                          scale_meters=500.0,
+                                                          GEE_img_name='USGS/SRTMGL1_003',
+                                                          GEE_img_band_name='elevation',
+                                                          short_description='Elevation')
 
         # Create observations in database, so the Analyzer will find them.
         for item in test_observations:
