@@ -80,7 +80,7 @@ pyasn1==0.2.3             # via oauth2client, pyasn1-modules, rsa
 pycparser==2.17           # via cffi
 pygments==2.2.0           # via sphinx
 pyjwt==1.5.2              # via twilio
-pymet==0.1.14
+pymet==0.1.15
 pyopenssl==17.0.0         # via earthengine-api
 pyparsing==2.2.0          # via matplotlib, snuggs
 pyproj==1.9.5.1
