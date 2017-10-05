@@ -164,7 +164,7 @@ REST_FRAMEWORK = {
         'utils.json.ExtendedJSONRenderer',
         'utils.json.ExtendedBrowsableAPIRenderer',
     ),
-    'DEFAULT_METADATA_CLASS': 'utils.drf.NoMetaData',
+    'DEFAULT_METADATA_CLASS': 'utils.meta.NoMetaData',
     'EXCEPTION_HANDLER': 'utils.drf.api_exception_handler',
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
     #'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
