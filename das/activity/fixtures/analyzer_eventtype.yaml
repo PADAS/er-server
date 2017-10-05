@@ -1,10 +1,10 @@
 - model: activity.eventcategory
   pk: ef230385-5afc-40d1-ad07-c811f6da2b3c
-  fields: {created_at: !!timestamp '2017-05-30 22:15:37.051977+00:00', updated_at: !!timestamp '2017-05-30
+  fields: {created_at: '2017-05-30 22:15:37.051977+00:00', updated_at: '2017-05-30
       22:15:37.052009+00:00', value: analyzer_event, display: Analyzer Event, ordernum: 1}
 - model: activity.eventtype
   pk: 5a468b3c-67de-4f94-98ae-23eb429d21cc
-  fields: {created_at: !!timestamp '2017-06-09 16:38:57.029223+00:00', updated_at: !!timestamp '2017-06-09
+  fields: {created_at: '2017-06-09 16:38:57.029223+00:00', updated_at:  '2017-06-09
       23:01:41.484339+00:00', value: environmental_value, display: Environmental,
     category: ef230385-5afc-40d1-ad07-c811f6da2b3c, ordernum: 500, schema: "{\r\n\
       \      \"schema\": {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
@@ -24,7 +24,7 @@
       \      }\r\n    }", is_collection: false}
 - model: activity.eventtype
   pk: 88bca671-be9f-4bc8-90b7-f946aa5f62f5
-  fields: {created_at: !!timestamp '2017-06-09 16:39:27.714408+00:00', updated_at: !!timestamp '2017-06-09
+  fields: {created_at: '2017-06-09 16:39:27.714408+00:00', updated_at: '2017-06-09
       23:02:12.260207+00:00', value: environmental_all_clear, display: Enviromental
       All Clear, category: ef230385-5afc-40d1-ad07-c811f6da2b3c, ordernum: 501, schema: "{\r\
       \n      \"schema\": {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
@@ -45,7 +45,7 @@
 
 - model: activity.eventtype
   pk: 8bf325e7-2880-447a-b2d8-156c66bc5708
-  fields: {created_at: !!timestamp '2017-05-30 22:15:37.058298+00:00', updated_at: !!timestamp '2017-05-30
+  fields: {created_at: '2017-05-30 22:15:37.058298+00:00', updated_at: '2017-05-30
       22:15:37.058317+00:00', value: immobility_all_clear, display: Immobility All
       Clear, category: ef230385-5afc-40d1-ad07-c811f6da2b3c, ordernum: 301, schema: "{\n\
       \      \"schema\": {\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
@@ -66,7 +66,7 @@
       \ }\n    }", is_collection: false}
 - model: activity.eventtype
   pk: c419acac-874d-422e-8b7b-54470afe56c5
-  fields: {created_at: !!timestamp '2017-05-30 22:15:37.055653+00:00', updated_at: !!timestamp '2017-05-30
+  fields: {created_at: '2017-05-30 22:15:37.055653+00:00', updated_at: '2017-05-30
       22:15:37.055672+00:00', value: immobility, display: Immobility, category: ef230385-5afc-40d1-ad07-c811f6da2b3c,
     ordernum: 300, schema: "{\n      \"schema\": {\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\"\
       ,\n        \"title\": \"EventType Immobility\",\n        \"type\": \"object\"\

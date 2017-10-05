@@ -8,6 +8,7 @@
 PROJECT=padas-app
 CONCOURSE_URL=https://35.197.64.22
 
+IMAGE_NAME=gcr.io/ss-infrastructure-public/platform/tools
 CONTAINER_NAME=vp_tools_$PROJECT
 VAULT_ADDR=https://35.197.70.36:8200
 
@@ -21,7 +22,7 @@ if [ ! "$(docker ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
         -v $CONTAINER_NAME-root:/root \
         -v $(pwd):/workdir \
         --entrypoint /run/startup.sh \
-        gcr.io/ss-infrastructure/platform/tools
+        $IMAGE_NAME
 else
     docker run -it --rm \
         --volumes-from $CONTAINER_NAME \
@@ -30,5 +31,5 @@ else
         -e VAULT_ADDR=$VAULT_ADDR \
         -e VAULT_SKIP_VERIFY=true \
         -v $(pwd):/workdir \
-        gcr.io/ss-infrastructure/platform/tools
+        $IMAGE_NAME
 fi

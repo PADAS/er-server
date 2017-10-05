@@ -1,7 +1,3 @@
-"""
-Code found here:
-Allow a superuser to browse the DRF api.
-"""
 import logging
 
 import django.views.defaults
@@ -9,40 +5,15 @@ from django.http import Http404, JsonResponse
 from django.utils.translation import ugettext_lazy as _
 import rest_framework
 from rest_framework import exceptions
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.compat import set_rollback
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 from rest_framework.pagination import PageNumberPagination
+
 from rest_framework import serializers
 
 
 logger = logging.getLogger('django.request')
-
-
-class SuperUserSessionAuthentication(SessionAuthentication):
-    """
-    Use Django's session framework for authentication of super users.
-    """
-
-    def authenticate(self, request):
-        """
-        Returns a `User` if the request session currently has a logged in user.
-        Otherwise returns `None`.
-        """
-
-        # Get the underlying HttpRequest object
-        request = request._request
-        user = getattr(request, 'user', None)
-
-        # Unauthenticated, CSRF validation not required
-        if not user or not user.is_active or not user.is_superuser:
-            return None
-
-        # self.enforce_csrf(request)
-
-        # CSRF passed with authenticated user
-        return (user, None)
 
 
 def fixup_api_response(response):
