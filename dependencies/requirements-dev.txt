@@ -86,14 +86,14 @@ pyasn1==0.2.3
 pycparser==2.17
 pygments==2.2.0
 pyjwt==1.5.2
-pymet==0.1.13
+pymet==0.1.14
 pyopenssl==17.0.0
 pyparsing==2.2.0
 pyproj==1.9.5.1
 pysocks==1.6.7
 python-dateutil==2.6.0
 python-docx==0.8.6
-python-engineio==1.3.0
+python-engineio==1.7.0
 python-json-logger==0.1.7
 pytz==2016.10
 pyyaml==3.12
