@@ -1,6 +1,6 @@
 
 import eventlet
-import json
+import utils.json as json
 import logging
 
 from das_server import pubsub, celery

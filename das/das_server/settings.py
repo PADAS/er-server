@@ -157,14 +157,14 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'accounts.backends.NoLoginOAuth2Authentication',
-        'utils.drf.SuperUserSessionAuthentication',
+        'utils.authentication.SuperUserSessionAuthentication',
     ),
     #'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
     'DEFAULT_RENDERER_CLASSES': (
         'utils.json.ExtendedJSONRenderer',
         'utils.json.ExtendedBrowsableAPIRenderer',
     ),
-    'DEFAULT_METADATA_CLASS': 'utils.drf.NoMetaData',
+    'DEFAULT_METADATA_CLASS': 'utils.meta.NoMetaData',
     'EXCEPTION_HANDLER': 'utils.drf.api_exception_handler',
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
     #'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
