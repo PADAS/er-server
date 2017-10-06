@@ -1,0 +1,8 @@
+Event Reports
+
+{% for event_type in event_types %}
+Event Type,{{ event_type.display }},{{ event_type.value }}
+Fields:,{% for header in event_type.headers %}{{ header }},{% endfor %}
+{% for event in event_type.events %},{{ event.serial }},{{ event.event_type }},{{ event.event_type_internal }},{{ event.title | safe }},{{ event.reported_by }},{{ event.reported_by_internal }},{{ event.reported_at }},{{ event.lat }},{{ event.lon }},,{% for detail in event.details %}{{ detail | safe }},{% endfor %}
+{% endfor %}
+{% endfor %}

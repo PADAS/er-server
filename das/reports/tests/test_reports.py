@@ -4,7 +4,7 @@ from accounts.models import PermissionSet, User
 from observations.models import SubjectGroup, Subject
 from activity.models import *
 from django.core.management import call_command
-from reports.event_utils import validate, generate_details, schema_renderer
+from utils.schema_utils import validate, generate_details, schema_renderer
 from activity.serializers import EventSerializer
 from django.http.request import HttpRequest
 

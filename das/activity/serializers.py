@@ -41,7 +41,8 @@ from observations.serializers import SubjectSerializer, SourceSerializer, get_su
 from observations.models import Subject
 from analyzers.serializers import SubjectAnalyzerResultSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
-from activity import schema_utils
+
+from utils import schema_utils
 from activity.models import EventRelationship
 import usercontent.serializers
 
