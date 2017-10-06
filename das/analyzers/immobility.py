@@ -61,6 +61,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             4) algorithm provenance
 
         """
+        if traj is None:
+            return
 
         # Check to see if we have data that spans the threshold time otherwise
         # impossible to calculate

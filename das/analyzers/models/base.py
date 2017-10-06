@@ -78,7 +78,7 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
         ))
 
     search_time_hours = models.FloatField(null=False, default=24.0,
-                                          verbose_name='The period over which to run the subject analyzer')
+                                          verbose_name='The period of data to retrieve from the database')
 
     class Meta:
         abstract = True
