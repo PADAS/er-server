@@ -197,15 +197,9 @@ class EventType(TimestampedModel):
 
 
 class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
-    def all_sort(self):
-        # default order by is by updated_at and (new/active/resolved)
-        ordering = [(0, Event.SC_NEW), (0, Event.SC_ACTIVE),
-                    (1, Event.SC_RESOLVED)]
-        state_ordering = models.Case(*[models.When(state=pk, then=pos)
-                                       for pos, pk in ordering])
-        result = self.order_by(*[state_ordering, '-sort_at'])
 
-        return result
+    def all_sort(self):
+        return self.order_by('-sort_at')
 
     def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
@@ -253,7 +247,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             filter = filter | Q(
                 serial_number_text__startswith=text_search)
 
-        return queryset.filter(filter)
+        return queryset.filter(filter).distinct()
 
 
 class EventManager(models.Manager):

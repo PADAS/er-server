@@ -314,14 +314,15 @@
             $('form#connect').submit(function(event) {
                 if (socket !== null)
                 {
-                    return false;
+                    socket.open();
                 }
-                socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
-
+                else {
+                   socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+                }
                 // event handler for server sent data
                 // the data is displayed in the "Received" section of the page
                 socket.on('resp_authorization', function(msg) {
-                    $('#log').prepend('<br>Received #' + msg.resp_id + ': ' + msg.status.message);
+                    $('#log').prepend('<br>authorization response: ' + pp.json.prettypre(msg));
                 });
 
                 // event handler for new connections
@@ -330,7 +331,7 @@
                 });
 
                 socket.on('echo_resp', function(msg){
-                    $('#log').prepend('<br>Received #' + pp.json.prettypre(msg));
+                    $('#log').prepend('<br>echo response: ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('bbox_resp', function(msg){
@@ -342,24 +343,24 @@
                 });
 
                 socket.on('subject_position_update', function(msg) {
-                    $('#log').prepend('<br>Received position update:  ' + pp.json.prettypre(msg));
+                    $('#log').prepend('<br>position update:  ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('new_event', function(msg) {
-                    $('#log').prepend('<br>Received new event:  ' + pp.json.prettypre(msg));
+                    $('#log').prepend('<br>new event:  ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('update_event', function(msg) {
-                    $('#log').prepend('<br>Received update event:  ' + pp.json.prettypre(msg));
+                    $('#log').prepend('<br>update event:  ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('delete_event', function(msg) {
-                    $('#log').prepend('<br>Received delete event:  ' + pp.json.prettypre(msg));
+                    $('#log').prepend('<br>delete event:  ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('disconnect', function() {
-                     $('#log').prepend('<br>Disconnected');
-                    socket = null;
+                     $('#log').prepend('<br>disconnect');
+                    //socket = null;
                 });
                 return false;
             });

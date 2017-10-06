@@ -12,6 +12,7 @@ from activity.models import Event, EventType, EventRelationship, EventDetails
 from observations.models import Subject
 
 from unittest.mock import patch
+from unittest import mock
 from mockredis import mock_redis_client
 
 import das_server.tests.mocks.mock_routing as mock_routing
@@ -200,7 +201,8 @@ class TestEventView(TestCase):
             serial=self.standalone_event.serial_number,
             title=self.standalone_event.title or 'No Title').strip()
 
-        mock_send_sms.assert_called_once_with(target_message)
+        assert mock_send_sms.call_count == 1
+        assert mock_send_sms.call_args == mock.call(target_message)
 
     @patch.object(AccountsAbstractUser, 'send_sms')
     @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
@@ -227,7 +229,8 @@ class TestEventView(TestCase):
             serial=parent.serial_number,
             title=parent.title or 'No Title').strip()
 
-        mock_send_sms.assert_called_once_with(target_message)
+        assert mock_send_sms.call_count == 1
+        assert mock_send_sms.call_args == mock.call(target_message)
 
     @patch.object(AccountsAbstractUser, 'send_sms')
     @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
@@ -247,7 +250,8 @@ class TestEventView(TestCase):
             serial=self.parent_one.serial_number,
             title=self.parent_one.title or 'No Title').strip()
 
-        mock_send_sms.assert_called_once_with(target_message)
+        assert mock_send_sms.call_count == 1
+        assert mock_send_sms.call_args == mock.call(target_message)
 
     @patch.object(AccountsAbstractUser, 'send_sms')
     @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
@@ -269,7 +273,8 @@ class TestEventView(TestCase):
             serial=self.parent_two.serial_number,
             title=self.parent_two.title or 'No Title').strip()
 
-        mock_send_sms.assert_called_once_with(target_message)
+        assert mock_send_sms.call_count == 1
+        assert mock_send_sms.call_args == mock.call(target_message)
 
     @patch.object(AccountsAbstractUser, 'send_sms')
     @patch('das_server.celery.app.send_task',
@@ -298,7 +303,8 @@ class TestEventView(TestCase):
             serial=self.new_event.serial_number,
             title=self.new_event.title or 'No Title').strip()
 
-        mock_send_sms.assert_called_once_with(target_message)
+        assert mock_send_sms.call_count == 1
+        assert mock_send_sms.call_args == mock.call(target_message)
 
     @patch.object(AccountsAbstractUser, 'send_sms')
     @patch('das_server.celery.app.send_task',
@@ -325,7 +331,8 @@ class TestEventView(TestCase):
             serial=self.new_event.serial_number,
             title=self.new_event.title or 'No Title').strip()
 
-        mock_send_sms.assert_called_once_with(target_message)
+        assert mock_send_sms.call_count == 1
+        assert mock_send_sms.call_args == mock.call(target_message)
 
         def event_manipulations_two():
             self.new_event.title = "Title update two"
@@ -341,4 +348,5 @@ class TestEventView(TestCase):
             serial=self.new_event.serial_number,
             title=self.new_event.title or 'No Title',).strip()
 
-        mock_send_sms.assert_called_with(target_message)
+        assert mock_send_sms.call_count == 2
+        assert mock_send_sms.call_args == mock.call(target_message)

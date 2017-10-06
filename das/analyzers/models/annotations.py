@@ -20,6 +20,7 @@ try:
 except (AttributeError, KeyError):
     DEFAULT_SPEED_THRESHOLDS = {}
 
+
 class ObservationAnnotator(Annotator):
 
     @classmethod
@@ -29,32 +30,38 @@ class ObservationAnnotator(Annotator):
     @classmethod
     def get_for_subject(self, subject):
 
-        # Set the generic default max speed very high, in case this gets executed without values in settings.
-        max_speed = DEFAULT_SPEED_THRESHOLDS.get(subject.subject_subtype, 100.0)
+        if subject.subject_subtype not in DEFAULT_SPEED_THRESHOLDS:
+            return
+
+        # Set the generic default max speed very high, in case this gets
+        # executed without values in settings.
+        max_speed = DEFAULT_SPEED_THRESHOLDS.get(subject.subject_subtype, None)
         annotator, created = ObservationAnnotator.objects.get_or_create(subject_id=subject.id,
-                                                       defaults={'max_speed': max_speed})
+                                                                        defaults={'max_speed': max_speed})
 
         if created:
-            logger.info('Created ObseravtionAnnotator for Subject %s with max-speed-threshold: %s', subject, max_speed)
+            logger.info(
+                'Created ObseravtionAnnotator for Subject %s with max-speed-threshold: %s', subject, max_speed)
 
         return annotator
 
     # Maximum speed in kilometers per hour.
-    max_speed = models.FloatField(default=10.0, verbose_name='Maximum speed (km/h)')
+    max_speed = models.FloatField(
+        default=10.0, verbose_name='Maximum speed (km/h)')
 
     def annotate(self, start_date=None, end_date=None):
         end_date = end_date or pytz.utc.localize(datetime.utcnow())
         start_date = start_date or (end_date - DEFAULT_HISTORY_INTERVAL)
 
-        date_range = psycopg2.extras.DateTimeTZRange(lower=start_date, upper=end_date)
-        subject_sources = SubjectSource.objects.filter(subject=self.subject, assigned_range__contains=date_range)
+        date_range = psycopg2.extras.DateTimeTZRange(
+            lower=start_date, upper=end_date)
+        subject_sources = SubjectSource.objects.filter(
+            subject=self.subject, assigned_range__contains=date_range)
 
         for ss in subject_sources:
-            self.annotate_by_subject_source(ss,start_date, end_date)
-
+            self.annotate_by_subject_source(ss, start_date, end_date)
 
     def annotate_by_subject_source(self, subject_source, start_date, end_date):
-
         '''For my first crack at this, I'm going to let speeds be calculated within the database.'''
         sql = '''
         with path as (select obs.*,
@@ -93,7 +100,7 @@ class ObservationAnnotator(Annotator):
 
         df = gpd.GeoDataFrame(gen_items(items),)
 
-        if len(df)<1:
+        if len(df) < 1:
             return
 
         df.set_index('recorded_at', inplace=True)
@@ -103,7 +110,7 @@ class ObservationAnnotator(Annotator):
         for i, s in df.iterrows():
             flag_these.append(s['id'])
 
-        logger.info('Setting exclusion_flags on these observations: {}'.format(flag_these))
-        Observation.objects.set_flag(flag_these, Observation.EXCLUDED_AUTOMATICALLY)
-
-
+        logger.info(
+            'Setting exclusion_flags on these observations: {}'.format(flag_these))
+        Observation.objects.set_flag(
+            flag_these, Observation.EXCLUDED_AUTOMATICALLY)

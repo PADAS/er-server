@@ -341,7 +341,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         requested_oldest_age = self.request.query_params.get('since', None)
         requested_newest_age = self.request.query_params.get('until', None)
-        now = datetime.datetime.now()
+        now = pytz.utc.localize(datetime.datetime.utcnow())
 
         if requested_oldest_age is None:
             oldest_age = min(settings.SHOW_TRACK_DAYS, oldest_age_allowed)

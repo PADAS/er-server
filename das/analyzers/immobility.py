@@ -31,6 +31,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         must be inside a cluster to generate a CRITICAL.  Default 0.8 as in Wall
 
      """
+
     def __init__(self, subject=None, config=None):
         SubjectAnalyzer.__init__(self, subject, config)
         self.logger = logging.getLogger(__name__)
@@ -63,7 +64,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         if traj is None:
             return
 
-        # Check to see if we have data that spans the threshold time otherwise impossible to calculate
+        # Check to see if we have data that spans the threshold time otherwise
+        # impossible to calculate
         if timedelta(seconds=traj.relocs.timespan_seconds) < timedelta(seconds=self.config.threshold_time):
             raise InsufficientDataAnalyzerException
 
@@ -74,10 +76,13 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         test_cluster = pymet.cluster.Cluster()
 
         # Create the analyzer result
+        title = '{} {}'.format(str(self.subject.name), str(_(' is moving')))
+
         result = SubjectAnalyzerResult(subject_analyzer=self.config,
                                        title=self.subject.name,
                                        level=OK,
-                                       message=self.subject.name + str(_(' is moving')),
+                                       title=title,
+                                       message=title,
                                        analyzer_revision=1,
                                        subject=self.subject)
 
@@ -92,9 +97,10 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         for f in fixes:
             test_cluster.add_fix(f)
 
-            # Calculate the ratio of points within cluster threshold distance and total points in cluster
+            # Calculate the ratio of points within cluster threshold distance
+            # and total points in cluster
             cluster_pvalue = test_cluster.threshold_point_count(self.config.threshold_radius) / \
-                             test_cluster.relocs.fix_count
+                test_cluster.relocs.fix_count
 
             cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
 
@@ -103,7 +109,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 # TODO: gte comparison  on the timespan but switched to achieve parity with STE system
                 # Modify analyzer result
                 result.level = CRITICAL
-                result.title = self.subject.name + str(_(' is immobile'))
+                result.title = '{} {}'.format(
+                    str(self.subject.name), str(_(' is immobile')))
                 result.message = result.title
                 result.geometry_collection = DjangoGeoColl([DjangoPoint(test_cluster.centroid.GetX(),
                                                                         test_cluster.centroid.GetY())])
@@ -126,7 +133,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 this_result.save()
 
             if last_result is not None:
-                # Save the result if there was a transition from Critical/Warning to OK
+                # Save the result if there was a transition from
+                # Critical/Warning to OK
                 if (this_result.level is OK) and (last_result.level in (CRITICAL, WARNING)):
                     this_result.save()
 
@@ -152,12 +160,14 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='immobility',
-                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT),
+                priority=EVENT_PRIORITY_MAP.get(
+                    this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
                 event_details=this_result.values,
             )
 
-        # Notify if there is a state transition from Critical/Warning back to OK
+        # Notify if there is a state transition from Critical/Warning back to
+        # OK
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
                 title=this_result.title,
@@ -165,13 +175,11 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='immobility_all_clear',
-                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_REFERENCE),
+                priority=EVENT_PRIORITY_MAP.get(
+                    this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
                 event_details=this_result.values,
             )
 
         if event_data:
             return save_analyzer_event(event_data)
-
-
-

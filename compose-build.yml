@@ -11,18 +11,6 @@ services:
     depends_on:
       - app
 
-  api_unittest:
-    build:
-      context: ./docker/api_unittest/
-    depends_on:
-      - app
-
-  notebook:
-    build:
-      context: ./docker/Notebook/
-    depends_on:
-      - app
-
   rt-api:
     build:
       context: ./docker/RT_API/

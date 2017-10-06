@@ -13,27 +13,6 @@ services:
       - ./docker/base/wait_for.sh:/startup/wait_for.sh
       - ./docker/API/start.sh:/var/www/app/start.sh
 
-  api-unittest:
-    image: gcr.io/padas-app/api
-    container_name: das_api_unittest
-    env_file: .env
-    links:
-      - postgis
-      - redis
-    volumes:
-      - ./das:/var/www/app
-      - ./dependencies:/workspace/dependencies
-      - ./docker/base/wait_for.sh:/startup/wait_for.sh
-      - ./docker/api_unittest/start.sh:/var/www/app/start.sh
-
-  notebook:
-    volumes:
-      - ./das:/var/www/app
-      - ./dependencies:/workspace/dependencies
-      - ./docker/base/wait_for.sh:/startup/wait_for.sh
-      - ./docker/Notebook/start.sh:/var/www/app/start.sh
-      - ${DAS_NOTEBOOKS_DIR:-notebooks}:/var/notebooks
-
   rt-api:
     volumes:
       - ./das:/var/www/app
