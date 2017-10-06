@@ -73,4 +73,4 @@ openpyxl==2.4.8
 #pymet and requirements that pymet is not pinning
 rasterio==1.0a9
 geojson==2.3.0
-pymet==0.1.14
+pymet==0.1.16
