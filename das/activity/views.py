@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from datetime import timedelta
+from datetime import timedelta, datetime
 import copy
 import mimetypes
 import logging
@@ -12,9 +12,11 @@ from django.http.response import HttpResponse
 from django.db.models import Prefetch, Q, F, Func
 from django.core.urlresolvers import reverse
 from django.template import Template, Context
+from django.utils import timezone
 from rest_framework.response import Response
 
 import rest_framework.exceptions
+from rest_framework import views
 from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
 
@@ -31,9 +33,16 @@ from activity.permissions import EventCategoryPermissions, EventObjectPermission
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
 import utils
-from activity import schema_utils
+import pytz
 import accounts.serializers
 import accounts.models
+from observations.models import Subject
+
+
+from rest_framework import serializers, views, permissions
+from django.views.generic.base import TemplateResponseMixin, ContextMixin
+
+import utils.schema_utils as schema_utils
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +191,146 @@ class EventCountView(generics.ListAPIView):
 
         data = {'count': queryset.count()}
         return generics.views.Response(data)
+
+
+from django.db import connections
+
+
+class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
+
+    permission_classes = (EventCategoryPermissions,)
+
+    def get_event_export_list(self):
+        event_export_data = []
+        renderer = schema_utils.schema_renderer()
+
+        current_event_type_data = {'id': None}
+        for event in self.get_queryset():
+            if event.event_type_id != current_event_type_data['id']:
+                event_type = EventType.objects.get(id=event.event_type_id)
+
+                current_schema = renderer(event.event_type.schema)
+                current_schema_order = schema_utils.definition_key_order_as_dict(
+                    renderer(event.event_type.schema))
+
+                current_event_type_data = {
+                    'id': event_type.id,
+                    'display': event_type.display,
+                    'value': event_type.value,
+                    'headers': ['Serial', 'Event Type',
+                                'Event Type Internal Value', 'Title',
+                                'Reported By', 'Reported By Internal Value',
+                                'Reported At', 'Latitude' 'Longitude',
+                                'CUSTOM FIELDS BEGIN HERE'],
+                    'events': []
+                }
+                for key, order in current_schema_order.items():
+                    display_value = current_schema['schema']['properties'][key]['title']
+                    current_event_type_data['headers'].append(
+                        self.escape_string(key))
+                    current_event_type_data['headers'].append(
+                        self.escape_string(display_value))
+
+                event_export_data.append(current_event_type_data)
+
+            # First, get the event details (schema data) in the correct order
+            # for the headers above
+            details = schema_utils.generate_details_with_display_values(event,
+                                                                        renderer(
+                                                                            event.event_type.schema))
+
+            schema_data = OrderedDict()
+            for key, order in current_schema_order.items():
+                item_display_name = current_schema['schema']['properties'][key][
+                    'title']
+                schema_data[key] = self.escape_string(details.get(key, ''))
+                schema_data[item_display_name] = self.escape_string(
+                    details.get(item_display_name, ''))
+            # Now assemble the data we want to write to the csv
+            event_data = {
+                'serial': event.serial_number,
+                'event_type': event_type.display,
+                'event_type_internal': event_type.value,
+                'title': self.escape_string(event.title),
+                'reported_at': event.time.strftime('%B %d %Y : %H:%M'),
+                'lat': event.location.x if event.location is not None else '',
+                'lon': event.location.y if event.location is not None else '',
+                'details': schema_data.values()
+            }
+
+            # Reported by depends on what sort of entity reported the event
+            if event.reported_by is None:
+                event_data['reported_by'] = 'system'
+                event_data['reported_by_internal'] = 'System'
+            elif isinstance(event.reported_by, Subject):
+                event_data['reported_by'] = self.escape_string(
+                    event.reported_by.name)
+                event_data['reported_by_internal'] = event.reported_by.id
+            else:
+                full_name = '{0} {1}'.format(
+                    event.reported_by.first_name, event.reported_by.last_name)
+                event_data['reported_by'] = self.escape_string(full_name)
+                event_data['reported_by_internal'] = event.reported_by.username
+
+            current_event_type_data['events'].append(event_data)
+
+        return event_export_data
+
+    def escape_string(self, string):
+        if not isinstance(string, str):
+            return string
+        string = string.replace('"', '""')
+        return '"' + string + '"'
+
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        return self.render_to_response(context)
+
+    def render_to_response(self, context, **response_kwargs):
+
+        response = super().render_to_response(context, **response_kwargs)
+        response['Content-Disposition'] = 'attachment; filename={}'.format(
+            context['report_filename'])
+        response['x-das-download-filename'] = context['report_filename']
+        return response
+
+    def get_context_data(self, **kwargs):
+        timestamp = datetime.utcnow().astimezone(timezone.get_current_timezone())
+        context = {
+            'report_filename': 'Event Export {}.csv'.format(timestamp.strftime('%Y-%m-%d')),
+            'report_time': timestamp.strftime('%-d %B %Y %Z'),
+            'event_types': self.get_event_export_list(**kwargs)
+        }
+
+        return context
+
+    def get_queryset(self):
+
+        # TODO: Update to allow passing last_days constraint.
+
+        queryset = Event.objects.all()
+
+        query_params = self.request.query_params
+        bbox = query_params.get('bbox', None)
+        if bbox:
+            bbox = bbox.split(',')
+            bbox = [float(v) for v in bbox]
+            if len(bbox) != 4:
+                raise ValueError("invalid bbox param")
+
+            queryset = queryset.by_bbox(bbox)
+
+        event_filter = self.request.query_params.get('filter', None)
+        if event_filter:
+            try:
+                event_filter = json.loads(event_filter)
+                queryset = queryset.by_search_filter(event_filter)
+            except json.JSONDecodeError:
+                logger.exception(
+                    'Invalid filter expression. filter=%s', event_filter)
+                raise
+
+        return queryset.order_by('event_type_id')
 
 
 class EventsView(generics.ListCreateAPIView):

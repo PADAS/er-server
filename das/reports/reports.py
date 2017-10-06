@@ -12,7 +12,7 @@ from django.utils.html import escape
 
 from reports.accumulator import accumulator, broadcast
 
-from reports.event_utils import schema_renderer, generate_details
+from utils.schema_utils import schema_renderer, generate_details
 
 
 def safe_get(val, keys, default=None):

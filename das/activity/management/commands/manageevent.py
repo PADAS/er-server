@@ -8,7 +8,7 @@ from django.db.models import Count
 from django.contrib.contenttypes.models import ContentType
 
 from activity.models import EventType, Event, EventDetails, EventCategory
-from activity import schema_utils
+from utils import schema_utils
 import choices.models as choices
 from utils import json
 from uuid import UUID

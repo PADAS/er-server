@@ -2,9 +2,6 @@ import logging
 
 from django.test import SimpleTestCase
 
-import activity.schema_utils as schema_utils
-
-
 logger = logging.getLogger(__name__)
 
 

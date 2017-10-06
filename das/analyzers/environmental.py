@@ -1,6 +1,16 @@
 import logging
 import pymet.base
-import pymet.eetools
+import django.conf
+
+eetools = None
+try:
+    earthengine_enabled = getattr(
+        django.conf.settings, 'EARTHENGINE_ENABLED', False)
+    if earthengine_enabled:
+        import pymet.eetools as eetools
+except AttributeError:
+    pass
+
 
 from django.contrib.gis.geos import Point as DjangoPoint
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
@@ -12,6 +22,17 @@ from analyzers.models import EnvironmentalSubjectAnalyzerConfig, SubjectAnalyzer
 from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.base import SubjectAnalyzer
+
+
+def require_earthengine(func):
+
+    if eetools is None:
+        def f1(*args, **kwargs):
+            raise ValueError(
+                'This function requires Earth Engine tools, but they are not initialize.')
+        return f1
+    else:
+        return func
 
 
 class EnvironmentalAnalyzer(SubjectAnalyzer):
@@ -29,6 +50,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
         for ac in EnvironmentalSubjectAnalyzerConfig.objects.filter(subject_group__subjects=subject):
             yield cls(subject=subject, config=ac)
 
+    @require_earthengine
     def analyze_trajectory(self, traj=None):
         """
         TODO: Add description.
@@ -37,7 +59,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
 
         fixes = traj.relocs.get_fixes('DESC')
 
-         # Check to see if we have at least some data within the search time
+        # Check to see if we have at least some data within the search time
         if len(fixes) == 0:
             raise InsufficientDataAnalyzerException
 
@@ -45,7 +67,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
         result = SubjectAnalyzerResult(subject_analyzer=self.config,
                                        level=OK,
                                        title=self.subject.name + str(_(': low ' +
-                                                                         self.config.short_description)),
+                                                                       self.config.short_description)),
                                        message=self.subject.name + str(_(' is in a low ' +
                                                                          self.config.short_description + ' area.')),
                                        analyzer_revision=1,
@@ -58,10 +80,10 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
         result.geometry_collection = DjangoGeoColl([DjangoPoint(fixes[0].ogr_geometry.GetX(),
                                                                 fixes[0].ogr_geometry.GetY())])
 
-        mean_value = pymet.eetools.extract_point_values_from_image(relocs=traj.relocs,
-                                                                   img_name=self.config.GEE_img_name,
-                                                                   band_name=self.config.GEE_img_band_name,
-                                                                   scale=self.config.scale_meters)
+        mean_value = eetools.extract_point_values_from_image(relocs=traj.relocs,
+                                                             img_name=self.config.GEE_img_name,
+                                                             band_name=self.config.GEE_img_band_name,
+                                                             scale=self.config.scale_meters)
 
         if mean_value is not None:
 
@@ -77,7 +99,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
                 # Modify analyzer result
                 result.level = CRITICAL
                 result.title = self.subject.name + str(_(': high ' +
-                                                  self.config.short_description))
+                                                         self.config.short_description))
                 result.message = self.subject.name + \
                     str(_(' is in a high ' + self.config.short_description + ' area.'))
         return [result, ]

@@ -15,10 +15,10 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
             Defaults to 18000 seconds (5 hours) as in Wall
          """
 
-    threshold_time = models.IntegerField(null=False, default=18000)  # 5 hours
+    threshold_time = models.IntegerField(null=False, default=43200)  # 12 hours
 
     geofences = models.ForeignKey(
-        to=SpatialFeatureGroupStatic,  # ToDo Can this relate abck to the SpatialFeatureGroup instead?
+        to=SpatialFeatureGroupStatic,
         on_delete=models.CASCADE,
         null=True,
         related_name='geofences',
