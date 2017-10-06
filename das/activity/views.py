@@ -226,8 +226,10 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 }
                 for key, order in current_schema_order.items():
                     display_value = current_schema['schema']['properties'][key]['title']
-                    current_event_type_data['headers'].append(key)
-                    current_event_type_data['headers'].append(display_value)
+                    current_event_type_data['headers'].append(
+                        self.escape_string(key))
+                    current_event_type_data['headers'].append(
+                        self.escape_string(display_value))
 
                 event_export_data.append(current_event_type_data)
 
@@ -241,15 +243,15 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             for key, order in current_schema_order.items():
                 item_display_name = current_schema['schema']['properties'][key][
                     'title']
-                schema_data[key] = details.get(key, '')
-                schema_data[item_display_name] = '"{0}"'.format(details.get(item_display_name,
-                                                                            ''))
+                schema_data[key] = self.escape_string(details.get(key, ''))
+                schema_data[item_display_name] = self.escape_string(
+                    details.get(item_display_name, ''))
             # Now assemble the data we want to write to the csv
             event_data = {
                 'serial': event.serial_number,
                 'event_type': event_type.display,
                 'event_type_internal': event_type.value,
-                'title': '"{0}"'.format(event.title),
+                'title': self.escape_string(event.title),
                 'reported_at': event.time.strftime('%B %d %Y : %H:%M'),
                 'lat': event.location.x if event.location is not None else '',
                 'lon': event.location.y if event.location is not None else '',
@@ -261,19 +263,24 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 event_data['reported_by'] = 'system'
                 event_data['reported_by_internal'] = 'System'
             elif isinstance(event.reported_by, Subject):
-                event_data['reported_by'] = event.reported_by.name
+                event_data['reported_by'] = self.escape_string(
+                    event.reported_by.name)
                 event_data['reported_by_internal'] = event.reported_by.id
             else:
-                event_data['reported_by'] = '{0} {1}'.format(
+                full_name = '{0} {1}'.format(
                     event.reported_by.first_name, event.reported_by.last_name)
+                event_data['reported_by'] = self.escape_string(full_name)
                 event_data['reported_by_internal'] = event.reported_by.username
 
             current_event_type_data['events'].append(event_data)
 
-            if len(event_export_data) > 1:
-                break
-
         return event_export_data
+
+    def escape_string(self, string):
+        if not isinstance(string, str):
+            return string
+        string = string.replace('"', '""')
+        return '"' + string + '"'
 
     def get(self, request, *args, **kwargs):
         context = self.get_context_data(**kwargs)
