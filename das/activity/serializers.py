@@ -33,7 +33,7 @@ IMAGE_RENDITION_SETS = dict((k, dict(v)) for k, v in IMAGE_SETS.items())
 import jsonschema
 import jsonschema.exceptions
 from utils.json import loads
-
+from utils.drf import PointValidator
 import activity.models
 import utils
 from accounts.serializers import UserDisplaySerializer, get_user_display
@@ -44,7 +44,6 @@ from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
 from utils import schema_utils
 from activity.models import EventRelationship
-
 import usercontent.serializers
 
 logger = logging.getLogger(__name__)
@@ -1023,7 +1022,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
     #  json {lat/lon} and our internal representation.
-    location = PointField(required=False)
+    location = PointField(required=False, validators=[PointValidator(), ])
     time = DateTimeField(source='event_time', required=False)
     updated_at = DateTimeField(source='sort_at', required=False)
     created_by_user = rest_framework.serializers.HiddenField(

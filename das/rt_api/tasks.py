@@ -85,8 +85,10 @@ def _event_handler(event_id, type):
                         logger.debug(
                             'Permission denied. user=%s, event=%s', username, event.id)
                     else:
-                        data = EventSerializer(
-                            event, context={'request': request}).data
+                        data = EventSerializer(event,
+                                               context={'request': request,
+                                                        'include_related_events': True
+                                                        }).data
 
                         emit_data = {
                             'type': type,
