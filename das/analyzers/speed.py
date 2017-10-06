@@ -42,7 +42,8 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
                 try:
                     ''' ToDo: Add logic to test whether the latest position falls within the 
                      schedule of the given speed distribution '''
-                    low_speed_threshold_value = sd.percentiles[str(low_speed_threshold_percentile)]
+                    low_speed_threshold_value = sd.percentiles[str(
+                        low_speed_threshold_percentile)]
                 except KeyError:
                     low_speed_threshold_value = self.config.default_low_speed_value
 
@@ -50,9 +51,11 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
         fixes = traj.relocs.get_fixes('DESC')
 
         # Create the analyzer result
+        title = self.subject.name + str(_(' is moving normally')),
         result = SubjectAnalyzerResult(subject_analyzer=self.config,
                                        level=OK,
-                                       message=self.subject.name + str(_(' is moving normally')),
+                                       title=title,
+                                       message=title,
                                        analyzer_revision=1,
                                        subject=self.subject)
 
@@ -63,10 +66,12 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
         result.geometry_collection = DjangoGeoColl([DjangoPoint(fixes[0].ogr_geometry.GetX(),
                                                                 fixes[0].ogr_geometry.GetY())])
 
-        # Test the median speed to see whether it falls below the low-speed percentile
+        # Test the median speed to see whether it falls below the low-speed
+        # percentile
         current_median_speed = traj.speed_percentiles()[0.5]
 
-        # If the last 24-hour speed is lower than the low-speed threshold then create an alarm
+        # If the last 24-hour speed is lower than the low-speed threshold then
+        # create an alarm
         if current_median_speed < low_speed_threshold_value:
             # Modify analyzer result
             result.level = CRITICAL
@@ -91,7 +96,8 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
                 this_result.save()
 
             if last_result is not None:
-                # Save the result if there was a transition from Critical/Warning to OK
+                # Save the result if there was a transition from
+                # Critical/Warning to OK
                 if (this_result.level is OK) and (last_result.level in (CRITICAL, WARNING)):
                     this_result.save()
 
@@ -117,12 +123,14 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='analyzer_low_speed_percentile',
-                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT),
+                priority=EVENT_PRIORITY_MAP.get(
+                    this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
                 event_details=this_result.values,
             )
 
-        # Notify if there is a state transition from Critical/Warning back to OK
+        # Notify if there is a state transition from Critical/Warning back to
+        # OK
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
                 title=this_result.title,
@@ -130,7 +138,8 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='analyzer_low_speed_percentile_all_clear',
-                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_REFERENCE),
+                priority=EVENT_PRIORITY_MAP.get(
+                    this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
                 event_details=this_result.values,
             )
@@ -150,7 +159,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         for ac in LowSpeedWilcoxAnalyzerConfig.objects.filter(subject_group__subjects=subject):
             yield cls(subject=subject, config=ac)
 
-    def _normal_movement_distro(self, trajectory_filter=None, end=None, last_hours=30*24):
+    def _normal_movement_distro(self, trajectory_filter=None, end=None, last_hours=30 * 24):
 
         # ToDo: Add scheduling
 
@@ -181,7 +190,8 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         cs = [seg.speed_kmhr for seg in traj.traj_segs]
 
         # Previous speed distribution (use only up until a month prior)
-        ps = self._normal_movement_distro(end=dt.datetime.utcnow() - dt.timedelta(days=30))
+        ps = self._normal_movement_distro(
+            end=dt.datetime.utcnow() - dt.timedelta(days=30))
 
         if ps is None:
             raise InsufficientDataAnalyzerException
@@ -193,9 +203,11 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         fixes = traj.relocs.get_fixes('DESC')
 
         # Create the analyzer result
+        title = self.subject.name + str(_(' is moving normally')),
         result = SubjectAnalyzerResult(subject_analyzer=self.config,
                                        level=OK,
-                                       message=self.subject.name + str(_(' is moving normally')),
+                                       title=title,
+                                       message=title,
                                        analyzer_revision=1,
                                        subject=self.subject)
 
@@ -211,7 +223,8 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
 
         pvalue = getattr(wilcoxon_result, 'pvalue')
 
-        # If the last 24-hour speed is lower than the previous speeds distribution then create an alarm
+        # If the last 24-hour speed is lower than the previous speeds
+        # distribution then create an alarm
         if pvalue < self.config.low_speed_probability_cutoff:
             # Modify analyzer result
             result.level = CRITICAL
@@ -235,7 +248,8 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
                 this_result.save()
 
             if last_result is not None:
-                # Save the result if there was a transition from Critical/Warning to OK
+                # Save the result if there was a transition from
+                # Critical/Warning to OK
                 if (this_result.level is OK) and (last_result.level in (CRITICAL, WARNING)):
                     this_result.save()
 
@@ -261,12 +275,14 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='analyzer_low_speed_wilcoxon',
-                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT),
+                priority=EVENT_PRIORITY_MAP.get(
+                    this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
                 event_details=this_result.values,
             )
 
-        # Notify if there is a state transition from Critical/Warning back to OK
+        # Notify if there is a state transition from Critical/Warning back to
+        # OK
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
                 title=this_result.title,
@@ -274,7 +290,8 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='analyzer_low_speed_wilcoxon_all_clear',
-                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_REFERENCE),
+                priority=EVENT_PRIORITY_MAP.get(
+                    this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
                 event_details=this_result.values,
             )

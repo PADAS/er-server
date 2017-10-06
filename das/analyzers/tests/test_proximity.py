@@ -80,7 +80,7 @@ class TestProximityAnalyzer(TestCase):
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
             name='Olchoda', subject_type='wildlife', subject_subtype='elephant')
-        source = Source.objects.create(manufacturer_id='007')
+        source = Source.objects.create(manufacturer_id='008')
         SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
@@ -99,12 +99,13 @@ class TestProximityAnalyzer(TestCase):
             Observation.objects.create(
                 recorded_at=recorded_at, location=location, source=source, additional={})
 
-        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2' geofence
+        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2'
+        # geofence
         sfs = SpatialFeature.objects.filter(
             name__iexact='Ol Donyo Farm 2')
         logger.info('Proximity features count: %s' % str(len(sfs)))
         sf_grp = SpatialFeatureGroupStatic.objects.create(
-            name='Mara Geofences', )
+            name='Mara Geofences (for proximity test)', )
         sf_grp.features.add(*sfs)
         sf_grp.save()
 

@@ -79,7 +79,6 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         title = '{} {}'.format(str(self.subject.name), str(_(' is moving')))
 
         result = SubjectAnalyzerResult(subject_analyzer=self.config,
-                                       title=self.subject.name,
                                        level=OK,
                                        title=title,
                                        message=title,
