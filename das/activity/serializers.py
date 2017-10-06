@@ -1023,6 +1023,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     #  json {lat/lon} and our internal representation.
     location = PointField(required=False, validators=[PointValidator(), ])
     time = DateTimeField(source='event_time', required=False)
+    created_at = DateTimeField(required=False)
     updated_at = DateTimeField(source='sort_at', required=False)
     created_by_user = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault()
@@ -1087,7 +1088,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     class Meta:
         model = activity.models.Event
-        read_only_fields = ('updated_at',)
+        read_only_fields = ('updated_at', 'created_at')
         fields = (
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
