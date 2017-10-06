@@ -60,9 +60,9 @@ class GeofenceAnalyzer(SubjectAnalyzer):
             rgns = self.config.containment_regions.features.all()
             for feat in rgns:
                 print('ContaianRegion Geo Type:', type(feat.feature_geometry))
-                cr = pymet.base.Region(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
-                                       region_name=feat.name,
-                                       unique_id=feat.id)
+                cr = pymet.base.SpatialFeature(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
+                                               name=feat.name,
+                                               unique_id=feat.id)
                 crs.append(cr)
 
         return pymet.geofence.GeofenceAnalysisParams(geofences=gfs, regions=crs)
@@ -73,13 +73,15 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         determine where/when the polylines were crossed and what the containment of the individual was before and
         after any geofence crossings
         """
-        #logger.info('Geofencing analyzing trajectory')
 
-        # Check to see if we have data that spans the threshold time otherwise impossible to calculate
-        if timedelta(seconds=traj.relocs.timespan_seconds) < timedelta(seconds=self.config.threshold_time):
-            raise InsufficientDataAnalyzerException
+        if traj is None:
+            return
 
         _analysis_params = self._create_geofence_analysis_param()
+
+        # # Subsample trajectory to the last two fixes
+        # traj = pymet.base.Trajectory(relocs=pymet.base.Relocations(fixes=traj.relocs.get_fixes()[-2:],
+        #                                                            subject_id=traj.relocs.subject_id))
 
         # Generate a list of crossings
         cross_results = pymet.geofence.GeofenceAnalysis.calc_crossings(_analysis_params, [traj])

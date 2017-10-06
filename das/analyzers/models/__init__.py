@@ -2,7 +2,9 @@ from analyzers.models.base import SubjectAnalyzerConfig, SubjectAnalyzerResult, 
 from analyzers.models.annotations import ObservationAnnotator
 from analyzers.models.immobility import ImmobilityAnalyzerConfig
 from analyzers.models.geofence import GeofenceAnalyzerConfig
+from analyzers.models.proximity import ProximityAnalyzerConfig
 from analyzers.models.environmental import EnvironmentalSubjectAnalyzerConfig
-from analyzers.models.low_speed import LowSpeedAnalyzerConfig
+from analyzers.models.low_speed import LowSpeedPercentileAnalyzerConfig
+from analyzers.models.low_speed import LowSpeedWilcoxAnalyzerConfig
 from analyzers.models.speed_profile import SubjectSpeedProfile
 from analyzers.models.speed_profile import SpeedDistro
