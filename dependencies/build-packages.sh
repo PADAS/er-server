@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# build in a docker container
+    # docker run -it -w="/workspace" -v /c/projects/das/das/dependencies/:/workspace ubuntu:16.04 bash
+
 apt-get update -y
 apt-get install -y build-essential \
                  software-properties-common \
@@ -24,10 +27,10 @@ cp proj-4.9.3/proj_4.9.3-1_amd64.deb .
 rm -rf proj-4.9.3
 ldconfig
 
-wget http://download.osgeo.org/gdal/2.1.4/gdal-2.1.4.tar.gz; tar -xzvf gdal-2.1.4.tar.gz; cd gdal-2.1.4; ./configure --prefix=/usr --with-python=/usr/bin/python3 --with-geos=/usr/local/bin/geos-config --with-static-proj4=/usr/lib/libproj.a; make; checkinstall -y;
+wget http://download.osgeo.org/gdal/2.2.2/gdal-2.2.2.tar.gz; tar -xzvf gdal-2.2.2.tar.gz; cd gdal-2.2.2; ./configure --prefix=/usr --with-python=/usr/bin/python3 --with-geos=/usr/local/bin/geos-config --with-static-proj4=/usr/lib/libproj.a; make; checkinstall -y;
 cd ..
-cp gdal-2.1.4/gdal_2.1.4-1_amd64.deb .
-rm -rf gdal-2.1.4
+cp gdal-2.2.2/gdal_2.2.2-1_amd64.deb .
+rm -rf gdal-2.2.2
 
 # RUN if [ ! -e /usr/lib/libproj.so ]; then \
 #   cd /opt; wget http://download.osgeo.org/proj/proj-4.9.2.tar.gz; tar -xzvf proj-4.9.2.tar.gz; cd proj-4.9.2; ./configure --prefix=/usr; make; make install; fi

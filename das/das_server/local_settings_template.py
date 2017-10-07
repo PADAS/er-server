@@ -44,7 +44,7 @@ if platform.system().lower() == 'windows':
     # On Windows, after pip install GDAL, set the geos library path
     # appropriately
     GEOS_LIBRARY_PATH = 'C:\projects\das\dasvir\Lib\site-packages\osgeo\geos_c.dll'
-    GDAL_LIBRARY_PATH = 'C:\projects\das\dasvir\Lib\site-packages\osgeo\gdal111.dll'
+    GDAL_LIBRARY_PATH = 'C:\projects\das\dasvir\Lib\site-packages\osgeo\gdal221.dll'
     # also set environment variables
     # GDAL_DATA=C:\projects\das\dasvir\Lib\site-packages\osgeo\data\gdal
     # GDAL_DRIVER_PATH=C:\projects\das\dasvir\Lib\site-packages\osgeo\gdalplugins

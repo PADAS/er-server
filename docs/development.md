@@ -51,11 +51,11 @@ Once the above is installed, continue with the following commands:
 
 
 
-> pip download GDAL==2\.1\.3
+> pip download GDAL==2.2.2
 
-> tar \-xvzf GDAL\-2\.1\.3\.tar\.gz
+> tar -xvzf GDAL-2.2.2.tar.gz
 
-> cd GDAL\-2\.1\.3\.tar\.gz
+> cd GDAL-2.2.2.tar.gz
 
 > export CFLAGS=\-Qunused\-arguments export CPPFLAGS=\-Qunused\-arguments
 
