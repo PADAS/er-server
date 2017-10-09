@@ -1,5 +1,25 @@
+import logging
+
 from django.contrib import admin
+
 import choices.models as models
+
+
+@admin.register(models.Choice)
+class ChoiceAdmin(admin.ModelAdmin):
+    ordering = ('model', 'field', 'ordernum', 'display')
+    list_display = ('model', 'field', 'value', 'display', 'ordernum')
+    list_display_links = ('model', 'field')
+    search_fields = ('model', 'field', 'value', 'display')
+    list_editable = ('value', 'display', 'ordernum')
+
+
+@admin.register(models.DynamicChoice)
+class DynamicChoiceAdmin(admin.ModelAdmin):
+    ordering = ('id', 'model_name')
+    list_display = ('id', 'model_name', 'criteria')
+    list_display_links = ('id',)
+    search_fields = ('model_name',)
 
 
 class BaseChoiceAdmin(admin.ModelAdmin):
@@ -182,16 +202,6 @@ class MedicalEvacSecurityAdmin(admin.ModelAdmin):
 
 @admin.register(models.DetectionType)
 class DetectionTypeAdmin(admin.ModelAdmin):
-    pass
-
-
-@admin.register(models.Choice)
-class ChoiceAdmin(admin.ModelAdmin):
-    pass
-
-
-@admin.register(models.DynamicChoice)
-class DynamicChoiceAdmin(admin.ModelAdmin):
     pass
 
 
