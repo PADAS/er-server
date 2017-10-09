@@ -295,7 +295,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         return response
 
     def get_context_data(self, **kwargs):
-        timestamp = datetime.utcnow().astimezone(timezone.get_current_timezone())
+        current_tz = pytz.timezone(timezone.get_current_timezone_name())
+        timestamp = current_tz.localize(datetime.utcnow())
         context = {
             'report_filename': 'Event Export {}.csv'.format(timestamp.strftime('%Y-%m-%d')),
             'report_time': timestamp.strftime('%-d %B %Y %Z'),
