@@ -255,7 +255,7 @@ def generate_details_with_display_values(event, schema):
 def get_rendered_schema(schema):
     renderer = schema_renderer()
     rendered_schema = renderer(schema)
-    return rendered_schema['json']
+    return rendered_schema['schema']
 
 
 def get_all_fields(schema):
