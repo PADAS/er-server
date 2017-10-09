@@ -226,7 +226,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 }
 
                 for key, order in current_schema_order.items():
-                    display_value = self.get_display_value_header_for_key(key)
+                    display_value = self.get_display_value_header_for_key(
+                        current_schema, key)
                     current_event_type_data['headers'].append(
                         self.escape_string(key))
                     current_event_type_data['headers'].append(
@@ -242,7 +243,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
-                item_display_name = self.get_display_value_header_for_key(key)
+                item_display_name = self.get_display_value_header_for_key(
+                    current_schema, key)
                 schema_data[key] = self.escape_string(details.get(key, ''))
                 schema_data[item_display_name] = self.escape_string(
                     details.get(item_display_name, ''))
