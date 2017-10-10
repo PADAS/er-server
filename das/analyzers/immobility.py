@@ -41,6 +41,13 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         for ac in ImmobilityAnalyzerConfig.objects.filter(subject_group__subjects=subject):
             yield cls(subject=subject, config=ac)
 
+    def default_observations(self):
+        """
+        Default set of observation is fetched from the database, based on this analyzer's configuration.
+        :return: a queryset of Observations
+        """
+        return self.subject.observations(last_hours=self.config.search_time_hours)
+
     def analyze_trajectory(self, traj=None):
         """
 
@@ -155,7 +162,6 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
                 title=this_result.title,
-                message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='immobility',
@@ -170,7 +176,6 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
                 title=this_result.title,
-                message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='immobility_all_clear',

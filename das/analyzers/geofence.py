@@ -67,6 +67,13 @@ class GeofenceAnalyzer(SubjectAnalyzer):
 
         return pymet.geofence.GeofenceAnalysisParams(geofences=gfs, regions=crs)
 
+    def default_observations(self):
+        """
+        Default set of observation is fetched from the database, based on this analyzer's configuration.
+        :return: a queryset of Observations
+        """
+        return list(self.subject.observations(last_hours=self.config.search_time_hours))[-2:]
+
     def analyze_trajectory(self, traj=None):
         """
         A function to analyze the trajectory of a subject in relation to a set of virtual fences and regions to
@@ -159,7 +166,6 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
                 title=this_result.title,
-                message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='analyzer_geofence',
