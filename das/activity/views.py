@@ -224,8 +224,10 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                                 'CUSTOM FIELDS BEGIN HERE'],
                     'events': []
                 }
+
                 for key, order in current_schema_order.items():
-                    display_value = current_schema['schema']['properties'][key]['title']
+                    display_value = self.get_display_value_header_for_key(
+                        current_schema, key)
                     current_event_type_data['headers'].append(
                         self.escape_string(key))
                     current_event_type_data['headers'].append(
@@ -241,8 +243,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
-                item_display_name = current_schema['schema']['properties'][key][
-                    'title']
+                item_display_name = self.get_display_value_header_for_key(
+                    current_schema, key)
                 schema_data[key] = self.escape_string(details.get(key, ''))
                 schema_data[item_display_name] = self.escape_string(
                     details.get(item_display_name, ''))
@@ -275,6 +277,24 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             current_event_type_data['events'].append(event_data)
 
         return event_export_data
+
+    def format_key_for_title(self, key):
+        titleStr = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', key)
+        titleStr = re.sub('([a-z0-9])([A-Z])', r'\1 \2', titleStr).lower()
+        return titleStr.title()
+
+    def find_display_value_for_key_in_definition(self, schema, key):
+        for item in schema['definition']:
+            if not isinstance(item, dict):
+                continue
+            if 'key' in item and item['key'] == key and 'title' in item:
+                return item['title']
+        return None
+
+    def get_display_value_header_for_key(self, schema, key):
+        if 'title' in schema['schema']['properties'][key]:
+            return schema['schema']['properties'][key]['title']
+        return self.find_display_value_for_key_in_definition(schema, key) or self.format_key_for_title(key)
 
     def escape_string(self, string):
         if not isinstance(string, str):

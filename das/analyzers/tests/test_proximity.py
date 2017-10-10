@@ -8,8 +8,10 @@ from .proximity_test_data import *
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, Observation, DEFAULT_ASSIGNED_RANGE
 from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
 from .analyzer_test_utils import *
+from analyzers.proximity import ProximityAnalyzer
 from analyzers.tasks import analyze_subject
 from activity.models import Event, EventCategory, EventType
+from analyzers.exceptions import InsufficientDataAnalyzerException
 import json
 import yaml
 
@@ -91,13 +93,15 @@ class TestProximityAnalyzer(TestCase):
 
         # parse recorded_at (from string to datetime).
         test_observations = [parse_recorded_at(x) for x in OLCHODA_TRACK]
+        relocs_len = len(test_observations)
+        test_observations = list(generate_observations(test_observations))
 
-        # Create observations in database, so the Analyzer will find them.
-        for item in time_shift(test_observations):
-            recorded_at = item['recorded_at']
-            location = Point(x=item['longitude'], y=item['latitude'])
-            Observation.objects.create(
-                recorded_at=recorded_at, location=location, source=source, additional={})
+        # # Create observations in database, so the Analyzer will find them.
+        # for item in time_shift(test_observations):
+        #     recorded_at = item['recorded_at']
+        #     location = Point(x=item['longitude'], y=item['latitude'])
+        #     Observation.objects.create(
+        #         recorded_at=recorded_at, location=location, source=source, additional={})
 
         # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2'
         # geofence
@@ -110,16 +114,23 @@ class TestProximityAnalyzer(TestCase):
         sf_grp.save()
 
         # Create the Proximty Analyzer Config object
-        ProximityAnalyzerConfig.objects.create(
-            subject_group=sg, threshold_dist_meters=2000, proximal_features=sf_grp)
+        config = ProximityAnalyzerConfig.objects.create(
+            subject_group=sg, threshold_dist_meters=200, proximal_features=sf_grp)
 
         # Run the analyzer
-        analyze_subject(str(sub.id))
+        #analyze_subject(str(sub.id))
 
-        # There should be one proximity result fom this analysis. Query and
-        # assert number
-        results = SubjectAnalyzerResult.objects.all()
-        self.assertTrue(len(results) == 1)
+        # Iterate through the observations adding another point to the trajectory on each loop
+        for i in range(2, relocs_len):
+            try:
+                analyzer = ProximityAnalyzer(config=config, subject=sub)
+                analyzer.analyze(observations=test_observations[i - 2:i])
+            except InsufficientDataAnalyzerException:
+                break
+
+        # There should be a bunch of proximity results fom this analysis.
+        results = SubjectAnalyzerResult.objects.filter(subject=sub)
+        self.assertTrue(len(results) > 0)
         for result in results:
             print('Proximity Result: %s' % result)
 

@@ -24,6 +24,13 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
         for ac in LowSpeedPercentileAnalyzerConfig.objects.filter(subject_group__subjects=subject):
             yield cls(subject=subject, config=ac)
 
+    def default_observations(self):
+        """
+        Default set of observation is fetched from the database, based on this analyzer's configuration.
+        :return: a queryset of Observations
+        """
+        return self.subject.observations(last_hours=self.config.search_time_hours)
+
     def analyze_trajectory(self, traj=None):
 
         if traj is None:
@@ -119,7 +126,6 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
                 title=this_result.title,
-                message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='analyzer_low_speed_percentile',
@@ -134,7 +140,6 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
                 title=this_result.title,
-                message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='analyzer_low_speed_percentile_all_clear',
@@ -176,6 +181,13 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         speeds = [seg.speed_kmhr for seg in traj.traj_segs]
 
         return speeds
+
+    def default_observations(self):
+        """
+        Default set of observation is fetched from the database, based on this analyzer's configuration.
+        :return: a queryset of Observations
+        """
+        return self.subject.observations(last_hours=self.config.search_time_hours)
 
     def analyze_trajectory(self, traj=None):
 
@@ -271,7 +283,6 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
                 title=this_result.title,
-                message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='analyzer_low_speed_wilcoxon',
@@ -286,7 +297,6 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
                 title=this_result.title,
-                message=this_result.message,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='analyzer_low_speed_wilcoxon_all_clear',
