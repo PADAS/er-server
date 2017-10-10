@@ -5,11 +5,11 @@ from django.forms import Textarea
 
 
 class EventAttachmentInline(admin.TabularInline):
-    model=models.EventAttachment
+    model = models.EventAttachment
 
 
 class EventRelationshipInline(admin.TabularInline):
-    model=models.EventRelationship
+    model = models.EventRelationship
     fk_name = 'from_event'
 
 
@@ -17,15 +17,15 @@ class EventRelationshipInline(admin.TabularInline):
 class EventAdmin(admin.OSMGeoAdmin):
     openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
     wms_layer = 'terrain,overlay'
-    wms_url= 'http://tiles.maps.eox.at/wms/'
+    wms_url = 'http://tiles.maps.eox.at/wms/'
 
-    list_display = ('created_at', 'event_type', 'message', 'location', 'attributes',)
+    list_display = ('created_at', 'event_type',
+                    'message', 'location', 'attributes',)
     readonly_fields = ('id', 'created_at', 'updated_at')
     inlines = [
         EventAttachmentInline,
         EventRelationshipInline,
     ]
-
 
     # list_display = ['id', 'plugin_class', 'plugin_name', 'created_at', 'updated_at', 'configuration']
 
@@ -37,8 +37,11 @@ class CommunityAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventType)
 class EventTypeAdmin(admin.ModelAdmin):
-    ordering = ('category','ordernum', 'display',)
-    list_display = ('display', 'value', 'ordernum', 'category', 'is_collection')
+    ordering = ('category', 'ordernum', 'display',)
+    list_filter = ('category',)
+    list_display = ('display', 'value', 'ordernum',
+                    'category', 'is_collection')
+    list_editable = ('ordernum',)
     fieldsets = (
         (None, {
             'fields': ('display', 'value', 'is_collection', 'ordernum', 'schema', 'category',
@@ -65,6 +68,7 @@ class EventFactorAdmin(admin.ModelAdmin):
 class EventCategoryAdmin(admin.ModelAdmin):
     pass
 
+
 @admin.register(models.EventClassFactor)
 class EventClassFactorAdmin(admin.ModelAdmin):
     list_display = ('class_display', 'factor_display', 'priority')
@@ -76,9 +80,11 @@ class EventClassFactorAdmin(admin.ModelAdmin):
     def factor_display(self, instance):
         return instance.eventfactor.display
 
+
 @admin.register(models.EventRelationshipType)
 class EventRelationshipTypeAdmin(admin.ModelAdmin):
     list_display = ('value',)
+
 
 @admin.register(models.EventRelationship)
 class EventRelationshipAdmin(admin.ModelAdmin):
