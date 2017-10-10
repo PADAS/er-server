@@ -226,7 +226,7 @@ def generate_details(event, schema):
     definition_order = dict(definition_key_order(schema))
 
     for k, v in event_details.items():
-        name, value = resolver(schema, k, v)
+        name, value, key = resolver(schema, k, v)
         yield {'name': name,
                'value': html.escape(value) if isinstance(value, str) else value,
                'order': definition_order.get(k, 99)
@@ -240,7 +240,6 @@ def generate_details_with_display_values(event, schema):
         properties = schema['schema']['properties']
         schema_item = properties[key]
         extracted_values = extractor(schema_item, value)
-        schema_item['title'], value, key
         return {key:  extracted_values[2],
                 extracted_values[0]: extracted_values[1]}
 
