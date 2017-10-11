@@ -1,10 +1,14 @@
 #!/bin/bash -e
 
+###################################################################################
+# Run by set pipeline automation in the tools container
+# Creates a pipeline specific params file with some intelligent defaults.
+# This is provided merely for convenience.
+###################################################################################
+
 PIPELINE_NAME=$1
 PIPELINE_TYPE=$2
-
-CREATE_DEFAULT_PARAMS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PARAMS_FILE=$CREATE_DEFAULT_PARAMS_DIR/../params/$PIPELINE_NAME.params.yaml
+PIPELINE_PARAMS_FILE=$3
 
 if [ "$PIPELINE_NAME" == "das" ]; then
     echo 'das pipeline has no params yaml? Something is wrong. Bailing out.'
@@ -18,8 +22,8 @@ if [ "$PIPELINE_TYPE" == "deployment" ]; then
 fi
 
 # Script creates a file with proper cluster name
-touch $PARAMS_FILE
-echo "cluster-name: $PIPELINE_NAME" >> $PARAMS_FILE
+touch $PIPELINE_PARAMS_FILE
+echo "cluster-name: $PIPELINE_NAME" >> $PIPELINE_PARAMS_FILE
 
 function prompt_for_branch()
 {
@@ -29,7 +33,7 @@ function prompt_for_branch()
     read -p "Please enter a branch name for $REPO_NAME (blank defaults to develop): " BRANCH_NAME
 
     if [ "$BRANCH_NAME" != "" ]; then
-        echo "$CONCOURSE_VARIABLE: $BRANCH_NAME" >> $PARAMS_FILE
+        echo "$CONCOURSE_VARIABLE: $BRANCH_NAME" >> $PIPELINE_PARAMS_FILE
     fi
 }
 
