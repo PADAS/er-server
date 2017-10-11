@@ -6,8 +6,8 @@ PIPELINE_TYPE=$2
 CREATE_DEFAULT_PARAMS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PARAMS_FILE=$CREATE_DEFAULT_PARAMS_DIR/../params/$PIPELINE_NAME.params.yaml
 
-if [ "$PIPELINE_NAME" == "integration" ]; then
-    echo 'Integration has no params yaml? Something is wrong. Bailing out.'
+if [ "$PIPELINE_NAME" == "das" ]; then
+    echo 'das pipeline has no params yaml? Something is wrong. Bailing out.'
     exit 1
 fi
 
