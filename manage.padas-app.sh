@@ -8,7 +8,7 @@ MANAGE_PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT=padas-app
 CONCOURSE_URL=https://35.197.64.22
 
-IMAGE_NAME=gcr.io/ss-infrastructure-public/platform/tools:0.0.15
+IMAGE_NAME=gcr.io/ss-infrastructure-public/platform/tools:0.0.16
 CONTAINER_NAME=vp_tools_$PROJECT
 VAULT_ADDR=https://35.197.70.36:8200
 
