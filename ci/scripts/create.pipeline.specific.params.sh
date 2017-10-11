@@ -15,13 +15,11 @@ if [ "$PIPELINE_NAME" == "das" ]; then
     exit 1
 fi
 
-# Script bails out if pipeline type is deployment
 if [ "$PIPELINE_TYPE" == "deployment" ]; then
     echo 'Creating pipeline-specific parameters for deployment pipelines is not supported.'
     exit 1
 fi
 
-# Script creates a file with proper cluster name
 touch $PIPELINE_PARAMS_FILE
 echo "cluster-name: $PIPELINE_NAME" >> $PIPELINE_PARAMS_FILE
 
