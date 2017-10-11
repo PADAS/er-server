@@ -80,7 +80,7 @@ def get_daily_report_data(since, before, **kwargs):
     '''
     generated_at = timezone.now()
 
-    render_schema = schema_utils.schema_renderer()
+    render_schema = schema_utils.get_schema_renderer_method()
 
     # Get the events we're interested in. We just need this list once and we'll run it through a set of
     # accumulotors that take whatever they need to hydrate the sit-rep

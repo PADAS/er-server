@@ -81,7 +81,7 @@ class TestReportUtils(TestCase):
         self.assertEquals(result, self.replacement_fields_schema_1)
 
     def test_schema_renderer(self):
-        result = schema_utils.schema_renderer()(self.raw_schema_1)
+        result = schema_utils.get_schema_renderer_method()(self.raw_schema_1)
         self.assertEquals(result, self.rendered_schema_1)
 
     def test_schema_validation(self):

@@ -10,6 +10,7 @@ from django.template import Template, Context
 from django.template.base import VariableNode
 
 from choices.models import Choice, DynamicChoice
+from utils.memoize import memoize
 
 
 logger = logging.getLogger(__name__)
@@ -119,20 +120,7 @@ def get_table_choices(field_details, as_string=True):
     return return_val
 
 
-def memoize(f):
-    '''
-    Memoize for single-argument function F(hashable)
-    '''
-
-    class memoize(dict):
-        def __missing__(self, key):
-            ret = self[key] = f(key)
-            return ret
-
-    return memoize().__getitem__
-
-
-def schema_renderer():
+def get_schema_renderer_method():
     @memoize
     def render_f(schema):
 
@@ -168,7 +156,7 @@ def validate(event, schema=None, raise_exception=False):
     '''
     try:
         if not schema:
-            schema = schema_renderer()(event.event_type.schema)
+            schema = get_schema_renderer_method()(event.event_type.schema)
 
         jsonschema.validate(
             event.event_details.first().data, schema)
@@ -252,7 +240,7 @@ def generate_details_with_display_values(event, schema):
 
 
 def get_rendered_schema(schema):
-    renderer = schema_renderer()
+    renderer = get_schema_renderer_method()
     rendered_schema = renderer(schema)
     return rendered_schema['schema']
 

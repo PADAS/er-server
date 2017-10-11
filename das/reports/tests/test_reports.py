@@ -46,7 +46,7 @@ class TestReportUtils(TestCase):
         else:
             print(ser.errors)
 
-        schema = schema_utils.schema_renderer()(e.event_type.schema)
+        schema = schema_utils.get_schema_renderer_method()(e.event_type.schema)
 
         schema_utils.validate(e, schema=schema, raise_exception=True)
         for item in schema_utils.generate_details(e, schema):

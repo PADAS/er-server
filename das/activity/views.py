@@ -193,9 +193,6 @@ class EventCountView(generics.ListAPIView):
         return generics.views.Response(data)
 
 
-from django.db import connections
-
-
 class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
     permission_classes = (EventCategoryPermissions,)
@@ -203,7 +200,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
     def get_event_export_list(self):
         event_export_data = []
 
-        renderer = schema_utils.schema_renderer()
+        renderer = schema_utils.get_schema_renderer_method()
 
         current_event_type_data = {'id': None}
         for event in self.get_queryset():
