@@ -17,7 +17,7 @@ fi
 
 # Script bails out if pipeline type is deployment
 if [ "$PIPELINE_TYPE" == "deployment" ]; then
-    echo 'Creating default parameters for deployment pipelines is not supported.'
+    echo 'Creating pipeline-specific parameters for deployment pipelines is not supported.'
     exit 1
 fi
 
