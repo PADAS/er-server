@@ -10,8 +10,8 @@ PIPELINE_NAME=$1
 PIPELINE_TYPE=$2
 PIPELINE_PARAMS_FILE=$3
 
-if [ "$PIPELINE_NAME" == "das" ]; then
-    echo 'das pipeline has no params yaml? Something is wrong. Bailing out.'
+if [ "$PIPELINE_NAME" == "integration" ]; then
+    echo 'integration pipeline has no params yaml? Something is wrong. Bailing out.'
     exit 1
 fi
 
