@@ -8,7 +8,7 @@ from django.db.models import Count
 from django.contrib.contenttypes.models import ContentType
 
 from activity.models import EventType, Event, EventDetails, EventCategory
-from utils import schema_utils
+from utils.schema_utils import SchemaUtils
 import choices.models as choices
 from utils import json
 from uuid import UUID
@@ -30,6 +30,8 @@ class Command(BaseCommand):
     COMMAND_IGNORE = 'IGNORE'
     COMMAND_DELETE = 'DELETE'
     COMMAND_HARDCODE = 'HC:'
+
+    schema_utils = SchemaUtils()
 
     def handle(self, *args, **options):
         sub_command = options['sub-command']
@@ -58,7 +60,8 @@ class Command(BaseCommand):
 
     def migrate_definition(self, event_type):
         schema_raw = event_type.schema
-        schema = schema_utils.get_rendered_schema(schema_raw)['properties']
+        schema = self.schema_utils.get_rendered_schema(schema_raw)[
+            'properties']
 
     def dumptypes(self):
         if not self.output:
@@ -163,8 +166,8 @@ class Command(BaseCommand):
         if not schema:
             return
 
-        return schema_utils.render_schema_template(
-            schema, schema_utils.get_empty_params(schema))
+        return self.schema_utils.render_schema_template(
+            schema, self.schema_utils.get_empty_params(schema))
 
     def get_event_type_count(self, event_type):
         for row in Event.objects.filter(event_type_id=event_type.id).values('event_type_id').annotate(ecount=Count('event_type_id')):
@@ -175,7 +178,7 @@ class Command(BaseCommand):
         if not schema:
             return
 
-        fields = list(schema_utils.get_all_fields(schema))
+        fields = list(self.schema_utils.get_all_fields(schema))
         return fields
 
     def get_event_type_lookup(self, schema, lookup):
@@ -183,11 +186,11 @@ class Command(BaseCommand):
             return
 
         lookups = []
-        for field in schema_utils.get_replacement_fields_in_schema(schema):
-            if field[schema_utils.LOOKUP_ATTR] == lookup:
-                if field[schema_utils.LOOKUP_ATTR] == 'table':
+        for field in self.schema_utils.get_replacement_fields_in_schema(schema):
+            if field[self.schema_utils.LOOKUP_ATTR] == lookup:
+                if field[self.schema_utils.LOOKUP_ATTR] == 'table':
                     lookups.append(
-                        {'table_name': field[schema_utils.FIELD_ATTR]})
+                        {'table_name': field[self.schema_utils.FIELD_ATTR]})
                 else:
                     lookups.append(field)
         return lookups
