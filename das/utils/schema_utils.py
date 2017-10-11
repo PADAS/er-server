@@ -14,13 +14,13 @@ from choices.models import Choice, DynamicChoice
 
 logger = logging.getLogger(__name__)
 
-LOOKUP_ATTR = 'lookup'
-FIELD_ATTR = 'field'
-TYPE_ATTR = 'type'
-TAG_ATTR = 'tag'
 
+class SchemaUtils:
 
-class SchemaUtils():
+    LOOKUP_ATTR = 'lookup'
+    FIELD_ATTR = 'field'
+    TYPE_ATTR = 'type'
+    TAG_ATTR = 'tag'
 
     def get_replacement_fields_in_schema(self, schema):
         template = Template(schema)

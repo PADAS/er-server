@@ -101,10 +101,4 @@ class TestReportUtils(TestCase):
         schema_utils = SchemaUtils()
         result = schema_utils.definition_key_order_as_dict(
             self.rendered_schema_1)
-        self.assertEquals(list(result), self.definition_order_schema_1)
-
-    def test_generate_details(self):
-        schema_utils = SchemaUtils()
-        result = schema_utils.generate_details(
-            MagicMock, self.rendered_schema_1)
-        self.assertEquals(list(result), self.definition_order_schema_1)
+        self.assertEquals(result, self.definition_order_dict_schema_1)
