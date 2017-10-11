@@ -4,7 +4,7 @@ from accounts.models import PermissionSet, User
 from observations.models import SubjectGroup, Subject
 from activity.models import *
 from django.core.management import call_command
-from utils.schema_utils import SchemaUtils
+import utils.schema_utils as schema_utils
 from activity.serializers import EventSerializer
 from django.http.request import HttpRequest
 
@@ -23,7 +23,6 @@ class TestReportUtils(TestCase):
         self.assertTrue(EventType.objects.filter(value='carcass').exists())
 
     def test_render_eventdetails(self):
-        schema_utils = SchemaUtils()
         edetails = {
             'beginning_of_incident': 'Monday',
             'details': 'Elephant carcass',

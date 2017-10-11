@@ -12,7 +12,7 @@ from django.utils.html import escape
 
 from reports.accumulator import accumulator, broadcast
 
-from utils.schema_utils import SchemaUtils
+import utils.schema_utils as schema_utils
 
 
 def safe_get(val, keys, default=None):
@@ -80,7 +80,7 @@ def get_daily_report_data(since, before, **kwargs):
     '''
     generated_at = timezone.now()
 
-    render_schema = SchemaUtils().schema_renderer()
+    render_schema = schema_utils.schema_renderer()
 
     # Get the events we're interested in. We just need this list once and we'll run it through a set of
     # accumulotors that take whatever they need to hydrate the sit-rep
@@ -335,7 +335,7 @@ def get_daily_report_data(since, before, **kwargs):
         if event.event_type.value == 'human_wildlife_conflict':
             return
 
-        event_details = SchemaUtils().generate_details(
+        event_details = schema_utils.generate_details(
             event, render_schema(event.event_type.schema))
         en = event.notes.all().order_by('created_at')
 
@@ -363,7 +363,7 @@ def get_daily_report_data(since, before, **kwargs):
         #     return
         # ed = ed.data['event_details']
 
-        event_details = SchemaUtils().generate_details(
+        event_details = schema_utils.generate_details(
             event, render_schema(event.event_type.schema))
 
         en = event.notes.all().order_by('created_at')

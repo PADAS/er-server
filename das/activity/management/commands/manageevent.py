@@ -8,7 +8,7 @@ from django.db.models import Count
 from django.contrib.contenttypes.models import ContentType
 
 from activity.models import EventType, Event, EventDetails, EventCategory
-from utils.schema_utils import SchemaUtils
+import utils.schema_utils as schema_utils
 import choices.models as choices
 from utils import json
 from uuid import UUID
@@ -30,8 +30,6 @@ class Command(BaseCommand):
     COMMAND_IGNORE = 'IGNORE'
     COMMAND_DELETE = 'DELETE'
     COMMAND_HARDCODE = 'HC:'
-
-    schema_utils = SchemaUtils()
 
     def handle(self, *args, **options):
         sub_command = options['sub-command']

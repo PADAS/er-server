@@ -6,7 +6,7 @@ from django.utils.translation import ugettext_lazy as _
 from activity.serializers import EventSerializer, EventNoteSerializer
 from activity.models import Event
 from rt_api.rest_api_interface.dummy_request import DummyRequest
-from utils.schema_utils import SchemaUtils
+import utils.schema_utils as schema_utils
 import os
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ def extract_details(schema, details, updated):
         return
 
     details_dictionary = details.data['event_details']
-    schema = SchemaUtils().get_rendered_schema(schema)
+    schema = schema_utils.get_rendered_schema(schema)
     properties = schema['properties']
     for k in sorted(details_dictionary.keys()):
         if k not in properties:

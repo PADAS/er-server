@@ -42,7 +42,7 @@ from observations.models import Subject
 from analyzers.serializers import SubjectAnalyzerResultSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
-from utils.schema_utils import SchemaUtils
+import utils.schema_utils as schema_utils
 from activity.models import EventRelationship
 import usercontent.serializers
 
@@ -739,7 +739,6 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         if not schema:
             return super().to_internal_value(data)
 
-        schema_utils = SchemaUtils()
         replacement_fields = schema_utils.get_replacement_fields_in_schema(
             schema)
 

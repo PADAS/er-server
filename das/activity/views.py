@@ -42,7 +42,7 @@ from observations.models import Subject
 from rest_framework import serializers, views, permissions
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
 
-from utils.schema_utils import SchemaUtils
+import utils.schema_utils as schema_utils
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +203,6 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
     def get_event_export_list(self):
         event_export_data = []
 
-        schema_utils = SchemaUtils()
         renderer = schema_utils.schema_renderer()
 
         current_event_type_data = {'id': None}

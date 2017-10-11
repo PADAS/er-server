@@ -2,7 +2,7 @@ import logging
 
 from django.test import TestCase
 
-from utils.schema_utils import SchemaUtils
+import utils.schema_utils as schema_utils
 
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,6 @@ BAD_SCHEMA = """{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://jso
 
 class TestSchema(TestCase):
     def test_find_choice_table_references(self):
-        schema_utils = SchemaUtils()
         fields = schema_utils.get_replacement_fields_in_schema(EVENT_SCHEMA_A)
         for field in fields:
             tag = field[schema_utils.TAG_ATTR]
@@ -25,10 +24,10 @@ class TestSchema(TestCase):
                 self.assertFalse('Tag not found: {}'.format(tag))
 
     def test_rendered_schema_is_json_complete(self):
-        schema = SchemaUtils().get_rendered_schema(
+        schema = schema_utils.get_rendered_schema(
             EVENT_SCHEMA_A)['properties']
         logger.debug(schema)
 
     def test_rendered_schema_has_malformed_tag(self):
         with self.assertRaises(NameError):
-            schema = SchemaUtils().get_replacement_fields_in_schema(BAD_SCHEMA)
+            schema = schema_utils.get_replacement_fields_in_schema(BAD_SCHEMA)

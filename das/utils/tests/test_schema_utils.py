@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 from django.test import TestCase
-from utils.schema_utils import SchemaUtils
+import utils.schema_utils as schema_utils
 from unittest.mock import MagicMock
 
 
@@ -76,29 +76,24 @@ class TestReportUtils(TestCase):
         super().setUp()
 
     def test_get_all_replacement_fields(self):
-        schema_utils = SchemaUtils()
         result = schema_utils.get_replacement_fields_in_schema(
             self.raw_schema_1)
         self.assertEquals(result, self.replacement_fields_schema_1)
 
     def test_schema_renderer(self):
-        schema_utils = SchemaUtils()
         result = schema_utils.schema_renderer()(self.raw_schema_1)
         self.assertEquals(result, self.rendered_schema_1)
 
     def test_schema_validation(self):
-        schema_utils = SchemaUtils()
         result = schema_utils.validate(
             MagicMock(), self.rendered_schema_1, False)
         self.assertTrue(result)
 
     def test_definition_key_order(self):
-        schema_utils = SchemaUtils()
         result = schema_utils.definition_key_order(self.rendered_schema_1)
         self.assertEquals(list(result), self.definition_order_schema_1)
 
     def test_definition_key_order_as_dict(self):
-        schema_utils = SchemaUtils()
         result = schema_utils.definition_key_order_as_dict(
             self.rendered_schema_1)
         self.assertEquals(result, self.definition_order_dict_schema_1)
