@@ -235,9 +235,9 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             # First, get the event details (schema data) in the correct order
             # for the headers above
-            details = schema_utils.generate_details_with_display_values(event,
-                                                                        renderer(
-                                                                            event.event_type.schema))
+            details = schema_utils.get_details_and_display_values(event,
+                                                                  renderer(
+                                                                      event.event_type.schema))
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():

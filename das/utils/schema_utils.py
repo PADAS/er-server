@@ -193,16 +193,7 @@ def definition_key_order(schema):
 
 
 def definition_key_order_as_dict(schema):
-    '''
-    Calculate map of key to order, as indicated in schema.definition.
-    '''
-    ret = OrderedDict()
-    for i, k in enumerate(schema.get('definition', [])):
-        if isinstance(k, str):
-            ret[k] = i
-        elif isinstance(k, dict) and 'key' in k:
-            ret[k['key']] = i
-    return ret
+    return OrderedDict(definition_key_order(schema))
 
 
 def generate_details(event, schema):
@@ -223,7 +214,7 @@ def generate_details(event, schema):
                }
 
 
-def generate_details_with_display_values(event, schema):
+def get_details_and_display_values(event, schema):
     event_details = event.event_details.first().data.get('event_details', {})
 
     def resolver(schema, key, value):
@@ -302,28 +293,6 @@ def get_replacement_fields_in_schema(schema):
                            'tag': node.token.contents})
 
     return fields
-
-
-def get_all_fields(schema):
-    try:
-        template = Template(schema)
-
-        empty_params = {}
-        for node in template.nodelist:
-            if type(node) is VariableNode:
-                empty_params[node.token.contents] = []
-
-        if len(empty_params) > 0:
-            rendered_schema = template.render(
-                Context(empty_params, autoescape=False))
-            schema_json = json.loads(rendered_schema)
-        else:
-            schema_json = json.loads(schema)
-
-        return schema_json['schema']['properties'].keys()
-    except Exception as ex:
-        logger.error("Error rendering schema with empty data", ex)
-        return []
 
 
 def format_key_for_title(key):
