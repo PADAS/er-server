@@ -15,6 +15,7 @@ if [ "$PIPELINE_NAME" == "das" ]; then
     exit 1
 fi
 
+# Be very intentional with deployment pipelines -- we will not auto-create them.
 if [ "$PIPELINE_TYPE" == "deployment" ]; then
     echo 'Creating pipeline-specific parameters for deployment pipelines is not supported.'
     exit 1
