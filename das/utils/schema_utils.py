@@ -198,7 +198,7 @@ def definition_key_order_as_dict(schema):
 
 def detail_resolver(schema, key, value):
     properties = schema['schema']['properties']
-    schema_item = properties.get(key, '')
+    schema_item = properties[key]
     return extractor(schema_item, value)
 
 
