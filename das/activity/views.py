@@ -204,6 +204,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         current_event_type_data = {'id': None}
         for event in self.get_queryset():
+
             if event.event_type_id != current_event_type_data['id']:
                 event_type = EventType.objects.get(id=event.event_type_id)
 
@@ -224,7 +225,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 }
 
                 for key, order in current_schema_order.items():
-                    display_value = self.get_display_value_header_for_key(
+                    display_value = schema_utils.get_display_value_header_for_key(
                         current_schema, key)
                     current_event_type_data['headers'].append(
                         self.escape_string(key))
@@ -300,7 +301,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         context = {
             'report_filename': 'Event Export {}.csv'.format(timestamp.strftime('%Y-%m-%d')),
             'report_time': timestamp.strftime('%-d %B %Y %Z'),
-            'event_types': self.get_event_export_list(**kwargs)
+            'event_types': self.get_event_export_list()
         }
 
         return context
