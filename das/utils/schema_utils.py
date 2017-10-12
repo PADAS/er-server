@@ -168,17 +168,23 @@ def validate(event, schema=None, raise_exception=False):
     return False
 
 
-def extractor(schema_item, value):
+def extractor(schema_item, definition, value):
     key = value
     # value might be a dict, in which case it includes a 'value' attribute.
     if isinstance(value, dict):
         value = value.get('value') or str(value)
 
+    # Get the value and display value for the current value
     if schema_item.get('type', None) == 'string':
         if 'enumNames' in schema_item:
             if value in schema_item['enumNames']:
                 value = schema_item['enumNames'][value]
-    return (schema_item['title'], value, key)
+    if 'title' in schema_item:
+        return (schema_item['title'], value, key)
+    else:
+        for definition_item in definition:
+            if isinstance(definition_item, dict) and definition_item[key] == key:
+                return (definition_item['title'], value, key)
 
 
 def definition_key_order(schema):
@@ -199,7 +205,7 @@ def definition_key_order_as_dict(schema):
 def detail_resolver(schema, key, value):
     properties = schema['schema']['properties']
     schema_item = properties[key]
-    return extractor(schema_item, value)
+    return extractor(schema_item, schema['definition'], value)
 
 
 def generate_details(event, schema):
