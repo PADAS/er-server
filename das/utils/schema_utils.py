@@ -196,18 +196,19 @@ def definition_key_order_as_dict(schema):
     return OrderedDict(definition_key_order(schema))
 
 
+def detail_resolver(schema, key, value):
+    properties = schema['schema']['properties']
+    schema_item = properties[key]
+    return extractor(schema_item, value)
+
+
 def generate_details(event, schema):
     event_details = event.event_details.first().data.get('event_details', {})
-
-    def resolver(schema, key, value):
-        properties = schema['schema']['properties']
-        schema_item = properties[key]
-        return extractor(schema_item, value)
 
     definition_order = dict(definition_key_order(schema))
 
     for k, v in event_details.items():
-        name, value, key = resolver(schema, k, v)
+        name, value, key = detail_resolver(schema, k, v)
         yield {'name': name,
                'value': html.escape(value) if isinstance(value, str) else value,
                'order': definition_order.get(k, 99)
@@ -215,18 +216,18 @@ def generate_details(event, schema):
 
 
 def get_details_and_display_values(event, schema):
-    event_details = event.event_details.first().data.get('event_details', {})
-
-    def resolver(schema, key, value):
-        properties = schema['schema']['properties']
-        schema_item = properties[key]
-        extracted_values = extractor(schema_item, value)
-        return {key:  extracted_values[2],
-                extracted_values[0]: extracted_values[1]}
+    try:
+        event_details = event.event_details.first().data.get('event_details', {})
+    except AttributeError:
+        return {}
 
     ret = {}
     for k, v in event_details.items():
-        ret.update(resolver(schema, k, v))
+        resolved_details = detail_resolver(schema, k, v)
+        ret.update({
+            k:  resolved_details[2],
+            resolved_details[0]: resolved_details[1]
+        })
     return ret
 
 
@@ -311,6 +312,6 @@ def find_display_value_for_key_in_definition(schema, key):
 
 
 def get_display_value_header_for_key(schema, key):
-    if 'title' in schema['schema']['properties'][key]:
+    if key in schema['schema']['properties'] and 'title' in schema['schema']['properties'][key]:
         return schema['schema']['properties'][key]['title']
     return find_display_value_for_key_in_definition(schema, key) or format_key_for_title(key)
