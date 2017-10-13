@@ -218,7 +218,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     'headers': ['Serial', 'Event Type',
                                 'Event Type Internal Value', 'Title',
                                 'Reported By', 'Reported By Internal Value',
-                                'Reported At', 'Latitude' 'Longitude',
+                                'Reported At', 'Latitude', 'Longitude',
                                 'CUSTOM FIELDS BEGIN HERE'],
                     'events': []
                 }

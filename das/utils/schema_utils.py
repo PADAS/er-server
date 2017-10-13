@@ -168,15 +168,15 @@ def validate(event, schema=None, raise_exception=False):
     return False
 
 
-def extract_from_list(value):
+def extract_from_list(values):
 
-    values = []
-    keys = []
-    for k, v in value:
-        keys.append(k)
-        values.append(v)
+    names = []
+    ids = []
+    for value in values:
+        names.append(value['name'])
+        ids.append(value['value'])
 
-    return ';'.join(keys), ';'.join(values)
+    return ';'.join(ids), ';'.join(names)
 
 
 def extract_from_dict_or_string(schema_item, value):
