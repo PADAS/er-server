@@ -73,6 +73,13 @@ def create_realtime_handler(sios):
             eventlet.spawn_after(settings.REALTIME_AUTH_TIMEOUT_SECONDS,
                                  confirm_authed, sid, socket)
 
+            def cleanup():
+                RealtimeServices.cleanup_disconnected_clients()
+
+            # Kick off cleaning up old socket connections
+            eventlet.spawn_after(settings.REALTIME_AUTH_TIMEOUT_SECONDS,
+                                 cleanup())
+
         @sios.on('disconnect')
         def on_disconnect(sid, *args):
             extra = dict(sid=sid)
@@ -220,9 +227,10 @@ def create_realtime_handler(sios):
 
         @staticmethod
         def emit(message_type, data, user=None):
-            if user not in sios.environ:
+            # user is the SID if set
+            if user and user not in sios.environ:
                 client.remove_client(user)
-                extra = dict(user=user)
+                extra = dict(sid=user)
                 logger.warning(
                     'Tried to send a message to a disconnected client. user=%s',
                     user, extra=extra)
@@ -235,7 +243,8 @@ def create_realtime_handler(sios):
                         user), namespace='/das')
 
             except Exception as ex:
-                client.remove_client(user)
+                if user:
+                    client.remove_client(user)
                 logger.exception("Error emitting event over socket")
 
         @staticmethod
@@ -250,6 +259,22 @@ def create_realtime_handler(sios):
             else:
                 logger.error('Realtime server received invalid message type: %s',
                              message_data['type'])
+
+        @staticmethod
+        def cleanup_disconnected_clients():
+            """
+            TODO make this manager aware,
+            as this will not work for multiple rt servers running
+            """
+            if not sios.environ:
+                return
+            environ = [sid for sid in sios.environ]
+            clients = list(client.get_client_list())
+            for c in clients:
+                if c.sid not in environ:
+                    logger.info('Cleaning up disconnected user: %s', c,
+                                extras=c)
+                    client.remove_client(c.sid)
 
     return RealtimeServices
 

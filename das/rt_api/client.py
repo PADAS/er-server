@@ -27,7 +27,7 @@ def now(tz=pytz.utc):
 
 
 def update_client(sid, bbox=None, event_filter=None):
-
+    sid = str(sid)
     logger.info('update_client, sid: %s', sid)
     client_data = get_client(sid)
 
@@ -54,24 +54,31 @@ def update_client(sid, bbox=None, event_filter=None):
 
 def get_client_list():
     for data in redis_client.hgetall(CLIENT_LIST_KEY).items():
-        c = _restore_client_data(data[1])
+        sid = str(data[0], 'utf-8')
+        c = _restore_client_data(str(data[1], 'utf-8'))
         if c:
             client_data = c
             yield client_data
+        else:
+            remove_client(sid)
 
 
 def add_client(sid, data):
+    sid = str(sid)
     logger.info('Adding socket client. sid=%s, data=%s', sid, data)
     logger.info('Adding client to session list. key=%s, sid=%s, data=%s',
                 CLIENT_LIST_KEY, sid, json.dumps(data))
     hset_result = redis_client.hset(
-        CLIENT_LIST_KEY, str(sid), json.dumps(data))
+        CLIENT_LIST_KEY, sid, json.dumps(data))
     logger.info('hset_result = %s', hset_result)
 
 
 def _restore_client_data(data):
-    data = json.loads(str(data, 'utf-8'))
-    if isinstance(data, str) or isinstance(data, int):
+    try:
+        data = json.loads(data)
+    except json.JSONDecodeError:
+        data = None
+    if not data or isinstance(data, str) or isinstance(data, int):
         return None
 
     bbox = Bbox(**data['bbox']) if data.get('bbox') else None
@@ -81,9 +88,9 @@ def _restore_client_data(data):
 
 
 def get_client(sid):
-
+    sid = str(sid)
     logger.debug('Get client for sid=%s', sid)
-    data = redis_client.hget(CLIENT_LIST_KEY, str(sid))
+    data = str(redis_client.hget(CLIENT_LIST_KEY, sid), 'utf-8')
 
     logger.debug('Got client for sid=%s, data=%s', sid, data)
     if data:
@@ -91,10 +98,14 @@ def get_client(sid):
 
 
 def is_client(sid):
-    return redis_client.hexists(CLIENT_LIST_KEY, str(sid))
+    return redis_client.hexists(CLIENT_LIST_KEY, sid)
 
 
 def remove_client(sid):
-    logger.debug('Removing client for sid: %s', sid)
-    redis_client.hdel(CLIENT_LIST_KEY, str(sid))
-    SocketClient.objects.filter(id=sid).delete()
+    sid = str(sid)
+    logger.info('Removing client for sid: %s', sid)
+    redis_client.hdel(CLIENT_LIST_KEY, sid)
+    try:
+        SocketClient.objects.filter(id=sid).delete()
+    except ValueError:
+        logger.exception('Invalid sid deleting SocketClient record: %s', sid)
