@@ -168,23 +168,44 @@ def validate(event, schema=None, raise_exception=False):
     return False
 
 
-def extractor(schema_item, definition, value):
-    key = value
+def extract_from_list(value):
+
+    values = []
+    keys = []
+    for k, v in value:
+        keys.append(k)
+        values.append(v)
+
+    return ';'.join(keys), ';'.join(values)
+
+
+def extract_from_dict_or_string(schema_item, value):
     # value might be a dict, in which case it includes a 'value' attribute.
     if isinstance(value, dict):
         value = value.get('value') or str(value)
 
     # Get the value and display value for the current value
     if schema_item.get('type', None) == 'string':
-        if 'enumNames' in schema_item:
-            if value in schema_item['enumNames']:
-                value = schema_item['enumNames'][value]
+        if value in schema_item.get('enumNames', {}):
+            value = schema_item['enumNames'][value]
+
+    return value
+
+
+def extractor(schema_item, definition, value):
+
+    if isinstance(value, list):
+        key, val = extract_from_list(value)
+    else:
+        key = value
+        val = extract_from_dict_or_string(schema_item, value)
+
     if 'title' in schema_item:
-        return (schema_item['title'], value, key)
+        return (schema_item['title'], val, key)
     else:
         for definition_item in definition:
-            if isinstance(definition_item, dict) and definition_item[key] == key:
-                return (definition_item['title'], value, key)
+            if isinstance(definition_item, dict) and definition_item['key'] == schema_item['key']:
+                return (definition_item['title'], val, key)
 
 
 def definition_key_order(schema):

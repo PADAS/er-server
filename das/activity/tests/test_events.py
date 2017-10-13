@@ -798,8 +798,11 @@ class TestEventView(BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
 
-        response = views.EventsExportView.as_view()(request)
-        response_data = response.data
+        response = views.EventsExportView.as_view(
+            content_type='text/csv',
+            template_engine='jinja2',
+            template_name='event_export_template.html')(request)
+        response_data = response.rendered_content
         self.assertEqual(response.status_code, 200)
 
     def test_reported_by_filtering(self):

@@ -204,7 +204,6 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         current_event_type_data = {'id': None}
         for event in self.get_queryset():
-
             if event.event_type_id != current_event_type_data['id']:
                 event_type = EventType.objects.get(id=event.event_type_id)
 
