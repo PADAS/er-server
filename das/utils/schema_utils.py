@@ -146,7 +146,6 @@ def get_schema_renderer_method():
             rendered_template = schema
 
         return json.loads(rendered_template, object_pairs_hook=OrderedDict)
-
     return render_f
 
 
@@ -225,8 +224,14 @@ def definition_key_order_as_dict(schema):
 
 def detail_resolver(schema, key, value):
     properties = schema['schema']['properties']
-    schema_item = properties[key]
-    return extractor(schema_item, schema['definition'], value)
+    # It is possible for an event to have saved elements in its details that
+    # don't correspond to a current item in its schema. Typically this comes
+    # from a change in the event type without re-saving the details.
+    schema_item = properties.get(key, None)
+    if schema_item:
+        return extractor(schema_item, schema['definition'], value)
+    else:
+        return None
 
 
 def generate_details(event, schema):
@@ -235,11 +240,12 @@ def generate_details(event, schema):
     definition_order = dict(definition_key_order(schema))
 
     for k, v in event_details.items():
-        name, value, key = detail_resolver(schema, k, v)
-        yield {'name': name,
-               'value': html.escape(value) if isinstance(value, str) else value,
-               'order': definition_order.get(k, 99)
-               }
+        resolved_details = detail_resolver(schema, k, v)
+        if resolved_details:
+            value = resolved_details[1]
+            yield {'name': resolved_details[0],
+                   'value': html.escape(value) if isinstance(value, str) else value,
+                   'order': definition_order.get(k, 99)}
 
 
 def get_details_and_display_values(event, schema):
@@ -251,10 +257,11 @@ def get_details_and_display_values(event, schema):
     ret = {}
     for k, v in event_details.items():
         resolved_details = detail_resolver(schema, k, v)
-        ret.update({
-            k:  resolved_details[2],
-            resolved_details[0]: resolved_details[1]
-        })
+        if resolved_details:
+            ret.update({
+                k:  resolved_details[2],
+                resolved_details[0]: resolved_details[1]
+            })
     return ret
 
 

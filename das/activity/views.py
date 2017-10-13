@@ -21,7 +21,7 @@ from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
 
 from activity.models import Event, EventNote, EventClass,\
-    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile
+    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
@@ -207,10 +207,6 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             if event.event_type_id != current_event_type_data['id']:
                 event_type = EventType.objects.get(id=event.event_type_id)
 
-                current_schema = renderer(event.event_type.schema)
-                current_schema_order = schema_utils.definition_key_order_as_dict(
-                    renderer(event.event_type.schema))
-
                 current_event_type_data = {
                     'id': event_type.id,
                     'display': event_type.display,
@@ -223,21 +219,31 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     'events': []
                 }
 
-                for key, order in current_schema_order.items():
-                    display_value = schema_utils.get_display_value_header_for_key(
-                        current_schema, key)
-                    current_event_type_data['headers'].append(
-                        self.escape_string(key))
-                    current_event_type_data['headers'].append(
-                        self.escape_string(display_value))
+                try:
+                    current_schema = renderer(event.event_type.schema)
+                    current_schema_order = schema_utils.definition_key_order_as_dict(
+                        renderer(event.event_type.schema))
+
+                    for key, order in current_schema_order.items():
+                        display_value = schema_utils.get_display_value_header_for_key(
+                            current_schema, key)
+                        current_event_type_data['headers'].append(
+                            self.escape_string(key))
+                        current_event_type_data['headers'].append(
+                            self.escape_string(display_value))
+
+                except json.JSONDecodeError:
+                    # Event type does not have schema, which is weird but not
+                    # _technically_ invalid
+                    current_schema = None
+                    current_schema_order = {}
 
                 event_export_data.append(current_event_type_data)
 
             # First, get the event details (schema data) in the correct order
             # for the headers above
             details = schema_utils.get_details_and_display_values(event,
-                                                                  renderer(
-                                                                      event.event_type.schema))
+                                                                  current_schema)
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
@@ -266,6 +272,9 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 event_data['reported_by'] = self.escape_string(
                     event.reported_by.name)
                 event_data['reported_by_internal'] = event.reported_by.id
+            elif isinstance(event.reported_by, Community):
+                event_data['reported_by'] = event.reported_by.name
+                event_data['reported_by_internal'] = event.reported_by.name
             else:
                 full_name = '{0} {1}'.format(
                     event.reported_by.first_name, event.reported_by.last_name)
