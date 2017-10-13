@@ -42,7 +42,7 @@ from observations.models import Subject
 from analyzers.serializers import SubjectAnalyzerResultSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
-from utils import schema_utils
+import utils.schema_utils as schema_utils
 from activity.models import EventRelationship
 import usercontent.serializers
 

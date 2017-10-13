@@ -27,7 +27,7 @@ class SubjectAnalyzer:
         Default set of observation is fetched from the database, based on this analyzer's configuration.
         :return: a queryset of Observations
         """
-        return self.subject.observations(last_hours=self.config.search_time_hours)
+        raise NotImplementedError()
 
     def get_last_result(self):
         try:

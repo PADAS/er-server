@@ -193,19 +193,18 @@ class EventCountView(generics.ListAPIView):
         return generics.views.Response(data)
 
 
-from django.db import connections
-
-
 class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
     permission_classes = (EventCategoryPermissions,)
 
     def get_event_export_list(self):
         event_export_data = []
-        renderer = schema_utils.schema_renderer()
+
+        renderer = schema_utils.get_schema_renderer_method()
 
         current_event_type_data = {'id': None}
         for event in self.get_queryset():
+
             if event.event_type_id != current_event_type_data['id']:
                 event_type = EventType.objects.get(id=event.event_type_id)
 
@@ -224,8 +223,10 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                                 'CUSTOM FIELDS BEGIN HERE'],
                     'events': []
                 }
+
                 for key, order in current_schema_order.items():
-                    display_value = current_schema['schema']['properties'][key]['title']
+                    display_value = schema_utils.get_display_value_header_for_key(
+                        current_schema, key)
                     current_event_type_data['headers'].append(
                         self.escape_string(key))
                     current_event_type_data['headers'].append(
@@ -235,14 +236,14 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             # First, get the event details (schema data) in the correct order
             # for the headers above
-            details = schema_utils.generate_details_with_display_values(event,
-                                                                        renderer(
-                                                                            event.event_type.schema))
+            details = schema_utils.get_details_and_display_values(event,
+                                                                  renderer(
+                                                                      event.event_type.schema))
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
-                item_display_name = current_schema['schema']['properties'][key][
-                    'title']
+                item_display_name = schema_utils.get_display_value_header_for_key(
+                    current_schema, key)
                 schema_data[key] = self.escape_string(details.get(key, ''))
                 schema_data[item_display_name] = self.escape_string(
                     details.get(item_display_name, ''))
@@ -295,11 +296,12 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         return response
 
     def get_context_data(self, **kwargs):
-        timestamp = datetime.utcnow().astimezone(timezone.get_current_timezone())
+        current_tz = pytz.timezone(timezone.get_current_timezone_name())
+        timestamp = current_tz.localize(datetime.utcnow())
         context = {
             'report_filename': 'Event Export {}.csv'.format(timestamp.strftime('%Y-%m-%d')),
             'report_time': timestamp.strftime('%-d %B %Y %Z'),
-            'event_types': self.get_event_export_list(**kwargs)
+            'event_types': self.get_event_export_list()
         }
 
         return context

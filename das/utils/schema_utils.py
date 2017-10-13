@@ -1,12 +1,17 @@
+import html
+import json
+import jsonschema
+import logging
+import re
+
+from collections import OrderedDict
+from django.apps import apps
 from django.template import Template, Context
 from django.template.base import VariableNode
-import json
-from collections import OrderedDict
-import jsonschema
-import html
-import logging
-from django.apps import apps
+
 from choices.models import Choice, DynamicChoice
+from utils.memoize import memoize
+
 
 logger = logging.getLogger(__name__)
 
@@ -115,20 +120,7 @@ def get_table_choices(field_details, as_string=True):
     return return_val
 
 
-def memoize(f):
-    '''
-    Memoize for single-argument function F(hashable)
-    '''
-
-    class memoize(dict):
-        def __missing__(self, key):
-            ret = self[key] = f(key)
-            return ret
-
-    return memoize().__getitem__
-
-
-def schema_renderer():
+def get_schema_renderer_method():
     @memoize
     def render_f(schema):
 
@@ -140,11 +132,8 @@ def schema_renderer():
                 parameters[schema_field['tag']
                            ] = get_enum_choices(schema_field)
             elif schema_field['lookup'] == 'query':
-                try:
-                    parameters[schema_field['tag']
-                               ] = get_dynamic_choices(schema_field)
-                except:
-                    pass
+                parameters[schema_field['tag']
+                           ] = get_dynamic_choices(schema_field)
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
                            ] = get_table_choices(schema_field)
@@ -167,10 +156,11 @@ def validate(event, schema=None, raise_exception=False):
     '''
     try:
         if not schema:
-            schema = schema_renderer()(event.event_type.schema)
+            schema = get_schema_renderer_method()(event.event_type.schema)
 
-        jsonschema.validate(event.event_details.first().data, schema)
-        True
+        jsonschema.validate(
+            event.event_details.first().data, schema)
+        return True
     except:
         if raise_exception:
             raise
@@ -178,17 +168,23 @@ def validate(event, schema=None, raise_exception=False):
     return False
 
 
-def extractor(schema_item, value):
+def extractor(schema_item, definition, value):
     key = value
     # value might be a dict, in which case it includes a 'value' attribute.
     if isinstance(value, dict):
         value = value.get('value') or str(value)
 
-    if schema_item['type'] == 'string':
+    # Get the value and display value for the current value
+    if schema_item.get('type', None) == 'string':
         if 'enumNames' in schema_item:
             if value in schema_item['enumNames']:
                 value = schema_item['enumNames'][value]
-    return (schema_item['title'], value, key)
+    if 'title' in schema_item:
+        return (schema_item['title'], value, key)
+    else:
+        for definition_item in definition:
+            if isinstance(definition_item, dict) and definition_item[key] == key:
+                return (definition_item['title'], value, key)
 
 
 def definition_key_order(schema):
@@ -203,59 +199,48 @@ def definition_key_order(schema):
 
 
 def definition_key_order_as_dict(schema):
-    '''
-    Calculate map of key to order, as indicated in schema.definition.
-    '''
-    ret = OrderedDict()
-    for i, k in enumerate(schema.get('definition', [])):
-        if isinstance(k, str):
-            ret[k] = i
-        elif isinstance(k, dict) and 'key' in k:
-            ret[k['key']] = i
-    return ret
+    return OrderedDict(definition_key_order(schema))
+
+
+def detail_resolver(schema, key, value):
+    properties = schema['schema']['properties']
+    schema_item = properties[key]
+    return extractor(schema_item, schema['definition'], value)
 
 
 def generate_details(event, schema):
     event_details = event.event_details.first().data.get('event_details', {})
 
-    def resolver(schema, key, value):
-        properties = schema['schema']['properties']
-        schema_item = properties[key]
-        return extractor(schema_item, value)
-
     definition_order = dict(definition_key_order(schema))
 
     for k, v in event_details.items():
-        name, value = resolver(schema, k, v)
+        name, value, key = detail_resolver(schema, k, v)
         yield {'name': name,
                'value': html.escape(value) if isinstance(value, str) else value,
                'order': definition_order.get(k, 99)
                }
 
 
-def generate_details_with_display_values(event, schema):
-    event_details = event.event_details.first().data.get('event_details', {})
-
-    def resolver(schema, key, value):
-        properties = schema['schema']['properties']
-        schema_item = properties[key]
-        extracted_values = extractor(schema_item, value)
-        schema_item['title'], value, key
-        return {key:  extracted_values[2],
-                extracted_values[0]: extracted_values[1]}
-
-    definition_order = dict(definition_key_order(schema))
+def get_details_and_display_values(event, schema):
+    try:
+        event_details = event.event_details.first().data.get('event_details', {})
+    except AttributeError:
+        return {}
 
     ret = {}
     for k, v in event_details.items():
-        ret.update(resolver(schema, k, v))
+        resolved_details = detail_resolver(schema, k, v)
+        ret.update({
+            k:  resolved_details[2],
+            resolved_details[0]: resolved_details[1]
+        })
     return ret
 
 
 def get_rendered_schema(schema):
-    renderer = schema_renderer()
-    rendered_schema = renderer.render_schema(schema)
-    return rendered_schema['json']
+    renderer = get_schema_renderer_method()
+    rendered_schema = renderer(schema)
+    return rendered_schema['schema']
 
 
 def get_all_fields(schema):
@@ -317,23 +302,22 @@ def get_replacement_fields_in_schema(schema):
     return fields
 
 
-def get_all_fields(schema):
-    try:
-        template = Template(schema)
+def format_key_for_title(key):
+    titleStr = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', key)
+    titleStr = re.sub('([a-z0-9])([A-Z])', r'\1 \2', titleStr).lower()
+    return titleStr.title()
 
-        empty_params = {}
-        for node in template.nodelist:
-            if type(node) is VariableNode:
-                empty_params[node.token.contents] = []
 
-        if len(empty_params) > 0:
-            rendered_schema = template.render(
-                Context(empty_params, autoescape=False))
-            schema_json = json.loads(rendered_schema)
-        else:
-            schema_json = json.loads(schema)
+def find_display_value_for_key_in_definition(schema, key):
+    for item in schema['definition']:
+        if not isinstance(item, dict):
+            continue
+        if 'key' in item and item['key'] == key and 'title' in item:
+            return item['title']
+    return None
 
-        return schema_json['schema']['properties'].keys()
-    except Exception as ex:
-        logger.error("Error rendering schema with empty data", ex)
-        return []
+
+def get_display_value_header_for_key(schema, key):
+    if key in schema['schema']['properties'] and 'title' in schema['schema']['properties'][key]:
+        return schema['schema']['properties'][key]['title']
+    return find_display_value_for_key_in_definition(schema, key) or format_key_for_title(key)
