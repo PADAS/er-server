@@ -183,12 +183,14 @@ def extract_from_dict_or_string(schema_item, value):
     if isinstance(value, dict):
         value = value.get('value') or str(value)
 
+    key = value
+
     # Get the value and display value for the current value
     if schema_item.get('type', None) == 'string':
         if value in schema_item.get('enumNames', {}):
             value = schema_item['enumNames'][value]
 
-    return value
+    return key, value
 
 
 def extractor(schema_item, definition, value):
@@ -196,8 +198,7 @@ def extractor(schema_item, definition, value):
     if isinstance(value, list):
         key, val = extract_from_list(value)
     else:
-        key = value
-        val = extract_from_dict_or_string(schema_item, value)
+        key, val = extract_from_dict_or_string(schema_item, value)
 
     if 'title' in schema_item:
         return (schema_item['title'], val, key)
