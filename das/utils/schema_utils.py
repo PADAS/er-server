@@ -146,7 +146,6 @@ def get_schema_renderer_method():
             rendered_template = schema
 
         return json.loads(rendered_template, object_pairs_hook=OrderedDict)
-
     return render_f
 
 
@@ -168,23 +167,45 @@ def validate(event, schema=None, raise_exception=False):
     return False
 
 
-def extractor(schema_item, definition, value):
-    key = value
+def extract_from_list(values):
+
+    names = []
+    ids = []
+    for value in values:
+        names.append(value['name'])
+        ids.append(value['value'])
+
+    return ';'.join(ids), ';'.join(names)
+
+
+def extract_from_dict_or_string(schema_item, value):
     # value might be a dict, in which case it includes a 'value' attribute.
     if isinstance(value, dict):
         value = value.get('value') or str(value)
 
+    key = value
+
     # Get the value and display value for the current value
     if schema_item.get('type', None) == 'string':
-        if 'enumNames' in schema_item:
-            if value in schema_item['enumNames']:
-                value = schema_item['enumNames'][value]
+        if value in schema_item.get('enumNames', {}):
+            value = schema_item['enumNames'][value]
+
+    return key, value
+
+
+def extractor(schema_item, definition, value):
+
+    if isinstance(value, list):
+        key, val = extract_from_list(value)
+    else:
+        key, val = extract_from_dict_or_string(schema_item, value)
+
     if 'title' in schema_item:
-        return (schema_item['title'], value, key)
+        return (schema_item['title'], val, key)
     else:
         for definition_item in definition:
-            if isinstance(definition_item, dict) and definition_item[key] == key:
-                return (definition_item['title'], value, key)
+            if isinstance(definition_item, dict) and definition_item['key'] == schema_item['key']:
+                return (definition_item['title'], val, key)
 
 
 def definition_key_order(schema):
@@ -204,8 +225,14 @@ def definition_key_order_as_dict(schema):
 
 def detail_resolver(schema, key, value):
     properties = schema['schema']['properties']
-    schema_item = properties[key]
-    return extractor(schema_item, schema['definition'], value)
+    # It is possible for an event to have saved elements in its details that
+    # don't correspond to a current item in its schema. Typically this comes
+    # from a change in the event type without re-saving the details.
+    schema_item = properties.get(key, None)
+    if schema_item:
+        return extractor(schema_item, schema['definition'], value)
+    else:
+        return None
 
 
 def generate_details(event, schema):
@@ -214,11 +241,12 @@ def generate_details(event, schema):
     definition_order = dict(definition_key_order(schema))
 
     for k, v in event_details.items():
-        name, value, key = detail_resolver(schema, k, v)
-        yield {'name': name,
-               'value': html.escape(value) if isinstance(value, str) else value,
-               'order': definition_order.get(k, 99)
-               }
+        resolved_details = detail_resolver(schema, k, v)
+        if resolved_details:
+            value = resolved_details[1]
+            yield {'name': resolved_details[0],
+                   'value': html.escape(value) if isinstance(value, str) else value,
+                   'order': definition_order.get(k, 99)}
 
 
 def get_details_and_display_values(event, schema):
@@ -230,10 +258,11 @@ def get_details_and_display_values(event, schema):
     ret = {}
     for k, v in event_details.items():
         resolved_details = detail_resolver(schema, k, v)
-        ret.update({
-            k:  resolved_details[2],
-            resolved_details[0]: resolved_details[1]
-        })
+        if resolved_details:
+            ret.update({
+                k:  resolved_details[2],
+                resolved_details[0]: resolved_details[1]
+            })
     return ret
 
 
