@@ -34,7 +34,15 @@ run it:
     ./docker/utility/fly/install/install.fly.cli.sh
 
 
-#### ? ####
+#### Shared Services Documentation ####
+The Shared Services team is now documenting their work here [Infrastcture Docs](https://github.com/VulcanTechnologies/infrastructure/wiki)
+
+The primary tool for managing concourse pipelines is found in the infrastructure docker image. The infrastructure docker image logs in using your Vulcan helium credentials and also will prompt to get a token from GCP. Your username is case sensitive.
+
+''''
+cd /das
+./manage.padas-app.sh
+''''
 
 
 ### Configuring Concourse

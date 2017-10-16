@@ -24,7 +24,8 @@ class TestSchema(TestCase):
                 self.assertFalse('Tag not found: {}'.format(tag))
 
     def test_rendered_schema_is_json_complete(self):
-        schema = schema_utils.get_rendered_schema(EVENT_SCHEMA_A)['properties']
+        schema = schema_utils.get_rendered_schema(
+            EVENT_SCHEMA_A)['properties']
         logger.debug(schema)
 
     def test_rendered_schema_has_malformed_tag(self):

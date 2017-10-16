@@ -21,7 +21,7 @@ from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
 
 from activity.models import Event, EventNote, EventClass,\
-    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile
+    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
@@ -193,25 +193,19 @@ class EventCountView(generics.ListAPIView):
         return generics.views.Response(data)
 
 
-from django.db import connections
-
-
 class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
     permission_classes = (EventCategoryPermissions,)
 
     def get_event_export_list(self):
         event_export_data = []
-        renderer = schema_utils.schema_renderer()
+
+        renderer = schema_utils.get_schema_renderer_method()
 
         current_event_type_data = {'id': None}
         for event in self.get_queryset():
             if event.event_type_id != current_event_type_data['id']:
                 event_type = EventType.objects.get(id=event.event_type_id)
-
-                current_schema = renderer(event.event_type.schema)
-                current_schema_order = schema_utils.definition_key_order_as_dict(
-                    renderer(event.event_type.schema))
 
                 current_event_type_data = {
                     'id': event_type.id,
@@ -220,30 +214,40 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     'headers': ['Serial', 'Event Type',
                                 'Event Type Internal Value', 'Title',
                                 'Reported By', 'Reported By Internal Value',
-                                'Reported At', 'Latitude' 'Longitude',
+                                'Reported At', 'Latitude', 'Longitude',
                                 'CUSTOM FIELDS BEGIN HERE'],
                     'events': []
                 }
 
-                for key, order in current_schema_order.items():
-                    display_value = self.get_display_value_header_for_key(
-                        current_schema, key)
-                    current_event_type_data['headers'].append(
-                        self.escape_string(key))
-                    current_event_type_data['headers'].append(
-                        self.escape_string(display_value))
+                try:
+                    current_schema = renderer(event.event_type.schema)
+                    current_schema_order = schema_utils.definition_key_order_as_dict(
+                        renderer(event.event_type.schema))
+
+                    for key, order in current_schema_order.items():
+                        display_value = schema_utils.get_display_value_header_for_key(
+                            current_schema, key)
+                        current_event_type_data['headers'].append(
+                            self.escape_string(key))
+                        current_event_type_data['headers'].append(
+                            self.escape_string(display_value))
+
+                except json.JSONDecodeError:
+                    # Event type does not have schema, which is weird but not
+                    # _technically_ invalid
+                    current_schema = None
+                    current_schema_order = {}
 
                 event_export_data.append(current_event_type_data)
 
             # First, get the event details (schema data) in the correct order
             # for the headers above
-            details = schema_utils.generate_details_with_display_values(event,
-                                                                        renderer(
-                                                                            event.event_type.schema))
+            details = schema_utils.get_details_and_display_values(event,
+                                                                  current_schema)
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
-                item_display_name = self.get_display_value_header_for_key(
+                item_display_name = schema_utils.get_display_value_header_for_key(
                     current_schema, key)
                 schema_data[key] = self.escape_string(details.get(key, ''))
                 schema_data[item_display_name] = self.escape_string(
@@ -268,6 +272,9 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 event_data['reported_by'] = self.escape_string(
                     event.reported_by.name)
                 event_data['reported_by_internal'] = event.reported_by.id
+            elif isinstance(event.reported_by, Community):
+                event_data['reported_by'] = event.reported_by.name
+                event_data['reported_by_internal'] = event.reported_by.name
             else:
                 full_name = '{0} {1}'.format(
                     event.reported_by.first_name, event.reported_by.last_name)
@@ -277,24 +284,6 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             current_event_type_data['events'].append(event_data)
 
         return event_export_data
-
-    def format_key_for_title(self, key):
-        titleStr = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', key)
-        titleStr = re.sub('([a-z0-9])([A-Z])', r'\1 \2', titleStr).lower()
-        return titleStr.title()
-
-    def find_display_value_for_key_in_definition(self, schema, key):
-        for item in schema['definition']:
-            if not isinstance(item, dict):
-                continue
-            if 'key' in item and item['key'] == key and 'title' in item:
-                return item['title']
-        return None
-
-    def get_display_value_header_for_key(self, schema, key):
-        if 'title' in schema['schema']['properties'][key]:
-            return schema['schema']['properties'][key]['title']
-        return self.find_display_value_for_key_in_definition(schema, key) or self.format_key_for_title(key)
 
     def escape_string(self, string):
         if not isinstance(string, str):
@@ -320,7 +309,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         context = {
             'report_filename': 'Event Export {}.csv'.format(timestamp.strftime('%Y-%m-%d')),
             'report_time': timestamp.strftime('%-d %B %Y %Z'),
-            'event_types': self.get_event_export_list(**kwargs)
+            'event_types': self.get_event_export_list()
         }
 
         return context
