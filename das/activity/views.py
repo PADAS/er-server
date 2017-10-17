@@ -258,7 +258,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'event_type': event_type.display,
                 'event_type_internal': event_type.value,
                 'title': self.escape_string(event.title),
-                'reported_at': event.time.strftime('%B %d %Y : %H:%M'),
+                'reported_at': event.time.strftime('%Y-%m-%d %H:%M'),
                 'lat': event.location.x if event.location is not None else '',
                 'lon': event.location.y if event.location is not None else '',
                 'details': schema_data.values()
