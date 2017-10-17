@@ -9,6 +9,7 @@ RUN apt-get update \
     python-numpy \
     python-numpy-dev \
     libgdal-dev \
+    curl \
     && apt-get autoremove \
     && apt-get clean
 
