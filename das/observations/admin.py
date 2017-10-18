@@ -18,8 +18,10 @@ class SubjectAdmin(admin.ModelAdmin):
 
     search_fields = ('name', 'subject_subtype', 'common_name__display')
 
-    fields = ('id', 'name', 'common_name', 'additional', 'groups', SubjectForm.SUBTYPE_FIELD)
-    list_filter = ('is_active', 'subject_type', 'subject_subtype', 'common_name')
+    fields = ('id', 'name', 'common_name', 'additional',
+              'groups', SubjectForm.SUBTYPE_FIELD)
+    list_filter = ('is_active', 'subject_type',
+                   'subject_subtype', 'common_name')
     list_editable = ('is_active',)
 
     def queryset(self, request):
@@ -28,7 +30,8 @@ class SubjectAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs
 
-        raise NotImplementedError('implement filtering SubjectAdmin to user permissions')
+        raise NotImplementedError(
+            'implement filtering SubjectAdmin to user permissions')
         return qs.filter(owner=request.user)
 
     form = observations.forms.SubjectForm
@@ -39,7 +42,8 @@ class SubjectAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj=obj, **kwargs)
-        form.base_fields[SubjectForm.SUBTYPE_FIELD].initial = self.type_subtype_view(obj)
+        form.base_fields[SubjectForm.SUBTYPE_FIELD].initial = self.type_subtype_view(
+            obj)
         return form
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
@@ -61,7 +65,8 @@ class SubjectAdmin(admin.ModelAdmin):
             .filter(subject_id=instance.pk) \
             .order_by('-assigned_range')
 
-        display = '\n'.join(sorted('{} {}'.format(str(ss.assigned_range.upper), str(ss.source_id)) for ss in subjectsources))
+        display = '\n'.join(sorted('{} {}'.format(
+            str(ss.assigned_range.upper), str(ss.source_id)) for ss in subjectsources))
         return make_html_list(display)
 
     all_sources.short_description = 'Sources'
@@ -72,7 +77,8 @@ class SubjectAdmin(admin.ModelAdmin):
         Hook to coerce type_subtype value to valid subject_type and subject_subtype model fields.
         '''
         if change and SubjectForm.SUBTYPE_FIELD in form.changed_data:
-            (t, st) = form.cleaned_data.get(SubjectForm.SUBTYPE_FIELD).split(':')
+            (t, st) = form.cleaned_data.get(
+                SubjectForm.SUBTYPE_FIELD).split(':')
             obj.subject_type = t
             obj.subject_subtype = st
 
@@ -89,24 +95,32 @@ class CommonNameAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs
 
-        raise NotImplementedError('implement filtering SubjectAdmin to user permissions')
+        raise NotImplementedError(
+            'implement filtering SubjectAdmin to user permissions')
         return qs.filter(owner=request.user)
 
 
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
-    list_display = ['id', 'source_type', 'manufacturer_id', 'model_name', 'additional']
+    list_display = ['id', 'source_type',
+                    'manufacturer_id', 'model_name', 'additional']
+    search_fields = ('id', 'manufacturer_id', 'model_name')
+    list_filter = ('source_type', 'model_name')
 #    filter_horizontal = ('groups',)
 
 
 @admin.register(models.SubjectSource)
 class SubjectSourceAdmin(admin.ModelAdmin):
+    list_filter = ('subject__subject_subtype', 'source__source_type')
+    search_fields = ('source__manufacturer_id', 'subject__name')
     pass
 
 
 @admin.register(models.Region)
 class RegionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'region', 'country', 'slug']
     fields = ['id', 'region', 'country', 'slug']
+    search_fields = ('region', 'country')
 
     def __str__(self):
         return self.slug
@@ -171,9 +185,10 @@ class SubjectStatusAdmin(admin.ModelAdmin):
     search_fields = ('subject__name',)
     ordering = ('-recorded_at',)
 
-    list_display= ('subject', 'delay_hours', 'recorded_at', 'location')
+    list_display = ('subject', 'delay_hours', 'recorded_at', 'location')
 
-    list_filter = ('delay_hours',)
+    list_filter = ('delay_hours', 'subject__subject_subtype')
+
 
 @admin.register(models.SourceProvider)
 class SourceProviderAdmin(admin.ModelAdmin):

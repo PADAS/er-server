@@ -6,7 +6,7 @@ from django.utils.translation import ugettext_lazy as _
 from activity.serializers import EventSerializer, EventNoteSerializer
 from activity.models import Event
 from rt_api.rest_api_interface.dummy_request import DummyRequest
-import activity.schema_utils as schema_utils
+import utils.schema_utils as schema_utils
 import os
 
 logger = logging.getLogger(__name__)

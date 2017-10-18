@@ -1,37 +1,145 @@
 import logging
+import copy
 
-from django.test import SimpleTestCase
+from datetime import datetime
+from django.core.management import call_command
+from django.test import TestCase
+from drf_extra_fields.geo_fields import PointField
+from rest_framework.fields import DateTimeField
 
-import activity.schema_utils as schema_utils
-
+from activity.management.commands.manageevent import Command
+from activity.models import Event, EventType
 
 logger = logging.getLogger(__name__)
 
 
-EVENT_TYPE_SNARE = """{
-  "model": "activity.eventtype",
-  "pk": "300aafe0-d324-45b2-98fe-988b54884e0a",
-  "fields": {
-    "created_at": "2016-12-16T17:03:05.843Z",
-    "updated_at": "2017-01-28T10:03:50.751Z",
-    "value": "snare",
-    "display": "Snare",
-    "category": [
-      "security"
-    ],
-    "ordernum": 202,
-    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Snare Report\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"snareNumber\": {\r\n                \"type\": \"number\",\r\n       \t\t\t    \"title\": \"Line 1: Number of Snares\",\r\n                \"minimum\": 0\r\n            },   \r\n            \"snareAnimalsDead\": {\r\n                \"type\": \"number\",\r\n       \t\t\t    \"title\": \"Line 2: Number of Animals - Dead\",\r\n                \"minimum\": 0\r\n            },               \r\n            \"snareAnimalsLive\": {\r\n                \"type\": \"number\",\r\n       \t\t\t    \"title\": \"Line 3: Number of Animals - Live\",\r\n                \"minimum\": 0\r\n            },                 \r\n            \"snareAge\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4: Age of Snare\",\r\n                \"enum\": {{table___SnareAge___values}},\r\n                \"enumNames\": {{table___SnareAge___names}}                \r\n            },              \r\n            \"snareAction\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 5: Snare Action\",\r\n                \"enum\": {{table___SnareAction___values}},\r\n                \"enumNames\": {{table___SnareAction___names}}\r\n            },\r\n            \"snareStatus\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Status\",\r\n                \"enum\": {{table___SnareStatus___values}},\r\n                \"enumNames\": {{table___SnareStatus___names}}\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"snareNumber\",\r\n   \"snareAnimalsDead\",\r\n   \"snareAnimalsLive\",\r\n   \"snareAge\",\r\n   \"snareAction\",\r\n   \"snareStatus\"\r\n ]\r\n}",
-    "is_collection": false
-  }
-}"""
+migration_doc = [
+    {
+        "id": "b413783b-c162-447f-8541-e3f51cd341e8",
+        "created_at": "2016-08-05 01:00:00+00:00",
+        "updated_at": "2016-10-08 00:57:39.310560+00:00",
+        "value": "contact",
+        "previous_value": "arrest",
+        "display": "Contact",
+        "category_value": "security",
+        "category_id": "61d279a3-95fd-421f-bdb0-604ae8731761",
+        "ordernum": 270,
+        "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Sit Rep Report\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"sitrepWhat\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 1: What is it?\"\r\n            },\r\n            \"sitrepCurrentActivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 2: Update of current activity\"\r\n            },\r\n            \"sitrepFutureActivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Planned Future Activity\"\r\n            },\r\n            \"sitrepOther\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4: Other\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"sitrepWhat\",\r\n   \"sitrepCurrentActivity\",\r\n   \"sitrepFutureActivity\",\r\n   \"sitrepOther\"\r\n ]\r\n}",
+        "is_collection": False,
+        "count": 0,
+        "rendered_schema": {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Animal Control Report",
+                "type": "object",
+                "properties": {
+                    "species": {
+                        "type": "string",
+                        "title": "Line 3: Animal Species",
+                        "enum": [],
+                        "enumNames": []
+                    },
+                    "numberAnimals": {
+                        "type": "number",
+                        "title": "Line 4: # of Animals",
+                        "minimum": 0
+                    },
+                    "reason": {
+                        "type": "string",
+                        "title": "Line 5: Reason"
+                    },
+                    "numberShotsFired": {
+                        "type": "number",
+                        "title": "Line 6: Number of Shots Fired",
+                        "minimum": 0
+                    }
+                }
+            },
+            "definition": [
+                "species",
+                "numberAnimals",
+                "reason",
+                "numberShotsFired"
+            ]
+        },
+        "fields": [
+            {
+                "property_name": "species",
+                "previous_property_name": "HC:Elephant"
+            },
+            {
+                "property_name": "numberAnimals",
+                "previous_property_name": "IGNORE"
+            },
+            {
+                "property_name": "reason",
+                "previous_property_name": "reason"
+            }
+        ],
+        "tables": [
+            {
+                "table_name": "Species",
+                "field": "contact_species",
+                "model": "activity.event"
+            },
+        ],
+        "queries": [],
+        "enums": []
+    }
+]
 
 
-EVENT_SCHEMA_A_CHOICE_TAGS = (
-    'table___TypeOfShots___values', 'table___TypeOfShots___names')
+class TestManageEvent(TestCase):
+    event_data = dict(
+        message="Something worth recording happened",
+        time=DateTimeField().to_representation(datetime.now()),
+        provenance=Event.PC_SYSTEM,
+        event_type='other',
+        priority=Event.PRI_REFERENCE,
+        location=dict(longitude='40.1353', latitude='-1.891517')
+    )
 
-BAD_SCHEMA = """{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Shot Rep Report\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"shotrepTimeOfShot\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 1: Time when shot was heard\"\r\n            },\r\n            \"shotrepBearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 2: Bearing to Shot\",\r\n                \"minimum\": 0,\r\n                \"maximum\":  360\r\n            },                      \r\n            \"shotrepDistance\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 3: Distance of Shots\",\r\n                \"minimum\": 0\r\n            },                      \r\n            \"shotrepNumberOfShots\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 4: Number of Shots\",\r\n                \"minimum\": 0\r\n            },\r\n            \"shotrepTypeOfShots\": {\r\n            \t\"type\": \"string\",\r\n            \t\"title\": \"Line 5. Type of Shots\",\r\n                \"enum\": {{table__TypeOfShots__values}},\r\n                \"enumNames\": {{table___TypeOfShots___names}}\r\n            },              \r\n            \"shotrepEstimatedCaliber\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Estimated Caliber\"\r\n            },\r\n            \"shotrepEstimatedTarget\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 7: Estimated Target\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   {\r\n   \"key\": \"shotrepTimeOfShot\",\r\n   \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n   \"readonly\": false\r\n   },\r\n   \"shotrepBearing\",\r\n   \"shotrepDistance\",\r\n   \"shotrepNumberOfShots\",\r\n   \"shotrepTypeOfShots\",\r\n   \"shotrepEstimatedCaliber\",\r\n   \"shotrepEstimatedTarget\"\r\n ]\r\n}"""
+    migrate_ran = False
+    delete_ran = False
 
+    def setUp(self):
+        super().setUp()
+        call_command('loaddata', 'initial_eventdata')
 
-class TestManageEvent(SimpleTestCase):
+        self.sample_event = self.create_event(self.event_data)
+
+    def create_event(self, event_data):
+        data = copy.deepcopy(event_data)
+        if 'time' in event_data:
+            data['event_time'] = DateTimeField().to_internal_value(
+                event_data['time'])
+            del data['time']
+        if isinstance(event_data.get('event_type', None), str):
+            data['event_type'] = EventType.objects.get_by_value(
+                event_data['event_type'])
+
+        if 'location' in data:
+            data['location'] = PointField().to_internal_value(
+                data['location'])
+        return Event.objects.create_event(**data)
+
     def test_dump_data(self):
-        pass
+        command_under_test = Command()
+        records = command_under_test.get_all_event_type_records()
+
+        self.assertEqual(len(records), 33)
+
+    def test_delete_unused_types(self):
+        self.delete_ran = True
+        command_under_test = Command()
+        records = command_under_test.get_unused_event_types()
+
+        self.assertEqual(len(records), 32)
+
+    def test_migrate_event_type(self):
+        self.migrate_ran = True
+        command_under_test = Command()
+        records_pre = command_under_test.get_all_event_type_records()
+        command_under_test.perform_migration_on_records(migration_doc)
+        records_post = command_under_test.get_all_event_type_records()
+        self.assertEqual(len(records_pre), len(records_post) + 1)

@@ -8,7 +8,7 @@ from django.db.models import Count
 from django.contrib.contenttypes.models import ContentType
 
 from activity.models import EventType, Event, EventDetails, EventCategory
-from activity import schema_utils
+import utils.schema_utils as schema_utils
 import choices.models as choices
 from utils import json
 from uuid import UUID
@@ -30,6 +30,9 @@ class Command(BaseCommand):
     COMMAND_IGNORE = 'IGNORE'
     COMMAND_DELETE = 'DELETE'
     COMMAND_HARDCODE = 'HC:'
+
+    dry_run = True
+    summary_only = True
 
     def handle(self, *args, **options):
         sub_command = options['sub-command']
@@ -58,12 +61,19 @@ class Command(BaseCommand):
 
     def migrate_definition(self, event_type):
         schema_raw = event_type.schema
-        schema = schema_utils.get_rendered_schema(schema_raw)['properties']
+        schema = schema_utils.get_rendered_schema(schema_raw)[
+            'properties']
 
     def dumptypes(self):
         if not self.output:
             raise NameError('-o output option required')
 
+        records = self.get_all_event_type_records()
+
+        with open(self.output, mode='w') as fh:
+            fh.write(json.dumps(records, indent=4))
+
+    def get_all_event_type_records(self):
         event_types = EventType.objects.all()
         records = []
         for event_type in event_types:
@@ -95,29 +105,39 @@ class Command(BaseCommand):
                 )
 
             records.append(record)
-
-        with open(self.output, mode='w') as fh:
-            fh.write(json.dumps(records, indent=4))
+        return records
 
     @transaction.atomic
     def deleteunusedtypes(self):
-        types_to_delete = []
+        types_to_delete = self.get_unused_event_types()
+
+        if not self.dry_run:
+            logger.info('Deleting unused Event Types')
+            for event_type in types_to_delete:
+                event_type.delete()
+
+    def get_unused_event_types(self):
+        unused_event_types = []
         for event_type in EventType.objects.all():
             count = self.get_event_type_count(event_type)
             if not count:
                 logger.info('EventType %s has 0 records associated with it',
                             event_type.value)
-                types_to_delete.append(event_type)
-        if not self.dry_run:
-            logger.info('Deleting unused Event Types')
-            for event_type in types_to_delete:
-                event_type.delete()
+                unused_event_types.append(event_type)
+        return unused_event_types
 
     @transaction.atomic
     def migratetypes(self):
         with open(self.migration_file, mode='r') as fh:
             records = json.loads(fh.read())
 
+        self.perform_migration_on_records(records)
+
+        if self.dry_run:
+            raise Exception(
+                "Just-in-case exception to prevent atomic operation from completing")
+
+    def perform_migration_on_records(self, records):
         migrated_tables = []
 
         for record in records:
@@ -154,10 +174,6 @@ class Command(BaseCommand):
             except Exception as ex:
                 logger.exception('Exception while migrating event details')
                 raise
-
-        if self.dry_run:
-            raise Exception(
-                "Just-in-case exception to prevent atomic operation from completing")
 
     def render_schema(self, schema):
         if not schema:
