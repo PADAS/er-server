@@ -272,8 +272,9 @@ def create_realtime_handler(sios):
             clients = list(client.get_client_list())
             for c in clients:
                 if c.sid not in environ:
-                    logger.info('Cleaning up disconnected user: %s', c,
-                                extras=c)
+                    extra = dict(sid=c.sid, username=c.username)
+                    logger.info('Cleaning up disconnected user: %s', c.username,
+                                extra=extra)
                     client.remove_client(c.sid)
 
     return RealtimeServices
