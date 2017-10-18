@@ -26,7 +26,11 @@ def handle_subject(subject_id):
 @celery.app.task(bind=True)
 def analyze_subject(self, subject_id):
 
-    subject = Subject.objects.get(id=subject_id)
+    try:
+        subject = Subject.objects.get(id=subject_id)
+    except Subject.DoesNotExist:
+        logger.warning(
+            'No Subject found by ID in analyze_subject. id=%s', subject_id)
 
     logger.info('Running analyzers for subject: %s', subject)
     for analyzer in get_subject_analyzers(subject):
@@ -39,6 +43,9 @@ def analyze_subject(self, subject_id):
         except InsufficientDataAnalyzerException:
             logger.warning(
                 'insufficient observations exist to support analyzer {}'.format(analyzer))
+        except Exception:
+            logger.exception(
+                'Programming error in analyzer. analyzer=%s', analyzer)
 
 
 @celery.app.task()
