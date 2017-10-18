@@ -33,6 +33,7 @@ from activity import views
 from observations.models import Subject
 from accounts.serializers import UserDisplaySerializer
 from observations.serializers import SubjectSerializer
+from utils.html import clean_user_text
 
 
 logger = logging.getLogger(__name__)
@@ -748,7 +749,9 @@ class TestEventView(BaseAPITest):
         response = views.EventView.as_view()(request, id=str(event.id))
         self.assertEqual(response.status_code, 200)
 
-        self.assertEqual(response.data['title'], TITLE)
+        # clean the generated title from above as that is happening in the ORM
+        self.assertEqual(response.data['title'], clean_user_text(
+            TITLE, 'test_edit_event_title'))
 
     def test_event_with_search_filter(self):
 
