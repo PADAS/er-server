@@ -6,6 +6,7 @@ import os
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.translation import ugettext_lazy as _
+from django.core.exceptions import ObjectDoesNotExist
 
 from activity.serializers import EventSerializer, EventNoteSerializer
 from activity.models import Event
@@ -99,15 +100,16 @@ def get_revisions_for_event(event, revisions):
         try:
             event_revisions.append(
                 event.revision.all_user().get(id=event_rev_id))
-        except Exception as ex:
-            logger.exception('Error getting revision')
+        except ObjectDoesNotExist:
+            # The revision id could be for a parent of sibiling event
+            pass
 
     for details_id in details_ids:
         try:
             details_revisions.append(
                 event.event_details.get(id=details_id[1]).revision.all_user().get(id=details_id[0]))
-        except Exception as ex:
-            logger.exception('Error getting revision')
+        except ObjectDoesNotExist:
+            pass
 
     return event_revisions, details_revisions
 
