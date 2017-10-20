@@ -11,8 +11,6 @@ from django.http.request import HttpRequest
 
 class TestReportUtils(TestCase):
 
-    fixtures = ['standard-eventtyps.yaml', ]
-
     def setUp(self):
         super().setUp()
         call_command('loaddata', 'initial_eventdata')
@@ -44,10 +42,10 @@ class TestReportUtils(TestCase):
             e = ser.create(ser.validated_data)
             self.assertTrue(e.id is not None)
         else:
-            print(ser.errors)
+            logger.info('Event data is not valid, errors=%s', ser.errors)
 
         schema = schema_utils.get_schema_renderer_method()(e.event_type.schema)
 
         schema_utils.validate(e, schema=schema, raise_exception=True)
         for item in schema_utils.generate_details(e, schema):
-            print(item)
+            logger.debug('Event details rendered: %s', item)
