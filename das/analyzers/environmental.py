@@ -47,7 +47,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
 
     @classmethod
     def get_subject_analyzers(cls, subject):
-        for ac in EnvironmentalSubjectAnalyzerConfig.objects.filter(subject_group__subjects=subject):
+        for ac in EnvironmentalSubjectAnalyzerConfig.objects.filter(subject_group__subjects=subject, is_active=True):
             yield cls(subject=subject, config=ac)
 
     def default_observations(self):

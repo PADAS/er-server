@@ -29,10 +29,11 @@ class GeofenceAnalyzer(SubjectAnalyzer):
 
     @classmethod
     def get_subject_analyzers(cls, subject):
-        for ac in GeofenceAnalyzerConfig.objects.filter(subject_group__subjects=subject):
+        for ac in GeofenceAnalyzerConfig.objects.filter(subject_group__subjects=subject, is_active=True):
             yield cls(subject=subject, config=ac)
 
     ''' Hydrate GeofenceAnalysisParams'''
+
     def _create_geofence_analysis_param(self):
         #logger.info('Creating Geofence Anlaysis Params')
         gfs, crs = [], []
@@ -91,7 +92,8 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         #                                                            subject_id=traj.relocs.subject_id))
 
         # Generate a list of crossings
-        cross_results = pymet.geofence.GeofenceAnalysis.calc_crossings(_analysis_params, [traj])
+        cross_results = pymet.geofence.GeofenceAnalysis.calc_crossings(
+            _analysis_params, [traj])
 
         das_analyzer_results = []
         for cross in cross_results.geofence_crossings:
@@ -116,16 +118,19 @@ class GeofenceAnalyzer(SubjectAnalyzer):
             else:
                 result.level = CRITICAL
 
-            # Get the geofence name and final containing region names to form the analyzer result message
+            # Get the geofence name and final containing region names to form
+            # the analyzer result message
             vf_name = SpatialFeature.objects.get(pk=cross.geofence_id).name
-            result.title = self.subject.name + str(_(' crossed ')) + vf_name + '.'
+            result.title = self.subject.name + \
+                str(_(' crossed ')) + vf_name + '.'
 
             contain_names = ','.join([SpatialFeature.objects.get(pk=contain_id).name
                                       for contain_id in cross.end_region_ids])
             if not contain_names:
                 contain_names = 'Unknown region'
 
-            result.message = result.title + str(_(' Subject now in: ')) + contain_names
+            result.message = result.title + \
+                str(_(' Subject now in: ')) + contain_names
 
             result.values = {
                 'geofence_name': vf_name,
@@ -169,7 +174,8 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='analyzer_geofence',
-                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT),
+                priority=EVENT_PRIORITY_MAP.get(
+                    this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
                 event_details=this_result.values,
             )
