@@ -238,9 +238,9 @@ class TestEventView(TestCase):
 
         # Make sure the mocks were called the correct number of times with the
         # correct values
-        assert mock_get_alert_users.call_count == 1
-        assert mock_send_email.call_args == mock.call(
-            target_subject, target_body, alert_targets.target_from_address)
+        self.assertEqual(mock_get_alert_users.call_count, 1)
+        self.assertEqual(mock_send_email.call_args, mock.call(
+            target_subject, target_body, alert_targets.target_from_address))
 
     @patch.object(AccountsAbstractUser, 'email_user')
     @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
@@ -266,9 +266,9 @@ class TestEventView(TestCase):
 
         # Make sure the mocks were called the correct number of times with the
         # correct values
-        assert mock_get_alert_users.call_count == 1
-        assert mock_send_email.call_args == mock.call(target_subject, target_body,
-                                                      alert_targets.target_from_address)
+        self.assertEqual(mock_get_alert_users.call_count, 1)
+        self.assertEqual(mock_send_email.call_args, mock.call(target_subject, target_body,
+                                                              alert_targets.target_from_address))
 
     @patch.object(AccountsAbstractUser, 'email_user')
     @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
@@ -302,9 +302,9 @@ class TestEventView(TestCase):
             serial=parent.serial_number,
             title=parent.title)
 
-        assert mock_get_alert_users.call_count == 1
-        assert mock_send_email.call_args == mock.call(
-            target_subject, target_body, alert_targets.target_from_address)
+        self.assertEqual(mock_get_alert_users.call_count, 1)
+        self.assertEqual(mock_send_email.call_args, mock.call(
+            target_subject, target_body, alert_targets.target_from_address))
 
     @patch.object(AccountsAbstractUser, 'email_user')
     @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
@@ -331,9 +331,9 @@ class TestEventView(TestCase):
             serial=self.parent_one.serial_number,
             title=self.parent_one.title)
 
-        assert mock_get_alert_users.call_count == 1
-        assert mock_send_email.call_args == mock.call(
-            target_subject, target_body, alert_targets.target_from_address)
+        self.assertEqual(mock_get_alert_users.call_count, 1)
+        self.assertEqual(mock_send_email.call_args, mock.call(
+            target_subject, target_body, alert_targets.target_from_address))
 
     @patch.object(AccountsAbstractUser, 'email_user')
     @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
@@ -362,9 +362,9 @@ class TestEventView(TestCase):
             serial=self.parent_two.serial_number,
             title=self.parent_two.title)
 
-        assert mock_get_alert_users.call_count == 1
-        assert mock_send_email.call_args, mock.call(
-            target_subject, target_body, alert_targets.target_from_address)
+        self.assertEqual(mock_get_alert_users.call_count, 1)
+        self.assertEqual(mock_send_email.call_args, mock.call(
+            target_subject, target_body, alert_targets.target_from_address))
 
     @patch.object(AccountsAbstractUser, 'email_user')
     @patch('das_server.celery.app.send_task',
@@ -397,9 +397,9 @@ class TestEventView(TestCase):
             serial=self.new_event.serial_number,
             title=self.new_event.title)
 
-        assert mock_get_alert_users.call_count == 1
-        assert mock_send_email.call_args == mock.call(
-            target_subject, target_body, alert_targets.target_from_address)
+        self.assertEqual(mock_get_alert_users.call_count, 1)
+        self.assertEqual(mock_send_email.call_args, mock.call(
+            target_subject, target_body, alert_targets.target_from_address))
 
     @patch.object(AccountsAbstractUser, 'email_user')
     @patch('das_server.celery.app.send_task',
@@ -430,9 +430,9 @@ class TestEventView(TestCase):
             serial=self.new_event.serial_number,
             title=self.new_event.title)
 
-        assert mock_get_alert_users.call_count == 1
-        assert mock_send_email.call_args == mock.call(
-            target_subject, target_body, alert_targets.target_from_address)
+        self.assertEqual(mock_get_alert_users.call_count, 1)
+        self.assertEqual(mock_send_email.call_args, mock.call(
+            target_subject, target_body, alert_targets.target_from_address))
 
         def event_manipulations_two():
             self.new_event.title = "Title update two"
@@ -452,5 +452,5 @@ class TestEventView(TestCase):
             serial=self.new_event.serial_number,
             title=self.new_event.title)
 
-        assert mock_send_email.call_args == mock.call(
-            target_subject, target_body, alert_targets.target_from_address)
+        self.assertEqual(mock_send_email.call_args, mock.call(
+            target_subject, target_body, alert_targets.target_from_address))
