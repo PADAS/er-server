@@ -21,7 +21,7 @@ class ProximityAnalyzer(SubjectAnalyzer):
 
     @classmethod
     def get_subject_analyzers(cls, subject):
-        for ac in ProximityAnalyzerConfig.objects.filter(subject_group__subjects=subject):
+        for ac in ProximityAnalyzerConfig.objects.filter(subject_group__subjects=subject, is_active=True):
             yield cls(subject=subject, config=ac)
 
     def _create_proximity_analysis_params(self):
@@ -56,20 +56,21 @@ class ProximityAnalyzer(SubjectAnalyzer):
                                                                    subject_id=traj.relocs.subject_id))
 
         proximity_results = ProximityAnalysis.calc_proximity_events(proximity_analysis_params=analysis_params,
-                                                                   trajectories=[traj])
+                                                                    trajectories=[traj])
 
         das_analyzer_results = []
         for prox in proximity_results.proximity_events:
-            # Create a DAS Analyser result based on each proximity event within the threshold distance
+            # Create a DAS Analyser result based on each proximity event within
+            # the threshold distance
             if prox.proximity_distance_meters <= self.config.threshold_dist_meters:
 
                 # Create the analyzer result
                 result = SubjectAnalyzerResult(subject_analyzer=self.config,
                                                title=self.subject.name + str(_(' proximal to ')) +
-                                                     prox.spatial_feature_name + '.',
+                                               prox.spatial_feature_name + '.',
                                                level=CRITICAL,
                                                message=self.subject.name + str(_(' proximal to ')) +
-                                                     prox.spatial_feature_name + '.',
+                                               prox.spatial_feature_name + '.',
                                                analyzer_revision=1,
                                                subject=self.subject)
 
@@ -123,11 +124,11 @@ class ProximityAnalyzer(SubjectAnalyzer):
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='analyzer_proximity',
-                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT),
+                priority=EVENT_PRIORITY_MAP.get(
+                    this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
                 event_details=this_result.values,
             )
 
         if event_data:
             return save_analyzer_event(event_data)
-
