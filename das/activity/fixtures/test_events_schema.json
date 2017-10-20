@@ -1,0 +1,40 @@
+[
+{
+  "model": "choices.dynamicchoice",
+  "pk": "rangers",
+  "fields": {
+    "model_name": "observations.subject",
+    "criteria": "[[\"subject_subtype\", \"ranger\"]]",
+    "value_col": "id",
+    "display_col": "name"
+  }
+},
+{
+  "model": "activity.eventcategory",
+  "pk": "baf67553-0fbf-42f8-b30c-d51c3e246e0b",
+  "fields": {
+    "created_at": "2017-05-02T21:12:44.944Z",
+    "updated_at": "2017-05-02T21:12:44.944Z",
+    "value": "logistics",
+    "display": "Logistics",
+    "ordernum": 3,
+    "flag": "user"
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "02943c51-0661-478e-b4a8-c57264bb721a",
+  "fields": {
+    "created_at": "2016-07-07T08:00:00Z",
+    "updated_at": "2017-10-19T23:02:19.022Z",
+    "value": "other",
+    "display": "Other",
+    "category": [
+      "logistics"
+    ],
+    "ordernum": 225,
+    "schema": "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n            \"conservancy\": {\r\n                \"type\":\"string\",\r\n                \"title\": \"Conservancy\",\r\n                \"enum\": {{table___conservancy___values}},\r\n                \"enumNames\": {{table___conservancy___names}}\r\n            },\r\n\t\t\t\"sectionArea\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Section/Area\",\r\n\t\t\t\t\"enum\": {{table___sectionArea___values}},\r\n\t\t\t\t\"enumNames\": {{table___sectionArea___names}}\r\n\t\t\t},\t\t\t\r\n\t\t\t\"team\": {\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"title\": \"Teams\",\r\n\t\t\t\t\"enum\": {{table___team___values}},\r\n\t\t\t\t\"enumNames\": {{table___team___names}}\r\n\t\t\t},\r\n         \"nameofranger\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Name Of Ranger\",\r\n                \"enum\": {{query___rangers___values}},\r\n                \"enumNames\": {{query___rangers___names}}                    \r\n         },\r\n        \"beginning_of_incident\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"Beginning of Incident\"\r\n        },\r\n        \"end_of_incident\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"End of Incident\"\r\n        },\r\n        \"details\": {\r\n\t    \"type\": \"string\",\r\n\t    \"title\": \"Details\"\r\n        },\r\n        \"results_and_findings\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"Results and Findings\"\r\n        },\r\n        \"action_items\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"Action Items\"\r\n        }\r\n    }\r\n  },\r\n  \"definition\": [\r\n   {\r\n         \"key\": \"conservancy\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n  },\r\n    {\r\n        \"key\": \"sectionArea\",\r\n        \"fieldHtmlClass\": \"multiple-select\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    },\r\n    {\r\n        \"key\": \"team\",\r\n        \"fieldHtmlClass\": \"multiple-select\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    },\r\n   {\r\n        \"key\":    \"nameofranger\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    },\r\n    {\r\n      \"key\": \"beginning_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"readonly\": false,\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    },\r\n    {\r\n      \"key\": \"end_of_incident\",\r\n      \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n      \"readonly\": false,\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    },\r\n{\r\n     \"key\":    \"details\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n},\r\n{\r\n\"key\":     \"results_and_findings\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n},\r\n{\r\n  \"key\":   \"action_items\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n}\r\n  ]\r\n}",
+    "is_collection": false
+  }
+}
+]

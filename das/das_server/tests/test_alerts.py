@@ -1,5 +1,6 @@
 import copy
 import django.contrib.auth
+import django.conf
 from django.test import TestCase
 from django.utils import timezone
 from django.core.management import call_command
@@ -22,6 +23,7 @@ User = django.contrib.auth.get_user_model()
 ET_OTHER = 'other'
 ET_INCIDENT = 'incident_collection'
 
+alert_targets.target_from_address = django.conf.settings.FROM_EMAIL
 
 event_schema_data = {
     "event_details": {
@@ -33,6 +35,7 @@ event_schema_data = {
             "name": "Corner Safi",
             "value": "1ec47dea-7e8e-4761-a15a-da6b01633cf8"
         }],
+        "nameofranger": "00353be0-39b9-4b2b-acc5-c9bfd71d2b86",
         "details": 'some details about the event',
     }
 }
@@ -47,6 +50,7 @@ modified_event_schema_data = {
             "name": "Corner Safi",
             "value": "1ec47dea-7e8e-4761-a15a-da6b01633cf8"
         }],
+        "nameofranger": "00353be0-39b9-4b2b-acc5-c9bfd71d2b86",
         "details": 'These details have been updated',
     }
 }
@@ -82,6 +86,7 @@ Priority: Green
     - Priority: Green
        - Conservancy: Sera
        - Details: some details about the event
+       - Name of Ranger: John IsA Ranger
        - Section/Area: Corner Safi
        - Created On: {das_4_time}
        - Report Type: Other
@@ -93,6 +98,7 @@ Priority: Green
     - Priority: Green
        - Conservancy: Sera
        - Details: some details about the event
+       - Name Of Ranger: John IsA Ranger
        - Section/Area: Corner Safi
        - Created On: {das_5_time}
        - Report Type: Other
@@ -108,6 +114,8 @@ class TestEventView(TestCase):
         super().setUp()
         call_command('loaddata', 'initial_eventdata')
         call_command('loaddata', 'initial_choices')
+        call_command('loaddata', 'test_events_schema')
+
         from choices.models import Conservancy
         count = Conservancy.objects.count()
 
@@ -133,6 +141,12 @@ class TestEventView(TestCase):
             name='Ranger Red', additional={})
         self.ranger_blue = Subject.objects.create(
             name='Ranger Blue', additional={})
+        self.ranger = Subject.objects.create(
+            id='00353be0-39b9-4b2b-acc5-c9bfd71d2b86',
+            name='John IsA Ranger',
+            subject_type=Subject.TYPE_PERSON,
+            subject_subtype=Subject.SUBTYPE_RANGER,
+            additional={})
 
         self.incident_data = dict(
             title='New DAS Incident',
@@ -349,7 +363,7 @@ class TestEventView(TestCase):
             title=self.parent_two.title)
 
         assert mock_get_alert_users.call_count == 1
-        assert mock_send_email.call_args == mock.call(
+        assert mock_send_email.call_args, mock.call(
             target_subject, target_body, alert_targets.target_from_address)
 
     @patch.object(AccountsAbstractUser, 'email_user')

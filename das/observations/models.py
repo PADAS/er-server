@@ -662,6 +662,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     SUBTYPE_RANGER = 'ranger'
     SUBTYPE_RANGER_TEAM = 'ranger_team'
+    SUBTYPE_SCOUT = 'scout'
     SUBTYPE_DOG_TEAM = 'dog_team'
     SUBTYPE_MANAGER = 'manager'
     SUBTYPE_DRIVER = 'driver'
@@ -700,6 +701,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             'subtypes': (
                 (SUBTYPE_RANGER, 'Ranger'),
                 (SUBTYPE_RANGER_TEAM, 'Ranger Team'),
+                (SUBTYPE_SCOUT, 'Scout'),
                 (SUBTYPE_DOG_TEAM, 'Dog Team'),
                 (SUBTYPE_DRIVER, 'Driver'),
                 (SUBTYPE_MANAGER, 'Manager'),
