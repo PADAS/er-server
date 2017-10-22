@@ -116,6 +116,8 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
             return
 
         event_data = None
+        event_details = {'name': self.subject.name}
+        event_details.update(this_result.values)
 
         # Create a dict() location to satisfy our EventSerializer.
         event_location_value = {
@@ -133,7 +135,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
         # Notify if there is a state transition from Critical/Warning back to
@@ -147,7 +149,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
         if event_data:
@@ -274,12 +276,14 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
 
         event_data = None
 
+        event_details = {'name': self.subject.name}
+        event_details.update(this_result.values)
+
         # Create a dict() location to satisfy our EventSerializer.
         event_location_value = {
             'longitude': this_result.geometry_collection[0].x,
             'latitude': this_result.geometry_collection[0].y
         }
-
         # Notify if result is critical or warning
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
@@ -290,7 +294,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
         # Notify if there is a state transition from Critical/Warning back to
@@ -304,7 +308,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
         if event_data:
