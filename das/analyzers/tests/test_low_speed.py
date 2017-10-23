@@ -1,6 +1,6 @@
 from activity.models import Event, EventCategory, EventType
 import datetime as dt
-from unittest import TestCase
+#from unittest import TestCase
 from django.test import TestCase
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, Observation, SubjectTrackSegmentFilter, \
     DEFAULT_ASSIGNED_RANGE
@@ -51,7 +51,9 @@ class TestLowSpeedAnalyzer(TestCase):
                   title: EventType Low Speed Percentile
                   type: object
                 '''
-        return json.dumps(yaml.load(schema_yaml))
+        this_json = json.dumps(yaml.load(schema_yaml))
+        print(this_json)
+        return this_json
 
     @classmethod
     def low_speed_wilcox_event_schema_json(cls):
@@ -83,7 +85,9 @@ class TestLowSpeedAnalyzer(TestCase):
                      title: EventType Low Speed Wilcox
                      type: object
                    '''
-        return json.dumps(yaml.load(schema_yaml))
+        this_json = json.dumps(yaml.load(schema_yaml))
+        print(this_json)
+        return this_json
 
     @classmethod
     def low_speed_percentile_all_clear_event_schema_json(cls):
@@ -257,7 +261,7 @@ class TestLowSpeedAnalyzer(TestCase):
             for ed in e.event_details.all():
                 print('Event Details: %s' % ed.data)
 
-    def test_wilcoxon_rank_sum_result(self):
+    def test_wilcoxon_result(self):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
@@ -304,4 +308,6 @@ class TestLowSpeedAnalyzer(TestCase):
         for e in Event.objects.all():
             for ed in e.event_details.all():
                 print('Event Details: %s' % ed.data)
+
+
 

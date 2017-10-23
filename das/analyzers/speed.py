@@ -9,7 +9,7 @@ from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.utils import save_analyzer_event
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.utils.translation import ugettext_lazy as _
-from scipy.stats import ranksums
+from scipy.stats import ranksums, mannwhitneyu
 import datetime as dt
 
 
@@ -204,9 +204,9 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         # Current speed distrbution
         cs = [seg.speed_kmhr for seg in traj.traj_segs]
 
-        # Previous speed distribution (use only up until a month prior)
+        # Previous speed distribution (use only up until 30 days prior)
         ps = self._normal_movement_distro(
-            end=dt.datetime.utcnow() - dt.timedelta(days=30))
+            end=dt.datetime.utcnow() - dt.timedelta(hours=self.config.search_time_hours))
 
         if ps is None:
             raise InsufficientDataAnalyzerException
@@ -233,8 +233,9 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         result.geometry_collection = DjangoGeoColl([DjangoPoint(fixes[0].ogr_geometry.GetX(),
                                                                 fixes[0].ogr_geometry.GetY())])
 
-        # Run the Wilcoxon Rank Sum test to see if distributions are the same
-        wilcoxon_result = ranksums(cs, ps)
+        # Run the Mann-Whitney-Wilcoxon test to see if the distributions are the same
+        # wilcoxon_result = ranksums(cs, ps)
+        wilcoxon_result = mannwhitneyu(cs, ps, alternative='less')
 
         pvalue = getattr(wilcoxon_result, 'pvalue')
 
