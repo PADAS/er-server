@@ -9,7 +9,7 @@ from rest_framework.compat import set_rollback
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 from rest_framework.pagination import PageNumberPagination
-
+from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission
 from rest_framework import serializers
 
 
@@ -75,3 +75,9 @@ class PointValidator:
     def __call__(self, value):
         if not value.valid:
             raise serializers.ValidationError(value.valid_reason)
+
+
+class AllowAnyGet(BasePermission):
+    def has_permission(self, request, view):
+        return request.method in ('GET', 'HEAD', 'OPTIONS') \
+            or (request.user and request.user.is_authenticated())

@@ -36,7 +36,7 @@ django-pgviews==0.3.0
 django-model-utils==2.6.1
 #see https://github.com/ottoyiu/django-cors-headers
 django-cors-headers==1.2.2
-django-oauth-toolkit==0.10.0
+django-oauth-toolkit==0.12.0
 django-rest-swagger==0.3.7
 django-leaflet==0.18.1
 django-sendsms
@@ -46,6 +46,9 @@ django-extra-fields==0.9
 django-readonly-field==1.0.1
 django-storages==1.5.2
 django-tagulous==0.12.0
+
+#oauth
+oauthlib==2.0.1
 
 numpy==1.13.1
 

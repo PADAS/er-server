@@ -289,3 +289,11 @@ class GsatHandler():
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CameraTrapSensorHandler:
+    SENSOR_TYPE = 'camera-trap'
+
+    @staticmethod
+    def post(request, provider_name):
+        pass

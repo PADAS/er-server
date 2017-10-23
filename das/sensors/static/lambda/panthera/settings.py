@@ -1,0 +1,6 @@
+AWS_ACCESS_KEY_ID = 'AKIAILB3C3SY2BHUP76Q'
+AWS_SECRET_ACCESS_KEY = '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'
+AWS_REGION = 'us-east-1'
+
+DAS_API_ROOT = 'http://vhq-chrisj-4/api/v1.0'
+DAS_TOKEN = ''
