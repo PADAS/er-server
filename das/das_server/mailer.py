@@ -1,13 +1,18 @@
 import logging
 import json
+import uuid
+import os
+
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.translation import ugettext_lazy as _
+from django.core.exceptions import ObjectDoesNotExist
+
 from activity.serializers import EventSerializer, EventNoteSerializer
 from activity.models import Event
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 import utils.schema_utils as schema_utils
-import os
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +69,11 @@ def extract_details(schema, details, updated):
         elif isinstance(v, (int, float, bool)):
             yield email_separator_string.format(update_indicator, key_display, str(v))
         elif isinstance(v, str):
+            try:
+                uuid.UUID(v)
+                v = schema['properties'][k]['enumNames'][v]
+            except (ValueError, KeyError):
+                pass
             yield email_separator_string.format(update_indicator, key_display, v)
         elif isinstance(v, list):
             yield email_separator_string.format(update_indicator, key_display, ', '.join([_.get('name') for
@@ -90,15 +100,16 @@ def get_revisions_for_event(event, revisions):
         try:
             event_revisions.append(
                 event.revision.all_user().get(id=event_rev_id))
-        except Exception as ex:
-            logger.exception('Error getting revision')
+        except ObjectDoesNotExist:
+            # The revision id could be for a parent of sibiling event
+            pass
 
     for details_id in details_ids:
         try:
             details_revisions.append(
                 event.event_details.get(id=details_id[1]).revision.all_user().get(id=details_id[0]))
-        except Exception as ex:
-            logger.exception('Error getting revision')
+        except ObjectDoesNotExist:
+            pass
 
     return event_revisions, details_revisions
 
