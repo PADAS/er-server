@@ -215,7 +215,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                                 'Report Id', 'Title', 'Reported By',
                                 'Reported By Internal Value', 'Reported At',
                                 'Latitude', 'Longitude', 'Number of Notes',
-                                'Number of Attachments', 'Collection Id',
+                                'Number of Attachments', 'Collection Report Id',
                                 'CUSTOM FIELDS BEGIN HERE'],
                     'events': []
                 }
@@ -258,7 +258,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 out_relationship__to_event=event,
                 out_relationship__type__value='contains').first()
             if parent_event is not None:
-                parent_event = str(parent_event.id)
+                parent_event = str(parent_event.serial_number)
             else:
                 parent_event = ''
 
