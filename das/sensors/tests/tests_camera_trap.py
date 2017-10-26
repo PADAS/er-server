@@ -5,6 +5,7 @@ from io import BytesIO
 from PIL import Image
 import piexif
 from django.contrib.auth.models import Permission
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test.testcases import TestCase
 from django.core.management import call_command
 import django.contrib.auth
@@ -53,46 +54,31 @@ class CameraTrapTest(BaseAPITest):
 
         return 'CAM65593_2017-10-20_151152.jpg', file
 
+    def post_cam_image(self):
+        filename, f = self.get_image()
+        data = {'filecontent.file': SimpleUploadedFile(filename, f.read(),
+                                                       content_type='image/jpg')}
+
+        path = '/'.join((self.api_base, 'sensors',
+                         self.sensor_type, self.provider_name, 'status'))
+        request = self.factory.post(
+            path, data=data, format='multipart')
+
+        self.force_authenticate(request, self.sensor_user)
+        return SensorObservation.as_view()(request,
+                                           sensor_type=self.sensor_type,
+                                           provider_name=self.provider_name)
+
     def test_post_image(self):
 
-        filename, f = self.get_image()
-        data = {'filecontent.file': (filename, f)}
+        response = self.post_cam_image()
 
-        path = '/'.join((self.api_base, 'sensors',
-                         self.sensor_type, self.provider_name, 'status'))
-        request = self.factory.post(
-            path, data, format='multipart')
-
-        self.force_authenticate(request, self.sensor_user)
-        response = SensorObservation.as_view()(request,
-                                               sensor_type=self.sensor_type,
-                                               provider_name=self.provider_name)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
 
     def test_not_post_duplicate(self):
-        filename, f = self.get_image()
-        data = {'filecontent.file': f, 'filename': filename}
-        path = '/'.join((self.api_base, 'sensors',
-                         self.sensor_type, self.provider_name, 'status'))
+        response = self.post_cam_image()
+        self.assertEqual(response.status_code, 201)
 
-        request = self.factory.post(
-            path, data, format='multipart')
+        response = self.post_cam_image()
 
-        self.force_authenticate(request, self.sensor_user)
-        response = SensorObservation.as_view()(request,
-                                               sensor_type=self.sensor_type,
-                                               provider_name=self.provider_name)
-        self.assertEqual(response.status_code, 200)
-
-        filename, f = self.get_image()
-        data = {'filecontent.file': f, 'filename': filename}
-        path = '/'.join((self.api_base, 'sensors',
-                         self.sensor_type, self.provider_name, 'status'))
-        request = self.factory.post(
-            path, data, format='multipart')
-
-        self.force_authenticate(request, self.sensor_user)
-        response = SensorObservation.as_view()(request,
-                                               sensor_type=self.sensor_type,
-                                               provider_name=self.provider_name)
         self.assertEqual(response.status_code, 409)

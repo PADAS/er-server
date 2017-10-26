@@ -137,7 +137,8 @@ class CameraTrapSensorHandler:
                             status=status.HTTP_400_BAD_REQUEST)
         event = eser.create(eser.validated_data)
 
-        event_file_ser = EventFileSerializer(data={'event_id': event.id},
+        event_file_ser = EventFileSerializer(data={'event': event.id,
+                                                   'file': file},
                                              context={'request': request})
         if not event_file_ser.is_valid():
             return Response(data=event_file_ser.errors,

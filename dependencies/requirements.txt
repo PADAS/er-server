@@ -27,7 +27,7 @@ django-extra-fields==0.9
 django-leaflet==0.18.1
 django-model-utils==2.6.1
 django-mptt==0.8.7
-django-oauth-toolkit==0.10.0
+django-oauth-toolkit==0.12.0
 django-pgviews==0.3.0
 django-readonly-field==1.0.1
 django-rest-swagger==0.3.7
@@ -68,10 +68,11 @@ matplotlib==2.0.0         # via descartes
 munch==2.1.1              # via fiona
 numpy==1.13.1
 oauth2client==4.1.1       # via google-api-python-client
-oauthlib==1.0.3           # via django-oauth-toolkit
+oauthlib==2.0.1
 olefile==0.44             # via pillow
 openpyxl==2.4.8
 pandas==0.19.2            # via geopandas, pymet
+piexif==1.0.13
 pillow==4.0.0
 pockets==0.3.2            # via sphinxcontrib-napoleon
 psycopg2==2.7.1

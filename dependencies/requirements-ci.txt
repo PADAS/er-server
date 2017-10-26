@@ -31,7 +31,7 @@ django-jenkins==0.18.1
 django-leaflet==0.18.1
 django-model-utils==2.6.1
 django-mptt==0.8.7
-django-oauth-toolkit==0.10.0
+django-oauth-toolkit==0.12.0
 django-pgviews==0.3.0
 django-readonly-field==1.0.1
 django-rest-swagger==0.3.7
@@ -74,11 +74,12 @@ mockredispy==2.9.3
 munch==2.1.1
 numpy==1.13.1
 oauth2client==4.1.1
-oauthlib==1.0.3
+oauthlib==2.0.1
 olefile==0.44
 openpyxl==2.4.8
 pandas==0.19.2
 pep8==1.7.0
+piexif==1.0.13
 pillow==4.0.0
 pockets==0.3.2
 psycopg2==2.7.1
