@@ -84,10 +84,11 @@ class SubjectGroupsView(generics.ListAPIView):
         return context
 
 
-class SubjectGroupView(generics.ListAPIView):
+class SubjectGroupView(generics.RetrieveAPIView):
     """
     Returns a single SubjectGroup
     """
+    queryset = models.SubjectGroup.objects.all()
     serializer_class = serializers.create_sg_serializer('subjectgs', models.SubjectGroup,
                                                         serializers.SubjectSerializer)
     permission_classes = (StandardObjectPermissions,)
