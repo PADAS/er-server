@@ -8,7 +8,8 @@ from rest_framework.response import Response
 
 from utils.drf import AllowAnyGet
 from sensors.handlers import GsatHandler, GenericSensorHandler,\
-    DasRadioAgentHandler, CameraTrapSensorHandler
+    DasRadioAgentHandler
+from sensors.camera_trap import CameraTrapSensorHandler
 from observations.serializers import ObservationSerializer
 
 
@@ -25,11 +26,11 @@ class SensorObservation(generics.GenericAPIView):
         # TODO: Write a validator to do this error response.
         errordata = {
             'data':
-                {'sensor_type': _('{} is not a valid sensor_type').format(sensor_type)}
+                {'sensor_type': _(
+                    '{} is not a valid sensor_type').format(sensor_type)}
         }
 
         return Response(data=errordata, status=status.HTTP_400_BAD_REQUEST)
-
 
     def post(self, request, *args, sensor_type=None, provider_name=None, **kwargs):
         if sensor_type == DasRadioAgentHandler.SENSOR_TYPE:

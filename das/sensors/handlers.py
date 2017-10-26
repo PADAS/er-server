@@ -13,6 +13,7 @@ from observations.models import Source, SubjectSource, Subject, Source, Observat
 from observations.serializers import ObservationSerializer
 from tracking.pubsub_registry import notify_new_tracks
 
+
 class SensorPostParameters(serializers.Serializer):
     location = serializers.DictField()
     recorded_at = serializers.DateTimeField()
@@ -55,24 +56,27 @@ class GenericSensorHandler():
             location = None
 
         subject_type = params.get('subject_type', self.DEFAULT_SUBJECT_TYPE)
-        subject_subtype = params.get('subject_subtype', self.DEFAULT_SUBJECT_SUBTYPE)
+        subject_subtype = params.get(
+            'subject_subtype', self.DEFAULT_SUBJECT_SUBTYPE)
         source_type = params.get('source_type', self.DEFAULT_SOURCE_TYPE)
-        model_name = params.get('model_name', None) or '{}:{}'.format(sensor_type, provider_name)
+        model_name = params.get('model_name', None) or '{}:{}'.format(
+            sensor_type, provider_name)
 
         subject_name = params.get('subject_name') or manufacturer_id
 
         src = Source.objects.ensure_source(source_type,
-                                                    provider=provider_name,
-                                                    manufacturer_id=manufacturer_id,
-                                                    model_name=model_name,
-                                                    subject={
-                                                        'subject_type': subject_type,
-                                                        'subject_subtype': subject_subtype,
-                                                        'name': subject_name
-                                                        }
-                                                    )
+                                           provider=provider_name,
+                                           manufacturer_id=manufacturer_id,
+                                           model_name=model_name,
+                                           subject={
+                                               'subject_type': subject_type,
+                                               'subject_subtype': subject_subtype,
+                                               'name': subject_name
+                                           }
+                                           )
 
-        recorded_at = params.get('recorded_at') # self.__str2date(obj['recorded_at'])
+        # self.__str2date(obj['recorded_at'])
+        recorded_at = params.get('recorded_at')
         additional = params.get('additional', {})
 
         # Short-circuit if we already have this observation.
@@ -134,15 +138,15 @@ class DasRadioAgentHandler():
         manufacturer_id = obj.get('manufacturer_id')
 
         src = Source.objects.ensure_source(source_type=self.SOURCE_TYPE,
-                                                    provider=provider_name,
-                                                    manufacturer_id=manufacturer_id,
-                                                    model_name=model_name,
-                                                    subject={
-                                                        'subject_type': self.DEFAULT_SUBJECT_TYPE,
-                                                        'subject_subtype': self.DEFAULT_SUBJECT_SUBTYPE,
-                                                        'name': manufacturer_id
-                                                        }
-                                                    )
+                                           provider=provider_name,
+                                           manufacturer_id=manufacturer_id,
+                                           model_name=model_name,
+                                           subject={
+                                               'subject_type': self.DEFAULT_SUBJECT_TYPE,
+                                               'subject_subtype': self.DEFAULT_SUBJECT_SUBTYPE,
+                                               'name': manufacturer_id
+                                           }
+                                           )
 
         recorded_at = self.__str2date(obj['recorded_at'])
 
@@ -157,8 +161,10 @@ class DasRadioAgentHandler():
             'additional': obj['additional'],
         }
 
-        # Anything else that was included in the posted object should move into additional.
-        observation['additional'].update(dict((k, obj[k]) for k in obj if k not in observation.keys()))
+        # Anything else that was included in the posted object should move into
+        # additional.
+        observation['additional'].update(
+            dict((k, obj[k]) for k in obj if k not in observation.keys()))
 
         serializer = ObservationSerializer(data=observation)
         if serializer.is_valid():
@@ -212,7 +218,8 @@ class GsatHandler():
        # Calculate state, that will be recorded in SubjectStatus.
         r['state'] = 'alarm' if o.get('emer', 0) == '1' else 'default'
 
-        r['events'] = o.get('events').split(',') if len(o.get('events', '')) > 0 else None
+        r['events'] = o.get('events').split(',') if len(
+            o.get('events', '')) > 0 else None
 
         r['sensor_type'] = GsatHandler.SENSOR_TYPE
 
@@ -224,7 +231,6 @@ class GsatHandler():
             return datetime.datetime.fromtimestamp(int(obj.get('time')), tz=pytz.UTC)
         except:
             return datetime.datetime.now(tz=pytz.UTC)
-
 
     REQUIRED_PARAMS = ('uniqueid', 'lat', 'lng', 'time',)
     OPTIONAL_PARAMS = ('alt', 'head', 'speed', 'emer',)
@@ -242,8 +248,8 @@ class GsatHandler():
             'emer': '{isemergency}'
         }
 
-        if all (qp[k] == template[k] for k in qp if k in template) \
-            and all(_ in qp for _ in GsatHandler.REQUIRED_PARAMS):
+        if all(qp[k] == template[k] for k in qp if k in template) \
+                and all(_ in qp for _ in GsatHandler.REQUIRED_PARAMS):
             return True
 
     def handle_observation(self, request, provider_name):
@@ -265,10 +271,12 @@ class GsatHandler():
 
         src, created = Source.objects.ensure_source(self.SOURCE_TYPE,
                                                     provider_name=provider_name,
-                                                    manufacturer_id=obj.get('manufacturer_id'),
+                                                    manufacturer_id=obj.get(
+                                                        'manufacturer_id'),
                                                     model_name=model_name)
 
-        # If the Source already exists, assume the SubjectSource and Subject already exist.
+        # If the Source already exists, assume the SubjectSource and Subject
+        # already exist.
         if created:
             ss, created = SubjectSource.objects.ensure_subject_source(src,
                                                                       timestamp=obj['recorded_at'],
@@ -276,7 +284,8 @@ class GsatHandler():
                                                                       subject_subtype=self.DEFAULT_SUBJECT_SUBTYPE
                                                                       )
 
-        obj['additional'] = dict((k, obj[k]) for k in obj if k not in ('manufacturer_id', 'location', 'recorded_at',))
+        obj['additional'] = dict((k, obj[k]) for k in obj if k not in (
+            'manufacturer_id', 'location', 'recorded_at',))
         obj['source'] = str(src.id)
 
         serializer = ObservationSerializer(data=obj)
@@ -289,11 +298,3 @@ class GsatHandler():
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CameraTrapSensorHandler:
-    SENSOR_TYPE = 'camera-trap'
-
-    @staticmethod
-    def post(request, provider_name):
-        pass
