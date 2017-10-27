@@ -1,4 +1,5 @@
 import logging
+import datetime
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -21,6 +22,14 @@ def get_priority():
     return Event.PRI_URGENT
 
 
+def exif_dateparse(date_str, default_tz=pytz.utc):
+    """Exif date format is YYYY:MM:DD HH:MM:SS"""
+    dt = datetime.datetime.strptime(date_str, '%Y:%m:%d %H:%M:%S')
+    if not dt.tzinfo:
+        dt = dt.replace(tzinfo=default_tz)
+    return dt
+
+
 def dateparse(date_str, default_tz=pytz.utc):
     dt = dateutil.parser.parse(date_str)
     if not dt.tzinfo:
@@ -32,7 +41,7 @@ class CameraTrapPostParameters(serializers.Serializer):
     location = serializers.DictField(default=None)
     file = serializers.FileField()
     camera_name = serializers.CharField(default=None)
-    event_time = serializers.DateTimeField(default=None)
+    time = serializers.DateTimeField(default=None)
 
 
 GPS_EXIF_NAME = 'GPS'
@@ -51,8 +60,7 @@ def convert_to_degrees(value):
 def get_lat_lon(exif):
     if GPS_EXIF_NAME not in exif:
         return
-    gps_exif = {piexif.TAGS[GPS_EXIF_NAME][tag]["name"]
-        : exif[GPS_EXIF_NAME][tag] for tag in exif[GPS_EXIF_NAME]}
+    gps_exif = {piexif.TAGS[GPS_EXIF_NAME][tag]["name"]                : exif[GPS_EXIF_NAME][tag] for tag in exif[GPS_EXIF_NAME]}
     gps_latitude = gps_exif['GPSLatitude']
     gps_latitude_ref = gps_exif['GPSLatitudeRef']
     gps_longitude = gps_exif['GPSLongitude']
@@ -125,9 +133,10 @@ class CameraTrapSensorHandler:
             return Response(status=status.HTTP_409_CONFLICT)
 
         try:
-            event_time = dateparse(exif_dict['DateTimeOriginal'])
+            event_time = exif_dateparse(
+                exif_dict['DateTimeOriginal'].decode('utf-8'))
         except KeyError:
-            event_time = params.validated_data['event_time']
+            event_time = params.validated_data['time']
 
         event_details = cls.get_camera_trap_details(params, exif_dict)
         event_data = dict(title=title, location=location,
