@@ -125,7 +125,7 @@ class CameraTrapSensorHandler:
 
         event_details = cls.get_camera_trap_details(params, exif_dict)
         event_data = dict(title=title, location=location,
-                          event_time=event_time,
+                          time=event_time,
                           event_type='cameratrap_rep',
                           event_details=event_details
                           )
