@@ -9,7 +9,7 @@ from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.utils import save_analyzer_event
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.utils.translation import ugettext_lazy as _
-from scipy.stats import ranksums
+from scipy.stats import ranksums, mannwhitneyu
 import datetime as dt
 
 
@@ -116,6 +116,8 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
             return
 
         event_data = None
+        event_details = {'name': self.subject.name}
+        event_details.update(this_result.values)
 
         # Create a dict() location to satisfy our EventSerializer.
         event_location_value = {
@@ -133,7 +135,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
         # Notify if there is a state transition from Critical/Warning back to
@@ -147,7 +149,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
         if event_data:
@@ -202,9 +204,9 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         # Current speed distrbution
         cs = [seg.speed_kmhr for seg in traj.traj_segs]
 
-        # Previous speed distribution (use only up until a month prior)
+        # Previous speed distribution (use only up until 30 days prior)
         ps = self._normal_movement_distro(
-            end=dt.datetime.utcnow() - dt.timedelta(days=30))
+            end=dt.datetime.utcnow() - dt.timedelta(hours=self.config.search_time_hours))
 
         if ps is None:
             raise InsufficientDataAnalyzerException
@@ -231,8 +233,9 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         result.geometry_collection = DjangoGeoColl([DjangoPoint(fixes[0].ogr_geometry.GetX(),
                                                                 fixes[0].ogr_geometry.GetY())])
 
-        # Run the Wilcoxon Rank Sum test to see if distributions are the same
-        wilcoxon_result = ranksums(cs, ps)
+        # Run the Mann-Whitney-Wilcoxon test to see if the distributions are the same
+        # wilcoxon_result = ranksums(cs, ps)
+        wilcoxon_result = mannwhitneyu(cs, ps, alternative='less')
 
         pvalue = getattr(wilcoxon_result, 'pvalue')
 
@@ -274,12 +277,14 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
 
         event_data = None
 
+        event_details = {'name': self.subject.name}
+        event_details.update(this_result.values)
+
         # Create a dict() location to satisfy our EventSerializer.
         event_location_value = {
             'longitude': this_result.geometry_collection[0].x,
             'latitude': this_result.geometry_collection[0].y
         }
-
         # Notify if result is critical or warning
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
@@ -290,7 +295,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
         # Notify if there is a state transition from Critical/Warning back to
@@ -304,7 +309,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
         if event_data:

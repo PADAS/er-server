@@ -15,44 +15,57 @@ import observations.views as views
 
 API_BASE = '/api/v1.0'
 
+
 class BasePermissionTest(BaseAPITest):
     def setUp(self):
         super().setUp()
         user_const = dict(last_name='last', first_name='first')
-        self.superuser = User.objects.create_user('super', 'super@test.com', 'super', is_superuser=True, is_staff=True, **user_const)
-        self.realtime_view_user = User.objects.create_user('realtime_joe', 'realtimejoe@test.com', 'realtime_view_joe', **user_const)
-        self.delayed_view_user = User.objects.create_user('delayed_view_joe', 'jerry@test.com', 'delayed_view_joe', **user_const)
-        self.no_view_user = User.objects.create_user('no_view_john', 'john@test.com', 'no_view_john', **user_const)
-        self.source_admin_user = User.objects.create_user('john_the_source_admin', 'john.source@test.com', 'john_the_source_admin', **user_const)
+        self.superuser = User.objects.create_user(
+            'super', 'super@test.com', 'super', is_superuser=True, is_staff=True, **user_const)
+        self.realtime_view_user = User.objects.create_user(
+            'realtime_joe', 'realtimejoe@test.com', 'realtime_view_joe', **user_const)
+        self.delayed_view_user = User.objects.create_user(
+            'delayed_view_joe', 'jerry@test.com', 'delayed_view_joe', **user_const)
+        self.no_view_user = User.objects.create_user(
+            'no_view_john', 'john@test.com', 'no_view_john', **user_const)
+        self.source_admin_user = User.objects.create_user(
+            'john_the_source_admin', 'john.source@test.com', 'john_the_source_admin', **user_const)
 
         self.source_set = PermissionSet.objects.create(name='source')
         self.source_set.permissions.add(Permission.objects.get_by_natural_key(
             'view_sourcegroup', 'observations', 'sourcegroup'))
         self.source_admin_user.permission_sets.add(self.source_set)
 
-
         self.subject_set = PermissionSet.objects.create(name='subject')
-        self.subject_view_last_set = PermissionSet.objects.create(name='subject_view')
-        self.subject_view_delayed_set = PermissionSet.objects.create(name='subject_view_delayed')
-        self.subject_view_realtime_set = PermissionSet.objects.create(name='subject_view_realtime')
+        self.subject_view_last_set = PermissionSet.objects.create(
+            name='subject_view')
+        self.subject_view_delayed_set = PermissionSet.objects.create(
+            name='subject_view_delayed')
+        self.subject_view_realtime_set = PermissionSet.objects.create(
+            name='subject_view_realtime')
 
         self.view_subjectgroup = Permission.objects.get_by_natural_key(
             'view_subjectgroup', 'observations', 'subjectgroup')
 
         self.view_subject_name = 'view_subject'
-        self.view_subject = Permission.objects.get(codename=self.view_subject_name)
+        self.view_subject = Permission.objects.get(
+            codename=self.view_subject_name)
 
         self.view_begins_permission_name = 'access_begins_60'
-        self.view_begins_permission = Permission.objects.get(codename=self.view_begins_permission_name)
+        self.view_begins_permission = Permission.objects.get(
+            codename=self.view_begins_permission_name)
 
         self.view_last_position_name = 'access_ends_0'
-        self.view_last_position = Permission.objects.get(codename=self.view_last_position_name)
+        self.view_last_position = Permission.objects.get(
+            codename=self.view_last_position_name)
 
         self.view_real_time_name = 'access_ends_0'
-        self.view_real_time = Permission.objects.get(codename=self.view_real_time_name)
+        self.view_real_time = Permission.objects.get(
+            codename=self.view_real_time_name)
 
         self.view_delayed_name = 'access_ends_1'
-        self.view_delayed = Permission.objects.get(codename=self.view_delayed_name)
+        self.view_delayed = Permission.objects.get(
+            codename=self.view_delayed_name)
 
         self.subject_set.children.add(self.subject_view_last_set)
         self.subject_view_last_set.permissions.add(
@@ -86,10 +99,9 @@ class BasePermissionTest(BaseAPITest):
 
         self.ranger.groups.add(self.ranger_group)
 
-
         DEFAULT_DATE_RANGE = (
-        datetime.datetime(2015, 11, 1, tzinfo=pytz.utc),
-        datetime.datetime(3030, 1, 1, tzinfo=pytz.utc)
+            datetime.datetime(2015, 11, 1, tzinfo=pytz.utc),
+            datetime.datetime(3030, 1, 1, tzinfo=pytz.utc)
         )
         source = Source.objects.create(additional={})
         subject_source = SubjectSource.objects.create(assigned_range=DEFAULT_DATE_RANGE,
@@ -97,20 +109,20 @@ class BasePermissionTest(BaseAPITest):
                                                       subject=self.ele,
                                                       additional={})
         t = datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(hours=26)
-        self.ob_yesterday =  Observation.objects.create(
-                source_id=source.id,
-                location=Point((31,0)),
-                recorded_at=t,
-                additional={}
-            )
+        self.ob_yesterday = Observation.objects.create(
+            source_id=source.id,
+            location=Point((31, 0)),
+            recorded_at=t,
+            additional={}
+        )
 
         t = datetime.datetime.now(tz=pytz.UTC)
-        self.ob_today =  Observation.objects.create(
-                source_id=source.id,
-                location=Point((31,0)),
-                recorded_at=t,
-                additional={}
-            )
+        self.ob_today = Observation.objects.create(
+            source_id=source.id,
+            location=Point((31, 0)),
+            recorded_at=t,
+            additional={}
+        )
 
         self.ele_group.permission_sets.add(self.subject_view_realtime_set)
         self.ele_group.save()
@@ -121,11 +133,14 @@ class BasePermissionTest(BaseAPITest):
         self.ele_group.permission_sets.add(self.subject_view_delayed_set)
         self.ele_group.save()
 
-        self.delayed_view_user.permission_sets.add(self.subject_view_delayed_set)
+        self.delayed_view_user.permission_sets.add(
+            self.subject_view_delayed_set)
         self.delayed_view_user.save()
 
-        self.realtime_view_user.permission_sets.add(self.subject_view_realtime_set)
+        self.realtime_view_user.permission_sets.add(
+            self.subject_view_realtime_set)
         self.realtime_view_user.save()
+
 
 class SubjectViewPermissionsTest(BasePermissionTest):
     def setUp(self):
@@ -138,10 +153,12 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         response = views.SubjectView.as_view()(request, id=str(self.ele.id))
         self.assertEqual(response.status_code, 200)
         self.assertTrue('last_position_date' in response.data)
-        self.assertNotEqual(self.ob_today.recorded_at, response.data['last_position_date'])
+        self.assertNotEqual(self.ob_today.recorded_at,
+                            response.data['last_position_date'])
 
     def test_not_return_subject_sources(self):
-        request = self.factory.get(API_BASE + '/subject/{0}/sources'.format(self.ele.id))
+        request = self.factory.get(
+            API_BASE + '/subject/{0}/sources'.format(self.ele.id))
         self.force_authenticate(request, self.no_view_user)
 
         response = views.SubjectSourcesView.as_view()(request, id=str(self.ele.id))
@@ -154,11 +171,14 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         response = views.SubjectView.as_view()(request, id=str(self.ele.id))
         self.assertEqual(response.status_code, 200)
         self.assertTrue('last_position_date' in response.data)
-        self.assertEqual(self.ob_today.recorded_at, response.data['last_position_date'])
-        self.assertEqual(self.ob_yesterday.recorded_at, response.data['tracks_range'][0])
+        self.assertEqual(self.ob_today.recorded_at,
+                         response.data['last_position_date'])
+        self.assertEqual(self.ob_yesterday.recorded_at,
+                         response.data['tracks_range'][0])
 
     def test_user_return_subject_sources(self):
-        request = self.factory.get(API_BASE + '/subject/{0}/sources'.format(self.ele.id))
+        request = self.factory.get(
+            API_BASE + '/subject/{0}/sources'.format(self.ele.id))
         self.force_authenticate(request, self.delayed_view_user)
 
         response = views.SubjectSourcesView.as_view()(request, id=str(self.ele.id))
@@ -174,7 +194,8 @@ class SubjectViewPermissionsTest(BasePermissionTest):
 
     def test_return_subjects_bbox_view_delayed(self):
         bbox = '37.18,0.1,37.55,0.54'
-        request = self.factory.get(API_BASE + '/subjects/?bbox={0}'.format(bbox))
+        request = self.factory.get(
+            API_BASE + '/subjects/?bbox={0}'.format(bbox))
         self.force_authenticate(request, self.delayed_view_user)
 
         response = views.SubjectsView.as_view()(request)
@@ -186,7 +207,8 @@ class SubjectViewPermissionsTest(BasePermissionTest):
 
         response = views.SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        self.assertFalse([s for s in response.data if s['id'] == str(self.ranger.id) ])
+        self.assertFalse(
+            [s for s in response.data if s['id'] == str(self.ranger.id)])
 
 
 class SubjectGroupViewTest(BasePermissionTest):
@@ -224,6 +246,25 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.assertEqual(len(response.data), 2)
         self.assertTrue(response.data[0]['name'] in return_groups)
         self.assertTrue(response.data[1]['name'] in return_groups)
+
+    def test_return_single_subject_group_by_id(self):
+        request = self.factory.get(
+            API_BASE + '/subjectgroup/{id}'.format(id=self.ele_group.id))
+        self.force_authenticate(request, self.superuser)
+
+        response = views.SubjectGroupView.as_view()(request,
+                                                    id=str(self.ele_group.id))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['id'], str(self.ele_group.id))
+
+    def test_not_return_subject_group_no_view_permission(self):
+        request = self.factory.get(
+            API_BASE + '/subjectgroup/{id}'.format(id=self.ele_group.id))
+        self.force_authenticate(request, self.no_view_user)
+
+        response = views.SubjectGroupView.as_view()(request,
+                                                    id=str(self.ele_group.id))
+        self.assertEqual(response.status_code, 403)
 
 
 class SourceGroupViewTest(BasePermissionTest):
