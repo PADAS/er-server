@@ -54,8 +54,8 @@ def update_client(sid, bbox=None, event_filter=None):
 
 def get_client_list():
     for data in redis_client.hgetall(CLIENT_LIST_KEY).items():
-        sid = str(data[0], 'utf-8')
-        c = _restore_client_data(str(data[1], 'utf-8'))
+        sid = data[0].decode('utf-8')
+        c = _restore_client_data(data[1].decode('utf-8'))
         if c:
             client_data = c
             yield client_data
@@ -90,7 +90,7 @@ def _restore_client_data(data):
 def get_client(sid):
     sid = str(sid)
     logger.debug('Get client for sid=%s', sid)
-    data = str(redis_client.hget(CLIENT_LIST_KEY, sid), 'utf-8')
+    data = redis_client.hget(CLIENT_LIST_KEY, sid).decode('utf-8')
 
     logger.debug('Got client for sid=%s, data=%s', sid, data)
     if data:
@@ -98,7 +98,7 @@ def get_client(sid):
 
 
 def is_client(sid):
-    return redis_client.hexists(CLIENT_LIST_KEY, sid)
+    return redis_client.hexists(CLIENT_LIST_KEY, str(sid))
 
 
 def remove_client(sid):
