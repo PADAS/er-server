@@ -52,11 +52,11 @@ def get_lat_lon(exif):
     gps_longitude = gps_exif['GPSLongitude']
     gps_longitude_ref = gps_exif['GPSLongitudeRef']
     lat = convert_to_degrees(gps_latitude)
-    if gps_latitude_ref != "N":
+    if gps_latitude_ref and gps_latitude_ref.decode('utf-8') != "N":
         lat *= -1
 
     lon = convert_to_degrees(gps_longitude)
-    if gps_longitude_ref != "E":
+    if gps_longitude_ref and gps_longitude_ref.decode('utf-8') != "E":
         lon *= -1
     return {'latitude': lat, 'longitude': lon}
 
@@ -123,8 +123,7 @@ class CameraTrapSensorHandler:
         except KeyError:
             event_time = params.validated_data['event_time']
 
-        event_details = {
-            'data': cls.get_camera_trap_details(params, exif_dict)}
+        event_details = cls.get_camera_trap_details(params, exif_dict)
         event_data = dict(title=title, location=location,
                           event_time=event_time,
                           event_type='cameratrap_rep',
@@ -158,7 +157,7 @@ class CameraTrapSensorHandler:
         result = {'cameratraprep_camera-name': params.validated_data['camera_name'],
                   }
 
-        return json.dumps({'event_details': result})
+        return result
 
 
 class PantheraCameraTrapSensorHandler(CameraTrapSensorHandler):
@@ -171,4 +170,4 @@ class PantheraCameraTrapSensorHandler(CameraTrapSensorHandler):
                   'cameratraprep_camera-make': exif_dict['Make'].decode('utf-8'),
                   'cameratraprep_camera-version': exif_dict['Software'].decode('utf-8')}
 
-        return json.dumps({'event_details': result})
+        return result
