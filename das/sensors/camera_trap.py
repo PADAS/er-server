@@ -10,9 +10,15 @@ import pytz
 from utils import json
 from activity.serializers import EventSerializer, EventFileSerializer
 from usercontent.models import ImageFileContent
+from activity.models import Event
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_priority():
+    """The priority for an event. For now uses a default of Red"""
+    return Event.PRI_URGENT
 
 
 def dateparse(date_str, default_tz=pytz.utc):
@@ -127,7 +133,8 @@ class CameraTrapSensorHandler:
         event_data = dict(title=title, location=location,
                           time=event_time,
                           event_type='cameratrap_rep',
-                          event_details=event_details
+                          event_details=event_details,
+                          priority=get_priority(),
                           )
 
         eser = EventSerializer(data=event_data, context={'request': request})
