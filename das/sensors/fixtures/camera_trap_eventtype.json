@@ -1,0 +1,30 @@
+[
+{
+  "model": "activity.eventcategory",
+  "pk": "61d279a3-95fd-421f-bdb0-604ae8731761",
+  "fields": {
+    "created_at": "2016-10-20T15:36:41.978Z",
+    "updated_at": "2017-08-02T18:45:10.029Z",
+    "value": "security",
+    "display": "Security",
+    "ordernum": 1,
+    "flag": "user"
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "f0fee29f-685a-4bda-9d93-88a584086187",
+  "fields": {
+    "created_at": "2017-10-23T20:34:13.523Z",
+    "updated_at": "2017-10-23T20:48:50.419Z",
+    "value": "cameratrap_rep",
+    "display": "Camera Trap",
+    "category": [
+      "security"
+    ],
+    "ordernum": null,
+    "schema": "{\r\n  \"schema\": {\r\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n    \"title\": \"Camera Trap Event Schema\",\r\n    \"type\": \"object\",\r\n    \"properties\": {\r\n      \"cameratraprep_camera-name\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Name\"\r\n      },\r\n      \"cameratraprep_camera-make\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Make\"\r\n      },\r\n      \"cameratraprep_camera-version\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Version\"\r\n      }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    {\r\n      \"key\": \"cameratraprep_camera-name\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n      \"key\": \"cameratraprep_camera-make\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n      \"key\": \"cameratraprep_camera-version\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    }\r\n  ]\r\n}",
+    "is_collection": false
+  }
+}
+]
