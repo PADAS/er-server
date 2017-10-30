@@ -26,6 +26,9 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
+    list_filter = ('type', 'featureset')
+    list_display = ('name', 'type', 'featureset')
+    search_fields = ('name', )
 
 
 @admin.register(models.PolygonFeature)
@@ -34,12 +37,12 @@ class PolygonFeatureAdmin(BaseFeatureAdmin):
 
 
 @admin.register(models.LineFeature)
-class LineFeatureAdmin(admin.OSMGeoAdmin):
+class LineFeatureAdmin(BaseFeatureAdmin):
     pass
 
 
 @admin.register(models.PointFeature)
-class PointFeatureAdmin(admin.OSMGeoAdmin):
+class PointFeatureAdmin(BaseFeatureAdmin):
     pass
 
 
@@ -53,9 +56,14 @@ class SpatialFeatureGroupAdmin(admin.ModelAdmin):
     search_fields = ('name',)
 
 
+class FeaturesInline(admin.TabularInline):
+    model = models.SpatialFeatureGroupStatic.features.through
+
+
 @admin.register(models.SpatialFeatureGroupStatic)
 class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
     search_fields = ('name',)
+    raw_id_fields = ('features',)
 
 
 @admin.register(models.SpatialFeatureType)
@@ -70,4 +78,9 @@ class DisplayCategegoryAdmin(admin.ModelAdmin):
 
 @admin.register(models.SpatialFeature)
 class SpatialFeatureAdmin(BaseFeatureAdmin):
+    list_display = ('name', 'feature_type', 'external_source')
+    list_filter = ('feature_type',)
     search_fields = ('name', 'short_name', 'external_id',)
+    inlines = (
+        FeaturesInline,
+    )
