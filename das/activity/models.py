@@ -598,7 +598,9 @@ class Event(RevisionMixin, TimestampedModel):
 
         report_suffix = '_rep'
         if event_type_value.endswith(report_suffix):
-            yield Event.image_basename(event_type_value[:-1 * len(report_suffix)], priority, state)
+            no_suffix = event_type_value[:-1 * len(report_suffix)]
+            yield Event.image_basename(no_suffix, priority, state)
+            yield '{0}-{1}'.format(no_suffix, 'black')
         yield '{0}-{1}'.format(event_type_value, 'black')
         yield Event.image_basename('generic', priority, state)
         yield 'generic-black'

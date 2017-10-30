@@ -1,7 +1,7 @@
 import logging
 import logging.config
 import sys
-import traceback
+
 
 try:
     # local_log.py should contain an override of DEFAULT_LOGGING as seen below
@@ -10,6 +10,7 @@ except ImportError:
     local_log = None
 
 logger = logging.getLogger(__name__)
+
 
 DEFAULT_LOGGING = {
     'version': 1,
@@ -64,7 +65,7 @@ has_initialized = False
 def init_logging(service=None):
     global has_initialized
     if has_initialized:
-        logger.debug('logging already initialized, not loading %s /n %s',
+        logger.debug('logging already initialized, not loading %s',
                      service,
                      exc_info=True)
         return

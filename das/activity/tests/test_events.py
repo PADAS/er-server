@@ -794,7 +794,7 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-        url = """/activity/events/export?filter=%7B%22text%22:%22carcass%22%7D"""
+        url = """/activity/events/export?state=active&filter=%7B%22text%22:%22carcass%22%7D"""
 
         request = self.factory.get(
             self.api_base + url)

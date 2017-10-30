@@ -211,10 +211,11 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     'id': event_type.id,
                     'display': event_type.display,
                     'value': event_type.value,
-                    'headers': ['Serial', 'Event Type',
-                                'Event Type Internal Value', 'Title',
-                                'Reported By', 'Reported By Internal Value',
-                                'Reported At', 'Latitude', 'Longitude',
+                    'headers': ['Report Type', 'Report Type Internal Value',
+                                'Report Id', 'Title', 'Status', 'Reported By',
+                                'Reported By Internal Value', 'Reported At',
+                                'Latitude', 'Longitude', 'Number of Notes',
+                                'Number of Attachments', 'Collection Report Id',
                                 'CUSTOM FIELDS BEGIN HERE'],
                     'events': []
                 }
@@ -252,6 +253,15 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 schema_data[key] = self.escape_string(details.get(key, ''))
                 schema_data[item_display_name] = self.escape_string(
                     details.get(item_display_name, ''))
+
+            parent_event = Event.objects.filter(
+                out_relationship__to_event=event,
+                out_relationship__type__value='contains').first()
+            if parent_event is not None:
+                parent_event = str(parent_event.serial_number)
+            else:
+                parent_event = ''
+
             # Now assemble the data we want to write to the csv
             event_data = {
                 'serial': event.serial_number,
@@ -261,13 +271,17 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'reported_at': event.time.strftime('%Y-%m-%d %H:%M'),
                 'lat': event.location.x if event.location is not None else '',
                 'lon': event.location.y if event.location is not None else '',
+                'num_notes': len(event.notes.all()),
+                'num_attach': len(event.attachments.all()),
+                'parent_id': parent_event,
+                'status': 'Resolved' if event.state == Event.SC_RESOLVED else 'Active',
                 'details': schema_data.values()
             }
 
             # Reported by depends on what sort of entity reported the event
             if event.reported_by is None:
-                event_data['reported_by'] = 'system'
-                event_data['reported_by_internal'] = 'System'
+                event_data['reported_by'] = ''
+                event_data['reported_by_internal'] = ''
             elif isinstance(event.reported_by, Subject):
                 event_data['reported_by'] = self.escape_string(
                     event.reported_by.name)
@@ -339,6 +353,10 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 logger.exception(
                     'Invalid filter expression. filter=%s', event_filter)
                 raise
+
+        state = query_params.getlist('state', None)
+        if state:
+            queryset = queryset.by_state(state)
 
         return queryset.order_by('event_type_id')
 
