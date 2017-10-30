@@ -26,13 +26,15 @@ from django.db import transaction
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
+import pymet
 import pytz
+
 from das_server import settings
 from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
-import pymet
+
 
 SOURCE_TYPES = (
     ('tracking-device', 'Tracking Device'),
