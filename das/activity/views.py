@@ -212,7 +212,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     'display': event_type.display,
                     'value': event_type.value,
                     'headers': ['Report Type', 'Report Type Internal Value',
-                                'Report Id', 'Title', 'Reported By',
+                                'Report Id', 'Title', 'Status', 'Reported By',
                                 'Reported By Internal Value', 'Reported At',
                                 'Latitude', 'Longitude', 'Number of Notes',
                                 'Number of Attachments', 'Collection Report Id',
@@ -274,6 +274,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'num_notes': len(event.notes.all()),
                 'num_attach': len(event.attachments.all()),
                 'parent_id': parent_event,
+                'status': 'Resolved' if event.state == Event.SC_RESOLVED else 'Active',
                 'details': schema_data.values()
             }
 
@@ -352,6 +353,10 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 logger.exception(
                     'Invalid filter expression. filter=%s', event_filter)
                 raise
+
+        state = query_params.getlist('state', None)
+        if state:
+            queryset = queryset.by_state(state)
 
         return queryset.order_by('event_type_id')
 
