@@ -32,18 +32,40 @@ aws lambda add-permission \
   --profile adminuser
 
 """
+import os
+import sys
 import logging
+import datetime
+import tempfile
+
 import boto3
+import botocore
 import requests
 import urllib.parse
 
-from . import settings
+
+try:
+    from . import settings
+except (ImportError, SystemError):
+    import settings
+
 
 logger = logging.getLogger(__name__)
 boto3.setup_default_session(aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
                             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
                             region_name=settings.AWS_REGION)
 s3_client = boto3.client('s3')
+
+
+def log_stdout(level=logging.DEBUG):
+    fo = logging.Formatter(
+        '%(asctime)s %(levelname)s %(processName)s %(thread)d %(name)s %(message)s')
+    soh = logging.StreamHandler(sys.stdout)
+    soh.setLevel(level)
+    soh.setFormatter(fo)
+    _logger = logging.getLogger()
+    _logger.addHandler(soh)
+    _logger.setLevel(level)
 
 
 def handler(event, context):
@@ -54,6 +76,47 @@ def handler(event, context):
         download_path = '/tmp/{}'.format(image_name)
         s3_client.download_file(bucket, key, download_path)
         post_file(download_path, image_name, key)
+
+
+def poll_all_targets():
+    for target in settings.TARGETS:
+        poll_image_bucket(target)
+
+
+def date_folder_name_iter(previous_days=0):
+    """Return folder names based on today's date.
+    By setting previous days, return folder names based on the previous days date.
+    previous_days is the number of previous days to increment from"""
+    now = datetime.datetime.utcnow()
+    today = datetime.date(now.year, now.month, now.day)
+
+    for i in range(previous_days, -1, -1):
+        yield (today - datetime.timedelta(days=i)).strftime('%m%d%y')
+
+
+def poll_image_bucket(target):
+    """For each Camera, there is a day based folder name that contains that
+     days images taken by the camera.
+    """
+
+    bucket = target['BUCKET']
+    logger.info('Begin poll_image_bucket: %s for DAS %s', bucket,
+                target['DAS_API_ROOT'])
+
+    for camera in target['CAMERAS']:
+        for folder_name in date_folder_name_iter(target['PREVIOUS_DAYS']):
+            folder_key = settings.IMAGE_KEY_TEMPLATE.format(
+                camera=camera,
+                date_folder=folder_name)
+            images = s3_client.list_objects(Bucket=bucket, Prefix=folder_key)
+            for s3_object in images.get('Contents', []):
+                logger.debug('Found %s in bucket %s folder %s', s3_object,
+                             bucket, folder_key)
+                if not s3_object.get('Size', 0):
+                    continue
+                download_and_post_image(bucket, s3_object['Key'], camera)
+
+    logger.info('End poll_image_bucket %s', bucket)
 
 
 def get_content_type(filename):
@@ -76,7 +139,7 @@ def get_path_from_key(key):
 
 def image_name_from_key(key):
     pieces = get_path_from_key(key)
-    folders = pieces.path.split('/')
+    folders = pieces.split('/')
     return folders[-1]
 
 
@@ -89,16 +152,64 @@ def parse_camera_name_from_key(key):
     raise IndexError('could not find CAM folder in path {0}'.format(key))
 
 
-def post_file(image_file_path, image_name, key):
-    camera_name = parse_camera_name_from_key(key)
-    for target in get_target_for_camera(camera_name):
+def make_camera_name(camera):
+    if camera.startswith('CAM'):
+        return camera
+    return 'CAM{0}'.format(camera)
+
+
+SUCCESS_CODE = (requests.codes.created, requests.codes.conflict)
+
+
+def download_and_post_image(bucket, key, camera):
+    image_name = image_name_from_key(key)
+    image_file_path = tempfile.mkstemp()
+    os.close(image_file_path[0])
+    image_file_path = image_file_path[1]
+    try:
+        s3_client.download_file(bucket, key, image_file_path)
+        post_file(image_file_path, image_name, camera)
+    finally:
+        try:
+            os.remove(image_file_path)
+        except:
+            logger.exception(
+                'Failed to delete temp image file %s', image_file_path)
+            raise
+
+
+def post_file(image_file_path, image_name, camera):
+    camera_name = make_camera_name(camera)
+    file_name = 'CAM{camera}-{image_name}'.format(camera=camera,
+                                                  image_name=image_name)
+    for target in get_target_for_camera(camera):
         url = '{0}/sensors/camera-trap/panthera/status'.format(
             target['DAS_API_ROOT'])
         params = {'bearer': target['DAS_TOKEN']}
         with open(image_file_path, 'rb') as fh:
-            files = {'filecontent.file': (image_name, fh,
-                                          get_content_type(image_name))}
-            result = requests.post(url, params=params, files=files)
+            content_type = get_content_type(image_name)
+            files = {'filecontent.file': (file_name, fh,
+                                          content_type)}
+            headers = {
+                'Authorization': 'Bearer {token}'.format(token=target['DAS_TOKEN'])}
+            result = requests.post(url, headers=headers, files=files)
 
-        if result.status_code != requests.codes.created:
+        if result.status_code == requests.codes.bad_request:
+            logger.info('File post to DAS failed %s for file %s from camera %s with error: %s',
+                        result.status_code, image_name, camera, result.content.decode('utf-8'))
+            return
+
+        if result.status_code not in SUCCESS_CODE:
             result.raise_for_status()
+        if result.status_code == requests.codes.conflict:
+            logger.debug('File %s from camera %s Already sent to DAS',
+                         image_name, camera)
+            return
+
+        logger.info('File %s from camera %s sent to DAS',
+                    image_name, camera)
+
+
+if __name__ == '__main__':
+    log_stdout(logging.INFO)
+    poll_all_targets()
