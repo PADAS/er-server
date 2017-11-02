@@ -5,11 +5,12 @@ import zipfile
 
 from core.tests import BaseAPITest
 from datetime import datetime
+from django.contrib.auth.models import Permission
 from django.test import TestCase
 from lxml import etree
 
-from accounts.models import User
-from observations.models import Subject, Source, SubjectSource, Region, Observation
+from accounts.models import User, PermissionSet
+from observations.models import Subject, Source, SubjectSource, SubjectGroup, Region, Observation
 from observations.views import KmlSubjectView, KmlSubjectsView
 import observations.tests.targets.kml_target_strings as targets
 from tracking.models.plugin_base import Obs
@@ -30,7 +31,7 @@ class ObservationTestCase(BaseAPITest):
     def setUp(self):
         super().setUp()
         # Create a single user with perms to see everything
-        self.all_perms_user = User.objects.create_user(
+        self.user = User.objects.create_user(
             'all_perms_user', 'das_all_perms@vulcan.com', 'all_perms_user',
             last_name='Last', first_name='First')
 
@@ -44,6 +45,33 @@ class ObservationTestCase(BaseAPITest):
             id='c25e17d0-0337-4f0c-9274-25e5ae4da7c8', name='Elephant 2', subject_type='Elephant', additional={'region': 'Region 1', 'country': 'USA'})
         self.elephant_3 = Subject.objects.create_subject(
             id='a873e49c-1cb5-4ad4-b29d-e4b8931036ba', name='Elephant 3', subject_type='Elephant', additional={'region': 'Region 2', 'country': 'USA'})
+
+        # Put these elephants in a group so we can give permissions to see them
+        self.group = SubjectGroup.objects.create(name='elephants')
+        self.elephant_1.groups.add(self.group)
+        self.elephant_2.groups.add(self.group)
+        self.elephant_3.groups.add(self.group)
+
+        # Make the permission set
+        self.view_subject_perm = Permission.objects.get(
+            codename='view_subject')
+        self.view_group_perm = Permission.objects.get_by_natural_key(
+            'view_subjectgroup', 'observations', 'subjectgroup')
+        self.end_perm = Permission.objects.get(codename='access_ends_0')
+        self.start_perm = Permission.objects.get(codename='access_begins_60')
+
+        self.permission_set = PermissionSet.objects.create(name='permissions')
+        self.permission_set.permissions.add(
+            self.end_perm, self.view_subject_perm, self.view_group_perm)
+        self.permission_set.permissions.add(
+            self.start_perm, self.view_subject_perm, self.view_group_perm)
+
+        # Now grant the user permissions to see the elephants
+        self.group.permission_sets.add(self.permission_set)
+        self.group.save()
+
+        self.user.permission_sets.add(self.permission_set)
+        self.user.save()
 
         # Add observations to one of the elephants
         source_args = {
@@ -93,7 +121,7 @@ class ObservationTestCase(BaseAPITest):
         url = '/api/v1.0/subjects/kml'
 
         request = self.factory.get(self.api_base + url)
-        self.force_authenticate(request, self.all_perms_user)
+        self.force_authenticate(request, self.user)
 
         response = KmlSubjectsView.as_view()(request)
         response_data = response.data
@@ -119,7 +147,7 @@ class ObservationTestCase(BaseAPITest):
         url = '/api/v1.0/subject/{0}/kml'.format(self.elephant_1.id)
 
         request = self.factory.get(self.api_base + url)
-        self.force_authenticate(request, self.all_perms_user)
+        self.force_authenticate(request, self.user)
 
         response = KmlSubjectView.as_view()(request, id=str(self.elephant_1.id))
         response_data = response.data
@@ -142,7 +170,7 @@ class ObservationTestCase(BaseAPITest):
 
     def test_single_subject_authed_url(self):
         url = '/api/v1.0/subject/{0}/kml?auth={1}'.format(
-            self.elephant_1.id, self.all_perms_user.get_kml_access_token())
+            self.elephant_1.id, self.user.get_kml_access_token())
 
         request = self.factory.get(self.api_base + url)
         # Typically we'd force authenticate, but we're testing the workflow
@@ -150,7 +178,7 @@ class ObservationTestCase(BaseAPITest):
         # can make this note to not add it in accidentally later on
         #
         # *** DON'T UNCOMMENT THIS ***
-        # self.force_authenticate(request, self.all_perms_user)
+        # self.force_authenticate(request, self.user)
 
         view = KmlSubjectView.as_view()
         id_str = str(self.elephant_1.id)
