@@ -1,9 +1,11 @@
 import logging
 import datetime
-
+import zipfile
 import dateutil.parser
 import pytz
 import sys
+from io import BytesIO
+
 from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 from django.http import Http404
@@ -12,10 +14,13 @@ from django.contrib.auth import get_user_model
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
+from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.filters import DjangoObjectPermissionsFilter
 from django.http import Http404
 from rest_framework import status
+from shapely.geometry import Point, LineString
+import simplekml
 
 from utils.drf import StandardResultsSetPagination
 from utils.json import zeroout_microseconds
@@ -503,3 +508,202 @@ class ObservationsView(generics.ListCreateAPIView):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+def render_to_kmz(kml_str, filename):
+    zip_io = BytesIO()
+    with zipfile.ZipFile(zip_io, mode='w', compression=zipfile.ZIP_DEFLATED) as kmz:
+        kmz.writestr('document.kml', kml_str.encode('utf-8'))
+    response = Response(zip_io.getvalue(),
+                        content_type='application/vnd.google-earth.kmz')
+    response['Content-Disposition'] = 'attachment; filename={}.kml'.format(
+        filename)
+    response['Content-Length'] = zip_io.tell()
+    return response
+
+
+class KmlSubjectsView(generics.GenericAPIView):
+    permission_classes = (AllowAny,)
+    renderer_classes = (StaticHTMLRenderer, )
+    queryset = models.SubjectGroup.objects.all()
+
+    def build_link_for_subject(self, subject):
+        host = self.request.get_host()
+        port = self.request.get_port()
+        return 'http://{}:{}/api/v1.0/subject/{}/kml/'.format(host, port, subject.id)
+
+    def get(self, request, *args, **kwargs):
+        k = simplekml.Kml()
+        k.document = k.newfolder(name='Tracking Data', visibility=1)
+
+        all_species = models.Subject.objects.values_list(
+            'subject_type', flat=True).distinct()
+        for species in all_species:
+            species_folder = None
+            all_regions = models.Region.objects.all()
+            for region in all_regions:
+                region_folder = None
+                subjects_in_region = models.Subject.objects.by_region(
+                    region).filter(subject_type=species)
+                for subject in subjects_in_region:
+                    if not species_folder:
+                        species_folder = k.document.newfolder(name=species)
+                    if not region_folder:
+                        region_folder = species_folder.newfolder(
+                            name=region.region)
+                    link = region_folder.newnetworklink(
+                        name=subject.name, visibility=0)
+                    link.link.href = self.build_link_for_subject(subject)
+        filename = 'Master{}'.format(
+            datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
+        return render_to_kmz(k.kml(), filename)
+
+
+def rgb_to_hex(red, green, blue):
+    """Return color as #rrggbb for the given color values."""
+    return 'ff%02x%02x%02x' % (int(red), int(green), int(blue))
+
+
+class KmlSubjectView(generics.RetrieveAPIView):
+    permission_classes = (AllowAny,)
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        subject = generics.get_object_or_404(
+            models.Subject.objects.all(), pk=self.kwargs['id'])
+        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS,
+                                               subject):
+            raise PermissionDenied
+
+        queryset = models.Subject.objects.all()
+        return queryset
+
+    def get_subject_color(self, subject):
+        if 'rgb' in subject.additional:
+            r, g, b = subject.additional['rgb'].split(',')
+            return rgb_to_hex(r, g, b)
+        return None
+
+    def get_subject_icon(self, subject):
+        host = self.request.get_host()
+        port = self.request.get_port()
+        return 'http://{}:{}{}'.format(host, port, subject.image_url)
+
+    def add_points_document(self, folder, subject):
+        document = folder.newdocument(
+            name='{0}_points'.format(subject.name), visibility=1)
+
+        color = self.get_subject_color(subject)
+        style = simplekml.Style()
+        style._id = '{0}_Pointstyle'.format(subject.name.replace(' ', '_'))
+        style.iconstyle = simplekml.IconStyle(color=color, scale=0.7, icon=simplekml.Icon(
+            href=self.get_subject_icon(subject)))
+        style.labelstyle = simplekml.LabelStyle(scale=0)
+        document.styles.append(style)
+
+        for obs in subject.observations():
+            timestamp = obs.recorded_at.strftime('%Y-%m-%d %H:%M')
+            point = document.newpoint()
+            point.coords = [(obs.location.x, obs.location.y)]
+            point.timestamp.when = timestamp
+            point.placemark.name = ''
+            point.placemark.snippet = simplekml.Snippet(timestamp)
+            point.placemark.description = timestamp
+            point.style = style
+
+    def add_tracks_document(self, folder, subject):
+        document = folder.newdocument(
+            name='{0}_tracks'.format(subject.name), visibility=1)
+
+        color = self.get_subject_color(subject)
+        style = simplekml.Style()
+        style._id = '{0}_Linestyle'.format(subject.name.replace(' ', '_'))
+        style.linestyle = simplekml.LineStyle(color=color, width=0.4)
+        document.styles.append(style)
+
+        self.last_obs = None
+        for obs in subject.observations():
+            if self.last_obs is not None:
+                line = document.newlinestring()
+                line.coords = (([self.last_obs.location.x, self.last_obs.location.y, 0], [
+                               obs.location.x, obs.location.y, 0]))
+                line.extrude = 0
+                line.tessellate = 1
+                line.placemark.name = ''
+                line.style = style
+            self.last_obs = obs
+
+    def add_position_document(self, folder, subject):
+        last_obs = subject.observations().order_by('recorded_at').last()
+        timestamp = last_obs.recorded_at.strftime('%Y-%m-%d %H:%M')
+
+        color = self.get_subject_color(subject)
+        document = folder.newdocument(
+            name='{0}\' Last Position'.format(subject.name), visibility=1)
+
+        sh_style = simplekml.Style()
+        sh_style._id = 'sh_{0}_Finalmarkerstyle'.format(
+            subject.name.replace(' ', '_'))
+        sh_style.iconstyle = simplekml.IconStyle(color=color, scale=0.7, icon=simplekml.Icon(
+            href=self.get_subject_icon(subject)))
+        sh_style.labelstyle = simplekml.LabelStyle(scale=1, color=color)
+        sh_style.balloonstyle = simplekml.BalloonStyle(
+            bgcolor=color, text='$[description')
+        document.styles.append(sh_style)
+
+        sn_style = simplekml.Style()
+        sn_style._id = 'sn_{0}_Finalmarkerstyle'.format(
+            subject.name.replace(' ', '_'))
+        sn_style.iconstyle = simplekml.IconStyle(color=color, scale=0.7, icon=simplekml.Icon(
+            href=self.get_subject_icon(subject)))
+        sn_style.labelstyle = simplekml.LabelStyle(scale=0)
+        sn_style.balloonstyle = simplekml.BalloonStyle(
+            bgcolor=color, text='$[description')
+        document.styles.append(sn_style)
+
+        style_map = simplekml.StyleMap()
+        style_map._id = 'msn_{0}_Finalmarkerstyle'.format(
+            subject.name.replace(' ', '_'))
+        style_map.normalstyle = sn_style
+        style_map.highlightstyle = sh_style
+        document.stylemaps.append(style_map)
+
+        point = document.newpoint()
+        point.coords = [(last_obs.location.x, last_obs.location.y)]
+        point.timestamp.when = timestamp
+        point.placemark.name = 'Last Position: {0}'.format(timestamp)
+        point.placemark.snippet = simplekml.Snippet('')
+        point.placemark.description = timestamp
+        point.stylemap = style_map
+
+    def add_overlay_to_folder(self, folder):
+        overlay = folder.newscreenoverlay()
+        overlay.overlayxy = simplekml.OverlayXY(x=0, y=0,
+                                                xunits=simplekml.Units.fraction,
+                                                yunits=simplekml.Units.fraction)
+        overlay.screenxy = simplekml.ScreenXY(x=0, y=0,
+                                              xunits=simplekml.Units.fraction,
+                                              yunits=simplekml.Units.fraction)
+        overlay.rotationxy = simplekml.RotationXY(x=0, y=0,
+                                                  xunits=simplekml.Units.fraction,
+                                                  yunits=simplekml.Units.fraction)
+        overlay.size = simplekml.Size(x=0, y=0,
+                                      xunits=simplekml.Units.fraction,
+                                      yunits=simplekml.Units.fraction)
+        overlay.name = 'Logo'
+        overlay.icon.href = 'http://107.21.94.89/Images/Logos/STE_Logo.png'
+
+    def get(self, request, *args, **kwargs):
+        subject = generics.get_object_or_404(
+            models.Subject.objects.all(), pk=self.kwargs['id'])
+        k = simplekml.Kml()
+        k.document = simplekml.Folder(name=subject.name)
+        k.document._id = None
+        k.document.visibility = 1
+        self.add_overlay_to_folder(k.document)
+        self.add_points_document(k.document, subject)
+        self.add_tracks_document(k.document, subject)
+        self.add_position_document(k.document, subject)
+        filename = 'TrackingData{}'.format(
+            datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
+        return render_to_kmz(k.kml(), filename)
