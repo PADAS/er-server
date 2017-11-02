@@ -696,6 +696,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
+        self.check_object_permissions(self.request, subject)
         k = simplekml.Kml()
         k.document = simplekml.Folder(name=subject.name)
         k.document._id = None

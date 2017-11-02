@@ -23,6 +23,8 @@ class ObservationTestCase(BaseAPITest):
         (2, 2, 1508520147)
     ]
 
+    simplekml_default_ids = ('link', 'geom', 'feat', 'substyle', 'time')
+
     save_outputs = False
 
     def setUp(self):
@@ -66,10 +68,17 @@ class ObservationTestCase(BaseAPITest):
             return False
         if e1.tail != e2.tail:
             return False
-        if e1.attrib != e2.attrib:
-            return False
         if len(e1) != len(e2):
             return False
+        if e1.attrib != e2.attrib:
+            # simplekml puts a serial number on all elements it creates. This
+            # serial number continues to increment as long as the app runs.
+            # Don't let an unexpected serial number fail a comparison of two
+            # otherwise equal kml documents
+            e1_id = e1.attrib.get('id', '').split('_')[0]
+            if e1_id not in self.simplekml_default_ids:
+                return False
+
         return all(self.elements_equal(c1, c2) for c1, c2 in zip(e1, e2))
 
     def save_kml(self, kml, filename):
@@ -128,5 +137,38 @@ class ObservationTestCase(BaseAPITest):
         if self.save_outputs:
             self.save_kml(response_xml, 'single_subject.kml')
             self.save_kmz(response.data, 'single_subject.kmz')
+
+        self.assertTrue(self.elements_equal(response_xml, target_xml))
+
+    def test_single_subject_authed_url(self):
+        url = '/api/v1.0/subject/{0}/kml?auth={1}'.format(
+            self.elephant_1.id, self.all_perms_user.get_kml_access_token())
+
+        request = self.factory.get(self.api_base + url)
+        # Typically we'd force authenticate, but we're testing the workflow
+        # _without_ this sort of auth. Leaving this here but commented out so I
+        # can make this note to not add it in accidentally later on
+        #
+        # *** DON'T UNCOMMENT THIS ***
+        # self.force_authenticate(request, self.all_perms_user)
+
+        view = KmlSubjectView.as_view()
+        id_str = str(self.elephant_1.id)
+        response = view(request, id=id_str)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+
+        # response should be kmz = zip file containing kml
+        kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
+        with kmz.open('document.kml') as response_kml_bytes:
+            response_kml = response_kml_bytes.read()
+        parser = etree.XMLParser(remove_blank_text=True)
+        response_xml = etree.XML(response_kml, parser=parser)
+        target_xml = etree.XML(
+            targets.single_subject_target.encode('utf-8'), parser=parser)
+
+        if self.save_outputs:
+            self.save_kml(response_xml, 'authed_single_subject.kml')
+            self.save_kmz(response.data, 'authed_single_subject.kmz')
 
         self.assertTrue(self.elements_equal(response_xml, target_xml))

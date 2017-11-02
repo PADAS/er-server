@@ -1,4 +1,6 @@
+from datetime import datetime, timedelta
 import uuid
+
 
 from django.contrib import auth
 from django.contrib.gis.db import models
@@ -9,6 +11,8 @@ from django.core.mail import send_mail
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core import validators
 from django.utils import timezone
+from oauthlib.common import generate_token
+from oauth2_provider.models import Application, AccessToken
 
 from sendsms import api
 
@@ -194,6 +198,18 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         """
         api.send_sms(body=message, from_phone=from_phone,
                      to=[self.phone], **kwargs)
+
+    def get_kml_access_token(self):
+        app = Application.objects.get(client_id='das_kml_export')
+        # user=request.user, token=str(uuid.uuid4()),
+        # application=self.application, scope='read write',
+        # expires=timezone.now() + datetime.timedelta(days=1)
+        token, created = AccessToken.objects.get_or_create(user=self, application=app, defaults={
+            'token': generate_token(),
+            'scope': 'read',
+            'expires': timezone.now() + timedelta(days=5 * 365)
+        })
+        return token.token
 
 
 class User(AccountsAbstractUser):
