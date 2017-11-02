@@ -73,7 +73,8 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         Default set of observation is fetched from the database, based on this analyzer's configuration.
         :return: a queryset of Observations
         """
-        return list(self.subject.observations(last_hours=self.config.search_time_hours))[-2:]
+        # observations get passed back in temporally descending order
+        return list(self.subject.observations(last_hours=self.config.search_time_hours))[:2]
 
     def analyze_trajectory(self, traj=None):
         """
@@ -86,10 +87,6 @@ class GeofenceAnalyzer(SubjectAnalyzer):
             return
 
         _analysis_params = self._create_geofence_analysis_param()
-
-        # # Subsample trajectory to the last two fixes
-        # traj = pymet.base.Trajectory(relocs=pymet.base.Relocations(fixes=traj.relocs.get_fixes()[-2:],
-        #                                                            subject_id=traj.relocs.subject_id))
 
         # Generate a list of crossings
         cross_results = pymet.geofence.GeofenceAnalysis.calc_crossings(
@@ -161,6 +158,9 @@ class GeofenceAnalyzer(SubjectAnalyzer):
 
         event_data = None
 
+        event_details = {'name': self.subject.name}
+        event_details.update(this_result.values)
+
         # Create a dict() location to satisfy our EventSerializer.
         event_location_value = {
             'longitude': this_result.geometry_collection[0].x,
@@ -177,7 +177,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
         if event_data:

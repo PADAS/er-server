@@ -1,14 +1,13 @@
 import logging
-from analyzers.models import SubjectAnalyzerResult, GeofenceAnalyzerConfig
+from analyzers.models import SubjectAnalyzerResult
 #from django.test import TestCase
 # Use python unit test here to persist results in test DB
 from unittest import TestCase
 from django.core import management
 from .geofence_test_data import *
-from observations.models import Subject, Source, SubjectSource, SubjectGroup, Observation, DEFAULT_ASSIGNED_RANGE
+from observations.models import Subject, Source, SubjectSource, SubjectGroup, DEFAULT_ASSIGNED_RANGE
 from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
 from .analyzer_test_utils import *
-from analyzers.tasks import analyze_subject
 from activity.models import Event, EventCategory, EventType
 from analyzers.geofence import GeofenceAnalyzer, GeofenceAnalyzerConfig
 from analyzers.exceptions import InsufficientDataAnalyzerException

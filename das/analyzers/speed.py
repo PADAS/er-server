@@ -164,7 +164,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
 
     @classmethod
     def get_subject_analyzers(cls, subject=None):
-        for ac in LowSpeedWilcoxAnalyzerConfig.objects.filter(subject_group__subjects=subject):
+        for ac in LowSpeedWilcoxAnalyzerConfig.objects.filter(subject_group__subjects=subject, is_active=True):
             yield cls(subject=subject, config=ac)
 
     def _normal_movement_distro(self, trajectory_filter=None, end=None, last_hours=30 * 24):
