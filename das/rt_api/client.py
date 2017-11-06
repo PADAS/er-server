@@ -90,11 +90,13 @@ def _restore_client_data(data):
 def get_client(sid):
     sid = str(sid)
     logger.debug('Get client for sid=%s', sid)
-    data = redis_client.hget(CLIENT_LIST_KEY, sid).decode('utf-8')
-
-    logger.debug('Got client for sid=%s, data=%s', sid, data)
+    data = redis_client.hget(CLIENT_LIST_KEY, sid)
     if data:
-        return _restore_client_data(data)
+        data = data.decode('utf-8')
+        result = _restore_client_data(data)
+        if result:
+            logger.debug('Got client for sid=%s, data=%s', sid, data)
+            return result
 
 
 def is_client(sid):
