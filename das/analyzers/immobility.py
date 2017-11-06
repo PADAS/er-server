@@ -46,7 +46,10 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         Default set of observation is fetched from the database, based on this analyzer's configuration.
         :return: a queryset of Observations
         """
-        return self.subject.observations(last_hours=self.config.search_time_hours)
+        if self.config.search_time_hours <= 0:
+            return self.subject.observations()
+        else:
+            return self.subject.observations(last_hours=self.config.search_time_hours)
 
     def analyze_trajectory(self, traj=None):
         """
@@ -152,6 +155,9 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
         event_data = None
 
+        event_details = {'name': self.subject.name}
+        event_details.update(this_result.values)
+
         # Create a dict() location to satisfy our EventSerializer.
         event_location_value = {
             'longitude': this_result.geometry_collection[0].x,
@@ -168,11 +174,10 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
-        # Notify if there is a state transition from Critical/Warning back to
-        # OK
+        # Notify if there is a state transition from Critical/Warning back to OK
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
                 title=this_result.title,
@@ -182,7 +187,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
         if event_data:

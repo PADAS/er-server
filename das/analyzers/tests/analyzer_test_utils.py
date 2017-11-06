@@ -49,11 +49,25 @@ def generate_random_positions(start_time=None, x=37.5, y=0.56, ts_days=1):  # Sa
         recorded_at = recorded_at - timedelta(minutes=30)
 
 
-def generate_observations(observations):
-    for item in time_shift(observations):
+def generate_observations(observations, timeshift=True):
+    if timeshift:
+        observations = time_shift(observations)
+
+    for item in observations:
         recorded_at = item['recorded_at']
         location = Point(x=item['longitude'], y=item['latitude'])
         obs = models.Observation(recorded_at=recorded_at, location=location)
         yield obs
+
+
+def store_observations(observations, timeshift=True, source=None):
+    if timeshift:
+        observations = time_shift(observations)
+
+    for item in observations:
+        recorded_at = item['recorded_at']
+        location = Point(x=item['longitude'], y=item['latitude'])
+        models.Observation.objects.create(recorded_at=recorded_at, location=location,
+                                                source=source, additional={})
 
 

@@ -510,8 +510,8 @@ class SubjectTrackSegmentFilterManager(models.Manager):
 
 class SubjectTrackSegmentFilter(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    # Should reference SubjectTypes table
-    subject_type = models.TextField(default="SUBTYPE_ELEPHANT")
+    # TODO Should reference SubjectSubTypes model if it gets created...
+    subject_subtype = models.TextField(default="elephant")
     speed_KmHr = models.FloatField(default=7.0)
     additional = JSONField(default={})
     objects = SubjectTrackSegmentFilterManager()
@@ -853,15 +853,16 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def default_trajectory_filter(self):
         # Get trajectory filter based on subject. Might not exist.
         try:
-            return SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject_subtype).first()
+            return SubjectTrackSegmentFilter.objects.filter(subject_subtype=self.subject_subtype).first()
         except SubjectTrackSegmentFilter.DoesNotExist:
             pass
 
-    @classmethod
-    def create_trajectory(cls, obs=None, trajectory_filter_params=None):
+    def create_trajectory(self, obs=None, trajectory_filter_params=None):
         """
         Hydrate the trajectory
         """
+
+        obs = obs or self.observations()
 
         def create_fix(observation):
             gp = pymet.base.GeoPoint(
@@ -871,23 +872,25 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         # Create a relocations object
         fixes = [create_fix(x) for x in obs]
-        relocs = pymet.base.Relocations(fixes)
+        relocs = pymet.base.Relocations(fixes=fixes)
 
         # Filter the relocations for junk coordinates
         coord_filter = pymet.base.RelocsCoordinateFilter()
         relocs.apply_fix_filter(coord_filter)
 
-        # Filter the relocations based on speed
-        speed_threshold = float('Inf')
+        # Create a trajectory from the relocations
+        traj = pymet.base.Trajectory(relocs)
 
         if trajectory_filter_params is not None:
             speed_threshold = trajectory_filter_params.speed_KmHr
-        speed_filter = pymet.base.RelocsSpeedFilter(
-            max_speed_kmhr=speed_threshold)
-        relocs.apply_fix_filter(speed_filter)
 
-        # Create a trajectory from the relocations
-        traj = pymet.base.Trajectory(relocs)
+            # Create a relocations speed filter
+            speed_filter = pymet.base.RelocsSpeedFilter(max_speed_kmhr=speed_threshold)
+            traj.relocs.apply_fix_filter(speed_filter)
+
+            # Create a trajseg filter
+            traj_filt = pymet.base.TrajSegFilter(max_speed_kmhr=speed_threshold)
+            traj.traj_seg_filter = traj_filt
 
         return traj
 

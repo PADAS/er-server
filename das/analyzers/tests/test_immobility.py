@@ -3,6 +3,8 @@ from django.test import TestCase
 
 from analyzers.models import ImmobilityAnalyzerConfig, OK
 from analyzers.immobility import ImmobilityAnalyzer
+from observations.models import SubjectTrackSegmentFilter
+from analyzers.models import SubjectAnalyzerResult
 from activity.models import Event
 from .immobility_test_data import *
 from analyzers.tasks import analyze_subject
@@ -52,25 +54,22 @@ class TestImmobilityAnalyzer(TestCase):
         source = models.Source.objects.create(manufacturer_id='ishango-collar')
         models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
 
+        # Create a SubjectTrackSegmentFilter
+        SubjectTrackSegmentFilter.objects.create(subject_subtype='elephant', speed_KmHr=7.0)
+
         sg = models.SubjectGroup.objects.create(name='immobility_analyzer_group',)
         sg.subjects.add(sub)
         sg.save()
 
         ImmobilityAnalyzerConfig.objects.create(subject_group=sg)
 
-        # parse recorded_at (from string to datetime).
-        test_observations = [parse_recorded_at(x) for x in test_observations]
-
         # Create observations in database, so the Analyzer will find them.
-        for item in time_shift(test_observations):
-
-            recorded_at = item['recorded_at']
-            location = Point(x=item['longitude'], y=item['latitude'])
-            models.Observation.objects.create(recorded_at=recorded_at, location=location, source=source, additional={})
+        test_observations = [parse_recorded_at(x) for x in test_observations]
+        store_observations(test_observations, timeshift=True, source=source)
 
         analyze_subject(str(sub.id))
 
-        # self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
+        self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
@@ -129,7 +128,7 @@ class TestImmobilityAnalyzer(TestCase):
         }
 
         event_data = dict(
-            message='Woody is immobile',
+            title='Woody is immobile',
             event_time=pytz.utc.localize(datetime.utcnow()),
             provenance=Event.PC_ANALYZER,
             event_type='immobility',
