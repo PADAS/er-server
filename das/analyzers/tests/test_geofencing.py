@@ -1,16 +1,18 @@
 import logging
 from analyzers.models import SubjectAnalyzerResult
-#from django.test import TestCase
+from django.test import TestCase
 # Use python unit test here to persist results in test DB
-from unittest import TestCase
+#from unittest import TestCase
 from django.core import management
 from .geofence_test_data import *
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, DEFAULT_ASSIGNED_RANGE
+from observations.models import SubjectTrackSegmentFilter
 from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
 from .analyzer_test_utils import *
 from activity.models import Event, EventCategory, EventType
 from analyzers.geofence import GeofenceAnalyzer, GeofenceAnalyzerConfig
 from analyzers.exceptions import InsufficientDataAnalyzerException
+from analyzers.tasks import analyze_subject
 import json
 import yaml
 
@@ -71,11 +73,67 @@ class TestGeofenceAnalyzer(TestCase):
             value='analyzer_event', defaults=dict(display='Analyzer Events'))
 
         EventType.objects.get_or_create(
-            value='analyzer_geofence',
+            value='geofence_break',
             category=ec,
             defaults=dict(display='Geofence Analyzer', schema=self.event_schema_json()))
 
-    def test_geofencing(self):
+    def test_geofencing_integration(self):
+
+        # Create models (Subject, SubjectSource and Source)
+        sub = Subject.objects.create(
+            name='Jolie', subject_type='wildlife', subject_subtype='elephant')
+        source = Source.objects.create(manufacturer_id='006')
+        SubjectSource.objects.create(
+            subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
+
+        # Create a SubjectTrackSegmentFilter
+        SubjectTrackSegmentFilter.objects.create(subject_subtype='elephant', speed_KmHr=7.0)
+
+        sg = SubjectGroup.objects.create(
+            name='geofence_subject_analyzer_group1', )
+        sg.subjects.add(sub)
+        sg.save()
+
+        # Create a SpatialFeatureGroupStatic group with the 'Moukabala-Doudou' geofence
+        geofences = SpatialFeature.objects.filter(
+            name__iexact='Moukalaba-Doudou')
+        logger.info('Geofence count: %s' % str(len(geofences)))
+        gf_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Gabon Geofences', )
+        gf_grp.features.add(*geofences)
+        gf_grp.save()
+
+        # load the observations into the database
+        test_observations = [parse_recorded_at(x) for x in JOLIE_TRACK]
+        relocs_len = len(test_observations)
+
+        # Create the Geofence Analyzer Config object
+        GeofenceAnalyzerConfig.objects.create(
+            subject_group=sg, geofences=gf_grp, search_time_hours=175200.0)
+
+        # Iterate through the observations adding another point to the trajectory on each loop
+        for i in range(0, relocs_len):
+            try:
+                store_observations(test_observations[i:i+1], timeshift=False, source=source)
+                analyze_subject(str(sub.id))
+            except InsufficientDataAnalyzerException:
+                pass
+
+        results = SubjectAnalyzerResult.objects.filter(subject=sub)
+
+        for result in results:
+            print('Geofence Result: %s' % result)
+
+        self.assertTrue(len(results) == 6)
+
+        for e in Event.objects.all():
+            self.assertTrue(e.event_details.all().exists())
+
+        for e in Event.objects.all():
+            for ed in e.event_details.all():
+                print('Event Details: %s' % ed.data)
+
+    def test_geofencing_logic(self):
         """ Test functioning of the geofence algorithm logic"""
 
         # Create models (Subject, SubjectSource and Source)
@@ -86,7 +144,7 @@ class TestGeofenceAnalyzer(TestCase):
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
         sg = SubjectGroup.objects.create(
-            name='geofence_subject_analyzer_group', )
+            name='geofence_subject_analyzer_group2', )
         sg.subjects.add(sub)
         sg.save()
 
@@ -94,13 +152,6 @@ class TestGeofenceAnalyzer(TestCase):
         test_observations = [parse_recorded_at(x) for x in OLCHODA_TRACK]
         relocs_len = len(test_observations)
         test_observations = list(generate_observations(test_observations))
-
-        # # Create observations in database, so the Analyzer will find them.
-        # for item in time_shift(test_observations):
-        #     recorded_at = item['recorded_at']
-        #     location = Point(x=item['longitude'], y=item['latitude'])
-        #     Observation.objects.create(
-        #         recorded_at=recorded_at, location=location, source=source, additional={})
 
         # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2' geofence
         geofences = SpatialFeature.objects.filter(
@@ -131,9 +182,6 @@ class TestGeofenceAnalyzer(TestCase):
                 analyzer.analyze(observations=test_observations[i-2:i])
             except InsufficientDataAnalyzerException:
                 break
-
-        # # Run the analyzer
-        # analyze_subject(str(sub.id))
 
         # There should be 2 geofence breaks from this analysis.
         results = SubjectAnalyzerResult.objects.filter(subject=sub)

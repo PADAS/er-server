@@ -1,12 +1,10 @@
 from django.contrib.gis.db import models
 from django.test import TestCase
-from analyzers.models import EnvironmentalSubjectAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
-from observations import models
-from activity.models import Event, EventType, EventCategory
+from analyzers.models import EnvironmentalSubjectAnalyzerConfig, SubjectAnalyzerResult
+from activity.models import Event
 from analyzers.tasks import analyze_subject
-from .analyzer_test_utils import generate_random_positions
+from .analyzer_test_utils import *
 
-import activity.models
 
 
 class TestEnvironmentAnalyzer(TestCase):
@@ -29,10 +27,7 @@ class TestEnvironmentAnalyzer(TestCase):
         # is_collection=False, ))
         pass
 
-    def integration_test_environmental_analyzer(self):
-
-        # Grab random observations
-        test_observations = [x for x in generate_random_positions()]
+    def test_environmental_analyzer(self):
 
         # Create models (Subject, SubjectSource and Source)
         sub = models.Subject.objects.create(name='RandomWalkElephant', subject_type='wildlife',
@@ -42,6 +37,9 @@ class TestEnvironmentAnalyzer(TestCase):
 
         models.SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+
+        # Create a SubjectTrackSegmentFilter
+        models.SubjectTrackSegmentFilter.objects.create(subject_subtype='elephant', speed_KmHr=7.0)
 
         sg = models.SubjectGroup.objects.create(
             name='environmental_analyzer_group',)
@@ -57,6 +55,7 @@ class TestEnvironmentAnalyzer(TestCase):
                                                           short_description='Elevation')
 
         # Create observations in database, so the Analyzer will find them.
+        test_observations = [x for x in generate_random_positions()]
         for item in test_observations:
             recorded_at = item[0]
             location = item[1]

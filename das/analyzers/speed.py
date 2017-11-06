@@ -30,7 +30,11 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
         Default set of observation is fetched from the database, based on this analyzer's configuration.
         :return: a queryset of Observations
         """
-        return self.subject.observations(last_hours=self.config.search_time_hours)
+        # observations get passed back in temporally descending order
+        if self.config.search_time_hours <= 0:
+            return list(self.subject.observations())
+        else:
+            return list(self.subject.observations(last_hours=self.config.search_time_hours))
 
     def analyze_trajectory(self, traj=None):
 
@@ -116,6 +120,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
             return
 
         event_data = None
+
         event_details = {'name': self.subject.name}
         event_details.update(this_result.values)
 
@@ -131,7 +136,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
                 title=this_result.title,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='analyzer_low_speed_percentile',
+                event_type='low_speed_percentile',
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
@@ -145,7 +150,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
                 title=this_result.title,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='analyzer_low_speed_percentile_all_clear',
+                event_type='low_speed_percentile_all_clear',
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
@@ -190,7 +195,11 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         Default set of observation is fetched from the database, based on this analyzer's configuration.
         :return: a queryset of Observations
         """
-        return self.subject.observations(last_hours=self.config.search_time_hours)
+        # observations get passed back in temporally descending order
+        if self.config.search_time_hours <= 0:
+            return list(self.subject.observations())
+        else:
+            return list(self.subject.observations(last_hours=self.config.search_time_hours))
 
     def analyze_trajectory(self, traj=None):
 
@@ -291,21 +300,20 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
                 title=this_result.title,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='analyzer_low_speed_wilcoxon',
+                event_type='low_speed_wilcoxon',
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
                 event_details=event_details,
             )
 
-        # Notify if there is a state transition from Critical/Warning back to
-        # OK
+        # Notify if there is a state transition from Critical/Warning back to OK
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
                 title=this_result.title,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='analyzer_low_speed_wilcoxon_all_clear',
+                event_type='low_speed_wilcoxon_all_clear',
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,

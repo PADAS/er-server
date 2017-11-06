@@ -109,3 +109,6 @@ run this command to update versions:
 
 To install requirements using pip
 * pip install -r requirements.txt -r requirements-pinned.txt --find-links <your wheelhouse dir>
+
+To install django-extensions (optional)
+* pip install django-extensions

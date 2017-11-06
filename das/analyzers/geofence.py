@@ -32,10 +32,8 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         for ac in GeofenceAnalyzerConfig.objects.filter(subject_group__subjects=subject, is_active=True):
             yield cls(subject=subject, config=ac)
 
-    ''' Hydrate GeofenceAnalysisParams'''
-
     def _create_geofence_analysis_param(self):
-        #logger.info('Creating Geofence Anlaysis Params')
+        """ Hydrate GeofenceAnalysisParams"""
         gfs, crs = [], []
 
         # Get the SpatialFeatureGroupStatic containing the fences
@@ -74,7 +72,10 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         :return: a queryset of Observations
         """
         # observations get passed back in temporally descending order
-        return list(self.subject.observations(last_hours=self.config.search_time_hours))[:2]
+        if self.config.search_time_hours <= 0:
+            return list(self.subject.observations())[:2]
+        else:
+            return list(self.subject.observations(last_hours=self.config.search_time_hours))[:2]
 
     def analyze_trajectory(self, traj=None):
         """
@@ -173,7 +174,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                 title=this_result.title,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='analyzer_geofence',
+                event_type='geofence_break',
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
