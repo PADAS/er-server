@@ -15,7 +15,23 @@ apt-get install -y build-essential \
                  wget
 
 
-wget http://download.osgeo.org/geos/geos-3.6.2.tar.bz2; tar -xjf geos-3.6.2.tar.bz2; cd geos-3.6.2; ./configure; make; checkinstall -y;
+wget http://download.osgeo.org/geos/geos-3.6.2.tar.bz2; tar -xjf geos-3.6.2.tar.bz2
+cd geos-3.6.2
+
+# It's likely this 3.6.2 version of geos will report an invalid version. 
+# So before running make, fix the GEOSversion function.
+#
+# Ex. In file capi/geos_ts_c.cpp, edit this:
+#
+#    const char* GEOSversion()
+#    {
+#       static char version[256];
+#       /* sprintf(version, "%s " GEOS_REVISION, GEOS_CAPI_VERSION); */
+#       return GEOS_CAPI_VERSION;  <-- This is what you need to return.
+#    }
+sed -i -e 's/return version/return GEOS_CAPI_VERSION/' capi/geos_ts_c.cpp
+
+./configure; make; checkinstall -y;
 cd ..
 cp geos-3.6.2/geos_3.6.2-1_amd64.deb .
 rm -rf geos-3.6.2
