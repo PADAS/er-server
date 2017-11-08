@@ -1,6 +1,6 @@
 from activity.models import Event, EventCategory, EventType
 import datetime as dt
-from unittest import TestCase
+#from unittest import TestCase
 from django.test import TestCase
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, Observation, SubjectTrackSegmentFilter, \
     DEFAULT_ASSIGNED_RANGE
@@ -51,7 +51,9 @@ class TestLowSpeedAnalyzer(TestCase):
                   title: EventType Low Speed Percentile
                   type: object
                 '''
-        return json.dumps(yaml.load(schema_yaml))
+        this_json = json.dumps(yaml.load(schema_yaml))
+        print(this_json)
+        return this_json
 
     @classmethod
     def low_speed_wilcox_event_schema_json(cls):
@@ -83,7 +85,9 @@ class TestLowSpeedAnalyzer(TestCase):
                      title: EventType Low Speed Wilcox
                      type: object
                    '''
-        return json.dumps(yaml.load(schema_yaml))
+        this_json = json.dumps(yaml.load(schema_yaml))
+        print(this_json)
+        return this_json
 
     @classmethod
     def low_speed_percentile_all_clear_event_schema_json(cls):
@@ -158,25 +162,25 @@ class TestLowSpeedAnalyzer(TestCase):
             value='analyzer_event', defaults=dict(display='Analyzer Events'))
 
         EventType.objects.get_or_create(
-            value='analyzer_low_speed_percentile',
+            value='low_speed_percentile',
             category=ec,
             defaults=dict(display='Low Speed Percentile Analyzer',
                           schema=self.low_speed_percentile_event_schema_json()))
 
         EventType.objects.get_or_create(
-            value='analyzer_low_speed_percentile_all_clear',
+            value='low_speed_percentile_all_clear',
             category=ec,
             defaults=dict(display='Low Speed Percentile Analyzer All Clear',
                           schema=self.low_speed_percentile_all_clear_event_schema_json()))
 
         EventType.objects.get_or_create(
-            value='analyzer_low_speed_wilcoxon',
+            value='low_speed_wilcoxon',
             category=ec,
             defaults=dict(display='Low Speed Wilcox Analyzer',
                           schema=self.low_speed_wilcox_event_schema_json()))
 
         EventType.objects.get_or_create(
-            value='analyzer_low_speed_wilcox_all_clear',
+            value='low_speed_wilcox_all_clear',
             category=ec,
             defaults=dict(display='Low Speed Wilcox Analyzer All Clear',
                           schema=self.low_speed_wilcox_all_clear_event_schema_json()))
@@ -192,20 +196,20 @@ class TestLowSpeedAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Heritage', subject_type='wildlife', subject_subtype='SUBTYPE_ELEPHANT')
+            name='Heritage', subject_type='wildlife', subject_subtype='elephant')
 
         source = Source.objects.create(manufacturer_id='007')
 
         SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
+        # Create a SubjectTrackSegmentFilter
+        SubjectTrackSegmentFilter.objects.create(subject_subtype='elephant', speed_KmHr=7.0)
+
         sg = SubjectGroup.objects.create(
             name='low_speed_subject_analyzer_group', )
         sg.subjects.add(sub)
         sg.save()
-
-        # Create a default trajectory segment filter
-        SubjectTrackSegmentFilter.objects.create()
 
         # Decide the percentile value to use for the algorithm
         percentile = 0.25
@@ -215,15 +219,9 @@ class TestLowSpeedAnalyzer(TestCase):
                                                         low_threshold_percentile=percentile,
                                                         default_low_speed_value=1.0)
 
-        # parse recorded_at (from string to datetime).
+        # Store observations in the database
         test_observations = [parse_recorded_at(x) for x in HERITAGE_Track]
-
-        # Create observations in database
-        for item in time_shift(test_observations):
-            recorded_at = item['recorded_at']
-            location = Point(x=item['longitude'], y=item['latitude'])
-            Observation.objects.create(
-                recorded_at=recorded_at, location=location, source=source, additional={})
+        store_observations(test_observations, timeshift=True, source=source)
 
         # Create a subject speed profile
         sp = SubjectSpeedProfile.objects.create(subject=sub)
@@ -233,13 +231,9 @@ class TestLowSpeedAnalyzer(TestCase):
 
         # Update percentile value based on data when Heritage was moving Ok
         distro.update_percentiles([percentile], end=dt.datetime.utcnow() - dt.timedelta(days=30))
-
-        # Test whether the value was created and its value
-        test_distro = SpeedDistro.objects.first()
-        self.assertTrue(test_distro is not None)
-        speed_val = test_distro.percentiles[str(percentile)]
+        speed_val = distro.percentiles[percentile]
         logger.info('PercentileSpeedVal: %s' % str(speed_val))
-        self.assertTrue(speed_val > 0)
+        self.assertTrue(speed_val > 0.0)
 
         # Run the analyzer
         analyze_subject(str(sub.id))
@@ -257,24 +251,24 @@ class TestLowSpeedAnalyzer(TestCase):
             for ed in e.event_details.all():
                 print('Event Details: %s' % ed.data)
 
-    def test_wilcoxon_rank_sum_result(self):
+    def test_wilcoxon_result(self):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Heritage', subject_type='wildlife', subject_subtype='SUBTYPE_ELEPHANT')
+            name='Heritage', subject_type='wildlife', subject_subtype='elephant')
 
         source = Source.objects.create(manufacturer_id='006')
 
         SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
+        # Create a SubjectTrackSegmentFilter
+        SubjectTrackSegmentFilter.objects.create(subject_subtype='elephant', speed_KmHr=7.0)
+
         sg = SubjectGroup.objects.create(
             name='low_speed_subject_analyzer_group', )
         sg.subjects.add(sub)
         sg.save()
-
-        # Create a default trajectory segment filter
-        SubjectTrackSegmentFilter.objects.create()
 
         # parse recorded_at (from string to datetime).
         test_observations = [parse_recorded_at(x) for x in HERITAGE_Track]
@@ -304,4 +298,6 @@ class TestLowSpeedAnalyzer(TestCase):
         for e in Event.objects.all():
             for ed in e.event_details.all():
                 print('Event Details: %s' % ed.data)
+
+
 

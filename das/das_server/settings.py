@@ -362,7 +362,8 @@ VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
         ('original', 'url'),
         ('icon', 'crop__64x64'),  # Crop for use as icon
         ('thumbnail', 'thumbnail__150x150'),  # Resize to fit within
-        ('large', 'thumbnail__800x800')  # Resize to fit within
+        ('large', 'thumbnail__800x800'),  # Resize to fit within
+        ('xlarge', 'thumbnail__1920x1920')  # Resize to fit within
     ],
     'event_photo': [
         ('original', 'url'),

@@ -2,7 +2,7 @@
 
 git+https://github.com/Julian/jsonschema.git@d0f2ef740b306dd966a947e2677d0c2ab065fc1f#egg=jsonschema
 
-git+https://github.com/PADAS/python-socketio.git@3314c2243590fbbff327744b47fe10d29d00d402#egg=python-socketio
+git+https://github.com/PADAS/python-socketio.git@10ef9b4731bdc06b022978330dd2afea9c81d5b2#egg=python-socketio
 
 git+https://github.com/PADAS/fastkml.git@b0137871605672c09c2466246d0ae14601a1807d#egg=fastkml
 

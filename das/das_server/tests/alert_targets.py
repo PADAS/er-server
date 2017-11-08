@@ -10,6 +10,7 @@ Priority: Green
 
   * Conservancy: Sera
   * Details: some details about the event
+  * Name Of Ranger: John IsA Ranger
   * Section/Area: Corner Safi
   - Created On: {time}
   - Report Type: Other
@@ -40,6 +41,7 @@ Priority: Green
 
   * Conservancy: Sera
   * Details: some details about the event
+  * Name Of Ranger: John IsA Ranger
   * Section/Area: Corner Safi
   - Created On: {time}
   - Report Type: Other
@@ -52,6 +54,7 @@ Priority: Green
 
   - Conservancy: Sera
   * Details: These details have been updated
+  - Name Of Ranger: John IsA Ranger
   - Section/Area: Corner Safi
   - Created On: {time}
   - Report Type: Other

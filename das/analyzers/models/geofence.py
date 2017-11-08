@@ -9,13 +9,9 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
 
         Based on the algorithm described by Jake Wall in RTM_Appendix_A.pdf
 
-        parameters:
+    """
 
-        threshold_time: time in seconds the track is expected to be stationary.
-            Defaults to 18000 seconds (5 hours) as in Wall
-         """
-
-    threshold_time = models.IntegerField(null=False, default=43200)  # 12 hours
+    threshold_time = models.IntegerField(null=False, default=43200, verbose_name='Threshold time (seconds)')  # 12 hours
 
     geofences = models.ForeignKey(
         to=SpatialFeatureGroupStatic,

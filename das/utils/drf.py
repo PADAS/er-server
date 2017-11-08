@@ -9,7 +9,7 @@ from rest_framework.compat import set_rollback
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 from rest_framework.pagination import PageNumberPagination
-
+from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission
 from rest_framework import serializers
 
 
@@ -33,11 +33,14 @@ def error404View(request, exception, template_name='404.html'):
     """Handle 404 in our api"""
     if not request.path.startswith('/api/v1.0/'):
         return django.views.defaults.page_not_found(request, exception, template_name=template_name)
-    response = Response({},
-                        status=rest_framework.status.HTTP_404_NOT_FOUND,
-                        )
-    fixup_api_response(response)
-    response = JsonResponse(data=response.data)
+
+    # Create a Response with an appropriate status-code here, then let the fixup function codify it in the
+    # resposne body.
+    response = Response({}, status=rest_framework.status.HTTP_404_NOT_FOUND)
+    response = fixup_api_response(response)
+
+    response = JsonResponse(data=response.data,
+                            status=rest_framework.status.HTTP_404_NOT_FOUND)
     return response
 
 
@@ -75,3 +78,9 @@ class PointValidator:
     def __call__(self, value):
         if not value.valid:
             raise serializers.ValidationError(value.valid_reason)
+
+
+class AllowAnyGet(BasePermission):
+    def has_permission(self, request, view):
+        return request.method in ('GET', 'HEAD', 'OPTIONS') \
+            or (request.user and request.user.is_authenticated())
