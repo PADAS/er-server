@@ -457,3 +457,9 @@ ANNOTATION_SETTINGS = {
         'helicopter': 500.0,
     }
 }
+
+SENSORS = {
+    'camera_trap': {
+        'default_time_zone': 'UTC'
+    }
+}

@@ -1,6 +1,9 @@
 import logging
 import datetime
+import struct
+from collections import namedtuple
 
+from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework import serializers, views, permissions
@@ -16,6 +19,9 @@ from activity.models import Event
 
 logger = logging.getLogger(__name__)
 
+default_time_zone = pytz.timezone(settings.SENSORS.get(
+    'camera_trap', {}).get('default_time_zone', 'UTC'))
+
 
 def get_priority():
     """The priority for an event. For now uses a default of Red"""
@@ -28,6 +34,14 @@ def exif_dateparse(date_str, default_tz=pytz.utc):
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tz)
     return dt
+
+
+def exif_time_zone(timezone_str):
+    """example exif timezone string -04:00 """
+    hrs, mins = timezone_str.split(':')
+    hrs = int(hrs)
+    mins = int(mins)
+    return pytz.FixedOffset(mins + hrs * 60)
 
 
 def dateparse(date_str, default_tz=pytz.utc):
@@ -60,7 +74,8 @@ def convert_to_degrees(value):
 def get_lat_lon(exif):
     if GPS_EXIF_NAME not in exif:
         return
-    gps_exif = {piexif.TAGS[GPS_EXIF_NAME][tag]["name"]                : exif[GPS_EXIF_NAME][tag] for tag in exif[GPS_EXIF_NAME]}
+    gps_exif = {piexif.TAGS[GPS_EXIF_NAME][tag]["name"]
+        : exif[GPS_EXIF_NAME][tag] for tag in exif[GPS_EXIF_NAME]}
     gps_latitude = gps_exif['GPSLatitude']
     gps_latitude_ref = gps_exif['GPSLatitudeRef']
     gps_longitude = gps_exif['GPSLongitude']
@@ -132,11 +147,7 @@ class CameraTrapSensorHandler:
         if cls.if_exists_event_file(file_name):
             return Response(status=status.HTTP_409_CONFLICT)
 
-        try:
-            event_time = exif_dateparse(
-                exif_dict['DateTimeOriginal'].decode('utf-8'))
-        except KeyError:
-            event_time = params.validated_data['time']
+        event_time = cls.get_time(params, exif_dict)
 
         event_details = cls.get_camera_trap_details(params, exif_dict)
         event_data = dict(title=title, location=location,
@@ -174,6 +185,20 @@ class CameraTrapSensorHandler:
                   }
 
         return result
+
+    @classmethod
+    def get_time(cls, params, exif_dict):
+        try:
+            event_time = exif_dict['DateTimeOriginal'].decode('utf-8')
+            timezone = default_time_zone
+            if 'OffsetTimeOriginal' in exif_dict:
+                timezone = exif_time_zone(
+                    exif_dict['OffsetTimeOriginal'].decode('utf-8'))
+            event_time = exif_dateparse(event_time, timezone)
+
+        except KeyError:
+            event_time = params.validated_data['time']
+        return event_time
 
 
 class PantheraCameraTrapSensorHandler(CameraTrapSensorHandler):

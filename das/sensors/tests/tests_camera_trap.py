@@ -3,6 +3,7 @@ import base64
 from io import BytesIO
 
 from PIL import Image
+import pytz
 import piexif
 from django.contrib.auth.models import Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -13,6 +14,7 @@ import django.contrib.auth
 from accounts.models import PermissionSet
 from core.tests import BaseAPITest
 from sensors.views import SensorObservation
+from sensors import camera_trap
 
 logger = logging.getLogger(__name__)
 User = django.contrib.auth.get_user_model()
@@ -82,3 +84,7 @@ class CameraTrapTest(BaseAPITest):
         response = self.post_cam_image()
 
         self.assertEqual(response.status_code, 409)
+
+    def test_exif_timzone(self):
+        self.assertEquals(pytz.FixedOffset(-120),
+                          camera_trap.exif_time_zone('-02:00'))

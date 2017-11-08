@@ -33,7 +33,7 @@ Contents:
    confluence
    datamodel
 
-.. _support::
+.. _support:
 
 .. toctree::
    :maxdepth: 2
@@ -51,6 +51,7 @@ Contents:
    user
    region
    realtime
+   sensors
 
 
 Indices and tables
