@@ -37,10 +37,6 @@ def require_earthengine(func):
 
 class EnvironmentalAnalyzer(SubjectAnalyzer):
 
-    """ 
-    Environmental Analyzer is a demonstrator for integration with Google Earth Engine.
-    """
-
     def __init__(self, subject, config):
         SubjectAnalyzer.__init__(self, subject=subject, config=config)
         self.logger = logging.getLogger(__name__)
@@ -55,7 +51,11 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
         Default set of observation is fetched from the database, based on this analyzer's configuration.
         :return: a queryset of Observations
         """
-        return self.subject.observations(last_hours=self.config.search_time_hours)
+        # observations get passed back in temporally descending order
+        if self.config.search_time_hours <= 0:
+            return list(self.subject.observations())
+        else:
+            return list(self.subject.observations(last_hours=self.config.search_time_hours))
 
     @require_earthengine
     def analyze_trajectory(self, traj=None):
@@ -111,12 +111,28 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
                     str(_(' is in a high ' + self.config.short_description + ' area.'))
         return [result, ]
 
+    def save_analyzer_result(self, last_result=None, this_result=None):
+
+        if this_result is not None:
+            # Save if result is critical or warning
+            if this_result.level in (CRITICAL, WARNING):
+                this_result.save()
+
+            if last_result is not None:
+                # Save the result if there was a transition from
+                # Critical/Warning to OK
+                if (this_result.level is OK) and (last_result.level in (CRITICAL, WARNING)):
+                    this_result.save()
+
     def create_analyzer_event(self, last_result=None, this_result=None):
         # no data to create an event so exit
         if not this_result:
             return
 
         event_data = None
+
+        event_details = {'name': self.subject.name}
+        event_details.update(this_result.values)
 
         # Create a dict() location to satisfy our EventSerializer.
         event_location_value = {
@@ -134,12 +150,13 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details=event_details,
             )
 
         # Notify if there is a state transition from Critical/Warning back to
         # OK
-        elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
+        elif last_result is not None and (
+            last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
                 title=this_result.title,
                 event_time=this_result.estimated_time,
@@ -153,16 +170,3 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
 
         if event_data:
             return save_analyzer_event(event_data)
-
-    def save_analyzer_result(self, last_result=None, this_result=None):
-
-        if this_result is not None:
-            # Save if result is critical or warning
-            if this_result.level in (CRITICAL, WARNING):
-                this_result.save()
-
-            if last_result is not None:
-                # Save the result if there was a transition from
-                # Critical/Warning to OK
-                if (this_result.level is OK) and (last_result.level in (CRITICAL, WARNING)):
-                    this_result.save()
