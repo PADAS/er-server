@@ -201,15 +201,20 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
 
     def get_kml_access_token(self):
         app = Application.objects.get(client_id='das_kml_export')
-        # user=request.user, token=str(uuid.uuid4()),
-        # application=self.application, scope='read write',
-        # expires=timezone.now() + datetime.timedelta(days=1)
-        token, created = AccessToken.objects.get_or_create(user=self, application=app, defaults={
-            'token': generate_token(),
-            'scope': 'read',
-            'expires': timezone.now() + timedelta(days=5 * 365)
-        })
+        token, created = AccessToken.objects.get_or_create(
+            user=self, application=app, defaults={'token': generate_token(),
+                                                  'scope': 'read',
+                                                  'expires': timezone.now() + timedelta(days=5 * 365)
+                                                  })
         return token.token
+
+    def get_kml_master_link(self, request=None):
+        if request is None:
+            request = self.request
+        host = request.get_host()
+        port = request.get_port()
+        return 'http://{}:{}/api/v1.0/subjects/kml/?auth={}'.format(
+            host, port, self.get_kml_access_token())
 
 
 class User(AccountsAbstractUser):

@@ -1,4 +1,5 @@
 from django.core.exceptions import PermissionDenied
+from django.core.mail import EmailMultiAlternatives
 from django.conf.urls import url
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
@@ -6,8 +7,10 @@ from django.contrib import admin
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.forms import PasswordResetForm, UserCreationForm
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin as DjangoGroupAdmin
+from django.template import loader
 from django.utils.translation import ugettext_lazy as _
 from django.utils.crypto import get_random_string
+from django.contrib.sites.shortcuts import get_current_site
 from django import forms
 from utils.html import make_html_list
 import django.contrib.auth.models
@@ -106,6 +109,40 @@ class CustomUserCreationForm(UserCreationForm):
         return password2
 
 
+class KmkMasterLinkForm(forms.Form):
+    email = forms.EmailField(label=_("Email"), max_length=254)
+
+    def send_mail(self, subject_template_name, email_template_name,
+                  context, from_email, to_email, html_email_template_name=None):
+        """
+        Sends a django.core.mail.EmailMultiAlternatives to `to_email`.
+        """
+        subject = loader.render_to_string(subject_template_name, context)
+        # Email subject *must not* contain newlines
+        subject = ''.join(subject.splitlines())
+        body = loader.render_to_string(email_template_name, context)
+
+        email_message = EmailMultiAlternatives(
+            subject, body, from_email, [to_email])
+        if html_email_template_name is not None:
+            html_email = loader.render_to_string(
+                html_email_template_name, context)
+            email_message.attach_alternative(html_email, 'text/html')
+
+        email_message.send()
+
+    def save(self, user=None, subject_template_name='registration/kml_master_link_subject.txt',
+             email_template_name='registration/kml_master_link_email.html',
+             from_email=None, request=None, html_email_template_name=None):
+
+        context = {
+            'kml_master_link': user.get_kml_master_link(request),
+            'site_name': get_current_site(request).name
+        }
+        self.send_mail(subject_template_name, email_template_name, context,
+                       from_email, user.email, html_email_template_name)
+
+
 class UserAdmin(DjangoUserAdmin):
     ordering = ('last_name', 'first_name', 'username')
     fieldsets = (
@@ -184,6 +221,13 @@ class UserAdmin(DjangoUserAdmin):
         self.send_reset_email(request, user)
         return HttpResponseRedirect('..')
 
+    def get_kml_master_link(self, request, user_id):
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+        user = get_object_or_404(self.model, pk=user_id)
+        self.send_kml_email(request, user)
+        return HttpResponseRedirect('..')
+
     def save_model(self, request, obj, form, change):
         if (not change and (not form.cleaned_data['password1']
                             or not obj.has_usable_password())):
@@ -212,11 +256,26 @@ class UserAdmin(DjangoUserAdmin):
 
         form.save(**opts)
 
+    def send_kml_email(self, request, user):
+        form = KmkMasterLinkForm(data={'email': user.email})
+        assert form.is_valid()
+
+        opts = {
+            'use_https': request.is_secure(),
+            'request': request,
+            'user': user,
+            'subject_template_name': 'utility/kml_master_link_subject.txt',
+            'email_template_name': 'utility/kml_master_link_email.html',
+        }
+
+        form.save(**opts)
+
     def get_urls(self):
         urls = super(UserAdmin, self).get_urls()
         my_urls = [url(r'^(.+)/change/reset-password/?$',
-                       self.admin_site.admin_view(self.reset_password)
-                       ),
+                       self.admin_site.admin_view(self.reset_password)),
+                   url(r'^(.+)/change/get-kml-link/?$',
+                       self.admin_site.admin_view(self.get_kml_master_link))
                    ]
         return my_urls + urls
 
