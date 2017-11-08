@@ -63,7 +63,7 @@ class UserModelTest(TestCase):
                                    password=self.password,
                                    **self.user_const)
         token = user.get_kml_access_token()
-        print(token)
+        self.assertIsNotNone(token, 'error getting token')
 
 
 class TestAuthentication(BaseAPITest):
