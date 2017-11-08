@@ -40,7 +40,7 @@ class ObservationTestCase(BaseAPITest):
 
         # Create three elephants in two different regions
         self.elephant_1 = Subject.objects.create_subject(id='d2ed403e-9419-41aa-8fa9-45a70e5ce2ed', name='Elephant 1',
-                                                         subject_type='Elephant', additional={'region': 'Region 1', 'country': 'USA', 'rgb': '30,30,30'})
+                                                         subject_type='Elephant', additional={'region': 'Region 1', 'country': 'USA', 'rgb': '220,30,30'})
         self.elephant_2 = Subject.objects.create_subject(
             id='c25e17d0-0337-4f0c-9274-25e5ae4da7c8', name='Elephant 2', subject_type='Elephant', additional={'region': 'Region 1', 'country': 'USA'})
         self.elephant_3 = Subject.objects.create_subject(
