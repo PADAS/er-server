@@ -31,15 +31,14 @@ EVENT_PRIORITY_MAP = {
 class Schedule(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(null=False, max_length=50)
-    value = models.CharField(null=False, max_length=50, verbose_name='Schedule represented in crontab syntax.')
+    value = models.CharField(null=False, max_length=50,
+                             verbose_name='Schedule represented in crontab syntax.')
     is_active = models.BooleanField(_('active'),
-        default=True,
-        help_text=_(
-            'Designates whether this Schedule is active. '
-            'Set this False instead of deleting this record.'
-        ))
-
-
+                                    default=True,
+                                    help_text=_(
+        'Designates whether this Schedule is active. '
+        'Set this False instead of deleting this record.'
+    ))
 
     class Meta:
         app_label = 'analyzers'
@@ -73,9 +72,9 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
     revision = Revision()
 
     is_active = models.BooleanField(_('active'), default=True, help_text=_(
-            'Designates whether this analyzer is active. '
-            'Set this False instead of deleting this record.'
-        ))
+        'Designates whether this analyzer is active. '
+        'Set this False instead of deleting this record.'
+    ))
 
     search_time_hours = models.FloatField(null=False, default=24.0,
                                           verbose_name='The period of data to retrieve from the database')
@@ -84,12 +83,18 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
         abstract = True
         app_label = 'analyzers'
 
+    @property
+    def report_friendly_type(self):
+        return 'Generic'
+
 
 class SubjectAnalyzerResultManager(models.Manager):
     pass
 
 
 class SubjectAnalyzerResult(TimestampedModel):
+
+    LEVEL_OK = OK
 
     objects = SubjectAnalyzerResultManager()
 
@@ -110,20 +115,22 @@ class SubjectAnalyzerResult(TimestampedModel):
 
     # Remaining attributes are to reference the analyzer that created me.
     limits = models.Q(app_label='analyzers', model='immobilityanalyzer') | \
-             models.Q(app_label='analyzers', model='geofenceanalyzer') | \
-             models.Q(app_label='analyzers', model='environmentalanalyzer')
+        models.Q(app_label='analyzers', model='geofenceanalyzer') | \
+        models.Q(app_label='analyzers', model='environmentalanalyzer')
 
-    subject_analyzer_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
+    subject_analyzer_content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, limit_choices_to=limits)
     subject_analyzer_id = models.UUIDField()
-    subject_analyzer = GenericForeignKey('subject_analyzer_content_type', 'subject_analyzer_id')
+    subject_analyzer = GenericForeignKey(
+        'subject_analyzer_content_type', 'subject_analyzer_id')
     subject_analyzer_revision = models.PositiveIntegerField(default=1)
 
     def __str__(self):
         _tmp_str = 'Subject: ' + self.subject.name + ', ' + \
-           'Values: ' + str(self.values) + ', ' + \
-           'Title: ' + str(self.title) + ', ' + \
-           'Est.Time: ' + str(self.estimated_time) + ', ' + \
-           'Geometry: ' + str(self.geometry_collection)
+            'Values: ' + str(self.values) + ', ' + \
+            'Title: ' + str(self.title) + ', ' + \
+            'Est.Time: ' + str(self.estimated_time) + ', ' + \
+            'Geometry: ' + str(self.geometry_collection)
         return _tmp_str
 
 

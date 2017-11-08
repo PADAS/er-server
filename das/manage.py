@@ -2,10 +2,16 @@
 import os
 import sys
 
+try:
+    import ptvsd
+except ImportError:
+    ptvsd = None
+
 if os.environ.get('EVENTLET_SHOULDPATCH', 'false').lower() == 'true':
     import eventlet
     if os.environ.get('EVENTLET_ATTACH_DEBUG', 'false').lower() == 'true':
-        eventlet.monkey_patch(all=False, socket=True, select=True, thread=False)
+        eventlet.monkey_patch(all=False, socket=True,
+                              select=True, thread=False)
     else:
         eventlet.monkey_patch()
 
@@ -25,4 +31,12 @@ if __name__ == "__main__":
 
     from django.core.management import execute_from_command_line
 
+    if ptvsd and 'runserver' in sys.argv and os.environ.get('ENABLE_DEBUG', 'False') == 'True':
+        try:
+            print('enabling debug attach.')
+            ptvsd.enable_attach('goodforme', address=('0.0.0.0', 5400))
+        except Exception as e:
+            print('Failed to enable debug attach. ex=%s' % (e,))
+
+    os.environ.setdefault('ENABLE_DEBUG', 'True')
     execute_from_command_line(sys.argv)

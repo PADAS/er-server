@@ -12,6 +12,8 @@ services:
       - ./dependencies:/workspace/dependencies
       - ./docker/base/wait_for.sh:/startup/wait_for.sh
       - ./docker/API/start.sh:/var/www/app/start.sh
+    ports:
+      - 5400:5400
 
   rt-api:
     volumes:

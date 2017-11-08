@@ -1,0 +1,160 @@
+from datetime import datetime, timedelta
+import pytz
+# import arrow
+import analyzers.models
+
+from observations.models import SubjectSource, Observation
+from analyzers.models import SubjectAnalyzerResult
+
+
+def generate_subject_records(report_hours=24):
+    '''
+    For each subject-source generate a single report line for the most recent 24-hour period
+    :param report_hours: How many hours of data should be interpreted for each subject.
+    :return: generator of subject-source-performance records.
+    '''
+    now = datetime.now(tz=pytz.utc)
+    for ss in SubjectSource.objects.filter(subject__subject_type='wildlife'):
+
+        result = {'model_name': ss.source.model_name,
+                  'manufacturer_id': ss.source.manufacturer_id,
+                  'name': ss.subject.name,
+                  'frequency': ss.subject.additional.get('frequency', ''),
+                  'data_starts': ss.assigned_range.lower,
+                  'species': ss.subject.subject_subtype.capitalize(),
+                  'region': ss.subject.additional.get('region', 'Unassigned'),
+                  }
+
+        result['group_label'] = '{species} - {region}'.format(**result)
+
+        try:
+            latest_observation = Observation.objects.filter(
+                source=ss.source).latest('recorded_at')
+        except Observation.DoesNotExist:
+            latest_observation = None
+
+        # If a subject gets here but has no Observations then we'll exclude it from the report.
+        # TODO: Consider a 'blank' report record for this case.
+
+        if latest_observation:
+
+            result['latest_observation_at'] = latest_observation.recorded_at
+
+            latest_observations = Observation.objects.filter(source=ss.source,
+                                                             recorded_at__gt=(
+                                                                 latest_observation.recorded_at -
+                                                                 timedelta(hours=report_hours)))
+
+            alert_accumulator = {}
+            for ar in SubjectAnalyzerResult.objects.filter(subject=ss.subject,
+                                                           estimated_time__range=(latest_observation.recorded_at -
+                                                                                  timedelta(
+                                                                                      hours=report_hours),
+                                                                                  latest_observation.recorded_at),
+                                                           level__gt=SubjectAnalyzerResult.LEVEL_OK
+                                                           ):
+                k = ar.subject_analyzer.report_friendly_name
+                alert_accumulator.setdefault(k, 0)
+                alert_accumulator[k] += 1
+
+            try:
+                trajectory = ss.subject.create_trajectory(obs=latest_observations,
+                                                          trajectory_filter_params=ss.subject.default_trajectory_filter())
+                trajectory_length = 0  # len(trajectory.relocs.fix_count)
+            except:
+                trajectory_length = 0
+
+            result['performance'] = (
+                len(latest_observations), trajectory_length)
+            result['analyzers'] = alert_accumulator
+
+            result['time_since_last'] = calculate_age_description(
+                latest_observation.recorded_at)
+
+            result['styles'] = {}
+            los_styles = calculate_styles(
+                'latest_observation_at', latest_observation.recorded_at)
+            result['styles']['time_since_last'] = ';'.join(los_styles)
+            yield result
+
+
+def calculate_age_description(val):
+    '''
+    Describe age of latest observation in terms of fractional hours or days.
+    :param val: datetime
+    :return: Friendly description of age.
+    '''
+    age_s = (datetime.now(tz=pytz.utc) - val).total_seconds()
+    if age_s > 86400:
+        return '{0:0.1f} days'.format(float(age_s / 86400.0))
+    else:
+        return '{0:0.1f} hours'.format(float(age_s / 3600.0))
+
+
+TD_12_HOURS = timedelta(hours=12)
+TD_48_HOURS = timedelta(hours=48)
+
+
+def calculate_latest_observation_style(val):
+    '''
+    Determine which styles should be applied to the value.
+    :param val:
+    :return: tuple of styles
+    '''
+    if val is None:
+        return None
+    age = datetime.now(tz=pytz.utc) - val
+    if age > TD_48_HOURS:
+        return ('color:#c00', 'font-weight:bold')
+    if age > TD_12_HOURS:
+        return ('color:#f60',)
+    return ('color:#0a0',)
+
+
+style_calculator_map = {'latest_observation_at': calculate_latest_observation_style
+
+                        }
+
+
+def calculate_styles(keyword, value):
+
+    fn = style_calculator_map.get(keyword, None)
+    if fn:
+        return fn(value)
+
+
+def get_subject_source_report_data():
+
+    # group by region and species to conform to STE bulletin format.
+    groups = {}
+
+    try:
+        for record in generate_subject_records():
+            species, region = record.get('species'), record.get('region')
+            group = groups.setdefault(
+                (species, region), {'species': species, 'region': region})
+            subjects = group.setdefault('subjects', [])
+            subjects.append(record)
+    except StopIteration as si:
+        print(si)
+
+    # Create a sorted list of groups
+    group_list = sorted(groups.values(), key=lambda x: '%s %s' %
+                        (species, region), reverse=False)
+
+    return group_list
+
+
+from django.core.mail import EmailMultiAlternatives
+
+
+def send_report(subject, from_email, to_email, text_content, html_content=None):
+    # Allow caller to provide a single address or a list.
+    if isinstance(to_email, (str,)):
+        to_email = [to_email]
+
+    msg = EmailMultiAlternatives(subject, text_content, from_email, to_email)
+    if html_content:
+        msg.attach_alternative(html_content, "text/html")
+
+    msg.send()

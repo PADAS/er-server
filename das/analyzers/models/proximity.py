@@ -7,7 +7,8 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
 
     threshold_time = models.IntegerField(null=False, default=86400)  # 24 hours
 
-    threshold_dist_meters = models.FloatField(null=False, default=500.0)  # 500 meters
+    threshold_dist_meters = models.FloatField(
+        null=False, default=500.0)  # 500 meters
 
     proximal_features = models.ForeignKey(
         to=SpatialFeatureGroupStatic,
@@ -17,3 +18,6 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
         verbose_name='This analyzer applies to proximity features in this SpatialFeatureGroupStatic.'
     )
 
+    @property
+    def report_friendly_type(self):
+        return 'proximity'

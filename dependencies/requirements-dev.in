@@ -5,3 +5,4 @@
 django-extensions==1.5.9
 pre-commit==0.14.0
 mockredispy==2.9.3
+ptvsd==3.0.0
