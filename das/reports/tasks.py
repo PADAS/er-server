@@ -18,6 +18,10 @@ def subjectsource_report(self, usernames=None):
         SOURCE_REPORT_PERMISSION_CODENAME, usernames=usernames)
 
     recipients = list(recipients)
+    if len(recipients) < 1:
+        logger.info(
+            'No recipients for Subject Source Report, so not generating report data.')
+        return
 
     for user, report_context in generate_user_reports(recipients):
         email_body = render_to_string(

@@ -3,6 +3,7 @@ import os
 from datetime import timedelta
 
 from celery import Celery
+from celery.schedules import crontab
 from django.conf import settings
 
 from celery.signals import setup_logging
@@ -26,7 +27,8 @@ app.autodiscover_tasks()
 # read more here: http://docs.celeryproject.org/en/latest/userguide/configuration.html?highlight=CELERY_DEFAULT_QUEUE#std:setting-beat_schedule
 # Defining queues
 app.conf.task_queues = (
-    Queue(app.conf.task_default_queue, default_exchange, routing_key=app.conf.task_default_routing_key),
+    Queue(app.conf.task_default_queue, default_exchange,
+          routing_key=app.conf.task_default_routing_key),
     Queue('realtime_p1', default_exchange, routing_key='realtime.tasks.p1'),
     Queue('realtime_p2', default_exchange, routing_key='realtime.tasks.p2'),
     Queue('realtime_p3', default_exchange, routing_key='realtime.tasks.p3'),
@@ -47,21 +49,28 @@ app.conf.task_routes = {
 
 
 # Defining scheduled tasks.
-# PLUGINS_INTERVAL is in seconds, and is the ticker interval for triggering plugin tasks.
-PLUGINS_INTERVAL = 5*60
+# PLUGINS_INTERVAL is in seconds, and is the ticker interval for
+# triggering plugin tasks.
+PLUGINS_INTERVAL = 5 * 60
 app.conf.beat_schedule = {
     'plugins': {
-      'task': 'tracking.tasks.run_plugins',
+        'task': 'tracking.tasks.run_plugins',
         'schedule': timedelta(seconds=PLUGINS_INTERVAL),
         'kwargs': {'expire_subtasks': PLUGINS_INTERVAL},
         'options': {'expires': PLUGINS_INTERVAL},
     },
     'demo-plugins': {
-      'task': 'tracking.tasks.run_demo_plugins',
+        'task': 'tracking.tasks.run_demo_plugins',
         'schedule': timedelta(seconds=PLUGINS_INTERVAL),
         'options': {'expires': PLUGINS_INTERVAL},
     },
+
+    'reports': {
+        'task': 'reports.tasks.subjectsource_report',
+        'schedule': crontab(hour=6)  # 6 AM local time per settings.TIME_ZONE
+    }
 }
+
 
 @app.task(bind=True)
 def debug_task(self):
