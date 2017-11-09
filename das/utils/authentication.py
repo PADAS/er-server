@@ -6,6 +6,7 @@ Allow a superuser to browse the DRF api.
 import logging
 
 from rest_framework.authentication import SessionAuthentication
+from oauth2_provider.models import AccessToken
 
 
 logger = logging.getLogger('django.request')
@@ -34,3 +35,13 @@ class SuperUserSessionAuthentication(SessionAuthentication):
 
         # CSRF passed with authenticated user
         return (user, None)
+
+
+class BearerTokenInUrlAuthentication(SessionAuthentication):
+    def authenticate(self, request):
+        token = getattr(request, 'query_params', {
+                        'auth': None}).get('auth', None)
+        if token:
+            access_token = AccessToken.objects.get(token=token)
+            return access_token.user, None
+        return None

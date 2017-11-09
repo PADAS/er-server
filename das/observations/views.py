@@ -530,7 +530,8 @@ class KmlSubjectsView(generics.GenericAPIView):
     def build_link_for_subject(self, subject):
         host = self.request.get_host()
         port = self.request.get_port()
-        return 'http://{}:{}/api/v1.0/subject/{}/kml/'.format(host, port, subject.id)
+        return 'http://{}:{}/api/v1.0/subject/{}/kml/?auth={}'.format(
+            host, port, subject.id, self.request.user.get_kml_access_token())
 
     def get(self, request, *args, **kwargs):
         k = simplekml.Kml()
@@ -565,7 +566,7 @@ def rgb_to_hex(red, green, blue):
 
 
 class KmlSubjectView(generics.RetrieveAPIView):
-    permission_classes = (AllowAny,)
+    permission_classes = (StandardObjectPermissions,)
     lookup_field = 'id'
 
     def get_queryset(self):
@@ -589,6 +590,43 @@ class KmlSubjectView(generics.RetrieveAPIView):
         port = self.request.get_port()
         return 'http://{}:{}{}'.format(host, port, subject.image_url)
 
+    def get_allowed_subject_observations(self, subject):
+        oldest_age = -1
+        newest_age = 999
+        mou_expiry_date = self.request.user.additional.get('expiry', None)
+        now = datetime.datetime.now(tz=pytz.utc)
+
+        for permission_tuple in sorted(models.Subject.VIEW_BEGIN_WINDOWS,
+                                       key=lambda _: _[1], reverse=True):
+            if permission_tuple[
+                1] > oldest_age and self.request.user.has_perm(
+                    permission_tuple[0]):
+                oldest_age = permission_tuple[1]
+                break
+
+        for permission_tuple in sorted(models.Subject.VIEW_END_WINDOWS,
+                                       key=lambda _: _[1]):
+            if permission_tuple[
+                1] < newest_age and self.request.user.has_perm(
+                    permission_tuple[0]):
+                newest_age = permission_tuple[1]
+                break
+
+        if mou_expiry_date is not None:
+            mou_expiry_date = pytz.utc.localize(
+                dateutil.parser.parse(mou_expiry_date))
+            mou_expiry_age = now - mou_expiry_date
+
+            newest_age = max(mou_expiry_age.days, newest_age)
+            if oldest_age < newest_age:
+                raise PermissionDenied
+
+        begin = now - datetime.timedelta(days=oldest_age)
+        until = now - datetime.timedelta(days=newest_age)
+
+        return models.Observation.objects.get_subject_observation_values(
+            subject, since=begin, until=until)
+
     def add_points_document(self, folder, subject):
         document = folder.newdocument(
             name='{0}_points'.format(subject.name), visibility=1)
@@ -601,10 +639,10 @@ class KmlSubjectView(generics.RetrieveAPIView):
         style.labelstyle = simplekml.LabelStyle(scale=0)
         document.styles.append(style)
 
-        for obs in subject.observations():
-            timestamp = obs.recorded_at.strftime('%Y-%m-%d %H:%M')
+        for obs in self.get_allowed_subject_observations(subject):
+            timestamp = obs['recorded_at'].strftime('%Y-%m-%d %H:%M')
             point = document.newpoint()
-            point.coords = [(obs.location.x, obs.location.y)]
+            point.coords = [(obs['location'].x, obs['location'].y)]
             point.timestamp.when = timestamp
             point.placemark.name = ''
             point.placemark.snippet = simplekml.Snippet(timestamp)
@@ -622,11 +660,11 @@ class KmlSubjectView(generics.RetrieveAPIView):
         document.styles.append(style)
 
         self.last_obs = None
-        for obs in subject.observations():
+        for obs in self.get_allowed_subject_observations(subject):
             if self.last_obs is not None:
                 line = document.newlinestring()
-                line.coords = (([self.last_obs.location.x, self.last_obs.location.y, 0], [
-                               obs.location.x, obs.location.y, 0]))
+                line.coords = (([self.last_obs['location'].x, self.last_obs['location'].y, 0], [
+                               obs['location'].x, obs['location'].y, 0]))
                 line.extrude = 0
                 line.tessellate = 1
                 line.placemark.name = ''
@@ -696,6 +734,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
+        self.check_object_permissions(self.request, subject)
         k = simplekml.Kml()
         k.document = simplekml.Folder(name=subject.name)
         k.document._id = None
