@@ -26,7 +26,7 @@ class ObservationTestCase(BaseAPITest):
 
     simplekml_default_ids = ('link', 'geom', 'feat', 'substyle', 'time')
 
-    save_outputs = False
+    save_outputs = True
 
     def setUp(self):
         super().setUp()
@@ -133,8 +133,9 @@ class ObservationTestCase(BaseAPITest):
             response_kml = response_kml_bytes.read()
         parser = etree.XMLParser(remove_blank_text=True)
         response_xml = etree.XML(response_kml, parser=parser)
-        target_xml = etree.XML(
-            targets.all_subjects_target.encode('utf-8'), parser=parser)
+        target_string = targets.all_subjects_target.format(
+            self.user.get_kml_access_token())
+        target_xml = etree.XML(target_string.encode('utf-8'), parser=parser)
 
         if self.save_outputs:
             self.save_kml(response_xml, 'all_subjects.kml')
