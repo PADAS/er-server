@@ -10,14 +10,14 @@ all_subjects_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="h
           <name>Elephant 1</name>
           <visibility>0</visibility>
           <Link id="link_0">
-            <href>http://testserver:80/api/v1.0/subject/d2ed403e-9419-41aa-8fa9-45a70e5ce2ed/kml/</href>
+            <href>http://testserver:80/api/v1.0/subject/d2ed403e-9419-41aa-8fa9-45a70e5ce2ed/kml/?auth={0}</href>
           </Link>
         </NetworkLink>
         <NetworkLink id="feat_6">
           <name>Elephant 2</name>
           <visibility>0</visibility>
           <Link id="link_1">
-            <href>http://testserver:80/api/v1.0/subject/c25e17d0-0337-4f0c-9274-25e5ae4da7c8/kml/</href>
+            <href>http://testserver:80/api/v1.0/subject/c25e17d0-0337-4f0c-9274-25e5ae4da7c8/kml/?auth={0}</href>
           </Link>
         </NetworkLink>
       </Folder>
@@ -27,7 +27,7 @@ all_subjects_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="h
           <name>Elephant 3</name>
           <visibility>0</visibility>
           <Link id="link_2">
-            <href>http://testserver:80/api/v1.0/subject/a873e49c-1cb5-4ad4-b29d-e4b8931036ba/kml/</href>
+            <href>http://testserver:80/api/v1.0/subject/a873e49c-1cb5-4ad4-b29d-e4b8931036ba/kml/?auth={0}</href>
           </Link>
         </NetworkLink>
       </Folder>
@@ -53,7 +53,7 @@ single_subject_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx=
     <Document id="feat_12">
       <Style id="Elephant_1_Pointstyle">
         <IconStyle id="substyle_0">
-          <color>ff1e1e1e</color>
+          <color>ffdc1e1e</color>
           <colorMode>normal</colorMode>
           <scale>0.7</scale>
           <heading>0</heading>
@@ -108,7 +108,7 @@ single_subject_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx=
     <Document id="feat_16">
       <Style id="Elephant_1_Linestyle">
         <LineStyle id="substyle_2">
-          <color>ff1e1e1e</color>
+          <color>ffdc1e1e</color>
           <colorMode>normal</colorMode>
           <width>0.4</width>
         </LineStyle>
@@ -137,7 +137,7 @@ single_subject_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx=
     <Document id="feat_19">
       <Style id="sh_Elephant_1_Finalmarkerstyle">
         <IconStyle id="substyle_3">
-          <color>ff1e1e1e</color>
+          <color>ffdc1e1e</color>
           <colorMode>normal</colorMode>
           <scale>0.7</scale>
           <heading>0</heading>
@@ -146,19 +146,19 @@ single_subject_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx=
           </Icon>
         </IconStyle>
         <LabelStyle id="substyle_4">
-          <color>ff1e1e1e</color>
+          <color>ffdc1e1e</color>
           <colorMode>normal</colorMode>
           <scale>1</scale>
         </LabelStyle>
         <BalloonStyle>
-          <bgColor>ff1e1e1e</bgColor>
+          <bgColor>ffdc1e1e</bgColor>
           <text>$[description</text>
           <displayMode>default</displayMode>
         </BalloonStyle>
       </Style>
       <Style id="sn_Elephant_1_Finalmarkerstyle">
         <IconStyle id="substyle_5">
-          <color>ff1e1e1e</color>
+          <color>ffdc1e1e</color>
           <colorMode>normal</colorMode>
           <scale>0.7</scale>
           <heading>0</heading>
@@ -171,7 +171,7 @@ single_subject_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx=
           <scale>0</scale>
         </LabelStyle>
         <BalloonStyle>
-          <bgColor>ff1e1e1e</bgColor>
+          <bgColor>ffdc1e1e</bgColor>
           <text>$[description</text>
           <displayMode>default</displayMode>
         </BalloonStyle>
