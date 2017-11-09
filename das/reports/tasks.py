@@ -24,6 +24,10 @@ def subjectsource_report(self, usernames=None):
         return
 
     for user, report_context in generate_user_reports(recipients):
+
+        logger.info('Generating Subject Source Report for username: %s, email: %s',
+                    user.username, user.email)
+
         email_body = render_to_string(
             'subjectsourcereport.html', report_context)
 
