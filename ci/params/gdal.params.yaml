@@ -1,0 +1,6 @@
+project-id: padas-app
+cluster-name: gdal
+server-branch-name: feature/gdal-2.2.2
+web-branch-name: develop
+web-react-branch-name: develop
+tag-as-latest: false
