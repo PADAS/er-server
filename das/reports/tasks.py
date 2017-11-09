@@ -4,21 +4,30 @@ from das_server import celery
 logger = logging.getLogger(__name__)
 
 from django.template.loader import render_to_string
+from django.utils.translation import ugettext_lazy as _
 
-from reports.subjectsourcereport import get_subject_source_report_data
+from reports.subjectsourcereport import generate_user_reports
+from reports.distribution import send_report, get_users_for_permission, SOURCE_REPORT_PERMISSION_CODENAME
 
 
 @celery.app.task(bind=True)
-def subjectsource_report(self):
+def subjectsource_report(self, usernames=None):
 
-    dummycontext = {'groups': [
-        {'subjects': [
-            {'name': 'chris', 'manufacturer_id': '1234980234'}
-        ]
-        }
-    ]}
+    # Limit recipients to those identified by usernames argument.
+    recipients = get_users_for_permission(
+        SOURCE_REPORT_PERMISSION_CODENAME, usernames=usernames)
 
-    dummycontext = {'groups': get_subject_source_report_data()}
-    print(dummycontext)
-    email_body = render_to_string('subjectsourcereport.html', dummycontext)
-    print(email_body)
+    recipients = list(recipients)
+
+    for user, report_context in generate_user_reports(recipients):
+        email_body = render_to_string(
+            'subjectsourcereport.html', report_context)
+
+        report_timestamp = report_context.get(
+            'report_date').strftime('%b %d, %Y %H:%M (utc)')
+
+        message_subject = _('DAS Source Report - {}').format(report_timestamp)
+        send_report(subject=message_subject,
+                    to_email=user.email, text_content=_(
+                        'DAS Source report (attached as HTML).'),
+                    html_content=email_body)

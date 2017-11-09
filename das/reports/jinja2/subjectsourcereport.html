@@ -1,37 +1,39 @@
-<h1>Subject/Source Report</h1>
+<h3>Collar Source Report - created: {{ report_date.strftime('%b %d, %Y %H:%M (UTC)') }}</h3>
 {%  for group in groups %}
-
-    <div style="border:1px solid #222;">
-
-        <h2>{{ group.species }} - {{ group.region }}</h2>
-        <table>
-        <tr>
-            <th>Model</th>
-            <th>Collar Id</th>
-            <th>Name</th>
-            <th>Frequency (Mhz)</th>
-            <th>Last At</th>
-            <th>Time Since</th>
-            <th>Perf. (nofilt filt)</th>
-            <th>Immobility</th>
-            <th>Geofence</th>
-            <th>Proximity</th>
-            <th>Speed</th>
+    <div style="width:1000px;padding:5px;">
+        <h3>{{ group.species }} - {{ group.region }}</h3>
+        <table style="border:1px solid gray;padding:3px;width:990px;border-collapse: collapse;">
+        <tr style="background-color:#afd9ee;font-weight:bold;">
+            <th style="border:1px solid gray;padding:3px;">Model</th>
+            <th style="border:1px solid gray;padding:3px;">Collar Id</th>
+            <th style="border:1px solid gray;padding:3px;">Name</th>
+            <th style="border:1px solid gray;padding:3px;">Frequency (Mhz)</th>
+            <th style="border:1px solid gray;padding:3px;">Data Starts</th>
+            <th style="border:1px solid gray;padding:3px;">Last At</th>
+            <th style="border:1px solid gray;padding:3px;">Time Since</th>
+            <th style="border:1px solid gray;padding:3px;">Perf. (nofilt filt)</th>
+            <th style="border:1px solid gray;padding:3px;">Immobility</th>
+            <th style="border:1px solid gray;padding:3px;">Geofence</th>
+            <th style="border:1px solid gray;padding:3px;">Proximity</th>
+            <th style="border:1px solid gray;padding:3px;">Speed</th>
         </tr>
         {% for item in group.subjects %}
             <tr>
-                <td>{{ item.model_name }}</td><td>{{ item.manufacturer_id }}</td><td>{{  item.name }}</td>
-                <td>{{ item.frequency }}</td><td>{{  item.data_starts.strftime('%b %d, %Y %H:%M') }}</td>
-                <td>{{ item.latest_observation_at.strftime('%b %d, %Y %H:%M') }}</td>
-                <td style="{{ item.styles.time_since_last|default('') }}">{{ item.time_since_last }}</td>
-                <td>{{ item.performance[0] }} - {{ item.performance[1] }}</td>
-                <td>{{ item.analyzers.immobility|default('-') }}</td>
-                <td>{{ item.analyzers.geofence|default('-') }}</td>
-                <td>{{ item.analyzers.proximity|default('-') }}</td>
-                <td>{{ item.analyzers.low_speed|default('-') }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.model_name }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.manufacturer_id }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{  item.name }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.frequency }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{  item.data_starts.strftime('%b %d, %Y %H:%M') }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.latest_observation_at.strftime('%b %d, %Y %H:%M') }}</td>
+                <td style="border:1px solid gray;padding:3px;{{ item.styles.time_since_last|default('') }}">{{ item.time_since_last }}</td>
+                <td style="text-align:right;border:1px solid gray;padding:3px;">{{ item.performance[0] }} - {{ item.performance[1] }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.analyzers.immobility|default('-') }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.analyzers.geofence|default('-') }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.analyzers.proximity|default('-') }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.analyzers.low_speed|default('-') }}</td>
 
             </tr>
-            </table>
         {% endfor %}
+        </table>
     </div>
 {% endfor %}

@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
 import pytz
-# import arrow
-import analyzers.models
 
-from observations.models import SubjectSource, Observation
+from django.utils.translation import ugettext_lazy as _
+
+from observations.models import SubjectSource, Observation, Subject
 from analyzers.models import SubjectAnalyzerResult
 
 
@@ -16,7 +16,8 @@ def generate_subject_records(report_hours=24):
     now = datetime.now(tz=pytz.utc)
     for ss in SubjectSource.objects.filter(subject__subject_type='wildlife'):
 
-        result = {'model_name': ss.source.model_name,
+        result = {'subject_id': str(ss.subject.id),
+                  'model_name': ss.source.model_name,
                   'manufacturer_id': ss.source.manufacturer_id,
                   'name': ss.subject.name,
                   'frequency': ss.subject.additional.get('frequency', ''),
@@ -24,8 +25,6 @@ def generate_subject_records(report_hours=24):
                   'species': ss.subject.subject_subtype.capitalize(),
                   'region': ss.subject.additional.get('region', 'Unassigned'),
                   }
-
-        result['group_label'] = '{species} - {region}'.format(**result)
 
         try:
             latest_observation = Observation.objects.filter(
@@ -60,9 +59,10 @@ def generate_subject_records(report_hours=24):
             try:
                 trajectory = ss.subject.create_trajectory(obs=latest_observations,
                                                           trajectory_filter_params=ss.subject.default_trajectory_filter())
-                trajectory_length = 0  # len(trajectory.relocs.fix_count)
-            except:
-                trajectory_length = 0
+                trajectory_length = trajectory.relocs.fix_count
+            except Exception as e:
+                print(e)
+                trajectory_length = 'n/a'
 
             result['performance'] = (
                 len(latest_observations), trajectory_length)
@@ -86,9 +86,9 @@ def calculate_age_description(val):
     '''
     age_s = (datetime.now(tz=pytz.utc) - val).total_seconds()
     if age_s > 86400:
-        return '{0:0.1f} days'.format(float(age_s / 86400.0))
+        return _('{0:0.1f} days').format(float(age_s / 86400.0))
     else:
-        return '{0:0.1f} hours'.format(float(age_s / 3600.0))
+        return _('{0:0.1f} hours').format(float(age_s / 3600.0))
 
 
 TD_12_HOURS = timedelta(hours=12)
@@ -111,9 +111,11 @@ def calculate_latest_observation_style(val):
     return ('color:#0a0',)
 
 
-style_calculator_map = {'latest_observation_at': calculate_latest_observation_style
-
-                        }
+# Map a context data key to a function that'll calculate styles for the
+# template to apply.
+style_calculator_map = {
+    'latest_observation_at': calculate_latest_observation_style
+}
 
 
 def calculate_styles(keyword, value):
@@ -123,13 +125,27 @@ def calculate_styles(keyword, value):
         return fn(value)
 
 
-def get_subject_source_report_data():
+def filter_by_user(values, user, key='subject_id'):
+    '''
+    Filter list of values to those the User has permission to see.
+    :param values: a list of dict objects having subject_id in 'key'.
+    :param user: User to filter by.
+    :param key:
+    :return: filtered list
+    '''
+    user_subject_ids = [
+        sub.id for sub in Subject.objects.all().by_user_subjects(user)]
+    user_subject_ids = [str(x) for x in user_subject_ids]
+    return [sub for sub in values if sub[key] in user_subject_ids]
+
+
+def groupify_report_data(subject_records):
 
     # group by region and species to conform to STE bulletin format.
     groups = {}
 
     try:
-        for record in generate_subject_records():
+        for record in subject_records:
             species, region = record.get('species'), record.get('region')
             group = groups.setdefault(
                 (species, region), {'species': species, 'region': region})
@@ -145,16 +161,26 @@ def get_subject_source_report_data():
     return group_list
 
 
-from django.core.mail import EmailMultiAlternatives
+def generate_user_reports(userlist):
+    '''
+    A few steps.
+    1. Generate a comprehensive list if records for all collars.
+    2. For each recipient, reduce the list to Subjects the user is allowed to see.
+    3. Organize the data in groups (by [species/region]) for the report context.
+    :param userlist:
+    :return:
+    '''
+    report_records = list(generate_subject_records())
+    report_timestamp = datetime.now(tz=pytz.utc)
 
+    for user in userlist:
+        user_filtered_records = filter_by_user(report_records, user)
 
-def send_report(subject, from_email, to_email, text_content, html_content=None):
-    # Allow caller to provide a single address or a list.
-    if isinstance(to_email, (str,)):
-        to_email = [to_email]
+        group_list = groupify_report_data(user_filtered_records)
 
-    msg = EmailMultiAlternatives(subject, text_content, from_email, to_email)
-    if html_content:
-        msg.attach_alternative(html_content, "text/html")
+        message_context = {
+            'groups': group_list,
+            'report_date': report_timestamp,
+        }
 
-    msg.send()
+        yield user, message_context

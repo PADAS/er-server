@@ -870,7 +870,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             fix = pymet.base.Fix(gp, observation.recorded_at)
             return fix
 
-        print('Creating Relocations...')
         # Create a relocations object
         fixes = [create_fix(x) for x in obs]
         relocs = pymet.base.Relocations(fixes=fixes)
