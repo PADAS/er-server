@@ -18,6 +18,8 @@ class VersionSerializer(rest_framework.serializers.Serializer):
         read_only=True)
     event_search_enabled = rest_framework.serializers.BooleanField(
         read_only=True)
+    export_kml_enabled = rest_framework.serializers.BooleanField(
+        read_only=True)
 
 
 class StatusView(generics.RetrieveAPIView):
@@ -33,6 +35,7 @@ class StatusView(generics.RetrieveAPIView):
         resp = {'version': __version__}  # request.version}
 
         resp['event_matrix_enabled'] = settings.EVENT_MATRIX_ENABLED
+        resp['export_kml_enabled'] = settings.EXPORT_KML_ENABLED
 
         resp['event_search_enabled'] = True
         return resp

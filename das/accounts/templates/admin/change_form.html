@@ -5,6 +5,7 @@
         <ul class="object-tools">
             {% if app_label == 'accounts' and opts and opts.object_name == 'User' %}
             {# You can also give a name to that pattern and refer to it below using 'url' #}
+            <li><a href="get-kml-link/" class="historylink">Email user's KML link</a></li>
             <li><a href="reset-password/" class="historylink">Email password reset</a></li>
             {% endif %}
             <li>

@@ -57,6 +57,23 @@ class UserModelTest(TestCase):
         user2 = User.objects.get(username='User')
         self.assertEqual(user.pk, user2.pk)
 
+    def test_get_kml_key(self):
+        user = User.objects.create(username='User',
+                                   email='user4@test.com',
+                                   password=self.password,
+                                   **self.user_const)
+        token = user.get_kml_access_token()
+        self.assertIsNotNone(token, 'error getting token')
+
+    def test_reuse_existing_kml_token(self):
+        user = User.objects.create(username='User',
+                                   email='user4@test.com',
+                                   password=self.password,
+                                   **self.user_const)
+        first_token = user.get_kml_access_token()
+        second_token = user.get_kml_access_token()
+        self.assertEqual(first_token, second_token)
+
 
 class TestAuthentication(BaseAPITest):
     password = User.objects.make_random_password()

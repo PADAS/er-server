@@ -44,5 +44,18 @@
       "name": "DAS IOS App",
       "skip_authorization": true
     }
+  },
+  {
+    "model": "oauth2_provider.application",
+    "pk": 3,
+    "fields": {
+      "client_id": "das_kml_client",
+      "user": 1,
+      "redirect_uris": "",
+      "client_type": "Confidential",
+      "authorization_grant_type": "password",
+      "client_secret": "",
+      "name": "DAS KML App"
+    }
   }
 ]

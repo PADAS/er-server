@@ -157,6 +157,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'accounts.backends.NoLoginOAuth2Authentication',
+        'utils.authentication.BearerTokenInUrlAuthentication',
         'utils.authentication.SuperUserSessionAuthentication',
     ),
     #'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
@@ -443,6 +444,8 @@ NOTIFY_LOW_PRIORITY_EVENT = None
 REPORTED_BY_PERMISSION_SET = 'b5057387-9f6c-4685-8ec1-46ad29684eea'
 
 EVENT_MATRIX_ENABLED = False
+EXPORT_KML_ENABLED = False
+
 
 # Default speed-threshold (in km/h) by subject-subtype. These are default values that maybe overridden in an
 # ObservationAnnotation instance.
