@@ -43,5 +43,5 @@ class BearerTokenInUrlAuthentication(SessionAuthentication):
                         'auth': None}).get('auth', None)
         if token:
             access_token = AccessToken.objects.get(token=token)
-            return (access_token.user, None)
+            return access_token.user, None
         return None

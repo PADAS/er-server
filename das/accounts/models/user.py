@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import pytz
 import uuid
 
 
@@ -201,11 +202,14 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
 
     def get_kml_access_token(self):
         app = Application.objects.get(client_id='das_kml_export')
-        token, created = AccessToken.objects.get_or_create(
-            user=self, application=app, defaults={'token': generate_token(),
-                                                  'scope': 'read',
-                                                  'expires': timezone.now() + timedelta(days=5 * 365)
-                                                  })
+        try:
+            token = AccessToken.objects.get(
+                user=self, application=app, expires__gt=datetime.now(tz=pytz.utc))
+        except AccessToken.DoesNotExist:
+            token = AccessToken.objects.create(
+                user=self, application=app, scope='read', token=generate_token(),
+                expires=datetime.now(tz=pytz.utc) + timedelta(days=5 * 365))
+
         return token.token
 
     def get_kml_master_link(self, request=None):
