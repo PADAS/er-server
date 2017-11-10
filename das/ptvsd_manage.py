@@ -2,6 +2,15 @@
 import os
 import sys
 
+#
+# This alternate version of manage.py will allow you to run a command in a mode that allows you to connect to it
+# using Visual Studio Code remote debugger.
+#
+# By default, it listens for debugger attachment on port 5400. This requires the container to expose the port.
+# If you look at compose-dev.yml and see the ports for the API container, then you'll see how to make this available
+# on port 5400 of your localhost.
+#
+
 try:
     import ptvsd
 except ImportError:
