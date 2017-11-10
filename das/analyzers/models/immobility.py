@@ -1,6 +1,7 @@
 from django.contrib.gis.db import models
 from analyzers.models.base import SubjectAnalyzerConfig
 
+
 class ImmobilityAnalyzerConfig(SubjectAnalyzerConfig):
 
     """ Immobility Analyzer for a Track.
@@ -22,3 +23,5 @@ class ImmobilityAnalyzerConfig(SubjectAnalyzerConfig):
     threshold_radius = models.FloatField(null=False, default=13.0)
     threshold_time = models.IntegerField(null=False, default=18000)  # 5 hours
     threshold_probability = models.FloatField(null=False, default=0.8)
+
+    report_friendly_type = 'immobility'

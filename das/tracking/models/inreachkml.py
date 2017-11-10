@@ -15,12 +15,15 @@ from tracking.models.plugin_base import Obs, TrackingPlugin
 
 logger = logging.getLogger(__name__)
 
+
 def config_logging():
     logger.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     ch.setFormatter(formatter)
     logger.addHandler(ch)
+
 
 config_logging()
 
@@ -38,21 +41,24 @@ class InreachKMLClient(object):
         auth = base64.b64encode(bytes(auth, 'utf8'))
         self._authheader = 'Basic {}'.format(auth.decode('utf8'))
 
-    def get_data(self, imei, d1=None, d2=None):
+    def get_data(self, imei=None, d1=None, d2=None):
         conn = http.client.HTTPSConnection("share.delorme.com")
         headers = {
             'authorization': self._authheader,
             'cache-control': "no-cache",
-            }
+        }
 
         d1 = d1 or datetime.datetime.utcnow() - self.DEFAULT_START_OFFSET
         d2 = d2 or datetime.datetime.utcnow()
 
         d1 = d1.strftime('%Y-%m-%dT%H:%M:%S')
         d2 = d2.strftime('%Y-%m-%dT%H:%M:%S')
-        _ = "{0}?imei={1}&d1={2}&d2={3}".format(self._share_path, imei, d1, d2)
+        url = "{0}?d1={1}&d2={2}".format(self._share_path, d1, d2)
 
-        conn.request("GET", _, headers=headers)
+        if imei:
+            url = url + '&imei={0}'.format(imei)
+
+        conn.request("GET", url, headers=headers)
         res = conn.getresponse()
         data = res.read()
 
@@ -81,7 +87,7 @@ def __str2date(d, replace_tzinfo=pytz.utc):
 
 
 def __str2boolean(v):
-  return v.lower() in ("true", "yes", "t", "1")
+    return v.lower() in ("true", "yes", "t", "1")
 
 
 def __str2elevation(v):
@@ -135,7 +141,7 @@ class InreachKMLPlugin(TrackingPlugin):
     DEFAULT_START_OFFSET = timedelta(days=14)
 
     service_share_path = models.CharField(max_length=50,
-                                       help_text='share_path for InReach KML share.')
+                                          help_text='share_path for InReach KML share.')
     service_password = models.CharField(max_length=50,
                                         help_text='Password for InReach KML share.')
     service_username = models.CharField(max_length=50,
@@ -145,9 +151,11 @@ class InreachKMLPlugin(TrackingPlugin):
 
     def should_run(self, source_plugin):
 
-        # Don't bother running now if less than 20 minutes has passed since the latest fix.
+        # Don't bother running now if less than 20 minutes has passed since the
+        # latest fix.
         try:
-            latest_timestamp = source_plugin.cursor_data.get('latest_timestamp')
+            latest_timestamp = source_plugin.cursor_data.get(
+                'latest_timestamp')
             if not latest_timestamp:
                 return True
             latest_timestamp = parse_date(latest_timestamp)
@@ -159,7 +167,6 @@ class InreachKMLPlugin(TrackingPlugin):
             return True
         else:
             return False
-
 
     def fetch(self, source, cursor_data=None):
 
@@ -173,7 +180,8 @@ class InreachKMLPlugin(TrackingPlugin):
                                   password=self.service_password)
 
         try:
-            default_starttime = datetime.datetime.now(tz=pytz.utc) - InreachKMLClient.DEFAULT_START_OFFSET
+            default_starttime = datetime.datetime.now(
+                tz=pytz.utc) - InreachKMLClient.DEFAULT_START_OFFSET
             _ = self.cursor_data['latest_timestamp']
             latest_ts = parse_date(_)
             latest_ts = max(default_starttime, latest_ts)
@@ -182,7 +190,8 @@ class InreachKMLPlugin(TrackingPlugin):
 
         latest_inreach_id = self.cursor_data.get('latest_inreach_id', 0)
 
-        self.logger.debug("Fetching data for manufacturer_id %s after %s" % (source.manufacturer_id, latest_ts))
+        self.logger.debug("Fetching data for manufacturer_id %s after %s" % (
+            source.manufacturer_id, latest_ts))
 
         dat = client.get_data(source.manufacturer_id, d1=latest_ts)
 
@@ -194,27 +203,17 @@ class InreachKMLPlugin(TrackingPlugin):
                 yield self._transform(source, observation)
 
         # Save cursor_data
-        self.logger.debug("Saving latest timestamp for source %s at %s", source.manufacturer_id, latest_ts)
+        self.logger.debug(
+            "Saving latest timestamp for source %s at %s", source.manufacturer_id, latest_ts)
         self.cursor_data['latest_timestamp'] = latest_ts.isoformat()
         self.cursor_data['latest_inreach_id'] = latest_inreach_id
 
     @staticmethod
     def _transform(source, o):
         # Copy any none-standard fields into Obs.additional
-        side_data = dict((k, o.get(k)) for k in o.keys() if k not in Obs._fields)
+        side_data = dict((k, o.get(k))
+                         for k in o.keys() if k not in Obs._fields)
         return Obs(source=source, recorded_at=o.get('recorded_at'),
                    latitude=o.get('latitude'),
                    longitude=o.get('longitude'),
                    additional=side_data)
-
-
-
-
-
-
-
-
-
-
-
-

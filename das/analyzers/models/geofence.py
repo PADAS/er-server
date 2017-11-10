@@ -11,7 +11,8 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
 
     """
 
-    threshold_time = models.IntegerField(null=False, default=43200, verbose_name='Threshold time (seconds)')  # 12 hours
+    threshold_time = models.IntegerField(
+        null=False, default=43200, verbose_name='Threshold time (seconds)')  # 12 hours
 
     geofences = models.ForeignKey(
         to=SpatialFeatureGroupStatic,
@@ -28,3 +29,5 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
         related_name='containmentregions',
         verbose_name='This analyzer applies to containment polygons in this SpatialFeatureGroupStatic.'
     )
+
+    report_friendly_type = 'geofence'

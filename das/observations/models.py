@@ -882,14 +882,17 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         traj = pymet.base.Trajectory(relocs)
 
         if trajectory_filter_params is not None:
+
             speed_threshold = trajectory_filter_params.speed_KmHr
 
             # Create a relocations speed filter
-            speed_filter = pymet.base.RelocsSpeedFilter(max_speed_kmhr=speed_threshold)
+            speed_filter = pymet.base.RelocsSpeedFilter(
+                max_speed_kmhr=speed_threshold)
             traj.relocs.apply_fix_filter(speed_filter)
 
             # Create a trajseg filter
-            traj_filt = pymet.base.TrajSegFilter(max_speed_kmhr=speed_threshold)
+            traj_filt = pymet.base.TrajSegFilter(
+                max_speed_kmhr=speed_threshold)
             traj.traj_seg_filter = traj_filt
 
         return traj

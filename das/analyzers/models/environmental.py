@@ -16,3 +16,5 @@ class EnvironmentalSubjectAnalyzerConfig(SubjectAnalyzerConfig):
         null=False, max_length=50, default='b1')
     short_description = models.CharField(
         null=False, max_length=50)  # e.g. 'Human Footprint'
+
+    report_friendly_type = 'environmental'
