@@ -1,0 +1,10 @@
+# usage: crontab panthera.crontab
+# See running cron table:
+#   crontab -l
+
+# remove crontab:
+#    crontab -ri
+
+
+# run every 2 minutes
+*/2 * * * *	   sudo supervisorctl start panthera
