@@ -30,6 +30,4 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
         verbose_name='This analyzer applies to containment polygons in this SpatialFeatureGroupStatic.'
     )
 
-    @property
-    def report_friendly_type(self):
-        return 'geofence'
+    report_friendly_type = 'geofence'

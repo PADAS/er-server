@@ -83,9 +83,7 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
         abstract = True
         app_label = 'analyzers'
 
-    @property
-    def report_friendly_type(self):
-        return 'Generic'
+    report_friendly_type = 'generic'
 
 
 class SubjectAnalyzerResultManager(models.Manager):

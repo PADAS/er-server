@@ -21,6 +21,4 @@ class LowSpeedWilcoxAnalyzerConfig(SubjectAnalyzerConfig):
 
     low_speed_probability_cutoff = models.FloatField(null=False, default=0.001)
 
-    @property
-    def report_friendly_type(self):
-        return 'low_speed'
+    report_friendly_type = 'low_speed'
