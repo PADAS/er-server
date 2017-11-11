@@ -4,7 +4,8 @@ call your project be overriding the settings file
  --settings=local_settings
 
 """
-import platform
+import os
+
 from .settings import *
 
 MEDIA_ROOT = '/user-uploads'
@@ -40,18 +41,18 @@ _test_fixtures = ('%s/tests/fixtures' % x for x in ('observations',
                                                     'das_server'))
 FIXTURE_DIRS = list(os.path.join(BASE_DIR, x) for x in _test_fixtures)
 
-
-#MIDDLEWARE_CLASSES = MIDDLEWARE_CLASSES + ('django_ses',)
-
-EMAIL_BACKEND = 'django_ses.SESBackend'
 # can use console output for email in dev
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 AWS_SES_REGION_NAME = 'us-west-2'
 AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 # the address to send notification emails from
-FROM_EMAIL = 'notifications@pamdas.org'
-#DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
-#SHOW_TRACK_DAYS = 100
+FROM_EMAIL = 'notifications.demo@pamdas.org'
+DEFAULT_FROM_EMAIL = 'notifications.demo@pamdas.org'
+EMAIL_HOST_USER = 'AKIAIWFES6QEYXXNWIJQ'
+EMAIL_HOST = 'email-smtp.us-west-2.amazonaws.com'
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
+EMAIL_USE_TLS = True
+EMAIL_PORT = 587
 
 NOTIFY_HIGH_PRIORITY_EVENT = 'high_priority_alerts'
 NOTIFY_MEDIUM_PRIORITY_EVENT = 'medium_priority_alerts'
