@@ -862,7 +862,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         Hydrate the trajectory
         """
 
-        obs = obs if obs is not None else self.observations()
+        if obs is None:
+            obs = self.observations()
 
         def create_fix(observation):
             gp = pymet.base.GeoPoint(
