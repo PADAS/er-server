@@ -128,7 +128,7 @@ class ProximityAnalyzer(SubjectAnalyzer):
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
                 title=this_result.title,
-                event_time=this_result.estimated_time,
+                time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='proximity',
                 priority=EVENT_PRIORITY_MAP.get(

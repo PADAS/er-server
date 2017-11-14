@@ -2,21 +2,22 @@ version: "3.2"
 
 services:
 
-#  api-unittest:
-#    context: ./docker/api_unittest/
-#    image: gcr.io/padas-app/api
-#    container_name: das_api_unittest
-#    env_file: .env
-#    links:
-#      - postgis
-#      - redis
-#    volumes:
-#      - ./das:/var/www/app
-#      - ./dependencies:/workspace/dependencies
-#      - ./docker/base/wait_for.sh:/startup/wait_for.sh
-#      - ./docker/api_unittest/start.sh:/var/www/app/start.sh
-#    depends_on:
-#      - app
+  api-unittest:
+    build:
+      context: ./docker/api_unittest/
+    image: gcr.io/padas-app/api
+    container_name: das_api_unittest
+    env_file: .env
+    links:
+      - postgis
+      - redis
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+      - ./docker/api_unittest/start.sh:/var/www/app/start.sh
+    depends_on:
+      - app
 
   notebook:
     build:

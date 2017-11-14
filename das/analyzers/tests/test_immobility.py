@@ -42,7 +42,8 @@ class TestImmobilityAnalyzer(TestCase):
 
         # Assert we've broken from this for-loop at level=>OK and count=>17
         self.assertEqual(result.level, OK)
-        self.assertEqual(count, 18)  # Magic number, based on Ishango test dataset
+        # Magic number, based on Ishango test dataset
+        self.assertEqual(count, 18)
 
     def test_integration_ishango_immobile(self):
 
@@ -50,14 +51,18 @@ class TestImmobilityAnalyzer(TestCase):
         test_observations = ISHANGO_IMMOBILE
 
         # Create models (Subject, SubjectSource and Source)
-        sub = models.Subject.objects.create(name='Ishango', subject_type='wildlife', subject_subtype='elephant')
+        sub = models.Subject.objects.create(
+            name='Ishango', subject_type='wildlife', subject_subtype='elephant')
         source = models.Source.objects.create(manufacturer_id='ishango-collar')
-        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+        models.SubjectSource.objects.create(
+            subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
-        SubjectTrackSegmentFilter.objects.create(subject_subtype='elephant', speed_KmHr=7.0)
+        SubjectTrackSegmentFilter.objects.create(
+            subject_subtype='elephant', speed_KmHr=7.0)
 
-        sg = models.SubjectGroup.objects.create(name='immobility_analyzer_group',)
+        sg = models.SubjectGroup.objects.create(
+            name='immobility_analyzer_group',)
         sg.subjects.add(sub)
         sg.save()
 
@@ -69,7 +74,8 @@ class TestImmobilityAnalyzer(TestCase):
 
         analyze_subject(str(sub.id))
 
-        self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
+        self.assertTrue(
+            SubjectAnalyzerResult.objects.filter(subject=sub).exists())
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
@@ -88,14 +94,14 @@ class TestImmobilityAnalyzer(TestCase):
 
         for i in range(1, len(test_observations)):
             try:
-                print('Current data-point: ', test_observations[i-1])
+                print('Current data-point: ', test_observations[i - 1])
 
                 ia_config = ImmobilityAnalyzerConfig()
                 ia_config.threshold_time = 18000  # 5 hours
 
                 ia = ImmobilityAnalyzer(config=ia_config, subject=test_subject)
 
-                results = ia.analyze(observations=test_observations[:i+1])
+                results = ia.analyze(observations=test_observations[:i + 1])
                 result, event = results[0]
 
                 last_result = result
@@ -129,7 +135,7 @@ class TestImmobilityAnalyzer(TestCase):
 
         event_data = dict(
             title='Woody is immobile',
-            event_time=pytz.utc.localize(datetime.utcnow()),
+            time=pytz.utc.localize(datetime.utcnow()),
             provenance=Event.PC_ANALYZER,
             event_type='immobility',
             priority=Event.PRI_URGENT,

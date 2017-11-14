@@ -148,7 +148,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
                 title=this_result.title,
-                event_time=this_result.estimated_time,
+                time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='low_speed_percentile_all_clear',
                 priority=EVENT_PRIORITY_MAP.get(
@@ -307,11 +307,12 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
                 event_details=event_details,
             )
 
-        # Notify if there is a state transition from Critical/Warning back to OK
+        # Notify if there is a state transition from Critical/Warning back to
+        # OK
         elif last_result is not None and (last_result.level in (CRITICAL, WARNING)) and this_result.level is OK:
             event_data = dict(
                 title=this_result.title,
-                event_time=this_result.estimated_time,
+                time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type='low_speed_wilcoxon_all_clear',
                 priority=EVENT_PRIORITY_MAP.get(
