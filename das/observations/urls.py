@@ -22,6 +22,7 @@ urlpatterns = [
     url(r'^regions/?$', views.RegionsView.as_view()),
     url(r'^region/(?P<slug>[a-z0-9-]+)/?$', views.RegionView.as_view()),
     url(r'^subjects/kml/?$', views.KmlSubjectsView.as_view()),
+    url(r'^subjects/kml/master/?$', views.KmlMasterSubjectsView.as_view()),
     url(r'^region/(?P<slug>[a-z0-9-]+)/subjects/?$',
         views.RegionSubjectsView.as_view()),
     url(r'^subjects/?$', views.SubjectsView.as_view()),

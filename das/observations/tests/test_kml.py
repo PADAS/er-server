@@ -11,7 +11,7 @@ from lxml import etree
 
 from accounts.models import User, PermissionSet
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, Region, Observation
-from observations.views import KmlSubjectView, KmlSubjectsView
+from observations.views import KmlSubjectView, KmlSubjectsView, KmlMasterSubjectsView
 import observations.tests.targets.kml_target_strings as targets
 from tracking.models.plugin_base import Obs
 
@@ -199,5 +199,30 @@ class ObservationTestCase(BaseAPITest):
         if self.save_outputs:
             self.save_kml(response_xml, 'authed_single_subject.kml')
             self.save_kmz(response.data, 'authed_single_subject.kmz')
+
+        self.assertTrue(self.elements_equal(response_xml, target_xml))
+
+    def test_master_link(self):
+        url = '/api/v1.0/subjects/kml'
+
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+
+        response = KmlMasterSubjectsView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+
+        kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
+        with kmz.open('document.kml') as response_kml_bytes:
+            response_kml = response_kml_bytes.read()
+        parser = etree.XMLParser(remove_blank_text=True)
+        response_xml = etree.XML(response_kml, parser=parser)
+        target_string = targets.master_link_target.format(
+            self.user.get_kml_access_token())
+        target_xml = etree.XML(target_string.encode('utf-8'), parser=parser)
+
+        if self.save_outputs:
+            self.save_kml(response_xml, 'master_file.kml')
+            self.save_kmz(response.data, 'master_file.kmz')
 
         self.assertTrue(self.elements_equal(response_xml, target_xml))

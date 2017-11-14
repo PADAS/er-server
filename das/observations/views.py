@@ -524,6 +524,29 @@ def render_to_kmz(kml_str, filename):
     return response
 
 
+class KmlMasterSubjectsView(generics.GenericAPIView):
+    permission_classes = (AllowAny,)
+    renderer_classes = (StaticHTMLRenderer,)
+
+    def build_link_for_user(self):
+        host = self.request.get_host()
+        port = self.request.get_port()
+        return 'http://{}:{}/api/v1.0/subjects/kml/master/?auth={}'.format(
+            host, port, self.request.user.get_kml_access_token())
+
+    def get(self, request, *args, **kwargs):
+        k = simplekml.Kml()
+        k.document = k.newfolder(
+            name='STE Tracking Service', visibility=1, open=1)
+        link = k.document.newnetworklink(name='STE Tracking Service', open=1)
+        link.link.href = self.build_link_for_user()
+
+        filename = 'Master_{}_{}'.format(self.request.user.username,
+                                         datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
+
+        return render_to_kmz(k.kml(), filename)
+
+
 class KmlSubjectsView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     renderer_classes = (StaticHTMLRenderer, )
