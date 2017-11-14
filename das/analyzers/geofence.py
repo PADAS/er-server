@@ -73,9 +73,9 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         """
         # observations get passed back in temporally descending order
         if self.config.search_time_hours <= 0:
-            return list(self.subject.observations())[:2]
+            return list(self.subject.observations()[:2])
         else:
-            return list(self.subject.observations(last_hours=self.config.search_time_hours))[:2]
+            return list(self.subject.observations(last_hours=self.config.search_time_hours)[:2])
 
     def analyze_trajectory(self, traj=None):
         """
