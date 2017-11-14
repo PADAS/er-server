@@ -24,4 +24,4 @@ class ImmobilityAnalyzerConfig(SubjectAnalyzerConfig):
     threshold_time = models.IntegerField(null=False, default=18000)  # 5 hours
     threshold_probability = models.FloatField(null=False, default=0.8)
 
-    report_friendly_type = 'immobility'
+    analyzer_category = 'immobility'

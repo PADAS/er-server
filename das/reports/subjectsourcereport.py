@@ -55,7 +55,7 @@ def generate_subject_records(report_hours=24):
                                                                                   latest_observation.recorded_at),
                                                            level__gt=SubjectAnalyzerResult.LEVEL_OK
                                                            ):
-                k = ar.subject_analyzer.report_friendly_name
+                k = ar.subject_analyzer.analyzer_category
                 alert_accumulator.setdefault(k, 0)
                 alert_accumulator[k] += 1
 
