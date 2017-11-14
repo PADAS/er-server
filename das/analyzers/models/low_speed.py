@@ -12,13 +12,11 @@ class LowSpeedPercentileAnalyzerConfig(SubjectAnalyzerConfig):
     default_low_speed_value = models.FloatField(
         null=False, default=0.05)  # 0.05 Km/Hr
 
-    @property
-    def report_friendly_type(self):
-        return 'low_speed'
+    analyzer_category = 'low_speed'
 
 
 class LowSpeedWilcoxAnalyzerConfig(SubjectAnalyzerConfig):
 
     low_speed_probability_cutoff = models.FloatField(null=False, default=0.001)
 
-    report_friendly_type = 'low_speed'
+    analyzer_category = 'low_speed'

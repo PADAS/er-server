@@ -18,4 +18,4 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
         verbose_name='This analyzer applies to proximity features in this SpatialFeatureGroupStatic.'
     )
 
-    report_friendly_type = 'proximity'
+    analyzer_category = 'proximity'
