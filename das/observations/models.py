@@ -807,7 +807,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                           ('observations.access_begins_16', 16),
                           ('observations.access_begins_30', 30),
                           ('observations.access_begins_60', 60),
-                          ('observations.access_begins_all', 100000000))
+                          ('observations.access_begins_all', 36500))
 
     VIEW_END_WINDOWS = (('observations.access_ends_0', 0),
                         ('observations.access_ends_1', 1),
