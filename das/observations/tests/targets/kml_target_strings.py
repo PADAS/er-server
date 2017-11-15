@@ -1,3 +1,19 @@
+master_link_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+  <Folder id="feat_22">
+    <name>STE Tracking Service</name>
+    <visibility>1</visibility>
+    <open>1</open>
+    <NetworkLink id="feat_23">
+      <name>STE Tracking Service</name>
+      <open>1</open>
+      <Link id="link_7">
+        <href>http://testserver:80/api/v1.0/subjects/kml/master/?auth={}</href>
+      </Link>
+    </NetworkLink>
+  </Folder>
+</kml>
+'''
+
 all_subjects_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
   <Folder id="feat_2">
     <name>Tracking Data</name>
