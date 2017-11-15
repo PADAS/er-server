@@ -68,7 +68,8 @@ app.conf.beat_schedule = {
 
     'reports': {
         'task': 'reports.tasks.subjectsource_report',
-        'schedule': crontab(hour=6)  # 6 AM local time per settings.TIME_ZONE
+        # 6 AM local time per settings.TIME_ZONE
+        'schedule': crontab(hour=6, minute=0)
     }
 }
 
