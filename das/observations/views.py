@@ -531,7 +531,7 @@ class KmlMasterSubjectsView(generics.GenericAPIView):
     def build_link_for_user(self):
         host = self.request.get_host()
         port = self.request.get_port()
-        return 'http://{}:{}/api/v1.0/subjects/kml/master/?auth={}'.format(
+        return 'http://{}:{}/api/v1.0/subjects/kml/?auth={}'.format(
             host, port, self.request.user.get_kml_access_token())
 
     def get(self, request, *args, **kwargs):

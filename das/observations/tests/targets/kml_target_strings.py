@@ -7,7 +7,7 @@ master_link_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="ht
       <name>STE Tracking Service</name>
       <open>1</open>
       <Link id="link_7">
-        <href>http://testserver:80/api/v1.0/subjects/kml/master/?auth={}</href>
+        <href>http://testserver:80/api/v1.0/subjects/kml/?auth={}</href>
       </Link>
     </NetworkLink>
   </Folder>
