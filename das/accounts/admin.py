@@ -136,7 +136,7 @@ class KmkMasterLinkForm(forms.Form):
              from_email=None, request=None, html_email_template_name=None):
 
         context = {
-            'kml_master_link': user.get_kml_master_link(request),
+            'kml_master_link': user.get_kml_master_link(request, user),
             'site_name': get_current_site(request).name
         }
         self.send_mail(subject_template_name, email_template_name, context,

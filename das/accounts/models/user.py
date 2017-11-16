@@ -212,13 +212,17 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
 
         return token.token
 
-    def get_kml_master_link(self, request=None):
+    def get_kml_master_link(self, request=None, user=None):
+        import utils
+
         if request is None:
             request = self.request
-        host = request.get_host()
-        port = request.get_port()
-        return 'http://{}:{}/api/v1.0/subjects/kml/?auth={}'.format(
-            host, port, self.get_kml_access_token())
+
+        if user is None:
+            user = request.user
+
+        token = user.get_kml_access_token()
+        return utils.add_base_url(request, '/api/v1.0/subjects/kml/?auth={}'.format(token))
 
 
 class User(AccountsAbstractUser):
