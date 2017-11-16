@@ -22,6 +22,7 @@ from rest_framework import status
 from shapely.geometry import Point, LineString
 import simplekml
 
+import utils
 from utils.drf import StandardResultsSetPagination
 from utils.json import zeroout_microseconds
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
@@ -529,10 +530,8 @@ class KmlMasterSubjectsView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def build_link_for_user(self):
-        host = self.request.get_host()
-        port = self.request.get_port()
-        return 'http://{}:{}/api/v1.0/subjects/kml/?auth={}'.format(
-            host, port, self.request.user.get_kml_access_token())
+        token = self.request.user.get_kml_access_token()
+        return utils.add_base_url(self.request, '/api/v1.0/subjects/kml/?auth={}'.format(token))
 
     def get(self, request, *args, **kwargs):
         k = simplekml.Kml()
@@ -553,10 +552,8 @@ class KmlSubjectsView(generics.GenericAPIView):
     queryset = models.SubjectGroup.objects.all()
 
     def build_link_for_subject(self, subject):
-        host = self.request.get_host()
-        port = self.request.get_port()
-        return 'http://{}:{}/api/v1.0/subject/{}/kml/?auth={}'.format(
-            host, port, subject.id, self.request.user.get_kml_access_token())
+        token = self.request.user.get_kml_access_token()
+        return utils.add_base_url(self.request, '/api/v1.0/subject/{}/kml/?auth={}'.format(subject.id, token))
 
     def get(self, request, *args, **kwargs):
         k = simplekml.Kml()
@@ -612,9 +609,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return None
 
     def get_subject_icon(self, subject):
-        host = self.request.get_host()
-        port = self.request.get_port()
-        return 'http://{}:{}{}'.format(host, port, subject.image_url)
+        return utils.add_base_url(self.request, subject.image_url)
 
     def get_allowed_subject_observations(self, subject):
         oldest_age = -1
