@@ -88,7 +88,7 @@ class ProximityAnalyzer(SubjectAnalyzer):
 
                 result.values = {
                     'spatial_feature_name': prox.spatial_feature_name,
-                    'proximal_distance': prox.proximity_distance_meters,
+                    'proximity_dist_meters': prox.proximity_distance_meters,
                     'total_fix_count': traj.relocs.fix_count,
                     'subject_speed_kmhr': prox.subject_speed_kmhr,
                     'subject_heading': prox.subject_heading,
