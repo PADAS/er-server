@@ -592,6 +592,7 @@ def rgb_to_hex(red, green, blue):
 
 class KmlSubjectView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
+    renderer_classes = (StaticHTMLRenderer, )
     lookup_field = 'id'
 
     def get_queryset(self):
