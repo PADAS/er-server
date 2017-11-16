@@ -261,7 +261,6 @@ class UserAdmin(DjangoUserAdmin):
         assert form.is_valid()
 
         opts = {
-            'use_https': request.is_secure(),
             'request': request,
             'user': user,
             'subject_template_name': 'utility/kml_master_link_subject.txt',

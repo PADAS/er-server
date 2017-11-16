@@ -4,6 +4,7 @@ try:
 except ImportError:
     BUILD_NUMBER = 1
 
+
 VERSION = (1, 25, 1, 'dev', BUILD_NUMBER)
 
 if VERSION[3]:  # pragma: no cover
