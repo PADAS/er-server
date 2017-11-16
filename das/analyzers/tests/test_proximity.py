@@ -57,7 +57,9 @@ class TestProximityAnalyzer(TestCase):
               title: EventType Proximity
               type: object
             '''
-        return json.dumps(yaml.load(schema_yaml))
+        out_json = json.dumps(yaml.load(schema_yaml))
+        print(out_json)
+        return out_json
 
     def setUp(self):
 

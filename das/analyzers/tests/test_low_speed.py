@@ -155,7 +155,9 @@ class TestLowSpeedAnalyzer(TestCase):
                           title: EventType Low Speed Wilcox All Clear
                           type: object
                         '''
-        return json.dumps(yaml.load(schema_yaml))
+        this_json = json.dumps(yaml.load(schema_yaml))
+        print(this_json)
+        return this_json
 
     def setUp(self):
         ec, created = EventCategory.objects.get_or_create(
