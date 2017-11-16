@@ -7,7 +7,7 @@ master_link_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="ht
       <name>STE Tracking Service</name>
       <open>1</open>
       <Link id="link_7">
-        <href>http://testserver:80/api/v1.0/subjects/kml/?auth={}</href>
+        <href>http://testserver/api/v1.0/subjects/kml/?auth={}</href>
       </Link>
     </NetworkLink>
   </Folder>
@@ -26,14 +26,14 @@ all_subjects_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="h
           <name>Elephant 1</name>
           <visibility>0</visibility>
           <Link id="link_0">
-            <href>http://testserver:80/api/v1.0/subject/d2ed403e-9419-41aa-8fa9-45a70e5ce2ed/kml/?auth={0}</href>
+            <href>http://testserver/api/v1.0/subject/d2ed403e-9419-41aa-8fa9-45a70e5ce2ed/kml/?auth={0}</href>
           </Link>
         </NetworkLink>
         <NetworkLink id="feat_6">
           <name>Elephant 2</name>
           <visibility>0</visibility>
           <Link id="link_1">
-            <href>http://testserver:80/api/v1.0/subject/c25e17d0-0337-4f0c-9274-25e5ae4da7c8/kml/?auth={0}</href>
+            <href>http://testserver/api/v1.0/subject/c25e17d0-0337-4f0c-9274-25e5ae4da7c8/kml/?auth={0}</href>
           </Link>
         </NetworkLink>
       </Folder>
@@ -43,7 +43,7 @@ all_subjects_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="h
           <name>Elephant 3</name>
           <visibility>0</visibility>
           <Link id="link_2">
-            <href>http://testserver:80/api/v1.0/subject/a873e49c-1cb5-4ad4-b29d-e4b8931036ba/kml/?auth={0}</href>
+            <href>http://testserver/api/v1.0/subject/a873e49c-1cb5-4ad4-b29d-e4b8931036ba/kml/?auth={0}</href>
           </Link>
         </NetworkLink>
       </Folder>
@@ -74,7 +74,7 @@ single_subject_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx=
           <scale>0.7</scale>
           <heading>0</heading>
           <Icon id="link_4">
-            <href>http://testserver:80/static/unassigned-black.svg</href>
+            <href>http://testserver/static/unassigned-black.svg</href>
           </Icon>
         </IconStyle>
         <LabelStyle id="substyle_1">
@@ -158,7 +158,7 @@ single_subject_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx=
           <scale>0.7</scale>
           <heading>0</heading>
           <Icon id="link_5">
-            <href>http://testserver:80/static/unassigned-black.svg</href>
+            <href>http://testserver/static/unassigned-black.svg</href>
           </Icon>
         </IconStyle>
         <LabelStyle id="substyle_4">
@@ -179,7 +179,7 @@ single_subject_target = '''<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx=
           <scale>0.7</scale>
           <heading>0</heading>
           <Icon id="link_6">
-            <href>http://testserver:80/static/unassigned-black.svg</href>
+            <href>http://testserver/static/unassigned-black.svg</href>
           </Icon>
         </IconStyle>
         <LabelStyle id="substyle_6">
