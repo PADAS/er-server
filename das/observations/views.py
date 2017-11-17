@@ -569,6 +569,10 @@ class KmlSubjectsView(generics.GenericAPIView):
                 subjects_in_region = models.Subject.objects.by_region(
                     region).filter(subject_type=species)
                 for subject in subjects_in_region:
+                    if not self.request.user.has_any_perms(
+                            models.Subject.VIEW_SUBJECT_PERMS,
+                            subject):
+                        continue
                     if not species_folder:
                         species_folder = k.document.newfolder(name=species)
                     if not region_folder:
