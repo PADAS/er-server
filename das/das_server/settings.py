@@ -64,6 +64,7 @@ INSTALLED_APPS = (
     'django_readonly_field',
     'usercontent',
     'django.contrib.postgres',
+    'debug_toolbar',
 
 )
 
@@ -76,6 +77,7 @@ MIDDLEWARE_CLASSES = (
     'corsheaders.middleware.CorsPostCsrfMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -127,6 +129,8 @@ AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = '/login'
 LOGOUT_URL = '/logout'
 LOGIN_REDIRECT_URL = '/'
+
+INTERNAL_IPS = ['127.0.0.1', '172.18.0.1', '172.18.0.2', ]
 
 # The number of days a password reset link is valid for
 PASSWORD_RESET_TIMEOUT_DAYS = 3

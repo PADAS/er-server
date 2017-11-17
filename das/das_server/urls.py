@@ -42,6 +42,12 @@ urlpatterns = [
         include('usercontent.urls', namespace='usercontent')),
 ]
 
+if settings.DEBUG:
+    import debug_toolbar
+    urlpatterns = [
+        url(r'^__debug__/', include(debug_toolbar.urls)),
+    ] + urlpatterns
+
 
 # give the api a chance to override and return json
 django.conf.urls.handler404 = 'utils.drf.error404View'

@@ -298,9 +298,10 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
 class SubjectTracksView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
-    lookup_field = 'id'
+    lookup_field = 'subject_id'
     serializer_class = serializers.TrackSerializer
-    queryset = models.Subject.objects.all()
+    queryset = models.SubjectStatus.objects.filter(
+        delay_hours=0).prefetch_related('subject')
 
     def get_object(self):
         try:
@@ -313,14 +314,16 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         instance = self.get_object()
-        serializer = self.get_serializer(instance)
+        serializer = self.get_serializer(instance.subject)
         data = serializer.data
         response = Response(data)
         return response
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        subject = self.get_object()
+
+        subjectstatus = self.get_object()
+        subject = subjectstatus.subject
 
         if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
@@ -377,26 +380,36 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         context['subject'] = subject
         try:
-            _ = subject.subjectstatus_set.get_last().additional
-            for k in ('last_voice_call_start_at', 'requested_location_at'):
-                if k in _:
-                    context[k] = _[k]
+            # ss = models.SubjectStatus.objects.get(subject=subject, delay_hours=0)
+            # for k in ('last_voice_call_start_at', 'requested_location_at'):
+            #     if k in ss.additional:
+            #         context[k] = ss.additional[k]
+            ss = subjectstatus
             # TODO: Investigate why we use the alternative key for 'state'
-            context['subject_state'] = _['state']
+            if 'state' in ss.additional:
+                context['subject_state'] = ss.additional['state']
 
-        except Exception:
+        except models.SubjectStatus.DoesNotExist:
             pass
 
         coordinates = []
         times = []
-        for ob in models.Observation.objects.get_subject_observation_values(
-                subject, since=begin, until=until, limit=limit):
 
-            coordinates.append(ob['location'].coords)
-            times.append(zeroout_microseconds(ob['recorded_at']))
+        qs = models.Observation.objects.get_subject_observations(
+            subject, since=begin, until=until)[:limit].values('location', 'recorded_at')
 
-        context['times'] = times
-        context['coordinates'] = coordinates
+        # for ob in qs:
+        #     coordinates.append(ob['location'].coords)
+        #     times.append(zeroout_microseconds(ob['recorded_at']))
+
+        qs = list(qs)
+        # context['times'] = [zeroout_microseconds(o.recorded_at) for o in qs]
+        # context['coordinates'] = [o.location.coords for o in qs]
+        context['times'] = [zeroout_microseconds(o['recorded_at']) for o in qs]
+        context['coordinates'] = [o['location'].coords for o in qs]
+
+        # context['times'] = times
+        # context['coordinates'] = coordinates
         return context
 
 
@@ -547,9 +560,9 @@ class KmlMasterSubjectsView(generics.GenericAPIView):
 
 
 class KmlSubjectsView(generics.GenericAPIView):
-    permission_classes = (AllowAny,)
+    permission_classes = (StandardObjectPermissions,)
     renderer_classes = (StaticHTMLRenderer, )
-    queryset = models.SubjectGroup.objects.all()
+    queryset = models.Subject.objects.all()
 
     def build_link_for_subject(self, subject):
         token = self.request.user.get_kml_access_token()
@@ -559,7 +572,7 @@ class KmlSubjectsView(generics.GenericAPIView):
         k = simplekml.Kml()
         k.document = k.newfolder(name='Tracking Data', visibility=1)
 
-        all_species = models.Subject.objects.values_list(
+        all_species = self.get_queryset().values_list(
             'subject_type', flat=True).distinct()
         for species in all_species:
             species_folder = None
@@ -645,8 +658,8 @@ class KmlSubjectView(generics.RetrieveAPIView):
         begin = now - datetime.timedelta(days=oldest_age)
         until = now - datetime.timedelta(days=newest_age)
 
-        return models.Observation.objects.get_subject_observation_values(
-            subject, since=begin, until=until)
+        return models.Observation.objects.get_subject_observations(
+            subject, since=begin, until=until).values('recorded_at', 'location')
 
     def add_points_document(self, folder, subject):
         document = folder.newdocument(
