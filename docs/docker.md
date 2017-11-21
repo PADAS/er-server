@@ -400,15 +400,15 @@ From the VPT container run the following. The login id is vulcan
 `````
 verify the data was written:
 ~~~
-
+vault read padas-app/main/bundle-crt
 ~~~
 
 
 Next we update task: update-deployment-info in both deployment.pipeline.yaml and integration.pipeline.yaml to get our secrets to K8s
     add:
     ~~~
-    BUNDLE_CRT: ((bundle.crt))
-    PAMDAS_ORG_PRIVATE_KEY_PEM: ((pamdas.org-private-key.pem))
+    BUNDLE_CRT: ((bundle-crt))
+    PAMDAS_ORG_PRIVATE_KEY_PEM: ((pamdas-org-private-key-pem))
     ~~~
     
 Now add that env variable in default-configmap.yaml
@@ -441,6 +441,15 @@ if [ -v $BUNDLE_CRT ]; then
     echo $BUNDLE_CRT > $SSL_PATH/bundle.crt
     echo $PAMDAS_ORG_PRIVATE_KEY_PEM > $SSL_PATH/pamdas.org-private-key.pem
 fi
+~~~
+
+Finally
+
+push the code to the repo, then update the build pipeline
+
+~~~
+git push origin develop
+ ./tools-scripts/ci/set.integration.pipeline.sh integration
 ~~~
 
 
