@@ -381,6 +381,103 @@ It contains a simple set of key-value pairs that correspond to the variables use
 
 Here we're telling set.pipeline to use the demo params, and passing in an extra parameter not specified in the params file: the email password
 
+#### Deployment Controller
+The Shared Services team has created a docker based image that contains the deployment controller commands called the Vulcan Platform Tools Image read about it (here)[https://github.com/VulcanTechnologies/infrastructure/wiki/Vulcan-Platform-Tools-Image] which includes any troubleshooting steps.
+We launch this container from the root of the das project using the shell script 'manage.padas-app.sh'
+
+Once launched the container mounts the das directory under workdir. From there we can start running commands through shell scripts to create, update and delete pipelines.
+
+#### Add SSL certificate as a Secret in Vault
+`````
+vault write padas-app/main/bundle.crt value=@bundle.crt
+vault write padas-app/main/pamdas.org-private-key.pem value=@pamdas.org-private-key.pem 
+`````
+
+Next we update task: update-deployment-info in both deployment.pipeline.yaml and integration.pipeline.yaml to get our secrets to K8s
+    add:
+    ~~~
+    BUNDLE_CRT: ((bundle.crt))
+    PAMDAS_ORG_PRIVATE_KEY_PEM: ((pamdas.org-private-key.pem))
+    ~~~
+    
+Now add that env variable in default-configmap.yaml
+
+~~~
+  BUNDLE_CRT: ${BUNDLE_CRT}
+  PAMDAS_ORG_PRIVATE_KEY_PEM: ${PAMDAS_ORG_PRIVATE_KEY_PEM}
+~~~
+
+Reference these in the nginx-deployment.yaml so the env variables are set to be found by start.sh. Under the key 'env'
+~~~
+        - name: BUNDLE_CRT
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: BUNDLE_CRT
+        - name: PAMDAS_ORG_PRIVATE_KEY_PEM
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: PAMDAS_ORG_PRIVATE_KEY_PEM
+~~~
+
+Then in nginx/start.sh
+
+~~~
+SSL_PATH=/etc/ssl
+
+if [ -v $BUNDLE_CRT ]; then
+    echo $BUNDLE_CRT > $SSL_PATH/bundle.crt
+    echo $PAMDAS_ORG_PRIVATE_KEY_PEM > $SSL_PATH/pamdas.org-private-key.pem
+fi
+~~~
+
+
+#### Create a Build and Deploy Pipeline
+We will be using the command ./tools-scripts/k8s/create.gcp.cluster.sh described (here)[https://github.com/VulcanTechnologies/infrastructure/wiki/Kuberntes-Infrastructure-Management#destroy-a-cluster]. Look there also for commands to update and destroy a cluster.
+Build and Deploy is known as an Integration pipeline.
+
+``````
+cd das
+./manage.padas-app.sh
+./tools-scripts/k8s/create.gcp.cluster.sh
+``````
+
+
+#### Deploy a new Pipeline
+We will be using the command 'set.deployment.pipeline.sh' to create a deployment. We can also include secrets or other parameters to the pipeline in this command.
+
+
+``````
+cd das
+./manage.padas-app.sh
+./tools-scripts/ci/set.deployment.pipeline.sh {your-pipeline-name} -v {param-name}={param-value}
+
+for example:
+./tools-scripts/ci/set.deployment.pipeline.sh seattle -v email-password=kdjfsijiejfkjsldkjfis
+
+``````
+To diagnose or run commands against this new pipeline, we need to set the context to that pipeline by this command:
+```
+./tools-scripts/k8s/manage.existing.cluster.sh padas-app seattle
+```
+
+If we need to copy in data to load into a pipeline using django management commands, first we copy in from the workdir for example here we are going to load .json files that describe a data model found in a datamodel folder:
+```
+kubectl cp workdir/datamodel api-3695077833-q9klq:/tmp
+```
+One copied into the running container:
+
+```
+kubectl exec -it api-3695077833-q9klq -- bash
+cd /
+```
+
+
+to delete this pipeline, run the following command.
+```
+fly -t padas-app destroy-pipeline -p {your-pipeline-name}
+```
 
 ### Developing in a Dockerized Environment FAQ
 
