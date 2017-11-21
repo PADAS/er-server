@@ -395,8 +395,8 @@ From the VPT container run the following. The login id is vulcan
 
 #### Add SSL certificate as a Secret in Vault
 `````
-/vulcan-platform-tools/tools-scripts/secrets/vault/write.secret.from.file.sh padas-app bundle.crt bundle.crt
-/vulcan-platform-tools/tools-scripts/secrets/vault/write.secret.from.file.sh padas-app pamdas.org-private-key.pem pamdas.org-private-key.pem 
+/vulcan-platform-tools/tools-scripts/secrets/vault/write.secret.from.file.sh padas-app bundle-crt bundle.crt
+/vulcan-platform-tools/tools-scripts/secrets/vault/write.secret.from.file.sh padas-app pamdas-org-private-key-pem pamdas.org-private-key.pem 
 `````
 verify the data was written:
 ~~~
