@@ -23,3 +23,13 @@ spec:
             configMapKeyRef:
               name: default-configmap
               key: WEB_SERVICE_NAME
+        - name: BUNDLE_CRT
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: BUNDLE_CRT
+        - name: PAMDAS_ORG_PRIVATE_KEY_PEM
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: PAMDAS_ORG_PRIVATE_KEY_PEM
