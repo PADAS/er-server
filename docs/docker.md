@@ -387,11 +387,22 @@ We launch this container from the root of the das project using the shell script
 
 Once launched the container mounts the das directory under workdir. From there we can start running commands through shell scripts to create, update and delete pipelines.
 
+#### To get the Concourse password for your pipeline
+From the VPT container run the following. The login id is vulcan
+```
+./tools-scripts/ci/get.concourse.password.sh
+```
+
 #### Add SSL certificate as a Secret in Vault
 `````
-vault write padas-app/main/bundle.crt value=@bundle.crt
-vault write padas-app/main/pamdas.org-private-key.pem value=@pamdas.org-private-key.pem 
+/vulcan-platform-tools/tools-scripts/secrets/vault/write.secret.from.file.sh padas-app bundle.crt bundle.crt
+/vulcan-platform-tools/tools-scripts/secrets/vault/write.secret.from.file.sh padas-app pamdas.org-private-key.pem pamdas.org-private-key.pem 
 `````
+verify the data was written:
+~~~
+
+~~~
+
 
 Next we update task: update-deployment-info in both deployment.pipeline.yaml and integration.pipeline.yaml to get our secrets to K8s
     add:
@@ -414,7 +425,7 @@ Reference these in the nginx-deployment.yaml so the env variables are set to be 
             configMapKeyRef:
               name: default-configmap
               key: BUNDLE_CRT
-        - name: PAMDAS_ORG_PRIVATE_KEY_PEM
+        - name: PAMDAS_ORG_PRIVATE_KEY_PEM  
           valueFrom:
             configMapKeyRef:
               name: default-configmap
