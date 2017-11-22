@@ -1,2 +1,5 @@
 cluster-name: camera-trap
+server-branch-name: develop
+web-branch-name: develop
+web-react-branch-name: develop
 static-ip: 35.203.170.253

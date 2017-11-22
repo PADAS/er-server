@@ -49,7 +49,7 @@ cd /das
 
 ### Configuring Concourse
 
-Concourse lives here: [https://35.197.37.215](https://35\.197\.37\.215)
+Concourse lives here: [ci.pamdas.org](https://ci.pamdas.org)
 Concourse for VDP is here: [https://35.199.175.103](https://35.199.175.103)
 
 Concourse pipelines are configured by creating a set of resources, jobs, and gates\. A resource is a _thing_  like a file (local or hosted somewhere else), a git repository, or a docker container\. A job is an _action_  that takes one or more resources as input, performs an operation on them, and usually outputs a new resource\. Some examples of jobs are cloning or pulling a git repo, compiling code, running unit tests, and executing a script\. A gate is a _condition_  that must happen before a job is performed\. Most often this is "Did the unit tests pass?" or "Did the build/script/whatever complete successfully?"
