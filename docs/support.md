@@ -5,12 +5,25 @@ Here are the topics and procedures for troubleshooting DAS.
 
 ## Tier 2
 ### Real-time Feed
-
+#### Symptoms
+* If we are not seeing updates in the Report feed, or tracked assets moving on the map
+* If we are logged into DAS and can load reports but see that "DAS Offline" is visible
 #### Troubleshooting
-* verify the realtime service is running, by opening a shell on the API server.
-```
+1. Verify the realtime service is running, by opening a shell on the API server.
+```bash
 sudo supervisorctl status
 ```
+   * Look at the result for "realtime                         RUNNING   pid 9933, uptime ..."
+    
+2. Suggest that the service is restarted to see if that solves the problem
+```
+sudo supervisorctl restart realtime
+```
+3. Next we review the logs for the realtime service, -n allows us to specify the number of lines to display
+~~~
+tail -n 20 /var/log/das/realtime.log
+~~~
+
 
 ## Tier 3
 If after review of the logs and or web console we don't have resolution in the Tier 2 and Tier 3 sections we consider it a Tier 3 issue.
