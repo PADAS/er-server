@@ -9,11 +9,12 @@ from io import BytesIO
 from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 from django.http import Http404
+from django.core.urlresolvers import reverse
 from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import AllowAny, DjangoObjectPermissions
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.filters import DjangoObjectPermissionsFilter
@@ -539,15 +540,22 @@ def render_to_kmz(kml_str, filename):
 
 
 class KmlMasterSubjectsView(generics.GenericAPIView):
-    permission_classes = (AllowAny,)
+    permission_classes = (IsAuthenticated,)
     renderer_classes = (StaticHTMLRenderer,)
 
     def build_link_for_user(self):
         token = self.request.user.get_kml_access_token()
-        return utils.add_base_url(self.request, '/api/v1.0/subjects/kml/?auth={}'.format(token))
+        return utils.add_base_url(self.request,
+                                  '?'.join((
+                                      reverse('subjects-kml-view'),
+                                      'auth={}'.format(token))
+                                  )
+                                  )
 
     def get(self, request, *args, **kwargs):
         k = simplekml.Kml()
+
+        # TODO: Have a configuration for naming the KML feed.
         k.document = k.newfolder(
             name='STE Tracking Service', visibility=1, open=1)
         link = k.document.newnetworklink(name='STE Tracking Service', open=1)
@@ -562,38 +570,51 @@ class KmlMasterSubjectsView(generics.GenericAPIView):
 class KmlSubjectsView(generics.GenericAPIView):
     permission_classes = (StandardObjectPermissions,)
     renderer_classes = (StaticHTMLRenderer, )
-    queryset = models.Subject.objects.all()
+
+    def get_queryset(self):
+        queryset = models.Subject.objects.all().by_is_active()
+        queryset = queryset.by_user_subjects(self.request.user)
+        return queryset
 
     def build_link_for_subject(self, subject):
         token = self.request.user.get_kml_access_token()
-        return utils.add_base_url(self.request, '/api/v1.0/subject/{}/kml/?auth={}'.format(subject.id, token))
+
+        return utils.add_base_url(self.request,
+                                  '?'.join((
+                                      reverse('subject-kml-view',
+                                              args=[subject['id']]),
+                                      'auth={}'.format(token))
+                                  )
+                                  )
 
     def get(self, request, *args, **kwargs):
         k = simplekml.Kml()
         k.document = k.newfolder(name='Tracking Data', visibility=1)
 
-        all_species = self.get_queryset().values_list(
-            'subject_type', flat=True).distinct()
-        for species in all_species:
-            species_folder = None
-            all_regions = models.Region.objects.all()
-            for region in all_regions:
-                region_folder = None
-                subjects_in_region = models.Subject.objects.by_region(
-                    region).filter(subject_type=species)
-                for subject in subjects_in_region:
-                    if not self.request.user.has_any_perms(
-                            models.Subject.VIEW_SUBJECT_PERMS,
-                            subject):
-                        continue
-                    if not species_folder:
-                        species_folder = k.document.newfolder(name=species)
-                    if not region_folder:
-                        region_folder = species_folder.newfolder(
-                            name=region.region)
-                    link = region_folder.newnetworklink(
-                        name=subject.name, visibility=0)
+        subjects = list(self.get_queryset().values(
+            'additional', 'name', 'id', 'subject_type', 'subject_subtype'))
+
+        DEFAULT_REGION_NAME = 'Unknown Region'
+
+        accum = {}
+        for sub in subjects:
+            speciesf = accum.setdefault(sub.get('subject_subtype'), {})
+            regionf = speciesf.setdefault(
+                sub.get('additional').get('region', DEFAULT_REGION_NAME), [])
+            regionf.append(sub)
+
+        for species, v1 in accum.items():
+
+            speciesf = k.document.newfolder(name=species)
+
+            for region, v2 in sorted(v1.items(), key=lambda x: x[0]):
+                regionf = speciesf.newfolder(name=region)
+
+                for subject in sorted(v2, key=lambda x: x['name']):
+                    link = regionf.newnetworklink(
+                        name=subject['name'], visibility=0)
                     link.link.href = self.build_link_for_subject(subject)
+
         filename = 'Master{}'.format(
             datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
         return render_to_kmz(k.kml(), filename)
@@ -663,9 +684,9 @@ class KmlSubjectView(generics.RetrieveAPIView):
         until = now - datetime.timedelta(days=newest_age)
 
         return models.Observation.objects.get_subject_observations(
-            subject, since=begin, until=until).values('recorded_at', 'location')
+            subject, since=begin, until=until).values('location', 'recorded_at')
 
-    def add_points_document(self, folder, subject):
+    def add_points_document(self, folder, subject, observations):
         document = folder.newdocument(
             name='{0}_points'.format(subject.name), visibility=1)
 
@@ -677,7 +698,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
         style.labelstyle = simplekml.LabelStyle(scale=0)
         document.styles.append(style)
 
-        for obs in self.get_allowed_subject_observations(subject):
+        for obs in observations:
             timestamp = obs['recorded_at'].strftime('%Y-%m-%d %H:%M')
             point = document.newpoint()
             point.coords = [(obs['location'].x, obs['location'].y)]
@@ -687,7 +708,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
             point.placemark.description = timestamp
             point.style = style
 
-    def add_tracks_document(self, folder, subject):
+    def add_tracks_document(self, folder, subject, observations):
         document = folder.newdocument(
             name='{0}_tracks'.format(subject.name), visibility=1)
 
@@ -698,7 +719,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
         document.styles.append(style)
 
         self.last_obs = None
-        for obs in self.get_allowed_subject_observations(subject):
+        for obs in observations:
             if self.last_obs is not None:
                 line = document.newlinestring()
                 line.coords = (([self.last_obs['location'].x, self.last_obs['location'].y, 0], [
@@ -709,9 +730,12 @@ class KmlSubjectView(generics.RetrieveAPIView):
                 line.style = style
             self.last_obs = obs
 
-    def add_position_document(self, folder, subject):
-        last_obs = subject.observations().order_by('recorded_at').last()
-        timestamp = last_obs.recorded_at.strftime('%Y-%m-%d %H:%M')
+    def add_position_document(self, folder, subject, observations):
+
+        last_obs = sorted(
+            observations, key=lambda x: x['recorded_at'], reverse=True)[0]
+
+        timestamp = last_obs['recorded_at'].strftime('%Y-%m-%d %H:%M')
 
         color = self.get_subject_color(subject)
         document = folder.newdocument(
@@ -745,7 +769,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
         document.stylemaps.append(style_map)
 
         point = document.newpoint()
-        point.coords = [(last_obs.location.x, last_obs.location.y)]
+        point.coords = [(last_obs['location'].x, last_obs['location'].y)]
         point.timestamp.when = timestamp
         point.placemark.name = 'Last Position: {0}'.format(timestamp)
         point.placemark.snippet = simplekml.Snippet('')
@@ -767,6 +791,8 @@ class KmlSubjectView(generics.RetrieveAPIView):
                                       xunits=simplekml.Units.fraction,
                                       yunits=simplekml.Units.fraction)
         overlay.name = 'Logo'
+
+        # TODO: Serve our own image.
         overlay.icon.href = 'http://107.21.94.89/Images/Logos/STE_Logo.png'
 
     def get(self, request, *args, **kwargs):
@@ -778,9 +804,14 @@ class KmlSubjectView(generics.RetrieveAPIView):
         k.document._id = None
         k.document.visibility = 1
         self.add_overlay_to_folder(k.document)
-        self.add_points_document(k.document, subject)
-        self.add_tracks_document(k.document, subject)
-        self.add_position_document(k.document, subject)
+
+        observations = list(self.get_allowed_subject_observations(subject))
+
+        if len(observations) > 0:
+            self.add_points_document(k.document, subject, observations)
+            self.add_tracks_document(k.document, subject, observations)
+            self.add_position_document(k.document, subject, observations)
         filename = 'TrackingData{}'.format(
             datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
-        return render_to_kmz(k.kml(), filename)
+        kml_str = k.kml(format=False)
+        return render_to_kmz(kml_str, filename)

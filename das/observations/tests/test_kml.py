@@ -40,11 +40,18 @@ class ObservationTestCase(BaseAPITest):
 
         # Create three elephants in two different regions
         self.elephant_1 = Subject.objects.create_subject(id='d2ed403e-9419-41aa-8fa9-45a70e5ce2ed', name='Elephant 1',
-                                                         subject_type='Elephant', additional={'region': 'Region 1', 'country': 'USA', 'rgb': '220,30,30'})
-        self.elephant_2 = Subject.objects.create_subject(
-            id='c25e17d0-0337-4f0c-9274-25e5ae4da7c8', name='Elephant 2', subject_type='Elephant', additional={'region': 'Region 1', 'country': 'USA'})
-        self.elephant_3 = Subject.objects.create_subject(
-            id='a873e49c-1cb5-4ad4-b29d-e4b8931036ba', name='Elephant 3', subject_type='Elephant', additional={'region': 'Region 2', 'country': 'USA'})
+                                                         subject_type='wildlife',
+                                                         subject_subtype='elephant',
+                                                         additional={'region': 'Region 1', 'country': 'USA',
+                                                                     'rgb': '220,30,30'})
+        self.elephant_2 = Subject.objects.create_subject(id='c25e17d0-0337-4f0c-9274-25e5ae4da7c8', name='Elephant 2',
+                                                         subject_type='wildlife',
+                                                         subject_subtype='elephant',
+                                                         additional={'region': 'Region 1', 'country': 'USA'})
+        self.elephant_3 = Subject.objects.create_subject(id='a873e49c-1cb5-4ad4-b29d-e4b8931036ba', name='Elephant 3',
+                                                         subject_type='wildlife',
+                                                         subject_subtype='elephant',
+                                                         additional={'region': 'Region 2', 'country': 'USA'})
 
         # Put these elephants in a group so we can give permissions to see them
         self.group = SubjectGroup.objects.create(name='elephants')
@@ -138,8 +145,10 @@ class ObservationTestCase(BaseAPITest):
         target_xml = etree.XML(target_string.encode('utf-8'), parser=parser)
 
         if self.save_outputs:
-            self.save_kml(response_xml, 'all_subjects.kml')
-            self.save_kmz(response.data, 'all_subjects.kmz')
+            self.save_kml(response_xml, 'all_subjects.response.kml')
+            # self.save_kmz(response.data, 'all_subjects.response.kmz')
+
+            self.save_kml(target_xml, 'all_subjects.target.kml')
 
         self.assertTrue(self.elements_equal(response_xml, target_xml))
 
@@ -197,8 +206,9 @@ class ObservationTestCase(BaseAPITest):
             targets.single_subject_target.encode('utf-8'), parser=parser)
 
         if self.save_outputs:
-            self.save_kml(response_xml, 'authed_single_subject.kml')
-            self.save_kmz(response.data, 'authed_single_subject.kmz')
+            self.save_kml(response_xml, 'authed_single_subject.response.kml')
+            # self.save_kmz(response.data, 'authed_single_subject.kmz')
+            self.save_kml(target_xml, 'authed_single_subject.target.kml')
 
         self.assertTrue(self.elements_equal(response_xml, target_xml))
 
@@ -222,7 +232,8 @@ class ObservationTestCase(BaseAPITest):
         target_xml = etree.XML(target_string.encode('utf-8'), parser=parser)
 
         if self.save_outputs:
-            self.save_kml(response_xml, 'master_file.kml')
+            self.save_kml(response_xml, 'master_file.response.kml')
             self.save_kmz(response.data, 'master_file.kmz')
 
+            self.save_kml(target_xml, 'master_file.target.kml')
         self.assertTrue(self.elements_equal(response_xml, target_xml))
