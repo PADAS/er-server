@@ -39,9 +39,11 @@ The Shared Services team is now documenting their work here [Infrastcture Docs](
 
 The primary tool for managing concourse pipelines is found in the infrastructure docker image. The infrastructure docker image logs in using your Vulcan helium credentials and also will prompt to get a token from GCP. Your username is case sensitive.
 
+Include the port number for running the kubectl proxy as well (won't hurt)
+
 ''''
 cd /das
-./manage.padas-app.sh
+./manage.padas-app.sh 8001 
 ''''
 
 
@@ -394,6 +396,9 @@ From the VPT container run the following. The login id is vulcan
 ```
 
 #### Add SSL certificate as a Secret in Vault
+I didn't complete this as the bundle.crt has line feeds in it which were lost in transit, but this is still a good example of getting a secret all the way out to a container.
+
+
 `````
 /vulcan-platform-tools/tools-scripts/secrets/vault/write.secret.from.file.sh padas-app bundle-crt bundle.crt
 /vulcan-platform-tools/tools-scripts/secrets/vault/write.secret.from.file.sh padas-app pamdas-org-private-key-pem pamdas.org-private-key.pem 
@@ -502,26 +507,30 @@ fly -t padas-app destroy-pipeline -p {your-pipeline-name}
 ### Developing in a Dockerized Environment FAQ
 
 #### To get a management web view of the current cluster configuration
-Parameters for view.k8s.cluster.proxy are:
+previously when launching the VPT container, you had to specify the proxy port see ()
+
+Parameters for are:
 * Project
 * Cluster Name
-* Port (default is 8001)
 ~~~
-../infrastructure/resources/k8s/view.k8s.cluster.proxy.sh padas-app integration 8003
+./tools-scripts/k8s/run.kubectl.proxy.sh padas-app integration
 ~~~
+
+once done, navigate to http://localhost:8001/ui
+
 
 #### To remote into a pod running on an existing cluster
 Use the script manage.existing.cluster.sh. This also mounts the current directory in the docker container as /code
 * Project
 * Cluster Name
 ````
-../infrastructure/resources/k8s/manage.existing.cluster.sh padas-app integration
+./tools-scripts/k8s/manage.existing.cluster.sh padas-app integration
 ````
 
 #### To delete an existing cluster
 Use the script delete.gcp.cluster.sh
 ```
-../infrastructure/resources/k8s/delete.gcp.cluster.sh padas-app integration
+./tools-scripts/k8s/delete.gcp.cluster.sh padas-app integration
 ```
 
 __How do I remote into an image running on a GCP kubernetes cluster?__
