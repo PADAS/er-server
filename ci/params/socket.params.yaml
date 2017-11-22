@@ -1,7 +1,0 @@
-project-id: padas-app
-cluster-name: socket-test
-server-branch-name: feature/updatesocket
-web-branch-name: develop
-web-react-branch-name: develop
-tag-as-latest: false
-

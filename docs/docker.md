@@ -39,15 +39,17 @@ The Shared Services team is now documenting their work here [Infrastcture Docs](
 
 The primary tool for managing concourse pipelines is found in the infrastructure docker image. The infrastructure docker image logs in using your Vulcan helium credentials and also will prompt to get a token from GCP. Your username is case sensitive.
 
+Include the port number for running the kubectl proxy as well (won't hurt)
+
 ''''
 cd /das
-./manage.padas-app.sh
+./manage.padas-app.sh 8001 
 ''''
 
 
 ### Configuring Concourse
 
-Concourse lives here: [https://35.197.37.215](https://35\.197\.37\.215)
+Concourse lives here: [ci.pamdas.org](https://ci.pamdas.org)
 Concourse for VDP is here: [https://35.199.175.103](https://35.199.175.103)
 
 Concourse pipelines are configured by creating a set of resources, jobs, and gates\. A resource is a _thing_  like a file (local or hosted somewhere else), a git repository, or a docker container\. A job is an _action_  that takes one or more resources as input, performs an operation on them, and usually outputs a new resource\. Some examples of jobs are cloning or pulling a git repo, compiling code, running unit tests, and executing a script\. A gate is a _condition_  that must happen before a job is performed\. Most often this is "Did the unit tests pass?" or "Did the build/script/whatever complete successfully?"
@@ -387,17 +389,31 @@ We launch this container from the root of the das project using the shell script
 
 Once launched the container mounts the das directory under workdir. From there we can start running commands through shell scripts to create, update and delete pipelines.
 
+#### To get the Concourse password for your pipeline
+From the VPT container run the following. The login id is vulcan
+```
+./tools-scripts/ci/get.concourse.password.sh
+```
+
 #### Add SSL certificate as a Secret in Vault
+I didn't complete this as the bundle.crt has line feeds in it which were lost in transit, but this is still a good example of getting a secret all the way out to a container.
+
+
 `````
-vault write padas-app/main/bundle.crt value=@bundle.crt
-vault write padas-app/main/pamdas.org-private-key.pem value=@pamdas.org-private-key.pem 
+/vulcan-platform-tools/tools-scripts/secrets/vault/write.secret.from.file.sh padas-app bundle-crt bundle.crt
+/vulcan-platform-tools/tools-scripts/secrets/vault/write.secret.from.file.sh padas-app pamdas-org-private-key-pem pamdas.org-private-key.pem 
 `````
+verify the data was written:
+~~~
+vault read padas-app/main/bundle-crt
+~~~
+
 
 Next we update task: update-deployment-info in both deployment.pipeline.yaml and integration.pipeline.yaml to get our secrets to K8s
     add:
     ~~~
-    BUNDLE_CRT: ((bundle.crt))
-    PAMDAS_ORG_PRIVATE_KEY_PEM: ((pamdas.org-private-key.pem))
+    BUNDLE_CRT: ((bundle-crt))
+    PAMDAS_ORG_PRIVATE_KEY_PEM: ((pamdas-org-private-key-pem))
     ~~~
     
 Now add that env variable in default-configmap.yaml
@@ -414,7 +430,7 @@ Reference these in the nginx-deployment.yaml so the env variables are set to be 
             configMapKeyRef:
               name: default-configmap
               key: BUNDLE_CRT
-        - name: PAMDAS_ORG_PRIVATE_KEY_PEM
+        - name: PAMDAS_ORG_PRIVATE_KEY_PEM  
           valueFrom:
             configMapKeyRef:
               name: default-configmap
@@ -430,6 +446,15 @@ if [ -v $BUNDLE_CRT ]; then
     echo $BUNDLE_CRT > $SSL_PATH/bundle.crt
     echo $PAMDAS_ORG_PRIVATE_KEY_PEM > $SSL_PATH/pamdas.org-private-key.pem
 fi
+~~~
+
+Finally
+
+push the code to the repo, then update the build pipeline
+
+~~~
+git push origin develop
+ ./tools-scripts/ci/set.integration.pipeline.sh integration
 ~~~
 
 
@@ -482,26 +507,30 @@ fly -t padas-app destroy-pipeline -p {your-pipeline-name}
 ### Developing in a Dockerized Environment FAQ
 
 #### To get a management web view of the current cluster configuration
-Parameters for view.k8s.cluster.proxy are:
+previously when launching the VPT container, you had to specify the proxy port see ()
+
+Parameters for are:
 * Project
 * Cluster Name
-* Port (default is 8001)
 ~~~
-../infrastructure/resources/k8s/view.k8s.cluster.proxy.sh padas-app integration 8003
+./tools-scripts/k8s/run.kubectl.proxy.sh padas-app integration
 ~~~
+
+once done, navigate to http://localhost:8001/ui
+
 
 #### To remote into a pod running on an existing cluster
 Use the script manage.existing.cluster.sh. This also mounts the current directory in the docker container as /code
 * Project
 * Cluster Name
 ````
-../infrastructure/resources/k8s/manage.existing.cluster.sh padas-app integration
+./tools-scripts/k8s/manage.existing.cluster.sh padas-app integration
 ````
 
 #### To delete an existing cluster
 Use the script delete.gcp.cluster.sh
 ```
-../infrastructure/resources/k8s/delete.gcp.cluster.sh padas-app integration
+./tools-scripts/k8s/delete.gcp.cluster.sh padas-app integration
 ```
 
 __How do I remote into an image running on a GCP kubernetes cluster?__
