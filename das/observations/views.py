@@ -301,6 +301,9 @@ class SubjectTracksView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
     lookup_field = 'subject_id'
     serializer_class = serializers.TrackSerializer
+
+    # TODO: Fix this so it accounts for the authenticated user's view-window
+    # permissions.
     queryset = models.SubjectStatus.objects.filter(
         delay_hours=0).prefetch_related('subject')
 
