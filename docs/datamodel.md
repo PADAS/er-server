@@ -1,5 +1,10 @@
 # DAS Report Data Model
 ## DAS JSON SCHEMA reference list
+
+The fields are defined in the properties section below, the description of how to display
+the properties is annotated in the "definition" section. Specifically "htmlClass" specifies the layout to have two columns.
+The order of the fields displayed is also controlled in the definition section.
+
 ~~~~
 {
   "schema":
@@ -49,22 +54,39 @@
       }
   },
 "definition": [
-  "string_field",
-  "number_field",
   {
-  "key": "time_field",
-  "fieldHtmlClass": "date-time-picker json-schema",
-  "readonly": false
+      "key": "string_field",
+      "htmlClass": "col-lg-6"
   },
-  "table_field",
-  "enum_field",
-  "query_field",
+  {
+      "key": number_field",
+      "htmlClass": "col-lg-6"
+  },
+  {
+      "key": "time_field",
+      "fieldHtmlClass": "date-time-picker json-schema",
+      "readonly": false,
+      "htmlClass": "col-lg-6"
+  },
+  {
+       "key": "table_field",
+       "htmlClass": "col-lg-6"
+  },
+  {
+      "key": "enum_field",
+      "htmlClass": "col-lg-6"
+  },
+  {
+       "key": "query_field",
+       "htmlClass": "col-lg-6"
+  },
   {
             "key": "sectionArea",
             "type": "checkboxes",
             "title": "Planned Patrol Areas",
             "titleMap": {{table___sectionArea___map}},
-            "htmlClass": "json-schema-checkbox-wrapper"    
+            "htmlClass": "json-schema-checkbox-wrapper",
+            "htmlClass": "col-lg-6"
   }  
 ]
 }
