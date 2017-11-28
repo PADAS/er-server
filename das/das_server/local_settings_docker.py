@@ -25,7 +25,7 @@ TIME_ZONE = 'US/Pacific'
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 
-STATIC_URL = '/static/'
+STATIC_ROOT = '/var/www/static/'
 
 # add the path to your local copy of the das-web static root dir that contains index.html
 #STATICFILES_DIRS = STATICFILES_DIRS + (os.path.join(BASE_DIR, 'www'),)
@@ -57,3 +57,5 @@ EMAIL_PORT = 587
 NOTIFY_HIGH_PRIORITY_EVENT = 'high_priority_alerts'
 NOTIFY_MEDIUM_PRIORITY_EVENT = 'medium_priority_alerts'
 NOTIFY_LOW_PRIORITY_EVENT = 'low_priority_alerts'
+
+EXPORT_KML_ENABLED = True

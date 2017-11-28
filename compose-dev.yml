@@ -14,6 +14,7 @@ services:
       - ./docker/API/start.sh:/var/www/app/start.sh
     ports:
       - 5400:5400
+      - 9100:8000
 
   rt-api:
     volumes:
