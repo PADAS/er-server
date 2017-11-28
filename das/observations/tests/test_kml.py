@@ -6,8 +6,10 @@ import zipfile
 from core.tests import BaseAPITest
 from datetime import datetime
 from django.contrib.auth.models import Permission
-from django.test import TestCase
+from django.core.urlresolvers import reverse
 from lxml import etree
+
+from tempfile import NamedTemporaryFile
 
 from accounts.models import User, PermissionSet
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, Region, Observation
@@ -26,7 +28,7 @@ class ObservationTestCase(BaseAPITest):
 
     simplekml_default_ids = ('link', 'geom', 'feat', 'substyle', 'time')
 
-    save_outputs = False
+    save_outputs = True
 
     def setUp(self):
         super().setUp()
@@ -125,7 +127,8 @@ class ObservationTestCase(BaseAPITest):
             output.write(kmz_bytes)
 
     def test_export_all_subjects(self):
-        url = '/api/v1.0/subjects/kml'
+
+        url = reverse('subjects-kml-view')
 
         request = self.factory.get(self.api_base + url)
         self.force_authenticate(request, self.user)
@@ -145,15 +148,15 @@ class ObservationTestCase(BaseAPITest):
         target_xml = etree.XML(target_string.encode('utf-8'), parser=parser)
 
         if self.save_outputs:
-            self.save_kml(response_xml, 'all_subjects.response.kml')
-            self.save_kmz(response.data, 'all_subjects.response.kmz')
-            self.save_kml(target_xml, 'all_subjects.target.kml')
+            self.save_kml(response_xml, 'all_subjects.actual.kml')
+            self.save_kmz(response.data, 'all_subjects.actual.kmz')
+            self.save_kml(target_xml, 'all_subjects.expected.kml')
 
         self.assertTrue(self.elements_equal(response_xml, target_xml))
 
     def test_export_single_subject(self):
 
-        url = '/api/v1.0/subject/{0}/kml'.format(self.elephant_1.id)
+        url = reverse('subject-kml-view', kwargs=dict(id=self.elephant_1.id,))
 
         request = self.factory.get(self.api_base + url)
         self.force_authenticate(request, self.user)
@@ -172,14 +175,20 @@ class ObservationTestCase(BaseAPITest):
             targets.single_subject_target.encode('utf-8'), parser=parser)
 
         if self.save_outputs:
-            self.save_kml(response_xml, 'single_subject.kml')
-            self.save_kmz(response.data, 'single_subject.kmz')
+            self.save_kml(response_xml, 'single_subject.actual.kml')
+            self.save_kmz(response.data, 'single_subject.actual.kmz')
+            self.save_kml(target_xml, 'single_subject.expected.kml')
 
         self.assertTrue(self.elements_equal(response_xml, target_xml))
 
     def test_single_subject_authed_url(self):
-        url = '/api/v1.0/subject/{0}/kml?auth={1}'.format(
-            self.elephant_1.id, self.user.get_kml_access_token())
+
+        id_str = str(self.elephant_1.id)
+        url = '{}?auth={}'.format(reverse('subject-kml-view', kwargs=dict(id=id_str,)),
+                                  self.user.get_kml_access_token())
+
+        # url = '/api/v1.0/subject/{0}/kml?auth={1}'.format(
+        #     self.elephant_1.id, self.user.get_kml_access_token())
 
         request = self.factory.get(self.api_base + url)
         # Typically we'd force authenticate, but we're testing the workflow
@@ -205,14 +214,14 @@ class ObservationTestCase(BaseAPITest):
             targets.single_subject_target.encode('utf-8'), parser=parser)
 
         if self.save_outputs:
-            self.save_kml(response_xml, 'authed_single_subject.response.kml')
-            self.save_kmz(response.data, 'authed_single_subject.kmz')
-            self.save_kml(target_xml, 'authed_single_subject.target.kml')
+            self.save_kml(response_xml, 'authed_single_subject.actual.kml')
+            self.save_kmz(response.data, 'authed_single_subject.actual.kmz')
+            self.save_kml(target_xml, 'authed_single_subject.expected.kml')
 
         self.assertTrue(self.elements_equal(response_xml, target_xml))
 
     def test_master_link(self):
-        url = '/api/v1.0/subjects/kml'
+        url = reverse('subjects-kml-master-view')
 
         request = self.factory.get(self.api_base + url)
         self.force_authenticate(request, self.user)
@@ -231,8 +240,8 @@ class ObservationTestCase(BaseAPITest):
         target_xml = etree.XML(target_string.encode('utf-8'), parser=parser)
 
         if self.save_outputs:
-            self.save_kml(response_xml, 'master_file.response.kml')
-            self.save_kmz(response.data, 'master_file.kmz')
-            self.save_kml(target_xml, 'master_file.target.kml')
+            self.save_kml(response_xml, 'master_file.actual.kml')
+            self.save_kmz(response.data, 'master_file.actual.kmz')
+            self.save_kml(target_xml, 'master_file.expected.kml')
 
         self.assertTrue(self.elements_equal(response_xml, target_xml))
