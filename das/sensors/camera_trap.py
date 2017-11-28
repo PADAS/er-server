@@ -150,12 +150,17 @@ class CameraTrapSensorHandler:
         event_time = cls.get_time(params, exif_dict)
 
         event_details = cls.get_camera_trap_details(params, exif_dict)
-        event_data = dict(title=title, location=location,
-                          time=event_time,
+        event_data = dict(title=title,
                           event_type='cameratrap_rep',
                           event_details=event_details,
                           priority=get_priority(),
                           )
+
+        if location:
+            event_data['location'] = location
+
+        if event_time:
+            event_data['time'] = event_time
 
         eser = EventSerializer(data=event_data, context={'request': request})
         if not eser.is_valid():

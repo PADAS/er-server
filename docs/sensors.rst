@@ -31,7 +31,7 @@ Camera Trap API
 
    :reqheader Authorization: Bearer <auth token>
    :reqheader Accept: application/json
-   :reqheader Content-Type: application/octet-stream
+   :reqheader Content-Type: multipart/form-data
 
    :form filecontent.file: <image> <filename>
 
