@@ -211,8 +211,7 @@ class Source(TimestampedModel):
         return '%s:%s' % (self.manufacturer_id, self.model_name)
 
     def observations(self):
-        queryset = Observation.objects.filter(
-            source=self,).order_by('-recorded_at')
+        queryset = Observation.objects.filter(source=self)
         return queryset
 
 
@@ -221,55 +220,32 @@ EMPTY_POINT = Point(0, 0)
 
 class ObservationManager(models.GeoManager):
 
-    def get_subject_observations(self, subject, since=None, until=None):
+    def get_subject_observations(self, subject, since=None, until=None, limit=None, values=None):
         queryset = Observation.objects.filter(source__subjectsource__subject=subject,
                                               source__subjectsource__assigned_range__contains=F(
                                                   'recorded_at'),
                                               exclusion_flags=0)
 
-        if since:
+        if since and until:
+            queryset = queryset.filter(Q(recorded_at__range=(since, until)))
+        elif since:
             queryset = queryset.filter(Q(recorded_at__gt=since))
-        if until:
+        elif until:
             queryset = queryset.filter(Q(recorded_at__lte=until))
 
         queryset = queryset.exclude(location=EMPTY_POINT)
-        queryset = queryset.order_by('-recorded_at')
-        return queryset
-
-    def get_subject_observation_values(self, subject, since=None, until=None, limit=None):
-        """
-        Generate a list of observations for the given subject.
-        """
-
-        result = self.get_subject_observations(
-            subject, since=since, until=until)
-
-        if limit:
-            result = result[:limit]
-
-        for observation in result.values('location', 'recorded_at'):
-            yield observation
-
-    def get_subject_source_observation_values(self, subject_source, since=None, until=None, limit=None):
-
-        queryset = Observation.objects.filter(source__subjectsource=subject_source,
-                                              source__subjectsource__assigned_range__contains=F(
-                                                  'recorded_at'),
-                                              exclusion_flags=0)
-
-        if since:
-            queryset = queryset.filter(Q(recorded_at__gt=since))
-        if until:
-            queryset = queryset.filter(Q(recorded_at__lte=until))
-
-        queryset = queryset.exclude(location=EMPTY_POINT)
-        queryset = queryset.order_by('-recorded_at')
 
         if limit:
             queryset = queryset[:limit]
 
-        for observation in queryset.values('location', 'recorded_at'):
-            yield observation
+        if values:
+            queryset = queryset.values(*values)
+
+        return queryset
+
+    def get_subject_observations_values(self, subject, since=None, until=None, limit=None,
+                                        values=('recorded_at', 'location')):
+        return self.get_subject_observations(subject, since=since, until=until, limit=limit, values=values)
 
     def set_flag(self, id_list, flags):
         '''Hide the nuances of manipulating a bitmap associated with an observation.'''
@@ -412,6 +388,7 @@ class Observation(models.Model):
         unique_together = (
             ['source', 'recorded_at']
         )
+        ordering = ['-recorded_at']
 
 
 DEFAULT_ASSIGNED_RANGE = list((pytz.utc.localize(datetime.min),
@@ -1038,6 +1015,10 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
         verbose_name = _('Subject Status')
         verbose_name_plural = _('Subject Statuses')
         unique_together = ('subject', 'delay_hours')
+
+    @property
+    def groups(self):
+        return self.subject.groups
 
 
 class RegionManager(models.Manager):
