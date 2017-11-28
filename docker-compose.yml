@@ -25,6 +25,7 @@ services:
       - redis
     volumes:
       - user-uploads:/user-uploads
+      - www-static:/var/www/static
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v1.0/status']
       interval: 30s
@@ -62,6 +63,7 @@ services:
       - rt-api
     volumes:
       - user-uploads:/user-uploads
+      - www-static:/var/www/static
 
   beat:
     image: gcr.io/padas-app/beat
@@ -87,3 +89,4 @@ volumes:
   pgdata:
   notebooks:
   user-uploads:
+  www-static:

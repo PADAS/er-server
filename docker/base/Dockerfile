@@ -25,7 +25,7 @@ ENV LD_LIBRARY_PATH "/usr/local/lib"
 RUN pip3 install -U "pip"
 RUN pip3 install numpy
 RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt --no-cache-dir -f /workspace/dependencies/wheelhouse
-RUN pip3 install django-debug-toolbar
+#RUN pip3 install django-debug-toolbar
 
 RUN mkdir -p /var/www/app && mkdir -p /startup
 ADD ./docker/base/start.sh /var/www/app/start.sh

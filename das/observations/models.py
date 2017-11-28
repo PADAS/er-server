@@ -220,7 +220,7 @@ EMPTY_POINT = Point(0, 0)
 
 class ObservationManager(models.GeoManager):
 
-    def get_subject_observations(self, subject, since=None, until=None):
+    def get_subject_observations(self, subject, since=None, until=None, limit=None, values=None):
         queryset = Observation.objects.filter(source__subjectsource__subject=subject,
                                               source__subjectsource__assigned_range__contains=F(
                                                   'recorded_at'),
@@ -234,8 +234,18 @@ class ObservationManager(models.GeoManager):
             queryset = queryset.filter(Q(recorded_at__lte=until))
 
         queryset = queryset.exclude(location=EMPTY_POINT)
-        # queryset = queryset.order_by('-recorded_at')
+
+        if limit:
+            queryset = queryset[:limit]
+
+        if values:
+            queryset = queryset.values(*values)
+
         return queryset
+
+    def get_subject_observations_values(self, subject, since=None, until=None, limit=None,
+                                        values=('recorded_at', 'location')):
+        return self.get_subject_observations(subject, since=since, until=until, limit=limit, values=values)
 
     def set_flag(self, id_list, flags):
         '''Hide the nuances of manipulating a bitmap associated with an observation.'''

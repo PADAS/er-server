@@ -3,24 +3,17 @@ import datetime
 import zipfile
 import dateutil.parser
 import pytz
-import sys
 from io import BytesIO
 
 from django.conf import settings
-from django.utils.translation import ugettext_lazy as _
-from django.http import Http404
 from django.core.urlresolvers import reverse
 from django.db.models import Prefetch
-from django.contrib.auth import get_user_model
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
-from rest_framework.filters import DjangoObjectPermissionsFilter
 from django.http import Http404
 from rest_framework import status
-from shapely.geometry import Point, LineString
 import simplekml
 
 import utils
@@ -399,8 +392,8 @@ class SubjectTracksView(generics.RetrieveAPIView):
         coordinates = []
         times = []
 
-        qs = models.Observation.objects.get_subject_observations(
-            subject, since=begin, until=until)[:limit].values('location', 'recorded_at')
+        qs = models.Observation.objects.get_subject_observations_values(subject,
+                                                                        since=begin, until=until, limit=limit)
 
         # for ob in qs:
         #     coordinates.append(ob['location'].coords)
@@ -543,7 +536,6 @@ def render_to_kmz(kml_str, filename):
 
 
 class KmlMasterSubjectsView(generics.GenericAPIView):
-    permission_classes = (IsAuthenticated,)
     renderer_classes = (StaticHTMLRenderer,)
 
     def build_link_for_user(self):
@@ -686,8 +678,8 @@ class KmlSubjectView(generics.RetrieveAPIView):
         begin = now - datetime.timedelta(days=oldest_age)
         until = now - datetime.timedelta(days=newest_age)
 
-        return models.Observation.objects.get_subject_observations(
-            subject, since=begin, until=until).values('location', 'recorded_at')
+        return models.Observation.objects.get_subject_observations_values(
+            subject, since=begin, until=until)
 
     def add_points_document(self, folder, subject, observations):
         document = folder.newdocument(

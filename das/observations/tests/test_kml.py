@@ -26,7 +26,7 @@ class ObservationTestCase(BaseAPITest):
 
     simplekml_default_ids = ('link', 'geom', 'feat', 'substyle', 'time')
 
-    save_outputs = True
+    save_outputs = False
 
     def setUp(self):
         super().setUp()
@@ -146,8 +146,7 @@ class ObservationTestCase(BaseAPITest):
 
         if self.save_outputs:
             self.save_kml(response_xml, 'all_subjects.response.kml')
-            # self.save_kmz(response.data, 'all_subjects.response.kmz')
-
+            self.save_kmz(response.data, 'all_subjects.response.kmz')
             self.save_kml(target_xml, 'all_subjects.target.kml')
 
         self.assertTrue(self.elements_equal(response_xml, target_xml))
@@ -207,7 +206,7 @@ class ObservationTestCase(BaseAPITest):
 
         if self.save_outputs:
             self.save_kml(response_xml, 'authed_single_subject.response.kml')
-            # self.save_kmz(response.data, 'authed_single_subject.kmz')
+            self.save_kmz(response.data, 'authed_single_subject.kmz')
             self.save_kml(target_xml, 'authed_single_subject.target.kml')
 
         self.assertTrue(self.elements_equal(response_xml, target_xml))
@@ -234,6 +233,6 @@ class ObservationTestCase(BaseAPITest):
         if self.save_outputs:
             self.save_kml(response_xml, 'master_file.response.kml')
             self.save_kmz(response.data, 'master_file.kmz')
-
             self.save_kml(target_xml, 'master_file.target.kml')
+
         self.assertTrue(self.elements_equal(response_xml, target_xml))

@@ -1,0 +1,167 @@
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+  <Folder id="None">
+    <name>Elephant 1</name>
+    <visibility>1</visibility>
+    <ScreenOverlay id="feat_26">
+      <name>Logo</name>
+      <Icon id="link_8">
+        <href>http://107.21.94.89/Images/Logos/STE_Logo.png</href>
+      </Icon>
+      <overlayXY x="0" y="0" xunits="fraction" yunits="fraction"/>
+      <screenXY x="0" y="0" xunits="fraction" yunits="fraction"/>
+      <rotationXY x="0" y="0" xunits="fraction" yunits="fraction"/>
+      <size x="0" y="0" xunits="fraction" yunits="fraction"/>
+    </ScreenOverlay>
+    <Document id="feat_27">
+      <Style id="Elephant_1_Pointstyle">
+        <IconStyle id="substyle_7">
+          <color>ffdc1e1e</color>
+          <colorMode>normal</colorMode>
+          <scale>0.7</scale>
+          <heading>0</heading>
+          <Icon id="link_9">
+            <href>http://testserver/static/elephant-black-male.svg</href>
+          </Icon>
+        </IconStyle>
+        <LabelStyle id="substyle_8">
+          <colorMode>normal</colorMode>
+          <scale>0</scale>
+        </LabelStyle>
+      </Style>
+      <name>Elephant 1_points</name>
+      <visibility>1</visibility>
+      <Placemark id="feat_28">
+        <name/>
+        <description>2017-10-20 17:22</description>
+        <Snippet>2017-10-20 17:22</Snippet>
+        <TimeStamp id="time_4">
+          <when>2017-10-20 17:22</when>
+        </TimeStamp>
+        <styleUrl>#Elephant_1_Pointstyle</styleUrl>
+        <Point id="geom_6">
+          <coordinates>2.0,2.0,0.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark id="feat_29">
+        <name/>
+        <description>2017-10-20 17:22</description>
+        <Snippet>2017-10-20 17:22</Snippet>
+        <TimeStamp id="time_5">
+          <when>2017-10-20 17:22</when>
+        </TimeStamp>
+        <styleUrl>#Elephant_1_Pointstyle</styleUrl>
+        <Point id="geom_7">
+          <coordinates>2.0,1.0,0.0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark id="feat_30">
+        <name/>
+        <description>2017-10-20 17:22</description>
+        <Snippet>2017-10-20 17:22</Snippet>
+        <TimeStamp id="time_6">
+          <when>2017-10-20 17:22</when>
+        </TimeStamp>
+        <styleUrl>#Elephant_1_Pointstyle</styleUrl>
+        <Point id="geom_8">
+          <coordinates>1.0,1.0,0.0</coordinates>
+        </Point>
+      </Placemark>
+    </Document>
+    <Document id="feat_31">
+      <Style id="Elephant_1_Linestyle">
+        <LineStyle id="substyle_9">
+          <color>ffdc1e1e</color>
+          <colorMode>normal</colorMode>
+          <width>0.4</width>
+        </LineStyle>
+      </Style>
+      <name>Elephant 1_tracks</name>
+      <visibility>1</visibility>
+      <Placemark id="feat_32">
+        <name/>
+        <styleUrl>#Elephant_1_Linestyle</styleUrl>
+        <LineString id="geom_9">
+          <coordinates>2.0,2.0,0 2.0,1.0,0</coordinates>
+          <extrude>0</extrude>
+          <tessellate>1</tessellate>
+        </LineString>
+      </Placemark>
+      <Placemark id="feat_33">
+        <name/>
+        <styleUrl>#Elephant_1_Linestyle</styleUrl>
+        <LineString id="geom_10">
+          <coordinates>2.0,1.0,0 1.0,1.0,0</coordinates>
+          <extrude>0</extrude>
+          <tessellate>1</tessellate>
+        </LineString>
+      </Placemark>
+    </Document>
+    <Document id="feat_34">
+      <Style id="sh_Elephant_1_Finalmarkerstyle">
+        <IconStyle id="substyle_10">
+          <color>ffdc1e1e</color>
+          <colorMode>normal</colorMode>
+          <scale>0.7</scale>
+          <heading>0</heading>
+          <Icon id="link_10">
+            <href>http://testserver/static/elephant-black-male.svg</href>
+          </Icon>
+        </IconStyle>
+        <LabelStyle id="substyle_11">
+          <color>ffdc1e1e</color>
+          <colorMode>normal</colorMode>
+          <scale>1</scale>
+        </LabelStyle>
+        <BalloonStyle>
+          <bgColor>ffdc1e1e</bgColor>
+          <text>$[description</text>
+          <displayMode>default</displayMode>
+        </BalloonStyle>
+      </Style>
+      <Style id="sn_Elephant_1_Finalmarkerstyle">
+        <IconStyle id="substyle_12">
+          <color>ffdc1e1e</color>
+          <colorMode>normal</colorMode>
+          <scale>0.7</scale>
+          <heading>0</heading>
+          <Icon id="link_11">
+            <href>http://testserver/static/elephant-black-male.svg</href>
+          </Icon>
+        </IconStyle>
+        <LabelStyle id="substyle_13">
+          <colorMode>normal</colorMode>
+          <scale>0</scale>
+        </LabelStyle>
+        <BalloonStyle>
+          <bgColor>ffdc1e1e</bgColor>
+          <text>$[description</text>
+          <displayMode>default</displayMode>
+        </BalloonStyle>
+      </Style>
+      <StyleMap id="msn_Elephant_1_Finalmarkerstyle">
+        <Pair>
+          <key>normal</key>
+          <styleUrl>#sn_Elephant_1_Finalmarkerstyle</styleUrl>
+        </Pair>
+        <Pair>
+          <key>highlight</key>
+          <styleUrl>#sh_Elephant_1_Finalmarkerstyle</styleUrl>
+        </Pair>
+      </StyleMap>
+      <name>Elephant 1' Last Position</name>
+      <visibility>1</visibility>
+      <Placemark id="feat_35">
+        <name>Last Position: 2017-10-20 17:22</name>
+        <description>2017-10-20 17:22</description>
+        <Snippet/>
+        <TimeStamp id="time_7">
+          <when>2017-10-20 17:22</when>
+        </TimeStamp>
+        <styleUrl>#msn_Elephant_1_Finalmarkerstyle</styleUrl>
+        <Point id="geom_11">
+          <coordinates>2.0,2.0,0.0</coordinates>
+        </Point>
+      </Placemark>
+    </Document>
+  </Folder>
+</kml>
