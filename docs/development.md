@@ -261,3 +261,24 @@ New features, no major breaking changes
 Micro Change 1\.2\.1 to 1\.2\.2
 
 Bug fixes, very small features
+
+
+### Issues and Issue tracking
+The DAS team uses Jira for both Issue tracking and sprint planning. Go here once you get a login to jira (DAS Issue Tracker)[https://vulcan.atlassian.net/projects/DAS/issues?filter=allopenissues]
+
+#### DAS Priority and Severity
+The following are the priority and severity guidelines. 
+
+Priority | Description
+:--- | ---
+P0 | Fix/Hotfix immediately	Sprint cannot exit
+P1 | Fix within current Sprint	Sprint cannot exit
+P2 | Fix in Next Sprint	Sprint can exit
+P3 | Sprint When Time Available	Sprint can exit
+
+Severity | Description
+--- | ---
+S0 | Critical - Crash, Data Loss, Security, Privacy
+S1 | High - Major functionality not working as expected
+S2 | Medium - Minor functionality not working as expected
+S3 | Minor - aesthetic
