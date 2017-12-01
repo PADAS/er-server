@@ -28,7 +28,7 @@ class ObservationTestCase(BaseAPITest):
 
     simplekml_default_ids = ('link', 'geom', 'feat', 'substyle', 'time')
 
-    save_outputs = True
+    save_outputs = False
 
     def setUp(self):
         super().setUp()
