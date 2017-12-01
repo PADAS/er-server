@@ -162,7 +162,8 @@ class UserAdmin(DjangoUserAdmin):
                     'all_permission_sets', 'is_email_alert', 'is_sms_alert')
     list_editable = ('is_email_alert', 'is_sms_alert')
     list_display_links = ('display_name', )
-    list_filter = ('is_staff', 'permission_sets')
+    list_filter = ('is_staff', 'is_email_alert',
+                   'is_sms_alert', 'permission_sets')
     filter_horizontal = ('permission_sets',)
 
     add_form = CustomUserCreationForm
