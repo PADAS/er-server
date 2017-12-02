@@ -349,6 +349,7 @@ DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
 EMAIL_HOST_USER = 'info@pamdas.org'
 
 SENDSMS_BACKEND = 'utils.smsbackend.AfricasTalkingBackend'
+SENDSMS_FROM = None
 
 # use these when you want to send SMS from kenya
 SENDSMS_AFRICAS_TALKING_USERNAME = ''
