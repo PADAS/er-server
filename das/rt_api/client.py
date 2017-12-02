@@ -104,10 +104,19 @@ def is_client(sid):
 
 
 def remove_client(sid):
-    sid = str(sid)
-    logger.info('Removing client for sid: %s', sid)
-    redis_client.hdel(CLIENT_LIST_KEY, sid)
+    remove_clients(sid)
+
+
+def remove_clients(*sids):
+
+    if not sids:
+        return
+
+    sids = set((str(sid) for sid in sids))
+    logger.info('Removing clients for sids: %s', sids)
+    redis_client.hdel(CLIENT_LIST_KEY, *sids)
     try:
-        SocketClient.objects.filter(id=sid).delete()
+        SocketClient.objects.filter(id__in=sids).delete()
+        logger.info('Removed clients for sids: %s', sids)
     except ValueError:
-        logger.exception('Invalid sid deleting SocketClient record: %s', sid)
+        logger.exception('Failed to remove SocketClient for sids: %s', sids)

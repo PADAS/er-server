@@ -22,31 +22,31 @@ GLOBAL_SIO = None
 
 def create_rt_socketio():
     global GLOBAL_SIO
-    if GLOBAL_SIO:
-        return GLOBAL_SIO
+    if GLOBAL_SIO is None:
 
-    client_mgr = KombuManager(url=settings.REALTIME_BROKER_URL,
-                              transport_options=settings.REALTIME_BROKER_OPTIONS
-                              )
-    server_options = dict(async_mode=settings.ASYNC_MODE)
-    server_options['cors_credentials'] = \
-        getattr(settings, 'CORS_ALLOW_CREDENTIALS', False)
+        client_mgr = KombuManager(url=settings.REALTIME_BROKER_URL,
+                                  transport_options=settings.REALTIME_BROKER_OPTIONS
+                                  )
+        server_options = dict(async_mode=settings.ASYNC_MODE)
+        server_options['cors_credentials'] = \
+            getattr(settings, 'CORS_ALLOW_CREDENTIALS', False)
 
-    if not getattr(settings, 'CORS_ORIGIN_ALLOW_ALL', False):
-        server_options['cors_allowed_origins'] = \
-            getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
+        if not getattr(settings, 'CORS_ORIGIN_ALLOW_ALL', False):
+            server_options['cors_allowed_origins'] = \
+                getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
 
-    sio = Server(client_manager=client_mgr,
-                 json=utils.json,
-                 logger=logger,
-                 engineio_logger=logger,
-                 async_handlers=False,
-                 **server_options)
+        sio = Server(client_manager=client_mgr,
+                     json=utils.json,
+                     logger=logger,
+                     engineio_logger=logger,
+                     async_handlers=False,
+                     **server_options)
 
-    realtime_services = create_realtime_handler(sio)
-    rt_api.pubsub_listener.start(realtime_services)
-    GLOBAL_SIO = sio
-    return sio
+        realtime_services = create_realtime_handler(sio)
+        rt_api.pubsub_listener.start(realtime_services)
+        GLOBAL_SIO = sio
+
+    return GLOBAL_SIO
 
 
 def create_realtime_handler(sios):
@@ -82,9 +82,12 @@ def create_realtime_handler(sios):
 
         @sios.on('disconnect')
         def on_disconnect(sid, *args):
-            extra = dict(sid=sid)
-            logger.info('Client disconnect %s', sid, extra=extra)
-            client.remove_client(sid)
+            try:
+                extra = dict(sid=sid)
+                logger.info('Client disconnect %s', sid, extra=extra)
+                client.remove_client(sid)
+            finally:
+                close_old_connections()
 
         @sios.on('authorization', namespace='/das')
         def on_authenticate(sid, data):
@@ -246,6 +249,8 @@ def create_realtime_handler(sios):
                 if user:
                     client.remove_client(user)
                 logger.exception("Error emitting event over socket")
+            finally:
+                close_old_connections()
 
         @staticmethod
         def send_realtime_message(message_data):
@@ -268,14 +273,20 @@ def create_realtime_handler(sios):
             """
             if not sios.environ:
                 return
-            environ = [sid for sid in sios.environ]
-            clients = list(client.get_client_list())
-            for c in clients:
-                if c.sid not in environ:
+
+            try:
+                environ = [sid for sid in sios.environ]
+                remove_these_clients = set(
+                    (c for c in client.get_client_list() if c.sid not in environ))
+                for c in remove_these_clients:
                     extra = dict(sid=c.sid, username=c.username)
                     logger.info('Cleaning up disconnected user: %s', c.username,
                                 extra=extra)
-                    client.remove_client(c.sid)
+
+                client.remove_clients(
+                    *[client.sid for client in remove_these_clients])
+            finally:
+                close_old_connections()
 
     return RealtimeServices
 
