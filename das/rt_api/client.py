@@ -108,7 +108,11 @@ def remove_client(sid):
 
 
 def remove_clients(*sids):
-
+    '''
+    Handle a list of sids to delete them from both the database and cache.
+    :param sids:
+    :return:
+    '''
     if not sids:
         return
 
@@ -117,6 +121,5 @@ def remove_clients(*sids):
     redis_client.hdel(CLIENT_LIST_KEY, *sids)
     try:
         SocketClient.objects.filter(id__in=sids).delete()
-        logger.info('Removed clients for sids: %s', sids)
     except ValueError:
-        logger.exception('Failed to remove SocketClient for sids: %s', sids)
+        logger.exception('Failed to remove SocketClients for sids: %s', sids)
