@@ -7,7 +7,7 @@ from django.conf import settings
 from socketio.kombu_manager import KombuManager
 from socketio.server import Server
 from django.contrib.auth import authenticate
-from django.db import close_old_connections, connection
+from django.db import close_old_connections
 
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from rt_api import client
@@ -20,33 +20,59 @@ logger = logging.getLogger('rt_api')
 GLOBAL_SIO = None
 
 
+class DasSocketServer(Server):
+    '''
+    Extend Server, to implement _trigger_event.
+
+    TODO: It will be better to create class-based namespaces, which formally allow hooking
+    into trigger_event.
+    '''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _trigger_event(self, event, namespace, *args):
+
+        try:
+            super()._trigger_event(event, namespace, *args)
+        finally:
+            close_old_connections()
+
+
 def create_rt_socketio():
     global GLOBAL_SIO
-    if GLOBAL_SIO:
-        return GLOBAL_SIO
+    if GLOBAL_SIO is None:
 
-    client_mgr = KombuManager(url=settings.REALTIME_BROKER_URL,
-                              transport_options=settings.REALTIME_BROKER_OPTIONS
-                              )
-    server_options = dict(async_mode=settings.ASYNC_MODE)
-    server_options['cors_credentials'] = \
-        getattr(settings, 'CORS_ALLOW_CREDENTIALS', False)
+        client_mgr = KombuManager(url=settings.REALTIME_BROKER_URL,
+                                  transport_options=settings.REALTIME_BROKER_OPTIONS
+                                  )
+        server_options = dict(async_mode=settings.ASYNC_MODE)
+        server_options['cors_credentials'] = \
+            getattr(settings, 'CORS_ALLOW_CREDENTIALS', False)
 
-    if not getattr(settings, 'CORS_ORIGIN_ALLOW_ALL', False):
-        server_options['cors_allowed_origins'] = \
-            getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
+        if not getattr(settings, 'CORS_ORIGIN_ALLOW_ALL', False):
+            server_options['cors_allowed_origins'] = \
+                getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
 
-    sio = Server(client_manager=client_mgr,
-                 json=utils.json,
-                 logger=logger,
-                 engineio_logger=logger,
-                 async_handlers=False,
-                 **server_options)
+        sio = DasSocketServer(client_manager=client_mgr,
+                              json=utils.json,
+                              logger=logger,
+                              engineio_logger=logger,
+                              async_handlers=False,
+                              **server_options)
 
-    realtime_services = create_realtime_handler(sio)
-    rt_api.pubsub_listener.start(realtime_services)
-    GLOBAL_SIO = sio
-    return sio
+        realtime_services = create_realtime_handler(sio)
+        rt_api.pubsub_listener.start(realtime_services)
+        GLOBAL_SIO = sio
+
+    return GLOBAL_SIO
+
+
+def validate_event_filter(ef):
+    if not isinstance(ef.get('text', ''), (str, bytes)):
+        raise ValueError(
+            'Event filter is invalid. value=%s', str(ef))
+    return ef
 
 
 def create_realtime_handler(sios):
@@ -98,9 +124,6 @@ def create_realtime_handler(sios):
                                               'message': 'Required fields: "type", "authorization", "id"'}},
                                   room=str(sid),
                                   namespace='/das')
-
-                        logger.debug(
-                            'Inside on_authenticate, disconnecting. params=%s', data)
                         sios.disconnect(sid)
 
                 # To authenticate the token, we need to create a fake http
@@ -143,7 +166,6 @@ def create_realtime_handler(sios):
                                'status': {'code': 401, 'message': 'Invalid credentials'}},
                               room=str(sid),
                               namespace='/das')
-                    # sios.disconnect(sid)
 
             except:
                 sios.emit('resp_authorization',
@@ -154,20 +176,16 @@ def create_realtime_handler(sios):
                           namespace='/das')
                 logger.exception('Disconnecting session. data=%s', data)
                 sios.disconnect(sid)
-            finally:
-                close_old_connections()
 
         @sios.on('bbox', namespace='/das')
         def on_bbox(sid, data):
             extra = dict(sid=sid, data=data)
-            logger.info('on_bbox(data=%s)', data, extra=extra)
             bbox = data['data']
             if bbox:
                 bbox = bbox.split(',')
                 bbox = [float(v) for v in bbox]
                 if len(bbox) != 4:
                     raise ValueError("invalid bbox param")
-            logger.debug('RT socket set_bbox set= %s', bbox)
 
             bbox = client.Bbox(*bbox)
             client.update_client(sid, bbox=bbox)
@@ -187,12 +205,6 @@ def create_realtime_handler(sios):
             :param event_filter: Event filter (Ex. {'text': 'arrest'}) can also be an empty dict.
             :return: None
             """
-            def validate_event_filter(ef):
-                if not isinstance(ef.get('text', ''), (str, bytes)):
-                    raise ValueError(
-                        'Event filter is invalid. value=%s', str(ef))
-                return ef
-
             try:
                 event_filter = validate_event_filter(event_filter)
                 client.update_client(sid, event_filter=event_filter)
@@ -268,14 +280,17 @@ def create_realtime_handler(sios):
             """
             if not sios.environ:
                 return
+
             environ = [sid for sid in sios.environ]
-            clients = list(client.get_client_list())
-            for c in clients:
-                if c.sid not in environ:
-                    extra = dict(sid=c.sid, username=c.username)
-                    logger.info('Cleaning up disconnected user: %s', c.username,
-                                extra=extra)
-                    client.remove_client(c.sid)
+            remove_these_clients = set(
+                (c for c in client.get_client_list() if c.sid not in environ))
+            for c in remove_these_clients:
+                extra = dict(sid=c.sid, username=c.username)
+                logger.info('Cleaning up disconnected user: %s', c.username,
+                            extra=extra)
+
+            client.remove_clients(
+                *[client.sid for client in remove_these_clients])
 
     return RealtimeServices
 

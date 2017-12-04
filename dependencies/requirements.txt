@@ -47,8 +47,8 @@ earthengine-api==0.1.114  # via pymet
 enum-compat==0.0.2        # via eventlet
 et-xmlfile==1.0.1         # via openpyxl
 eventlet==0.20.1
-fiona==1.7.9              # via geopandas, pymet, rasterstats
-gdal==2.2.2               # via pymet
+fiona==1.7.9
+gdal==2.2.2
 geographiclib==1.48       # via pymet
 geojson==2.3.0
 geopandas==0.3.0
@@ -90,7 +90,7 @@ pyproj==1.9.5.1
 pysocks==1.6.7            # via twilio
 python-dateutil==2.6.0
 python-docx==0.8.6
-python-engineio==1.7.0
+python-engineio==2.0.1
 python-json-logger==0.1.7
 pytz==2016.10
 pyyaml==3.12

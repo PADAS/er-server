@@ -98,7 +98,7 @@ pyproj==1.9.5.1
 pysocks==1.6.7
 python-dateutil==2.6.0
 python-docx==0.8.6
-python-engineio==1.7.0
+python-engineio==2.0.1
 python-json-logger==0.1.7
 pytz==2016.10
 pyyaml==3.12

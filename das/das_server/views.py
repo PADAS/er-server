@@ -1,11 +1,13 @@
 from django.shortcuts import render_to_response
 from django.conf import settings
+from django.db import connection
 from django.template import RequestContext
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 import rest_framework.serializers
 
 from das_server import __version__
+from utils.json import parse_bool
 
 
 def index(request):
@@ -20,6 +22,7 @@ class VersionSerializer(rest_framework.serializers.Serializer):
         read_only=True)
     export_kml_enabled = rest_framework.serializers.BooleanField(
         read_only=True)
+    db_connection_count = rest_framework.serializers.IntegerField(read_only=True)
 
 
 class StatusView(generics.RetrieveAPIView):
@@ -38,4 +41,13 @@ class StatusView(generics.RetrieveAPIView):
         resp['export_kml_enabled'] = settings.EXPORT_KML_ENABLED
 
         resp['event_search_enabled'] = True
+
+        if parse_bool(self.request.query_params.get('db_connections')):
+            resp['db_connection_count'] = self.get_used_db_connections()
         return resp
+
+    def get_used_db_connections(self):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM pg_stat_activity;")
+            row = cursor.fetchone()
+            return row[0]
