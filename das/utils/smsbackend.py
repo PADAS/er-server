@@ -57,6 +57,8 @@ class AfricasTalkingBackend(BaseSmsBackend):
                                   'Apikey': self.apikey,
                                   'to': str(to),
                                   'message': str(message.body)}
+                    if settings.SENDSMS_FROM:
+                        parameters['from'] = settings.SMS_FROM
 
                     response = requests.get(self.sms_url, params=parameters)
                     if not response.ok:
