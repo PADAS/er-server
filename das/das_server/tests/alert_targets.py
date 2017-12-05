@@ -72,6 +72,7 @@ Priority: Green
   - Reported By: mr_das
 
 
+
  - Contained Reports:
 
     - DAS {child_serial}: {child_title}
@@ -90,6 +91,7 @@ Priority: Green
   * Title: {parent_title}
   - Notes: 
   - Reported By: mr_das
+
 
 
  - Contained Reports:
@@ -112,6 +114,7 @@ Priority: Green
   - Reported By: mr_das
 
 
+
  - Contained Reports:
 
     - DAS {child_serial}: {child_title}
@@ -121,3 +124,35 @@ Priority: Green
        * Title: {child_title}
        - Notes: 
        - Reported By: mr_das'''
+
+standalone_deep_link = '''DAS {serial}: {title}
+Priority: Green
+
+  - Created On: {time}
+  - Report Type: Other
+  - Title: {title}
+  - Notes: 
+  - Reported By: mr_das
+  - Subject Link: steta%3A//%3Fevent%3DOther%26name%3DRanger%20One%26sys%3Ddas%26t%3D2017-59-05T21%3A59%3A35%26lat%3D40.1353%26lon%3D-1.891517'''
+
+nested_deep_link = '''DAS {parent_serial}: {parent_title}
+Priority: Green
+
+  - Created On: {parent_time}
+  * Report Type: Incident Collection
+  * Title: {parent_title}
+  - Notes: 
+  - Reported By: mr_das
+
+
+
+ - Contained Reports:
+
+    - DAS {child_serial}: {child_title}
+    - Priority: Green
+       - Created On: {child_time}
+       - Report Type: Other
+       - Title: {child_title}
+       - Notes: 
+       - Reported By: mr_das
+       - Subject Link: steta%3A//%3Fevent%3DOther%26name%3DRanger%20One%26sys%3Ddas%26t%3D2017-59-05T21%3A59%3A45%26lat%3D40.1353%26lon%3D-1.891517'''

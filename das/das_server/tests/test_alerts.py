@@ -1,4 +1,5 @@
 import copy
+import datetime
 import django.contrib.auth
 import django.conf
 from django.test import TestCase
@@ -9,8 +10,9 @@ from drf_extra_fields.geo_fields import PointField
 
 from accounts.models.user import AccountsAbstractUser
 from accounts.models import PermissionSet
-from activity.models import Event, EventType, EventRelationship, EventDetails
-from observations.models import Subject
+from activity.models import Event, EventType, EventRelationship, EventDetails, EventAttachment
+from observations.models import Subject, Source, Observation
+from tracking.models.plugin_base import Obs
 
 from unittest.mock import patch
 from unittest import mock
@@ -186,6 +188,7 @@ class TestEventView(TestCase):
         self.child_two.refresh_from_db()
         self.parent_two.refresh_from_db()
 
+
     def create_event(self, event_data):
         data = copy.deepcopy(event_data)
         if 'time' in event_data:
@@ -204,6 +207,9 @@ class TestEventView(TestCase):
 
     def time_to_string(self, time):
         return time.strftime('%A, %B %d, %Y at %H:%M')
+
+    def time_to_deeplink_string(self, time):
+        return time.strftime('%Y-%M-%dT%H:%M:%S')
 
     def event_manipulation_wrapper(self, event_manipulation_callback):
         mock_routing.enable_receiver()
@@ -454,3 +460,89 @@ class TestEventView(TestCase):
 
         self.assertEqual(mock_send_email.call_args, mock.call(
             target_subject, target_body, alert_targets.target_from_address))
+
+    @patch.object(AccountsAbstractUser, 'email_user')
+    @patch('das_server.celery.app.send_task',
+           side_effect=mock_routing.mock_send_task)
+    @patch('das_server.tasks.get_alert_users')
+    def test_single_alert_with_deep_link (self, mock_get_alert_users, mock_task,
+                                   mock_send_email):
+        # Configure mocks
+        mock_get_alert_users.return_value = [self.user]
+
+        self.new_event = self.create_event(self.event_data)
+
+        def event_manipulations():
+            EventAttachment.objects.create(target=self.ranger_one, event=self.new_event)
+            self.new_event.refresh_from_db()
+
+        self.event_manipulation_wrapper(event_manipulations)
+
+        # Generate the target email fields
+        target_body = alert_targets.standalone_deep_link.format(
+            serial=self.new_event.serial_number,
+            title=self.new_event.title or 'No Title',
+            time_deeplink_format=self.time_to_deeplink_string(self.new_event.time),
+            time=self.time_to_string(self.new_event.time)).strip()
+        target_subject = alert_targets.target_subject.format(
+            serial=self.new_event.serial_number,
+            title=self.new_event.title)
+
+        self.assertEqual(mock_get_alert_users.call_count, 1)
+        # self.assertEqual(mock_send_email.call_args, mock.call(
+        #     target_subject, target_body, alert_targets.target_from_address))
+
+    @patch.object(AccountsAbstractUser, 'email_user')
+    @patch('das_server.celery.app.send_task',
+           side_effect=mock_routing.mock_send_task)
+    @patch('das_server.tasks.get_alert_users')
+    def test_nested_alert_with_deep_link(self, mock_get_alert_users,
+                                         mock_task,
+                                         mock_send_email):
+        # Configure mocks
+        mock_get_alert_users.return_value = [self.user]
+
+        def event_manipulations():
+            child = self.create_event(self.event_data)
+            parent = self.create_event(self.incident_data)
+            EventRelationship.objects.add_relationship(
+                parent, child, 'contains')
+            EventAttachment.objects.create(target=self.ranger_one,
+                                           event=child)
+            child.refresh_from_db()
+            parent.refresh_from_db()
+            return child, parent
+
+        result = self.event_manipulation_wrapper(event_manipulations)
+        child = result[0]
+        parent = result[1]
+
+        # Generate the target email fields
+        target_body = alert_targets.nested_deep_link.format(
+            parent_serial=parent.serial_number,
+            parent_title=parent.title or 'No Title',
+            parent_time=self.time_to_string(parent.time),
+            child_serial=child.serial_number,
+            child_title=child.title or 'No Title',
+            time_deeplink_format=self.time_to_deeplink_string(child.time),
+            child_time=self.time_to_string(child.time)).strip()
+        target_subject = alert_targets.target_subject.format(
+            serial=parent.serial_number,
+            title=parent.title)
+
+        self.assertEqual(mock_get_alert_users.call_count, 1)
+        # self.assertEqual(mock_send_email.call_args, mock.call(
+        #     target_subject, target_body, alert_targets.target_from_address))
+
+    def _unidiff_output(self, expected, actual):
+        """
+        Helper function. Returns a string containing the unified diff of two multiline strings.
+        """
+
+        import difflib
+        expected = expected.splitlines(1)
+        actual = actual.splitlines(1)
+
+        diff = difflib.unified_diff(expected, actual)
+
+        return ''.join(diff)
