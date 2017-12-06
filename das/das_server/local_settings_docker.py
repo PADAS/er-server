@@ -4,7 +4,6 @@ call your project be overriding the settings file
  --settings=local_settings
 
 """
-import os
 
 from .settings import *
 
@@ -30,17 +29,6 @@ STATIC_ROOT = '/var/www/static/'
 
 # add the path to your local copy of the das-web static root dir that contains index.html
 #STATICFILES_DIRS = STATICFILES_DIRS + (os.path.join(BASE_DIR, 'www'),)
-
-"""
-We put test fixtures in a non-conventional place, so build a list of directories here to let Django
-know where to find them.
-Our convention is to include fixtures in <app_name>/tests/fixtures/
-"""
-_test_fixtures = ('%s/tests/fixtures' % x for x in ('observations',
-                                                    'data_input',
-                                                    'mapping',
-                                                    'das_server'))
-FIXTURE_DIRS = list(os.path.join(BASE_DIR, x) for x in _test_fixtures)
 
 # can use console output for email in dev
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
