@@ -54,15 +54,15 @@ def get_key_title(key, schema):
 def build_deep_link_for_subject(event, subject):
     # deep_link_template = 'steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}'
     link_data = {
-        'type': event.event_type.display,
-        'name': subject.name,
-        'source': 'das',
-        'timestamp': event.time.strftime('%Y-%M-%dT%H:%M:%S'),
-        'lat': event.location.x,
-        'lon': event.location.y
+        'type': urllib.parse.quote(event.event_type.display),
+        'name': urllib.parse.quote(subject.name),
+        'source': urllib.parse.quote('das'),
+        'timestamp': urllib.parse.quote(event.time.strftime('%Y-%M-%dT%H:%M:%S')),
+        'lat': urllib.parse.quote(str(event.location.x)),
+        'lon': urllib.parse.quote(str(event.location.y))
     }
     deep_link = deep_link_template.format(**link_data)
-    return urllib.parse.quote(deep_link)
+    return deep_link
 
 
 def extract_details(schema, details, updated):
