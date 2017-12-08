@@ -50,6 +50,7 @@ Contents:
    oauth2
    user
    region
+   activity
    realtime
    sensors
 
