@@ -4,7 +4,7 @@ import utils.json as json
 import logging
 
 from das_server import pubsub, celery
-from observations.models import SubjectSource
+from observations.models import Subject
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +29,22 @@ def start(realtime_server):
                              args=(data['event_id'],))
 
     def new_observation_handler(data, message):
+
+        # Resolve the subject from either subject_id or source_id provided in data dict.
+        # TODO: Move this resolution logic into Subject Manager.
         if 'subject_id' in data:
-            celery.app.send_task('rt_api.tasks.handle_new_subject_observation',
-                                 args=(data['subject_id'],))
+            subject_id = data['subject_id']
         elif 'source_id' in data:
-            # get the most recent Subject for this Source
-            subject_source = SubjectSource.objects.filter(
-                source=data['source_id']) \
-                .order_by('assigned_range').reverse().first()
+            try:
+                subject = Subject.objects.filter(
+                    subjectsource__source__id=data['source_id']).latest('subjectsource__assigned_range')
+                subject_id = str(subject.id)
+            except Subject.DoesNotExist:
+                subject_id = None
+
+        if subject_id:
             celery.app.send_task('rt_api.tasks.handle_new_subject_observation',
-                                 args=(str(subject_source.subject_id),))
+                                 args=(subject_id,))
 
     def emit_handler(data, message):
         message_data = json.loads(data)
