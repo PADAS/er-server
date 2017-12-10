@@ -99,13 +99,6 @@ def create_realtime_handler(sios):
             eventlet.spawn_after(settings.REALTIME_AUTH_TIMEOUT_SECONDS,
                                  confirm_authed, sid, socket)
 
-            def cleanup():
-                RealtimeServices.cleanup_disconnected_clients()
-
-            # Kick off cleaning up old socket connections
-            eventlet.spawn_after(settings.REALTIME_AUTH_TIMEOUT_SECONDS,
-                                 cleanup())
-
         @sios.on('disconnect')
         def on_disconnect(sid, *args):
             extra = dict(sid=sid)
