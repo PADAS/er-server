@@ -291,7 +291,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
 
 class SubjectTracksView(generics.RetrieveAPIView):
-    permission_classes = (StandardObjectPermissions,)
+    # permission_classes = (StandardObjectPermissions,)
     lookup_field = 'subject_id'
     serializer_class = serializers.TrackSerializer
 
