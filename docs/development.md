@@ -262,6 +262,12 @@ Micro Change 1\.2\.1 to 1\.2\.2
 
 Bug fixes, very small features
 
+### Builds ###
+Until we have moved over to the Concourse build system for production, we use Jenkins
+das server: [http://tools\.pamdas\.org:8080/view/Production/job/das\-server\-build\-release1\.15\.1/](http://tools\.pamdas\.org:8080/view/Production/job/das\-server\-build\-release1\.15\.1/)
+
+das web: [http://tools\.pamdas\.org:8080/view/Production/job/das\-web\-build\-release1\.15\.1/](http://tools\.pamdas\.org:8080/view/Production/job/das\-web\-build\-release1\.15\.1/)
+
 
 ### Issues and Issue tracking
 The DAS team uses Jira for both Issue tracking and sprint planning. Go here once you get a login to jira (DAS Issue Tracker)[https://vulcan.atlassian.net/projects/DAS/issues?filter=allopenissues]

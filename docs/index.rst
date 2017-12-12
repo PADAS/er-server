@@ -9,7 +9,6 @@ Welcome to the DAS API documentation!
 Contents:
 
 * :ref:`Overview`
-* :ref:`Development`
 * :ref:`API`
 
 .. _overview:
@@ -21,26 +20,6 @@ Contents:
    das
    changelog
 
-.. _development:
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Development
-
-   development
-   docker
-   documentation
-   confluence
-   datamodel
-
-.. _support:
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Deployment and Support
-
-   support
-
 .. _api:
 
 .. toctree::
@@ -49,16 +28,19 @@ Contents:
 
    oauth2
    user
-   region
+   assets
    activity
    realtime
    sensors
 
 
-Indices and tables
-==================
+.. Indices and tables
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. ==================
+
+.. * :ref:`genindex`
+
+.. * :ref:`modindex`
+
+.. * :ref:`search`
 

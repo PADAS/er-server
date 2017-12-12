@@ -1,8 +1,35 @@
-## Releases
+# Releases
 
 
-### Unreleased
-#### Overview
+## Release 1.25.5 2017-12-11
+
+This deployment will consist of these recent features and fixes:
+* Jump to Location of an Incident
+  * From the feed, you can now jump to the location of an incident.  If the Incident contains multiple reports, the map will zoom to display all reports.
+* New Incident Icons Displaying First Report
+  * An incident icon will now embed the icon of the first report to make the content of the incident more clear
+* Improved Image Viewer in App
+  * A new image viewer in included to view the image within the DAS app
+* Additional Zoom Level on Map
+  * When viewing Satellite maps, there is one additional level of zoom 
+* Edit Notes
+  * Notes in Reports and Incidents can now be edited
+* Sort Reports in an Incident by Creation Date
+  * Reports included in an incident are now clearly sorted by the date they were created
+* Location Entry Help Text
+  * Helper text is available when locations are manually entered on a report.  
+* Panthera Camera Trap Support
+  * Panthera Cameras can now interface to DAS creating reports with included images
+* Fix for Queues backing up causing delayed subject position updates
+  * Eliminates the situation where subject position updates are blocked
+* Fix for Database Connections causing inability to log into DAS
+  * Eliminates the situation where users can’t log in due to a “undefined” error message
+* hotfix for track data error in STE App.
+
+
+
+## Release 1.18
+### Overview
 Support SMS output for alerts. Simplify template used to render SMS txt.
 Fix bug in vectronics collar data import ensuring the source record. Prevented new data from being added to db.
 Fix bug in web editing an existing report that contained a number field in the data model. A null value in the number field was not handled, causing the report to not be displayed. Resolved reports displayed correctly.
@@ -11,15 +38,15 @@ Fix bug showing fields that changed in an alert email so that a consolidate aler
 
 
 
-### Release 1.17
+## Release 1.17
 
-#### Overview
+### Overview
 Fix bug when creating a new Report, the previous data model schema was used.
 
 
-### Release 1.16
+## Release 1.16
 
-#### Overview
+### Overview
 
 Filter reports displayed in the Reports feed, so that reports contained in an incident are not displayed.
 Consolidate alert emails so that consecutive changes to a Report in a short amount of time do not generate multiple email updates.
@@ -27,7 +54,7 @@ Choice tables for Liwonde (a few spoor related tables orphaned on an old branch)
 Fix bug that was escaping "&" signs in report titles. We clean any text typed in by a user looking for HTML based attacks.
 Fix bug preventing a report appearing in an alert email when an incident only had one report. 
 
-#### DAS Web Change Log ####
+### DAS Web Change Log ###
 __1\.16\.1\.rc\.3__
 
 <li> <a href=http://github.com/padas/das-web/commit/d922343ea445da4d718b71a148bb3b556dfbae0a>view commit &bull;</a> new parameter for the new events feed to exclude reports that are contained in collections.</li> 
@@ -37,7 +64,7 @@ __1\.16\.1\.rc\.3__
 <li> <a href=http://github.com/padas/das-web/commit/c527aac9d965a3844f703a422cf308edfa041853>view commit &bull;</a> filter contained events in the 'all' feed.</li> 
 
 
-#### DAS Server Change Log ####
+### DAS Server Change Log ###
 __1\.16\.1\.rc\.14__
 <li> <a href=http://github.com/padas/das/commit/185156894fdd1c4eba4703e9dc1d8c0c01b2b95c>view commit &bull;</a> Update __init__.py</li> 
 <li> <a href=http://github.com/padas/das/commit/33e509bb8b9875c94741457c51411d27a2fb4449>view commit &bull;</a> Move version to 1.16 on develop</li> 
@@ -72,13 +99,13 @@ __1\.16\.1\.rc\.14__
 
 
 
-### Release 1.15
+## Release 1.15
 
-#### Overview
+### Overview
 
 This release incorporates redesigned UI in support of Input Report collections and streamlined data entry\.
 
-#### DAS Web Change Log ####
+### DAS Web Change Log ####
 
 __1\.15\.1 Final__
 
@@ -137,7 +164,7 @@ __1\.15\.1\.rc\.44__
 
 + update sit\_rep to radio\_rep
 
-#### DAS Server Change Log ####
+### DAS Server Change Log ####
 
 __1\.15\.2 Final__
 Hotfix to show the correct version number 1.15.2
@@ -160,8 +187,3 @@ __1\.15\.1\.rc\.65__
 
 __1\.15\.1\.rc\.63__
 
-##### Builds #####
-
-das server: [http://tools\.pamdas\.org:8080/view/Production/job/das\-server\-build\-release1\.15\.1/](http://tools\.pamdas\.org:8080/view/Production/job/das\-server\-build\-release1\.15\.1/)
-
-das web: [http://tools\.pamdas\.org:8080/view/Production/job/das\-web\-build\-release1\.15\.1/](http://tools\.pamdas\.org:8080/view/Production/job/das\-web\-build\-release1\.15\.1/)
