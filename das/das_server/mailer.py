@@ -1,5 +1,6 @@
 import logging
 import json
+import urllib.parse
 import uuid
 import os
 
@@ -23,8 +24,9 @@ ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
                  'priority', 'geojson', 'location', 'event_details', 'id',
                  'serial_number', 'state', 'photos', 'is_contained_in', 'url',
                  'event_category', 'is_collection', 'attributes', 'provenance',
-                 'priority_label', 'files', 'message']
+                 'priority_label', 'files', 'message', 'subject', 'attachments']
 
+deep_link_template = 'steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}'
 
 def get_display_value_for_key(key):
     if key == 'event_type':
@@ -47,6 +49,20 @@ def get_key_title(key, schema):
             return definition_dictionary['title']
 
     return None
+
+
+def build_deep_link_for_subject(event, subject):
+    # deep_link_template = 'steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}'
+    link_data = {
+        'type': urllib.parse.quote(event.event_type.display),
+        'name': urllib.parse.quote(subject.name),
+        'source': urllib.parse.quote('das'),
+        'timestamp': urllib.parse.quote(event.time.strftime('%Y-%M-%dT%H:%M:%S')),
+        'lat': urllib.parse.quote(str(event.location.x)),
+        'lon': urllib.parse.quote(str(event.location.y))
+    }
+    deep_link = deep_link_template.format(**link_data)
+    return deep_link
 
 
 def extract_details(schema, details, updated):
@@ -203,7 +219,7 @@ def extract_event_data(event, user, revisions):
 
     priority_str = event.get_display_value('priority', event.priority)
 
-    return {
+    event_data = {
         'id': event.serial_number,
         'title': display_title,
         'color': priority_str,
@@ -212,6 +228,13 @@ def extract_event_data(event, user, revisions):
         'fields': schema_fields_and_values + model_fields_and_values,
         'children': child_event_data,
     }
+
+    if event.event_type.value in settings.DEEP_LINK_EVENT_TYPES:
+        deep_links = []
+        for subject in event.subjects:
+            deep_links.append('  - Subject Link: ' + build_deep_link_for_subject(event, subject))
+        event_data['deep_links'] = deep_links
+    return event_data
 
 
 def send_event_mail(event, user, revisions):
