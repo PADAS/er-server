@@ -1,2 +1,2 @@
 # Expect to find das-ste-extensions wheel in wheelhouse.
-das-ste-extensions==1.25.1
+das-ste-extensions>=1.25.5
