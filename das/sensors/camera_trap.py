@@ -23,6 +23,13 @@ default_time_zone = pytz.timezone(settings.SENSORS.get(
     'camera_trap', {}).get('default_time_zone', 'UTC'))
 
 
+EXIF_FIELD_TO_REPORT = {
+    'Model': 'cameratraprep_camera-name',
+    'Make': 'cameratraprep_camera-make',
+    'Software': 'cameratraprep_camera-version'
+}
+
+
 def get_priority():
     """The priority for an event. For now uses a default of Red"""
     return Event.PRI_URGENT
@@ -39,9 +46,12 @@ def exif_dateparse(date_str, default_tz=pytz.utc):
 def exif_time_zone(timezone_str):
     """example exif timezone string -04:00 """
     hrs, mins = timezone_str.split(':')
-    hrs = int(hrs)
+    hrs = abs(int(hrs))
     mins = int(mins)
-    return pytz.FixedOffset(mins + hrs * 60)
+    mins = hrs * 60 + mins
+    if timezone_str.startswith('-'):
+        mins = mins * -1
+    return pytz.FixedOffset(mins)
 
 
 def dateparse(date_str, default_tz=pytz.utc):
@@ -189,6 +199,10 @@ class CameraTrapSensorHandler:
         result = {'cameratraprep_camera-name': params.validated_data['camera_name'],
                   }
 
+        for exif_field, report_field in EXIF_FIELD_TO_REPORT.items():
+            if exif_field in exif_dict:
+                result[report_field] = exif_dict[exif_field].decode('utf-8')
+
         return result
 
     @classmethod
@@ -209,11 +223,3 @@ class CameraTrapSensorHandler:
 class PantheraCameraTrapSensorHandler(CameraTrapSensorHandler):
     SENSOR_TYPE = 'camera-trap'
     PROVIDER_NAME = 'panthera'
-
-    @classmethod
-    def get_camera_trap_details(cls, params, exif_dict):
-        result = {'cameratraprep_camera-name': exif_dict['Model'].decode('utf-8'),
-                  'cameratraprep_camera-make': exif_dict['Make'].decode('utf-8'),
-                  'cameratraprep_camera-version': exif_dict['Software'].decode('utf-8')}
-
-        return result
