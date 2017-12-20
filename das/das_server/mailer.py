@@ -26,10 +26,16 @@ ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
                  'event_category', 'is_collection', 'attributes', 'provenance',
                  'priority_label', 'files', 'message', 'subject', 'attachments']
 
+# For each deep-link code that the iOS app recognizes, provide a list of event types.
 event_type_code_map = {
-    'immobility': 'immobility',
-    'geofence_break': 'geofence',
+    'immobility': ['immobility', 'immobility_all_clear',],
+    'geofence': ['geofence_break', 'geofence',],
+    'low-speed': ['low_speed_wilcoxon', 'low_speed_wilcoxon_all_clear', 'low_speed_percentile' 'low_speed_percentile_all_clear',],
+    'proximity': ['proximity',],
 }
+
+# Reverse the map, to event-type -> deep-link code.
+event_type_code_map = dict((v,k) for k,l in event_type_code_map.items() for v in l)
 
 default_event_code = 'panic'
 
