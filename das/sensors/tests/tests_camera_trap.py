@@ -100,7 +100,7 @@ class CameraTrapTest(BaseAPITest):
         exif_dict = {'DateTimeOriginal': b'2017:12:11 16:04:46',
                      'OffsetTimeOriginal': b'-5:00'}
 
-        control = datetime.datetime(2017, 12, 11, 11, 4, 46, tzinfo=pytz.UTC)
+        control = datetime.datetime(2017, 12, 11, 21, 4, 46, tzinfo=pytz.UTC)
 
         self.assertEquals(control, camera_trap.CameraTrapSensorHandler.get_time(
             None, exif_dict
