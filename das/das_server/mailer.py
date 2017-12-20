@@ -26,6 +26,13 @@ ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
                  'event_category', 'is_collection', 'attributes', 'provenance',
                  'priority_label', 'files', 'message', 'subject', 'attachments']
 
+event_type_code_map = {
+    'immobility': 'immobility',
+    'geofence_break': 'geofence',
+}
+
+default_event_code = 'panic'
+
 deep_link_template = 'steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}'
 
 def get_display_value_for_key(key):
@@ -50,11 +57,14 @@ def get_key_title(key, schema):
 
     return None
 
+def lookup_event_code(event_type_value):
+    return event_type_code_map.get(event_type_value, default_event_code)
+
 
 def build_deep_link_for_subject(event, subject):
     # deep_link_template = 'steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}'
     link_data = {
-        'type': urllib.parse.quote(event.event_type.display),
+        'type': urllib.parse.quote(lookup_event_code(event.event_type.value)),
         'name': urllib.parse.quote(subject.name),
         'source': urllib.parse.quote('das'),
         'timestamp': urllib.parse.quote(event.time.strftime('%Y-%M-%dT%H:%M:%S')),
