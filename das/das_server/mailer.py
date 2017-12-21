@@ -26,20 +26,23 @@ ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
                  'event_category', 'is_collection', 'attributes', 'provenance',
                  'priority_label', 'files', 'message', 'subject', 'attachments']
 
-# For each deep-link code that the iOS app recognizes, provide a list of event types.
+# For each deep-link code that the iOS app recognizes, provide a list of
+# event types.
 event_type_code_map = {
-    'immobility': ['immobility', 'immobility_all_clear',],
-    'geofence': ['geofence_break', 'geofence',],
-    'low-speed': ['low_speed_wilcoxon', 'low_speed_wilcoxon_all_clear', 'low_speed_percentile' 'low_speed_percentile_all_clear',],
-    'proximity': ['proximity',],
+    'immobility': ['immobility', 'immobility_all_clear', ],
+    'geofence': ['geofence_break', 'geofence', ],
+    'low-speed': ['low_speed_wilcoxon', 'low_speed_wilcoxon_all_clear', 'low_speed_percentile' 'low_speed_percentile_all_clear', ],
+    'proximity': ['proximity', ],
 }
 
 # Reverse the map, to event-type -> deep-link code.
-event_type_code_map = dict((v,k) for k,l in event_type_code_map.items() for v in l)
+event_type_code_map = dict((v, k)
+                           for k, l in event_type_code_map.items() for v in l)
 
 default_event_code = 'panic'
 
 deep_link_template = 'steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}'
+
 
 def get_display_value_for_key(key):
     if key == 'event_type':
@@ -62,6 +65,7 @@ def get_key_title(key, schema):
             return definition_dictionary['title']
 
     return None
+
 
 def lookup_event_code(event_type_value):
     return event_type_code_map.get(event_type_value, default_event_code)
@@ -245,10 +249,11 @@ def extract_event_data(event, user, revisions):
         'children': child_event_data,
     }
 
-    if event.event_type.value in settings.DEEP_LINK_EVENT_TYPES:
+    if event.event_type.value in getattr(settings, 'DEEP_LINK_EVENT_TYPES', []):
         deep_links = []
         for subject in event.subjects:
-            deep_links.append('  - Subject Link: ' + build_deep_link_for_subject(event, subject))
+            deep_links.append('  - Subject Link: ' +
+                              build_deep_link_for_subject(event, subject))
         event_data['deep_links'] = deep_links
     return event_data
 
