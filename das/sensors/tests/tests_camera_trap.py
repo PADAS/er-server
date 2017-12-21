@@ -106,6 +106,16 @@ class CameraTrapTest(BaseAPITest):
             None, exif_dict
         ))
 
+    def test_invalid_exif_timezone(self):
+        with self.assertRaises(ValueError):
+            camera_trap.exif_time_zone('-10')
+
+        with self.assertRaises(ValueError):
+            camera_trap.exif_time_zone(':')
+
+        with self.assertRaises(ValueError):
+            camera_trap.exif_time_zone(':0')
+
     def test_exif_timzone(self):
         self.assertEquals(pytz.FixedOffset(-120),
                           camera_trap.exif_time_zone('-02:00'))
