@@ -23,8 +23,8 @@
                 <td style="border:1px solid gray;padding:3px;">{{ item.manufacturer_id }}</td>
                 <td style="border:1px solid gray;padding:3px;">{{  item.name }}</td>
                 <td style="border:1px solid gray;padding:3px;">{{ item.frequency }}</td>
-                <td style="border:1px solid gray;padding:3px;">{{  item.data_starts.strftime('%b %d, %Y %H:%M') }}</td>
-                <td style="border:1px solid gray;padding:3px;">{{ item.latest_observation_at.strftime('%b %d, %Y %H:%M') }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{  item.data_starts.strftime('%b %d, %Y %H:%M') if item.data_starts else 'no-value'}}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.latest_observation_at.strftime('%b %d, %Y %H:%M') if item.latest_observation else 'no-data' }}</td>
                 <td style="border:1px solid gray;padding:3px;{{ item.styles.time_since_last|default('') }}">{{ item.time_since_last }}</td>
                 <td style="text-align:right;border:1px solid gray;padding:3px;">{{ item.performance[0] }} - {{ item.performance[1] }}</td>
                 <td style="border:1px solid gray;padding:3px;">{{ item.analyzers.immobility|default('-') }}</td>

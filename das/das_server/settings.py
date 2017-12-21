@@ -467,3 +467,14 @@ SENSORS = {
         'default_time_zone': 'UTC'
     }
 }
+
+DEEP_LINK_EVENT_TYPES = [
+    'low_speed_wilcoxon',
+    'immobility',
+    'low_speed_wilcoxon_all_clear',
+    'low_speed_percentile',
+    'low_speed_percentile_all_clear',
+    'geofence_break',
+    'immobility_all_clear',
+    'proximity',
+]
