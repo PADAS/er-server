@@ -9,7 +9,7 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import reverse, NoReverseMatch
 from django.utils.translation import ugettext_lazy as _
-from tagulous.models import TagField
+from tagulous.models import TagField, TagModel
 from model_utils.managers import InheritanceManager
 
 from core.models import TimestampedModel
@@ -445,6 +445,11 @@ class SpatialFeatureGroupStatic(SpatialFeatureGroup):
                                       blank=True)
 
 
+class SpatialFeatureTypeTag(TagModel):
+    class TagMeta:
+        pass
+
+
 class SpatialFeatureTypeManager(models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
@@ -457,7 +462,7 @@ class SpatialFeatureType(models.Model):
     name = models.CharField(max_length=100)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict)
-    tags = TagField()  # Tags will allow categorization according to different views (e.g., HF)
+    tags = TagField(to=SpatialFeatureTypeTag)  # Tags will allow categorization according to different views (e.g., HF)
 
     # presentation fields
     # Boundaries, Water, Security etc.

@@ -1,7 +1,8 @@
-from django.conf.urls import patterns, url, include
+from django.conf.urls import url
 from django.views.generic.base import TemplateView
 from rt_api.views import *
 
+app_name = 'rt_api'
 
 urlpatterns = (
     # samples based on data from test fixtures

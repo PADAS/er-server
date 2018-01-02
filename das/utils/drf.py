@@ -5,7 +5,7 @@ from django.http import Http404, JsonResponse
 from django.utils.translation import ugettext_lazy as _
 import rest_framework
 from rest_framework import exceptions
-from rest_framework.compat import set_rollback
+from rest_framework.views import set_rollback
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 from rest_framework.pagination import PageNumberPagination

@@ -41,7 +41,7 @@ def load_default_clients(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("oauth2_provider", "__latest__"),
+    dependencies = [("oauth2_provider", "0005_auto_20170514_1141"),
     ]
 
     operations = [

@@ -5,7 +5,7 @@ from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import exceptions
-from oauth2_provider.ext.rest_framework.authentication import OAuth2Authentication
+from oauth2_provider.contrib.rest_framework.authentication import OAuth2Authentication
 from oauth2_provider.backends import OAuth2Backend
 
 from accounts.models import User

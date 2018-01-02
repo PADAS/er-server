@@ -15,7 +15,6 @@ import os
 import sys
 
 from corsheaders.defaults import default_headers
-from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TCP
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -118,10 +117,6 @@ TEMPLATES = [
     },
 ]
 
-
-# TEMPLATE_CONTEXT_PROCESSORS = TCP + [
-#     'django.core.context_processors.request',
-# ]
 
 AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = '/login'
