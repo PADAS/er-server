@@ -1,3 +1,5 @@
+import copy
+
 from django.shortcuts import render_to_response
 from django.conf import settings
 from django.db import connection
@@ -22,7 +24,9 @@ class VersionSerializer(rest_framework.serializers.Serializer):
         read_only=True)
     export_kml_enabled = rest_framework.serializers.BooleanField(
         read_only=True)
-    db_connection_count = rest_framework.serializers.IntegerField(read_only=True)
+    db_connection_count = rest_framework.serializers.IntegerField(
+        read_only=True)
+    eus_settings = rest_framework.serializers.DictField(read_only=True)
 
 
 class StatusView(generics.RetrieveAPIView):
@@ -42,6 +46,9 @@ class StatusView(generics.RetrieveAPIView):
 
         resp['event_search_enabled'] = True
 
+        if self.get_support_settings():
+            resp['eus_settings'] = self.get_support_settings()
+
         if parse_bool(self.request.query_params.get('db_connections')):
             resp['db_connection_count'] = self.get_used_db_connections()
         return resp
@@ -51,3 +58,10 @@ class StatusView(generics.RetrieveAPIView):
             cursor.execute("SELECT count(*) FROM pg_stat_activity;")
             row = cursor.fetchone()
             return row[0]
+
+    def get_support_settings(self):
+        try:
+            if settings.EUS_SETTINGS['type']:
+                return copy.copy(settings.EUS_SETTINGS)
+        except (KeyError, AttributeError):
+            pass

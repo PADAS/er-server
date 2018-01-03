@@ -478,3 +478,11 @@ DEEP_LINK_EVENT_TYPES = [
     'immobility_all_clear',
     'proximity',
 ]
+
+EUS_SETTINGS = {
+    # 'zendesk' or 'email'
+    'type': '',
+    'name': '',
+    'email': '',
+    'organization': ''
+}
