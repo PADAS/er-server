@@ -41,8 +41,6 @@ event_type_code_map = dict((v, k)
 
 default_event_code = 'panic'
 
-deep_link_template = 'steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}'
-
 
 def get_display_value_for_key(key):
     if key == 'event_type':
@@ -72,15 +70,18 @@ def lookup_event_code(event_type_value):
 
 
 def build_deep_link_for_subject(event, subject):
-    # deep_link_template = 'steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}'
+
     link_data = {
         'type': urllib.parse.quote(lookup_event_code(event.event_type.value)),
         'name': urllib.parse.quote(subject.name),
+        'subject_id': urllib.parse.quote(subject.id),
         'source': urllib.parse.quote('das'),
         'timestamp': urllib.parse.quote(event.time.strftime('%Y-%M-%dT%H:%M:%S')),
         'lat': urllib.parse.quote(str(event.location.x)),
         'lon': urllib.parse.quote(str(event.location.y))
     }
+
+    deep_link_template = 'steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}&id={subject_id}'
     deep_link = deep_link_template.format(**link_data)
     return deep_link
 
