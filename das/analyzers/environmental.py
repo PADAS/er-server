@@ -166,6 +166,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
                     this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
                 event_details=this_result.values,
+                attachments=[{'target': self.subject, }]
             )
 
         if event_data:

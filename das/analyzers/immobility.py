@@ -175,6 +175,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
                 event_details=event_details,
+                attachments=[{'target': self.subject, }, ]
             )
 
         # Notify if there is a state transition from Critical/Warning back to
@@ -189,6 +190,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                     this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
                 event_details=event_details,
+                attachments=[{'target': self.subject, }, ]
             )
 
         if event_data:
