@@ -726,7 +726,7 @@ class EventRelatedSubject(models.Model):
     objects = EventRelatedSubjectManager()
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    subject = models.ForeignKey(Subject, on_delete=models.PROTECT)
 
     def __str__(self):
         return ' <is related to> '.join((str(self.event), str(self.subject)))
