@@ -179,91 +179,9 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
                 event_details=event_details,
+                related_subjects=[{'id': self.subject.id}, ],
+
             )
 
         if event_data:
             return save_analyzer_event(event_data)
-
-    """Original code from Joseph which I think can be deprecated"""
-    """
-    is_two_state = False
-
-    @property
-    def fence_or_default(self):
-        if self.fence:
-            return self.fence
-        else:
-            # create the objects, but we don't need to save() them
-            feature_type = FeatureType(name='')
-
-            fence = LineFeature(
-                presentation={},
-                feature_geometry=self._default_fence,
-                type=feature_type
-            )
-            return fence
-
-    # default equator
-    _default_fence = MultiLineString(
-        LineString((
-            (0, 0),
-            (90, 0),
-            (180, 0),
-            (270, 0),
-            (0, 0),
-            ))
-            )
-
-    def analyze_joseph(self, track):
-
-        #analyze track for geofence containment. Only the most recent two observations are considered
-        super().analyze(track)
-
-        if len(track) < 2:
-            raise InsufficientDataAnalyzerException
-
-        last_points = track[-2:]
-
-        track_segment = MultiLineString(
-            LineString((
-                Point(last_points[0].x, last_points[0].y),
-                Point(last_points[1].x, last_points[1].y),
-            ))
-        )
-
-        fence = self.fence_or_default
-
-        result = AnalyzerResult(self)
-        result.analyzer_type = self.__class__.__name__
-        result.level = NOMINAL
-
-        if track_segment.intersects(fence.feature_geometry):
-            # determine crossing point
-            crossing_point = track_segment.intersection(fence.feature_geometry)
-
-            # determine crossing time by assuming constant speed between last two points
-            p1, p2 = Point(track_segment[0][0]), Point(track_segment[0][1])
-
-            segment_distance_to_crossing = p1.distance(crossing_point)
-            segment_length = p1.distance(p2)
-            normalized_distance_to_crossing = segment_distance_to_crossing / segment_length
-            segment_times = track.times[-2:]
-            dt = normalized_distance_to_crossing * \
-                 (segment_times[1] - segment_times[0]).to_pytimedelta()
-            crossing_time = segment_times[0] + dt
-
-            result.value = str(crossing_time)
-            result.location = crossing_point
-            result.level = CRITICAL
-            result.title = 'Crossed fence'
-            logger.debug(result.title)
-        else:
-            result.location = track[-1]
-            result.value = str(track.geo_series.index[-1].to_datetime())
-            result.title = 'Clear of fence'
-            logger.debug(result.title)
-
-        return result
-
-
-"""

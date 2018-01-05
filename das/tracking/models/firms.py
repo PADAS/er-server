@@ -12,25 +12,33 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point
 from django.db import transaction
 
-from activity.models import Event, EventAttachment
+from activity.models import Event
 
 from tracking.models.plugin_base import Obs, TrackingPlugin
+
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
     return parse_date(d).replace(tzinfo=replace_tzinfo)
 
-_trim = lambda v: str(v).strip()
-# Helpers for parsing lines from FIRMS datasource.
-field_names = ('latitude', 'longitude', 'brightness', 'scan', 'track', 'acq_date', 'acq_time', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
-field_transform = (float, float, float, float, float, str, str, str, int, _trim, float, float)
 
-additional_fields = ('brightness', 'scan', 'track', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
+def _trim(v): return str(v).strip()
+
+
+# Helpers for parsing lines from FIRMS datasource.
+field_names = ('latitude', 'longitude', 'brightness', 'scan', 'track', 'acq_date',
+               'acq_time', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
+field_transform = (float, float, float, float, float, str,
+                   str, str, int, _trim, float, float)
+
+additional_fields = ('brightness', 'scan', 'track', 'satellite',
+                     'confidence', 'version', 'bright_t31', 'frp')
 
 
 class FirmsClient(object):
 
-    DEFAULT_FIRMS_FTP_HOSTS = ['nrt1.modaps.eosdis.nasa.gov', 'nrt2.modaps.eosdis.nasa.gov']
+    DEFAULT_FIRMS_FTP_HOSTS = [
+        'nrt1.modaps.eosdis.nasa.gov', 'nrt2.modaps.eosdis.nasa.gov']
 
     def __init__(self, hosts=None, username=None, password=None):
         '''
@@ -38,24 +46,19 @@ class FirmsClient(object):
         :param config: must include 'credentials' and 'host'
         '''
 
-
         self.hosts = hosts or self.DEFAULT_FIRMS_FTP_HOSTS
         self.username = username
         self.password = password
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
-
-
     def fetch_observations(self, region_id, current_filename=None, next_lineno=0, last_filesize=0):
-
         '''
         Sample filename: Northern_and_Central_Africa_MCD14DL_2015243.txt
         :param region_id:
         :param kwargs:
         :return:
         '''
-
 
         self.logger.debug('Fetching FIRMS data for region_id: %s, current_filename: %s, next_lineno: %d, last_filesize: %d',
                           region_id, current_filename, next_lineno, last_filesize)
@@ -73,12 +76,12 @@ class FirmsClient(object):
             except ValueError:
                 filelist = filelist[-1:]
                 next_lineno = 0
-                last_filesize=0
-
+                last_filesize = 0
 
             for filename in filelist:
 
-                # short-circuit if the file is the same size as when we last read it.
+                # short-circuit if the file is the same size as when we last
+                # read it.
                 filesize = ftp.size(filename)
 
                 self.logger.debug('Current filesize: %d', filesize)
@@ -87,6 +90,7 @@ class FirmsClient(object):
                     lines_buffer = []
 
                     _ = dict(idx=0)
+
                     def cb(data):
                         _['idx'] += 1
                         if _['idx'] >= next_lineno:
@@ -96,7 +100,8 @@ class FirmsClient(object):
 
                     for i, line in enumerate(lines_buffer, next_lineno):
                         try:
-                            v = self.parse_line(line.strip(), filename=filename, lineno=i, filesize=filesize)
+                            v = self.parse_line(
+                                line.strip(), filename=filename, lineno=i, filesize=filesize)
                             yield v
                         except ValueError:
                             if not line.startswith('latitude'):
@@ -121,7 +126,8 @@ class FirmsClient(object):
         dt = dict((k, v) for k, v in zip(field_names, vals))
 
         # FIRMS ftp data times are UTC.
-        dt['recorded_at'] = parse_date('{} {}'.format(dt['acq_date'], dt['acq_time'])).replace(tzinfo=pytz.UTC)
+        dt['recorded_at'] = parse_date('{} {}'.format(
+            dt['acq_date'], dt['acq_time'])).replace(tzinfo=pytz.UTC)
         dt.update(kwargs)
         return dt
 
@@ -132,13 +138,14 @@ class FirmsPlugin(TrackingPlugin):
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=20)
 
     service_username = models.CharField(max_length=50,
-                                       help_text='The username for accessing FIRMS ftp site.')
+                                        help_text='The username for accessing FIRMS ftp site.')
     service_password = models.CharField(max_length=50,
                                         help_text='The password for accessing FIRMS ftp site.')
 
     def should_run(self, source_plugin):
 
-        # Don't bother running now if less than 20 minutes has passed since the latest fix.
+        # Don't bother running now if less than 20 minutes has passed since the
+        # latest fix.
         try:
             return (datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > source_plugin.last_run
         except:
@@ -168,9 +175,11 @@ class FirmsPlugin(TrackingPlugin):
         next_lineno = self.cursor_data.get('next_lineno', 0)
         last_filesize = self.cursor_data.get('last_filesize', 0)
 
-        self.logger.info("Fetching data for manufacturer_id %s" % (source.manufacturer_id,))
+        self.logger.info("Fetching data for manufacturer_id %s" %
+                         (source.manufacturer_id,))
 
-        self.client = FirmsClient(username=self.service_username, password=self.service_password)
+        self.client = FirmsClient(
+            username=self.service_username, password=self.service_password)
 
         for observation in self.client.fetch_observations(region_id=source.manufacturer_id,
                                                           current_filename=last_filename, next_lineno=next_lineno,
@@ -179,7 +188,8 @@ class FirmsPlugin(TrackingPlugin):
             if self.pass_filter(observation):
 
                 # Pop-off side-data from observation dict.
-                additional_data = dict((k, observation.pop(k)) for k in additional_fields)
+                additional_data = dict((k, observation.pop(k))
+                                       for k in additional_fields)
                 obs = Obs(source=source, recorded_at=observation['recorded_at'], latitude=observation['latitude'],
                           longitude=observation['longitude'], additional=additional_data)
                 self.create_event(obs)
@@ -208,15 +218,11 @@ class FirmsPlugin(TrackingPlugin):
             )
             return event
 
-
-
     def pass_filter(self, observation):
         if self._geo_filter:
-            p  = Point(y=observation['latitude'], x=observation['longitude'])
+            p = Point(y=observation['latitude'], x=observation['longitude'])
             return self._geo_filter.contains(p)
         return True
 
     def _transform(self, item):
         return item
-
-
