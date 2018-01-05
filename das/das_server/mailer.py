@@ -24,7 +24,7 @@ ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
                  'priority', 'geojson', 'location', 'event_details', 'id',
                  'serial_number', 'state', 'photos', 'is_contained_in', 'url',
                  'event_category', 'is_collection', 'attributes', 'provenance',
-                 'priority_label', 'files', 'message', 'subject', 'attachments']
+                 'priority_label', 'files', 'message', 'related_subjects']
 
 # For each deep-link code that the iOS app recognizes, provide a list of
 # event types.
@@ -76,8 +76,8 @@ def build_deep_link_for_subject(event, subject, default_event_code='panic'):
         'id': str(subject.id),
         'sys': 'das',
         't': event.time.strftime('%Y-%M-%dT%H:%M:%S'),
-        'lat': str(event.location.x),
-        'lon': str(event.location.y),
+        'lon': str(event.location.x),
+        'lat': str(event.location.y),
     }
 
     qs = '&'.join('='.join((k, urllib.parse.quote(v)))
@@ -251,7 +251,7 @@ def extract_event_data(event, user, revisions):
 
     if event.event_type.value in getattr(settings, 'DEEP_LINK_EVENT_TYPES', []):
         deep_links = []
-        for subject in event.subjects:
+        for subject in event.related_subjects.all():
             deep_links.append('  - Subject Link: ' +
                               build_deep_link_for_subject(event, subject))
         event_data['deep_links'] = deep_links

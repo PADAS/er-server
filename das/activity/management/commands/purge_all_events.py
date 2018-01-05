@@ -10,8 +10,7 @@ RESET_SERIAL_NUMBER_SQL = "select setval('public.activity_event_serial_number_se
 
 REVISION_DELETIONS = [
     'delete from activity_eventrevision;',
-    'delete from activity_eventattachment;',
-    'delete from activity_eventattachmentrevision;',
+    'delete from activity_eventrelatedsubject;',
     'delete from activity_eventdetails;',
     'delete from activity_eventdetailsrevision;',
     'delete from activity_eventfile;',

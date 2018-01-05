@@ -4,10 +4,6 @@ from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.forms import Textarea
 
 
-class EventAttachmentInline(admin.TabularInline):
-    model = models.EventAttachment
-
-
 class EventRelationshipInline(admin.TabularInline):
     model = models.EventRelationship
     fk_name = 'from_event'
@@ -23,7 +19,6 @@ class EventAdmin(admin.OSMGeoAdmin):
                     'message', 'location', 'attributes',)
     readonly_fields = ('id', 'created_at', 'updated_at')
     inlines = [
-        EventAttachmentInline,
         EventRelationshipInline,
     ]
 
@@ -33,6 +28,11 @@ class EventAdmin(admin.OSMGeoAdmin):
 @admin.register(models.Community)
 class CommunityAdmin(admin.ModelAdmin):
     pass
+
+
+@admin.register(models.EventRelatedSubject)
+class EventRelatedSubject(admin.ModelAdmin):
+    ordering = ('event__id', 'subject')
 
 
 @admin.register(models.EventType)

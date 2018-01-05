@@ -546,6 +546,9 @@ class Event(RevisionMixin, TimestampedModel):
                                                 choices=PRIORITY_CHOICES)
     attributes = JSONField(default={}, blank=True)
 
+    related_subjects = models.ManyToManyField(
+        Subject, through='EventRelatedSubject')
+
     revision = Revision()
 
     _usermodel = settings.AUTH_USER_MODEL.lower().split('.')
@@ -614,14 +617,6 @@ class Event(RevisionMixin, TimestampedModel):
     @property
     def image_url(self):
         return Event.marker_icon(self.event_type.value, self.priority, self.state)
-
-    @property
-    def subjects(self):
-        event_attachments = EventAttachment.objects.filter(
-            event_id=self.pk,
-            content_type=ContentType.objects.get_for_model(Subject)
-        )
-        return [event_attachment.target for event_attachment in event_attachments]
 
     def dependent_table_updated(self):
         self.updated_at = timezone.now()
@@ -720,6 +715,27 @@ class Event(RevisionMixin, TimestampedModel):
 
     def __str__(self):
         return '%d: %s' % (self.serial_number, self.message[:50])
+
+
+class EventRelatedSubjectManager(models.Manager):
+    pass
+
+
+class EventRelatedSubject(models.Model):
+
+    objects = EventRelatedSubjectManager()
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return ' <is related to> '.join((str(self.event), str(self.subject)))
+
+    name = 'Event Related Subject'
+    verbose_name = 'Indicates a Subject that is involved in an Event'
+
+    class Meta:
+        unique_together = ('event', 'subject')
 
 
 class EventAttachmentManager(models.Manager):

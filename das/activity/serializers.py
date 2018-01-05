@@ -84,16 +84,6 @@ class CommunitySerializer(rest_framework.serializers.ModelSerializer):
         return obj
 
 
-ATTACHMENT_SERIALIZER_MAPPING = {
-    'observations.subject': {'serializer': SubjectSerializer,
-                             'field': 'subject'},
-    'observations.source': {'serializer': SourceSerializer,
-                            'field': 'source'},
-    'analyzers.subjectanalyzerresult': {'serializer': SubjectAnalyzerResultSerializer,
-                                        'field': 'subject_analyzer_result'
-                                        }
-}
-
 REPORTED_SERIALIZER_MAPPING = {
     'observations.subject': {'serializer': SubjectSerializer,
                              'field': 'subject'},
@@ -347,30 +337,6 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
         return choices
 
 
-class EventAttachmentRelatedField(rest_framework.serializers.RelatedField):
-
-    def get_choices(self, cutoff=None):
-        # Do not support a choices list.
-        return {}
-
-    def to_representation(self, value):
-        return {'id': value.id}
-
-    def to_internal_value(self, data):
-        return activity.models.EventAttachment(**data)
-
-
-class AttachmentRelatedField(rest_framework.serializers.RelatedField):
-    def to_representation(self, value):
-        mapping = ATTACHMENT_SERIALIZER_MAPPING.get(
-            value._meta.label_lower, None)
-        if not mapping:
-            raise Exception(
-                'Unexpected Attachment Type {0}'.format(type(value)))
-
-        return mapping['serializer']().to_representation(value)
-
-
 class EventTypeRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):
         return activity.models.EventType.objects.all_sort()
@@ -448,25 +414,6 @@ class EventRelationshipTypeRelatedField(rest_framework.serializers.RelatedField)
     def choices(self):
         return OrderedDict(((row.value, row.value)
                             for row in self.get_queryset()))
-
-
-class EventAttachmentSerializer(rest_framework.serializers.ModelSerializer):
-    target = AttachmentRelatedField(read_only=True)
-
-    class Meta:
-        model = activity.models.EventAttachment
-        fields = ('target', 'target_id',  'content_type',
-                  'reason', 'id', 'event',)
-
-    def to_internal_value(self, data):
-
-        target = data.get('target')
-
-        if target and hasattr(target, 'id'):
-            data['content_type'] = ContentType.objects.get_for_model(target).id
-            data['target_id'] = target.id
-
-        return super().to_internal_value(data)
 
 
 def get_update_type(revision, previous_revisions=[]):
@@ -845,8 +792,6 @@ class EventSerializerMixin():
             details_data['event_details'] = validated_data['event_details']
             del validated_data['event_details']
 
-        attachments = validated_data.pop('attachments', [])
-
         # [_.type for _ in activity.models.EventRelationshipType.objects.all()]
         rel_types = ('contains', 'is_linked_to',)
 
@@ -855,15 +800,15 @@ class EventSerializerMixin():
             if key in validated_data:
                 relationship_data[key] = validated_data.pop(key)
 
+        related_subjects = validated_data.pop('related_subjects', ())
+
         new_event = activity.models.Event.objects.create_event(
             **validated_data)
         EventDetailsSerializer().update(new_event, details_data)
 
-        for attachment in attachments:
-            ser = EventAttachmentSerializer(
-                data={'target': attachment.target, 'event': new_event.id})
-            if ser.is_valid():
-                ser.create(ser.validated_data)
+        for related_subject in related_subjects:
+            activity.models.EventRelatedSubject.objects.get_or_create(
+                subject=related_subject, event=new_event)
 
         for relationship_type in rel_types:
             if relationship_type in relationship_data:
@@ -1079,8 +1024,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     files = EventFileSerializer(many=True, required=False, read_only=True)
 
-    attachments = EventAttachmentRelatedField(
-        many=True, required=False, queryset=activity.models.EventAttachment.objects.all())
+    related_subjects = SubjectSerializer(many=True, required=False)
 
     def get_contains(self, event):
         return self.get_out_relation(event, 'contains')
@@ -1130,7 +1074,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
-            'files', 'attachments', ) + read_only_fields
+            'files', 'related_subjects', ) + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1175,21 +1119,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             if event.location is not None:
                 geodata = make_feature(self.context['request'], event)
                 rep['geojson'] = geodata
-
-        attachments = []
-        subject_attachment = None
-        for attach in event.attachments.all():
-            attach_rep = EventAttachmentSerializer(context=self.context) \
-                .to_representation(attach)
-            if attach.reason == 'target':
-                subject_attachment = attach_rep
-            attachments.append(attach_rep)
-
-        if attachments:
-            rep['attachments'] = attachments
-
-        if subject_attachment:
-            rep['subject'] = subject_attachment
 
         if self.context.get('include_updates', True):
             updates = self.render_updates(event)

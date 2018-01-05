@@ -10,7 +10,7 @@ from drf_extra_fields.geo_fields import PointField
 
 from accounts.models.user import AccountsAbstractUser
 from accounts.models import PermissionSet
-from activity.models import Event, EventType, EventRelationship, EventDetails, EventAttachment
+from activity.models import Event, EventType, EventRelationship, EventDetails
 from observations.models import Subject, Source, Observation
 from tracking.models.plugin_base import Obs
 
@@ -188,7 +188,6 @@ class TestEventView(TestCase):
         self.child_two.refresh_from_db()
         self.parent_two.refresh_from_db()
 
-
     def create_event(self, event_data):
         data = copy.deepcopy(event_data)
         if 'time' in event_data:
@@ -205,11 +204,11 @@ class TestEventView(TestCase):
 
         return Event.objects.create_event(**data)
 
-    def time_to_string(self, time):
-        return time.strftime('%A, %B %d, %Y at %H:%M')
+    def time_to_string(self, t):
+        return t.strftime('%A, %B %d, %Y at %H:%M')
 
-    def time_to_deeplink_string(self, time):
-        return time.strftime('%Y-%M-%dT%H:%M:%S')
+    def time_to_deeplink_string(self, t):
+        return t.strftime('%Y-%M-%dT%H:%M:%S')
 
     def event_manipulation_wrapper(self, event_manipulation_callback):
         mock_routing.enable_receiver()
@@ -465,15 +464,15 @@ class TestEventView(TestCase):
     @patch('das_server.celery.app.send_task',
            side_effect=mock_routing.mock_send_task)
     @patch('das_server.tasks.get_alert_users')
-    def test_single_alert_with_deep_link (self, mock_get_alert_users, mock_task,
-                                   mock_send_email):
+    def test_single_alert_with_deep_link(self, mock_get_alert_users, mock_task,
+                                         mock_send_email):
         # Configure mocks
         mock_get_alert_users.return_value = [self.user]
 
         self.new_event = self.create_event(self.event_data)
 
         def event_manipulations():
-            EventAttachment.objects.create(target=self.ranger_one, event=self.new_event)
+            # EventAttachment.objects.create(target=self.ranger_one, event=self.new_event)
             self.new_event.refresh_from_db()
 
         self.event_manipulation_wrapper(event_manipulations)
@@ -482,7 +481,8 @@ class TestEventView(TestCase):
         target_body = alert_targets.standalone_deep_link.format(
             serial=self.new_event.serial_number,
             title=self.new_event.title or 'No Title',
-            time_deeplink_format=self.time_to_deeplink_string(self.new_event.time),
+            time_deeplink_format=self.time_to_deeplink_string(
+                self.new_event.time),
             time=self.time_to_string(self.new_event.time)).strip()
         target_subject = alert_targets.target_subject.format(
             serial=self.new_event.serial_number,
@@ -507,8 +507,6 @@ class TestEventView(TestCase):
             parent = self.create_event(self.incident_data)
             EventRelationship.objects.add_relationship(
                 parent, child, 'contains')
-            EventAttachment.objects.create(target=self.ranger_one,
-                                           event=child)
             child.refresh_from_db()
             parent.refresh_from_db()
             return child, parent
