@@ -24,7 +24,7 @@ ignore_fields = ['sort_at', 'updated_at', 'created_at', 'updates', 'image_url',
                  'priority', 'geojson', 'location', 'event_details', 'id',
                  'serial_number', 'state', 'photos', 'is_contained_in', 'url',
                  'event_category', 'is_collection', 'attributes', 'provenance',
-                 'priority_label', 'files', 'message', 'subject', 'attachments']
+                 'priority_label', 'files', 'message', 'related_subjects']
 
 # For each deep-link code that the iOS app recognizes, provide a list of
 # event types.
@@ -38,10 +38,6 @@ event_type_code_map = {
 # Reverse the map, to event-type -> deep-link code.
 event_type_code_map = dict((v, k)
                            for k, l in event_type_code_map.items() for v in l)
-
-default_event_code = 'panic'
-
-deep_link_template = 'steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}'
 
 
 def get_display_value_for_key(key):
@@ -58,7 +54,7 @@ def get_key_title(key, schema):
     if key in properties and 'title' in properties[key]:
         return properties[key]['title']
 
-    definitions = schema['defintions'] if 'definitions' in schema else []
+    definitions = schema.get('definitions', [])
 
     for definition_dictionary in [x for x in definitions if isinstance(x, dict)]:
         if definition_dictionary['key'] == key:
@@ -67,22 +63,26 @@ def get_key_title(key, schema):
     return None
 
 
-def lookup_event_code(event_type_value):
-    return event_type_code_map.get(event_type_value, default_event_code)
+def build_deep_link_for_subject(event, subject, default_event_code='panic'):
+    """
+    Deep link must look like this:
 
+    steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}&id={subject_id}
 
-def build_deep_link_for_subject(event, subject):
-    # deep_link_template = 'steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}'
+    """
     link_data = {
-        'type': urllib.parse.quote(lookup_event_code(event.event_type.value)),
-        'name': urllib.parse.quote(subject.name),
-        'source': urllib.parse.quote('das'),
-        'timestamp': urllib.parse.quote(event.time.strftime('%Y-%M-%dT%H:%M:%S')),
-        'lat': urllib.parse.quote(str(event.location.x)),
-        'lon': urllib.parse.quote(str(event.location.y))
+        'event': event_type_code_map.get(event.event_type.value, default_event_code),
+        'name': subject.name,
+        'id': str(subject.id),
+        'sys': 'das',
+        't': event.time.strftime('%Y-%M-%dT%H:%M:%S'),
+        'lon': str(event.location.x),
+        'lat': str(event.location.y),
     }
-    deep_link = deep_link_template.format(**link_data)
-    return deep_link
+
+    qs = '&'.join('='.join((k, urllib.parse.quote(v)))
+                  for k, v in link_data.items())
+    return '?'.join(('steta://', qs))
 
 
 def extract_details(schema, details, updated):
@@ -251,7 +251,7 @@ def extract_event_data(event, user, revisions):
 
     if event.event_type.value in getattr(settings, 'DEEP_LINK_EVENT_TYPES', []):
         deep_links = []
-        for subject in event.subjects:
+        for subject in event.related_subjects.all():
             deep_links.append('  - Subject Link: ' +
                               build_deep_link_for_subject(event, subject))
         event_data['deep_links'] = deep_links

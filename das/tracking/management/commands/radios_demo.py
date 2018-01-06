@@ -18,7 +18,7 @@ import random
 import time
 
 from accounts.models import PermissionSet, User
-from activity.models import Event, EventAttachment, Community, EventType
+from activity.models import Event, Community, EventType
 
 from mapping.models import FeatureType, PolygonFeature, LineFeature, PointFeature, FeatureSet
 from observations.models import Subject, SubjectGroup, SubjectSource, Source, Observation
@@ -240,18 +240,13 @@ class DemoDriver():
     def delete_observations(self):
         Observation.objects.filter(source_id=self.source_id).delete()
 
-    # def delete_events(self):
-    #     # EventAttachment.objects.filter(target_id=self.subject.id).delete()
-    #     EventAttachment.objects.all().delete()
-    #     Event.objects.all().delete()
+    def delete_events(self):
+        pass
 
     def delete_driven_events(self, time):
         pass
-        # Event.objects.filter(event_time__gt=time).delete()
 
     def delete_analyzers(self):
-        # for klass in all_analyzers:
-        #     klass.objects.filter(subject_id=self.subject_id).delete()
         pass
 
     def ignition(self):
@@ -321,10 +316,6 @@ def store_event(evt, subject, t):
         if hasattr(event, k):
             setattr(event, k, v)
     event.save()
-
-    if evt.get('subject_name', None):
-        subject = Subject.objects.get(name=evt['subject_name'])
-        EventAttachment.objects.create(target=subject, event=event)
 
 
 def import_geojson():

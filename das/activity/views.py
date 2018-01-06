@@ -215,7 +215,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                                 'Report Id', 'Title', 'Status', 'Reported By',
                                 'Reported By Internal Value', 'Reported At',
                                 'Latitude', 'Longitude', 'Number of Notes',
-                                'Number of Attachments', 'Collection Report Id',
+                                'Number of Related Subjects', 'Collection Report Id',
                                 'CUSTOM FIELDS BEGIN HERE'],
                     'events': []
                 }
@@ -271,8 +271,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'reported_at': event.time.strftime('%Y-%m-%d %H:%M'),
                 'lat': event.location.x if event.location is not None else '',
                 'lon': event.location.y if event.location is not None else '',
-                'num_notes': len(event.notes.all()),
-                'num_attach': len(event.attachments.all()),
+                'num_notes': event.notes.count(),
+                'num_attach': event.related_subjects.count(),
                 'parent_id': parent_event,
                 'status': 'Resolved' if event.state == Event.SC_RESOLVED else 'Active',
                 'details': schema_data.values()
@@ -462,7 +462,7 @@ class EventsView(generics.ListCreateAPIView):
         else:
             raise rest_framework.exceptions.PermissionDenied
 
-        queryset = queryset.prefetch_related(Prefetch('attachments'))
+        queryset = queryset.prefetch_related(Prefetch('related_subjects'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))
         queryset = queryset.prefetch_related(Prefetch('created_by_user'))
         queryset = queryset.prefetch_related(Prefetch('reported_by'))

@@ -2,9 +2,6 @@ from django.contrib.gis import admin
 import tracking.models as models
 from django.contrib.staticfiles.templatetags.staticfiles import static
 
-# class EventAttachmentInline(admin.StackedInline):
-#     model=models.EventAttachment
-
 
 @admin.register(models.SourcePlugin)
 class SourcePluginAdmin(admin.ModelAdmin):

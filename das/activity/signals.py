@@ -6,7 +6,7 @@ from django.dispatch import receiver
 
 from das_server import celery
 
-from activity.models import Event, EventNote, EventAttachment, EventPhoto
+from activity.models import Event, EventNote, EventPhoto
 from das_server import pubsub
 
 logger = logging.getLogger(__name__)

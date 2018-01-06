@@ -57,15 +57,17 @@ class AfricasTalkingBackend(BaseSmsBackend):
                                   'Apikey': self.apikey,
                                   'to': str(to),
                                   'message': str(message.body)}
-                    if settings.SENDSMS_FROM:
+                    if (hasattr(settings, 'SENDSMS_FROM') and
+                            settings.SENDSMS_FROM):
                         parameters['from'] = settings.SENDSMS_FROM
 
                     response = requests.get(self.sms_url, params=parameters)
                     if not response.ok:
-                        err_msg = 'Error sending an sms to {0): {1}'.format(
+                        err_msg = 'Error sending an sms to {0}: {1}'.format(
                             to, response)
                         logger.error(err_msg)
 
-                except Exception as ex:
-                    err_msg = 'Error sending an sms to {0)'.format(to)
+                except Exception:
+                    err_msg = 'Error sending an sms to {0}'.format(to)
                     logger.exception(err_msg)
+                    raise
