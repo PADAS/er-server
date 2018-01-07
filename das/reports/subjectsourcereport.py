@@ -68,7 +68,10 @@ def generate_subject_records(report_hours=24):
 
             result['performance'] = (
                 len(latest_observations), trajectory_length)
+
             result['analyzers'] = alert_accumulator
+            result['analyzers_summary'] = ', '.join(
+                '{}({})'.format(k, v) for k, v in alert_accumulator.items())
 
             result['time_since_last'] = calculate_age_description(
                 latest_observation.recorded_at)
@@ -95,6 +98,23 @@ def calculate_age_description(val):
 
 TD_12_HOURS = timedelta(hours=12)
 TD_48_HOURS = timedelta(hours=48)
+
+
+def build_legend():
+    return [
+        {
+            'text': 'Data is Current',
+            'styles': 'color:#0a0;',
+        },
+        {
+            'text': 'Data older than 12 hours',
+            'styles': 'color:#f60;',
+        },
+        {
+            'text': 'Data older than 48 hours',
+            'styles': 'color:#c00;font-weight:bold',
+        }
+    ]
 
 
 def calculate_latest_observation_style(val):
@@ -151,8 +171,11 @@ def groupify_report_data(subject_records):
             species, region = record.get('species'), record.get('region')
             group = groups.setdefault(
                 (species, region), {'species': species, 'region': region})
+            # Used in template.
+            group['sort_key'] = '{}:{}'.format(region, species)
             subjects = group.setdefault('subjects', [])
             subjects.append(record)
+
     except StopIteration as si:
         print(si)
 
@@ -183,6 +206,7 @@ def generate_user_reports(userlist):
         message_context = {
             'groups': group_list,
             'report_date': report_timestamp,
+            'report_legend': build_legend(),
         }
 
         yield user, message_context
