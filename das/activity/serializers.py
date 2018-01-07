@@ -528,6 +528,8 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = activity.models.EventPhoto
+        read_only_fields = ('created_at', 'updated_at', 'created_by_user',)
+        fields = ('id', 'image', 'filename', 'event') + read_only_fields
 
     def to_representation(self, photo):
         rep = super().to_representation(photo)
@@ -576,6 +578,8 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = activity.models.EventFile
+        read_only_fields = ('created_at', 'updated_at', 'created_by')
+        fields = ('id', 'event', 'comment', 'usercontent', 'usercontent_id', 'usercontent_type') + read_only_fields
 
     def create(self, validated_data):
 
@@ -770,7 +774,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         return activity.models.EventDetails.objects.filter(event=instance).order_by('created_at').last()
 
 
-class EventSerializerMixin():
+class EventSerializerMixin:
 
     def to_internal_value(self, data):
         internal_value = super().to_internal_value(data)

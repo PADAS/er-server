@@ -14,10 +14,10 @@ simplejson==3.13.2
 pytz==2017.3
 python-dateutil==2.6.1
 requests==2.18.4
-python-engineio==2.0.1
+python-engineio==2.0.2
 celery==4.1.0
 redis==2.10.6
-six==1.10.0
+six==1.11.0
 bleach==2.1.2
 python-json-logger==0.1.8
 twilio==6.10.0
@@ -48,6 +48,7 @@ django-extra-fields==0.9
 django-readonly-field==1.0.2
 django-storages==1.6.5
 django-tagulous==0.12.0
+django-versatileimagefield==1.8.1
 
 #oauth
 oauthlib==2.0.6
@@ -60,20 +61,19 @@ geopy==1.11.0
 Fiona==1.7.11
 cython==0.27.3
 geopandas==0.3.0
-shapely==1.6.1
+shapely==1.6.3
 
 
 # 2017-06-16, switch to boto3 (from boto==2.46.1)
-boto3==1.5.7
+boto3==1.5.9
 PyYAML==3.12
-Pillow==4.3.0
 
 # Docx and Docx Template are used for generating reports as Word documents.
-Jinja2==2.8.1
-docxtpl==0.2.3
+Jinja2==2.10
+docxtpl==0.4.6
 python-docx==0.8.6
 lxml==4.1.1
-openpyxl==2.4.8
+openpyxl==2.5.0b1
 
 #pymet and requirements that pymet is not pinning
 rasterio==1.0a9

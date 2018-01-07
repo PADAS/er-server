@@ -28,7 +28,6 @@ from activity.models import Event, EventAttachment, EventType, EventCategory,\
     EventRelationship, EventRelationshipType
 
 from activity.models import get_sentinel_user
-from activity.serializers import ATTACHMENT_SERIALIZER_MAPPING
 from activity import views
 from observations.models import Subject
 from accounts.serializers import UserDisplaySerializer
@@ -937,9 +936,3 @@ class TestEventView(BaseAPITest):
         return results
 
 
-class TestSerializers(TestCase):
-    def test_have_all_attachment_serializer_mappings(self):
-        for q in EventAttachment.limits.children:
-            q = dict(q.children)
-            self.assertIn('.'.join((q['app_label'], q['model'])),
-                          ATTACHMENT_SERIALIZER_MAPPING)
