@@ -23,7 +23,7 @@ def generate_subject_records(report_hours=24):
                   'model_name': ss.source.model_name,
                   'manufacturer_id': ss.source.manufacturer_id,
                   'name': ss.subject.name,
-                  'frequency': ss.subject.additional.get('frequency', ''),
+                  'frequency': ss.source.additional.get('frequency', ''),
                   'data_starts': ss.assigned_range.lower,
                   'species': ss.subject.subject_subtype.capitalize(),
                   'region': ss.subject.additional.get('region', 'Unassigned'),
@@ -68,6 +68,9 @@ def generate_subject_records(report_hours=24):
 
             result['performance'] = (
                 len(latest_observations), trajectory_length)
+
+            result['voltage'] = latest_observation.additional.get(
+                'voltage', '')
 
             result['analyzers'] = alert_accumulator
             result['analyzers_summary'] = ', '.join(

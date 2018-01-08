@@ -19,7 +19,8 @@
             <th style="border:1px solid gray;padding:3px;">Model</th>
             <th style="border:1px solid gray;padding:3px;">Collar Id</th>
             <th style="border:1px solid gray;padding:3px;">Name</th>
-            <th style="border:1px solid gray;padding:3px;">Frequency (Mhz)</th>
+            <th style="border:1px solid gray;padding:3px;">Freq (Mhz)</th>
+            <th style="border:1px solid gray;padding:3px;">Voltage</th>
             <th style="border:1px solid gray;padding:3px;">Data Starts</th>
             <th style="border:1px solid gray;padding:3px;">Last At</th>
             <th style="border:1px solid gray;padding:3px;">Time Since</th>
@@ -32,6 +33,7 @@
                 <td style="border:1px solid gray;padding:3px;">{{ item.manufacturer_id }}</td>
                 <td style="border:1px solid gray;padding:3px;">{{  item.name }}</td>
                 <td style="border:1px solid gray;padding:3px;">{{ item.frequency }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.voltage }}</td>
                 <td style="border:1px solid gray;padding:3px;">{{  item.data_starts.strftime('%b %d, %Y %H:%M') if item.data_starts else 'no-value'}}</td>
                 <td style="border:1px solid gray;padding:3px;">{{ item.latest_observation_at.strftime('%b %d, %Y %H:%M') if item.latest_observation_at else 'no-data' }}</td>
                 <td style="border:1px solid gray;padding:3px;{{ item.styles.time_since_last|default('') }}">{{ item.time_since_last }}</td>
