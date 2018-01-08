@@ -934,5 +934,3 @@ class TestEventView(BaseAPITest):
                 ] = response.status_code == 204
 
         return results
-
-
