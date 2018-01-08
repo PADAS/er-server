@@ -162,7 +162,7 @@ def send_alert_to_specific_user(username, event_id, revision_ids=None):
     if result.status_code != 200 or not result.data:
         return
 
-    for subject in event.subjects:
+    for subject in event.related_subjects.all():
         request = DummyRequest('/subject/', 'GET', user=user)
         result = SubjectView.as_view()(request, id=str(subject.id))
         if result.status_code != 200 or not result.data:
