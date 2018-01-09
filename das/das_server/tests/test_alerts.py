@@ -10,7 +10,7 @@ from drf_extra_fields.geo_fields import PointField
 
 from accounts.models.user import AccountsAbstractUser
 from accounts.models import PermissionSet
-from activity.models import Event, EventType, EventRelationship, EventDetails
+from activity.models import Event, EventType, EventRelationship, EventDetails, EventRelatedSubject
 from observations.models import Subject, Source, Observation
 from tracking.models.plugin_base import Obs
 
@@ -461,19 +461,17 @@ class TestEventView(TestCase):
             target_subject, target_body, alert_targets.target_from_address))
 
     @patch.object(AccountsAbstractUser, 'email_user')
-    @patch('das_server.celery.app.send_task',
-           side_effect=mock_routing.mock_send_task)
+    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
     @patch('das_server.tasks.get_alert_users')
-    def test_single_alert_with_deep_link(self, mock_get_alert_users, mock_task,
-                                         mock_send_email):
+    def test_single_alert_with_deep_link(self, mock_get_alert_users, mock_task, mock_send_email):
         # Configure mocks
         mock_get_alert_users.return_value = [self.user]
 
-
         def event_manipulations():
             self.new_event = self.create_event(self.event_data)
-            # EventAttachment.objects.create(target=self.ranger_one, event=self.new_event)
-            #self.new_event.refresh_from_db()
+            EventRelatedSubject.objects.create(
+                event=self.new_event, subject=self.ranger_one)
+            self.new_event.refresh_from_db()
 
         self.event_manipulation_wrapper(event_manipulations)
 
