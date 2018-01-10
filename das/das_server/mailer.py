@@ -75,7 +75,7 @@ def build_deep_link_for_subject(event, subject, default_event_code='panic'):
         'name': subject.name,
         'id': str(subject.id),
         'sys': 'das',
-        't': event.time.strftime('%Y-%M-%dT%H:%M:%S'),
+        't': event.time.strftime('%Y-%m-%dT%H:%M:%S'),
         'lon': str(event.location.x),
         'lat': str(event.location.y),
     }
