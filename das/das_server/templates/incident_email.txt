@@ -2,7 +2,7 @@ DAS {{id}}: {{title}}
 Priority: {{color}}
 
 {% for field in fields %} {{field}}
-{% endfor %}{% if deep_links|length >= 1 %}{% for deep_link in deep_links %}{{deep_link}}
+{% endfor %}{% if deep_links|length >= 1 %}{% for deep_link in deep_links %}{{deep_link|safe}}
 {% endfor %}{% endif %}{% if children|length >= 1 %}
 
 
