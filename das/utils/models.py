@@ -4,7 +4,7 @@ from django.contrib.auth.management import create_permissions
 
 def migrate_permissions(apps):
     version = django.VERSION
-    if version[0] >= 1 and django.VERSION[1] > 9:
+    if version[0] > 1 or (version[0] == 1 and django.VERSION[1] > 9):
         for app_config in apps.get_app_configs():
             app_config.models_module = True
             create_permissions(app_config, apps=apps, verbosity=0)

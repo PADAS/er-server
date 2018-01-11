@@ -8,7 +8,7 @@ from core.utils import static_image_finder
 from choices.serializers import ChoiceField
 from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from django.http import Http404

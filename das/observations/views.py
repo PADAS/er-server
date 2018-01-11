@@ -6,7 +6,7 @@ import pytz
 from io import BytesIO
 
 from django.conf import settings
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.db.models import Prefetch
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied

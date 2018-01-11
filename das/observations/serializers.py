@@ -5,7 +5,7 @@ import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
 from django.db.utils import IntegrityError
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 
 from core.serializers import ContentTypeField
 

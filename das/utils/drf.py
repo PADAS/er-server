@@ -83,4 +83,4 @@ class PointValidator:
 class AllowAnyGet(BasePermission):
     def has_permission(self, request, view):
         return request.method in ('GET', 'HEAD', 'OPTIONS') \
-            or (request.user and request.user.is_authenticated())
+            or (request.user and request.user.is_authenticated)

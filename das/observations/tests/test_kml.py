@@ -7,7 +7,7 @@ import pytz
 from core.tests import BaseAPITest
 from datetime import datetime
 from django.contrib.auth.models import Permission
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from lxml import etree
 
 from tempfile import NamedTemporaryFile

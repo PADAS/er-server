@@ -189,7 +189,8 @@ class Source(TimestampedModel):
     # provider_name = models.CharField('unique name for data provider', max_length=100, null='False', default='default')
 
     provider = models.ForeignKey(SourceProvider, related_name='sources', related_query_name='source',
-                                 null=False, default=get_default_source_provider_id)
+                                 null=False, default=get_default_source_provider_id,
+                                 on_delete=models.PROTECT)
 
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
@@ -218,7 +219,7 @@ class Source(TimestampedModel):
 EMPTY_POINT = Point(0, 0)
 
 
-class ObservationManager(models.GeoManager):
+class ObservationManager(models.Manager):
 
     def get_subject_observations(self, subject, since=None, until=None, limit=None, values=None):
         queryset = Observation.objects.filter(source__subjectsource__subject=subject,
@@ -395,7 +396,7 @@ DEFAULT_ASSIGNED_RANGE = list((pytz.utc.localize(datetime.min),
                                pytz.utc.localize(datetime.max)))
 
 
-class SubjectSourceManager(models.GeoManager):
+class SubjectSourceManager(models.Manager):
     def get_subject_sources(self, subject):
         sds = SubjectSource.objects.filter(subject_id=subject.id)
         return sds

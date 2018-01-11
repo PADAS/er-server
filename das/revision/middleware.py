@@ -7,7 +7,7 @@ from revision.manager import RevisionMixin
 class RevisionMiddleware(object):
     def process_request(self, request):
         if request.method not in ('GET', 'HEAD', 'OPTIONS', 'TRACE'):
-            if hasattr(request, 'user') and request.user.is_authenticated():
+            if hasattr(request, 'user') and request.user.is_authenticated:
                 user = request.user
             else:
                 user = None

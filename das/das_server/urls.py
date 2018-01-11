@@ -33,13 +33,13 @@ urlpatterns = [
     url(r'^api/v1.0/api-auth/',
         include('rest_framework.urls', namespace='rest_framework')),
     #url(r'^api/v1.0/docs/', include('rest_framework_swagger.urls')),
-    url(r'^admin/', include(admin.site.urls)),
+    url(r'^admin/', admin.site.urls),
     url(r'^accounts/', include('accounts.urls_user')),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^oauth2/token$', oauth2_views.TokenView.as_view(), name="token"),
-    url(r'^api/v1.0/reports/', include('reports.urls', namespace='reports')),
+    url(r'^api/v1.0/reports/', include(('reports.urls', 'reports'))),
     url(r'^api/v1.0/usercontent/',
-        include('usercontent.urls', namespace='usercontent')),
+        include(('usercontent.urls', 'usercontent'))),
 ]
 
 

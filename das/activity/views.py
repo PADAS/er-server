@@ -11,7 +11,7 @@ from rest_framework import generics, status, response
 from django.http.response import HttpResponse
 
 from django.db.models import Prefetch, Q, F, Func
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.template import Template, Context
 from django.utils import timezone
 from rest_framework.response import Response

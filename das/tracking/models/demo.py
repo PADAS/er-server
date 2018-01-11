@@ -92,7 +92,8 @@ class DemoSourcePlugin(TrackingPlugin):
     '''
     Generate track data using RandomMover.
     '''
-    range_polygon = models.ForeignKey(mapping.models.PolygonFeature, null=True)
+    range_polygon = models.ForeignKey(mapping.models.PolygonFeature, null=True,
+                                      on_delete=models.PROTECT)
 
     def should_run(self, source_plugin):
         return True

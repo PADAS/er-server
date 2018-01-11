@@ -16,7 +16,7 @@ logger = logging.getLogger('django.request')
 
 def act_as_user_in_request(user, request):
     profile_header = request.META.get('HTTP_USER_PROFILE', None)
-    if profile_header and user and not user.is_anonymous():
+    if profile_header and user and not user.is_anonymous:
         logged_in_user = user
         profile_pk = uuid.UUID(profile_header)
         if 1 != logged_in_user.act_as_profiles.all().filter(
@@ -110,7 +110,7 @@ class AccountsModelBackend(ModelBackend):
         Returns a set of permission strings that this user has through his/her
         groups and their children.
         """
-        if not user_obj.is_active or user_obj.is_anonymous():
+        if not user_obj.is_active or user_obj.is_anonymous:
             return set()
 
         can_cache = user_obj.is_superuser or not(
@@ -142,7 +142,7 @@ class AccountsModelBackend(ModelBackend):
         """
         Returns a set of permission strings that the given ``user_obj`` has for ``obj``
         """
-        if not user_obj.is_active or user_obj.is_anonymous():
+        if not user_obj.is_active or user_obj.is_anonymous:
             return set()
         perms = self.get_group_permissions(user_obj, obj)
         perms.update(self.get_user_permissions(user_obj, obj))
