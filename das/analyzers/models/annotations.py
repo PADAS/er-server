@@ -78,7 +78,7 @@ class ObservationAnnotator(Annotator):
              and obs.exclusion_flags = 0
           order by obs.recorded_at asc)
 
-        select id, recorded_at, location, additional, distance_preceding, time_lapse_preceding, distance_following, time_lapse_following,
+        select id, recorded_at, location::bytea, additional, distance_preceding, time_lapse_preceding, distance_following, time_lapse_following,
              (3.6 * distance_preceding / time_lapse_preceding) kph_preceding,
              (3.6 * distance_following / time_lapse_following) kph_following
            from path
@@ -90,25 +90,7 @@ class ObservationAnnotator(Annotator):
         items = Observation.objects.raw(sql, dict(subject_source_id=str(subject_source.id), start_date=start_date,
                                                   end_date=end_date, speed_threshold=self.max_speed))
 
-        def gen_items(items):
-            for item in items:
-                yield {'id': item.id, 'lon': item.location.x, 'recorded_at': item.recorded_at,
-                       'lat': item.location.y,
-                       'kph_preceding': item.kph_preceding,
-                       'kph_following': item.kph_following,
-                       'geometry': item.location.coords}
-
-        df = gpd.GeoDataFrame(gen_items(items),)
-
-        if len(df) < 1:
-            return
-
-        df.set_index('recorded_at', inplace=True)
-
-        flag_these = []
-
-        for i, s in df.iterrows():
-            flag_these.append(s['id'])
+        flag_these = [item.id for item in items]
 
         logger.info(
             'Setting exclusion_flags on these observations: {}'.format(flag_these))
