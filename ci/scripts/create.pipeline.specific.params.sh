@@ -23,6 +23,7 @@ fi
 
 touch $PIPELINE_PARAMS_FILE
 echo "cluster-name: $PIPELINE_NAME" >> $PIPELINE_PARAMS_FILE
+echo "version-suffix: $PIPELINE_NAME" >> $PIPELINE_PARAMS_FILE
 
 function prompt_for_branch()
 {
