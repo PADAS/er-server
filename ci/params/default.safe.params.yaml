@@ -1,14 +1,31 @@
 project-id: padas-app
-cluster-name: 
+vp-tools-container-version: "0.0.146"
+infrastructure-utilities-version-tag: "0.0.54"
+
+#Infrastructure
+gcp-project-id: pamdas-dev
+cluster-name: ""
+static-ip: ""
+utility-static-ip: ""
+disk-namespace: ""
+gcp-compute-zone: "us-west1-a"
+machine-type: "n1-standard-1"
+num-nodes: 6
+
+#Build
 server-branch-name: develop
 web-branch-name: develop
 web-react-branch-name: develop
-static-ip: ""
+tag-as-latest: false
+version-suffix: "not-set"
+
+#Application
 email-host: ""
 email-username: ""
-disk-namespace: ""
-version-suffix: ""
-tag-as-latest: false
-slack-notification-channel: ""
-gcp-compute-zone: "us-west1-a"
 web-service-name: "web"
+
+#Test & Notification
+postman-environment:
+slack-notification-channel: ""
+alerts-slack-channel: ""
+send-alerts: false
