@@ -2,6 +2,7 @@
 
 ###############################################################
 # Manage the padas-app infrastructure resources
+#
 ###############################################################
 
 # If this is set we will serve up 8001 in this container to this port on the host
@@ -10,7 +11,7 @@ K8S_PROXY_PORT=$1
 MANAGE_PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT=padas-app
 CONCOURSE_URL=https://ci.pamdas.org
-TOOLS_VERSION=latest
+TOOLS_VERSION=0.0.146
 
 ### DO NOT EDIT BELOW THIS LINE
 ### Below this line is generic copy pasted from the master in infrastructure

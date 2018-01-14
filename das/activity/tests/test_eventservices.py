@@ -106,6 +106,6 @@ class TestEventServices(TestCase):
         self.assertEqual(data['lat'], str(event_data['location']['latitude']))
         self.assertEqual(data['lon'], str(event_data['location']['longitude']))
         self.assertEqual(data['name'], str(elephant.name))
-        self.assertEqual(data['t'], event.time.strftime('%Y-%M-%dT%H:%M:%S'))
+        self.assertEqual(data['t'], event.time.strftime('%Y-%m-%dT%H:%M:%S'))
         self.assertEqual(data['id'], str(elephant.id))
         self.assertEqual(data['event'], 'immobility')
