@@ -1,31 +1,37 @@
 import logging
 
-from django.conf import settings
+from celery_once import QueueOnce
 
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from das_server import celery
-from observations.models import Subject, SubjectSource
+from observations.models import Subject
 from analyzers.models import ObservationAnnotator
 from analyzers.finder import get_subject_analyzers
 
 logger = logging.getLogger(__name__)
 
 
-@celery.app.task()
+@celery.app.task(base=QueueOnce, once={'graceful': True, 'timeout': 3 * 60})
 def handle_subject(subject_id):
+    """
+    Subject-centric task to run when new observations are recorded.
 
-    logger.info('handling subject %s', str(subject_id))
+    Using QueueOnce as a base-class to squash a succession of tasks for the same subject_id.
+    """
+    subject_id = str(subject_id)
+    logger.info('Handling subject %s', subject_id)
 
     # Call annotator first
     annotate_observations_for_subject(subject_id)
 
     # Queue analyzer tasks.
-    analyze_subject.apply_async(args=[str(subject_id), ])
+    analyze_subject.apply_async(args=(subject_id,))
 
 
-@celery.app.task(bind=True)
-def analyze_subject(self, subject_id):
+@celery.app.task(base=QueueOnce)
+def analyze_subject(subject_id):
 
+    logger.info('Analyze subject for id=%s', subject_id)
     try:
         subject = Subject.objects.get(id=subject_id)
     except Subject.DoesNotExist:
@@ -66,32 +72,20 @@ def annotate_observations_for_subject(subject_id):
 
 
 @celery.app.task()
-def handle_source(source_id):
-    logger.info('handling source %s', str(source_id))
+def handle_observation(observation_id):
 
-    # get the most recent Subject for this Source
-    subject_source = SubjectSource\
-        .objects\
-        .filter(source=source_id)\
-        .order_by('assigned_range')\
-        .reverse()\
-        .first()
+    logger.debug('Handling observation: %s', observation_id)
 
-    if subject_source:
-        handle_subject(str(subject_source.subject_id))
-    else:
-        logger.warning(
-            'Asked to handle source %s, but could not find SubjectSource record.', str(source_id))
+    subjects = Subject.objects.get_subjects_from_observation_id(
+        observation_id, values=('id', 'name'))
 
+    if not subjects:
+        logger.debug(
+            'Handling observation %s, but it has no associated subject.', observation_id)
 
-# @celery.app.task()
-# def build_subject_speed_profile(subject_id):
-#
-#     logger.debug('Building speed profile for subject: %s', str(subject_id))
-#
-#     try:
-#         sub = Subject.objects.get(id=subject_id)
-#
-#     except Subject.DoesNotExist:
-#         logger.warning('Unable to run speed profiler for subject ID: %s, because it does not exist.', subject_id)
-#         return
+    for subject in subjects:
+        subject_id = subject['id']
+
+        # Execute in one minute, which will allow squashing a succession of observations for a single subject.
+        # See 'handle_subject' and it's use of QueueOnce to do the squashing.
+        handle_subject.appy_async(args=(subject_id,), countdown=60)

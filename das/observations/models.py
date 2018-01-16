@@ -604,6 +604,21 @@ class SubjectManager(models.Manager):
         subject.groups.set((SubjectGroup.objects.get_default(),))
         return subject
 
+    def get_subjects_from_observation_id(self, observation_id, values=None):
+        '''
+        Convenient place to keep rules for identifying a Subject(s) related to an observation.
+        :param observation_id:
+        :return:
+        '''
+        subjects = Subject.objects.filter(
+            subjectsource__source__observation__id=observation_id,
+            subjectsource__assigned_range__contains=F(
+                'subjectsource__source__observation__recorded_at')
+        )
+        if values:
+            subjects = subjects.values(values)
+        return subjects
+
 
 class Subject(TimestampedModel, PermissionSetGroupMixin):
     """Person, Animal, Vehicle, etc"""
