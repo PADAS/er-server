@@ -56,7 +56,7 @@ oauthlib==2.0.6
 
 numpy==1.14.0rc1
 
-GDAL==2.2.2
+GDAL==2.2.3
 pyproj==1.9.5.1
 geopy==1.11.0
 Fiona==1.7.11

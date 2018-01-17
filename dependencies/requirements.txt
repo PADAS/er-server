@@ -51,7 +51,7 @@ enum-compat==0.0.2        # via eventlet
 et-xmlfile==1.0.1         # via openpyxl
 eventlet==0.21.0
 fiona==1.7.11
-gdal==2.2.2
+gdal==2.2.3
 geographiclib==1.48       # via pymet
 geojson==2.3.0
 geopandas==0.3.0
