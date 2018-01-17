@@ -4,7 +4,7 @@ from celery_once import QueueOnce
 
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from das_server import celery
-from observations.models import Subject
+from observations.models import Subject, SubjectSource
 from analyzers.models import ObservationAnnotator
 from analyzers.finder import get_subject_analyzers
 
@@ -26,6 +26,21 @@ def handle_subject(subject_id):
 
     # Queue analyzer tasks.
     analyze_subject.apply_async(args=(subject_id,))
+
+
+@celery.app.task()
+def handle_source(source_id):
+    logger.info('Handling source %s', str(source_id))
+
+    subjects = Subject.objects.get_current_subjects_from_source_id(
+        source_id=source_id, values=('id', 'name'))
+
+    for subject in subjects:
+        subject_id = subject['id']
+
+        # Execute in one minute, which will allow squashing a succession of observations for a single subject.
+        # See 'handle_subject' and it's use of QueueOnce to do the squashing.
+        handle_subject.apply_async(args=(subject_id,), countdown=60)
 
 
 @celery.app.task(base=QueueOnce)
@@ -88,4 +103,4 @@ def handle_observation(observation_id):
 
         # Execute in one minute, which will allow squashing a succession of observations for a single subject.
         # See 'handle_subject' and it's use of QueueOnce to do the squashing.
-        handle_subject.appy_async(args=(subject_id,), countdown=60)
+        handle_subject.apply_async(args=(subject_id,), countdown=60)
