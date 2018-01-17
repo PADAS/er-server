@@ -13,6 +13,7 @@ boto3==1.4.4
 boto==2.46.1              # via django-ses
 botocore==1.5.69          # via boto3, s3transfer
 celery==4.0.2
+celery_once==1.2.0
 certifi==2017.7.27.1      # via requests
 cffi==1.10.0              # via cryptography
 chardet==3.0.4            # via requests
@@ -47,8 +48,8 @@ earthengine-api==0.1.114  # via pymet
 enum-compat==0.0.2        # via eventlet
 et-xmlfile==1.0.1         # via openpyxl
 eventlet==0.20.1
-fiona==1.7.9
-gdal==2.2.2
+fiona==1.7.9              # via geopandas, pymet, rasterstats
+gdal==2.2.2               # via pymet
 geographiclib==1.48       # via pymet
 geojson==2.3.0
 geopandas==0.3.0
