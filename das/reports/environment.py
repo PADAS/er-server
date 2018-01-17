@@ -1,3 +1,6 @@
+# TODO Can we inherit from the jinja2.environment and add our DOCX loader instead of a direct copy?
+# upgrades are painful now
+
 # -*- coding: utf-8 -*-
 """
     jinja2.environment
@@ -10,6 +13,8 @@
 """
 import os
 import sys
+import weakref
+from functools import reduce, partial
 from jinja2 import nodes
 from jinja2.defaults import BLOCK_START_STRING, \
      BLOCK_END_STRING, VARIABLE_START_STRING, VARIABLE_END_STRING, \
@@ -29,7 +34,7 @@ from jinja2.utils import import_string, LRUCache, Markup, missing, \
      concat, consume, internalcode
 from jinja2._compat import imap, ifilter, string_types, iteritems, \
      text_type, reraise, implements_iterator, implements_to_string, \
-     get_next, encode_filename, PY2, PYPY
+     encode_filename, PY2, PYPY
 from functools import reduce
 
 from docxtpl import DocxTemplate
@@ -1181,7 +1186,7 @@ class TemplateStream(object):
 
     def disable_buffering(self):
         """Disable the output buffering."""
-        self._next = get_next(self._gen)
+        self._next = partial(next, self._gen)
         self.buffered = False
 
     def enable_buffering(self, size=5):
@@ -1209,7 +1214,7 @@ class TemplateStream(object):
                 c_size = 0
 
         self.buffered = True
-        self._next = get_next(generator(get_next(self._gen)))
+        self._next = partial(next, self._buffered_generator(size))
 
     def __iter__(self):
         return self

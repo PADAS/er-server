@@ -1,3 +1,4 @@
+import platform
 from collections import OrderedDict
 from datetime import timedelta, datetime
 import copy
@@ -10,7 +11,7 @@ from rest_framework import generics, status, response
 from django.http.response import HttpResponse
 
 from django.db.models import Prefetch, Q, F, Func
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.template import Template, Context
 from django.utils import timezone
 from rest_framework.response import Response
@@ -318,11 +319,12 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         return response
 
     def get_context_data(self, **kwargs):
+        REPORT_TIME_FORMAT = '%-d %B %Y %Z' if platform.system().lower() != 'windows' else '%#d %B %Y %Z'
         current_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = current_tz.localize(datetime.utcnow())
         context = {
             'report_filename': 'Event Export {}.csv'.format(timestamp.strftime('%Y-%m-%d')),
-            'report_time': timestamp.strftime('%-d %B %Y %Z'),
+            'report_time': timestamp.strftime(REPORT_TIME_FORMAT),
             'event_types': self.get_event_export_list()
         }
 

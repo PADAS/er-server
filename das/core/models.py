@@ -14,7 +14,7 @@ class TimestampedModel(models.Model):
 
 
 class AuditableModel(TimestampedModel):
-    user = models.ForeignKey(to=settings.AUTH_USER_MODEL)
+    user = models.ForeignKey(to=settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     class Meta:
         abstract = True

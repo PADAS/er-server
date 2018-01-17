@@ -16,12 +16,9 @@ class TestImmobilityAnalyzer(TestCase):
 
     fixtures = ['analyzer_eventtype.yaml', ]
 
-    def setUp(self):
-        pass
-
     def test_immobility_with_moving_observations_list(self):
 
-        test_subject = models.Subject(name='Sample')
+        test_subject = models.Subject.objects.create_subject(name='Sample')
 
         # parse recorded_at (from string to datetime).
         test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE]
@@ -51,7 +48,7 @@ class TestImmobilityAnalyzer(TestCase):
         test_observations = ISHANGO_IMMOBILE
 
         # Create models (Subject, SubjectSource and Source)
-        sub = models.Subject.objects.create(
+        sub = models.Subject.objects.create_subject(
             name='Ishango', subject_type='wildlife', subject_subtype='elephant')
         source = models.Source.objects.create(manufacturer_id='ishango-collar')
         models.SubjectSource.objects.create(
@@ -86,7 +83,7 @@ class TestImmobilityAnalyzer(TestCase):
 
     def test_ishango_immobile(self):
         print('Analyzing: ', 'Ishango')
-        test_subject = models.Subject(name='Ishango')
+        test_subject = models.Subject.objects.create_subject(name='Ishango')
 
         # Grab prepared observation list from test data.
         test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE2]

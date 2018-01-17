@@ -7,9 +7,9 @@ from django.conf import settings
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ImproperlyConfigured
-from django.core.urlresolvers import reverse, NoReverseMatch
+from django.urls import reverse, NoReverseMatch
 from django.utils.translation import ugettext_lazy as _
-from tagulous.models import TagField
+from tagulous.models import TagField, TagModel
 from model_utils.managers import InheritanceManager
 
 from core.models import TimestampedModel
@@ -120,7 +120,7 @@ class Feature(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80)
-    type = models.ForeignKey(to=FeatureType)
+    type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
 
     description = models.TextField(null=True, blank=True)
 
@@ -133,7 +133,7 @@ class Feature(TimestampedModel):
     # todo:  evaluate whether many-to-many might be a better approach or stick
     # with this simple approach
     # probably should be spelled feature_set
-    featureset = models.ForeignKey(to=FeatureSet, null=True)
+    featureset = models.ForeignKey(to=FeatureSet, null=True, on_delete=models.PROTECT)
 
     @property
     def default_presentation(self):
@@ -445,6 +445,11 @@ class SpatialFeatureGroupStatic(SpatialFeatureGroup):
                                       blank=True)
 
 
+class SpatialFeatureTypeTag(TagModel):
+    class TagMeta:
+        pass
+
+
 class SpatialFeatureTypeManager(models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
@@ -457,11 +462,11 @@ class SpatialFeatureType(models.Model):
     name = models.CharField(max_length=100)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict)
-    tags = TagField()  # Tags will allow categorization according to different views (e.g., HF)
+    tags = TagField(to=SpatialFeatureTypeTag)  # Tags will allow categorization according to different views (e.g., HF)
 
     # presentation fields
     # Boundaries, Water, Security etc.
-    display_category = models.ForeignKey(to='DisplayCategory')
+    display_category = models.ForeignKey(to='DisplayCategory', on_delete=models.PROTECT)
     # JSON Field for defining the basic presentation of the feature
     presentation = JSONField(default=dict)
     provenance = JSONField(default=dict)
@@ -506,7 +511,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     # data fields
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    feature_type = models.ForeignKey(SpatialFeatureType)
+    feature_type = models.ForeignKey(SpatialFeatureType, on_delete=models.PROTECT)
 
     name = models.CharField(max_length=50, blank=True)
     # A shorter name used for cartographic display

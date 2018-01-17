@@ -6,9 +6,6 @@ import uuid
 
 from django.db import migrations, models
 import django.db.models.deletion
-from django.core.management import call_command
-from django.contrib.auth.management import create_permissions
-
 
 
 class Migration(migrations.Migration):

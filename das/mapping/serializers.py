@@ -2,7 +2,7 @@ import os
 import logging
 
 import simplejson as json
-from django.core.urlresolvers import reverse, NoReverseMatch
+from django.urls import reverse, NoReverseMatch
 import rest_framework.serializers as serializers
 
 import mapping.models as models

@@ -5,7 +5,7 @@ import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
 from django.db.utils import IntegrityError
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 
 from core.serializers import ContentTypeField
 
@@ -73,6 +73,8 @@ class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = models.SubjectSource
+        fields = ('id', 'assigned_range', 'soruce', 'subject',
+                  'additional')
 
     def create(self, validated_data):
         return models.SubjectSource.objects.ensure(subject=validated_data['subject'],
@@ -105,8 +107,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
     class Meta:
         model = models.Subject
-        readonly_fields = ('image_url', 'color', 'content_type')
-        fields = ('id', 'name', 'subject_type', 'subject_subtype', 'additional',) + readonly_fields
+        read_only_fields = ('image_url', 'color', 'content_type')
+        fields = ('id', 'name', 'subject_type', 'subject_subtype', 'additional',) + read_only_fields
 
     def to_internal_value(self, data):
         if 'id' in data:

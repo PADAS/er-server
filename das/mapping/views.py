@@ -4,7 +4,7 @@ from itertools import chain
 import hashlib
 
 from django.core.serializers import serialize
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.http import HttpResponse, Http404
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import generics
