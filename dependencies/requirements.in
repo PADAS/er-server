@@ -16,6 +16,7 @@ python-dateutil==2.6.1
 requests==2.18.4
 python-engineio==2.0.2
 celery==4.1.0
+celery_once==1.2.0
 kombu==4.1.0
 redis==2.10.6
 six==1.11.0

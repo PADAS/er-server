@@ -13,6 +13,7 @@ boto3==1.5.9
 boto==2.46.1              # via django-ses
 botocore==1.8.23          # via boto3, s3transfer
 celery==4.1.0
+celery_once==1.2.0
 certifi==2017.7.27.1      # via requests
 cffi==1.10.0              # via cryptography
 chardet==3.0.4            # via requests
