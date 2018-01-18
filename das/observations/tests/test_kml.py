@@ -3,11 +3,10 @@ import io
 import json
 import zipfile
 
-import pytz
 from core.tests import BaseAPITest
 from datetime import datetime
 from django.contrib.auth.models import Permission
-from django.urls import reverse
+from django.core.urlresolvers import reverse
 from lxml import etree
 
 from tempfile import NamedTemporaryFile
@@ -94,25 +93,28 @@ class ObservationTestCase(BaseAPITest):
             subject=self.elephant_1, source=self.collar_1)
 
         for obs_data in self.observation_data:
-            recorded_at = datetime.fromtimestamp(obs_data[2], tz=pytz.utc)
-            observation = Obs(source=self.collar_1, recorded_at=recorded_at,
+            observation = Obs(source=self.collar_1, recorded_at=datetime.fromtimestamp(obs_data[2]),
                               latitude=obs_data[0], longitude=obs_data[1], additional={})
             Observation.objects.add_observation(observation)
 
     # Why this isn't built in, I'll never know but
     def elements_equal(self, e1, e2):
-        self.assertEqual(e1.tag, e2.tag)
-        self.assertEqual(e1.text, e2.text)
-        self.assertEqual(e1.tail, e2.tail)
-        self.assertEqual(len(e1), len(e2))
-
+        if e1.tag != e2.tag:
+            return False
+        if e1.text != e2.text:
+            return False
+        if e1.tail != e2.tail:
+            return False
+        if len(e1) != len(e2):
+            return False
         if e1.attrib != e2.attrib:
             # simplekml puts a serial number on all elements it creates. This
             # serial number continues to increment as long as the app runs.
             # Don't let an unexpected serial number fail a comparison of two
             # otherwise equal kml documents
             e1_id = e1.attrib.get('id', '').split('_')[0]
-            self.assertIn(e1_id, self.simplekml_default_ids)
+            if e1_id not in self.simplekml_default_ids:
+                return False
 
         return all(self.elements_equal(c1, c2) for c1, c2 in zip(e1, e2))
 

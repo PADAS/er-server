@@ -4,8 +4,7 @@ from __future__ import unicode_literals
 
 from django.db import migrations
 from django.core.management import call_command
-
-import utils.models
+from django.contrib.auth.management import create_permissions
 from accounts.models import User, PermissionSet
 
 security_users = []
@@ -18,8 +17,11 @@ new_security_group_name = 'Admin User Event Permissions'
 new_monitoring_group_name = 'Radio Room Operator Event Permissions'
 
 
-def populate_new_permission_sets(apps, ):
-    utils.models.migrate_permissions(apps)
+def populate_new_permission_sets(apps,):
+    # initial data references permissions
+    apps.models_module = True
+    create_permissions(apps, verbosity=0)
+    apps.models_module = None
     call_command('loaddata', 'new_permission_sets')
 
 

@@ -2,8 +2,8 @@
 
 git+https://github.com/Julian/jsonschema.git@d0f2ef740b306dd966a947e2677d0c2ab065fc1f#egg=jsonschema
 
-git+https://github.com/PADAS/python-socketio.git@b51032c0c923d5f45606246b3c4986cb33a16daf#egg=python-socketio
+git+https://github.com/PADAS/python-socketio.git@4474087cb66c7090b81d60d94ac9b918b414d319#egg=python-socketio
 
 git+https://github.com/PADAS/fastkml.git@b0137871605672c09c2466246d0ae14601a1807d#egg=fastkml
 
-#git+https://github.com/VulcanTechnologies/django-versatileimagefield.git@c2bf2d81c0c2f1d2a76e42db5c6dc4331f7c1cfe#egg=django-versatileimagefield
+git+https://github.com/VulcanTechnologies/django-versatileimagefield.git@c2bf2d81c0c2f1d2a76e42db5c6dc4331f7c1cfe#egg=django-versatileimagefield

@@ -4,13 +4,24 @@ from __future__ import unicode_literals
 
 from django.db import migrations
 
-from utils.models import update_all_contenttypes, create_all_permissions
 
+def update_all_contenttypes(**kwargs):
+    from django.apps import apps
+    from django.contrib.contenttypes.management import update_contenttypes
+
+    for app_config in apps.get_app_configs():
+        update_contenttypes(app_config, verbosity=0, **kwargs)
+
+def create_all_permissions(**kwargs):
+    from django.contrib.auth.management import create_permissions
+    from django.apps import apps
+
+    for app_config in apps.get_app_configs():
+        create_permissions(app_config, verbosity=0, **kwargs)
 
 def forward(apps, schema_editor):
     update_all_contenttypes()
     create_all_permissions()
-
 
 def backward(apps, schema_editor):
     pass

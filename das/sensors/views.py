@@ -1,8 +1,11 @@
 import logging
 
+from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import generics, status
+from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission
 from rest_framework.response import Response
+from oauth2_provider.ext.rest_framework import IsAuthenticatedOrTokenHasScope
 
 from utils.drf import AllowAnyGet
 from sensors.handlers import GsatHandler, GenericSensorHandler,\

@@ -35,8 +35,6 @@ class FileContentSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = usercontent.models.FileContent
-        read_only_fields = ('created_at', 'updated_at', 'created_by')
-        fields = ('id', 'file', 'filename', 'icon_url', 'file_type') + read_only_fields
 
     def get_file_type(self, instance):
         '''Static file_type that a client can rely on.'''
@@ -53,6 +51,8 @@ class FileContentSerializer(rest_framework.serializers.ModelSerializer):
 
 
 class ImageFileContentSerializer(rest_framework.serializers.ModelSerializer):
+
+
     created_by = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault()
     )
@@ -62,8 +62,6 @@ class ImageFileContentSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = usercontent.models.ImageFileContent
-        read_only_fields = ('created_at', 'updated_at','created_by',)
-        fields = ('id', 'file', 'filename', 'icon_url', 'file_type') + read_only_fields
 
     def get_file_type(self, instance):
         '''Static file_type that a client can rely on.'''

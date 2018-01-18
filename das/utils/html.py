@@ -9,12 +9,11 @@ logger = logging.getLogger(__name__)
 
 
 def clean_user_text(value, message):
-    if value is not None:
-        cleaned = bleach.clean(value)
-        cleaned = html.unescape(cleaned)
-        if value != cleaned:
-            logger.info("User text was cleaned using bleach:  %s", message)
-            return cleaned
+    cleaned = bleach.clean(value)
+    cleaned = html.unescape(cleaned)
+    if value != cleaned:
+        logger.info("User text was cleaned using bleach:  %s", message)
+        return cleaned
     return value
 
 

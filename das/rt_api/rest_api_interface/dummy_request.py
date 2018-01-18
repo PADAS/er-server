@@ -1,26 +1,14 @@
-from rest_framework.request import Request
-from django.http.request import HttpRequest
-#from oauthlib.common import Request
-from oauthlib.common import to_unicode, CaseInsensitiveDict, extract_params
+
+from oauthlib.common import Request
 
 
-class DummyRequest(HttpRequest):
+class DummyRequest(Request):
     _request = None
 
     def __init__(self, uri='/dummy', http_method='POST', body={}, headers={}, encoding='utf-8', user=None, query_parameters=None):
-        super().__init__()
-        #Request.__init__(self, uri, http_method, body, headers, encoding)
+        Request.__init__(self, uri, http_method, body, headers, encoding)
 
-        # Convert to unicode using encoding if given, else assume unicode
-        encode = lambda x: to_unicode(x, encoding) if encoding else x
-
-        self.uri = encode(uri)
-        self.http_method = encode(http_method)
-        self.headers = CaseInsensitiveDict(encode(headers or {}))
-        self._body = encode(body)
-        self.decoded_body = extract_params(self.body)
-
-        self.method = self.http_method
+        self.method = http_method
         self.META = headers
         self.POST = body
         self.GET = body

@@ -467,8 +467,9 @@ class TestEventView(TestCase):
         # Configure mocks
         mock_get_alert_users.return_value = [self.user]
 
+        self.new_event = self.create_event(self.event_data)
+
         def event_manipulations():
-            self.new_event = self.create_event(self.event_data)
             EventRelatedSubject.objects.create(
                 event=self.new_event, subject=self.ranger_one)
             self.new_event.refresh_from_db()

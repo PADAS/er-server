@@ -22,14 +22,14 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='SpatialFeatureTypeTag',
+            name='_Tagulous_SpatialFeatureType_tags',
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True,
-                                        serialize=False, verbose_name='ID')),
+                ('id', models.AutoField(auto_created=True,
+                                        primary_key=True, serialize=False, verbose_name='ID')),
                 ('name', models.CharField(max_length=255, unique=True)),
                 ('slug', models.SlugField()),
-                ('count', models.IntegerField(default=0,
-                                              help_text='Internal counter of how many times this tag is in use')),
+                ('count', models.IntegerField(
+                    default=0, help_text='Internal counter of how many times this tag is in use')),
                 ('protected', models.BooleanField(default=False,
                                                   help_text='Will not be deleted when the count reaches 0')),
             ],
@@ -113,7 +113,7 @@ class Migration(migrations.Migration):
                 ('display_category', models.ForeignKey(
                     on_delete=django.db.models.deletion.CASCADE, to='mapping.DisplayCategory')),
                 ('tags', tagulous.models.fields.TagField(_set_tag_meta=True,
-                                                         help_text='Enter a comma-separated tag string', to='mapping.SpatialFeatureTypeTag')),
+                                                         help_text='Enter a comma-separated tag string', to='mapping._Tagulous_SpatialFeatureType_tags')),
             ],
         ),
         migrations.RemoveField(
@@ -221,7 +221,7 @@ class Migration(migrations.Migration):
                 on_delete=django.db.models.deletion.CASCADE, to='mapping.SpatialFeatureType'),
         ),
         migrations.AlterUniqueTogether(
-            name='spatialfeaturetypetag',
+            name='_tagulous_spatialfeaturetype_tags',
             unique_together=set([('slug',)]),
         ),
         migrations.AlterUniqueTogether(

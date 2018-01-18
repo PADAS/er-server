@@ -18,7 +18,6 @@ from rest_framework.urlpatterns import format_suffix_patterns
 
 from accounts import views
 
-app_name = 'accounts'
 
 urlpatterns = [
     url(r'^users/?$', views.UsersView.as_view()),

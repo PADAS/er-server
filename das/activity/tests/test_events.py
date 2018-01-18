@@ -15,7 +15,7 @@ from django.test import TestCase
 from django.utils import timezone
 from django.contrib.auth.models import Permission
 from django.core.management import call_command
-from django.urls import reverse
+from django.core.urlresolvers import reverse
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.staticfiles import finders
 from rest_framework.fields import DateTimeField

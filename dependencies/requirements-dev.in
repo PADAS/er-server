@@ -2,7 +2,7 @@
 # pip-compile --output-file requirements-dev.txt requirements-dev.in .\requirements.txt --find-links ./wheelhouse
 
 # Use django-extensions to support shell_plus, which allows for running a Django app jupyter notebook.
-django-extensions==1.9.8
+django-extensions==1.5.9
 pre-commit==0.14.0
 mockredispy==2.9.3
-ptvsd==3.2.1
+ptvsd==3.0.0

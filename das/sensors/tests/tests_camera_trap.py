@@ -62,7 +62,7 @@ class CameraTrapTest(BaseAPITest):
         exif_bytes = piexif.dump(exif_dict)
 
         file = BytesIO()
-        image = Image.new('RGB', size=(50, 50), color=(155, 0, 0))
+        image = Image.new('RGBA', size=(50, 50), color=(155, 0, 0))
         image.save(file, 'JPEG', exif=exif_bytes)
         file.seek(0)
         return sample['provider_name'], sample['image_name'], file

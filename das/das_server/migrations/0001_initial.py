@@ -6,7 +6,6 @@ from django.contrib.auth import get_user_model
 from django.utils import six, timezone, crypto
 from oauth2_provider.models import Application
 
-
 def load_default_clients(apps, schema_editor):
 
     User = get_user_model()
@@ -40,19 +39,9 @@ def load_default_clients(apps, schema_editor):
                     user=user
                     ).save()
 
-        Application(client_id='das_kml_export',
-                    client_type='Confidential',
-                    authorization_grant_type='password',
-                    client_secret='',
-                    name='DAS KML',
-                    skip_authorization=True,
-                    user=user
-                    ).save()
-
-
 class Migration(migrations.Migration):
 
-    dependencies = [("oauth2_provider", "0002_08_updates")
+    dependencies = [("oauth2_provider", "__latest__"),
     ]
 
     operations = [

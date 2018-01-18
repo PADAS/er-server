@@ -183,8 +183,7 @@ class TrackingPlugin(TimestampedModel):
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id')
 
     provider = models.ForeignKey(
-        SourceProvider, related_name='+', null=False, default=get_default_source_provider_id,
-    on_delete=models.PROTECT)
+        SourceProvider, related_name='+', null=False, default=get_default_source_provider_id)
 
     class Meta:
         abstract = True

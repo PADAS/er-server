@@ -25,7 +25,6 @@ def load_default_clients(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [("das_server", "0001_initial"),
-                    ("oauth2_provider", "0004_auto_20160525_1623"),
                     ]
 
     operations = [

@@ -15,6 +15,7 @@ import os
 import sys
 
 from corsheaders.defaults import default_headers
+from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TCP
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -66,7 +67,7 @@ INSTALLED_APPS = (
 
 )
 
-MIDDLEWARE = (
+MIDDLEWARE_CLASSES = (
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -74,7 +75,7 @@ MIDDLEWARE = (
     'django.middleware.csrf.CsrfViewMiddleware',
     'corsheaders.middleware.CorsPostCsrfMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    #'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
+    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -117,6 +118,10 @@ TEMPLATES = [
     },
 ]
 
+
+# TEMPLATE_CONTEXT_PROCESSORS = TCP + [
+#     'django.core.context_processors.request',
+# ]
 
 AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = '/login'
