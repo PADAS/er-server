@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:17.10
 MAINTAINER Chris Doehring, chrisdo@vulcan.com & Matt Korwel, mattko@vulcan.com  
 
 RUN apt-get update \
@@ -17,9 +17,9 @@ VOLUME /workspace
 WORKDIR /workspace
 
 ADD ./dependencies /workspace/dependencies
-RUN dpkg -i --force-all /workspace/dependencies/proj_4.9.3-1_amd64.deb
-RUN dpkg -i --force-all /workspace/dependencies/gdal_2.2.2-1_amd64.deb
-RUN dpkg -i --force-all /workspace/dependencies/geos_3.6.2-1_amd64.deb
+RUN dpkg -i --force-all /workspace/dependencies/gdal_2.2.3-1_cp36_amd64.deb
+RUN dpkg -i --force-all /workspace/dependencies/geos_3.6.2-1_cp36_amd64.deb
+RUN dpkg -i --force-all /workspace/dependencies/proj_4.9.3-1_cp36_amd64.deb
 ENV LD_LIBRARY_PATH "/usr/local/lib"
 
 RUN pip3 install -U "pip"
