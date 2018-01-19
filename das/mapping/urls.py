@@ -1,8 +1,9 @@
-from django.conf.urls import patterns, url, include
+from django.conf.urls import url
 from mapping.views import *
 from mapping.sample_views import *
 from mapping.app_settings import MBTILES_ID_PATTERN
 
+app_name = 'mapping'
 
 urlpatterns = (
     # a list of available features

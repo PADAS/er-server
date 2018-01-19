@@ -4,15 +4,12 @@ from __future__ import unicode_literals
 
 from django.db import migrations
 from django.core.management import call_command
-from django.contrib.auth.management import create_permissions
+
+import utils.models
 
 
 def populate_pss(apps, schema_editor):
-    # initial data references permissions
-    apps.models_module = True
-    create_permissions(apps, verbosity=0)
-
-    apps.models_module = None
+    utils.models.migrate_permissions(apps)
     call_command('loaddata', 'initial_pss')
 
 

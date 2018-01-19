@@ -1,4 +1,7 @@
 import logging
+
+import pytz
+
 from analyzers.base import SubjectAnalyzer
 from analyzers.models import LowSpeedPercentileAnalyzerConfig, LowSpeedWilcoxAnalyzerConfig,\
     SubjectAnalyzerResult, OK, CRITICAL, WARNING
@@ -219,7 +222,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
 
         # Previous speed distribution (use only up until 30 days prior)
         ps = self._normal_movement_distro(
-            end=dt.datetime.utcnow() - dt.timedelta(hours=self.config.search_time_hours))
+            end=pytz.utc.localize(dt.datetime.utcnow()) - dt.timedelta(hours=self.config.search_time_hours))
 
         if ps is None:
             raise InsufficientDataAnalyzerException

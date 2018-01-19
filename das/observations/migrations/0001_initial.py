@@ -48,14 +48,14 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, serialize=False, primary_key=True)),
                 ('assigned_range', django.contrib.postgres.fields.ranges.DateTimeRangeField()),
                 ('additional', django.contrib.postgres.fields.JSONField()),
-                ('source', models.ForeignKey(to='observations.Source')),
-                ('subject', models.ForeignKey(to='observations.Subject')),
+                ('source', models.ForeignKey(to='observations.Source', on_delete=models.CASCADE)),
+                ('subject', models.ForeignKey(to='observations.Subject', on_delete=models.CASCADE)),
             ],
         ),
         migrations.AddField(
             model_name='observation',
             name='source',
-            field=models.ForeignKey(to='observations.Source'),
+            field=models.ForeignKey(to='observations.Source', on_delete=models.CASCADE),
         ),
         migrations.AlterIndexTogether(
             name='observation',

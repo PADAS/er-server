@@ -7,7 +7,7 @@ import datetime
 from django.core.management.base import BaseCommand
 from django.db.utils import IntegrityError
 from django.contrib.gis.gdal import DataSource
-
+from django.utils.encoding import force_text
 from mapping import models
 import utils.json
 from utils.spatial import GeometryMapper
@@ -41,7 +41,7 @@ SOURCE_NAME = 'STE'
 
 def fields_iter(feature):
     for field_name in feature.fields:
-        yield field_name.decode('utf8')
+        yield force_text(field_name)
 
 
 def reduce_json(document):

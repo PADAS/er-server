@@ -2,21 +2,10 @@ from __future__ import unicode_literals
 
 from django.db import migrations
 from django.core.management import call_command
+
 from accounts.models import User, PermissionSet
+from utils.models import update_all_contenttypes, create_all_permissions
 
-def update_all_contenttypes(**kwargs):
-    from django.apps import apps
-    from django.contrib.contenttypes.management import update_contenttypes
-
-    for app_config in apps.get_app_configs():
-        update_contenttypes(app_config, verbosity=0, **kwargs)
-
-def create_all_permissions(**kwargs):
-    from django.contrib.auth.management import create_permissions
-    from django.apps import apps
-
-    for app_config in apps.get_app_configs():
-        create_permissions(app_config, verbosity=0, **kwargs)
 
 def update_user_permission_sets():
     all_time_group = PermissionSet.objects.get(id='cfa2b7b3-4bae-42f3-8691-b119da54af4e')

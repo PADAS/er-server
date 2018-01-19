@@ -1,10 +1,7 @@
 import copy
 
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ValidationError
 from django.test import TestCase
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.auth.models import Permission
-from django.utils import lorem_ipsum
 from rest_framework.test import APIClient
 
 from accounts.models import PermissionSet, User
@@ -56,23 +53,6 @@ class UserModelTest(TestCase):
         self.assertEqual(user.pk, user2.pk)
         user2 = User.objects.get(username='User')
         self.assertEqual(user.pk, user2.pk)
-
-    def test_get_kml_key(self):
-        user = User.objects.create(username='User',
-                                   email='user4@test.com',
-                                   password=self.password,
-                                   **self.user_const)
-        token = user.get_kml_access_token()
-        self.assertIsNotNone(token, 'error getting token')
-
-    def test_reuse_existing_kml_token(self):
-        user = User.objects.create(username='User',
-                                   email='user4@test.com',
-                                   password=self.password,
-                                   **self.user_const)
-        first_token = user.get_kml_access_token()
-        second_token = user.get_kml_access_token()
-        self.assertEqual(first_token, second_token)
 
 
 class TestAuthentication(BaseAPITest):
