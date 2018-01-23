@@ -17,7 +17,7 @@ def generate_subject_records(report_hours=24):
     :return: generator of subject-source-performance records.
     '''
     now = datetime.now(tz=pytz.utc)
-    for ss in SubjectSource.objects.filter(subject__subject_type='wildlife'):
+    for ss in SubjectSource.objects.filter(subject__subject_type='wildlife', subject__is_active=True):
 
         result = {'subject_id': str(ss.subject.id),
                   'model_name': ss.source.model_name,
