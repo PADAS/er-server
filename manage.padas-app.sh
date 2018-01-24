@@ -5,8 +5,6 @@
 #
 ###############################################################
 
-# If this is set we will serve up 8001 in this container to this port on the host
-K8S_PROXY_PORT=$1
 
 MANAGE_PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT=padas-app
