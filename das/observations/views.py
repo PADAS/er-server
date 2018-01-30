@@ -5,8 +5,14 @@ import dateutil.parser
 import pytz
 from io import BytesIO
 
+import simplekml
+
 from django.conf import settings
 from django.urls import reverse
+
+from django.template.loader import render_to_string
+from django.utils.translation import ugettext_lazy as _
+
 from django.db.models import Prefetch
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
@@ -14,7 +20,7 @@ from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from django.http import Http404
 from rest_framework import status
-import simplekml
+
 
 import utils
 from utils.drf import StandardResultsSetPagination
@@ -535,10 +541,11 @@ def render_to_kmz(kml_str, filename):
     return response
 
 
-class KmlMasterSubjectsView(generics.GenericAPIView):
+class KmlMasterView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def build_link_for_user(self):
+
         token = self.request.user.get_kml_access_token()
         return utils.add_base_url(self.request,
                                   '?'.join((
@@ -559,7 +566,17 @@ class KmlMasterSubjectsView(generics.GenericAPIView):
         filename = 'Master_{}_{}'.format(self.request.user.username,
                                          datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
 
-        return render_to_kmz(k.kml(), filename)
+        context = {'network_link':
+                   {'name': 'STE Tracking Service',
+                    'visibility': 0,
+                    'open': 1,
+                    'href': self.build_link_for_user()
+                    }
+                   }
+
+        result = render_to_string('kml/user_root.xml', context)
+
+        return render_to_kmz(result, filename)
 
 
 class KmlSubjectsView(generics.GenericAPIView):
@@ -582,37 +599,39 @@ class KmlSubjectsView(generics.GenericAPIView):
                                   )
                                   )
 
+    def subject_context(self, subject):
+
+        return {'name': subject.name,
+                'visibility': 0,
+                'href': self.build_link_for_subject(subject)
+                }
+
     def get(self, request, *args, **kwargs):
-        k = simplekml.Kml()
-        k.document = k.newfolder(name='Tracking Data', visibility=1)
 
         subjects = list(self.get_queryset().values(
             'additional', 'name', 'id', 'subject_type', 'subject_subtype'))
 
         DEFAULT_REGION_NAME = 'Unknown Region'
 
-        accum = {}
-        for sub in subjects:
-            speciesf = accum.setdefault(sub.get('subject_subtype'), {})
-            regionf = speciesf.setdefault(
-                sub.get('additional').get('region', DEFAULT_REGION_NAME), [])
-            regionf.append(sub)
-
-        for species, v1 in accum.items():
-
-            speciesf = k.document.newfolder(name=species)
-
-            for region, v2 in sorted(v1.items(), key=lambda x: x[0]):
-                regionf = speciesf.newfolder(name=region)
-
-                for subject in sorted(v2, key=lambda x: x['name']):
-                    link = regionf.newnetworklink(
-                        name=subject['name'], visibility=0)
-                    link.link.href = self.build_link_for_subject(subject)
+        subject_list = [{'name': subject['name'],
+                         'species': subject.get('subject_subtype', ''),
+                         'region': subject.get('additional').get('region', DEFAULT_REGION_NAME),
+                         'visibility': 0,
+                         'href': self.build_link_for_subject(subject)
+                         } for subject in subjects
+                        ]
+        #
+        context = {'title': 'Tracking Data',
+                   'visibility': 1,
+                   'subject_list': subject_list
+                   }
 
         filename = 'Master{}'.format(
             datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
-        return render_to_kmz(k.kml(), filename)
+
+        result = render_to_string('kml/subject_list.xml', context)
+        # return Response(data=result)
+        return render_to_kmz(result, filename)
 
 
 def rgb_to_hex(red, green, blue):
@@ -794,19 +813,30 @@ class KmlSubjectView(generics.RetrieveAPIView):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
         self.check_object_permissions(self.request, subject)
-        k = simplekml.Kml()
-        k.document = simplekml.Folder(name=subject.name)
-        k.document._id = None
-        k.document.visibility = 1
-        self.add_overlay_to_folder(k.document)
-
+        # k = simplekml.Kml()
+        # k.document = simplekml.Folder(name=subject.name)
+        # k.document._id = None
+        # k.document.visibility = 1
+        # self.add_overlay_to_folder(k.document)
+        #
         observations = list(self.get_allowed_subject_observations(subject))
-
-        if len(observations) > 0:
+        #
+        if False:
             self.add_points_document(k.document, subject, observations)
             self.add_tracks_document(k.document, subject, observations)
             self.add_position_document(k.document, subject, observations)
         filename = 'TrackingData{}'.format(
             datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
-        kml_str = k.kml(format=False)
-        return render_to_kmz(kml_str, filename)
+
+        context = {
+            'name': subject.name,
+            'observations': observations,
+            'points_color': self.get_subject_color(subject),
+            'track_color': self.get_subject_color(subject),
+            'last_position_color': self.get_subject_color(subject),
+        }
+        result = render_to_string('kml/subject_track.xml', context)
+
+        # return Response(data=result)
+
+        return render_to_kmz(result, filename)

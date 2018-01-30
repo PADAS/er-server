@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+  <Folder>
+      <name>{{ name }}</name>
+      <visibility>1</visibility>
+
+      <ScreenOverlay>
+          <name>logo</name>
+          <Icon>
+            <href>https://107.21.94.89/Images/Logos/STE_Logo.png</href>
+          </Icon>
+          <overlayXY x="0" y="0" xunits="fraction" yunits="fraction"/>
+          <screenXY x="0" y="0" xunits="fraction" yunits="fraction"/>
+          <rotationXY x="0" y="0" xunits="fraction" yunits="fraction"/>
+          <size x="0" y="0" xunits="fraction" yunits="fraction"/>
+      </ScreenOverlay>
+
+      <Document>
+          <name>{{ name }}_(points)</name>
+          <visibility>1</visibility>
+          <Style id="{{ name }}-pointstyle">
+              <IconStyle>
+                  <color>{{ points_color}}</color>
+                  <scale>0.5</scale>
+                  <Icon>
+                      <href>http://maps.google.com/mapfiles/kml/shapes/shaded_dot.png</href>
+                  </Icon>
+              </IconStyle>
+              <LabelStyle>
+                  <scale>0</scale>
+              </LabelStyle>
+          </Style>
+
+          {% for observation in observations | sort(attribute='recorded_at') %}
+          <Placemark id="{{ name }} pmid">
+            <Snippet>{{observation.recorded_at}}</Snippet>
+            <name/>
+            <description>{{observation.recorded_at}}</description>
+            <TimeStamp>
+              <when>{{observation.recorded_at}}</when>
+            </TimeStamp>
+            <styleUrl>{{ name }}-pointstyle</styleUrl>
+            <Point>
+              <coordinates>
+                  {{observation.location.x }}, {{ observation.location.y }}, 0
+              </coordinates>
+            </Point>
+          </Placemark>
+          {% endfor %}
+
+      </Document>
+
+
+      <Document>
+          <name>{{ name }}_(tracks)</name>
+          <visibility>1</visibility>
+          <Style id="{{ name }}-linestyle">
+              <LineStyle>
+                  <color>{{track_color}}</color>
+                  <width>0.4</width>
+              </LineStyle>
+          </Style>
+
+          {% for observation in observations | sort(attribute='recorded_at') %}
+          {% if loop.previtem is defined %}
+          <Placemark id="{{ name }} lid">
+            <name/>
+            <styleUrl>{{ name }}-linestyle</styleUrl>
+            <LineString>
+              <extrude>0</extrude>
+              <tessellate>1</tessellate>
+              <coordinates>
+                  {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},0
+         </coordinates>
+            </LineString>
+          </Placemark>
+          {% endif %}
+          {% endfor %}
+
+      </Document>
+
+
+
+
+      <Document>
+          <name>{{name}} - Last Position</name>
+          <visibility>1</visibility>
+          <Style id="sh_{{name}}_Finalmarkerstyle">
+            <IconStyle>
+              <scale>1</scale>
+              <color>{{last_position_color}}</color>
+              <Icon>
+                <href>https://107.21.94.89/Images/AnimalIcons/Elephant_Male.png</href>
+              </Icon>
+            </IconStyle>
+            <LabelStyle>
+              <scale>1</scale>
+              <color>{{last_position_color}}</color>
+            </LabelStyle>
+            <BalloonStyle>
+              <bgColor>ffe5f9fb</bgColor>
+              <text>$[description]</text>
+            </BalloonStyle>
+          </Style>
+          <Style id="sn_{{name}}_Finalmarkerstyle">
+            <IconStyle>
+              <scale>0.7</scale>
+              <color>{{last_position_color}}</color>
+              <Icon>
+                <href>https://107.21.94.89/Images/AnimalIcons/Elephant_Male.png</href>
+              </Icon>
+            </IconStyle>
+            <BalloonStyle>
+              <bgColor>ffe5f9fb</bgColor>
+              <text>$[description]</text>
+            </BalloonStyle>
+            <LabelStyle>
+              <scale>0</scale>
+            </LabelStyle>
+          </Style>
+          <StyleMap id="msn_{{name}}_Finalmarkerstyle">
+            <Pair>
+              <key>normal</key>
+              <styleUrl>#sn_{{name}}_Finalmarkerstyle</styleUrl>
+            </Pair>
+            <Pair>
+              <key>highlight</key>
+              <styleUrl>#sh_{{name}}_Finalmarkerstyle</styleUrl>
+            </Pair>
+          </StyleMap>
+          <Placemark id="">
+            <Snippet/>
+            <name>Last Position: {{observations[0].recorded_at}}</name>
+            <description><![CDATA[{{name}}]]></description>
+            <TimeStamp>
+              <when>{{observations[0].recorded_at}}</when>
+            </TimeStamp>
+            <styleUrl>#msn_{{name}}_Finalmarkerstyle</styleUrl>
+            <Point>
+              <coordinates>
+                  {{observations[0].location.x}},{{observations[0].location.y}},0
+              </coordinates>
+            </Point>
+          </Placemark>
+    </Document>
+
+
+
+
+  </Folder>
+</kml>
+

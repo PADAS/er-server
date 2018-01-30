@@ -25,6 +25,8 @@ phone_regex = validators.RegexValidator(
     message="Phone number must be entered in the format:  "
             "'+999999999'. Up to 15 digits allowed.")
 
+KML_TOKEN_TTL = timedelta(days=5 * 365)
+
 
 class UserQuerySet(models.QuerySet):
     """Don't allow users to be deleted, set them as inactive"""
@@ -200,15 +202,19 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         api.send_sms(body=message, from_phone=from_phone,
                      to=[self.phone], **kwargs)
 
-    def get_kml_access_token(self):
+    def get_kml_access_token(self, ttl=KML_TOKEN_TTL):
+
         app = Application.objects.get(client_id='das_kml_export')
         try:
+
             token = AccessToken.objects.get(
                 user=self, application=app, expires__gt=datetime.now(tz=pytz.utc))
+
         except AccessToken.DoesNotExist:
+            ttl = ttl or timedelta(days=5 * 365)
             token = AccessToken.objects.create(
                 user=self, application=app, scope='read', token=generate_token(),
-                expires=datetime.now(tz=pytz.utc) + timedelta(days=5 * 365))
+                expires=datetime.now(tz=pytz.utc) + ttl)
 
         return token.token
 
