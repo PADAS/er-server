@@ -925,6 +925,14 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             image_url = '/static/unassigned-black.svg'
         return image_url
 
+    @property
+    def kml_image_url(self):
+        image_url = static_image_finder.get_marker_icon(
+            self._image_keys(), image_types=('png', 'jpg'))
+        if not image_url:
+            image_url = '/static/unassigned.png'
+        return image_url
+
     def _image_keys(self):
         """return the preferred key first"""
         key = self.subject_subtype.lower()

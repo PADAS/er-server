@@ -30,7 +30,7 @@
             <name>{{observation.location.x }}, {{ observation.location.y }}</name>
             <description>{{observation.recorded_at}}</description>
             <TimeStamp>
-              <when>{{observation.recorded_at}}</when>
+              <when>{{observation.recorded_at.strftime('%Y-%m-%dT%H:%M:%SZ')}}</when>
             </TimeStamp>
             <styleUrl>p-style</styleUrl>
             <Point>
@@ -60,11 +60,15 @@
           <Placemark id="t-{{ loop.index }}">
             <name/>
             <styleUrl>t-linestyle</styleUrl>
+           <TimeStamp>
+              <when>{{observation.recorded_at.strftime('%Y-%m-%dT%H:%M:%SZ')}}</when>
+            </TimeStamp>
+
             <LineString>
               <extrude>1</extrude>
               <tessellate>1</tessellate>
               <coordinates>
-                  {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},0
+                  {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},1000
          </coordinates>
             </LineString>
           </Placemark>
@@ -84,7 +88,7 @@
               <scale>1</scale>
               <color>{{last_position_color}}</color>
               <Icon>
-                <href>https://107.21.94.89/Images/AnimalIcons/Elephant_Male.png</href>
+                <href>{{ subject_icon }}</href>
               </Icon>
             </IconStyle>
             <LabelStyle>
@@ -102,7 +106,7 @@
               <scale>0.7</scale>
               <color>{{last_position_color}}</color>
               <Icon>
-                <href>https://107.21.94.89/Images/AnimalIcons/Elephant_Male.png</href>
+                <href>{{ subject_icon }}</href>
               </Icon>
             </IconStyle>
             <BalloonStyle>
@@ -127,8 +131,11 @@
             <Snippet/>
             <name>Last Position: {{observations[0].recorded_at}}</name>
             <description><![CDATA[
-                <div style="width:250px;font-family:Verdana,Tahoma,Helvetica,Arial;padding:0px;">
-                    <div style="padding:5px 0px"><strong style="font-size:1.2em;">{{ name }}</strong></div>
+                <div style="width:275px;font-family:Verdana,Tahoma,Helvetica,Arial;padding:0px;">
+                    <div style="padding:5px 0px">
+                    <img src="{{subject_icon}}" align='bottom' style="background-color: gray; padding:2px 5px; height:1.2em;" border='0'/>
+                    <strong style="font-size:1.2em;">{{ name }}</strong>
+                    </div>
                     <div style="padding:5px 0px">{{observations[0].recorded_at }}</div>
                     <div style="padding:5px 0px">{{observations[0].location.x}}, {{observations[0].location.y}}</div>
                 </div>]]>

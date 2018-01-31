@@ -7,10 +7,6 @@
     </ListStyle>
   </Style>
 
-  <Folder>
-    <name>{{title}}</name>
-    <visibility>{{visibility}}</visibility>
-
     {% for species_group_name, species_subject_list in subject_list | groupby('species') %}
 
         <Folder>
@@ -42,6 +38,5 @@
         </Folder>
     {% endfor %}
 
-   </Folder> {# top-level folder #}
   </Document>
 </kml>
