@@ -1,8 +1,3 @@
 {% load i18n %}{% autoescape off %}
-
-{{ site_name }} KML Link
-{% blocktrans %}You're receiving this email because your DAS administrator requested to send you your KML master link. Follow the link below to download the KML feed.{% endblocktrans %}
-
-{{ kml_master_link }}
-
+{% blocktrans %}DAS KML - {{ site_name }}{% endblocktrans %}
 {% endautoescape %}
