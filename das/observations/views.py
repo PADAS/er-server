@@ -4,8 +4,7 @@ import zipfile
 import dateutil.parser
 import pytz
 from io import BytesIO
-
-import simplekml
+import re
 
 from django.conf import settings
 from django.urls import reverse
@@ -555,16 +554,10 @@ class KmlMasterView(generics.GenericAPIView):
                                   )
 
     def get(self, request, *args, **kwargs):
-        k = simplekml.Kml()
 
         # TODO: Have a configuration for naming the KML feed.
-        k.document = k.newfolder(
-            name='STE Tracking Service', visibility=1, open=1)
-        link = k.document.newnetworklink(name='STE Tracking Service', open=1)
-        link.link.href = self.build_link_for_user()
-
         filename = 'Master_{}_{}'.format(self.request.user.username,
-                                         datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
+                                         datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
         context = {'network_link':
                    {'name': 'STE Tracking Service',
@@ -606,31 +599,39 @@ class KmlSubjectsView(generics.GenericAPIView):
                 'href': self.build_link_for_subject(subject)
                 }
 
+    @staticmethod
+    def get_display_subtype(subtype):
+        '''
+        Get the human name or subtype.
+        :param subtype:
+        :return:
+        '''
+        return models.Subject.SUBTYPE_DISPLAY_NAMES.get(subtype, 'Unassigned')
+
     def get(self, request, *args, **kwargs):
 
         subjects = list(self.get_queryset().values(
-            'additional', 'name', 'id', 'subject_type', 'subject_subtype'))
+            'additional', 'name', 'id', 'subject_subtype'))
 
         DEFAULT_REGION_NAME = 'Unknown Region'
 
         subject_list = [{'name': subject['name'],
-                         'species': subject.get('subject_subtype', ''),
+                         'species': self.get_display_subtype(subject.get('subject_subtype')),
                          'region': subject.get('additional').get('region', DEFAULT_REGION_NAME),
                          'visibility': 0,
                          'href': self.build_link_for_subject(subject)
                          } for subject in subjects
                         ]
         #
-        context = {'title': 'Tracking Data',
+        context = {'title': 'DAS Tracking Data',
                    'visibility': 1,
                    'subject_list': subject_list
                    }
 
-        filename = 'Master{}'.format(
-            datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
+        filename = 'Subjects_{}_{}'.format(self.request.user.username,
+                                           datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
         result = render_to_string('kml/subject_list.xml', context)
-        # return Response(data=result)
         return render_to_kmz(result, filename)
 
 
@@ -669,21 +670,14 @@ class KmlSubjectView(generics.RetrieveAPIView):
         mou_expiry_date = self.request.user.additional.get('expiry', None)
         now = datetime.datetime.now(tz=pytz.utc)
 
-        for permission_tuple in sorted(models.Subject.VIEW_BEGIN_WINDOWS,
-                                       key=lambda _: _[1], reverse=True):
-            if permission_tuple[
-                1] > oldest_age and self.request.user.has_perm(
-                    permission_tuple[0]):
-                oldest_age = permission_tuple[1]
-                break
+        oldpermname, oldest_age = next(p for p in sorted(models.Subject.VIEW_BEGIN_WINDOWS, key=lambda _: _[1],
+                                                         reverse=True) if self.request.user.has_perm(p[0]))
 
-        for permission_tuple in sorted(models.Subject.VIEW_END_WINDOWS,
-                                       key=lambda _: _[1]):
-            if permission_tuple[
-                1] < newest_age and self.request.user.has_perm(
-                    permission_tuple[0]):
-                newest_age = permission_tuple[1]
-                break
+        newpermname, newest_age = next(p for p in sorted(models.Subject.VIEW_END_WINDOWS,
+                                                         key=lambda _: _[1]) if self.request.user.has_perm(p[0]))
+
+        # TODO: This caps the maximum age to avoid performance trouble.
+        oldest_age = min(oldest_age, 60)
 
         if mou_expiry_date is not None:
             mou_expiry_date = pytz.utc.localize(
@@ -700,133 +694,15 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return models.Observation.objects.get_subject_observations_values(
             subject, since=begin, until=until)
 
-    def add_points_document(self, folder, subject, observations):
-        document = folder.newdocument(
-            name='{0}_points'.format(subject.name), visibility=1)
-
-        color = self.get_subject_color(subject)
-        style = simplekml.Style()
-        style._id = '{0}_Pointstyle'.format(subject.name.replace(' ', '_'))
-        style.iconstyle = simplekml.IconStyle(color=color, scale=0.7, icon=simplekml.Icon(
-            href=self.get_subject_icon(subject)))
-        style.labelstyle = simplekml.LabelStyle(scale=0)
-        document.styles.append(style)
-
-        for obs in observations:
-            timestamp = obs['recorded_at'].strftime('%Y-%m-%d %H:%M')
-            point = document.newpoint()
-            point.coords = [(obs['location'].x, obs['location'].y)]
-            point.timestamp.when = timestamp
-            point.placemark.name = ''
-            point.placemark.snippet = simplekml.Snippet(timestamp)
-            point.placemark.description = timestamp
-            point.style = style
-
-    def add_tracks_document(self, folder, subject, observations):
-        document = folder.newdocument(
-            name='{0}_tracks'.format(subject.name), visibility=1)
-
-        color = self.get_subject_color(subject)
-        style = simplekml.Style()
-        style._id = '{0}_Linestyle'.format(subject.name.replace(' ', '_'))
-        style.linestyle = simplekml.LineStyle(color=color, width=0.4)
-        document.styles.append(style)
-
-        self.last_obs = None
-        for obs in observations:
-            if self.last_obs is not None:
-                line = document.newlinestring()
-                line.coords = (([self.last_obs['location'].x, self.last_obs['location'].y, 0], [
-                               obs['location'].x, obs['location'].y, 0]))
-                line.extrude = 0
-                line.tessellate = 1
-                line.placemark.name = ''
-                line.style = style
-            self.last_obs = obs
-
-    def add_position_document(self, folder, subject, observations):
-
-        last_obs = sorted(
-            observations, key=lambda x: x['recorded_at'], reverse=True)[0]
-
-        timestamp = last_obs['recorded_at'].strftime('%Y-%m-%d %H:%M')
-
-        color = self.get_subject_color(subject)
-        document = folder.newdocument(
-            name='{0}\' Last Position'.format(subject.name), visibility=1)
-
-        sh_style = simplekml.Style()
-        sh_style._id = 'sh_{0}_Finalmarkerstyle'.format(
-            subject.name.replace(' ', '_'))
-        sh_style.iconstyle = simplekml.IconStyle(color=color, scale=0.7, icon=simplekml.Icon(
-            href=self.get_subject_icon(subject)))
-        sh_style.labelstyle = simplekml.LabelStyle(scale=1, color=color)
-        sh_style.balloonstyle = simplekml.BalloonStyle(
-            bgcolor=color, text='$[description')
-        document.styles.append(sh_style)
-
-        sn_style = simplekml.Style()
-        sn_style._id = 'sn_{0}_Finalmarkerstyle'.format(
-            subject.name.replace(' ', '_'))
-        sn_style.iconstyle = simplekml.IconStyle(color=color, scale=0.7, icon=simplekml.Icon(
-            href=self.get_subject_icon(subject)))
-        sn_style.labelstyle = simplekml.LabelStyle(scale=0)
-        sn_style.balloonstyle = simplekml.BalloonStyle(
-            bgcolor=color, text='$[description')
-        document.styles.append(sn_style)
-
-        style_map = simplekml.StyleMap()
-        style_map._id = 'msn_{0}_Finalmarkerstyle'.format(
-            subject.name.replace(' ', '_'))
-        style_map.normalstyle = sn_style
-        style_map.highlightstyle = sh_style
-        document.stylemaps.append(style_map)
-
-        point = document.newpoint()
-        point.coords = [(last_obs['location'].x, last_obs['location'].y)]
-        point.timestamp.when = timestamp
-        point.placemark.name = 'Last Position: {0}'.format(timestamp)
-        point.placemark.snippet = simplekml.Snippet('')
-        point.placemark.description = timestamp
-        point.stylemap = style_map
-
-    def add_overlay_to_folder(self, folder):
-        overlay = folder.newscreenoverlay()
-        overlay.overlayxy = simplekml.OverlayXY(x=0, y=0,
-                                                xunits=simplekml.Units.fraction,
-                                                yunits=simplekml.Units.fraction)
-        overlay.screenxy = simplekml.ScreenXY(x=0, y=0,
-                                              xunits=simplekml.Units.fraction,
-                                              yunits=simplekml.Units.fraction)
-        overlay.rotationxy = simplekml.RotationXY(x=0, y=0,
-                                                  xunits=simplekml.Units.fraction,
-                                                  yunits=simplekml.Units.fraction)
-        overlay.size = simplekml.Size(x=0, y=0,
-                                      xunits=simplekml.Units.fraction,
-                                      yunits=simplekml.Units.fraction)
-        overlay.name = 'Logo'
-
-        # TODO: Serve our own image.
-        overlay.icon.href = 'http://107.21.94.89/Images/Logos/STE_Logo.png'
-
     def get(self, request, *args, **kwargs):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
         self.check_object_permissions(self.request, subject)
-        # k = simplekml.Kml()
-        # k.document = simplekml.Folder(name=subject.name)
-        # k.document._id = None
-        # k.document.visibility = 1
-        # self.add_overlay_to_folder(k.document)
-        #
+
         observations = list(self.get_allowed_subject_observations(subject))
-        #
-        if False:
-            self.add_points_document(k.document, subject, observations)
-            self.add_tracks_document(k.document, subject, observations)
-            self.add_position_document(k.document, subject, observations)
-        filename = 'TrackingData{}'.format(
-            datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
+
+        filename = 'TrackingData-{}-{}'.format(re.sub('[^a-zA-Z0-9]', '_', subject.name),
+                                               datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
         context = {
             'name': subject.name,
@@ -836,7 +712,4 @@ class KmlSubjectView(generics.RetrieveAPIView):
             'last_position_color': self.get_subject_color(subject),
         }
         result = render_to_string('kml/subject_track.xml', context)
-
-        # return Response(data=result)
-
         return render_to_kmz(result, filename)

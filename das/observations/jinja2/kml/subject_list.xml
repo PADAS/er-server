@@ -21,6 +21,9 @@
                     <href>
                       {{subject.href}}
                     </href>
+                      <refreshMode>onInterval</refreshMode>
+                      <refreshInterval>3600</refreshInterval>
+
                   </Link>
                 </NetworkLink>
 

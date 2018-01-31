@@ -7,6 +7,8 @@
     <open>{{network_link.open}}</open>
     <Link>
       <href>{{network_link.href}}</href>
+        <refreshMode>onInterval</refreshMode>
+        <refreshInterval>86400</refreshInterval>
     </Link>
   </NetworkLink>
 </kml>

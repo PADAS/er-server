@@ -15,6 +15,8 @@ GIS
 from datetime import datetime, timedelta
 import uuid
 import random
+import itertools
+
 # from collections import namedtuple
 #
 # from django.contrib.staticfiles.storage import staticfiles_storage
@@ -762,6 +764,9 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                     for item in TYPES_HIERARCHIES]
     SUBTYPE_CHOICES = [(item['name'], item['subtypes'])
                        for item in TYPES_HIERARCHIES]
+
+    SUBTYPE_DISPLAY_NAMES = dict(
+        itertools.chain(*(x[1] for x in SUBTYPE_CHOICES)))
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_('name'), max_length=100)
