@@ -1,5 +1,12 @@
 <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2"
      xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+  <Document>
+  <Style id="checkOffOnlyStyle">
+    <ListStyle>
+      <listItemType>checkOffOnly</listItemType>
+    </ListStyle>
+  </Style>
+
   <Folder>
     <name>{{title}}</name>
     <visibility>{{visibility}}</visibility>
@@ -28,10 +35,13 @@
                 </NetworkLink>
 
             {% endfor %}
+             <styleUrl>#checkOffOnlyStyle</styleUrl> {# region: prevent fetching for all subjects in region at once. #}
           </Folder>
           {% endfor %}
+          <styleUrl>#checkOffOnlyStyle</styleUrl> {# species: prevent fetching for everything all at once. #}
         </Folder>
     {% endfor %}
 
    </Folder> {# top-level folder #}
+  </Document>
 </kml>
