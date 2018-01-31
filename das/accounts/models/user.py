@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 import pytz
 import uuid
-
+import logging
+import dateutil.parser
 
 from django.urls import reverse
 from django.contrib import auth
@@ -16,11 +17,11 @@ from django.utils import timezone
 from oauthlib.common import generate_token
 from oauth2_provider.models import Application, AccessToken
 
-
 from sendsms import api
 
 from accounts.mixins import PermissionsMixin
 
+logger = logging.getLogger(__name__)
 
 phone_regex = validators.RegexValidator(
     regex=r'^\+?1?\d{9,15}$',
@@ -236,7 +237,27 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
                                       'auth={}'.format(token))
                                   )
                                   )
-        return utils.add_base_url(request, '/api/v1.0/subjects/kml/root/?auth={}'.format(token))
+
+    @property
+    def mou_expiry_date(self):
+        '''
+        MOU Expiry date is an additional User attribute and indicates a date when a user's data view access expires.
+
+        For the purposes of animal track data, this MOU date indicates the maximum track timestamp visible for the user.
+        :return: an expiry date (or datetime.max if either there is no expiry date or it is invalid.
+
+        TODO: Consider whether an invalid 'mou_expiry' string should raise an error.
+        '''
+        mou_expiry_date = self.additional.get('expiry', None)
+
+        if mou_expiry_date is not None:
+            try:
+                return pytz.utc.localize(dateutil.parser.parse(mou_expiry_date))
+            except (ValueError, OverflowError) as ex:
+                logger.warning('Error parsing mou_expiry_date string \'%s\' for user %s',
+                               mou_expiry_date, self.username)
+
+        return None
 
 
 class User(AccountsAbstractUser):

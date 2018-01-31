@@ -27,6 +27,8 @@ from utils.json import zeroout_microseconds
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
 from observations import models
+from observations.utils import calculate_subject_view_window
+
 import observations.serializers as serializers
 
 from observations.kmlutils import render_to_kmz
@@ -653,34 +655,12 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return utils.add_base_url(self.request, subject.image_url)
 
     def get_allowed_subject_observations(self, subject):
-        oldest_age = -1
-        newest_age = 999
-        mou_expiry_date = self.request.user.additional.get('expiry', None)
-        now = datetime.datetime.now(tz=pytz.utc)
+        (lower, upper) = calculate_subject_view_window(self.request.user)
 
-        oldpermname, oldest_age = next(p for p in sorted(models.Subject.VIEW_BEGIN_WINDOWS, key=lambda _: _[1],
-                                                         reverse=True) if self.request.user.has_perm(p[0]))
+        if lower >= upper:
+            raise PermissionDenied
 
-        newpermname, newest_age = next(p for p in sorted(models.Subject.VIEW_END_WINDOWS,
-                                                         key=lambda _: _[1]) if self.request.user.has_perm(p[0]))
-
-        # TODO: This caps the maximum age to avoid performance trouble.
-        oldest_age = min(oldest_age, 60)
-
-        if mou_expiry_date is not None:
-            mou_expiry_date = pytz.utc.localize(
-                dateutil.parser.parse(mou_expiry_date))
-            mou_expiry_age = now - mou_expiry_date
-
-            newest_age = max(mou_expiry_age.days, newest_age)
-            if oldest_age < newest_age:
-                raise PermissionDenied
-
-        begin = now - datetime.timedelta(days=oldest_age)
-        until = now - datetime.timedelta(days=newest_age)
-
-        return models.Observation.objects.get_subject_observations_values(
-            subject, since=begin, until=until)
+        return models.Observation.objects.get_subject_observations_values(subject, since=lower, until=upper)
 
     def get(self, request, *args, **kwargs):
         subject = generics.get_object_or_404(

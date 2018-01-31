@@ -830,6 +830,10 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                         ('observations.access_ends_3', 3),
                         ('observations.access_ends_7', 7))
 
+    VIEW_BEGIN_ORDERED_DESC = sorted(
+        VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse=True)
+    VIEW_END_ORDERED_ASC = sorted(VIEW_END_WINDOWS, key=lambda _: _[1])
+
     VIEW_SUBJECT_PERMS = ('observations.view_subject',) + \
         VIEW_BEGIN_WINDOWS + VIEW_END_WINDOWS
 
