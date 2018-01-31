@@ -29,6 +29,8 @@ from observations.permissions import StandardObjectPermissions
 from observations import models
 import observations.serializers as serializers
 
+from observations.kmlutils import render_to_kmz
+
 logger = logging.getLogger(__name__)
 
 
@@ -526,21 +528,7 @@ class ObservationsView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
-def render_to_kmz(kml_str, filename):
-    full_filename = '{}.kmz'.format(filename)
-    zip_io = BytesIO()
-    with zipfile.ZipFile(zip_io, mode='w', compression=zipfile.ZIP_DEFLATED) as kmz:
-        kmz.writestr('document.kml', kml_str.encode('utf-8'))
-    response = Response(zip_io.getvalue(),
-                        content_type='application/vnd.google-earth.kmz')
-    response['Content-Disposition'] = 'attachment; filename={}'.format(
-        full_filename)
-    response['x-das-download-filename'] = full_filename
-    response['Content-Length'] = zip_io.tell()
-    return response
-
-
-class KmlMasterView(generics.GenericAPIView):
+class KmlRootView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def build_link_for_user(self):

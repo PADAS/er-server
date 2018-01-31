@@ -3,6 +3,7 @@ import pytz
 import uuid
 
 
+from django.urls import reverse
 from django.contrib import auth
 from django.contrib.gis.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
@@ -14,6 +15,7 @@ from django.core import validators
 from django.utils import timezone
 from oauthlib.common import generate_token
 from oauth2_provider.models import Application, AccessToken
+
 
 from sendsms import api
 
@@ -228,7 +230,13 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
             user = request.user
 
         token = user.get_kml_access_token()
-        return utils.add_base_url(request, '/api/v1.0/subjects/kml/?auth={}'.format(token))
+        return utils.add_base_url(request,
+                                  '?'.join((
+                                      reverse('subjects-kml-root-view'),
+                                      'auth={}'.format(token))
+                                  )
+                                  )
+        return utils.add_base_url(request, '/api/v1.0/subjects/kml/root/?auth={}'.format(token))
 
 
 class User(AccountsAbstractUser):

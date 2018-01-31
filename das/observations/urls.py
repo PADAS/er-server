@@ -27,8 +27,8 @@ urlpatterns = [
 
     # TODO: This responds with the user-level doc with a single network-link. Jake prefers we produce this file
     # and email it to user (rather than producing it in the API).
-    url(r'^subjects/kml/master/?$', views.KmlMasterView.as_view(),
-        name='subjects-kml-master-view'),
+    url(r'^subjects/kml/root/?$', views.KmlRootView.as_view(),
+        name='subjects-kml-root-view'),
 
     url(r'^region/(?P<slug>[a-z0-9-]+)/subjects/?$',
         views.RegionSubjectsView.as_view()),
@@ -43,10 +43,9 @@ urlpatterns = [
     url(r'^subject/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/source/(?P<source_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.SubjectSourceView.as_view()),
     url(r'^subject/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/source/(?P<source_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/tracks/?$', views.SubjectSourceTrackView.as_view()),
 
-
-    url(r'^subject/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/kml/?$',
+    url(
+        r'^subject/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/kml/?$',
         views.KmlSubjectView.as_view(), name='subject-kml-view'),
-
 
     url(r'^sources/?$', views.SourcesView.as_view()),
     url(r'^source/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',

@@ -14,7 +14,7 @@ from tempfile import NamedTemporaryFile
 
 from accounts.models import User, PermissionSet
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, Region, Observation
-from observations.views import KmlSubjectView, KmlSubjectsView, KmlMasterView
+from observations.views import KmlSubjectView, KmlSubjectsView, KmlRootView
 import observations.tests.targets.kml_target_strings as targets
 from tracking.models.plugin_base import Obs
 
@@ -224,7 +224,7 @@ class ObservationTestCase(BaseAPITest):
         request = self.factory.get(self.api_base + url)
         self.force_authenticate(request, self.user)
 
-        response = KmlMasterView.as_view()(request)
+        response = KmlRootView.as_view()(request)
         response_data = response.data
         self.assertEqual(response.status_code, 200)
 
