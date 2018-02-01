@@ -4,6 +4,7 @@ import re
 import html
 import bleach
 
+from django.utils.html import format_html
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +19,6 @@ def clean_user_text(value, message):
     return value
 
 
-def make_html_list(value):
-    """Break a string down based on newline characters and for each line,
-    enclose it in the <li> and </li> without the <ul> and </ul> tags.
-    Similar to the unordered_list filter but not requiring a list"""
-    paras = ''
-    if value:
-        value = re.sub(r'\r\n|\r|\n', '\n', value)  # normalize newlines
-        paras = re.split('\n', value)
-        paras = ['<li>%s</li>' % p.strip().replace('\n', '<br/>')
-                 for p in paras]
-        paras = '\n\n'.join(paras)
-    return '<ul>{0}</ul>'.format(paras)
+def make_html_list(values):
+    template = '<ul>' + ('<li>{}</li>' * len(values)) + '</ul>'
+    return format_html(template.format(*values))

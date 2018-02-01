@@ -8,6 +8,7 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.forms import PasswordResetForm, UserCreationForm
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin as DjangoGroupAdmin
 from django.template import loader
+from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
 from django.utils.crypto import get_random_string
 from django.contrib.sites.shortcuts import get_current_site
@@ -67,16 +68,14 @@ class PermissionSetAdmin(DjangoGroupAdmin):
 
     def all_permissions(self, instance):
         permissions = instance.permissions.all()
-        display = '\n'.join((permission.name for permission in permissions))
-        return make_html_list(display)
+        return make_html_list(sorted(ps.name for ps in permissions))
 
     all_permissions.short_description = 'Permissions'
     all_permissions.allow_tags = True
 
     def all_users(self, instance):
         users = instance.user_set.all()
-        display = '\n'.join((user.get_full_name() for user in users))
-        return make_html_list(display)
+        return make_html_list(sorted(u.get_full_name() for u in users))
 
     all_users.short_description = 'Users'
     all_users.allow_tags = True
@@ -191,16 +190,14 @@ class UserAdmin(DjangoUserAdmin):
 
     def all_permission_sets(self, instance):
         pss = instance.get_all_permission_sets()
-        display = '\n'.join(sorted(ps.name for ps in pss))
-        return make_html_list(display)
+        return make_html_list(sorted(ps.name for ps in pss))
 
     all_permission_sets.short_description = 'Effective Permission Sets'
     all_permission_sets.allow_tags = True
 
     def member_permission_sets(self, instance):
         pss = instance.permission_sets.all()
-        display = '\n'.join(sorted(ps.name for ps in pss))
-        return make_html_list(display)
+        return make_html_list(sorted(ps.name for ps in pss))
 
     member_permission_sets.short_description = 'Member Permission Sets'
     member_permission_sets.allow_tags = True

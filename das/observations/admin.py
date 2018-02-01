@@ -53,8 +53,7 @@ class SubjectAdmin(admin.ModelAdmin):
 
     def all_groups(self, instance):
         groups = instance.groups.all()
-        display = '\n'.join(sorted(group.name for group in groups))
-        return make_html_list(display)
+        return make_html_list(sorted(group.name for group in groups))
 
     all_groups.short_description = 'Groups'
     all_groups.allow_tags = True
@@ -65,9 +64,8 @@ class SubjectAdmin(admin.ModelAdmin):
             .filter(subject_id=instance.pk) \
             .order_by('-assigned_range')
 
-        display = '\n'.join(sorted('{} {}'.format(
+        return make_html_list(sorted('{} {}'.format(
             str(ss.assigned_range.upper), str(ss.source_id)) for ss in subjectsources))
-        return make_html_list(display)
 
     all_sources.short_description = 'Sources'
     all_sources.allow_tags = True
