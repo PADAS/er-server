@@ -158,11 +158,12 @@
   </Placemark>
   {% endif %}
 
+      {% if kml_overlay_image -%}
           <ScreenOverlay>
               <name>logo</name>
               <visibility>1</visibility>
               <Icon>
-                <href>https://107.21.94.89/Images/Logos/STE_Logo.png</href>
+                <href>{{ kml_overlay_image }}</href>
               </Icon>
               <overlayXY x="0" y="0" xunits="fraction" yunits="fraction"/>
               <screenXY x="0" y="0" xunits="fraction" yunits="fraction"/>
@@ -170,7 +171,7 @@
               <size x="0" y="0" xunits="fraction" yunits="fraction"/>
           </ScreenOverlay>
 
-
+      {%- endif %}
 
   </Folder>
 </kml>

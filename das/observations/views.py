@@ -550,7 +550,7 @@ class KmlRootView(generics.GenericAPIView):
                                          datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
         context = {'network_link':
-                   {'name': 'STE Tracking Service',
+                   {'name': settings.KML_FEED_TITLE,
                     'visibility': 0,
                     'open': 1,
                     'href': self.build_link_for_user()
@@ -672,6 +672,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
         filename = 'TrackingData-{}-{}'.format(re.sub('[^a-zA-Z0-9]', '_', subject.name),
                                                datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
+        kml_overlay_image = getattr(settings, 'KML_OVERLAY_IMAGE', None)
         context = {
             'name': subject.name,
             'observations': observations,
@@ -679,6 +680,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
             'track_color': self.get_subject_color(subject),
             'last_position_color': self.get_subject_color(subject),
             'subject_icon': utils.add_base_url(request, subject.kml_image_url),
+            'kml_overlay_image': utils.add_base_url(request, kml_overlay_image) if kml_overlay_image else None,
         }
         result = render_to_string('kml/subject_track.xml', context)
         return render_to_kmz(result, filename)
