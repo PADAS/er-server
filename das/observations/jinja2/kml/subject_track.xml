@@ -4,6 +4,7 @@
       <name>{{ name }}</name>
       <visibility>1</visibility>
 
+          {% if observations|length > 0 %}
 
       <Document>
 
@@ -68,7 +69,7 @@
               <extrude>1</extrude>
               <tessellate>1</tessellate>
               <coordinates>
-                  {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},1000
+                  {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},0
          </coordinates>
             </LineString>
           </Placemark>
@@ -150,6 +151,12 @@
               </coordinates>
             </Point>
           </Placemark>
+    </Document>
+  {% else %}
+  <Placemark id="">
+      <name>No track data available</name>
+  </Placemark>
+  {% endif %}
 
           <ScreenOverlay>
               <name>logo</name>
@@ -162,8 +169,6 @@
               <rotationXY x="0" y="0" xunits="fraction" yunits="fraction"/>
               <size x="0" y="0" xunits="fraction" yunits="fraction"/>
           </ScreenOverlay>
-    </Document>
-
 
 
 
