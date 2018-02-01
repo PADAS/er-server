@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def calculate_subject_view_window(user, maximum_history_days=180):
+def calculate_subject_view_window(user, maximum_history_days=60):
     '''
     For the given user, calculate the Subject Tracks View Window timestamps.
     :param user: A DAS user
