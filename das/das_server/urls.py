@@ -32,7 +32,7 @@ urlpatterns = [
     url(r'^api/v1.0/', include('rt_api.urls')),
     url(r'^api/v1.0/api-auth/',
         include('rest_framework.urls', namespace='rest_framework')),
-    url(r'^docs/', include_docs_urls(title='DAS API Documentation')),
+    url(r'^api/v1.0/docs/', include_docs_urls(title='DAS API Documentation')),
     url(r'^admin/', admin.site.urls),
     url(r'^accounts/', include('accounts.urls_user')),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
