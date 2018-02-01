@@ -678,6 +678,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
             'points_color': self.get_subject_color(subject),
             'track_color': self.get_subject_color(subject),
             'last_position_color': self.get_subject_color(subject),
+            'subject_icon': utils.add_base_url(request, subject.kml_image_url),
         }
         result = render_to_string('kml/subject_track.xml', context)
         return render_to_kmz(result, filename)
