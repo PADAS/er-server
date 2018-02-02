@@ -646,13 +646,13 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return queryset
 
     def get_subject_color(self, subject):
-        if 'rgb' in subject.additional:
-            r, g, b = subject.additional['rgb'].split(',')
-            return rgb_to_hex(r, g, b)
-        return None
 
-    def get_subject_icon(self, subject):
-        return utils.add_base_url(self.request, subject.image_url)
+        try:
+            r, g, b = subject.additional['rgb'].split(',')
+        except:
+            r, g, b = (0, 0, 0)
+
+        return rgb_to_hex(r, g, b)
 
     def get_allowed_subject_observations(self, subject):
         (lower, upper) = calculate_subject_view_window(self.request.user)
@@ -673,12 +673,14 @@ class KmlSubjectView(generics.RetrieveAPIView):
                                                datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
         kml_overlay_image = getattr(settings, 'KML_OVERLAY_IMAGE', None)
+
+        color = self.get_subject_color(subject)
         context = {
             'name': subject.name,
             'observations': observations,
-            'points_color': self.get_subject_color(subject),
-            'track_color': self.get_subject_color(subject),
-            'last_position_color': self.get_subject_color(subject),
+            'points_color': color,
+            'track_color': color,
+            'last_position_color': color,
             'subject_icon': utils.add_base_url(request, subject.kml_image_url),
             'kml_overlay_image': utils.add_base_url(request, kml_overlay_image) if kml_overlay_image else None,
         }
