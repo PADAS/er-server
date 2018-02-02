@@ -546,8 +546,8 @@ class KmlRootView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
 
         # TODO: Have a configuration for naming the KML feed.
-        filename = 'Master_{}_{}'.format(self.request.user.username,
-                                         datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
+        filename = 'DAS-KML_{}_{}'.format(self.request.user.username,
+                                          datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
         context = {'network_link':
                    {'name': settings.KML_FEED_TITLE,
@@ -618,8 +618,8 @@ class KmlSubjectsView(generics.GenericAPIView):
                    'subject_list': subject_list
                    }
 
-        filename = 'Subjects_{}_{}'.format(self.request.user.username,
-                                           datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
+        filename = 'DAS-KML-Subjects_{}_{}'.format(self.request.user.username,
+                                                   datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
         result = render_to_string('kml/subject_list.xml', context)
         return render_to_kmz(result, filename)
@@ -669,8 +669,8 @@ class KmlSubjectView(generics.RetrieveAPIView):
 
         observations = list(self.get_allowed_subject_observations(subject))
 
-        filename = 'TrackingData-{}-{}'.format(re.sub('[^a-zA-Z0-9]', '_', subject.name),
-                                               datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
+        filename = 'DAS-KML_{}-{}'.format(re.sub('[^a-zA-Z0-9]', '_', subject.name),
+                                          datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
         kml_overlay_image = getattr(settings, 'KML_OVERLAY_IMAGE', None)
 
