@@ -10,12 +10,10 @@ from django.contrib.auth.models import Permission
 from django.urls import reverse
 from lxml import etree
 
-from tempfile import NamedTemporaryFile
 import xmlunittest
 from accounts.models import User, PermissionSet
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, Region, Observation
 from observations.views import KmlSubjectView, KmlSubjectsView, KmlRootView
-import observations.tests.targets.kml_target_strings as targets
 from tracking.models.plugin_base import Obs
 
 
