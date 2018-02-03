@@ -15,6 +15,8 @@ GIS
 from datetime import datetime, timedelta
 import uuid
 import random
+import itertools
+
 # from collections import namedtuple
 #
 # from django.contrib.staticfiles.storage import staticfiles_storage
@@ -763,6 +765,9 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_CHOICES = [(item['name'], item['subtypes'])
                        for item in TYPES_HIERARCHIES]
 
+    SUBTYPE_DISPLAY_NAMES = dict(
+        itertools.chain(*(x[1] for x in SUBTYPE_CHOICES)))
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_('name'), max_length=100)
 
@@ -824,6 +829,10 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                         ('observations.access_ends_1', 1),
                         ('observations.access_ends_3', 3),
                         ('observations.access_ends_7', 7))
+
+    VIEW_BEGIN_ORDERED_DESC = sorted(
+        VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse=True)
+    VIEW_END_ORDERED_ASC = sorted(VIEW_END_WINDOWS, key=lambda _: _[1])
 
     VIEW_SUBJECT_PERMS = ('observations.view_subject',) + \
         VIEW_BEGIN_WINDOWS + VIEW_END_WINDOWS
@@ -914,6 +923,14 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         image_url = static_image_finder.get_marker_icon(self._image_keys())
         if not image_url:
             image_url = '/static/unassigned-black.svg'
+        return image_url
+
+    @property
+    def kml_image_url(self):
+        image_url = static_image_finder.get_marker_icon(
+            self._image_keys(), image_types=('png', 'jpg'))
+        if not image_url:
+            image_url = '/static/unassigned.png'
         return image_url
 
     def _image_keys(self):

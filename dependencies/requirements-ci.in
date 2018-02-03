@@ -6,3 +6,4 @@ django-jenkins==0.110.0
 pep8==1.7.0
 pylint==1.5.5
 mockredispy==2.9.3
+xmlunittest==0.4.0

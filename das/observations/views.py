@@ -4,9 +4,14 @@ import zipfile
 import dateutil.parser
 import pytz
 from io import BytesIO
+import re
 
 from django.conf import settings
 from django.urls import reverse
+
+from django.template.loader import render_to_string
+from django.utils.translation import ugettext_lazy as _
+
 from django.db.models import Prefetch
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
@@ -14,7 +19,7 @@ from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from django.http import Http404
 from rest_framework import status
-import simplekml
+
 
 import utils
 from utils.drf import StandardResultsSetPagination
@@ -22,7 +27,11 @@ from utils.json import zeroout_microseconds
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
 from observations import models
+from observations.utils import calculate_subject_view_window
+
 import observations.serializers as serializers
+
+from observations import kmlutils
 
 logger = logging.getLogger(__name__)
 
@@ -521,25 +530,12 @@ class ObservationsView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
-def render_to_kmz(kml_str, filename):
-    full_filename = '{}.kmz'.format(filename)
-    zip_io = BytesIO()
-    with zipfile.ZipFile(zip_io, mode='w', compression=zipfile.ZIP_DEFLATED) as kmz:
-        kmz.writestr('document.kml', kml_str.encode('utf-8'))
-    response = Response(zip_io.getvalue(),
-                        content_type='application/vnd.google-earth.kmz')
-    response['Content-Disposition'] = 'attachment; filename={}'.format(
-        full_filename)
-    response['x-das-download-filename'] = full_filename
-    response['Content-Length'] = zip_io.tell()
-    return response
-
-
-class KmlMasterSubjectsView(generics.GenericAPIView):
+class KmlRootView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def build_link_for_user(self):
-        token = self.request.user.get_kml_access_token()
+
+        token = kmlutils.get_kml_access_token(self.request.user,)
         return utils.add_base_url(self.request,
                                   '?'.join((
                                       reverse('subjects-kml-view'),
@@ -548,18 +544,22 @@ class KmlMasterSubjectsView(generics.GenericAPIView):
                                   )
 
     def get(self, request, *args, **kwargs):
-        k = simplekml.Kml()
 
         # TODO: Have a configuration for naming the KML feed.
-        k.document = k.newfolder(
-            name='STE Tracking Service', visibility=1, open=1)
-        link = k.document.newnetworklink(name='STE Tracking Service', open=1)
-        link.link.href = self.build_link_for_user()
+        filename = 'DAS-KML_{}_{}'.format(self.request.user.username,
+                                          datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
-        filename = 'Master_{}_{}'.format(self.request.user.username,
-                                         datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
+        context = {'network_link':
+                   {'name': settings.KML_FEED_TITLE,
+                    'visibility': 0,
+                    'open': 1,
+                    'href': self.build_link_for_user()
+                    }
+                   }
 
-        return render_to_kmz(k.kml(), filename)
+        result = render_to_string('kml/user_root.xml', context)
+
+        return kmlutils.render_to_kmz(result, filename)
 
 
 class KmlSubjectsView(generics.GenericAPIView):
@@ -572,7 +572,7 @@ class KmlSubjectsView(generics.GenericAPIView):
         return queryset
 
     def build_link_for_subject(self, subject):
-        token = self.request.user.get_kml_access_token()
+        token = kmlutils.get_kml_access_token(self.request.user)
 
         return utils.add_base_url(self.request,
                                   '?'.join((
@@ -582,37 +582,47 @@ class KmlSubjectsView(generics.GenericAPIView):
                                   )
                                   )
 
+    def subject_context(self, subject):
+
+        return {'name': subject.name,
+                'visibility': 0,
+                'href': self.build_link_for_subject(subject)
+                }
+
+    @staticmethod
+    def get_display_subtype(subtype):
+        '''
+        Get the human name or subtype.
+        :param subtype:
+        :return:
+        '''
+        return models.Subject.SUBTYPE_DISPLAY_NAMES.get(subtype, 'Unassigned')
+
     def get(self, request, *args, **kwargs):
-        k = simplekml.Kml()
-        k.document = k.newfolder(name='Tracking Data', visibility=1)
 
         subjects = list(self.get_queryset().values(
-            'additional', 'name', 'id', 'subject_type', 'subject_subtype'))
+            'additional', 'name', 'id', 'subject_subtype'))
 
         DEFAULT_REGION_NAME = 'Unknown Region'
 
-        accum = {}
-        for sub in subjects:
-            speciesf = accum.setdefault(sub.get('subject_subtype'), {})
-            regionf = speciesf.setdefault(
-                sub.get('additional').get('region', DEFAULT_REGION_NAME), [])
-            regionf.append(sub)
+        subject_list = [{'name': subject['name'],
+                         'species': self.get_display_subtype(subject.get('subject_subtype')),
+                         'region': subject.get('additional').get('region', DEFAULT_REGION_NAME),
+                         'visibility': 0,
+                         'href': self.build_link_for_subject(subject)
+                         } for subject in subjects
+                        ]
+        #
+        context = {'title': 'DAS Tracking Data',
+                   'visibility': 1,
+                   'subject_list': subject_list
+                   }
 
-        for species, v1 in accum.items():
+        filename = 'DAS-KML-Subjects_{}_{}'.format(self.request.user.username,
+                                                   datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
-            speciesf = k.document.newfolder(name=species)
-
-            for region, v2 in sorted(v1.items(), key=lambda x: x[0]):
-                regionf = speciesf.newfolder(name=region)
-
-                for subject in sorted(v2, key=lambda x: x['name']):
-                    link = regionf.newnetworklink(
-                        name=subject['name'], visibility=0)
-                    link.link.href = self.build_link_for_subject(subject)
-
-        filename = 'Master{}'.format(
-            datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
-        return render_to_kmz(k.kml(), filename)
+        result = render_to_string('kml/subject_list.xml', context)
+        return kmlutils.render_to_kmz(result, filename)
 
 
 def rgb_to_hex(red, green, blue):
@@ -636,177 +646,43 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return queryset
 
     def get_subject_color(self, subject):
-        if 'rgb' in subject.additional:
-            r, g, b = subject.additional['rgb'].split(',')
-            return rgb_to_hex(r, g, b)
-        return None
 
-    def get_subject_icon(self, subject):
-        return utils.add_base_url(self.request, subject.image_url)
+        try:
+            r, g, b = subject.additional['rgb'].split(',')
+        except:
+            r, g, b = (0, 0, 0)
+
+        return rgb_to_hex(r, g, b)
 
     def get_allowed_subject_observations(self, subject):
-        oldest_age = -1
-        newest_age = 999
-        mou_expiry_date = self.request.user.additional.get('expiry', None)
-        now = datetime.datetime.now(tz=pytz.utc)
+        (lower, upper) = calculate_subject_view_window(self.request.user)
 
-        for permission_tuple in sorted(models.Subject.VIEW_BEGIN_WINDOWS,
-                                       key=lambda _: _[1], reverse=True):
-            if permission_tuple[
-                1] > oldest_age and self.request.user.has_perm(
-                    permission_tuple[0]):
-                oldest_age = permission_tuple[1]
-                break
+        if lower >= upper:
+            raise PermissionDenied
 
-        for permission_tuple in sorted(models.Subject.VIEW_END_WINDOWS,
-                                       key=lambda _: _[1]):
-            if permission_tuple[
-                1] < newest_age and self.request.user.has_perm(
-                    permission_tuple[0]):
-                newest_age = permission_tuple[1]
-                break
-
-        if mou_expiry_date is not None:
-            mou_expiry_date = pytz.utc.localize(
-                dateutil.parser.parse(mou_expiry_date))
-            mou_expiry_age = now - mou_expiry_date
-
-            newest_age = max(mou_expiry_age.days, newest_age)
-            if oldest_age < newest_age:
-                raise PermissionDenied
-
-        begin = now - datetime.timedelta(days=oldest_age)
-        until = now - datetime.timedelta(days=newest_age)
-
-        return models.Observation.objects.get_subject_observations_values(
-            subject, since=begin, until=until)
-
-    def add_points_document(self, folder, subject, observations):
-        document = folder.newdocument(
-            name='{0}_points'.format(subject.name), visibility=1)
-
-        color = self.get_subject_color(subject)
-        style = simplekml.Style()
-        style._id = '{0}_Pointstyle'.format(subject.name.replace(' ', '_'))
-        style.iconstyle = simplekml.IconStyle(color=color, scale=0.7, icon=simplekml.Icon(
-            href=self.get_subject_icon(subject)))
-        style.labelstyle = simplekml.LabelStyle(scale=0)
-        document.styles.append(style)
-
-        for obs in observations:
-            timestamp = obs['recorded_at'].strftime('%Y-%m-%d %H:%M')
-            point = document.newpoint()
-            point.coords = [(obs['location'].x, obs['location'].y)]
-            point.timestamp.when = timestamp
-            point.placemark.name = ''
-            point.placemark.snippet = simplekml.Snippet(timestamp)
-            point.placemark.description = timestamp
-            point.style = style
-
-    def add_tracks_document(self, folder, subject, observations):
-        document = folder.newdocument(
-            name='{0}_tracks'.format(subject.name), visibility=1)
-
-        color = self.get_subject_color(subject)
-        style = simplekml.Style()
-        style._id = '{0}_Linestyle'.format(subject.name.replace(' ', '_'))
-        style.linestyle = simplekml.LineStyle(color=color, width=0.4)
-        document.styles.append(style)
-
-        self.last_obs = None
-        for obs in observations:
-            if self.last_obs is not None:
-                line = document.newlinestring()
-                line.coords = (([self.last_obs['location'].x, self.last_obs['location'].y, 0], [
-                               obs['location'].x, obs['location'].y, 0]))
-                line.extrude = 0
-                line.tessellate = 1
-                line.placemark.name = ''
-                line.style = style
-            self.last_obs = obs
-
-    def add_position_document(self, folder, subject, observations):
-
-        last_obs = sorted(
-            observations, key=lambda x: x['recorded_at'], reverse=True)[0]
-
-        timestamp = last_obs['recorded_at'].strftime('%Y-%m-%d %H:%M')
-
-        color = self.get_subject_color(subject)
-        document = folder.newdocument(
-            name='{0}\' Last Position'.format(subject.name), visibility=1)
-
-        sh_style = simplekml.Style()
-        sh_style._id = 'sh_{0}_Finalmarkerstyle'.format(
-            subject.name.replace(' ', '_'))
-        sh_style.iconstyle = simplekml.IconStyle(color=color, scale=0.7, icon=simplekml.Icon(
-            href=self.get_subject_icon(subject)))
-        sh_style.labelstyle = simplekml.LabelStyle(scale=1, color=color)
-        sh_style.balloonstyle = simplekml.BalloonStyle(
-            bgcolor=color, text='$[description')
-        document.styles.append(sh_style)
-
-        sn_style = simplekml.Style()
-        sn_style._id = 'sn_{0}_Finalmarkerstyle'.format(
-            subject.name.replace(' ', '_'))
-        sn_style.iconstyle = simplekml.IconStyle(color=color, scale=0.7, icon=simplekml.Icon(
-            href=self.get_subject_icon(subject)))
-        sn_style.labelstyle = simplekml.LabelStyle(scale=0)
-        sn_style.balloonstyle = simplekml.BalloonStyle(
-            bgcolor=color, text='$[description')
-        document.styles.append(sn_style)
-
-        style_map = simplekml.StyleMap()
-        style_map._id = 'msn_{0}_Finalmarkerstyle'.format(
-            subject.name.replace(' ', '_'))
-        style_map.normalstyle = sn_style
-        style_map.highlightstyle = sh_style
-        document.stylemaps.append(style_map)
-
-        point = document.newpoint()
-        point.coords = [(last_obs['location'].x, last_obs['location'].y)]
-        point.timestamp.when = timestamp
-        point.placemark.name = 'Last Position: {0}'.format(timestamp)
-        point.placemark.snippet = simplekml.Snippet('')
-        point.placemark.description = timestamp
-        point.stylemap = style_map
-
-    def add_overlay_to_folder(self, folder):
-        overlay = folder.newscreenoverlay()
-        overlay.overlayxy = simplekml.OverlayXY(x=0, y=0,
-                                                xunits=simplekml.Units.fraction,
-                                                yunits=simplekml.Units.fraction)
-        overlay.screenxy = simplekml.ScreenXY(x=0, y=0,
-                                              xunits=simplekml.Units.fraction,
-                                              yunits=simplekml.Units.fraction)
-        overlay.rotationxy = simplekml.RotationXY(x=0, y=0,
-                                                  xunits=simplekml.Units.fraction,
-                                                  yunits=simplekml.Units.fraction)
-        overlay.size = simplekml.Size(x=0, y=0,
-                                      xunits=simplekml.Units.fraction,
-                                      yunits=simplekml.Units.fraction)
-        overlay.name = 'Logo'
-
-        # TODO: Serve our own image.
-        overlay.icon.href = 'http://107.21.94.89/Images/Logos/STE_Logo.png'
+        return models.Observation.objects.get_subject_observations_values(subject, since=lower, until=upper)
 
     def get(self, request, *args, **kwargs):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
         self.check_object_permissions(self.request, subject)
-        k = simplekml.Kml()
-        k.document = simplekml.Folder(name=subject.name)
-        k.document._id = None
-        k.document.visibility = 1
-        self.add_overlay_to_folder(k.document)
 
         observations = list(self.get_allowed_subject_observations(subject))
 
-        if len(observations) > 0:
-            self.add_points_document(k.document, subject, observations)
-            self.add_tracks_document(k.document, subject, observations)
-            self.add_position_document(k.document, subject, observations)
-        filename = 'TrackingData{}'.format(
-            datetime.datetime.utcnow().strftime('%Y%M%d%H%M'))
-        kml_str = k.kml(format=False)
-        return render_to_kmz(kml_str, filename)
+        filename = 'DAS-KML_{}-{}'.format(re.sub('[^a-zA-Z0-9]', '_', subject.name),
+                                          datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
+
+        kml_overlay_image = getattr(settings, 'KML_OVERLAY_IMAGE', None)
+
+        color = self.get_subject_color(subject)
+        context = {
+            'name': subject.name,
+            'observations': observations,
+            'points_color': color,
+            'track_color': color,
+            'last_position_color': color,
+            'subject_icon': utils.add_base_url(request, subject.kml_image_url),
+            'kml_overlay_image': utils.add_base_url(request, kml_overlay_image) if kml_overlay_image else None,
+        }
+        result = render_to_string('kml/subject_track.xml', context)
+        return kmlutils.render_to_kmz(result, filename)

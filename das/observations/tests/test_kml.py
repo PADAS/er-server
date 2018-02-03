@@ -10,16 +10,14 @@ from django.contrib.auth.models import Permission
 from django.urls import reverse
 from lxml import etree
 
-from tempfile import NamedTemporaryFile
-
+import xmlunittest
 from accounts.models import User, PermissionSet
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, Region, Observation
-from observations.views import KmlSubjectView, KmlSubjectsView, KmlMasterSubjectsView
-import observations.tests.targets.kml_target_strings as targets
+from observations.views import KmlSubjectView, KmlSubjectsView, KmlRootView
 from tracking.models.plugin_base import Obs
 
 
-class ObservationTestCase(BaseAPITest):
+class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
 
     observation_data = [
         (1, 1, 1508520145),
@@ -28,8 +26,6 @@ class ObservationTestCase(BaseAPITest):
     ]
 
     simplekml_default_ids = ('link', 'geom', 'feat', 'substyle', 'time')
-
-    save_outputs = False
 
     def setUp(self):
         super().setUp()
@@ -139,18 +135,9 @@ class ObservationTestCase(BaseAPITest):
         kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
         with kmz.open('document.kml') as response_kml_bytes:
             response_kml = response_kml_bytes.read()
-        parser = etree.XMLParser(remove_blank_text=True)
-        response_xml = etree.XML(response_kml, parser=parser)
-        target_string = targets.all_subjects_target.format(
-            self.user.get_kml_access_token())
-        target_xml = etree.XML(target_string.encode('utf-8'), parser=parser)
 
-        if self.save_outputs:
-            self.save_kml(response_xml, 'all_subjects.actual.kml')
-            self.save_kmz(response.data, 'all_subjects.actual.kmz')
-            self.save_kml(target_xml, 'all_subjects.expected.kml')
-
-        self.assertTrue(self.elements_equal(response_xml, target_xml))
+        root = self.assertXmlDocument(response_kml)
+        self.assertXmlNamespace(root, None, 'http://www.opengis.net/kml/2.2')
 
     def test_export_single_subject(self):
 
@@ -167,17 +154,9 @@ class ObservationTestCase(BaseAPITest):
         kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
         with kmz.open('document.kml') as response_kml_bytes:
             response_kml = response_kml_bytes.read()
-        parser = etree.XMLParser(remove_blank_text=True)
-        response_xml = etree.XML(response_kml, parser=parser)
-        target_xml = etree.XML(
-            targets.single_subject_target.encode('utf-8'), parser=parser)
 
-        if self.save_outputs:
-            self.save_kml(response_xml, 'single_subject.actual.kml')
-            self.save_kmz(response.data, 'single_subject.actual.kmz')
-            self.save_kml(target_xml, 'single_subject.expected.kml')
-
-        self.assertTrue(self.elements_equal(response_xml, target_xml))
+        root = self.assertXmlDocument(response_kml)
+        self.assertXmlNamespace(root, None, 'http://www.opengis.net/kml/2.2')
 
     def test_single_subject_authed_url(self):
 
@@ -206,40 +185,22 @@ class ObservationTestCase(BaseAPITest):
         kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
         with kmz.open('document.kml') as response_kml_bytes:
             response_kml = response_kml_bytes.read()
-        parser = etree.XMLParser(remove_blank_text=True)
-        response_xml = etree.XML(response_kml, parser=parser)
-        target_xml = etree.XML(
-            targets.single_subject_target.encode('utf-8'), parser=parser)
 
-        if self.save_outputs:
-            self.save_kml(response_xml, 'authed_single_subject.actual.kml')
-            self.save_kmz(response.data, 'authed_single_subject.actual.kmz')
-            self.save_kml(target_xml, 'authed_single_subject.expected.kml')
-
-        self.assertTrue(self.elements_equal(response_xml, target_xml))
+        root = self.assertXmlDocument(response_kml)
+        self.assertXmlNamespace(root, None, 'http://www.opengis.net/kml/2.2')
 
     def test_master_link(self):
-        url = reverse('subjects-kml-master-view')
+        url = reverse('subjects-kml-root-view')
 
         request = self.factory.get(self.api_base + url)
         self.force_authenticate(request, self.user)
 
-        response = KmlMasterSubjectsView.as_view()(request)
+        response = KmlRootView.as_view()(request)
         response_data = response.data
         self.assertEqual(response.status_code, 200)
 
         kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
         with kmz.open('document.kml') as response_kml_bytes:
             response_kml = response_kml_bytes.read()
-        parser = etree.XMLParser(remove_blank_text=True)
-        response_xml = etree.XML(response_kml, parser=parser)
-        target_string = targets.master_link_target.format(
-            self.user.get_kml_access_token())
-        target_xml = etree.XML(target_string.encode('utf-8'), parser=parser)
-
-        if self.save_outputs:
-            self.save_kml(response_xml, 'master_file.actual.kml')
-            self.save_kmz(response.data, 'master_file.actual.kmz')
-            self.save_kml(target_xml, 'master_file.expected.kml')
-
-        self.assertTrue(self.elements_equal(response_xml, target_xml))
+        root = self.assertXmlDocument(response_kml)
+        self.assertXmlNamespace(root, None, 'http://www.opengis.net/kml/2.2')

@@ -21,6 +21,3 @@ services:
       - ./docker/base/wait_for.sh:/startup/wait_for.sh
       - ./docker/Notebook/start.sh:/var/www/app/start.sh
       - ${DAS_NOTEBOOKS_DIR:-notebooks}:/var/notebooks
-    depends_on:
-      - app
-

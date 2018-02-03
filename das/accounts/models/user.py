@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta
 import pytz
 import uuid
-
+import logging
+import dateutil.parser
 
 from django.contrib import auth
 from django.contrib.gis.db import models
@@ -12,13 +12,12 @@ from django.core.mail import send_mail
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core import validators
 from django.utils import timezone
-from oauthlib.common import generate_token
-from oauth2_provider.models import Application, AccessToken
 
 from sendsms import api
 
 from accounts.mixins import PermissionsMixin
 
+logger = logging.getLogger(__name__)
 
 phone_regex = validators.RegexValidator(
     regex=r'^\+?1?\d{9,15}$',
@@ -200,29 +199,26 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         api.send_sms(body=message, from_phone=from_phone,
                      to=[self.phone], **kwargs)
 
-    def get_kml_access_token(self):
-        app = Application.objects.get(client_id='das_kml_export')
-        try:
-            token = AccessToken.objects.get(
-                user=self, application=app, expires__gt=datetime.now(tz=pytz.utc))
-        except AccessToken.DoesNotExist:
-            token = AccessToken.objects.create(
-                user=self, application=app, scope='read', token=generate_token(),
-                expires=datetime.now(tz=pytz.utc) + timedelta(days=5 * 365))
+    @property
+    def mou_expiry_date(self):
+        '''
+        MOU Expiry date is an additional User attribute and indicates a date when a user's data view access expires.
 
-        return token.token
+        For the purposes of animal track data, this MOU date indicates the maximum track timestamp visible for the user.
+        :return: an expiry date (or datetime.max if either there is no expiry date or it is invalid.
 
-    def get_kml_master_link(self, request=None, user=None):
-        import utils
+        TODO: Consider whether an invalid 'mou_expiry' string should raise an error.
+        '''
+        mou_expiry_date = self.additional.get('expiry', None)
 
-        if request is None:
-            request = self.request
+        if mou_expiry_date is not None:
+            try:
+                return pytz.utc.localize(dateutil.parser.parse(mou_expiry_date))
+            except (ValueError, OverflowError) as ex:
+                logger.warning('Error parsing mou_expiry_date string \'%s\' for user %s',
+                               mou_expiry_date, self.username)
 
-        if user is None:
-            user = request.user
-
-        token = user.get_kml_access_token()
-        return utils.add_base_url(request, '/api/v1.0/subjects/kml/?auth={}'.format(token))
+        return None
 
 
 class User(AccountsAbstractUser):
