@@ -1,10 +1,11 @@
 import logging
-import datetime
+from datetime import datetime, timedelta
 import zipfile
 import dateutil.parser
 import pytz
 from io import BytesIO
 
+import utils
 from django.conf import settings
 from django.urls import reverse
 from django.db.models import Prefetch
@@ -12,19 +13,13 @@ from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
-from django.http import Http404
-from rest_framework import status
-import simplekml
+from oauthlib.common import generate_token
+from oauth2_provider.models import Application, AccessToken
 
-import utils
-from utils.drf import StandardResultsSetPagination
-from utils.json import zeroout_microseconds
-from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
-from observations.permissions import StandardObjectPermissions
-from observations import models
-import observations.serializers as serializers
 
 logger = logging.getLogger(__name__)
+
+KML_TOKEN_TTL_DAYS = getattr(settings, 'KML_TOKEN_TTL_DAYS', 5 * 365)
 
 
 def render_to_kmz(content, filename):
@@ -45,3 +40,34 @@ def render_to_kmz(content, filename):
     response['x-das-download-filename'] = full_filename
     response['Content-Length'] = zip_io.tell()
     return response
+
+
+def get_kml_access_token(user, ttl=KML_TOKEN_TTL_DAYS):
+
+    app = Application.objects.get(client_id='das_kml_export')
+    try:
+
+        token = AccessToken.objects.get(
+            user=user, application=app, expires__gt=datetime.now(tz=pytz.utc))
+
+    except AccessToken.DoesNotExist:
+        ttl = ttl or timedelta(days=5 * 365)
+        token = AccessToken.objects.create(
+            user=user, application=app, scope='read', token=generate_token(),
+            expires=datetime.now(tz=pytz.utc) + ttl)
+
+    return token.token
+
+
+def get_kml_master_link(user, request):
+
+    if user is None:
+        user = request.user
+
+    token = get_kml_access_token(user)
+    return utils.add_base_url(request,
+                              '?'.join((
+                                  reverse('subjects-kml-root-view'),
+                                  'auth={}'.format(token))
+                              )
+                              )

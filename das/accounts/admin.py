@@ -17,6 +17,7 @@ from utils.html import make_html_list
 import django.contrib.auth.models
 
 from accounts.models import User, PermissionSet
+from observations import kmlutils
 
 
 class PermissionSetAdminForm(forms.ModelForm):
@@ -135,7 +136,7 @@ class KmkMasterLinkForm(forms.Form):
              from_email=None, request=None, html_email_template_name=None):
 
         context = {
-            'kml_master_link': user.get_kml_master_link(request, user),
+            'kml_master_link': kmlutils.get_kml_master_link(user, request),
             'site_name': get_current_site(request).name
         }
         self.send_mail(subject_template_name, email_template_name, context,

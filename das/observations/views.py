@@ -31,7 +31,7 @@ from observations.utils import calculate_subject_view_window
 
 import observations.serializers as serializers
 
-from observations.kmlutils import render_to_kmz
+from observations import kmlutils
 
 logger = logging.getLogger(__name__)
 
@@ -535,7 +535,7 @@ class KmlRootView(generics.GenericAPIView):
 
     def build_link_for_user(self):
 
-        token = self.request.user.get_kml_access_token()
+        token = kmlutils.get_kml_access_token(self.request.user,)
         return utils.add_base_url(self.request,
                                   '?'.join((
                                       reverse('subjects-kml-view'),
@@ -559,7 +559,7 @@ class KmlRootView(generics.GenericAPIView):
 
         result = render_to_string('kml/user_root.xml', context)
 
-        return render_to_kmz(result, filename)
+        return kmlutils.render_to_kmz(result, filename)
 
 
 class KmlSubjectsView(generics.GenericAPIView):
@@ -572,7 +572,7 @@ class KmlSubjectsView(generics.GenericAPIView):
         return queryset
 
     def build_link_for_subject(self, subject):
-        token = self.request.user.get_kml_access_token()
+        token = kmlutils.get_kml_access_token(self.request.user)
 
         return utils.add_base_url(self.request,
                                   '?'.join((
@@ -622,7 +622,7 @@ class KmlSubjectsView(generics.GenericAPIView):
                                                    datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
         result = render_to_string('kml/subject_list.xml', context)
-        return render_to_kmz(result, filename)
+        return kmlutils.render_to_kmz(result, filename)
 
 
 def rgb_to_hex(red, green, blue):
@@ -685,4 +685,4 @@ class KmlSubjectView(generics.RetrieveAPIView):
             'kml_overlay_image': utils.add_base_url(request, kml_overlay_image) if kml_overlay_image else None,
         }
         result = render_to_string('kml/subject_track.xml', context)
-        return render_to_kmz(result, filename)
+        return kmlutils.render_to_kmz(result, filename)

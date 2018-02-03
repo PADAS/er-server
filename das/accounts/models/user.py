@@ -1,10 +1,8 @@
-from datetime import datetime, timedelta
 import pytz
 import uuid
 import logging
 import dateutil.parser
 
-from django.urls import reverse
 from django.contrib import auth
 from django.contrib.gis.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
@@ -14,8 +12,6 @@ from django.core.mail import send_mail
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core import validators
 from django.utils import timezone
-from oauthlib.common import generate_token
-from oauth2_provider.models import Application, AccessToken
 
 from sendsms import api
 
@@ -27,8 +23,6 @@ phone_regex = validators.RegexValidator(
     regex=r'^\+?1?\d{9,15}$',
     message="Phone number must be entered in the format:  "
             "'+999999999'. Up to 15 digits allowed.")
-
-KML_TOKEN_TTL = timedelta(days=5 * 365)
 
 
 class UserQuerySet(models.QuerySet):
@@ -204,39 +198,6 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         """
         api.send_sms(body=message, from_phone=from_phone,
                      to=[self.phone], **kwargs)
-
-    def get_kml_access_token(self, ttl=KML_TOKEN_TTL):
-
-        app = Application.objects.get(client_id='das_kml_export')
-        try:
-
-            token = AccessToken.objects.get(
-                user=self, application=app, expires__gt=datetime.now(tz=pytz.utc))
-
-        except AccessToken.DoesNotExist:
-            ttl = ttl or timedelta(days=5 * 365)
-            token = AccessToken.objects.create(
-                user=self, application=app, scope='read', token=generate_token(),
-                expires=datetime.now(tz=pytz.utc) + ttl)
-
-        return token.token
-
-    def get_kml_master_link(self, request=None, user=None):
-        import utils
-
-        if request is None:
-            request = self.request
-
-        if user is None:
-            user = request.user
-
-        token = user.get_kml_access_token()
-        return utils.add_base_url(request,
-                                  '?'.join((
-                                      reverse('subjects-kml-root-view'),
-                                      'auth={}'.format(token))
-                                  )
-                                  )
 
     @property
     def mou_expiry_date(self):

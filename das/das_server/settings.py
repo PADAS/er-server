@@ -443,6 +443,7 @@ EVENT_MATRIX_ENABLED = False
 EXPORT_KML_ENABLED = False
 KML_FEED_TITLE = 'DAS KML Service'
 KML_OVERLAY_IMAGE = None
+KML_TOKEN_TTL_DAYS = 5 * 365
 
 # Default speed-threshold (in km/h) by subject-subtype. These are default values that maybe overridden in an
 # ObservationAnnotation instance.
