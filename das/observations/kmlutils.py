@@ -20,6 +20,7 @@ from oauth2_provider.models import Application, AccessToken
 logger = logging.getLogger(__name__)
 
 KML_TOKEN_TTL_DAYS = getattr(settings, 'KML_TOKEN_TTL_DAYS', 5 * 365)
+KML_OAUTH_CLIENT_ID = 'das_kml_export'
 
 
 def render_to_kmz(content, filename):
@@ -44,19 +45,19 @@ def render_to_kmz(content, filename):
 
 def get_kml_access_token(user, ttl=KML_TOKEN_TTL_DAYS):
 
-    app = Application.objects.get(client_id='das_kml_export')
     try:
+        app = Application.objects.get(client_id=KML_OAUTH_CLIENT_ID)
 
-        token = AccessToken.objects.get(
-            user=user, application=app, expires__gt=datetime.now(tz=pytz.utc))
+        token, created = AccessToken.objects.get_or_create(
+            user=user, application=app, scope='read', expires__gt=datetime.now(tz=pytz.utc),
+            defaults=dict(expires=datetime.now(tz=pytz.utc) +
+                          timedelta(days=ttl), token=generate_token())
+        )
+        return token.token
 
-    except AccessToken.DoesNotExist:
-        ttl = ttl or timedelta(days=5 * 365)
-        token = AccessToken.objects.create(
-            user=user, application=app, scope='read', token=generate_token(),
-            expires=datetime.now(tz=pytz.utc) + ttl)
-
-    return token.token
+    except Application.DoesNotExist:
+        logger.error(
+            'There exists no Oauth2 Application with client_id %s', KML_OAUTH_CLIENT_ID)
 
 
 def get_kml_master_link(user, request):
