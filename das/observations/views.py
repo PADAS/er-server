@@ -646,13 +646,18 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return queryset
 
     def get_subject_color(self, subject):
-
+        '''
+        Be careful reusing this function. Take note of the unusual order of hues in the result.
+        :param subject:
+        :return:
+        '''
         try:
-            r, g, b = subject.additional['rgb'].split(',')
+            red, green, blue = subject.additional['rgb'].split(',')
+            kml_color = 'ff%02x%02x%02x' % (int(blue), int(green), int(red))
         except:
-            r, g, b = (0, 0, 0)
+            kml_color = 'ff000000'  # Default is black.
 
-        return rgb_to_hex(r, g, b)
+        return kml_color
 
     def get_allowed_subject_observations(self, subject):
         (lower, upper) = calculate_subject_view_window(self.request.user)
