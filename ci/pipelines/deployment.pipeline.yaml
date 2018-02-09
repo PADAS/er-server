@@ -23,13 +23,6 @@ resources:
     branch: ((web-branch-name))
     private_key: ((das-web-github))
 
-- name: git-web-react
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das-react.git
-    branch: ((web-react-branch-name))
-    private_key: ((das-react-github))
-
 resource_types:
 - name: versioned-git-resource
   type: docker-image
@@ -47,7 +40,6 @@ jobs:
     - get: git-server
     - get: git-utility
     - get: git-web
-    - get: git-web-react
   - do:
     - task: ensure-cluster-exists
       config:
@@ -98,7 +90,6 @@ jobs:
         - name: git-server
         - name: git-utility
         - name: git-web
-        - name: git-web-react
         outputs:
         - name: deployment-info
         run:

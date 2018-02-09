@@ -39,4 +39,3 @@ function prompt_for_branch()
 
 prompt_for_branch das server-branch-name
 prompt_for_branch das-web web-branch-name
-prompt_for_branch das-react web-react-branch-name

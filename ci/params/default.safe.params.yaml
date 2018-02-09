@@ -15,7 +15,6 @@ num-nodes: 6
 #Build
 server-branch-name: develop
 web-branch-name: develop
-web-react-branch-name: develop
 tag-as-latest: false
 version-suffix: "not-set"
 

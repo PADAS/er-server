@@ -15,7 +15,6 @@ INPUT_DIR=git-server/deployment
 
 GIT_SERVER_SHA=$(cat < git-server/sha)
 GIT_WEB_SHA=$(cat < git-web/sha)
-GIT_WEB_REACT_SHA=$(cat < git-web-react/sha)
 GIT_UTILITY_SHA=$(cat < git-utility/sha)
 
 $UPDATE_DIR/update.k8s.deployment.params.local.sh \
