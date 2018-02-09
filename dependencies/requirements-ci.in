@@ -1,9 +1,14 @@
 # requirements needed to run continious integration
+# until xmlunittest supports lxml>=4.0, don't pip-compile it with requirements.txt
 # pip-compile --output-file requirements-ci.txt requirements-ci.in ./requirements.txt --find-links ./wheelhouse
+
+# pip-compile --output-file requirements-ci.txt requirements-ci.in --find-links ./wheelhouse
+
+
 #apt-get install sloccount
-coverage==4.1b2
+coverage==4.5
 django-jenkins==0.110.0
-pep8==1.7.0
-pylint==1.5.5
+pep8==1.7.1
+pylint==1.8.2
 mockredispy==2.9.3
 xmlunittest==0.4.0
