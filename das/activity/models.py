@@ -496,10 +496,10 @@ class Event(RevisionMixin, TimestampedModel):
             ('logistics_update', 'Modify logistics reports'),
             ('logistics_delete', 'Delete logistics reports'),
 
-            ('analyzer_event_create', 'Create logistics reports'),
-            ('analyzer_event_read', 'View logistics reports'),
-            ('analyzer_event_update', 'Modify logistics reports'),
-            ('analyzer_event_delete', 'Delete logistics reports'),
+            ('analyzer_event_create', 'Create analyzer reports'),
+            ('analyzer_event_read', 'View analyzer reports'),
+            ('analyzer_event_update', 'Modify analyzer reports'),
+            ('analyzer_event_delete', 'Delete analyzer reports'),
 
             # These 4 permissions are deprecated (obviously) and should
             # eventually be removed
