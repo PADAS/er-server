@@ -10,7 +10,7 @@ MANAGE_PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT=padas-app
 CONCOURSE_URL=https://ci.pamdas.org
 ELASTIC_URL=35.203.167.191
-TOOLS_VERSION=0.0.178
+TOOLS_VERSION=0.0.217
 
 ### DO NOT EDIT BELOW THIS LINE
 ### Below this line is generic copy pasted from the master in infrastructure
