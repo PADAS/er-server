@@ -22,5 +22,4 @@ $UPDATE_DIR/update.k8s.deployment.params.local.sh \
     $INPUT_DIR \
     $GIT_SERVER_SHA \
     $GIT_WEB_SHA \
-    $GIT_WEB_REACT_SHA \
     $GIT_UTILITY_SHA
