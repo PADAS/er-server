@@ -5,6 +5,7 @@ import pytz
 import dateutil.parser as dp
 
 from django.conf import settings
+from django.utils.translation import ugettext_lazy as _
 import redis
 from das_server import celery
 
@@ -44,20 +45,24 @@ def _add_status_indicators(service_status):
     except SourceProvider.DoesNotExist:
         display_name = provider_key
 
+    # Add display name from SourceProvider.
     service_status['display_name'] = display_name
 
-    service_status['status_code'] = calculate_status_code(service_status)
+    # Add status code based
+    code, reason = calculate_status_code(service_status)
+    service_status['status_code'] = code
+    service_status['reason'] = reason
 
     # These are hacks, but should be built to identify asset type (ie. Radio
     # vs. Collar vs. Airplane)
-    service_status['system_status_title'] = 'System Activity'
-    service_status['asset_status_title'] = 'Radio Activity'
 
     return service_status
 
 
-ERROR_THRESHOLD = timedelta(minutes=10)
-WARNING_THRESHOLD = timedelta(minutes=2)
+ERROR_THRESHOLD_MINUTES = 10
+WARNING_THRESHOLD_MINUTES = 2
+ERROR_THRESHOLD = timedelta(minutes=ERROR_THRESHOLD_MINUTES)
+WARNING_THRESHOLD = timedelta(minutes=WARNING_THRESHOLD_MINUTES)
 
 
 def calculate_status_code(service_status):
@@ -79,20 +84,18 @@ def calculate_status_code(service_status):
     except:
         heartbeat_age = None
 
-    # Error thresholds
-    if any(
-        (heartbeat_age > ERROR_THRESHOLD, is_connected ==
-         False and connection_age > ERROR_THRESHOLD),
+    for minutes, delta, status_key in (
+            (ERROR_THRESHOLD_MINUTES, ERROR_THRESHOLD, 'ERROR'),
+        (WARNING_THRESHOLD_MINUTES, WARNING_THRESHOLD, 'WARNING')
     ):
-        return 'ERROR'
 
-    # Warning thresholds
-    if any((
-            heartbeat_age > WARNING_THRESHOLD, is_connected == False),
-           ):
-        return 'WARNING'
+        if heartbeat_age > delta:
+            return status_key, 'Service heartbeat is older than {} minutes.'.format(minutes)
 
-    return 'OK'
+        if is_connected == False and connection_age > delta:
+            return status_key, 'Data source has been disconnected for more than {} minutes.'.format(minutes)
+
+    return 'OK', 'The service is working properly.'
 
 
 def get_source_provider_statuses():
