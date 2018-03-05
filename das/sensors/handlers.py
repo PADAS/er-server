@@ -36,7 +36,7 @@ class GenericSensorHandler():
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
 
     @classmethod
-    def post(cls, request, sensor_type, provider_name):
+    def post(cls, request, sensor_type, provider_key):
 
         params = SensorPostParameters(data=request.data)
         if not params.is_valid():
@@ -60,12 +60,12 @@ class GenericSensorHandler():
             'subject_subtype', cls.DEFAULT_SUBJECT_SUBTYPE)
         source_type = params.get('source_type', cls.DEFAULT_SOURCE_TYPE)
         model_name = params.get('model_name', None) or '{}:{}'.format(
-            sensor_type, provider_name)
+            sensor_type, provider_key)
 
         subject_name = params.get('subject_name') or manufacturer_id
 
         src = Source.objects.ensure_source(source_type,
-                                           provider=provider_name,
+                                           provider=provider_key,
                                            manufacturer_id=manufacturer_id,
                                            model_name=model_name,
                                            subject={
@@ -116,18 +116,18 @@ class DasRadioAgentHandler():
         return dt
 
     @classmethod
-    def handle_heartbeat(cls, data, provider_name):
+    def handle_heartbeat(cls, data, provider_key):
         servicesutils.store_service_status(
-            provider_name=provider_name, data=data)
+            provider_key=provider_key, data=data)
         return Response(data, status=status.HTTP_200_OK)
 
     @classmethod
-    def post(cls, request, provider_name):
+    def post(cls, request, provider_key):
         '''
         Handle Post from Das Radio Agent. The payload should have a 'message_key' to idenfity the type of
         status message.
         :param request:
-        :param provider_name: The natural key found in SourceProvider.
+        :param provider_key: The natural key found in SourceProvider.
         :return:
         '''
         data = request.data
@@ -136,13 +136,13 @@ class DasRadioAgentHandler():
         key = data.get('message_key', 'observation')
 
         if key == 'heartbeat':
-            return cls.handle_heartbeat(data, provider_name)
+            return cls.handle_heartbeat(data, provider_key)
 
         if key == 'observation':
-            return cls.handle_observation(data, provider_name)
+            return cls.handle_observation(data, provider_key)
 
     @classmethod
-    def handle_observation(cls, data, provider_name):
+    def handle_observation(cls, data, provider_key):
         location = None
         try:
             location = data.get('location')
@@ -154,11 +154,11 @@ class DasRadioAgentHandler():
         except:
             location = None
 
-        model_name = '{}:{}'.format(cls.SENSOR_TYPE, provider_name)
+        model_name = '{}:{}'.format(cls.SENSOR_TYPE, provider_key)
         manufacturer_id = data.get('manufacturer_id')
 
         src = Source.objects.ensure_source(source_type=cls.SOURCE_TYPE,
-                                           provider=provider_name,
+                                           provider=provider_key,
                                            manufacturer_id=manufacturer_id,
                                            model_name=model_name,
                                            subject={
@@ -270,7 +270,7 @@ class GsatHandler():
             return True
 
     @classmethod
-    def post(cls, request, provider_name):
+    def post(cls, request, provider_key):
 
         logger.info('Gsat request: %s', request.query_params)
 
@@ -283,12 +283,12 @@ class GsatHandler():
             else:
                 return Response({'data': 'Check query parameters and try again.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        obj['provider_key'] = provider_name
+        obj['provider_key'] = provider_key
 
-        model_name = '{}:{}'.format(GsatHandler.SENSOR_TYPE, provider_name)
+        model_name = '{}:{}'.format(GsatHandler.SENSOR_TYPE, provider_key)
 
         src, created = Source.objects.ensure_source(cls.SOURCE_TYPE,
-                                                    provider_name=provider_name,
+                                                    provider=provider_key,
                                                     manufacturer_id=obj.get(
                                                         'manufacturer_id'),
                                                     model_name=model_name)

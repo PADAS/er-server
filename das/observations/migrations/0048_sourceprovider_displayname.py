@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         migrations.RenameField(
             model_name='sourceprovider',
             old_name='name',
-            new_name='value',
+            new_name='provider_key',
         ),
         migrations.AddField(
             model_name='sourceprovider',
@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
         ),
 
         migrations.RunSQL(
-            sql='UPDATE observations_sourceprovider SET display_name=value;',
-            reverse_sql=None
+            sql='UPDATE observations_sourceprovider SET display_name=provider_key;',
+            reverse_sql='',
         )
     ]

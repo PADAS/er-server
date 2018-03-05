@@ -9,9 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 @celery.app.task()
-def store_and_forward_service_status(service_name=None, data=None):
+def store_and_forward_service_status(provider_key=None, data=None):
 
     data = data or {}
-    servicesutils.store_service_status(service_name=service_name, data=data)
-    # Call broadcast (if it's not already in the queue)
-    broadcast_service_status.apply_async()
+    servicesutils.store_service_status(provider_key=provider_key, data=data)

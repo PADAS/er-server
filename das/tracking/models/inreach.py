@@ -322,7 +322,7 @@ class InreachAccountClient(BasicAuthClient):
         headers = {'authorization': super(
             InreachAccountClient, self).auth_header()}
 
-        conn.request("GET", "/V1/Devices", headers=headers,)
+        conn.request("GET", "/V1/Devices", headers=headers)
 
         res = conn.getresponse()
         data = res.read()
@@ -330,8 +330,6 @@ class InreachAccountClient(BasicAuthClient):
         if res and res.status == http.client.OK:
             res = json.loads(data.decode("utf-8"))
             yield from res['Devices']
-        else:
-            print(res.status, data)
 
     def user_for_device(self, imei):
         conn = http.client.HTTPSConnection(self.host)

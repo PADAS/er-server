@@ -193,20 +193,20 @@ class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
         return models.SourceProvider.objects.all()
 
     def to_representation(self, value):
-        return value.value if value else None
+        return value.provider_key if value else None
 
     def to_internal_value(self, data):
         if data:
             try:
-                return models.SourceProvider.objects.get(value=data)
+                return models.SourceProvider.objects.get(provider_key=data)
             except models.SourceProvider.DoesNotExist:
                 raise rest_framework.serializers.ValidationError(
-                    {'provider_value': 'Value \'%s\' does not exist.' % data})
+                    {'provider_key': 'Value \'%s\' does not exist.' % data})
         return None
 
     @property
     def choices(self):
-        return OrderedDict(((row.value, row.display_name)
+        return OrderedDict(((row.provider_key, row.display_name)
                             for row in self.get_queryset()))
 
 
@@ -260,14 +260,14 @@ class SourceSerializer(rest_framework.serializers.Serializer):
 
 class SourceProviderSerializer(rest_framework.serializers.Serializer):
     id = rest_framework.serializers.UUIDField(read_only=True)
-    value = rest_framework.serializers.CharField(
+    provider_key = rest_framework.serializers.CharField(
         label='Source Provider Value', max_length=100, required=True)
     display_name = rest_framework.serializers.CharField(
         label='Display Name', max_length=100,)
 
     class Meta:
         model = models.SourceProvider
-        fields = ('id', 'value', 'display_name', )
+        fields = ('id', 'provider_key', 'display_name', )
 
     def create(self, validated_data):
 

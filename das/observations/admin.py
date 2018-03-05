@@ -190,6 +190,6 @@ class SubjectStatusAdmin(admin.ModelAdmin):
 
 @admin.register(models.SourceProvider)
 class SourceProviderAdmin(admin.ModelAdmin):
-    search_fields = ('value', 'display_name',)
-    ordering = ('value',)
-    list_display = ('value', 'display_name',)
+    search_fields = ('provider_key', 'display_name',)
+    ordering = ('provider_key',)
+    list_display = ('provider_key', 'display_name',)

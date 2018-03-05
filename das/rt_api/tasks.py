@@ -143,7 +143,7 @@ def _broadcast_service_status(service_status_data=None):
         close_old_connections()
 
 
-@celery.app.task(base=QueueOnce, once={'graceful': True, 'timeout': 3 * 60})
+@celery.app.task(base=QueueOnce, once={'graceful': True, 'timeout': 60})
 def broadcast_service_status():
     _broadcast_service_status()
 

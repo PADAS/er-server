@@ -127,7 +127,7 @@ class SourceManager(models.Manager):
         with transaction.atomic():
 
             provider, created = SourceProvider.objects.get_or_create(
-                value=kwargs.get('provider'))
+                provider_key=kwargs.get('provider'))
 
             searchkey = dict(
                 manufacturer_id=kwargs['manufacturer_id'], provider=provider)
@@ -159,18 +159,20 @@ class SourceProviderManager(models.Manager):
 
 
 DEFAULT_SOURCE_PROVIDER_ID = '697f25e4-562c-4305-af86-1333e9081f4c'
+DEFAULT_SOURCE_PROVIDER_KEY = 'default'
 
 
 def get_default_source_provider_id():
     instance, created = SourceProvider.objects.get_or_create(
-        id=DEFAULT_SOURCE_PROVIDER_ID, value='default', defaults=dict(display_name='Default Provider'))
+        id=DEFAULT_SOURCE_PROVIDER_ID, provider_key=DEFAULT_SOURCE_PROVIDER_KEY,
+        defaults=dict(display_name='Default Provider'))
     return instance.id
 
 
 class SourceProvider(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField('Natural key for source provider',
-                             max_length=100, null='False', unique=True)
+    provider_key = models.CharField('Natural key for source provider',
+                                    max_length=100, null='False', unique=True)
 
     display_name = models.CharField('Display name for source provider.',
                                     max_length=100, null=False,)
@@ -178,7 +180,7 @@ class SourceProvider(TimestampedModel):
     objects = SourceProviderManager()
 
     def __str__(self):
-        return self.value
+        return '{} ({})'.format(self.display_name, self.provider_key)
 
 
 class Source(TimestampedModel):
