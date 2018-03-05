@@ -37,12 +37,12 @@ def handle_gps_plus_position(position):
                 position.id_collar, position.acquisition_time.isoformat(), position.longitude, position.latitude)
 
     provider, created = SourceProvider.objects.get_or_create(
-        name=SOURCE_PROVIDER_NAME)
+        value=SOURCE_PROVIDER_NAME)
     manufacturer_id = position.id_collar
     source = Source.objects.ensure_source(source_type=SOURCE_TYPE,
                                           manufacturer_id=position.id_collar,
                                           model_name=MODEL_NAME,
-                                          provider=provider.name,
+                                          provider=provider.value,
                                           subject={
                                               'subject_type': Subject.TYPE_UNASSIGNED,
                                               'subject_subtype': Subject.SUBTYPE_UNASSIGNED,

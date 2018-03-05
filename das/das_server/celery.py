@@ -43,6 +43,7 @@ app.conf.task_routes = {
     'rt_api.tasks.handle_delete_event': {'queue': 'realtime_p3', },
     'rt_api.tasks.handle_new_source_observation': {'queue': 'realtime_p3', },
     'rt_api.tasks.handle_new_subject_observation': {'queue': 'realtime_p3', },
+    'rt_api.tasks.broadcast_service_status': {'queue': 'realtime_p1'},
 
     # Queue analyzer tasks separately.
     'analyzers.tasks.*': {'queue': 'analyzers', },
@@ -70,6 +71,11 @@ app.conf.beat_schedule = {
         'task': 'reports.tasks.subjectsource_report',
         # 6 AM local time per settings.TIME_ZONE
         'schedule': crontab(hour=6, minute=0)
+    },
+
+    'service-status': {
+        'task': 'rt_api.tasks.broadcast_service_status',
+        'schedule': timedelta(seconds=15),
     }
 }
 

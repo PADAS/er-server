@@ -19,7 +19,7 @@ class SensorObservation(generics.GenericAPIView):
     def get(self, request, *args, sensor_type=None, provider_name=None, **kwargs):
 
         if sensor_type == GsatHandler.SENSOR_TYPE:
-            return GsatHandler().handle_observation(request, provider_name)
+            return GsatHandler.post(request, provider_name)
 
         # TODO: Write a validator to do this error response.
         errordata = {
@@ -32,9 +32,9 @@ class SensorObservation(generics.GenericAPIView):
 
     def post(self, request, *args, sensor_type=None, provider_name=None, **kwargs):
         if sensor_type == DasRadioAgentHandler.SENSOR_TYPE:
-            return DasRadioAgentHandler().handle_observation(request, provider_name)
+            return DasRadioAgentHandler.post(request, provider_name)
 
         if sensor_type == CameraTrapSensorHandler.SENSOR_TYPE:
             return CameraTrapSensorHandler.post(request, provider_name)
 
-        return GenericSensorHandler().handle_observation(request, sensor_type=sensor_type, provider_name=provider_name)
+        return GenericSensorHandler.post(request, sensor_type=sensor_type, provider_name=provider_name)

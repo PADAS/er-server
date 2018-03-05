@@ -342,9 +342,9 @@
                     $('#log').prepend('<br>event_filter_response: ' + pp.json.prettypre(msg));
                 });
 
-                socket.on('subject_position_update', function(msg) {
-                    $('#log').prepend('<br>position update:  ' + pp.json.prettypre(msg));
-                });
+                // socket.on('subject_position_update', function(msg) {
+                //     $('#log').prepend('<br>position update:  ' + pp.json.prettypre(msg));
+                // });
 
                 socket.on('new_event', function(msg) {
                     $('#log').prepend('<br>new event:  ' + pp.json.prettypre(msg));
@@ -356,6 +356,10 @@
 
                 socket.on('delete_event', function(msg) {
                     $('#log').prepend('<br>delete event:  ' + pp.json.prettypre(msg));
+                });
+
+                socket.on('service_status', function(msg) {
+                    $('#log').prepend('<br>service status:  ' + pp.json.prettypre(msg));
                 });
 
                 socket.on('disconnect', function() {

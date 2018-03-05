@@ -1,17 +1,19 @@
 import datetime
-from datetime import timedelta
 import logging
 import pytz
 from dateutil.parser import parse as parse_date
 
 from rest_framework import status
 from rest_framework.response import Response
-from django.contrib.gis.geos import Point
-from rest_framework import serializers, views, permissions
 
-from observations.models import Source, SubjectSource, Subject, Source, Observation, SourceProvider
+from rest_framework import serializers
+
+from observations.models import SubjectSource, Source, Observation, SourceProvider
 from observations.serializers import ObservationSerializer
+from observations import servicesutils
 from tracking.pubsub_registry import notify_new_tracks
+
+logger = logging.getLogger(__name__)
 
 
 class SensorPostParameters(serializers.Serializer):
@@ -33,10 +35,8 @@ class GenericSensorHandler():
     DEFAULT_SUBJECT_TYPE = 'person'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
 
-    def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
-
-    def handle_observation(self, request, sensor_type, provider_name):
+    @classmethod
+    def post(cls, request, sensor_type, provider_name):
 
         params = SensorPostParameters(data=request.data)
         if not params.is_valid():
@@ -55,10 +55,10 @@ class GenericSensorHandler():
         except:
             location = None
 
-        subject_type = params.get('subject_type', self.DEFAULT_SUBJECT_TYPE)
+        subject_type = params.get('subject_type', cls.DEFAULT_SUBJECT_TYPE)
         subject_subtype = params.get(
-            'subject_subtype', self.DEFAULT_SUBJECT_SUBTYPE)
-        source_type = params.get('source_type', self.DEFAULT_SOURCE_TYPE)
+            'subject_subtype', cls.DEFAULT_SUBJECT_SUBTYPE)
+        source_type = params.get('source_type', cls.DEFAULT_SOURCE_TYPE)
         model_name = params.get('model_name', None) or '{}:{}'.format(
             sensor_type, provider_name)
 
@@ -75,7 +75,6 @@ class GenericSensorHandler():
                                            }
                                            )
 
-        # self.__str2date(obj['recorded_at'])
         recorded_at = params.get('recorded_at')
         additional = params.get('additional', {})
 
@@ -108,9 +107,6 @@ class DasRadioAgentHandler():
     DEFAULT_SUBJECT_TYPE = 'person'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
 
-    def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
-
     @staticmethod
     def __str2date(d, default_tzinfo=pytz.UTC):
         '''Parse a date and if it's naive, replace tzinfo with default_tzinfo.'''
@@ -119,13 +115,37 @@ class DasRadioAgentHandler():
             dt = dt.replace(tzinfo=default_tzinfo)
         return dt
 
-    def handle_observation(self, request, provider_name):
+    @classmethod
+    def handle_heartbeat(cls, data, provider_name):
+        servicesutils.store_service_status(
+            provider_name=provider_name, data=data)
+        return Response(data, status=status.HTTP_200_OK)
 
-        obj = request.data
+    @classmethod
+    def post(cls, request, provider_name):
+        '''
+        Handle Post from Das Radio Agent. The payload should have a 'message_key' to idenfity the type of
+        status message.
+        :param request:
+        :param provider_name: The natural key found in SourceProvider.
+        :return:
+        '''
+        data = request.data
 
+        # Default to 'observation' for backward compatibility.
+        key = data.get('message_key', 'observation')
+
+        if key == 'heartbeat':
+            return cls.handle_heartbeat(data, provider_name)
+
+        if key == 'observation':
+            return cls.handle_observation(data, provider_name)
+
+    @classmethod
+    def handle_observation(cls, data, provider_name):
         location = None
         try:
-            location = obj.get('location')
+            location = data.get('location')
             lat = location.get('lat', None)
             lon = location.get('lon', None)
 
@@ -134,21 +154,21 @@ class DasRadioAgentHandler():
         except:
             location = None
 
-        model_name = '{}:{}'.format(self.SENSOR_TYPE, provider_name)
-        manufacturer_id = obj.get('manufacturer_id')
+        model_name = '{}:{}'.format(cls.SENSOR_TYPE, provider_name)
+        manufacturer_id = data.get('manufacturer_id')
 
-        src = Source.objects.ensure_source(source_type=self.SOURCE_TYPE,
+        src = Source.objects.ensure_source(source_type=cls.SOURCE_TYPE,
                                            provider=provider_name,
                                            manufacturer_id=manufacturer_id,
                                            model_name=model_name,
                                            subject={
-                                               'subject_type': self.DEFAULT_SUBJECT_TYPE,
-                                               'subject_subtype': self.DEFAULT_SUBJECT_SUBTYPE,
+                                               'subject_type': cls.DEFAULT_SUBJECT_TYPE,
+                                               'subject_subtype': cls.DEFAULT_SUBJECT_SUBTYPE,
                                                'name': manufacturer_id
                                            }
                                            )
 
-        recorded_at = self.__str2date(obj['recorded_at'])
+        recorded_at = cls.__str2date(data['recorded_at'])
 
         # Short-circuit if we already have this observation.
         if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
@@ -158,13 +178,13 @@ class DasRadioAgentHandler():
             'location': location,
             'recorded_at': recorded_at,
             'source': str(src.id),
-            'additional': obj['additional'],
+            'additional': data['additional'],
         }
 
         # Anything else that was included in the posted object should move into
         # additional.
         observation['additional'].update(
-            dict((k, obj[k]) for k in obj if k not in observation.keys()))
+            dict((k, data[k]) for k in data if k not in observation.keys()))
 
         serializer = ObservationSerializer(data=observation)
         if serializer.is_valid():
@@ -180,9 +200,6 @@ class GsatHandler():
     SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_TYPE = 'person'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
-
-    def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
 
     @staticmethod
     def _parse_location(lat, lon):
@@ -252,15 +269,16 @@ class GsatHandler():
                 and all(_ in qp for _ in GsatHandler.REQUIRED_PARAMS):
             return True
 
-    def handle_observation(self, request, provider_name):
+    @classmethod
+    def post(cls, request, provider_name):
 
-        self.logger.info('Gsat request: {}'.format(request.query_params))
+        logger.info('Gsat request: %s', request.query_params)
 
         try:
             obj = GsatHandler._parse_gsat_request(request.query_params)
         # except ValueError as ve:
         except Exception as e:
-            if self._validate_template_request(request.query_params):
+            if cls._validate_template_request(request.query_params):
                 return Response({'data': 'That looks like a valid template request'})
             else:
                 return Response({'data': 'Check query parameters and try again.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -269,7 +287,7 @@ class GsatHandler():
 
         model_name = '{}:{}'.format(GsatHandler.SENSOR_TYPE, provider_name)
 
-        src, created = Source.objects.ensure_source(self.SOURCE_TYPE,
+        src, created = Source.objects.ensure_source(cls.SOURCE_TYPE,
                                                     provider_name=provider_name,
                                                     manufacturer_id=obj.get(
                                                         'manufacturer_id'),
@@ -280,8 +298,8 @@ class GsatHandler():
         if created:
             ss, created = SubjectSource.objects.ensure_subject_source(src,
                                                                       timestamp=obj['recorded_at'],
-                                                                      subject_type=self.DEFAULT_SUBJECT_TYPE,
-                                                                      subject_subtype=self.DEFAULT_SUBJECT_SUBTYPE
+                                                                      subject_type=cls.DEFAULT_SUBJECT_TYPE,
+                                                                      subject_subtype=cls.DEFAULT_SUBJECT_SUBTYPE
                                                                       )
 
         obj['additional'] = dict((k, obj[k]) for k in obj if k not in (

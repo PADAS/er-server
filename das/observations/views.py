@@ -478,7 +478,7 @@ class SourceProvidersView(generics.ListCreateAPIView,):
     permission_classes = (StandardObjectPermissions,)
     pagination_class = StandardResultsSetPagination
 
-    lookup_field = 'name'
+    lookup_field = 'value'
 
     def get_queryset(self):
         queryset = models.SourceProvider.objects.all()

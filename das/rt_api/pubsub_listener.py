@@ -47,6 +47,8 @@ def start(realtime_server):
                                  args=(subject_id,))
 
     def emit_handler(data, message):
+        logger.info('inside emit_handler. data = %s, message = %s',
+                    data, message)
         message_data = json.loads(data)
         realtime_server.send_realtime_message(message_data)
 
