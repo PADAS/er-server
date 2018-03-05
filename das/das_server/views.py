@@ -9,6 +9,8 @@ from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 import rest_framework.serializers
 
 from das_server import __version__
+
+from observations import servicesutils
 from utils.json import parse_bool
 
 
@@ -27,6 +29,8 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     db_connection_count = rest_framework.serializers.IntegerField(
         read_only=True)
     eus_settings = rest_framework.serializers.DictField(read_only=True)
+
+    services = rest_framework.serializers.ListField(read_only=True)
 
 
 class StatusView(generics.RetrieveAPIView):
@@ -51,6 +55,10 @@ class StatusView(generics.RetrieveAPIView):
 
         if parse_bool(self.request.query_params.get('db_connections')):
             resp['db_connection_count'] = self.get_used_db_connections()
+
+        if parse_bool(self.request.query_params.get('service_status')):
+            resp['services'] = servicesutils.get_source_provider_statuses()
+
         return resp
 
     def get_used_db_connections(self):

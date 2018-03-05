@@ -16,7 +16,7 @@ logger = logging.getLogger('vectronics_db_listener')
 channel_name = 'das_vectronics_position_notification'
 SOURCE_TYPE = 'tracking-device'
 MODEL_NAME = 'vectronics'
-SOURCE_PROVIDER_NAME = 'default'
+SOURCE_PROVIDER_KEY = 'default'
 
 
 def handle_notify(notify):
@@ -37,12 +37,12 @@ def handle_gps_plus_position(position):
                 position.id_collar, position.acquisition_time.isoformat(), position.longitude, position.latitude)
 
     provider, created = SourceProvider.objects.get_or_create(
-        name=SOURCE_PROVIDER_NAME)
+        provider_key=SOURCE_PROVIDER_KEY)
     manufacturer_id = position.id_collar
     source = Source.objects.ensure_source(source_type=SOURCE_TYPE,
                                           manufacturer_id=position.id_collar,
                                           model_name=MODEL_NAME,
-                                          provider=provider.name,
+                                          provider=provider.provider_key,
                                           subject={
                                               'subject_type': Subject.TYPE_UNASSIGNED,
                                               'subject_subtype': Subject.SUBTYPE_UNASSIGNED,

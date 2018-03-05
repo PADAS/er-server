@@ -4,12 +4,16 @@ import logging
 import redis
 from functools import partial
 
+from celery_once import QueueOnce
+
 from accounts.models.user import User
 from activity.models import Event
 from activity.views import EventView
 from das_server import celery, pubsub
 from django.conf import settings
 from django.db import close_old_connections
+
+from observations import servicesutils
 
 from observations.models import SubjectSource
 from observations.views import SubjectTracksView
@@ -108,6 +112,40 @@ def _event_handler(event_id, type):
 
     finally:
         close_old_connections()
+
+
+def _broadcast_service_status(service_status_data=None):
+
+    logger.info('Inside _broadcast_service_status.')
+    service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
+
+    logger.info('Got service status data: %s', service_status_data)
+
+    try:
+        all_connections = redis_client.hgetall(client.CLIENT_LIST_KEY)
+
+        logger.info('Going to send to these folks: %s', all_connections)
+        for sid, session_data in all_connections.items():
+            sid = sid.decode('utf8')
+
+            emit_data = {
+                'type': 'service_status',
+                'sid': sid,
+                'data': service_status_data,
+            }
+
+            logger.info('Emitting %s to sid %s', emit_data, sid)
+            payload = json.dumps(emit_data, default=dumps_helper)
+            pubsub.publish(payload, routing_key='das.realtime.emit')
+    except:
+        logger.exception('Error emitting service status information.')
+    finally:
+        close_old_connections()
+
+
+@celery.app.task(base=QueueOnce, once={'graceful': True, 'timeout': 60})
+def broadcast_service_status():
+    _broadcast_service_status()
 
 
 def _observation_handler(subject_id):

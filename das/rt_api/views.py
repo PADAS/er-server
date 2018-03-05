@@ -79,7 +79,7 @@ def create_realtime_handler(sios):
     class RealtimeServices:
 
         supported_message_types = ['new_event', 'update_event', 'delete_event',
-                                   'count_event', 'subject_position_update']
+                                   'count_event', 'subject_position_update', 'service_status']
 
         @sios.on('connect', namespace='/')
         def on_connect(sid, socket, *args):

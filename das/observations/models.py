@@ -127,7 +127,7 @@ class SourceManager(models.Manager):
         with transaction.atomic():
 
             provider, created = SourceProvider.objects.get_or_create(
-                name=kwargs.get('provider'))
+                provider_key=kwargs.get('provider'))
 
             searchkey = dict(
                 manufacturer_id=kwargs['manufacturer_id'], provider=provider)
@@ -159,23 +159,28 @@ class SourceProviderManager(models.Manager):
 
 
 DEFAULT_SOURCE_PROVIDER_ID = '697f25e4-562c-4305-af86-1333e9081f4c'
+DEFAULT_SOURCE_PROVIDER_KEY = 'default'
 
 
 def get_default_source_provider_id():
     instance, created = SourceProvider.objects.get_or_create(
-        id=DEFAULT_SOURCE_PROVIDER_ID, name='default')
+        id=DEFAULT_SOURCE_PROVIDER_ID, provider_key=DEFAULT_SOURCE_PROVIDER_KEY,
+        defaults=dict(display_name='Default Provider'))
     return instance.id
 
 
 class SourceProvider(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField('Friendly name for data provider',
-                            max_length=100, null='False', unique=True)
+    provider_key = models.CharField('Natural key for source provider',
+                                    max_length=100, null='False', unique=True)
+
+    display_name = models.CharField('Display name for source provider.',
+                                    max_length=100, null=False,)
 
     objects = SourceProviderManager()
 
     def __str__(self):
-        return self.name
+        return '{} ({})'.format(self.display_name, self.provider_key)
 
 
 class Source(TimestampedModel):
@@ -286,7 +291,8 @@ class ObservationManager(models.Manager):
     def get_last_source_observation(self, source, delay_hours=0):
 
         try:
-            qs = Observation.objects.filter(source=source)
+            qs = Observation.objects.filter(
+                source=source).exclude(location=EMPTY_POINT)
             if delay_hours:
                 end_time = pytz.utc.localize(
                     datetime.utcnow()) - timedelta(hours=delay_hours)
@@ -295,71 +301,6 @@ class ObservationManager(models.Manager):
 
         except Observation.DoesNotExist:
             pass
-
-    def get_last_observation(self, subject, newer_than=None):
-        """get the last recorded observation of the subject
-        subject: subject to get observation for
-        newer_than: provide a range to look in
-        :returns Observation
-        """
-        return self._get_observation(subject, first=False,
-                                     newer_than=newer_than)
-
-    def get_delayed_observation(self, subject, older_than=None):
-        """get the delayed last recorded observation of the subject
-        :returns Observation
-        """
-        if not older_than:
-            older_than = datetime.now(tz=pytz.UTC) - timedelta(hours=24)
-        return self._get_observation(subject, first=False, older_than=older_than)
-
-    def get_first_observation(self, subject):
-        """get the first recorded observation of the subject
-        :returns Observation
-        """
-        return self._get_observation(subject, first=True)
-
-    def _get_observation(self, subject=None, first=False, subject_sources=None, older_than=None, newer_than=None):
-        field = '-recorded_at'
-        if first:
-            field = 'recorded_at'
-
-        if not subject and not subject_sources:
-            raise AttributeError('subject or subject_sources must not be None')
-
-        if not subject_sources:
-            subject_sources = SubjectSource.objects.get_subject_sources(
-                subject)
-
-        sorted_sources = sorted([s for s in subject_sources],
-                                key=lambda s: s.assigned_range.upper,
-                                reverse=not first)
-
-        for ssource in sorted_sources:
-            r = Observation.objects.filter(source=ssource.source)
-            r = r.exclude(location=EMPTY_POINT)
-            r = r.filter(recorded_at__gt=ssource.assigned_range.lower)
-            upper_range = ssource.assigned_range.upper
-            lower_range = ssource.assigned_range.lower
-
-            # If there's no timezone info, assume UTC
-            if upper_range.tzinfo is None:
-                upper_range = upper_range.replace(tzinfo=pytz.UTC)
-            if lower_range.tzinfo is None:
-                lower_range = lower_range.replace(tzinfo=pytz.UTC)
-
-            if newer_than and newer_than > upper_range:
-                continue
-            if older_than and lower_range > older_than:
-                continue
-            if older_than and older_than < upper_range:
-                upper_range = older_than
-            r = r.filter(recorded_at__lt=upper_range)
-            if newer_than:
-                r = r.filter(recorded_at__gt=newer_than)
-            r = r.order_by(field)[:1]
-            if r:
-                return r[0]
 
 
 class Observation(models.Model):
@@ -843,10 +784,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         if color:
             color = to_rgb(color)
         return color
-
-    @property
-    def last_observation(self):
-        return Observation.objects.get_last_observation(self)
 
     @property
     def source(self):

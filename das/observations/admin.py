@@ -13,7 +13,7 @@ from utils.html import make_html_list
 @admin.register(models.Subject)
 class SubjectAdmin(admin.ModelAdmin):
 
-    list_display = ('id', 'name', 'subject_type', 'subject_subtype',
+    list_display = ('name', 'subject_type', 'subject_subtype',
                     'is_active', 'additional', 'all_groups', 'all_sources')
 
     search_fields = ('name', 'subject_subtype', 'common_name__display')
@@ -190,6 +190,6 @@ class SubjectStatusAdmin(admin.ModelAdmin):
 
 @admin.register(models.SourceProvider)
 class SourceProviderAdmin(admin.ModelAdmin):
-    search_fields = ('name',)
-    ordering = ('name',)
-    list_display = ('name',)
+    search_fields = ('provider_key', 'display_name',)
+    ordering = ('provider_key',)
+    list_display = ('provider_key', 'display_name',)

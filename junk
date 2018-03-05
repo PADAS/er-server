@@ -1,0 +1,362 @@
+Fri Mar 2 21:27:57 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:27:58 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:27:59 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:00 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:01 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:02 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:03 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:04 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:05 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:06 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:07 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:08 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:09 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:10 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:11 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:12 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:13 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:14 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:15 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:16 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:17 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:18 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:19 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:20 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:21 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:22 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:23 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:24 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:25 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:26 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:27 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:28 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:29 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:30 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:31 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:32 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:33 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:35 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:36 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:37 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:38 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:39 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:40 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:41 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:42 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:43 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:44 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:45 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:46 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:47 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:48 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:49 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:50 UTC 2018  Waiting for api:8000 ...
+Fri Mar 2 21:28:50 UTC 2018  api:8000 is available after 54 seconds
+2018-03-02 21:28:51,799 mw DEBUG MainProcess 140505006622464 PIL.Image Importing BmpImagePlugin
+2018-03-02 21:28:51,804 mw DEBUG MainProcess 140505006622464 PIL.Image Importing BufrStubImagePlugin
+2018-03-02 21:28:51,805 mw DEBUG MainProcess 140505006622464 PIL.Image Importing CurImagePlugin
+2018-03-02 21:28:51,806 mw DEBUG MainProcess 140505006622464 PIL.Image Importing DcxImagePlugin
+2018-03-02 21:28:51,807 mw DEBUG MainProcess 140505006622464 PIL.Image Importing DdsImagePlugin
+2018-03-02 21:28:51,823 mw DEBUG MainProcess 140505006622464 PIL.Image Importing EpsImagePlugin
+2018-03-02 21:28:51,825 mw DEBUG MainProcess 140505006622464 PIL.Image Importing FitsStubImagePlugin
+2018-03-02 21:28:51,826 mw DEBUG MainProcess 140505006622464 PIL.Image Importing FliImagePlugin
+2018-03-02 21:28:51,827 mw DEBUG MainProcess 140505006622464 PIL.Image Importing FpxImagePlugin
+2018-03-02 21:28:51,831 mw DEBUG MainProcess 140505006622464 PIL.Image Importing FtexImagePlugin
+2018-03-02 21:28:51,832 mw DEBUG MainProcess 140505006622464 PIL.Image Importing GbrImagePlugin
+2018-03-02 21:28:51,833 mw DEBUG MainProcess 140505006622464 PIL.Image Importing GifImagePlugin
+2018-03-02 21:28:51,835 mw DEBUG MainProcess 140505006622464 PIL.Image Importing GribStubImagePlugin
+2018-03-02 21:28:51,836 mw DEBUG MainProcess 140505006622464 PIL.Image Importing Hdf5StubImagePlugin
+2018-03-02 21:28:51,837 mw DEBUG MainProcess 140505006622464 PIL.Image Importing IcnsImagePlugin
+2018-03-02 21:28:51,840 mw DEBUG MainProcess 140505006622464 PIL.Image Importing IcoImagePlugin
+2018-03-02 21:28:51,852 mw DEBUG MainProcess 140505006622464 PIL.Image Importing ImImagePlugin
+2018-03-02 21:28:51,854 mw DEBUG MainProcess 140505006622464 PIL.Image Importing ImtImagePlugin
+2018-03-02 21:28:51,855 mw DEBUG MainProcess 140505006622464 PIL.Image Importing IptcImagePlugin
+2018-03-02 21:28:51,856 mw DEBUG MainProcess 140505006622464 PIL.Image Importing JpegImagePlugin
+2018-03-02 21:28:51,867 mw DEBUG MainProcess 140505006622464 PIL.Image Importing Jpeg2KImagePlugin
+2018-03-02 21:28:51,867 mw DEBUG MainProcess 140505006622464 PIL.Image Importing McIdasImagePlugin
+2018-03-02 21:28:51,868 mw DEBUG MainProcess 140505006622464 PIL.Image Importing MicImagePlugin
+2018-03-02 21:28:51,869 mw DEBUG MainProcess 140505006622464 PIL.Image Importing MpegImagePlugin
+2018-03-02 21:28:51,870 mw DEBUG MainProcess 140505006622464 PIL.Image Importing MpoImagePlugin
+2018-03-02 21:28:51,871 mw DEBUG MainProcess 140505006622464 PIL.Image Importing MspImagePlugin
+2018-03-02 21:28:51,872 mw DEBUG MainProcess 140505006622464 PIL.Image Importing PalmImagePlugin
+2018-03-02 21:28:51,874 mw DEBUG MainProcess 140505006622464 PIL.Image Importing PcdImagePlugin
+2018-03-02 21:28:51,874 mw DEBUG MainProcess 140505006622464 PIL.Image Importing PcxImagePlugin
+2018-03-02 21:28:51,875 mw DEBUG MainProcess 140505006622464 PIL.Image Importing PdfImagePlugin
+2018-03-02 21:28:51,876 mw DEBUG MainProcess 140505006622464 PIL.Image Importing PixarImagePlugin
+2018-03-02 21:28:51,876 mw DEBUG MainProcess 140505006622464 PIL.Image Importing PngImagePlugin
+2018-03-02 21:28:51,877 mw DEBUG MainProcess 140505006622464 PIL.Image Importing PpmImagePlugin
+2018-03-02 21:28:51,878 mw DEBUG MainProcess 140505006622464 PIL.Image Importing PsdImagePlugin
+2018-03-02 21:28:51,879 mw DEBUG MainProcess 140505006622464 PIL.Image Importing SgiImagePlugin
+2018-03-02 21:28:51,880 mw DEBUG MainProcess 140505006622464 PIL.Image Importing SpiderImagePlugin
+2018-03-02 21:28:51,881 mw DEBUG MainProcess 140505006622464 PIL.Image Importing SunImagePlugin
+2018-03-02 21:28:51,882 mw DEBUG MainProcess 140505006622464 PIL.Image Importing TgaImagePlugin
+2018-03-02 21:28:51,883 mw DEBUG MainProcess 140505006622464 PIL.Image Importing TiffImagePlugin
+2018-03-02 21:28:51,884 mw DEBUG MainProcess 140505006622464 PIL.Image Importing WebPImagePlugin
+2018-03-02 21:28:51,886 mw DEBUG MainProcess 140505006622464 PIL.Image Importing WmfImagePlugin
+2018-03-02 21:28:51,887 mw DEBUG MainProcess 140505006622464 PIL.Image Importing XbmImagePlugin
+2018-03-02 21:28:51,889 mw DEBUG MainProcess 140505006622464 PIL.Image Importing XpmImagePlugin
+2018-03-02 21:28:51,891 mw DEBUG MainProcess 140505006622464 PIL.Image Importing XVThumbImagePlugin
+2018-03-02 21:28:55,088 mw DEBUG MainProcess 140505006622464 shapely.geos Found GEOS DLL: <CDLL '/usr/local/lib/python3.5/dist-packages/shapely/.libs/libgeos_c-bd8d3f16.so.1.10.2', handle 3233b70 at 0x7fc9c4fa95c0>, using it.
+2018-03-02 21:28:55,099 mw DEBUG MainProcess 140505006622464 shapely.geos Trying `CDLL(libc.so.6)`
+2018-03-02 21:28:55,100 mw DEBUG MainProcess 140505006622464 shapely.geos Library path: 'libc.so.6'
+2018-03-02 21:28:55,100 mw DEBUG MainProcess 140505006622464 shapely.geos DLL: <CDLL 'libc.so.6', handle 7fc9df030a18 at 0x7fc9c4fa9cc0>
+2018-03-02 21:28:55,216 mw DEBUG MainProcess 140505006622464 Fiona Set GDAL_DATA = '/usr/local/lib/python3.5/dist-packages/fiona/gdal_data'
+2018-03-02 21:28:55,217 mw DEBUG MainProcess 140505006622464 Fiona Set PROJ_LIB = '/usr/local/lib/python3.5/dist-packages/fiona/proj_data'
+2018-03-02 21:28:55,499 mw WARNING MainProcess 140505006622464 pymet.eetools ##################################################
+#
+	Error when initializing Earth Engine module. error=Please authorize access to your Earth Engine account by running
+
+earthengine authenticate
+
+in your command line, and then retry..
+Have you run 'earthengine authenticate' in this environment yet?
+#
+##################################################
+2018-03-02 21:29:03,220 mw DEBUG MainProcess 140505006622464 das_server.pubsub begin start_message_queue_listeners
+2018-03-02 21:29:03,277 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app accounts
+2018-03-02 21:29:03,280 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app accounts
+2018-03-02 21:29:03,280 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app versatileimagefield
+2018-03-02 21:29:03,281 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app versatileimagefield
+2018-03-02 21:29:03,281 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app storages
+2018-03-02 21:29:03,282 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app storages
+2018-03-02 21:29:03,282 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app treebeard
+2018-03-02 21:29:03,283 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app treebeard
+2018-03-02 21:29:03,283 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app corsheaders
+2018-03-02 21:29:03,284 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app corsheaders
+2018-03-02 21:29:03,284 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app oauth2_provider
+2018-03-02 21:29:03,284 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app oauth2_provider
+2018-03-02 21:29:03,285 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app rest_framework
+2018-03-02 21:29:03,285 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app rest_framework
+2018-03-02 21:29:03,286 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app rest_framework_swagger
+2018-03-02 21:29:03,286 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app rest_framework_swagger
+2018-03-02 21:29:03,286 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app observations
+2018-03-02 21:29:03,288 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app observations
+2018-03-02 21:29:03,289 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app analyzers
+2018-03-02 21:29:03,303 mw INFO MainProcess 140505006622464 das_server.pubsub registering routing key das.tracking.source.observations.new to new_observations_callback
+2018-03-02 21:29:03,346 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app das_server
+2018-03-02 21:29:03,405 mw INFO MainProcess 140505006622464 das_server.pubsub registering routing key das.event.new to new_event_handler
+2018-03-02 21:29:03,407 mw INFO MainProcess 140505006622464 das_server.pubsub registering routing key das.event.update to update_event_handler
+2018-03-02 21:29:03,412 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app tracking
+2018-03-02 21:29:03,415 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app sensors
+2018-03-02 21:29:03,421 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app sensors
+2018-03-02 21:29:03,421 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app mapping
+2018-03-02 21:29:03,425 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app mapping
+2018-03-02 21:29:03,426 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app activity
+2018-03-02 21:29:03,429 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app activity
+2018-03-02 21:29:03,430 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app rt_api
+2018-03-02 21:29:03,433 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app rt_api
+2018-03-02 21:29:03,434 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app core
+2018-03-02 21:29:03,438 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app core
+2018-03-02 21:29:03,439 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app vectronics
+2018-03-02 21:29:03,444 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app vectronics
+2018-03-02 21:29:03,444 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app choices
+2018-03-02 21:29:03,447 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app choices
+2018-03-02 21:29:03,448 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app reports
+2018-03-02 21:29:03,452 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app reports
+2018-03-02 21:29:03,453 mw DEBUG MainProcess 140505006622464 das_server.pubsub registering tasks for app usercontent
+2018-03-02 21:29:03,456 mw DEBUG MainProcess 140505006622464 das_server.pubsub No pubsub registrations imported for app usercontent
+2018-03-02 21:29:03,457 mw DEBUG MainProcess 140505006622464 das_server.pubsub running start_message_queue_listeners
+2018-03-02 21:34:09,434 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '66b35eeb-207c-4a50-be27-47fd7c746e5e'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:14,196 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '5a0fff76-993c-45b3-801a-3416361e9ddb'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:16,315 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '4f6f137b-c546-48da-885d-4b0928707f79'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:18,203 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'cbc1ee23-243a-4b68-bc5c-4b1c23ff1228'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:23,967 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '1a6a75e1-5d9b-46ee-be9f-aeeeea8a0700'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:24,025 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '66cfb99e-e9f1-40ef-9a98-ce87805808a7'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:25,616 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'dc91d7a4-2b67-4119-8481-3b396589892c'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:26,209 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'd78660fc-3baf-4fe4-9e09-2786b9de8a09'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:34,648 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'be0df929-7bda-45fc-ab22-7da0c2c9dc5d'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:36,242 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '1ca5c6db-50c2-491b-851f-0afe63e7b4e5'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:37,314 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'ea7f00f8-6709-4a43-b8be-3c48985a5a4e'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:37,606 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '7e0789d2-ac6f-4fdd-822f-1b887c31514e'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:40,615 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'a76d394a-41da-41f3-a062-caf80b2f2633'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:47,067 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'f6066cd2-3d65-4ac6-b403-362b472b7a4f'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:48,319 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '5ead89e2-dea9-4e6c-88db-d2dd2b1d2f4d'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:48,393 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '8441cfad-da54-463e-b126-9ca7c16a9e4d'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:56,734 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '0e59f556-0e9e-455e-8385-8a0125484f02'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:57,040 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '829296a5-f7ff-4301-b9f9-241d81ff46f9'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:58,271 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '10df678e-293a-410e-b2a5-dcb2f02c2cb8'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:34:59,021 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '4561d85c-7953-4c15-98a2-9139a905953a'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:08,814 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'bd011587-12c1-4ea8-8c5f-79772d2fb63e'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:08,951 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c87a1469-59f7-44d1-9d7e-5dc1da24e2ad'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:10,141 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '19f0403f-6aab-43cd-9572-38512aac0219'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:11,332 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e3c59cca-32ea-4ac9-87e6-2983c802e0f1'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:20,348 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '4b5f8ff1-9a4a-4482-b64b-0939cd2dbe8e'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:20,660 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'fa9a89fc-1f15-4673-8bd2-d1176ba1fed8'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:21,872 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '4434fbac-dc54-4a5c-ac52-9bd3ea4be628'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:22,912 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'f6174cc9-fbff-4a4a-b114-f51144ba86bf'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:30,561 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '72be07ea-ee11-468b-aea4-12f72cf2e260'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:32,755 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '1ff763ab-d3d7-439f-b826-6bce21421b39'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:35,860 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '43b39092-5382-4341-bac4-fcfc4eb4d82f'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:37,934 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '949b8670-07de-4bee-8c21-347beec2f339'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:41,685 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '952bbad4-8e22-4395-a403-46742c1cb336'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:41,985 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '3d438934-a8a5-4ad1-a779-ce10e056b0be'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:46,236 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '89bca4d0-95ca-4456-8425-a4b403dfbee8'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:49,525 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c21317ef-88fb-4737-938e-6a8a1099bada'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:53,357 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'fdc4531b-9368-4c3f-872a-dd211a7e1a66'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:54,485 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'a7cee679-0426-478d-be90-0925718d0f06'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:35:57,139 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'dbf9af2c-563a-4edc-9326-0c1e78be1a60'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:00,305 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '4fa6728e-0cda-4c29-8aa6-7d7e19828644'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:04,634 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e7eb8cb1-8d73-4579-a37c-4100cc19cdd1'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:05,223 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'a5e92506-d381-4271-bfd7-b6ba63606542'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:08,670 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '95faff7d-fc8f-43d3-8d1e-6b998da4e83d'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:16,152 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'f5875b1d-2e72-469b-acb9-d3bfd0ad1218'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:16,765 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c8d85313-ef5f-418b-b169-2a7fbcd00d3b'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:17,810 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '98a3a2bd-36d1-4375-bdc3-b5979f756b41'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:19,157 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '2453832e-8524-4ae4-aed4-09437b25f561'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:22,847 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '66628d66-6a74-4332-b88b-5f13c9e3fc4c'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:28,701 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '1cdd340d-c920-4250-83cf-b1e4fdd6608c'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:30,602 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'd463036a-dc97-4e25-9aa0-902cf3b9e578'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:30,810 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '6c80c2b7-2ca6-4b42-8da0-d95a7d37bee2'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:31,785 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '0cd1e1c0-2850-40ad-9a56-57fe37533b47'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:39,975 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '72a89bd2-eb49-4896-b7b3-254fd9445998'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:41,885 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e939f046-56d6-4ac3-93d2-4ef7c8c19509'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:42,144 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '760a7709-ac2d-4d6d-898b-8f542cb6e979'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:43,434 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'def9df4b-5368-47aa-9849-895a5a336a74'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:52,840 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'a09f7fc8-1211-4f82-a81a-5cb30f7c0de0'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:52,979 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c982ab15-5a0c-4a4e-97b0-64fc3682302f'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:55,237 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'b60e9c0a-831e-4e3c-908f-22eccaaa31b8'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:36:56,109 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '54513832-4741-4e25-a6c3-f58e39880d42'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:03,074 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'caa5902d-3004-4426-8aff-10f6cbfb72bf'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:04,651 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '48e521fc-9604-4146-bc35-ea7a3d8889cb'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:06,012 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '40c67432-ce0b-471d-b11f-b38f962bfdc0'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:06,680 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '28984153-c09b-485f-89b0-326a8c849979'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:08,686 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '019719bb-f520-45a3-961e-cfeec4523cbc'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:14,993 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '1981a00f-42e1-4638-94b0-7df0c0cd0a73'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:18,655 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '3aee4c21-c4b0-4b8e-a6ea-2659b1c67836'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:19,246 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '73c5e1f7-d713-469b-acb8-c524727d3046'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:21,416 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'da1fc2a1-3db9-43cd-9b14-050925756a92'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:22,197 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '5f557b3a-9793-48c6-abeb-005a0d52ffa9'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:23,225 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'fe84192e-2e37-4f00-b275-741135f7322c'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:25,255 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '142b6a57-3b3b-47cd-af2d-b10b8fa5e80e'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:32,662 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c6eff31d-dcea-4494-abdb-9f18a9869d5e'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:34,299 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'f811b0bb-0bb9-4c15-a8c6-3f352b2d9b86'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:34,788 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '303a8145-2269-4251-9bfc-65a978c02b8e'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:38,989 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '0530a566-e3ae-42b1-a1c2-7d1a3f63631a'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:45,296 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'bdcfa717-deb0-4e07-a098-5bdbea94e073'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:49,034 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'fedadd1a-1a76-4f9f-b10b-0839caa3f66d'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:37:50,329 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '37eb14f7-5aa4-418a-ae50-901f74d6a4cb'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:03,181 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '77f548bb-f6a8-4545-82af-85cffc5ee0f8'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:04,361 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '23b49d21-275a-497f-9cd6-17754b30d504'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:06,388 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'a2bf645a-c84a-4187-bb6d-342db0feaaaa'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:07,470 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '02d75762-e300-4f73-b8d8-934f81955ec3'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:14,663 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e8d5ebe5-ffb4-4200-9aa4-91c034cd0ebd'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:14,893 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '40bea698-4399-4dfa-97b3-ec5c5ac436c1'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:22,680 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '6087012d-d4b1-49dd-8aa9-970857763c3c'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:25,048 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'b915305a-5e30-4b57-a082-45eab0003608'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:26,434 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'd264b6f4-f9cc-42e5-84cd-e8341b9a57dc'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:28,796 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '6fa155d5-0edf-406b-9983-c939d7254516'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:34,380 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e85adf45-5f0a-4b35-86bf-17c6cf41e5b0'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:36,205 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'a6d8ba92-4319-4f6a-8278-b63c07768d97'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:36,395 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e791b40d-5a2d-4bb8-9d81-bfa9963be5fe'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:45,888 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '749796d5-c179-40b6-a0de-bbdb22b4eb8d'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:46,472 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'a35ca9f9-325a-463e-9995-fde77f44f6f4'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:47,335 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e0887968-008b-423e-abf7-e495e2ecd402'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:49,047 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'b7f3a789-3b78-488d-8c64-5390131b3d03'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:56,276 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c1d490e9-9672-4452-af53-0483bb430d20'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:56,534 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '349b88a5-059b-4e14-b6be-023d9670071c'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:38:56,604 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'adf6cb96-fae5-4688-aa26-10898ca07ebb'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:39:05,860 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '4edb6bcc-acf2-497a-a391-7c81c776b5dc'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:39:08,134 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '53278ff4-4f77-4e0b-9bd2-947c0da6a48a'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:39:08,630 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '58c0ed46-3319-422b-ad60-33977e0dc118'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:39:08,681 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '0d602def-4d00-47c7-8da6-35bd8c8cf0a0'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:39:17,013 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '38710d8d-20f1-4c09-a935-466a6a28baa4'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:39:19,415 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '24b40609-203d-47b9-ab20-ce0ee463f2fd'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:39:34,084 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '0e59f556-0e9e-455e-8385-8a0125484f02'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:39:34,790 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'd78660fc-3baf-4fe4-9e09-2786b9de8a09'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:39:58,771 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'fedadd1a-1a76-4f9f-b10b-0839caa3f66d'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:40:24,646 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '01067e30-d860-4567-be0d-40fced2b2704'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:40:33,943 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '88bc62e2-de62-4346-aafc-10709fafae18'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:40:36,607 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c81db4e1-80bf-4eb1-a73b-780582e20c17'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:40:41,351 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '331bb279-b7e6-49b0-a319-4f60d9c3a829'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:40:44,320 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '429c113b-6db6-4eae-ad0b-57da91a9984f'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:40:46,039 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'dd827418-58ef-424d-ad8a-79d48dee68e5'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:40:48,646 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '259fc823-8694-40d6-89a4-3ad6b1a7c0c1'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:40:53,128 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '177e2384-098d-4a83-8af2-e68bc09a7493'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:40:55,906 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'ff1fe176-a2e8-4149-8144-a130f94739b2'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:40:58,466 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '7b53f086-6b5a-45fc-ad06-0255f6814cbb'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:02,436 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '1e5df8e0-3585-46a6-a71f-213a949438fb'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:02,602 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '3345865c-85c5-4903-8adc-337f30cd367b'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:05,822 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'bf7cc723-b82d-436c-b0cc-d497153c460c'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:13,959 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '30160c57-28ec-4984-9b67-b0e8a07ee2c7'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:16,986 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '1f0615ba-2832-4f41-acc8-3c888cb73434'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:27,310 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '11794cf7-8086-482d-8513-83a78abc3f1b'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:28,701 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '1186cff8-99f5-45fb-80a2-6cfc5c5397e9'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:28,999 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '734f79c1-2d90-476a-85b7-6f1d2d1b7d36'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:29,888 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '96d6bfe9-abaa-44a5-99e7-725a05db415a'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:31,863 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'a6f1b5a7-fe1c-48c9-846a-102c7963d0e5'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:39,654 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'd47c313d-4ab6-4964-ab1d-646105058ced'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:41,195 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'ed2c85f3-dfd0-4adb-9ade-dbb237e665fa'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:43,339 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c8ec8fe8-8599-47ad-a638-966c42612588'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:53,795 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '65444572-d5dc-4afe-8ce6-7c542478cbdf'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:54,614 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '472fd1eb-26e6-4064-8f99-bd42227aaac0'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:56,033 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '1904abc2-282f-451c-abf9-2b5b7435053b'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:41:56,615 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'f73a52fe-2343-4f26-983f-1c7306eeec24'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:03,339 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'fa845433-a373-48d2-a811-d75a40615e74'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:12,232 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'a6eb1656-5cae-4357-8323-b2ebb59194db'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:13,743 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e71618ed-184d-44a7-97bb-62562f583962'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:21,526 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'a25145ef-22a8-4395-9136-990671003429'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:27,061 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '815f988f-aeeb-44b8-9537-e90612e243ac'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:28,036 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'dfa4e186-95f0-4034-948f-702c1c7dbffe'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:28,302 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'ba8ee6a6-e94a-4adf-8f02-005af1590695'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:29,784 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '30a3a9a6-4d57-44da-a588-6e20f48f918a'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:44,416 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'dadd5a9d-dd1b-43a2-ae70-a55c0325e0ef'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:44,925 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'dc49f1a0-c3f0-4e71-9e6f-8cb7c8c46225'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:45,094 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '0f9b8328-c92c-4550-8be9-40810f75bb4e'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:46,213 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '4750de25-6bc5-4446-91cf-6a73ea2e633a'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:49,334 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'cd544b09-2010-4a0a-bd88-5f7fe4d5c798'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:51,695 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'ebac0061-ce33-436d-b03f-ffd55dc0b99b'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:58,587 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'ceec4647-45ab-4993-bb93-b779f23743d5'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:42:58,744 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '7504c6f7-b980-402a-9f77-381763359991'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:00,665 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '200af21f-c413-46c5-8979-a9f62cac1239'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:06,444 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'f3c24a1b-fe03-473f-9c04-cb6f631b41ca'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:09,297 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '8b0f7b7d-6455-46f3-9e89-9c0dd1d610dc'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:11,966 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'b6200cbe-22bf-4224-9cfd-70c5f88ad61d'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:13,719 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'da5bc40e-f9bf-4390-9314-2d27277fd179'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:16,224 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'a5f0dae9-7814-4146-b662-52ff0b548230'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:19,508 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '0d32010b-ef42-428e-bd2d-91b44eb61cf6'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:22,839 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '795c92b8-befc-421c-8b79-cae5fdde7c8e'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:31,587 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '10f652e3-0e39-4558-9f05-83cbc1d4adc6'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:34,361 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'fe1fc319-2ad6-4b3f-aab1-d0f7183a71fd'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:41,125 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c1b934e1-a6b1-4564-afc1-1c9f30f1271f'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:46,780 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '15c731a3-e225-4849-a914-a859f6debe99'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:50,141 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e855750c-d692-48ad-abc7-714fc15cc48a'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:50,530 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '4d566a86-410d-4823-aa76-b0bcf32a42f3'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:52,587 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '122cb0b0-5fe4-4bea-987e-46d77709fde8'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:57,416 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '8b142de5-c021-49a9-aa43-24fc719cb504'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:43:57,594 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '09a93e42-880d-4e2f-90b3-0c23476c13dd'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:44:04,176 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c2acb44b-02c5-400f-9493-b5d8f0560d95'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:44:08,348 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '3575c990-d8b6-4d68-9e40-72362c454652'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:44:09,031 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '46293825-fb06-4468-964a-e84fd26a9468'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:44:15,337 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'f9756759-88fc-47db-91d9-f3f07f4c9ab4'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:44:23,013 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '2ba0675a-820f-4b88-bcad-63a08b6f2e50'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:44:25,747 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '624e892c-371c-44ad-a6f8-4bb6b1cc3404'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:44:28,370 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '5a8f554b-f12e-4d20-ace8-915426ddb2bd'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:44:31,849 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '3ae2080b-c89d-4565-915e-2cd35dc64d30'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:44:42,652 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'b39e0332-51b7-40ac-9e6d-763ebb34cd03'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:47:09,173 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e1497112-431f-4a17-b803-98598a13faae'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:47:10,517 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '02585149-5120-4842-8527-88d81dda0712'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:47:12,584 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '5300407c-4d10-4778-925a-5d07f8df18ed'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:47:17,698 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'd74ef77e-8b8c-4aed-8352-c7d48bc3e595'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:47:20,879 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '48a12459-232c-4b31-874d-fc74e4ef5baf'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:47:25,814 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '7dd292de-9e6e-4580-bcd1-bf5e32d7ac61'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:47:26,767 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c56869f2-a276-45e2-8b0c-a9e9b38716bd'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:47:27,912 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c0c30b70-9870-4cf8-969e-33574202bee3'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:49:19,866 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '40c67432-ce0b-471d-b11f-b38f962bfdc0'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:54:42,173 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '77f548bb-f6a8-4545-82af-85cffc5ee0f8'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:56:18,025 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'c0c30b70-9870-4cf8-969e-33574202bee3'}], sending task analyzers.tasks.handle_source
+2018-03-02 21:59:42,101 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'b915305a-5e30-4b57-a082-45eab0003608'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:00:37,131 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '200af21f-c413-46c5-8979-a9f62cac1239'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:04:20,353 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '10df678e-293a-410e-b2a5-dcb2f02c2cb8'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:04:31,193 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '43b39092-5382-4341-bac4-fcfc4eb4d82f'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:04:34,186 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'fdc4531b-9368-4c3f-872a-dd211a7e1a66'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:04:36,210 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'dbf9af2c-563a-4edc-9326-0c1e78be1a60'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:04:47,353 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '0cd1e1c0-2850-40ad-9a56-57fe37533b47'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:05:08,809 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '28984153-c09b-485f-89b0-326a8c849979'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:05:29,741 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e8d5ebe5-ffb4-4200-9aa4-91c034cd0ebd'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:06:00,564 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'ff1fe176-a2e8-4149-8144-a130f94739b2'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:06:13,453 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '734f79c1-2d90-476a-85b7-6f1d2d1b7d36'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:06:15,790 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'd47c313d-4ab6-4964-ab1d-646105058ced'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:06:35,913 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'dc49f1a0-c3f0-4e71-9e6f-8cb7c8c46225'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:06:36,702 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': '0f9b8328-c92c-4550-8be9-40810f75bb4e'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:06:49,718 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'fe1fc319-2ad6-4b3f-aab1-d0f7183a71fd'}], sending task analyzers.tasks.handle_source
+2018-03-02 22:06:53,485 mw DEBUG MainProcess 140505006622464 analyzers.pubsub_registry new source observation message [{'source_id': 'e855750c-d692-48ad-abc7-714fc15cc48a'}], sending task analyzers.tasks.handle_source
