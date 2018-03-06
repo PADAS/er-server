@@ -163,10 +163,8 @@ DEFAULT_SOURCE_PROVIDER_KEY = 'default'
 
 
 def get_default_source_provider_id():
-    instance, created = SourceProvider.objects.get_or_create(
-        id=DEFAULT_SOURCE_PROVIDER_ID, provider_key=DEFAULT_SOURCE_PROVIDER_KEY,
-        defaults=dict(display_name='Default Provider'))
-    return instance.id
+
+    return uuid.UUID(DEFAULT_SOURCE_PROVIDER_ID)
 
 
 class SourceProvider(TimestampedModel):

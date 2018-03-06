@@ -28,6 +28,12 @@ SOURCE_PROVIDER_UPDATE = '''with provider as (select id, name from observations_
                     where provider.name = src.provider_name;
                     '''
 
+INSERT_DEFAULT_SOURCEPROVIDER = '''
+INSERT INTO observations_sourceprovider (id, name) values ({provider_id}, {name})
+ON CONFLICT DO NOTHING;
+'''.format(provider_id=observations.models.DEFAULT_SOURCE_PROVIDER_ID,
+           name=observations.models.DEFAULT_SOURCE_PROVIDER_KEY)
+
 
 class Migration(migrations.Migration):
 
@@ -53,8 +59,9 @@ class Migration(migrations.Migration):
         migrations.RunSQL('SET CONSTRAINTS ALL IMMEDIATE',
                           reverse_sql=migrations.RunSQL.noop),
 
-        # migrations.RunPython(create_default_source_provider,
-        #                      reverse_code=migrations.RunPython.noop),
+        migrations.RunSQL(INSERT_DEFAULT_SOURCEPROVIDER,
+                          reverse_sql=migrations.RunSQL.noop),
+
         migrations.RunSQL(sql='create extension IF NOT EXISTS "uuid-ossp";',
                           reverse_sql=migrations.RunSQL.noop),
         migrations.RunSQL(sql=HYDRATE_SOURCE_PROVIDERS,
