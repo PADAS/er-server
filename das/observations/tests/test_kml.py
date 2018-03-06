@@ -14,6 +14,7 @@ import xmlunittest
 from accounts.models import User, PermissionSet
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, Region, Observation
 from observations.views import KmlSubjectView, KmlSubjectsView, KmlRootView
+from observations.kmlutils import get_kml_access_token
 from tracking.models.plugin_base import Obs
 
 
@@ -162,7 +163,7 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
 
         id_str = str(self.elephant_1.id)
         url = '{}?auth={}'.format(reverse('subject-kml-view', kwargs=dict(id=id_str,)),
-                                  self.user.get_kml_access_token())
+                                  get_kml_access_token(self.user))
 
         # url = '/api/v1.0/subject/{0}/kml?auth={1}'.format(
         #     self.elephant_1.id, self.user.get_kml_access_token())
