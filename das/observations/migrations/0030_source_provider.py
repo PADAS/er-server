@@ -29,7 +29,8 @@ SOURCE_PROVIDER_UPDATE = '''with provider as (select id, name from observations_
                     '''
 
 INSERT_DEFAULT_SOURCEPROVIDER = '''
-INSERT INTO observations_sourceprovider (id, name) values ('{provider_id}', '{name}')
+INSERT INTO observations_sourceprovider (created_at, updated_at, id, name) 
+                         values (current_timestamp, current_timestamp, '{provider_id}', '{name}')
 ON CONFLICT DO NOTHING;
 '''.format(provider_id=observations.models.DEFAULT_SOURCE_PROVIDER_ID,
            name=observations.models.DEFAULT_SOURCE_PROVIDER_KEY)
