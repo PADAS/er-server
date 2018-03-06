@@ -13,11 +13,11 @@ plugin_table_names = ['tracking_{}'.format(plugin_name) for plugin_name in ('awe
                                                                             'savannahplugin',
                                                                             'skygisticssatelliteplugin',
                                                                             'spidertracksplugin',)]
-SOURCE_PROVIDER_UPDATE = '''with provider as (select id, name from observations_sourceprovider)
+SOURCE_PROVIDER_UPDATE = '''with provider as (select id, provider_key from observations_sourceprovider)
                    update {0} p
                       set provider_id = provider.id
                      from provider
-                    where provider.name = p.name;
+                    where provider.provider_key    = p.name;
                     '''
 
 ALL_UPDATES = ';'.join([SOURCE_PROVIDER_UPDATE.format(pn)
