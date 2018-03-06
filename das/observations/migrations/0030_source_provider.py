@@ -8,11 +8,11 @@ import observations.models
 import uuid
 
 
-def create_default_source_provider(apps, schema_editor):
-    instance, created = observations.models.SourceProvider.objects.get_or_create(
-        id=observations.models.DEFAULT_SOURCE_PROVIDER_ID, name=observations.models.DEFAULT_SOURCE_PROVIDER_KEY,
-    )
-    return instance.id
+# def create_default_source_provider(apps, schema_editor):
+#     instance, created = observations.models.SourceProvider.objects.get_or_create(
+#         id=observations.models.DEFAULT_SOURCE_PROVIDER_ID, name=observations.models.DEFAULT_SOURCE_PROVIDER_KEY,
+#     )
+#     return instance.id
 
 
 HYDRATE_SOURCE_PROVIDERS = '''with providers as (select distinct provider_name from observations_source)
@@ -53,8 +53,8 @@ class Migration(migrations.Migration):
         migrations.RunSQL('SET CONSTRAINTS ALL IMMEDIATE',
                           reverse_sql=migrations.RunSQL.noop),
 
-        migrations.RunPython(create_default_source_provider,
-                             reverse_code=migrations.RunPython.noop),
+        # migrations.RunPython(create_default_source_provider,
+        #                      reverse_code=migrations.RunPython.noop),
         migrations.RunSQL(sql='create extension IF NOT EXISTS "uuid-ossp";',
                           reverse_sql=migrations.RunSQL.noop),
         migrations.RunSQL(sql=HYDRATE_SOURCE_PROVIDERS,
