@@ -4,6 +4,7 @@ import datetime
 from itertools import islice, chain
 from types import GeneratorType
 import simplejson
+from simplejson.scanner import JSONDecodeError
 
 import json
 import dateutil.parser as dp
