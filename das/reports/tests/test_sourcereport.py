@@ -55,7 +55,8 @@ class TestSubjectSourceReport(TestCase):
         self.subject2 = Subject.objects.create(name='subject 2', subject_type='wildlife', subject_subtype='elephant',
                                                additional=dict(region='Region 2', species='elephant'))
 
-        provider = SourceProvider.objects.create(name='dummy')
+        provider = SourceProvider.objects.create(
+            provider_key='dummy', display_name='Dummy provider')
         # Add Source
         source1 = Source.objects.create(
             manufacturer_id='source1', provider=provider)
