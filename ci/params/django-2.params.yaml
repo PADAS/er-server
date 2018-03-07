@@ -1,4 +1,0 @@
-cluster-name: django-2
-version-suffix: django-2
-server-branch-name: feature/django_2
-static-ip: "104.199.117.247"
