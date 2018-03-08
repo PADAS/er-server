@@ -908,3 +908,19 @@ class EventClassFactor(TimestampedModel):
 
     def __str__(self):
         return self.value
+
+
+class EventFilterManager(models.Manager):
+    pass
+
+
+class EventFilter(TimestampedModel):
+
+    objects = EventFilterManager()
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    ordernum = models.SmallIntegerField(
+        verbose_name='Sort order number', null=False, default=0)
+
+    filter_name = models.CharField(verbose_name='Display name that is meaningful to a user',
+                                   null=False, max_length=100)
+    filter_spec = JSONField(verbose_name='Filter specification', default='{}')
