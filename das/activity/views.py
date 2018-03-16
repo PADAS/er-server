@@ -17,16 +17,17 @@ from django.utils import timezone
 from rest_framework.response import Response
 
 import rest_framework.exceptions
-from rest_framework import views
 from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
 
 from activity.models import Event, EventNote, EventClass,\
-    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community
+    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community,\
+    EventFilter
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
-    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer
+    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer, \
+    EventFilterSerializer
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
@@ -95,6 +96,14 @@ class EventCategoriesView(generics.ListAPIView):
         return queryset
 
 
+class EventFiltersView(generics.ListCreateAPIView):
+    serializer_class = EventFilterSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        return EventFilter.objects.order_by('ordernum')
+
+
 class EventTypeSchemaView(generics.ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventSerializer
@@ -138,6 +147,19 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
+
+
+from activity.search import get_event_search_schema
+
+
+class EventFilterSchemaView(generics.RetrieveAPIView):
+    def get(self, request, *args, **kwargs):
+
+        schema = get_event_search_schema()
+        schema['schema']['id'] = utils.add_base_url(
+            request, reverse('eventfilter-schema-view',))
+
+        return generics.views.Response(schema)
 
 
 class EventClassesView(generics.ListAPIView):
@@ -350,7 +372,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         if event_filter:
             try:
                 event_filter = json.loads(event_filter)
-                queryset = queryset.by_search_filter(event_filter)
+                queryset = queryset.by_event_filter(event_filter)
             except json.JSONDecodeError:
                 logger.exception(
                     'Invalid filter expression. filter=%s', event_filter)
@@ -436,7 +458,8 @@ class EventsView(generics.ListCreateAPIView):
         if event_filter:
             try:
                 event_filter = json.loads(event_filter)
-                queryset = queryset.by_search_filter(event_filter)
+                queryset = queryset.by_event_filter(event_filter)
+                print(queryset.query)
             except json.JSONDecodeError:
                 logger.exception(
                     'Invalid filter expression. filter=%s', event_filter)
@@ -527,7 +550,7 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
         if event_filter:
             try:
                 event_filter = json.loads(event_filter)
-                return queryset.by_search_filter(event_filter)
+                return queryset.by_event_filter(event_filter)
             except:
                 logger.warning('Invalid filter expression %s', event_filter)
         return queryset

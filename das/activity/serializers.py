@@ -579,7 +579,8 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventFile
         read_only_fields = ('created_at', 'updated_at', 'created_by')
-        fields = ('id', 'event', 'comment', 'usercontent', 'usercontent_id', 'usercontent_type') + read_only_fields
+        fields = ('id', 'event', 'comment', 'usercontent',
+                  'usercontent_id', 'usercontent_type') + read_only_fields
 
     def create(self, validated_data):
 
@@ -1197,3 +1198,52 @@ class EventClassFactorSerializer(rest_framework.serializers.ModelSerializer):
             priority_label=instance.get_priority_display())
 
         return rep
+
+
+class EventFilterSpecificationSerializer(rest_framework.serializers.Serializer):
+
+    text = rest_framework.serializers.CharField(
+        required=False, allow_blank=True, max_length=100)
+
+    date_range = rest_framework.serializers.DictField(
+        required=False, child=rest_framework.serializers.DateTimeField())
+    duration = rest_framework.serializers.DurationField(required=False, )
+    priority = rest_framework.serializers.ListField(required=False,
+                                                    child=rest_framework.serializers.ChoiceField(
+                                                        choices=[x[0] for x in activity.models.Event.PRIORITY_CHOICES]))
+    state = rest_framework.serializers.ListField(required=False,
+                                                 child=rest_framework.serializers.ChoiceField(
+                                                     choices=[x[0] for x in activity.models.Event.STATE_CHOICES]))
+
+    event_category = rest_framework.serializers.ListField(
+        required=False, child=rest_framework.serializers.CharField())
+
+    event_type = rest_framework.serializers.ListField(
+        required=False, child=rest_framework.serializers.CharField())
+
+    reported_by = rest_framework.serializers.ListField(
+        required=False, child=rest_framework.serializers.CharField())
+
+    def validate_date_range(self, value):
+        if 'lower' in value and 'upper' in value and value['lower'] > value['upper']:
+            raise rest_framework.serializers.ValidationError(
+                'Invalid date range.')
+        return value
+
+
+class EventFilterSerializer(rest_framework.serializers.ModelSerializer):
+
+    filter_spec = rest_framework.serializers.JSONField()
+    filter_name = rest_framework.serializers.CharField()
+
+    class Meta:
+        model = activity.models.EventFilter
+        fields = ('id', 'filter_name', 'ordernum', 'filter_spec', 'is_hidden')
+
+    def validate_filter_spec(self, attrs):
+        EventFilterSpecificationSerializer().run_validation(attrs)
+        return super().validate(attrs)
+
+    def create(self, validated_data):
+        ef = activity.models.EventFilter.objects.create(**validated_data)
+        return ef

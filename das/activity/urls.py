@@ -19,6 +19,10 @@ urlpatterns = [
     url(r'^events/alerts/targets/?$', views.EventAlertTargetsListView.as_view()),
     url(r'^event/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.EventView.as_view(), name='event-view'),
+    url(r'^eventfilters/?$',
+        views.EventFiltersView.as_view(), name='eventfilters-view'),
+    url(r'^eventfilters/schema?$',
+        views.EventFilterSchemaView.as_view(), name='eventfilter-schema-view'),
     url(
         r'^event/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/state/?$',
         views.EventStateView.as_view(), name='event-view-state'),
