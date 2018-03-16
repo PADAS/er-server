@@ -8,10 +8,13 @@ EVENT_FILTER_SCHEMA = {
     "schema": {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "title": "Event Filter Specification Schema",
-
+        "version": "1",
         "type": "object",
 
         "properties": {
+            "text": {
+                "type": "string"
+            },
             "event_filter_id": {
                 "type": "string"
             },
