@@ -6,6 +6,7 @@ from operator import itemgetter, attrgetter
 import re
 
 import django.utils
+from django.utils import dateparse
 from django.db import transaction
 from django.db.models import Prefetch, Q, F, Func
 from django.db.models.signals import post_save
@@ -196,6 +197,20 @@ class EventType(TimestampedModel):
         return (self.value,)
 
 
+def parse_date_range(val):
+    lower, upper = (None, None)
+    try:
+        lower = dateparse.parse_datetime(val['lower'])
+    except:
+        pass
+
+    try:
+        upper = dateparse.parse_datetime(val['upper'])
+    except:
+        pass
+    return (lower, upper)
+
+
 class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def all_sort(self):
@@ -229,25 +244,84 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self
         return self.exclude(in_relationship__type__value='contains')
 
-    def by_search_filter(self, filter):
-        if 'text' not in filter:
-            return self
-
-        text_search = filter['text']
-        filter = Q(title__unaccent__icontains=text_search) \
-            | Q(note__text__unaccent__icontains=text_search) \
-            | Q(event_type__display__unaccent__icontains=text_search)
+    def by_event_filter(self, filter):
 
         queryset = self
-        if re.match('[0-9]+', text_search):
-            logger.info('Querying on numeric. %s', text_search)
+
+        if 'event_filter_id' in filter:
+            try:
+                efilter = EventFilter.objects.get(
+                    id=filter.get('event_filter_id'))
+                return self.by_event_filter(efilter.filter_spec)
+            except EventFilter.DoesNotExist:
+                # TODO: Handle this better.
+                return Event.objects.none()
+
+        if 'text' in filter:
+            queryset = queryset.by_text_filter(filter['text'])
+
+        if 'date_range' in filter:
+            lower, upper = parse_date_range(filter['date_range'])
+            queryset = queryset.by_date_range(lower=lower, upper=upper)
+
+        elif 'duration' in filter:
+            duration = dateparse.parse_duration(filter.get('duration', ''))
+            queryset = queryset.by_duration(duration)
+
+        if 'state' in filter:
+            queryset = queryset.filter(state__in=filter.get('state'))
+
+        if 'priority' in filter:
+            queryset = queryset.filter(priority__in=filter.get('priority'))
+
+        if 'event_category' in filter:
+            queryset = queryset.filter(
+                event_type__category__id__in=filter.get('event_category'))
+
+        if 'event_type' in filter:
+            queryset = queryset.filter(
+                event_type__id__in=filter.get('event_type'))
+
+        if 'reported_by' in filter:
+            queryset = queryset.filter(
+                reported_by_id__in=filter.get('reported_by'))
+
+        return queryset.distinct()
+
+    def by_duration(self, duration):
+        if duration:
+            return self.filter(event_time__gt=(timezone.now() - duration))
+        return self
+
+    def by_date_range(self, lower=None, upper=None):
+
+        if lower and upper:
+            return self.filter(event_time__range=(lower, upper))
+        elif lower:
+            return self.filter(event_time__gt=lower)
+        elif upper:
+            return self.filter(event_time__lt=upper)
+
+        return self
+
+    def by_text_filter(self, searchtext):
+
+        filter = Q(title__unaccent__icontains=searchtext) \
+            | Q(note__text__unaccent__icontains=searchtext) \
+            | Q(event_type__display__unaccent__icontains=searchtext)
+
+        queryset = self
+        if re.match('[0-9]+', searchtext):
+            logger.info('Querying on numeric. %s', searchtext)
             queryset = self.annotate(serial_number_text=Func(F('serial_number'),
                                                              function='bigint_to_char'))
             # 'startswith' witll use an index.
             filter = filter | Q(
-                serial_number_text__startswith=text_search)
+                serial_number_text__startswith=searchtext)
 
         return queryset.filter(filter).distinct()
+
+    # def by_date_range(self,
 
 
 class EventManager(models.Manager):
@@ -920,7 +994,8 @@ class EventFilter(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     ordernum = models.SmallIntegerField(
         verbose_name='Sort order number', null=False, default=0)
-
+    is_hidden = models.BooleanField(
+        verbose_name='Hide this filter', default=True)
     filter_name = models.CharField(verbose_name='Display name that is meaningful to a user',
                                    null=False, max_length=100)
     filter_spec = JSONField(verbose_name='Filter specification', default='{}')

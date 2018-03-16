@@ -74,7 +74,7 @@ def _event_handler(event_id, type):
 
                 try:
                     socket_client = SocketClient.objects.get(id=sid)
-                    queryset = queryset.by_search_filter(
+                    queryset = queryset.by_event_filter(
                         socket_client.event_filter)
                 except SocketClient.DoesNotExist:
                     logger.debug('SocketClient does not exist for sid=%s', sid)
