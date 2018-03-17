@@ -34,7 +34,7 @@ class FeatureListJsonView(APIView):
                 'name': feature.name,
                 'type': dict(name=feature.type.name,id=str(feature.type.id)),
                 'description': feature.description if feature.description else '',
-                'geojson_url': reverse('mapping-feature-geojson', args=[feature.id.hex]),
+                'geojson_url': reverse('mapping:mapping-feature-geojson', args=[feature.id.hex]),
             })
         return HttpResponse(json.dumps(response_data), content_type='application/json')
 
@@ -70,7 +70,7 @@ class FeatureSetListJsonView(APIView):
                 'id': str(featureset.id),
                 'types': list(feature_types(featureset)),
                 'description': featureset.description if featureset.description else '',
-                'geojson_url': reverse('mapping-featureset-geojson', args=[featureset.id.hex]),
+                'geojson_url': reverse('mapping:mapping-featureset-geojson', args=[featureset.id.hex]),
             })
         return HttpResponse(json.dumps(response_data), content_type='application/json')
 
