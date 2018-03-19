@@ -461,7 +461,8 @@ ANNOTATION_SETTINGS = {
 
 SENSORS = {
     'camera_trap': {
-        'default_time_zone': 'UTC'
+        'default_time_zone': 'UTC',
+        'priority': 300,
     }
 }
 
