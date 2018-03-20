@@ -15,14 +15,15 @@
 - Wildlife Sanctuary: {"fill": "#ffffc9", "fill-opacity": 0.2, "stroke": "#efef4f", "stroke-opacity": 0.5, "stroke-width": 2}
 
 #### Roads
-- Primary: {"stroke": "#ffffff", "stroke-opacity": 0.3, "stroke-width": 3}
-- Secondary: {"stroke": "#ffffff", "stroke-opacity": 0.3, "stroke-width": 2}
-- Tertiary: {"stroke": "#ffffff", "stroke-opacity": 0.3, "stroke-width": 1}
+- Primary: {"stroke": "#ffffff", "stroke-opacity": 0.5, "stroke-width": 3}
+- Secondary: {"stroke": "#ffffff", "stroke-opacity": 0.5, "stroke-width": 2}
+- Tertiary: {"stroke": "#ffffff", "stroke-opacity": 0.5, "stroke-width": 1}
+- Railway: {"stroke": "#ffffff", "stroke-opacity": 0.5, "stroke-width": 1}
 
 #### Rivers
-- Primary:
-- Secondary:
-- Tertiary:
+- Primary: {"stroke": "#05e6ff", "stroke-opacity": 0.5, "stroke-width": 3}
+- Secondary: {"stroke": "#05e6ff", "stroke-opacity": 0.5, "stroke-width": 2}
+- Tertiary: {"stroke": "#05e6ff", "stroke-opacity": 0.5, "stroke-width": 1}
 
 #### POI
 - Points of Interest [*generic*]: {"image": "/static/feature-POI-star_flag.svg"}
@@ -36,12 +37,14 @@
 - Boma [*lion*]: {"image": "/static/lion_sighting-med_green.svg"}
 - Viewpoint: {"image": "/static/viewpoint-black.svg"}
 - Jetty: {"image": "/static/jetty-black.svg"}
-
+- Airstrip (point): {"image": "/static/plane-gray.svg}
+ 
 #### Operational
 - Headquarters: {"image": "/static/park_HQ-olive.svg"}
 - Ranger Station: {"image": "static/ranger_post-dk_olive.svg"}
 - Ranger Post: {"image": "static/ranger_post-dk_olive.svg"}
 - Ranger Camp: {"image": "/static/campsite-olive.svg"}
 
-
+#### Fences
+- Fencing_Unknown (generic): {"stroke": "#ffaf01", "stroke-opacity": 0.8, "stroke-width": 2}
  
