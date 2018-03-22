@@ -56,7 +56,6 @@ class AWETelemetryClient(object):
             self.logger.error(msg)
             raise DasPluginFetchError(msg)
 
-
     def latest(self):
         '''
         Get latest fix for all devices connected to this account.
@@ -102,7 +101,6 @@ class AWETelemetryPlugin(TrackingPlugin):
     service_url = models.CharField(max_length=50,
                                    help_text='The API endpoint for the AWE Telemetry/AWT service.')
 
-
     def fetch(self, source, cursor_data=None):
 
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -117,10 +115,12 @@ class AWETelemetryPlugin(TrackingPlugin):
         try:
             st = parse_date(self.cursor_data['latest_timestamp'])
         except Exception as e:
-            st = pytz.utc.localize(datetime.utcnow()) - self.DEFAULT_START_OFFSET
+            st = pytz.utc.localize(datetime.utcnow()) - \
+                self.DEFAULT_START_OFFSET
 
         lt = st
-        self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
+        self.logger.debug('Fetching data for collar_id %s',
+                          source.manufacturer_id)
 
         for fix in client.fetch_observations(source.manufacturer_id, start_time=st):
             observation = self._transform(source, fix)
@@ -140,7 +140,8 @@ class AWETelemetryPlugin(TrackingPlugin):
     def _transform(self, source, fix):
 
         # DATE and TIME are naive UTC.
-        recorded_at = pytz.utc.localize(parse_date('{DATE} {TIME}'.format(**fix)))
+        recorded_at = pytz.utc.localize(
+            parse_date('{DATE} {TIME}'.format(**fix)))
 
         id, subject_name = self._split_id(fix['ID'])
 
@@ -157,23 +158,24 @@ class AWETelemetryPlugin(TrackingPlugin):
         return Obs(source=source, recorded_at=recorded_at, latitude=float(fix['LAT']), longitude=float(fix['LON']),
                    additional=side_data)
 
-
     def _maintenance(self):
         self._sync_unit_info()
-
 
     def _sync_unit_info(self):
         self.logger = logging.getLogger(self.__class__.__name__)
 
         client = AWETelemetryClient(username=self.service_username,
-                                           password=self.service_password,
-                                           service_url=self.service_url)
+                                    password=self.service_password,
+                                    service_url=self.service_url)
 
         # If these are indicated in the 'additional' blob, the use them.
         defaults = self.additional.get('defaults', {})
-        default_subject_type = defaults.get('subject_type', self.DEFAULT_SUBJECT_TYPE)
-        default_subject_subtype = defaults.get('subject_subtype', self.DEFAULT_SUBJECT_SUBTYPE)
-        default_source_type = defaults.get('source_type', self.DEFAULT_SOURCE_TYPE)
+        default_subject_type = defaults.get(
+            'subject_type', self.DEFAULT_SUBJECT_TYPE)
+        default_subject_subtype = defaults.get(
+            'subject_subtype', self.DEFAULT_SUBJECT_SUBTYPE)
+        default_source_type = defaults.get(
+            'source_type', self.DEFAULT_SOURCE_TYPE)
 
         try:
 
@@ -184,7 +186,7 @@ class AWETelemetryPlugin(TrackingPlugin):
                 manufacturer_id, subject_name = self._split_id(item['ID'])
 
                 src = Source.objects.ensure_source(source_type=self.DEFAULT_SOURCE_TYPE,
-                                                   provider=self.provider.name,
+                                                   provider=self.provider.provider_key,
                                                    manufacturer_id=manufacturer_id,
                                                    model_name=model_name,
                                                    subject={
@@ -192,7 +194,7 @@ class AWETelemetryPlugin(TrackingPlugin):
                                                        'subject_subtype': default_subject_subtype,
                                                        'name': manufacturer_id
                                                    }
-                                               )
+                                                   )
 
                 # Create correlation.
                 SourcePlugin.objects.create(plugin=self, source=src)
@@ -223,5 +225,3 @@ class AWETelemetryPlugin(TrackingPlugin):
 
         except Exception as e:
             self.logger.exception('Error in maintenance')
-
-
