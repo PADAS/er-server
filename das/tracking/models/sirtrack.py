@@ -238,7 +238,7 @@ class SirtrackPlugin(TrackingPlugin):
                         source = source_map.get(manufacturer_id)
                     else:
                         source = Source.objects.ensure_source(source_type=default_source_type,
-                                                              provider=self.provider.name,
+                                                              provider=self.provider.provider_key,
                                                               manufacturer_id=manufacturer_id,
                                                               model_name=default_model_name,
                                                               subject={
