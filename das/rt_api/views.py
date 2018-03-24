@@ -54,10 +54,11 @@ def create_rt_socketio():
             server_options['cors_allowed_origins'] = \
                 getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
 
+        socketio_logger = logging.getLogger('rt_api.socketio')
         sio = DasSocketServer(client_manager=client_mgr,
                               json=utils.json,
-                              logger=logger,
-                              engineio_logger=logger,
+                              logger=socketio_logger,
+                              engineio_logger=socketio_logger,
                               async_handlers=False,
                               **server_options)
 
@@ -254,10 +255,11 @@ def create_realtime_handler(sios):
 
         @staticmethod
         def send_realtime_message(message_data):
-            extra = dict(data=message_data)
-            logger.info('Sending realtime messsage, data=%s', message_data,
-                        extra=extra)
             if message_data['type'] in RealtimeServices.supported_message_types:
+                extra = dict(sid=message_data['sid'],
+                             type=message_data['type'])
+                logger.info('Sending realtime messsage to %s', message_data['sid'],
+                            extra=extra)
                 RealtimeServices.emit(message_data['type'],
                                       message_data['data'],
                                       message_data['sid'])
