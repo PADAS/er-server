@@ -26,6 +26,7 @@ Contents:
    :maxdepth: 2
    :caption: API
 
+   faq
    oauth2
    user
    assets
