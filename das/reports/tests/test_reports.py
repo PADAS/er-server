@@ -14,11 +14,14 @@ class TestReportUtils(TestCase):
     def setUp(self):
         super().setUp()
         call_command('loaddata', 'initial_eventdata')
+        call_command('loaddata', 'event_data_model')
+        call_command('loaddata', 'test_events_schema')
+
         User.objects.create(username='reportuser', first_name='Report', last_name='User', email='reportuser@tempuri.org',
                             password='Sko2901!kd219')
 
     def test_report_foo(self):
-        self.assertTrue(EventType.objects.filter(value='carcass').exists())
+        self.assertTrue(EventType.objects.filter(value='carcass_rep').exists())
 
     def test_render_eventdetails(self):
         edetails = {
@@ -27,7 +30,7 @@ class TestReportUtils(TestCase):
             'endi_of_incident': 'Monday',
             'results_and_findings': 'Trophies confiscated',
         }
-        edata = {'event_type': 'carcass',
+        edata = {'event_type': 'carcass_rep',
                  'title': 'Test Event',
                  'priority': Event.PRI_URGENT,
                  'event_details': edetails,
@@ -42,7 +45,9 @@ class TestReportUtils(TestCase):
             e = ser.create(ser.validated_data)
             self.assertTrue(e.id is not None)
         else:
-            logger.info('Event data is not valid, errors=%s', ser.errors)
+            message = 'Event data is not valid, errors={0}'.format(ser.errors)
+            logger.info(message)
+            self.assertIsNotNone(None, message)
 
         schema = schema_utils.get_schema_renderer_method()(e.event_type.schema)
 

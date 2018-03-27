@@ -70,6 +70,9 @@ class TestEventView(TestCase):
         super().setUp()
         call_command('loaddata', 'initial_eventdata')
         call_command('loaddata', 'initial_choices')
+        call_command('loaddata', 'event_data_model')
+        call_command('loaddata', 'test_events_schema')
+
         from choices.models import Conservancy
         count = Conservancy.objects.count()
 

@@ -19,7 +19,7 @@ migration_doc = [
         "created_at": "2016-08-05 01:00:00+00:00",
         "updated_at": "2016-10-08 00:57:39.310560+00:00",
         "value": "contact",
-        "previous_value": "arrest",
+        "previous_value": "arrest_rep",
         "display": "Contact",
         "category_value": "security",
         "category_id": "61d279a3-95fd-421f-bdb0-604ae8731761",
@@ -105,6 +105,8 @@ class TestManageEvent(TestCase):
     def setUp(self):
         super().setUp()
         call_command('loaddata', 'initial_eventdata')
+        call_command('loaddata', 'event_data_model')
+        call_command('loaddata', 'test_events_schema')
 
         self.sample_event = self.create_event(self.event_data)
 
@@ -127,14 +129,14 @@ class TestManageEvent(TestCase):
         command_under_test = Command()
         records = command_under_test.get_all_event_type_records()
 
-        self.assertEqual(len(records), 33)
+        self.assertEqual(len(records), 37)
 
     def test_delete_unused_types(self):
         self.delete_ran = True
         command_under_test = Command()
         records = command_under_test.get_unused_event_types()
 
-        self.assertEqual(len(records), 32)
+        self.assertEqual(len(records), 36)
 
     def test_migrate_event_type(self):
         self.migrate_ran = True
@@ -142,4 +144,4 @@ class TestManageEvent(TestCase):
         records_pre = command_under_test.get_all_event_type_records()
         command_under_test.perform_migration_on_records(migration_doc)
         records_post = command_under_test.get_all_event_type_records()
-        self.assertEqual(len(records_pre), len(records_post) + 1)
+        self.assertEqual(len(records_pre), len(records_post))
