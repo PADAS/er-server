@@ -37,11 +37,11 @@ AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 # the address to send notification emails from
 FROM_EMAIL = 'notifications.demo@pamdas.org'
 DEFAULT_FROM_EMAIL = 'notifications.demo@pamdas.org'
-EMAIL_HOST_USER = 'AKIAJNN2YBVIFZAGQIPA'
+EMAIL_HOST_USER = 'AKIAILB3C3SY2BHUP76Q'
 EMAIL_HOST = 'email-smtp.us-west-2.amazonaws.com'
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
 EMAIL_USE_TLS = True
-EMAIL_PORT = 587
+EMAIL_PORT = 2587
 
 NOTIFY_HIGH_PRIORITY_EVENT = 'high_priority_alerts'
 NOTIFY_MEDIUM_PRIORITY_EVENT = 'medium_priority_alerts'
