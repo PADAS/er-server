@@ -133,6 +133,24 @@ class FirmsClient(object):
         return dt
 
 
+FIRMS_FTP_REGIONS = (
+    'Alaska',
+    'Australia_NewZealand',
+    'Canada',
+    'Central_America',
+    'Europe',
+    'Global',
+    'Northern_and_Central_Africa',
+    'Russia_Asia',
+    'SouthEast_Asia',
+    'South_America',
+    'South_Asia',
+    'Southern_Africa',
+    'USA_contiguous_and_Hawaii'
+)
+FIRMS_FTP_REGIONS = zip(FIRMS_FTP_REGIONS, FIRMS_FTP_REGIONS)
+
+
 class FirmsPlugin(TrackingPlugin):
 
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=120)
@@ -142,8 +160,12 @@ class FirmsPlugin(TrackingPlugin):
     service_password = models.CharField(max_length=50,
                                         help_text='The password for accessing FIRMS ftp site.')
 
+    ht = '''Earthdata FIRMS region name from which to fetch active fire observations. This is the region published
+    by NASA's Earthdata platform. See this link for more details: https://earthdata.nasa.gov/earth-observation-data/near-real-time/firms/active-fire-data.
+    '''
     firms_region_name = models.CharField(max_length=100,
-                                         help_text='Earthdata FIRMS region name from which to fetch active fire observations.')
+                                         help_text=ht,
+                                         choices=FIRMS_FTP_REGIONS)
 
     spatial_feature_group = models.ForeignKey(SpatialFeatureGroupStatic,
                                               related_name='+',
