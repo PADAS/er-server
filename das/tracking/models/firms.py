@@ -2,19 +2,21 @@ import copy
 import datetime
 from datetime import timedelta
 from ftplib import FTP
-from django.contrib.gis.geos import Polygon, Point, MultiPolygon
+from django.contrib.gis.geos import Polygon, MultiPolygon
 from dateutil.parser import parse as parse_date
 
 import pytz
 import logging
+from django.db import transaction
 from django.contrib.gis.db import models
 
 from django.contrib.gis.geos import Point
-from django.db import transaction
+from django.utils.translation import ugettext_lazy as _
 
-from activity.models import Event
+from activity.models import Event, EventType, EventDetails
+from mapping.models import SpatialFeatureGroupStatic
 
-from tracking.models.plugin_base import Obs, TrackingPlugin
+from tracking.models.plugin_base import Obs, TrackingPlugin, DasFireEventTarget
 
 
 def __str2date(d, replace_tzinfo=pytz.utc):
@@ -25,14 +27,18 @@ def __str2date(d, replace_tzinfo=pytz.utc):
 def _trim(v): return str(v).strip()
 
 
-# Helpers for parsing lines from FIRMS datasource.
-field_names = ('latitude', 'longitude', 'brightness', 'scan', 'track', 'acq_date',
-               'acq_time', 'satellite', 'confidence', 'version', 'bright_t31', 'frp')
-field_transform = (float, float, float, float, float, str,
-                   str, str, int, _trim, float, float)
+# Sample:
+sample_record = (33.12635, 3.3208, 300.3, 0.39, 0.44, '2018-03-20',
+                 '01:06', 'N', 'nominal', '1.0NRT', 279.9, 0.6, 'N')
 
-additional_fields = ('brightness', 'scan', 'track', 'satellite',
-                     'confidence', 'version', 'bright_t31', 'frp')
+field_names = ('latitude', 'longitude', 'bright_ti4', 'scan', 'track', 'acq_date', 'acq_time',
+               'satellite', 'confidence', 'version', 'bright_ti5', 'frp', 'daynight')
+
+field_transform = (float, float, float, float, float, str,
+                   str, str, str, _trim, float, float, str)
+
+additional_fields = ('bright_ti4', 'bright_ti5', 'scan', 'track', 'satellite',
+                     'confidence', 'version', 'frp', 'daynight')
 
 
 class FirmsClient(object):
@@ -52,7 +58,7 @@ class FirmsClient(object):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def fetch_observations(self, region_id, current_filename=None, next_lineno=0, last_filesize=0):
+    def fetch_observations(self, region_id, last_filename=None, next_lineno=0, last_filesize=0):
         '''
         Sample filename: Northern_and_Central_Africa_MCD14DL_2015243.txt
         :param region_id:
@@ -60,18 +66,18 @@ class FirmsClient(object):
         :return:
         '''
 
-        self.logger.debug('Fetching FIRMS data for region_id: %s, current_filename: %s, next_lineno: %d, last_filesize: %d',
-                          region_id, current_filename, next_lineno, last_filesize)
+        self.logger.info('Fetching FIRMS data for region_id: %s, last_filename: %s, next_lineno: %d, last_filesize: %d',
+                         region_id, last_filename, next_lineno, last_filesize)
         ftp = FTP(self.hosts[0], self.username, self.password)
 
         try:
-            ftp.cwd('FIRMS/{}'.format(region_id))
+            ftp.cwd('FIRMS/viirs/{}'.format(region_id))
 
             # Go back as much as three files (three days).
             filelist = ftp.nlst()[-3:]
 
             try:
-                i = filelist.index(current_filename)
+                i = filelist.index(last_filename)
                 filelist = filelist[i:]
             except ValueError:
                 filelist = filelist[-1:]
@@ -103,7 +109,8 @@ class FirmsClient(object):
                             v = self.parse_line(
                                 line.strip(), filename=filename, lineno=i, filesize=filesize)
                             yield v
-                        except ValueError:
+                        except Exception as e:  # (KeyError, ValueError) as e:
+                            print(e)
                             if not line.startswith('latitude'):
                                 raise
 
@@ -116,14 +123,8 @@ class FirmsClient(object):
 
     @staticmethod
     def parse_line(s, **kwargs):
-        '''
-        takes a record from savanna data source and creates a Fix from it, performing necessary data-type
-        conversions along the way.
-        :param s:
-        :return:
-        '''
-        vals = (c(i) for c, i in zip(field_transform, s.split(',')))
-        dt = dict((k, v) for k, v in zip(field_names, vals))
+        vals = [f(v) for f, v in zip(field_transform, s.split(','))]
+        dt = dict(list(zip(field_names, vals)))
 
         # FIRMS ftp data times are UTC.
         dt['recorded_at'] = parse_date('{} {}'.format(
@@ -134,91 +135,114 @@ class FirmsClient(object):
 
 class FirmsPlugin(TrackingPlugin):
 
-    DEFAULT_START_OFFSET = timedelta(days=3)
-    DEFAULT_REPORT_INTERVAL = timedelta(minutes=20)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=120)
 
     service_username = models.CharField(max_length=50,
                                         help_text='The username for accessing FIRMS ftp site.')
     service_password = models.CharField(max_length=50,
                                         help_text='The password for accessing FIRMS ftp site.')
 
-    def should_run(self, source_plugin):
+    firms_region_name = models.CharField(max_length=100,
+                                         help_text='Earthdata FIRMS region name from which to fetch active fire observations.')
 
-        # Don't bother running now if less than 20 minutes has passed since the
-        # latest fix.
-        try:
-            return (datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > source_plugin.last_run
-        except:
-            return True
+    spatial_feature_group = models.ForeignKey(SpatialFeatureGroupStatic,
+                                              related_name='+',
+                                              on_delete=models.PROTECT,
+                                              help_text='FIRMS data will be filtered by boundaries in this group.',
+                                              null=True)
 
-    def fetch(self, source, cursor_data=None):
+    @property
+    def run_source_plugins(self):
+        return False
+
+    def execute(self):
+
+        with DasFireEventTarget() as t:
+            for observation in self.fetch():
+                t.send(observation)
+        self.save()
+
+    def fetch(self):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        # create cursor_data
-        self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
+        if self.spatial_feature_group:
+            features = self.spatial_feature_group.features.all()
 
-        polygons = self.additional.get('polygons', None)
-
-        if polygons:
-            polygons = list((Polygon(p) for p in polygons))
-            _ = MultiPolygon(polygons) if len(polygons) > 1 else polygons[0]
-            self._geo_filter = _.prepared
+            self._geo_filter = MultiPolygon(
+                [f.feature_geometry for f in features]
+            )
         else:
-            self._geo_filter = None
+            raise ValueError(
+                'Stubbornly refusing to allow no geo filter on FIRMS data ingestion.')
 
-        # Our cursor data keeps track of:
+        # Our additional data keeps track of:
         # - the last file we've processed
         # - the next line number we want to see
         # - the size of file from our last run (so we won't waste time downloading the same file)
-        last_filename = self.cursor_data.get('current_filename', None)
-        next_lineno = self.cursor_data.get('next_lineno', 0)
-        last_filesize = self.cursor_data.get('last_filesize', 0)
-
-        self.logger.info("Fetching data for manufacturer_id %s" %
-                         (source.manufacturer_id,))
+        last_filename = self.additional.get('last_filename', None)
+        next_lineno = self.additional.get('next_lineno', 0)
+        last_filesize = self.additional.get('last_filesize', 0)
 
         self.client = FirmsClient(
             username=self.service_username, password=self.service_password)
 
-        for observation in self.client.fetch_observations(region_id=source.manufacturer_id,
-                                                          current_filename=last_filename, next_lineno=next_lineno,
+        observation = None
+        cnt = 0
+        for observation in self.client.fetch_observations(region_id=self.firms_region_name,
+                                                          last_filename=last_filename, next_lineno=next_lineno,
                                                           last_filesize=last_filesize):
-
+            cnt += 1
             if self.pass_filter(observation):
 
                 # Pop-off side-data from observation dict.
                 additional_data = dict((k, observation.pop(k))
                                        for k in additional_fields)
-                obs = Obs(source=source, recorded_at=observation['recorded_at'], latitude=observation['latitude'],
+                obs = Obs(source=None, recorded_at=observation['recorded_at'], latitude=observation['latitude'],
                           longitude=observation['longitude'], additional=additional_data)
                 self.create_event(obs)
                 yield obs
 
         # Save cursor_data (if we've processed any observations).
         if observation:
-            self.cursor_data['current_filename'] = observation['filename']
-            self.cursor_data['next_lineno'] = observation['lineno'] + 1
-            self.cursor_data['last_filesize'] = observation['filesize']
+            self.additional['last_filename'] = observation['filename']
+            self.additional['next_lineno'] = observation['lineno'] + 1
+            self.additional['last_filesize'] = observation['filesize']
 
     def create_event(self, observation):
 
-        location = Point(x=observation.longitude, y=observation.latitude)
+        event_details = dict((k, v) for k, v in observation.additional.items()
+                             if k in ('confidence', 'frp', 'bright_ti4',
+                                      'bright_ti5', 'scan', 'track'
+                                      )
+                             )
+        event_data = dict(
+            title=_('FIRMS Fire Detected'),
+            updated_at=observation.recorded_at,
+            priority=Event.PRI_REFERENCE,
+        )
+
+        event_key = dict(
+            event_time=observation.recorded_at,
+            location=Point(x=observation.longitude, y=observation.latitude),
+            provenance=Event.PC_ANALYZER,
+            event_type=EventType.objects.get_by_value('firms_rep'),
+        )
 
         with transaction.atomic():
-            event = Event.objects.create_event(
-                event_type=Event.ET_FIRE,
-                provenance=Event.PC_SENSOR,
-                attributes=observation.additional,
-                location=location,
-                priority=Event.PRI_IMPORTANT,
-                message='Fire detected by satellite,'
-                        ' with confidence: {confidence}, brightness: {brightness},'
-                        ' frp: {frp}'.format(**observation.additional)
-            )
-            return event
+            event, created = Event.objects.get_or_create(
+                **event_key, defaults=event_data)
+
+            if created:
+                EventDetails.objects.create(
+                    event=event, data={'event_details': event_details})
 
     def pass_filter(self, observation):
+
+        # Disregard 'low-confidence' observations
+        if observation.additional.get('confidence', 'low') in ('low', ''):
+            return False
+
         if self._geo_filter:
             p = Point(y=observation['latitude'], x=observation['longitude'])
             return self._geo_filter.contains(p)
