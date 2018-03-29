@@ -93,7 +93,6 @@ class SourcePlugin(TimestampedModel):
         models.Q(app_label='tracking', model='awthttpplugin') | \
         models.Q(app_label='tracking', model='inreachkmlplugin') | \
         models.Q(app_label='tracking', model='skygisticssatelliteplugin') | \
-        models.Q(app_label='tracking', model='firmsplugin') | \
         models.Q(app_label='tracking', model='spidertracksplugin') | \
         models.Q(app_label='tracking', model='awetelemetryplugin')
 
@@ -184,7 +183,7 @@ class TrackingPlugin(TimestampedModel):
 
     provider = models.ForeignKey(
         SourceProvider, related_name='+', null=False, default=get_default_source_provider_id,
-    on_delete=models.PROTECT)
+        on_delete=models.PROTECT)
 
     class Meta:
         abstract = True
@@ -296,8 +295,12 @@ class PluginTarget(object):
     def __enter__(self):
         return self._start()
 
-    def __exit__(self, ex_type, exc_value, traceback):
-        self.logger.debug("Exiting. %s %s %s", ex_type, exc_value, traceback)
+    def __exit__(self, ex_type, exc_value, tb):
+
+        if ex_type is not None:
+            self.logger.info("Exiting with Exception. %s %s %s",
+                             exc_info=(ex_type, exc_value, tb))
+
         self._r.close()
         return True
 
@@ -317,6 +320,18 @@ class DasDefaultTarget(PluginTarget):
                                                                                     location=location,
                                                                                     additional=additional
                                                                                 ))
+        return result, created
+
+
+class DasFireEventTarget(PluginTarget):
+    '''
+    No-op target
+    '''
+
+    def _handle_item(self, item):
+
+        result = None
+        created = False
         return result, created
 
 
