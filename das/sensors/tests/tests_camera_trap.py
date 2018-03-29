@@ -12,6 +12,7 @@ from django.test.testcases import TestCase
 from django.core.management import call_command
 import django.contrib.auth
 
+from utils import json
 from accounts.models import PermissionSet
 from core.tests import BaseAPITest
 from sensors.views import SensorObservation
@@ -67,10 +68,12 @@ class CameraTrapTest(BaseAPITest):
         file.seek(0)
         return sample['provider_name'], sample['image_name'], file
 
-    def post_cam_image(self, sample):
+    def post_cam_image(self, sample, data=None):
         provider, filename, f = self.get_image(sample)
-        data = {'filecontent.file': SimpleUploadedFile(filename, f.read(),
-                                                       content_type='image/jpg')}
+        if not data:
+            data = {}
+        data.update({'filecontent.file': SimpleUploadedFile(filename, f.read(),
+                                                            content_type='image/jpg')})
 
         path = '/'.join((self.api_base, 'sensors',
                          self.sensor_type, provider, 'status'))
@@ -95,6 +98,43 @@ class CameraTrapTest(BaseAPITest):
         response = self.post_cam_image(sample)
 
         self.assertEqual(response.status_code, 409)
+
+    def test_post_image_with_data(self):
+        data = {'camera_name': 'With Data',
+                'location': json.dumps({'latitude': -2.08187,
+                                        'longitude': 34.49477}),
+                'camera_description': 'Camera Description'
+                }
+        for sample in SAMPLES:
+            response = self.post_cam_image(sample, data)
+            self.assertEqual(response.status_code, 201)
+
+    def test_post_image_to_previous(self):
+        group_id = None
+        for sample in SAMPLES:
+            if group_id:
+                response = self.post_cam_image(sample,
+                                               data={'group_id': group_id})
+            else:
+                response = self.post_cam_image(sample)
+            self.assertEqual(response.status_code, 201)
+            group_id = response.data['group_id']
+
+    def test_default_priority_urgent(self):
+        self.assertEqual(camera_trap.get_priority(),
+                         camera_trap.Event.PRI_URGENT)
+
+    def test_default_priority_loaded_from_settings(self):
+        for priority in camera_trap.Event.PRIORITY_CHOICES:
+            priority = priority[0]
+            camera_settings = {
+                'camera_trap': {
+                    'default_time_zone': 'UTC',
+                    'priority': priority,
+                }}
+            with self.settings(SENSORS=camera_settings):
+                self.assertEqual(camera_trap.get_priority(),
+                                 priority)
 
     def test_get_time_from_exif(self):
         exif_dict = {'DateTimeOriginal': b'2017:12:11 16:04:46',
