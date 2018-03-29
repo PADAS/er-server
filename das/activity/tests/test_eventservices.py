@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 User = django.contrib.auth.get_user_model()
 ET_OTHER = 'other'
 
-ET_SECURITY = 'carcass'
-ET_STANDARD = 'rhino_birth'
-ET_LOGISTICS = 'snare'
+ET_SECURITY = 'carcass_rep'
+ET_MONITORING = 'wildlife_sighting_rep'
+ET_LOGISTICS = 'all_posts'
 
 
 class TestEventServices(TestCase):

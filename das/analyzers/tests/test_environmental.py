@@ -8,7 +8,7 @@ from .analyzer_test_utils import *
 
 class TestEnvironmentAnalyzer(TestCase):
 
-    fixtures = ['analyzer_eventtype.yaml', ]
+    fixtures = ['event_data_model', ]
 
     def setUp(self):
 
@@ -30,7 +30,7 @@ class TestEnvironmentAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = models.Subject.objects.create_subject(name='RandomWalkElephant', subject_type='wildlife',
-                                            subject_subtype='elephant')
+                                                    subject_subtype='elephant')
 
         source = models.Source.objects.create(manufacturer_id='random-collar')
 

@@ -1,0 +1,6 @@
+project-id: padas-app
+cluster-name: ppf
+server-branch-name: feature/data_model
+web-branch-name: master
+tag-as-latest: false
+static-ip: 35.185.250.102

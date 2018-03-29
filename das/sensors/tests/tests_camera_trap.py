@@ -44,7 +44,7 @@ class CameraTrapTest(BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        call_command('loaddata', 'camera_trap_eventtype.json')
+        call_command('loaddata', 'event_data_model.json')
 
         self.sensor_user = User.objects.create_user('sensor_user',
                                                     'sensor_user@test.com',

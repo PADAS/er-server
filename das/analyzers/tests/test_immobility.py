@@ -14,7 +14,7 @@ from .analyzer_test_utils import *
 
 class TestImmobilityAnalyzer(TestCase):
 
-    fixtures = ['analyzer_eventtype.yaml', ]
+    fixtures = ['event_data_model', ]
 
     def test_immobility_with_moving_observations_list(self):
 

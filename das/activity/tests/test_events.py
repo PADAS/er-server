@@ -40,27 +40,27 @@ logger = logging.getLogger(__name__)
 User = django.contrib.auth.get_user_model()
 ET_OTHER = 'other'
 
-ET_SECURITY = 'carcass'
-ET_STANDARD = 'rhino_birth'
-ET_LOGISTICS = 'snare'
+ET_SECURITY = 'carcass_rep'
+ET_MONITORING = 'wildlife_sighting_rep'
+ET_LOGISTICS = 'all_posts'
 
 # These permission lists are made up, and do not necessarily correspond to permission sets in production deployments
 # All perms user has... all perms
 all_permissions = [
     'security_create', 'security_read', 'security_update', 'security_delete',
-    'standard_create', 'standard_read', 'standard_update', 'standard_delete',
+    'monitoring_create', 'monitoring_read', 'monitoring_update', 'monitoring_delete',
     'logistics_create', 'logistics_read', 'logistics_update', 'logistics_delete']
-# Power user has all access to logistics and standard events, but can only
+# Power user has all access to logistics and monitoring events, but can only
 # read security events
 power_user_permissions = [
     'security_read',
-    'standard_create', 'standard_read', 'standard_update', 'standard_delete',
+    'monitoring_create', 'monitoring_read', 'monitoring_update', 'monitoring_delete',
     'logistics_create', 'logistics_read', 'logistics_update', 'logistics_delete']
-# Radio room users can create any type of event, view/update standard and
+# Radio room users can create any type of event, view/update monitoring and
 # logistics events, and delete nothing
 radio_room_user_permissions = [
     'security_create',
-    'standard_create', 'standard_read', 'standard_update',
+    'monitoring_create', 'monitoring_read', 'monitoring_update',
     'logistics_create', 'logistics_read', 'logistics_update']
 # Guest users can see logistics events and nothing else
 guest_user_permissions = ['logistics_read']
@@ -74,6 +74,8 @@ class TestEventView(BaseAPITest):
     def setUp(self):
         super().setUp()
         call_command('loaddata', 'initial_eventdata')
+        call_command('loaddata', 'event_data_model')
+        call_command('loaddata', 'test_events_schema')
 
         self.no_perms_user = User.objects.create_user('no_perms_user',
                                                       'das_no_perms@vulcan.com', 'noperms', **self.user_const)
@@ -107,6 +109,7 @@ class TestEventView(BaseAPITest):
         self.all_perms_permissionset = PermissionSet.objects.create(
             name='all_perms_set')
         for perm in all_permissions:
+            logger.info('permission: %s', perm)
             self.all_perms_permissionset.permissions.add(
                 Permission.objects.get(codename=perm))
         self.all_perms_user.permission_sets.add(self.all_perms_permissionset)
@@ -321,7 +324,7 @@ class TestEventView(BaseAPITest):
 
     def test_create_event_and_upload_document(self):
         event_data = dict(priority=0,
-                          event_type=ET_STANDARD,
+                          event_type=ET_MONITORING,
                           message='',
                           comment='')
 
@@ -369,7 +372,7 @@ class TestEventView(BaseAPITest):
 
     def test_create_event_file_with_permissions(self):
         event_data = dict(priority=0,
-                          event_type=ET_STANDARD,
+                          event_type=ET_MONITORING,
                           message='',
                           comment='')
 
@@ -441,7 +444,7 @@ class TestEventView(BaseAPITest):
 
     def test_create_event_file_with_permissions(self):
         event_data = dict(priority=0,
-                          event_type=ET_STANDARD,
+                          event_type=ET_MONITORING,
                           message='',
                           comment='')
 
@@ -516,7 +519,7 @@ class TestEventView(BaseAPITest):
 
     def test_event_feed_category(self):
         request = self.factory.get(
-            self.api_base + '/events?event_category=standard&event_category=security')
+            self.api_base + '/events?event_category=monitoring&event_category=security')
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
@@ -547,7 +550,7 @@ class TestEventView(BaseAPITest):
 
     def test_event_type_category(self):
         request = self.factory.get(
-            self.api_base + '/events/eventtypes?category=standard&event_category=security')
+            self.api_base + '/events/eventtypes?category=monitoring&event_category=security')
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventTypesView.as_view()(request)
@@ -565,7 +568,7 @@ class TestEventView(BaseAPITest):
         category_values = [x['value'] for x in response.data]
 
         self.assertIn('security', category_values)
-        self.assertIn('standard', category_values)
+        self.assertIn('monitoring', category_values)
         self.assertIn('logistics', category_values)
 
     def test_event_count(self):
@@ -709,7 +712,7 @@ class TestEventView(BaseAPITest):
     def test_return_new_contained_events(self):
 
         event_data = json.loads(
-            """{"priority":0,"event_type":"incident_collection","message":"test parent message","title":"test parent title","contains":[{"message":"test contains message","title":"SIT-REP","event_type":"contact","time":"2017-06-21 14:43","event_details":{},"priority":0,"reported_by":null},{"message":"second test contains message","title":"Other","event_type":"other","time":"2017-06-21 14:44","event_details":{},"priority":0,"reported_by":null}]}""")
+            """{"priority":0,"event_type":"incident_collection","message":"test parent message","title":"test parent title","contains":[{"message":"test contains message","title":"SIT-REP","event_type":"contact_rep","time":"2017-06-21 14:43","event_details":{},"priority":0,"reported_by":null},{"message":"second test contains message","title":"Other","event_type":"other","time":"2017-06-21 14:44","event_details":{},"priority":0,"reported_by":null}]}""")
         request = self.factory.post(self.api_base + '/events/', event_data)
         self.force_authenticate(request, self.all_perms_user)
 
@@ -787,7 +790,7 @@ class TestEventView(BaseAPITest):
 
     def test_export_csv_with_filter(self):
         event = self.create_event(self.event_data)
-        carcass_data = json.loads("""{"event_details":{"sectionArea":["bbbe77a9-f829-47dd-8a6f-bca76920f706","957a8bfa-ad0d-4b94-bc86-983cab105910"],"team":[],"conservancy":"346f5449-52b0-4b52-9d10-b44b8aa313a6","beginning_of_incident":"2017-10-13 12:00","end_of_incident":"2017-10-14 12:00","details":"interesting details","results_and_findings":"very interesting results and findings","species":"ad26adde-1261-4133-8d3f-a22d12ceae1f","sex":"Male","causeOfDeath":"ab468ffc-9745-4c71-a19d-c34b8c9c3b18"},"event_type":"carcass","priority":200,"title":"Carcass","location":{"latitude":47.65636923655089,"longitude":-122.30770111083983}}""")
+        carcass_data = json.loads("""{"event_details":{"sectionArea":["bbbe77a9-f829-47dd-8a6f-bca76920f706","957a8bfa-ad0d-4b94-bc86-983cab105910"],"team":[],"conservancy":"346f5449-52b0-4b52-9d10-b44b8aa313a6","beginning_of_incident":"2017-10-13 12:00","end_of_incident":"2017-10-14 12:00","details":"interesting details","results_and_findings":"very interesting results and findings","species":"ad26adde-1261-4133-8d3f-a22d12ceae1f","sex":"Male","causeOfDeath":"ab468ffc-9745-4c71-a19d-c34b8c9c3b18"},"event_type":"carcass_rep","priority":200,"title":"Carcass","location":{"latitude":47.65636923655089,"longitude":-122.30770111083983}}""")
         request = self.factory.post(self.api_base + '/events/', carcass_data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
@@ -877,7 +880,7 @@ class TestEventView(BaseAPITest):
         result.update(self.do_all_event_operations(
             user, ET_LOGISTICS, 'logistics'))
         result.update(self.do_all_event_operations(
-            user, ET_STANDARD, 'standard'))
+            user, ET_MONITORING, 'monitoring'))
         result.update(self.do_all_event_operations(
             user, ET_SECURITY, 'security'))
         return result
