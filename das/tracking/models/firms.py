@@ -262,7 +262,7 @@ class FirmsPlugin(TrackingPlugin):
     def pass_filter(self, observation):
 
         # Disregard 'low-confidence' observations
-        if observation.additional.get('confidence', 'low') in ('low', ''):
+        if observation.get('additional', {}).get('confidence', 'low') in ('low', ''):
             return False
 
         if self._geo_filter:
