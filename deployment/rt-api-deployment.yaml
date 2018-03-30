@@ -13,6 +13,9 @@ spec:
       containers:
       - image: gcr.io/padas-app/rt_api:${GIT_SERVER_SHA}
         name: das-rt-api
+        resources:
+          requests:
+            cpu: "125m"
         ports:
           - containerPort: 8000
         env:

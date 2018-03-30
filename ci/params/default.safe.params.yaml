@@ -10,7 +10,7 @@ utility-static-ip: ""
 disk-namespace: ""
 gcp-compute-zone: "us-west1-a"
 machine-type: "n1-standard-1"
-num-nodes: 6
+num-nodes: 1
 
 #Build
 server-branch-name: develop

@@ -11,5 +11,8 @@ spec:
       containers:
       - image: redis
         name: das-redis
+        resources:
+          requests:
+            cpu: "25m"
         ports:
           - containerPort: 6379

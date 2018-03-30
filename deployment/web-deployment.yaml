@@ -13,6 +13,9 @@ spec:
       containers:
       - name: das-web
         image: gcr.io/padas-app/web/app:${GIT_WEB_SHA}
+        resources:
+          requests:
+            cpu: "75m"
         ports:
         - containerPort: 9000
         env:
