@@ -44,7 +44,7 @@ additional_fields = ('bright_ti4', 'bright_ti5', 'scan', 'track', 'satellite',
 class FirmsClient(object):
 
     DEFAULT_FIRMS_FTP_HOSTS = [
-        'nrt1.modaps.eosdis.nasa.gov', 'nrt2.modaps.eosdis.nasa.gov']
+        'nrt3.modaps.eosdis.nasa.gov', 'nrt4.modaps.eosdis.nasa.gov']
 
     def __init__(self, hosts=None, username=None, password=None):
         '''
@@ -261,14 +261,10 @@ class FirmsPlugin(TrackingPlugin):
 
     def pass_filter(self, observation):
 
-        # Disregard 'low-confidence' observations
-        if observation.get('additional', {}).get('confidence', 'low') in ('low', ''):
-            return False
-
-        if self._geo_filter:
+        # Disregard all but 'high-confidence' observations
+        if observation.get('confidence', 'low') == 'high' and self._geo_filter:
             p = Point(y=observation['latitude'], x=observation['longitude'])
             return self._geo_filter.contains(p)
-        return True
 
     def _transform(self, item):
         return item
