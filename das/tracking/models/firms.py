@@ -9,6 +9,7 @@ import pytz
 import logging
 from django.db import transaction
 from django.contrib.gis.db import models
+from django.contrib.contenttypes.models import ContentType
 
 from django.contrib.gis.geos import Point
 from django.utils.translation import ugettext_lazy as _
@@ -16,7 +17,8 @@ from django.utils.translation import ugettext_lazy as _
 from activity.models import Event, EventType, EventDetails
 from mapping.models import SpatialFeatureGroupStatic
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasFireEventTarget
+from tracking.models.plugin_base import Obs, TrackingPlugin, DasFireEventTarget, SourcePlugin
+from observations.models import Source
 
 
 def __str2date(d, replace_tzinfo=pytz.utc):
@@ -110,7 +112,6 @@ class FirmsClient(object):
                                 line.strip(), filename=filename, lineno=i, filesize=filesize)
                             yield v
                         except Exception as e:  # (KeyError, ValueError) as e:
-                            print(e)
                             if not line.startswith('latitude'):
                                 raise
 
@@ -154,6 +155,7 @@ FIRMS_FTP_REGIONS = zip(FIRMS_FTP_REGIONS, FIRMS_FTP_REGIONS)
 class FirmsPlugin(TrackingPlugin):
 
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=120)
+    SOURCE_TYPE = 'firms'
 
     service_username = models.CharField(max_length=50,
                                         help_text='The username for accessing FIRMS ftp site.')
@@ -184,6 +186,25 @@ class FirmsPlugin(TrackingPlugin):
                 t.send(observation)
         self.save()
 
+    def get_firms_source(self):
+        '''
+        This plugin creates its own source.
+        :return:
+        '''
+        source, created = Source.objects.get_or_create(
+            provider=self.provider, manufacturer_id=self.firms_region_name,
+            defaults=dict(source_type=self.SOURCE_TYPE, model_name='VIIRS')
+        )
+        return source
+
+    def get_sourceplugin(self):
+        plugin_type = ContentType.objects.get_for_model(self)
+        sourceplugin, created = SourcePlugin.objects.get_or_create(defaults={},
+                                                                   source=self.get_firms_source(),
+                                                                   plugin_id=self.id,
+                                                                   plugin_type=plugin_type)
+        return sourceplugin
+
     def fetch(self):
 
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -209,6 +230,9 @@ class FirmsPlugin(TrackingPlugin):
         self.client = FirmsClient(
             username=self.service_username, password=self.service_password)
 
+        sourceplugin = self.get_sourceplugin()
+        source = sourceplugin.source
+
         observation = None
         cnt = 0
         for observation in self.client.fetch_observations(region_id=self.firms_region_name,
@@ -220,9 +244,14 @@ class FirmsPlugin(TrackingPlugin):
                 # Pop-off side-data from observation dict.
                 additional_data = dict((k, observation.pop(k))
                                        for k in additional_fields)
-                obs = Obs(source=None, recorded_at=observation['recorded_at'], latitude=observation['latitude'],
+                obs = Obs(source=source, recorded_at=observation['recorded_at'],
+                          latitude=observation['latitude'],
                           longitude=observation['longitude'], additional=additional_data)
-                self.create_event(obs)
+
+                # Disregard all but 'high-confidence' observations
+                if observation.get('confidence', 'low') == 'high' and self._geo_filter:
+                    self.create_event(obs)
+
                 yield obs
 
         # Save cursor_data (if we've processed any observations).
@@ -261,10 +290,10 @@ class FirmsPlugin(TrackingPlugin):
 
     def pass_filter(self, observation):
 
-        # Disregard all but 'high-confidence' observations
-        if observation.get('confidence', 'low') == 'high' and self._geo_filter:
+        if self._geo_filter:
             p = Point(y=observation['latitude'], x=observation['longitude'])
             return self._geo_filter.contains(p)
+        return False
 
     def _transform(self, item):
         return item

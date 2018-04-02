@@ -325,13 +325,19 @@ class DasDefaultTarget(PluginTarget):
 
 class DasFireEventTarget(PluginTarget):
     '''
-    No-op target
+    FIRMS target.
     '''
 
     def _handle_item(self, item):
 
-        result = None
-        created = False
+        location = Point(x=item.longitude, y=item.latitude)
+        additional = item.additional or {}
+        result, created = observations.models.Observation.objects.get_or_create(source_id=item.source.id,
+                                                                                recorded_at=item.recorded_at,
+                                                                                defaults=dict(
+                                                                                    location=location,
+                                                                                    additional=additional
+                                                                                ))
         return result, created
 
 
