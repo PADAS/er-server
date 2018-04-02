@@ -3,6 +3,6 @@ Event Reports
 {% for event_type in event_types %}
 Event Type,{{ event_type.display }},{{ event_type.value }}
 {% for header in event_type.headers %}{{ header | safe }},{% endfor %}
-{% for event in event_type.events %}{{ event.event_type }},{{ event.event_type_internal }},{{ event.serial }},{{ event.title | safe }},{{ event.status }}, {{ event.reported_by | safe }},{{ event.reported_by_internal }},{{ event.reported_at }},{{ event.lat }},{{ event.lon }},{{ event.num_notes }}, {{ event.num_attach }}, {{ event.parent_id }},,{% for detail in event.details %}{{ detail | safe }},{% endfor %}
+{% for event in event_type.events %}{{ event.event_type }},{{ event.event_type_internal }},{{ event.serial }},{{ event.title | safe}},{{ event.priority }},{{ event.priority_internal }},{{ event.status }},{{ event.reported_by | safe }},{{ event.reported_by_internal }},{{ event.reported_at }},{{ event.lat }},{{ event.lon }},{{ event.num_notes }},"{{ event.notes }}",{{ event.num_attach }},{{ event.parent_id }},,{% for detail in event.details %}{{ detail | safe }},{% endfor %}
 {% endfor %}
 {% endfor %}

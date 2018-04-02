@@ -13,6 +13,9 @@ spec:
       containers:
       - image: gcr.io/padas-app/nginx:${GIT_UTILITY_SHA}
         name: das-nginx
+        resources:
+          requests:
+            cpu: "75m"
         ports:
         - containerPort: 443
         - containerPort: 8000
