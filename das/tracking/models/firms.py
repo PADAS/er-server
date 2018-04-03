@@ -256,7 +256,7 @@ class FirmsPlugin(TrackingPlugin):
                           longitude=observation['longitude'], additional=additional_data)
 
                 # Disregard 'low-confidence' observations
-                if observation.get('confidence', '') in confidence_alert_levels and self._geo_filter:
+                if additional_data.get('confidence', '') in confidence_alert_levels and self._geo_filter:
                     self.create_event(obs)
 
                 yield obs
