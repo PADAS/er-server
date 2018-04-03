@@ -156,6 +156,7 @@ class FirmsPlugin(TrackingPlugin):
 
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=120)
     SOURCE_TYPE = 'firms'
+    DEFAULT_CONFIDENCE_ALERT_LEVELS = ['nominal', 'high', ]
 
     service_username = models.CharField(max_length=50,
                                         help_text='The username for accessing FIRMS ftp site.')
@@ -227,6 +228,12 @@ class FirmsPlugin(TrackingPlugin):
         next_lineno = self.additional.get('next_lineno', 0)
         last_filesize = self.additional.get('last_filesize', 0)
 
+        # Confidence alert levels is a list os values that might occur in the 'confidence' field and that we
+        # want to create alerts for. Known values are ['low', 'nominal',
+        # 'high']
+        confidence_alert_levels = self.additional.get(
+            'confidence_alert_levels', self.DEFAULT_CONFIDENCE_ALERT_LEVELS)
+
         self.client = FirmsClient(
             username=self.service_username, password=self.service_password)
 
@@ -248,8 +255,8 @@ class FirmsPlugin(TrackingPlugin):
                           latitude=observation['latitude'],
                           longitude=observation['longitude'], additional=additional_data)
 
-                # Disregard all but 'high-confidence' observations
-                if observation.get('confidence', 'low') == 'high' and self._geo_filter:
+                # Disregard 'low-confidence' observations
+                if observation.get('confidence', '') in confidence_alert_levels and self._geo_filter:
                     self.create_event(obs)
 
                 yield obs
