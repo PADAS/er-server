@@ -10,6 +10,7 @@ import logging
 from django.db import transaction
 from django.contrib.gis.db import models
 from django.contrib.contenttypes.models import ContentType
+from django.utils import dateparse
 
 from django.contrib.gis.geos import Point
 from django.utils.translation import ugettext_lazy as _
@@ -75,8 +76,8 @@ class FirmsClient(object):
         try:
             ftp.cwd('FIRMS/viirs/{}'.format(region_id))
 
-            # Go back as much as three files (three days).
-            filelist = ftp.nlst()[-3:]
+            # Go back as much as two files (ie. two days).
+            filelist = ftp.nlst()[-2:]
 
             try:
                 i = filelist.index(last_filename)
@@ -157,6 +158,7 @@ class FirmsPlugin(TrackingPlugin):
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=120)
     SOURCE_TYPE = 'firms'
     DEFAULT_CONFIDENCE_ALERT_LEVELS = ['nominal', 'high', ]
+    DEFAULT_ALERT_WINDOW = timedelta(hours=12)
 
     service_username = models.CharField(max_length=50,
                                         help_text='The username for accessing FIRMS ftp site.')
@@ -234,6 +236,15 @@ class FirmsPlugin(TrackingPlugin):
         confidence_alert_levels = self.additional.get(
             'confidence_alert_levels', self.DEFAULT_CONFIDENCE_ALERT_LEVELS)
 
+        try:
+            alert_window = dateparse.parse_duration(
+                self.additional.get('alert_window'))
+            alert_window_start_time = datetime.datetime.now(
+                tz=pytz.utc) - alert_window
+        except:
+            alert_window_start_time = datetime.datetime.now(
+                tz=pytz.utc) - self.DEFAULT_ALERT_WINDOW
+
         self.client = FirmsClient(
             username=self.service_username, password=self.service_password)
 
@@ -255,8 +266,10 @@ class FirmsPlugin(TrackingPlugin):
                           latitude=observation['latitude'],
                           longitude=observation['longitude'], additional=additional_data)
 
-                # Disregard 'low-confidence' observations
-                if additional_data.get('confidence', '') in confidence_alert_levels and self._geo_filter:
+                # Determine whether we should record an event for this
+                # observation.
+                if additional_data.get('confidence', '') in confidence_alert_levels\
+                        and obs.recorded_at >= alert_window_start_time:
                     self.create_event(obs)
 
                 yield obs
