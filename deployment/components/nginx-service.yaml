@@ -4,7 +4,7 @@ metadata:
   name: nginx
 spec:
   type: LoadBalancer
-  loadBalancerIP: ${STATIC_IP}
+  loadBalancerIP: <<static-ip>>
   ports:
   - port: 80
     targetPort: 8000

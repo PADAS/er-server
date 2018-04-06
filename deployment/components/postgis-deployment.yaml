@@ -13,7 +13,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/postgis:${GIT_UTILITY_SHA}
+      - image: gcr.io/padas-app/postgis:<<git-utility-sha>>
         name: das-postgis
         resources:
           requests:

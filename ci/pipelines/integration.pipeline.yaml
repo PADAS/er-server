@@ -503,9 +503,9 @@ jobs:
         config:
           platform: linux
           inputs:
-          - get: git-utility
-          - get: git-web
-          - get: git-server
+          - name: git-utility
+          - name: git-web
+          - name: git-server
           - name: git-deployment
           params: {
             PROJECT: padas-app,

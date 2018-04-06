@@ -15,4 +15,4 @@ spec:
   storageClassName: ssd
   gcePersistentDisk:
     fsType: "ext4"
-    pdName: "${DISK_NAMESPACE}-postgres-0"
+    pdName: "<<disk-namespace>>-postgres-0"

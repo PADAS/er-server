@@ -11,7 +11,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/beat:${GIT_SERVER_SHA}
+      - image: gcr.io/padas-app/beat:<<git-server-sha>>
         name: das-beat
         resources:
           requests:
