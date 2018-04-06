@@ -427,14 +427,49 @@ jobs:
         trigger: true
         params: {skip_download: true}
     - do:
-      - task: ensure-cluster-exists
-        image: image-vulcan-platform-tools
+      - task: ensure-disks-exist
         config:
           platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
           inputs:
           - name: git-server
           params: {
-            PROJECT: ss-infrastructure,
+            PROJECT: padas-app,
+            SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+            USERNAME: ((creator)),
+            ELASTIC_URL: ((elastic-url)),
+            BUILD_PIPELINE_NAME: ((pipeline-name))
+          }
+          run:
+            path: /vulcan-platform-tools/run/run.with.gcloud.service.account.sh
+            args:
+            - vcloud
+            - disks
+            - create
+            - git-server/deployment/storage/default.disks.csv
+            - --prefix=((cluster-name))
+            - --zone=((gcp-compute-zone))
+            - --iaas=gcp
+            - --workspace=((iaas-workspace))
+            - --type=ssd
+      - task: ensure-cluster-exists
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
+          inputs:
+          - name: git-server
+          params: {
+            PROJECT: padas-app,
             SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
             USERNAME: ((creator)),
             VAULT_TOKEN: ((vault-automation-token)),

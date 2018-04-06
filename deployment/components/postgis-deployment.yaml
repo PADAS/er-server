@@ -26,7 +26,10 @@ spec:
       name: pgdata
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "standard"
+      storageClassName: "ssd"
       resources:
         requests:
           storage: 50Gi
+      selector:
+        matchLabels:
+          das.component: postgis

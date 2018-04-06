@@ -9,7 +9,7 @@ static-ip: ""
 utility-static-ip: ""
 disk-namespace: ""
 gcp-compute-zone: "us-west1-a"
-vault-address: "https://10.0.16.8:8200"
+vault-address: "https://35.197.70.36:8200"
 vcloud-service-url: "http://35.197.21.185:5000/"
 elastic-url: "35.203.167.191"
 cluster-spec: deployment/cluster-specs/default.yaml
