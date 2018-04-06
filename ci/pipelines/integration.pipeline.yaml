@@ -499,9 +499,14 @@ jobs:
             - --iaas=gcp
             - --workspace=((iaas-workspace))
       - task: create-deployment-plan
-        image: image-vulcan-platform-tools
         config:
           platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
           inputs:
           - name: git-utility
           - name: git-web
@@ -524,9 +529,14 @@ jobs:
             - git-deployment/deployment/default-deployment-plan-spec.yaml
             - --series=((cluster-name))
       - task: deploy
-        image: image-vulcan-platform-tools
         config:
           platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
           inputs:
           - name: git-deployment
           params: {

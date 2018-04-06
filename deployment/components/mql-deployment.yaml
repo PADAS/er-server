@@ -11,7 +11,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/mql:<<git-server-sha>>
+      - image: gcr.io/padas-app/mql:<<git-server-version>>
         name: das-mql
         resources:
           requests:
