@@ -13,6 +13,7 @@ vault-address: "https://35.197.70.36:8200"
 vcloud-service-url: "http://35.197.21.185:5000/"
 elastic-url: "35.203.167.191"
 cluster-spec: deployment/cluster-specs/default.yaml
+deploy-params-environment: develop
 
 #Build
 server-branch-name: develop

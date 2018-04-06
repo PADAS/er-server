@@ -32,6 +32,15 @@ resources:
     branch: ((server-branch-name))
     private_key: ((das-github))
 
+- name: git-deployment
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    paths: 
+      - deployment/*
+    private_key: ((das-github))
+
 - name: git-web-base
   type: versioned-git-resource
   source:
@@ -394,6 +403,8 @@ jobs:
         passed: [docker-build-web-app]
       - get: git-server
         passed: [docker-build-server]
+      - get: git-deployment
+        trigger: true
       - get: image-server-api
         passed: [docker-build-server]
         trigger: true
@@ -437,7 +448,7 @@ jobs:
               tag: ((vp-tools-container-version)),
             }
           inputs:
-          - name: git-server
+          - name: git-deployment
           params: {
             PROJECT: padas-app,
             SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
@@ -451,7 +462,7 @@ jobs:
             - vcloud
             - disks
             - create
-            - git-server/deployment/storage/default.disks.csv
+            - git-deployment/deployment/storage/default.disks.csv
             - --prefix=((cluster-name))
             - --zone=((gcp-compute-zone))
             - --iaas=gcp
@@ -467,7 +478,7 @@ jobs:
               tag: ((vp-tools-container-version)),
             }
           inputs:
-          - name: git-server
+          - name: git-deployment
           params: {
             PROJECT: padas-app,
             SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
@@ -482,53 +493,62 @@ jobs:
             - vcloud
             - clusters
             - create
-            - git-server/((cluster-spec))
+            - git-deployment/((cluster-spec))
             - --name=((cluster-name))
             - --zone=((gcp-compute-zone))
             - --iaas=gcp
             - --workspace=((iaas-workspace))
-      - task: update-deployment-info
+      - task: create-deployment-plan
+        image: image-vulcan-platform-tools
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source: {
-              repository: gcr.io/ss-infrastructure/utility/envsubst,
-              email: ((gcr-io-email)),
-              username: ((gcr-io-username)),
-              password: ((ss-infrastructure-container-registry-pull))
-            }
-          params: {
-            STATIC_IP: ((static-ip)),
-            EMAIL_HOST: ((email-host)),
-            EMAIL_USERNAME: ((email-username)),
-            EMAIL_PASSWORD: ((email-password)),
-            WEB_SERVICE_NAME: ((web-service-name)),
-            BUNDLE_CRT: ((bundle-crt)),
-            PAMDAS_ORG_PRIVATE_KEY_PEM: ((pamdas-org-private-key-pem))
-          }
-          inputs: 
-          - name: git-server
-          - name: git-utility
-          - name: git-web
-          outputs:
-          - name: deployment-info 
-          run:
-            path: git-server/ci/update.k8s.deployment.params.ci.sh
-      - task: deploy
-        config:
-          platform: linux
-          image_resource: 
-            type: docker-image
-            source: {repository: google/cloud-sdk}
           inputs:
-          - name: git-server
-          - name: deployment-info
+          - get: git-utility
+          - get: git-web
+          - get: git-server
+          - name: git-deployment
           params: {
-            PROJECT_ID: ((project-id)),
-            CLUSTER_NAME: ((cluster-name)),
-            DEPLOY_PATH: deployment-info,
-            CLUSTER_ADMIN_PASSWORD: ((padas-app-cluster-admin))
+            PROJECT: padas-app,
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url)),
+            VCLOUD_SERVICE_URL: ((vcloud-service-url))
           }
           run:
-            path: git-server/ci/deploy.to.k8s.sh
+            path: /bin/bash
+            args:
+            - vcloud
+            - deployment-plans
+            - create
+            - git-deployment/deployment/default-deployment-plan-spec.yaml
+            - --series=((cluster-name))
+      - task: deploy
+        image: image-vulcan-platform-tools
+        config:
+          platform: linux
+          inputs:
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url)),
+            VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+            STATIC_IP: ((static-ip))
+          }
+          run:
+            path: /vulcan-platform-tools/run/run.with.gcloud.service.account.sh
+            args:
+            - exec
+            - |
+              vcloud clusters deploy 
+              git-deployment/deployment/components
+              --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml 
+              --name ((cluster-name)) 
+              --workspace ((iaas-workspace)) 
+              --iaas gcp 
+              --zone ((gcp-compute-zone)) 
+              --plan ((cluster-name))
