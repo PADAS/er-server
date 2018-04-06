@@ -3,14 +3,16 @@ vp-tools-container-version: "0.0.323"
 infrastructure-utilities-version-tag: "0.0.54"
 
 #Infrastructure
-gcp-project-id: pamdas-dev
+iaas-workspace: padas-app
 cluster-name: ""
 static-ip: ""
 utility-static-ip: ""
 disk-namespace: ""
 gcp-compute-zone: "us-west1-a"
-machine-type: "n1-standard-1"
-num-nodes: 1
+vault-address: "https://10.0.16.8:8200"
+vcloud-service-url: "http://35.197.21.185:5000/"
+elastic-url: "35.203.167.191"
+cluster-spec: deployment/cluster-specs/default.yaml
 
 #Build
 server-branch-name: develop

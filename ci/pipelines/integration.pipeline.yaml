@@ -428,30 +428,30 @@ jobs:
         params: {skip_download: true}
     - do:
       - task: ensure-cluster-exists
+        image: image-vulcan-platform-tools
         config:
           platform: linux
-          image_resource:
-            type: docker-image
-            source: {
-              repository: gcr.io/ss-infrastructure/provisioning/k8s,
-              email: ((gcr-io-email)),
-              username: ((gcr-io-username)),
-              password: ((ss-infrastructure-container-registry-pull))
-            }
+          inputs:
+          - name: git-server
           params: {
-            PROJECT_ID: ((project-id)),
-            CLUSTER_NAME: ((cluster-name)),
-            CREATOR: ((creator)),
-            BUILD_PIPELINE_NAME: ((pipeline-name)),  
-            CLUSTER_ADMIN_PASSWORD: ((padas-app-cluster-admin)),
-            PROJECT_CONTAINER_REGISTRY_SECRET: ((padas-app-container-registry-pull)),
-            INFRASTRUCTURE_CONTAINER_REGISTRY_SECRET: ((ss-infrastructure-container-registry-pull)),
-            MACHINE_TYPE: n1-standard-1,
-            NUM_NODES: 3,
-            GCP_COMPUTE_ZONE: ((gcp-compute-zone))
+            PROJECT: ss-infrastructure,
+            SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url))
           }
           run:
-            path: /utility/provision.k8s.cluster.sh
+            path: /vulcan-platform-tools/run/run.with.gcloud.service.account.sh
+            args:
+            - vcloud
+            - clusters
+            - create
+            - git-server/((cluster-spec))
+            - --name=((cluster-name))
+            - --zone=((gcp-compute-zone))
+            - --iaas=gcp
+            - --workspace=((iaas-workspace))
       - task: update-deployment-info
         config:
           platform: linux
