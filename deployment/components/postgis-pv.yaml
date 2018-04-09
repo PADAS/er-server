@@ -8,7 +8,7 @@ metadata:
     das.component: postgis
 spec:
   capacity:
-    storage: "50Gi"
+    storage: "350Gi"
   accessModes:
     - "ReadWriteOnce"
   persistentVolumeReclaimPolicy: Retain
