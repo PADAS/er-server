@@ -29,7 +29,7 @@ spec:
       storageClassName: "ssd"
       resources:
         requests:
-          storage: 350Gi
+          storage: 50Gi
       selector:
         matchLabels:
           das.component: postgis
