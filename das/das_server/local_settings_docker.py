@@ -31,17 +31,17 @@ STATIC_ROOT = '/var/www/static/'
 #STATICFILES_DIRS = STATICFILES_DIRS + (os.path.join(BASE_DIR, 'www'),)
 
 # can use console output for email in dev
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 AWS_SES_REGION_NAME = 'us-west-2'
 AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 # the address to send notification emails from
 FROM_EMAIL = 'notifications.demo@pamdas.org'
 DEFAULT_FROM_EMAIL = 'notifications.demo@pamdas.org'
-EMAIL_HOST_USER = 'AKIAIWFES6QEYXXNWIJQ'
+EMAIL_HOST_USER = 'AKIAJRJRACWFWVWUPI4A'
 EMAIL_HOST = 'email-smtp.us-west-2.amazonaws.com'
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
 EMAIL_USE_TLS = True
-EMAIL_PORT = 587
+EMAIL_PORT = 2587
 
 NOTIFY_HIGH_PRIORITY_EVENT = 'high_priority_alerts'
 NOTIFY_MEDIUM_PRIORITY_EVENT = 'medium_priority_alerts'

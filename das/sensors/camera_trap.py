@@ -1,7 +1,5 @@
 import logging
 import datetime
-import struct
-from collections import namedtuple
 
 from django.conf import settings
 from rest_framework import status
@@ -11,7 +9,6 @@ import piexif
 import dateutil.parser
 import pytz
 
-from utils import json
 from activity.serializers import EventSerializer, EventFileSerializer
 from usercontent.models import ImageFileContent
 from activity.models import Event
@@ -29,10 +26,17 @@ EXIF_FIELD_TO_REPORT = {
     'Software': 'cameratraprep_camera-version'
 }
 
+PARAMS_TO_REPORT = {
+    'camera_name': 'cameratraprep_camera-name',
+    'camera_description': 'cameratraprep_camera-make',
+    'camera_version': 'cameratraprep_camera-version'
+}
+
 
 def get_priority():
     """The priority for an event. For now uses a default of Red"""
-    return Event.PRI_URGENT
+    return settings.SENSORS.get(
+        'camera_trap', {}).get('priority', Event.PRI_URGENT)
 
 
 def exif_dateparse(date_str, default_tz=pytz.utc):
@@ -62,10 +66,13 @@ def dateparse(date_str, default_tz=pytz.utc):
 
 
 class CameraTrapPostParameters(serializers.Serializer):
-    location = serializers.DictField(default=None)
+    location = serializers.JSONField(default=None)
     file = serializers.FileField()
     camera_name = serializers.CharField(default=None)
     time = serializers.DateTimeField(default=None)
+    camera_description = serializers.CharField(default=None)
+    camera_version = serializers.CharField(default=None)
+    group_id = serializers.UUIDField(default=None)
 
 
 GPS_EXIF_NAME = 'GPS'
@@ -84,8 +91,7 @@ def convert_to_degrees(value):
 def get_lat_lon(exif):
     if GPS_EXIF_NAME not in exif:
         return
-    gps_exif = {piexif.TAGS[GPS_EXIF_NAME][tag]["name"]
-        : exif[GPS_EXIF_NAME][tag] for tag in exif[GPS_EXIF_NAME]}
+    gps_exif = {piexif.TAGS[GPS_EXIF_NAME][tag]["name"]                : exif[GPS_EXIF_NAME][tag] for tag in exif[GPS_EXIF_NAME]}
     gps_latitude = gps_exif['GPSLatitude']
     gps_latitude_ref = gps_exif['GPSLatitudeRef']
     gps_longitude = gps_exif['GPSLongitude']
@@ -143,40 +149,58 @@ class CameraTrapSensorHandler:
         exif = load_exif(file.read())
         exif_dict = dict(iter_exif(exif))
 
-        camera_name = exif_dict['Model'].decode('utf-8') if exif_dict.get('Model') else \
-            params.validated_data['camera_name']
+        if params.validated_data['camera_name']:
+            camera_name = params.validated_data['camera_name']
+        else:
+            camera_name = exif_dict['Model'].decode('utf-8') if exif_dict.get('Model') else \
+                None
 
         title = '{camera_name} detection'.format(camera_name=camera_name)
 
-        location = params.validated_data['location'] if params.validated_data['location'] else None
-        try:
-            location = get_lat_lon(exif)
-        except KeyError:
-            logger.exception('Corrupt GPS info in file: %s', camera_name)
+        if params.validated_data['location']:
+            location = params.validated_data['location']
+        else:
+            try:
+                location = get_lat_lon(exif)
+            except KeyError:
+                logger.exception('Corrupt GPS info in file: %s', camera_name)
 
         if cls.if_exists_event_file(file_name):
             return Response(status=status.HTTP_409_CONFLICT)
 
-        event_time = cls.get_time(params, exif_dict)
+        if params.validated_data['group_id']:
+            try:
+                event = Event.objects.get(id=params.validated_data['group_id'])
+            except Event.DoesNotExist:
+                message = 'Group with id {group_id} for image not found'.format(
+                    params.validated_data['group_id'])
+                return Response(status=status.HTTP_404_NOT_FOUND,
+                                data={'message': message})
+        else:
+            if params.validated_data['time']:
+                event_time = params.validated_data['time']
+            else:
+                event_time = cls.get_time(params, exif_dict)
 
-        event_details = cls.get_camera_trap_details(params, exif_dict)
-        event_data = dict(title=title,
-                          event_type='cameratrap_rep',
-                          event_details=event_details,
-                          priority=get_priority(),
-                          )
+            event_details = cls.get_camera_trap_details(params, exif_dict)
+            event_data = dict(title=title,
+                              event_type='cameratrap_rep',
+                              event_details=event_details,
+                              priority=get_priority(),
+                              )
 
-        if location:
-            event_data['location'] = location
+            if location:
+                event_data['location'] = location
 
-        if event_time:
-            event_data['time'] = event_time
+            if event_time:
+                event_data['time'] = event_time
 
-        eser = EventSerializer(data=event_data, context={'request': request})
-        if not eser.is_valid():
-            return Response(data=eser.errors,
-                            status=status.HTTP_400_BAD_REQUEST)
-        event = eser.create(eser.validated_data)
+            eser = EventSerializer(data=event_data, context={
+                                   'request': request})
+            if not eser.is_valid():
+                return Response(data=eser.errors,
+                                status=status.HTTP_400_BAD_REQUEST)
+            event = eser.create(eser.validated_data)
 
         event_file_ser = EventFileSerializer(data={'event': event.id,
                                                    'file': file},
@@ -186,7 +210,8 @@ class CameraTrapSensorHandler:
                             status=status.HTTP_400_BAD_REQUEST)
         event_file = event_file_ser.create(event_file_ser.validated_data)
 
-        return Response({}, status=status.HTTP_201_CREATED)
+        return Response({'group_id': str(event.id)},
+                        status=status.HTTP_201_CREATED)
 
     @classmethod
     def if_exists_event_file(cls, filename):
@@ -202,6 +227,10 @@ class CameraTrapSensorHandler:
         for exif_field, report_field in EXIF_FIELD_TO_REPORT.items():
             if exif_field in exif_dict:
                 result[report_field] = exif_dict[exif_field].decode('utf-8')
+
+        for field, report_field in PARAMS_TO_REPORT.items():
+            if params.validated_data.get(field, None):
+                result[report_field] = params.validated_data.get(field)
 
         return result
 

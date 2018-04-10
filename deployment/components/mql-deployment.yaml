@@ -1,18 +1,21 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: worker
+  name: mql
 spec:
   template:
     metadata:
       labels:
-        das.component: worker
+        das.component: mql
     spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/worker:${GIT_SERVER_SHA}
-        name: das-worker
+      - image: gcr.io/padas-app/mql:<<git-server-version>>
+        name: das-mql
+        resources:
+          requests:
+            cpu: "100m"
         env:
         - name: API_HOST
           valueFrom:

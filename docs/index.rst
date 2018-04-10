@@ -9,6 +9,7 @@ Welcome to the DAS API documentation!
 Contents:
 
 * :ref:`Overview`
+* :ref:`FAQ`
 * :ref:`API`
 
 .. _overview:
@@ -19,6 +20,14 @@ Contents:
 
    das
    changelog
+
+.. _faq:
+
+.. toctree::
+   :maxdepth: 2
+   :caption: FAQ
+
+   faq
 
 .. _api:
 

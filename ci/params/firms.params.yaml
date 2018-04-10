@@ -1,0 +1,5 @@
+project-id: padas-app
+cluster-name: firms
+server-branch-name: feature/firms
+web-branch-name: master
+tag-as-latest: false

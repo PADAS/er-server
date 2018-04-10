@@ -202,8 +202,8 @@ def get_subject_view_details(view, user, subject_id):
     # Create a dummy request with the user's info so we get the permission
     # enforcement for free
     request = DummyRequest('/subject/{0}/'.format(subject_id), 'GET',
-                           {'limit': 2}, user=user)
-    result = view(request, subject_id=subject_id)
+                           query_parameters={'limit': 2}, user=user)
+    result = view(request, subject_id=subject_id,)
 
     # If there's nothing to send, no need to send it
     if result.status_code != 200 or not result.data or 'features' not in result.data or len(

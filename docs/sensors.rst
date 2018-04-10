@@ -10,8 +10,19 @@ Camera Trap API
 
    Post a new camera trap image. Suggest making the imagename unique by including
    the camera name in the image name.
-   The image is inspected for exif data which is used to identify the location
-   of the image and the actual time of capture.
+
+    There are two ways to submit location, time of capture, camera name, etc. The
+    first is by posting additional json formatted data with the 'filecontent.file'
+    field. A second way is to embed this data in the exif of the image. If both sources
+    of data are submitted, the direct fields override the same data found in the images
+    exif.
+
+    Additional Fields:
+    | "location": {"latitude": 36.02339, "longitude": 192.38282}
+    | "camera_name": "<camera name here>"
+    | "time": "<iso formatted time with timezone>"
+    | "camera_description": "<description here>"
+    | "camera_version": "<camera version>"
 
     Exif:
       | DateTimeOriginal -> report time
@@ -21,12 +32,9 @@ Camera Trap API
     Specific <provider> support:
 
     if provider is generic
-      | Model -> cameratraprep_camera-name
-
-    if provider is panthera
-      | Model -> cameratraprep_camera-name
-      | Make -> cameratraprep_camera-make
-      | Software -> cameratraprep_camera-version
+      | "camera_name" or Model -> cameratraprep_camera-name
+      | "camera_description" or Make -> cameratraprep_camera-make
+      | "camera_version" or Software -> cameratraprep_camera-version
 
 
    :reqheader Authorization: Bearer <auth token>
@@ -57,10 +65,12 @@ Camera Trap API
 
         import requests
         DAS_API_ROOT = 'https://<server>.pamdas.org/api/v1.0'
-        DAS_TOKEN = 'oauth token here'
+        DAS_TOKEN = '<oauth token here>'
 
         image_file = '2017-11-08.jpg'
-
+        data = {'location': json.dumps({'latitude': 0,
+                         'longitude': 0}),
+               }
         content_type = 'application/jpeg'
 
         url = '{0}/sensors/camera-trap/generic/status'.format(DAS_API_ROOT)
@@ -68,7 +78,7 @@ Camera Trap API
         with open(image_file, 'rb') as fh:
             files = {'filecontent.file': (unique_image_name, fh,
                      content_type)}
-            result = requests.post(url, headers=headers, files=files)
+            result = requests.post(url, headers=headers, files=files, data=data)
 
         if result.status_code != requests.codes.created:
             result.raise_for_status()

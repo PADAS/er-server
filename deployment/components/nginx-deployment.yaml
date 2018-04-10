@@ -11,8 +11,11 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/nginx:${GIT_UTILITY_SHA}
+      - image: gcr.io/padas-app/nginx:<<git-utility-version>>
         name: das-nginx
+        resources:
+          requests:
+            cpu: "75m"
         ports:
         - containerPort: 443
         - containerPort: 8000
