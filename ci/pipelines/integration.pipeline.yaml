@@ -339,12 +339,10 @@ jobs:
   serial: true
   plan:
   - aggregate:
-    - get: image-web-depends
+    - get: image-web-develop
       passed: [test-web-unit]
       trigger: true
       params: { skip_download: true }
-    - get: git-web-depends
-      passed: [test-web-unit]
     - get: git-web
       passed: [test-web-unit]
       trigger: true
