@@ -317,6 +317,28 @@ jobs:
     }
     get_params: {skip_download: true}
 
+- name: docker-build-web-develop
+  serial: true
+  plan:
+  - aggregate:
+    - get: image-web-depends
+      passed: [docker-build-web-depends]
+      trigger: true
+      params: { skip_download: true }
+    - get: git-web-depends
+      passed: [docker-build-web-depends]
+    - get: git-web
+      trigger: true
+  - put: image-web-develop
+    params: {
+      build: git-web,
+      dockerfile: git-web/docker/develop/Dockerfile,
+      tag:  git-web/sha,
+      tag_as_latest: ((tag-as-latest)),
+      build_args_file: git-web-depends/build_args
+    }
+    get_params: {skip_download: true}
+
 - name: test-web-unit
   serial: true
   plan:
@@ -334,27 +356,6 @@ jobs:
       platform: linux
       run:
         path: /var/www/app/docker/build/compile/test.sh
-
-- name: docker-build-web-develop
-  serial: true
-  plan:
-  - aggregate:
-    - get: image-web-develop
-      passed: [test-web-unit]
-      trigger: true
-      params: { skip_download: true }
-    - get: git-web
-      passed: [test-web-unit]
-      trigger: true
-  - put: image-web-develop
-    params: {
-      build: git-web,
-      dockerfile: git-web/docker/develop/Dockerfile,
-      tag:  git-web/sha,
-      tag_as_latest: ((tag-as-latest)),
-      build_args_file: git-web-depends/build_args
-    }
-    get_params: {skip_download: true}
 
 - name: docker-build-web-app
   serial: true
@@ -374,7 +375,6 @@ jobs:
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
-
 
 - name: deploy-to-k8s
   serial: true
