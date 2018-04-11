@@ -278,9 +278,9 @@ jobs:
       passed: [docker-build-web-develop]
       trigger: true
   - task: test
-    image: image-web-depends
+    image: image-web-develop
     config:
-      platform: linux      
+      platform: linux
       inputs:
       - name: git-web
       run:
