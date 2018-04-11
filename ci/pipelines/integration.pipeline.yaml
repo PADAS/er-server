@@ -321,23 +321,19 @@ jobs:
   serial: true
   plan:
   - aggregate:
-    - get: image-web-depends
-      passed: [docker-build-web-depends]
+    - get: image-web-develop
+      passed: [docker-build-web-develop]
       trigger: true
       params: { save: true }
-    - get: git-web-depends
-      passed: [docker-build-web-depends]
     - get: git-web
+      passed: [docker-build-web-develop]
       trigger: true
   - task: test
     image: image-web-depends
     config:
-      platform: linux      
-      inputs:
-      - name: git-web
+      platform: linux
       run:
-        dir: git-web
-        path: docker/build/compile/test.sh
+        path: /var/www/app/docker/build/compile/test.sh
 
 - name: docker-build-web-develop
   serial: true
@@ -366,27 +362,16 @@ jobs:
   serial: true
   plan:
   - aggregate:
-    - get: image-web-depends
+    - get: image-web-develop
       passed: [test-web-unit]
       trigger: true
     - get: git-web
       passed: [test-web-unit]
       trigger: true
-  - task: build
-    image: image-web-depends
-    config:
-      platform: linux
-      inputs:
-      - name: git-web
-      outputs: 
-      - name: web-distribution
-      run:
-        dir: git-web
-        path: docker/build/compile/build.sh
   - put: image-web-app
     params: {
-      build: web-distribution,
-      dockerfile: web-distribution/docker/app/Dockerfile,
+      build: git-web,
+      dockerfile: git-web/docker/app/Dockerfile,
       tag:  git-web/sha,
       tag_as_latest: ((tag-as-latest)),
     }
