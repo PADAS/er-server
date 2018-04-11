@@ -10,7 +10,8 @@ MANAGE_PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT=padas-app
 CONCOURSE_URL=https://ci.pamdas.org
 ELASTIC_URL=35.203.167.191
-TOOLS_VERSION=0.0.294
+TOOLS_VERSION=0.0.323
+VCLOUD_SERVICE_URL=http://35.197.21.185:5000/
 
 ### DO NOT EDIT BELOW THIS LINE
 ### Below this line is generic copy pasted from the master in infrastructure
@@ -55,6 +56,7 @@ docker run -it --rm \
     -e PROJECT=$PROJECT \
     -e CONCOURSE_URL=$CONCOURSE_URL \
     -e ELASTIC_URL=$ELASTIC_URL \
+    -e VCLOUD_SERVICE_URL=$VCLOUD_SERVICE_URL \
     -e VAULT_ADDR=$VAULT_ADDR \
     -e VAULT_SKIP_VERIFY=true \
     -e K8S_PROXY_PORT=$K8S_PROXY_PORT \

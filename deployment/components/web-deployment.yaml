@@ -12,7 +12,7 @@ spec:
         - name: gcr-secret
       containers:
       - name: das-web
-        image: gcr.io/padas-app/web/app:${GIT_WEB_SHA}
+        image: gcr.io/padas-app/web/app:<<git-web-version>>
         resources:
           requests:
             cpu: "75m"

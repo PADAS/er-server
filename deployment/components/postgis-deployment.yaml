@@ -13,7 +13,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/postgis:${GIT_UTILITY_SHA}
+      - image: gcr.io/padas-app/postgis:<<git-utility-version>>
         name: das-postgis
         resources:
           requests:
@@ -26,7 +26,10 @@ spec:
       name: pgdata
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "standard"
+      storageClassName: "ssd"
       resources:
         requests:
           storage: 50Gi
+      selector:
+        matchLabels:
+          das.component: postgis

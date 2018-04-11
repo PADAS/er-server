@@ -1,0 +1,10 @@
+version: 'v1'
+settings:
+  iaas: gcp
+  workspace: padas-app
+  zone: us-west1-a
+  cluster_machine_type: n1-standard-1
+  cluster_node_count: 3
+  cluster_kubernetes_version: "1.9"
+  disk_type: ssd
+  region: us-west1

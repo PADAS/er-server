@@ -1,23 +1,21 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: rt-api
+  name: beat
 spec:
   template:
     metadata:
       labels:
-        das.component: rt-api
+        das.component: beat
     spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/rt_api:${GIT_SERVER_SHA}
-        name: das-rt-api
+      - image: gcr.io/padas-app/beat:<<git-server-version>>
+        name: das-beat
         resources:
           requests:
-            cpu: "125m"
-        ports:
-          - containerPort: 8000
+            cpu: "25m"
         env:
         - name: API_HOST
           valueFrom:

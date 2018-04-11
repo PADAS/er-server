@@ -32,6 +32,15 @@ resources:
     branch: ((server-branch-name))
     private_key: ((das-github))
 
+- name: git-deployment
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    paths: 
+      - deployment/*
+    private_key: ((das-github))
+
 - name: git-web-base
   type: versioned-git-resource
   source:
@@ -39,17 +48,6 @@ resources:
     branch: ((web-branch-name))
     paths:
       - docker/build/base/*
-    private_key: ((das-web-github))
-
-- name: git-web-depends
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das-web.git
-    branch: ((web-branch-name))
-    paths:
-      - docker/build/depends/*
-      - bower.json
-      - package.json
     private_key: ((das-web-github))
 
 - name: git-web
@@ -145,15 +143,6 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/build/base
-
-- name: image-web-depends
-  type: docker-image
-  source:
-    tag: $(cat<git-web-depends/sha)
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/web/build/depends
     
 - name: image-web-develop
   type: docker-image
@@ -286,44 +275,21 @@ jobs:
     }        
     get_params: {skip_download: true}
 
-- name: docker-build-web-depends
-  serial: true
-  plan:
-  - aggregate:
-    - get: image-web-base
-      passed: [docker-build-web-base]
-      trigger: true
-      params: { skip_download: true }
-    - get: git-web-base
-      passed: [docker-build-web-base]
-    - get: git-web-depends
-      trigger: true
-  - put: image-web-depends
-    params: {
-      build: git-web-depends,
-      dockerfile: git-web-depends/docker/build/depends/Dockerfile,
-      tag:  git-web-depends/sha,
-      build_args_file: git-web-base/build_args,
-      tag_as_latest: ((tag-as-latest))
-    }
-    get_params: {skip_download: true}
-
 - name: test-web-unit
   serial: true
   plan:
   - aggregate:
-    - get: image-web-depends
-      passed: [docker-build-web-depends]
+    - get: image-web-develop
+      passed: [docker-build-web-develop]
       trigger: true
       params: { save: true }
-    - get: git-web-depends
-      passed: [docker-build-web-depends]
     - get: git-web
+      passed: [docker-build-web-develop]
       trigger: true
   - task: test
-    image: image-web-depends
+    image: image-web-develop
     config:
-      platform: linux      
+      platform: linux
       inputs:
       - name: git-web
       run:
@@ -334,22 +300,19 @@ jobs:
   serial: true
   plan:
   - aggregate:
-    - get: image-web-depends
-      passed: [test-web-unit]
+    - get: image-web-base
+      passed: [docker-build-web-base]
       trigger: true
       params: { skip_download: true }
-    - get: git-web-depends
-      passed: [test-web-unit]
     - get: git-web
-      passed: [test-web-unit]
       trigger: true
   - put: image-web-develop
     params: {
       build: git-web,
-      dockerfile: git-web/docker/develop/Dockerfile,
+      dockerfile: git-web/docker/app/Dockerfile,
       tag:  git-web/sha,
       tag_as_latest: ((tag-as-latest)),
-      build_args_file: git-web-depends/build_args
+      target_name: develop
     }
     get_params: {skip_download: true}
 
@@ -357,32 +320,20 @@ jobs:
   serial: true
   plan:
   - aggregate:
-    - get: image-web-depends
+    - get: image-web-develop
       passed: [test-web-unit]
       trigger: true
     - get: git-web
       passed: [test-web-unit]
       trigger: true
-  - task: build
-    image: image-web-depends
-    config:
-      platform: linux
-      inputs:
-      - name: git-web
-      outputs: 
-      - name: web-distribution
-      run:
-        dir: git-web
-        path: docker/build/compile/build.sh
   - put: image-web-app
     params: {
-      build: web-distribution,
-      dockerfile: web-distribution/docker/app/Dockerfile,
+      build: git-web,
+      dockerfile: git-web/docker/app/Dockerfile,
       tag:  git-web/sha,
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
-
 
 - name: deploy-to-k8s
   serial: true
@@ -394,6 +345,8 @@ jobs:
         passed: [docker-build-web-app]
       - get: git-server
         passed: [docker-build-server]
+      - get: git-deployment
+        trigger: true
       - get: image-server-api
         passed: [docker-build-server]
         trigger: true
@@ -427,73 +380,127 @@ jobs:
         trigger: true
         params: {skip_download: true}
     - do:
+      - task: ensure-disks-exist
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
+          inputs:
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+            USERNAME: ((creator)),
+            ELASTIC_URL: ((elastic-url)),
+            BUILD_PIPELINE_NAME: ((pipeline-name))
+          }
+          run:
+            path: /vulcan-platform-tools/run/run.with.gcloud.service.account.sh
+            args:
+            - vcloud
+            - disks
+            - create
+            - git-deployment/deployment/storage/default.disks.csv
+            - --prefix=((cluster-name))
+            - --zone=((gcp-compute-zone))
+            - --iaas=gcp
+            - --workspace=((iaas-workspace))
+            - --type=ssd
       - task: ensure-cluster-exists
         config:
           platform: linux
           image_resource:
             type: docker-image
             source: {
-              repository: gcr.io/ss-infrastructure/provisioning/k8s,
-              email: ((gcr-io-email)),
-              username: ((gcr-io-username)),
-              password: ((ss-infrastructure-container-registry-pull))
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
             }
+          inputs:
+          - name: git-deployment
           params: {
-            PROJECT_ID: ((project-id)),
-            CLUSTER_NAME: ((cluster-name)),
-            CREATOR: ((creator)),
-            BUILD_PIPELINE_NAME: ((pipeline-name)),  
-            CLUSTER_ADMIN_PASSWORD: ((padas-app-cluster-admin)),
-            PROJECT_CONTAINER_REGISTRY_SECRET: ((padas-app-container-registry-pull)),
-            INFRASTRUCTURE_CONTAINER_REGISTRY_SECRET: ((ss-infrastructure-container-registry-pull)),
-            MACHINE_TYPE: n1-standard-1,
-            NUM_NODES: 3,
-            GCP_COMPUTE_ZONE: ((gcp-compute-zone))
+            PROJECT: padas-app,
+            SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url))
           }
           run:
-            path: /utility/provision.k8s.cluster.sh
-      - task: update-deployment-info
+            path: /vulcan-platform-tools/run/run.with.gcloud.service.account.sh
+            args:
+            - vcloud
+            - clusters
+            - create
+            - git-deployment/((cluster-spec))
+            - --name=((cluster-name))
+            - --zone=((gcp-compute-zone))
+            - --iaas=gcp
+            - --workspace=((iaas-workspace))
+      - task: create-deployment-plan
         config:
           platform: linux
           image_resource:
             type: docker-image
             source: {
-              repository: gcr.io/ss-infrastructure/utility/envsubst,
-              email: ((gcr-io-email)),
-              username: ((gcr-io-username)),
-              password: ((ss-infrastructure-container-registry-pull))
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
             }
-          params: {
-            STATIC_IP: ((static-ip)),
-            EMAIL_HOST: ((email-host)),
-            EMAIL_USERNAME: ((email-username)),
-            EMAIL_PASSWORD: ((email-password)),
-            WEB_SERVICE_NAME: ((web-service-name)),
-            BUNDLE_CRT: ((bundle-crt)),
-            PAMDAS_ORG_PRIVATE_KEY_PEM: ((pamdas-org-private-key-pem))
-          }
-          inputs: 
-          - name: git-server
+          inputs:
           - name: git-utility
           - name: git-web
-          outputs:
-          - name: deployment-info 
+          - name: git-server
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url)),
+            VCLOUD_SERVICE_URL: ((vcloud-service-url))
+          }
           run:
-            path: git-server/ci/update.k8s.deployment.params.ci.sh
+            path: /bin/bash
+            args:
+            - vcloud
+            - deployment-plans
+            - create
+            - git-deployment/deployment/default-deployment-plan-spec.yaml
+            - --series=((cluster-name))
       - task: deploy
         config:
           platform: linux
-          image_resource: 
+          image_resource:
             type: docker-image
-            source: {repository: google/cloud-sdk}
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
           inputs:
-          - name: git-server
-          - name: deployment-info
+          - name: git-deployment
           params: {
-            PROJECT_ID: ((project-id)),
-            CLUSTER_NAME: ((cluster-name)),
-            DEPLOY_PATH: deployment-info,
-            CLUSTER_ADMIN_PASSWORD: ((padas-app-cluster-admin))
+            PROJECT: padas-app,
+            SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url)),
+            VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+            STATIC_IP: ((static-ip))
           }
           run:
-            path: git-server/ci/deploy.to.k8s.sh
+            path: /vulcan-platform-tools/run/run.with.gcloud.service.account.sh
+            args:
+            - exec
+            - |
+              vcloud clusters deploy 
+              git-deployment/deployment/components
+              --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml 
+              --name ((cluster-name)) 
+              --workspace ((iaas-workspace)) 
+              --iaas gcp 
+              --zone ((gcp-compute-zone)) 
+              --plan ((cluster-name))
