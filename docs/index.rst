@@ -1,15 +1,11 @@
-.. DAS documentation master file, created by
-   sphinx-quickstart on Fri Jun 27 08:59:39 2014.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
-Welcome to the DAS API documentation!
+======================================
+DAS documentation
 ======================================
 
 Contents:
 
 * :ref:`Overview`
-* :ref:`FAQ`
+* :ref:`Documentation`
 * :ref:`API`
 
 .. _overview:
@@ -18,16 +14,22 @@ Contents:
    :maxdepth: 2
    :caption: Overview
 
-   das
-   changelog
+   about
+   releases
 
-.. _faq:
+
+.. _documentation:
 
 .. toctree::
    :maxdepth: 2
-   :caption: FAQ
-
+   :caption: Documentation
+    
    faq
+   topics/map_feature_styles
+   topics/sensors
+   writers
+   glossary
+   
 
 .. _api:
 
@@ -35,12 +37,12 @@ Contents:
    :maxdepth: 2
    :caption: API
 
-   oauth2
-   user
-   assets
-   activity
-   realtime
-   sensors
+   api/oauth2
+   api/user
+   api/assets
+   api/activity
+   api/realtime
+   api/sensors
 
 
 .. Indices and tables

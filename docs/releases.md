@@ -1,7 +1,26 @@
-# Releases
+# DAS Releases
+
+## 1.X of DAS
+
+### Release 1.28.1 2018-04-04
+* FIRMS feature. Notify DAS user when fire detected in a defined region provided by FIRMS. Options to filter by confidence level.
+* Fix subject/tracks realtime notification sending to many position points.
+* Fix export report as csv, added Priority and contents of any associated Notes.
+* Site wide configuration for default priority of new camera trap reports. Default is High Priority (Red).
+* Camera trap API supports submitting data outside of exif data. Ability to post location outside of including that information in the exif of the image being posted. See the sensors section of the API docs for more details.
 
 
-## Release 1.25.5 2017-12-11
+### Release 1.27.3 2018-03-22
+* New windsock icon available for maps
+* Move to Django 2.0, involved making code fixes in support of transition
+* Fix KML rendering, publish master url that retrieves list of subjects on demand. 60 days maximum history for a KML feed.
+* Service Status Feature. Publish status of TRBOnet server connection and last update of radios to UI.
+* Fix for celery jobs not firing. Celery 4.1 handles timezones differently than Celery 3.X.
+* 
+### Release 1.26.1 2018-01-24
+* updates to the Analyzers. Fix for an analyzer job consuming resources.
+* daily collar report updates. limit to subjects that are active.
+### Release 1.25.5 2017-12-11
 
 This deployment will consist of these recent features and fixes:
 * Jump to Location of an Incident
@@ -28,8 +47,8 @@ This deployment will consist of these recent features and fixes:
 
 
 
-## Release 1.18
-### Overview
+### Release 1.18
+#### Overview
 Support SMS output for alerts. Simplify template used to render SMS txt.
 Fix bug in vectronics collar data import ensuring the source record. Prevented new data from being added to db.
 Fix bug in web editing an existing report that contained a number field in the data model. A null value in the number field was not handled, causing the report to not be displayed. Resolved reports displayed correctly.
@@ -38,15 +57,15 @@ Fix bug showing fields that changed in an alert email so that a consolidate aler
 
 
 
-## Release 1.17
+### Release 1.17
 
-### Overview
+#### Overview
 Fix bug when creating a new Report, the previous data model schema was used.
 
 
-## Release 1.16
+### Release 1.16
 
-### Overview
+#### Overview
 
 Filter reports displayed in the Reports feed, so that reports contained in an incident are not displayed.
 Consolidate alert emails so that consecutive changes to a Report in a short amount of time do not generate multiple email updates.
@@ -54,7 +73,7 @@ Choice tables for Liwonde (a few spoor related tables orphaned on an old branch)
 Fix bug that was escaping "&" signs in report titles. We clean any text typed in by a user looking for HTML based attacks.
 Fix bug preventing a report appearing in an alert email when an incident only had one report. 
 
-### DAS Web Change Log ###
+#### DAS Web Change Log
 __1\.16\.1\.rc\.3__
 
 <li> <a href=http://github.com/padas/das-web/commit/d922343ea445da4d718b71a148bb3b556dfbae0a>view commit &bull;</a> new parameter for the new events feed to exclude reports that are contained in collections.</li> 
@@ -64,7 +83,7 @@ __1\.16\.1\.rc\.3__
 <li> <a href=http://github.com/padas/das-web/commit/c527aac9d965a3844f703a422cf308edfa041853>view commit &bull;</a> filter contained events in the 'all' feed.</li> 
 
 
-### DAS Server Change Log ###
+#### DAS Server Change Log
 __1\.16\.1\.rc\.14__
 <li> <a href=http://github.com/padas/das/commit/185156894fdd1c4eba4703e9dc1d8c0c01b2b95c>view commit &bull;</a> Update __init__.py</li> 
 <li> <a href=http://github.com/padas/das/commit/33e509bb8b9875c94741457c51411d27a2fb4449>view commit &bull;</a> Move version to 1.16 on develop</li> 
@@ -99,13 +118,13 @@ __1\.16\.1\.rc\.14__
 
 
 
-## Release 1.15
+### Release 1.15
 
-### Overview
+#### Overview
 
 This release incorporates redesigned UI in support of Input Report collections and streamlined data entry\.
 
-### DAS Web Change Log ####
+#### DAS Web Change Log
 
 __1\.15\.1 Final__
 
@@ -164,7 +183,7 @@ __1\.15\.1\.rc\.44__
 
 + update sit\_rep to radio\_rep
 
-### DAS Server Change Log ####
+#### DAS Server Change Log
 
 __1\.15\.2 Final__
 Hotfix to show the correct version number 1.15.2
