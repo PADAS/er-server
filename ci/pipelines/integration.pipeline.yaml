@@ -50,17 +50,6 @@ resources:
       - docker/build/base/*
     private_key: ((das-web-github))
 
-- name: git-web-depends
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das-web.git
-    branch: ((web-branch-name))
-    paths:
-      - docker/build/depends/*
-      - bower.json
-      - package.json
-    private_key: ((das-web-github))
-
 - name: git-web
   type: versioned-git-resource
   source:
@@ -139,7 +128,7 @@ resources:
     repository: gcr.io/padas-app/postgis
 
 - name: image-nginx
-  type: docker-image
+  type: docker-image /dependencies/node_modules
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -154,15 +143,6 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/build/base
-
-- name: image-web-depends
-  type: docker-image
-  source:
-    tag: $(cat<git-web-depends/sha)
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/web/build/depends
     
 - name: image-web-develop
   type: docker-image
@@ -211,7 +191,7 @@ jobs:
       build: git-server-base,
       dockerfile: git-server-base/docker/base/Dockerfile,
       tag:  git-server-base/sha,
-      tag_as_latest: ((tag-as-latest))
+      tag_as_latest: ((tag-as-latest)) /dependencies/node_modules
     }
     get_params: {skip_download: true}
 
@@ -332,10 +312,10 @@ jobs:
   - put: image-web-develop
     params: {
       build: git-web,
-      dockerfile: git-web/docker/develop/Dockerfile,
+      dockerfile: git-web/docker/app/Dockerfile,
       tag:  git-web/sha,
       tag_as_latest: ((tag-as-latest)),
-      build_args_file: git-web-depends/build_args
+      target_name: develop
     }
     get_params: {skip_download: true}
 
