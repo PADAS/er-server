@@ -50,6 +50,18 @@ resources:
       - docker/build/base/*
     private_key: ((das-web-github))
 
+- name: git-web-depends
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-web.git
+    branch: ((web-branch-name))
+    paths:
+    - docker/build/depends/*
+    - bower.json
+    - package.json
+    private_key: ((das-web-github))
+
+
 - name: git-web
   type: versioned-git-resource
   source:
@@ -143,7 +155,16 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/build/base
-    
+
+- name: image-web-depends
+  type: docker-image
+  source:
+    tag: $(cat<git-web-depends/sha)
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/web/build/depends
+
 - name: image-web-develop
   type: docker-image
   source:
@@ -275,6 +296,50 @@ jobs:
     }        
     get_params: {skip_download: true}
 
+- name: docker-build-web-depends
+  serial: true
+  plan:
+  - aggregate:
+    - get: image-web-base
+      passed: [docker-build-web-base]
+      trigger: true
+      params: { skip_download: true }
+    - get: git-web-base
+      passed: [docker-build-web-base]
+    - get: git-web-depends
+      trigger: true
+  - put: image-web-depends
+    params: {
+      build: git-web-depends,
+      dockerfile: git-web-depends/docker/build/depends/Dockerfile,
+      tag:  git-web-depends/sha,
+      build_args_file: git-web-base/build_args,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+
+- name: docker-build-web-develop
+  serial: true
+  plan:
+  - aggregate:
+    - get: image-web-depends
+      passed: [docker-build-web-depends]
+      trigger: true
+      params: { skip_download: true }
+    - get: git-web-depends
+      passed: [docker-build-web-depends]
+    - get: git-web
+      trigger: true
+  - put: image-web-develop
+    params: {
+      build: git-web,
+      dockerfile: git-web/docker/develop/Dockerfile,
+      build_args_file: git-web-depends/build_args,
+      tag:  git-web/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+
 - name: test-web-unit
   serial: true
   plan:
@@ -295,26 +360,6 @@ jobs:
       run:
         dir: git-web
         path: docker/build/compile/test.sh
-
-- name: docker-build-web-develop
-  serial: true
-  plan:
-  - aggregate:
-    - get: image-web-base
-      passed: [docker-build-web-base]
-      trigger: true
-      params: { skip_download: true }
-    - get: git-web
-      trigger: true
-  - put: image-web-develop
-    params: {
-      build: git-web,
-      dockerfile: git-web/docker/app/Dockerfile,
-      tag:  git-web/sha,
-      tag_as_latest: ((tag-as-latest)),
-      target_name: develop
-    }
-    get_params: {skip_download: true}
 
 - name: docker-build-web-app
   serial: true
