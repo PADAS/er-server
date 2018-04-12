@@ -351,11 +351,16 @@ jobs:
       passed: [docker-build-web-develop]
       trigger: true
   - task: test
-    image: image-web-depends
+    image: image-web-develop
     config:
       platform: linux
       run:
-        path: /var/www/app/docker/build/compile/test.sh
+        path: /bin/bash
+        args:
+        - -exc
+        - |
+          cd /var/www/app &&
+          docker/build/compile/test.sh
 
 - name: docker-build-web-app
   serial: true
