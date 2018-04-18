@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
-import sys
 
 from corsheaders.defaults import default_headers
 
@@ -195,7 +194,8 @@ DATABASES = {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': 'das',
         'USER': 'das',
-        'HOST': 'postgis',
+        'HOST': os.getenv('DB_HOST', 'postgis'),
+        'PORT': os.getenv('DB_PORT', '5432'),
         'PASSWORD': 'password',
     },
 }

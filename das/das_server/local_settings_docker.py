@@ -37,7 +37,7 @@ AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 # the address to send notification emails from
 FROM_EMAIL = 'notifications.demo@pamdas.org'
 DEFAULT_FROM_EMAIL = 'notifications.demo@pamdas.org'
-EMAIL_HOST_USER = 'AKIAJRJRACWFWVWUPI4A'
+EMAIL_HOST_USER = 'AKIAJLH5VZD6IQWTWPQQ'
 EMAIL_HOST = 'email-smtp.us-west-2.amazonaws.com'
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
 EMAIL_USE_TLS = True

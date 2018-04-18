@@ -1,6 +1,6 @@
-###DAS map features - simple-style spec definitions 
+# DAS map features - simple-style spec definitions 
 
-#### Boundaries
+## Boundaries
 - National Park: {"fill": "#555555", "fill-opacity": 0, "stroke": "#00FFFF", "stroke-opacity": 0.7, "stroke-width": 3}
 - National Reserve: {"fill": "#7CB74B", "fill-opacity": 0.2, "stroke": "#4E633C", "stroke-opacity": 0.5, "stroke-width": 2}
 - Wildlife Reserve:
@@ -14,18 +14,18 @@
 - Forest Conservation Area [ndoki]: {
 - Wildlife Sanctuary: {"fill": "#ffffc9", "fill-opacity": 0.2, "stroke": "#efef4f", "stroke-opacity": 0.5, "stroke-width": 2}
 
-#### Roads
+## Roads
 - Primary: {"stroke": "#ffffff", "stroke-opacity": 0.5, "stroke-width": 3}
 - Secondary: {"stroke": "#ffffff", "stroke-opacity": 0.5, "stroke-width": 2}
 - Tertiary: {"stroke": "#ffffff", "stroke-opacity": 0.5, "stroke-width": 1}
 - Railway: {"stroke": "#ffffff", "stroke-opacity": 0.5, "stroke-width": 1}
 
-#### Rivers
+## Rivers
 - Primary: {"stroke": "#05e6ff", "stroke-opacity": 0.5, "stroke-width": 3}
 - Secondary: {"stroke": "#05e6ff", "stroke-opacity": 0.5, "stroke-width": 2}
 - Tertiary: {"stroke": "#05e6ff", "stroke-opacity": 0.5, "stroke-width": 1}
 
-#### POI
+## POI
 - Points of Interest [*generic*]: {"image": "/static/feature-POI-star_flag.svg"}
 - Bai_Forest Clearing: {"image": "/static/bai-green.svg"}
 - Fence Attendant House: {"image": "/static/fence_attendant_house.svg"}
@@ -39,12 +39,12 @@
 - Jetty: {"image": "/static/jetty-black.svg"}
 - Airstrip (point): {"image": "/static/plane-gray.svg}
  
-#### Operational
+## Operational
 - Headquarters: {"image": "/static/park_HQ-olive.svg"}
 - Ranger Station: {"image": "static/ranger_post-dk_olive.svg"}
 - Ranger Post: {"image": "static/ranger_post-dk_olive.svg"}
 - Ranger Camp: {"image": "/static/campsite-olive.svg"}
 
-#### Fences
+## Fences
 - Fencing_Unknown (generic): {"stroke": "#ffaf01", "stroke-opacity": 0.8, "stroke-width": 2}
  
