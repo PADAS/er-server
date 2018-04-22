@@ -1,5 +1,8 @@
 import logging
 import collections
+import socket
+import uuid
+
 import redis
 import datetime
 import pytz
@@ -12,14 +15,22 @@ from utils import json
 
 logger = logging.getLogger(__name__)
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
-CLIENT_LIST_KEY = 'realtime_connections'
 
-FIELDS = ['username', 'sid', 'bbox']
+# intended to be long lived
+# XXX see if there is a better key mapped
+SERVICE_UUID = uuid.uuid4().hex
+CLIENT_LIST_KEY = 'rt_api.{}.service'.format(SERVICE_UUID)
+REALTIME_SERVICES_KEY = 'rt_api.services'
+
+FIELDS = ['username', 'sid', 'filter', 'bbox']
 ClientData = collections.namedtuple('ClientData', FIELDS)
 
 # bbox, where bbox is the (west, south, east, north) lon,lat pairs.
 BBOX_FIELDS = ['west', 'south', 'east', 'north']
 Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
+
+# add the service as a member of a set
+redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
 
 
 def now(tz=pytz.utc):
@@ -52,15 +63,31 @@ def update_client(sid, bbox=None, event_filter=None):
                 id=sid, defaults=update_values)
 
 
+def update_ttl(sid, ttl_ms):
+    ''' TODO: Add expiry value to hash entry sid:json_blog:ttl_ms '''
+    pass
+
+
 def get_client_list():
-    for data in redis_client.hgetall(CLIENT_LIST_KEY).items():
-        sid = data[0].decode('utf-8')
-        c = _restore_client_data(data[1].decode('utf-8'))
-        if c:
-            client_data = c
-            yield client_data
-        else:
-            remove_client(sid)
+    '''
+    Grab the existing client lists, and iterate through them,
+    deleting the empty sessions. We hold onto the server key,
+    if we need to delete them
+    '''
+    client_list = {}
+    for rt_server_key in get_service_list():
+        clients = redis_client.hgetall(rt_server_key)
+        if clients:
+            client_list[rt_server_key] = clients
+    for key in client_list:
+        for client in client_list[key].items():
+            sid = client[0].decode('utf-8')
+            c = _restore_client_data(client[1].decode('utf-8'))
+            if c:
+                client_data = c
+                yield client_data
+            else:
+                remove_client(sid)
 
 
 def add_client(sid, data):
@@ -68,8 +95,7 @@ def add_client(sid, data):
     logger.info('Adding socket client. sid=%s, data=%s', sid, data)
     logger.info('Adding client to session list. key=%s, sid=%s, data=%s',
                 CLIENT_LIST_KEY, sid, json.dumps(data))
-    hset_result = redis_client.hset(
-        CLIENT_LIST_KEY, sid, json.dumps(data))
+    hset_result = redis_client.hset(CLIENT_LIST_KEY, sid, json.dumps(data),  )
     logger.info('hset_result = %s', hset_result)
 
 
@@ -79,11 +105,13 @@ def _restore_client_data(data):
     except json.JSONDecodeError:
         data = None
     if not data or isinstance(data, str) or isinstance(data, int):
+
         return None
 
     bbox = Bbox(**data['bbox']) if data.get('bbox') else None
     return ClientData(sid=data['sid'],
                       username=data['username'],
+                      filter=data['filter'],
                       bbox=bbox)
 
 
@@ -123,3 +151,12 @@ def remove_clients(*sids):
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
         logger.exception('Failed to remove SocketClients for sids: %s', sids)
+
+
+def get_service_list():
+    '''
+    :return: List of realtime services that have registered with redis.
+    '''
+    services = redis_client.smembers(REALTIME_SERVICES_KEY)
+    return services
+
