@@ -87,7 +87,7 @@ def get_all_client_list():
                 client_data = c
                 yield client_data
             else:
-                remove_client(sid)
+                remove_client(sid, key)
 
 
 def get_client_list(server_key=CLIENT_LIST_KEY):
@@ -103,7 +103,7 @@ def get_client_list(server_key=CLIENT_LIST_KEY):
             client_data = c
             yield client_data
         else:
-            remove_client(sid)
+            remove_client(sid, server_key)
 
 
 def add_client(sid, data):
@@ -147,11 +147,11 @@ def is_client(sid):
     return redis_client.hexists(CLIENT_LIST_KEY, str(sid))
 
 
-def remove_client(cl_key=CLIENT_LIST_KEY, sid):
+def remove_client(sid, cl_key=CLIENT_LIST_KEY):
     remove_clients(cl_key, sid)
 
 
-def remove_clients(cl_key=CLIENT_LIST_KEY, *sids):
+def remove_clients(*sids, cl_key=CLIENT_LIST_KEY):
     '''
     Handle a list of sids to delete them from both the database and cache.
     :param sids:
