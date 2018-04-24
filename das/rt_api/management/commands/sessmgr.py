@@ -16,21 +16,21 @@ class Command(BaseCommand):
         )
 
         g.add_argument(
-            '--reset_conns',
+            '--reset_services',
             action='store_true',
             dest='reset_connections',
             help='Remove all current realtime connections from redis',
         )
 
         g.add_argument(
-            '--services',
+            '--list_services',
             action='store_true',
             dest='services',
             help='List all realtime services',
         )
 
         g.add_argument(
-            '--list',
+            '--list_all_conns',
             action='store_true',
             dest='list',
             help='List all realtime connections',
