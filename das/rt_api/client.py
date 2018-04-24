@@ -1,7 +1,7 @@
 import logging
 import collections
 import uuid
-
+import socket
 import redis
 import datetime
 import pytz
@@ -15,10 +15,9 @@ from utils import json
 logger = logging.getLogger(__name__)
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
 
-# intended to be long lived
-# XXX see if there is a better key mapped
-SERVICE_UUID = uuid.uuid4().hex
-CLIENT_LIST_KEY = 'rt_api.{}.service'.format(SERVICE_UUID)
+# intended to be long lived value, to survive wsgi
+SERVICE_ID = socket.gethostbyname(socket.gethostname())
+CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
 REALTIME_SERVICES_KEY = 'rt_api.services'
 
 FIELDS = ['username', 'sid', 'bbox']
@@ -147,10 +146,10 @@ def is_client(sid):
 
 
 def remove_client(sid, cl_key=CLIENT_LIST_KEY):
-    remove_clients(sid, cl_key)
+    remove_clients(sid)
 
 
-def remove_clients(*sids, cl_key=CLIENT_LIST_KEY):
+def remove_clients(*sids):
     '''
     Handle a list of sids to delete them from both the database and cache.
     :param sids:
@@ -161,8 +160,9 @@ def remove_clients(*sids, cl_key=CLIENT_LIST_KEY):
 
     sids = set((str(sid) for sid in sids))
     logger.info('Removing clients for sids: %s', sids)
-    redis_client.hdel(cl_key, *sids)
+    redis_client.hdel(CLIENT_LIST_KEY, *sids)
     try:
+        # assuming the sids are unique here
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
         logger.exception('Failed to remove SocketClients for sids: %s', sids)
