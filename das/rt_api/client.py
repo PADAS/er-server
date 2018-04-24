@@ -1,6 +1,5 @@
 import logging
 import collections
-import socket
 import uuid
 
 import redis
@@ -148,7 +147,7 @@ def is_client(sid):
 
 
 def remove_client(sid, cl_key=CLIENT_LIST_KEY):
-    remove_clients(cl_key, sid)
+    remove_clients(sid, cl_key)
 
 
 def remove_clients(*sids, cl_key=CLIENT_LIST_KEY):
