@@ -16,7 +16,7 @@ class Command(BaseCommand):
         )
 
         g.add_argument(
-            '--reset_services',
+            '--reset_conns',
             action='store_true',
             dest='reset_connections',
             help='Remove all current realtime connections from redis',
@@ -30,7 +30,7 @@ class Command(BaseCommand):
         )
 
         g.add_argument(
-            '--list_all_conns',
+            '--list_conns',
             action='store_true',
             dest='list',
             help='List all realtime connections',
@@ -58,6 +58,9 @@ class Command(BaseCommand):
                                      bbox=None)
         client.add_client(testdata.sid, testdata)
 
+    def delete_all(self):
+        client.remove_rt_service(client.CLIENT_LIST_KEY)
+
     def list_services(self):
         for service in client.get_service_list():
             print(service)
@@ -65,3 +68,5 @@ class Command(BaseCommand):
     def list_connections(self):
         for sess_data in client.get_client_list():
             print(sess_data)
+
+
