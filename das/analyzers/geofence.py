@@ -58,7 +58,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         if self.config.containment_regions is not None:
             rgns = self.config.containment_regions.features.all()
             for feat in rgns:
-                print('ContaianRegion Geo Type:', type(feat.feature_geometry))
+                print('Containment Region Geo Type:', type(feat.feature_geometry))
                 cr = pymet.base.SpatialFeature(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
                                                name=feat.name,
                                                unique_id=feat.id)
