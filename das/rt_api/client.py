@@ -67,7 +67,7 @@ def restore_client(data, server_key):
         client_data = c
         yield client_data
     else:
-        remove_client(sid, server_key)
+        remove_client(server_key, sid)
 
 
 def get_all_client_list():
@@ -136,14 +136,15 @@ def is_client(sid):
     return redis_client.hexists(CLIENT_LIST_KEY, str(sid))
 
 
-def remove_client(sid):
-    remove_clients(sid)
+def remove_client(cl_key, sid):
+    remove_clients(cl_key, sid)
 
 
-def remove_clients(*sids):
+def remove_clients(cl_key, *sids):
     '''
     Handle a list of sids to delete them from both the database and cache.
     Scoped to the current service
+    :param cl_key:
     :param sids:
     :return:
     '''
@@ -152,7 +153,7 @@ def remove_clients(*sids):
 
     sids = set((str(sid) for sid in sids))
     logger.info('Removing clients for sids: %s', sids)
-    redis_client.hdel(CLIENT_LIST_KEY, *sids)
+    redis_client.hdel(cl_key, *sids)
     try:
         # assuming the sids are unique here
         SocketClient.objects.filter(id__in=sids).delete()
