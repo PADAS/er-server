@@ -1,6 +1,5 @@
 import logging
 import collections
-import uuid
 import socket
 import redis
 import datetime
@@ -15,7 +14,8 @@ from utils import json
 logger = logging.getLogger(__name__)
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
 
-# intended to be long lived value, to survive wsgi
+# intended to be a long lived id, to prevent the
+# creation of too many service ids on restarts / wsgi
 SERVICE_ID = socket.gethostbyname(socket.gethostname())
 CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
 REALTIME_SERVICES_KEY = 'rt_api.services'
@@ -60,16 +60,21 @@ def update_client(sid, bbox=None, event_filter=None):
                 id=sid, defaults=update_values)
 
 
-def update_ttl(sid, ttl_ms):
-    ''' TODO: Add expiry value to hash entry sid:json_blob:ttl_ms '''
-    pass
+def restore_client(data, server_key):
+    sid = data[0].decode('utf-8')
+    c = _restore_client_data(data[1].decode('utf-8'))
+    if c:
+        client_data = c
+        yield client_data
+    else:
+        remove_client(sid, server_key)
 
 
 def get_all_client_list():
     '''
-    Grab the existing client lists, and iterate through them,
-    deleting the empty sessions. We hold onto the server key,
-    as we iterate, if we need to delete them
+    Grab the existing client lists from all rt services,
+    and iterate through them, deleting the empty sessions.
+    We hold onto the service key, if we need to delete them
     TODO Refactor this method and get_client_list - DRY
     '''
     client_list = {}
@@ -77,31 +82,18 @@ def get_all_client_list():
         clients = redis_client.hgetall(rt_server_key)
         if clients:
             client_list[rt_server_key] = clients
-    for key in client_list:
-        for client in client_list[key].items():
-            sid = client[0].decode('utf-8')
-            c = _restore_client_data(client[1].decode('utf-8'))
-            if c:
-                client_data = c
-                yield client_data
-            else:
-                remove_client(sid, key)
+    for server_key in client_list:
+        for client in client_list[server_key].items():
+            yield from restore_client(client, server_key)
 
 
 def get_client_list(server_key=CLIENT_LIST_KEY):
     '''
-    Grab the existing client lists, and iterate through them,
-    deleting the empty sessions. We hold onto the server key,
-    as we iterate, if we need to delete them
+    Grab the specific client list, and iterate through it,
+    deleting the empty sessions.
     '''
     for data in redis_client.hgetall(server_key).items():
-        sid = data[0].decode('utf-8')
-        c = _restore_client_data(data[1].decode('utf-8'))
-        if c:
-            client_data = c
-            yield client_data
-        else:
-            remove_client(sid, server_key)
+        yield from restore_client(data, server_key)
 
 
 def add_client(sid, data):
@@ -146,10 +138,10 @@ def is_client(sid):
 
 
 def remove_client(sid, cl_key=CLIENT_LIST_KEY):
-    remove_clients(sid)
+    remove_clients([sid], cl_key)
 
 
-def remove_clients(*sids):
+def remove_clients(sids, cl_key):
     '''
     Handle a list of sids to delete them from both the database and cache.
     :param sids:
@@ -160,7 +152,7 @@ def remove_clients(*sids):
 
     sids = set((str(sid) for sid in sids))
     logger.info('Removing clients for sids: %s', sids)
-    redis_client.hdel(CLIENT_LIST_KEY, *sids)
+    redis_client.hdel(cl_key, *sids)
     try:
         # assuming the sids are unique here
         SocketClient.objects.filter(id__in=sids).delete()
