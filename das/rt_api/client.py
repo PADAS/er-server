@@ -14,7 +14,7 @@ from utils import json
 logger = logging.getLogger(__name__)
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
 
-# intended to be a long lived id, to prevent the
+# Currently using socket id as service id, to prevent the
 # creation of too many service ids on restarts / wsgi
 SERVICE_ID = socket.gethostbyname(socket.gethostname())
 CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
@@ -27,7 +27,7 @@ ClientData = collections.namedtuple('ClientData', FIELDS)
 BBOX_FIELDS = ['west', 'south', 'east', 'north']
 Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
 
-# add the service as a member of a set
+# add the service as a member of services set
 redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
 
 
@@ -75,7 +75,6 @@ def get_all_client_list():
     Grab the existing client lists from all rt services,
     and iterate through them, deleting the empty sessions.
     We hold onto the service key, if we need to delete them
-    TODO Refactor this method and get_client_list - DRY
     '''
     client_list = {}
     for rt_server_key in get_rt_service_list():
@@ -137,13 +136,14 @@ def is_client(sid):
     return redis_client.hexists(CLIENT_LIST_KEY, str(sid))
 
 
-def remove_client(sid, cl_key=CLIENT_LIST_KEY):
-    remove_clients([sid], cl_key)
+def remove_client(sid):
+    remove_clients(sid)
 
 
-def remove_clients(sids, cl_key):
+def remove_clients(*sids):
     '''
     Handle a list of sids to delete them from both the database and cache.
+    Scoped to the current service
     :param sids:
     :return:
     '''
@@ -152,7 +152,7 @@ def remove_clients(sids, cl_key):
 
     sids = set((str(sid) for sid in sids))
     logger.info('Removing clients for sids: %s', sids)
-    redis_client.hdel(cl_key, *sids)
+    redis_client.hdel(CLIENT_LIST_KEY, *sids)
     try:
         # assuming the sids are unique here
         SocketClient.objects.filter(id__in=sids).delete()
@@ -166,4 +166,26 @@ def get_rt_service_list():
     '''
     services = redis_client.smembers(REALTIME_SERVICES_KEY)
     return services
+
+
+def remove_rt_service(service_key):
+    '''
+    Removes service key, and connection list for that key
+    :return:
+    '''
+    redis_client.srem(REALTIME_SERVICES_KEY, service_key)
+    redis_client.delete(service_key)
+
+
+def remove_all_rt_services():
+    '''
+    Removes all service keys, and connection list for those keys. We
+    leave the
+    :return:
+    '''
+    rt_services = redis_client.srem(REALTIME_SERVICES_KEY)
+    for rt_svc in rt_services:
+        remove_rt_service(rt_svc)
+
+
 
