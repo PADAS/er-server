@@ -234,7 +234,7 @@ def create_realtime_handler(sios):
         def emit(message_type, data, user=None):
             # user is the SID if set
             if user and user not in sios.environ:
-                client.remove_client(user)
+                client.remove_client(client.CLIENT_LIST_KEY, user)
                 extra = dict(sid=user)
                 logger.warning(
                     'Tried to send a message to a disconnected client. user=%s',
@@ -249,7 +249,7 @@ def create_realtime_handler(sios):
 
             except Exception as ex:
                 if user:
-                    client.remove_client(user)
+                    client.remove_client(client.CLIENT_LIST_KEY, user)
                 logger.exception("Error emitting event over socket")
 
         @staticmethod
