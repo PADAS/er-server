@@ -11,6 +11,8 @@ from observations.models import SocketClient
 from django.conf import settings
 from utils import json
 
+import atexit
+
 logger = logging.getLogger(__name__)
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
 
@@ -189,4 +191,10 @@ def remove_all_rt_services():
         remove_rt_service(rt_svc)
 
 
+def shutdown_cleanup():
+    remove_rt_service(CLIENT_LIST_KEY)
+
+
+# shutdown hook to clean up service keys
+atexit.register(shutdown_cleanup)
 
