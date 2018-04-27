@@ -257,32 +257,32 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                 # TODO: Handle this better.
                 return Event.objects.none()
 
-        if 'text' in filter:
-            queryset = queryset.by_text_filter(filter['text'])
+        if filter.get('text'):
+            queryset = queryset.by_text_filter(filter.get('text'))
 
         if 'date_range' in filter:
             lower, upper = parse_date_range(filter['date_range'])
             queryset = queryset.by_date_range(lower=lower, upper=upper)
 
-        elif 'duration' in filter:
-            duration = dateparse.parse_duration(filter.get('duration', ''))
+        elif filter.get('duration'):
+            duration = dateparse.parse_duration(filter.get('duration'))
             queryset = queryset.by_duration(duration)
 
-        if 'state' in filter:
+        if filter.get('state'):
             queryset = queryset.filter(state__in=filter.get('state'))
 
-        if 'priority' in filter:
+        if filter.get('priority'):
             queryset = queryset.filter(priority__in=filter.get('priority'))
 
-        if 'event_category' in filter:
+        if filter.get('event_category'):
             queryset = queryset.filter(
                 event_type__category__id__in=filter.get('event_category'))
 
-        if 'event_type' in filter:
+        if filter.get('event_type'):
             queryset = queryset.filter(
                 event_type__id__in=filter.get('event_type'))
 
-        if 'reported_by' in filter:
+        if filter.get('reported_by'):
             queryset = queryset.filter(
                 reported_by_id__in=filter.get('reported_by'))
 
