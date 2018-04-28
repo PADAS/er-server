@@ -249,7 +249,7 @@ def handle_delete_event(event_id):
     _event_handler(event_id, 'delete_event')
 
 
-@celery.app.task()
+@celery.app.task(base=QueueOnce, once={'graceful': True, })
 def handle_new_source_observation(source_id):
     logger.info(
         'Celery worker handling new observation. source_id=%s', source_id)
@@ -258,7 +258,7 @@ def handle_new_source_observation(source_id):
     _observation_handler(subject_source.subject_id)
 
 
-@celery.app.task()
+@celery.app.task(base=QueueOnce, once={'graceful': True, })
 def handle_new_subject_observation(subject_id):
     logger.info(
         'Celery worker handling new observation. subject_id=%s', subject_id)

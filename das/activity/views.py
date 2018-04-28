@@ -462,7 +462,6 @@ class EventsView(generics.ListCreateAPIView):
             try:
                 event_filter = json.loads(event_filter)
                 queryset = queryset.by_event_filter(event_filter)
-                print(queryset.query)
             except json.JSONDecodeError:
                 logger.exception(
                     'Invalid filter expression. filter=%s', event_filter)
