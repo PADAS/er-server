@@ -46,7 +46,7 @@ def _event_handler(event_id, type):
     try:
         logger.debug('Processing type=%s on event=%s', type, event_id)
         event_view = EventView()
-        all_connections = client.get_all_client_list()
+        all_connections = client.get_client_list()
 
         logger.debug('handling event for all_connections=%s', all_connections)
         for sid, session_data in all_connections.items():
@@ -121,7 +121,7 @@ def _broadcast_service_status(service_status_data=None):
     logger.info('Got service status data: %s', service_status_data)
 
     try:
-        all_connections = client.get_all_client_list()
+        all_connections = client.get_client_list()
 
         logger.info('Going to send to these folks: %s', all_connections)
         for sid, session_data in all_connections.items():
@@ -155,7 +155,7 @@ def _observation_handler(subject_id):
         # Curry this getter to re-use the view in the for-loop below.
         get_subject_payload = partial(
             get_subject_view_details, SubjectTracksView.as_view())
-        all_connections = client.get_all_client_list()
+        all_connections = client.get_client_list()
 
         for sid, session_data in all_connections.items():
             try:
