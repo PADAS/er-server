@@ -118,7 +118,6 @@ def _restore_client_data(data):
     bbox = Bbox(**data['bbox']) if data.get('bbox') else None
     return ClientData(sid=data['sid'],
                       username=data['username'],
-                      filter=data['filter'],
                       bbox=bbox)
 
 
