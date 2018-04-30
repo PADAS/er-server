@@ -14,7 +14,6 @@ from rt_api import client
 import rt_api.pubsub_listener
 import utils.json
 
-
 logger = logging.getLogger('rt_api')
 
 GLOBAL_SIO = None
@@ -104,7 +103,7 @@ def create_realtime_handler(sios):
         def on_disconnect(sid, *args):
             extra = dict(sid=sid)
             logger.info('Client disconnect %s', sid, extra=extra)
-            client.remove_client(sid)
+            client.remove_client(client.CLIENT_LIST_KEY, sid)
 
         @sios.on('authorization', namespace='/das')
         def on_authenticate(sid, data):
@@ -235,7 +234,7 @@ def create_realtime_handler(sios):
         def emit(message_type, data, user=None):
             # user is the SID if set
             if user and user not in sios.environ:
-                client.remove_client(user)
+                client.remove_client(client.CLIENT_LIST_KEY, user)
                 extra = dict(sid=user)
                 logger.warning(
                     'Tried to send a message to a disconnected client. user=%s',
@@ -250,7 +249,7 @@ def create_realtime_handler(sios):
 
             except Exception as ex:
                 if user:
-                    client.remove_client(user)
+                    client.remove_client(client.CLIENT_LIST_KEY, user)
                 logger.exception("Error emitting event over socket")
 
         @staticmethod
@@ -270,8 +269,8 @@ def create_realtime_handler(sios):
         @staticmethod
         def cleanup_disconnected_clients():
             """
-            TODO make this manager aware,
-            as this will not work for multiple rt servers running
+            XXX the assumption here is that this method is only called
+            internally by socket.io, so no need to be multi service aware
             """
             if not sios.environ:
                 return
@@ -284,8 +283,8 @@ def create_realtime_handler(sios):
                 logger.info('Cleaning up disconnected user: %s', c.username,
                             extra=extra)
 
-            client.remove_clients(
-                *[client.sid for client in remove_these_clients])
+            client.remove_clients(client.CLIENT_LIST_KEY,
+                                  *[client.sid for client in remove_these_clients])
 
     return RealtimeServices
 

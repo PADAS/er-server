@@ -94,7 +94,7 @@ pyproj==1.9.5.1
 pysocks==1.6.7            # via twilio
 python-dateutil==2.6.1
 python-docx==0.8.6
-python-engineio==2.0.2
+python-engineio==2.0.4
 python-json-logger==0.1.8
 pytz==2017.3
 pyyaml==3.12
