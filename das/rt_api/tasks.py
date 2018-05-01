@@ -25,6 +25,7 @@ from activity.serializers import EventSerializer
 
 from observations.models import SocketClient
 
+redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ def _event_handler(event_id, type):
     try:
         logger.debug('Processing type=%s on event=%s', type, event_id)
         event_view = EventView()
-        all_connections = client.get_client_list()
+        all_connections = redis_client.hgetall(client.CLIENT_LIST_KEY)
 
         logger.debug('handling event for all_connections=%s', all_connections)
         for sid, session_data in all_connections.items():
@@ -64,7 +65,7 @@ def _event_handler(event_id, type):
                 except User.DoesNotExist:
                     logger.warning(
                         'Lookup by username=%s found no user.', username)
-                    client.remove_client(client.CLIENT_LIST_KEY, sid)
+                    client.remove_client(sid)
                     continue
 
                 request = DummyRequest(
@@ -121,7 +122,7 @@ def _broadcast_service_status(service_status_data=None):
     logger.info('Got service status data: %s', service_status_data)
 
     try:
-        all_connections = client.get_client_list()
+        all_connections = redis_client.hgetall(client.CLIENT_LIST_KEY)
 
         logger.info('Going to send to these folks: %s', all_connections)
         for sid, session_data in all_connections.items():
@@ -155,7 +156,7 @@ def _observation_handler(subject_id):
         # Curry this getter to re-use the view in the for-loop below.
         get_subject_payload = partial(
             get_subject_view_details, SubjectTracksView.as_view())
-        all_connections = client.get_client_list()
+        all_connections = redis_client.hgetall(client.CLIENT_LIST_KEY)
 
         for sid, session_data in all_connections.items():
             try:

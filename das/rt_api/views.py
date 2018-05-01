@@ -103,7 +103,7 @@ def create_realtime_handler(sios):
         def on_disconnect(sid, *args):
             extra = dict(sid=sid)
             logger.info('Client disconnect %s', sid, extra=extra)
-            client.remove_client(client.CLIENT_LIST_KEY, sid)
+            client.remove_client(sid)
 
         @sios.on('authorization', namespace='/das')
         def on_authenticate(sid, data):
@@ -234,7 +234,7 @@ def create_realtime_handler(sios):
         def emit(message_type, data, user=None):
             # user is the SID if set
             if user and user not in sios.environ:
-                client.remove_client(client.CLIENT_LIST_KEY, user)
+                client.remove_client(user)
                 extra = dict(sid=user)
                 logger.warning(
                     'Tried to send a message to a disconnected client. user=%s',
@@ -249,7 +249,7 @@ def create_realtime_handler(sios):
 
             except Exception as ex:
                 if user:
-                    client.remove_client(client.CLIENT_LIST_KEY, user)
+                    client.remove_client(user)
                 logger.exception("Error emitting event over socket")
 
         @staticmethod
@@ -283,7 +283,7 @@ def create_realtime_handler(sios):
                 logger.info('Cleaning up disconnected user: %s', c.username,
                             extra=extra)
 
-            client.remove_clients(client.CLIENT_LIST_KEY,
+            client.remove_clients(
                                   *[client.sid for client in remove_these_clients])
 
     return RealtimeServices
