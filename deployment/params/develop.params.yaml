@@ -2,9 +2,10 @@ static-values:
   email-host: ""
   email-username: ""
   web-service-name: "web"
-environment:
-  static-ip: STATIC_IP
+  static-ip: ""
+  iaas-workspace: myResourceGroup
 vault-lookups:
   email-password: padas-app/main/email-password
   bundle-crt: padas-app/main/bundle-crt
   pamdas-org-private-key-pem: padas-app/main/pamdas-org-private-key-pem
+  azure-subscription-id: ss-infrastructure/main/ss-integration-tests-azure-subscription-id
