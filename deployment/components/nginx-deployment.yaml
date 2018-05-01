@@ -15,7 +15,7 @@ spec:
         name: das-nginx
         resources:
           requests:
-            cpu: "75m"
+            cpu: "15m"
         ports:
         - containerPort: 443
         - containerPort: 8000

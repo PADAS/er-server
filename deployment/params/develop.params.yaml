@@ -2,6 +2,10 @@ static-values:
   email-host: ""
   email-username: ""
   web-service-name: "web"
+  nginx-service-ip: ""
+  nginx-utility-service-ip: ""
+  alerts-slack-channel: "vcloud-demo-alerts"
+  send-alerts: "true"
 environment:
   static-ip: STATIC_IP
 vault-lookups:
