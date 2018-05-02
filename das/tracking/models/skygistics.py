@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, time
+import pickle
 import copy
 import urllib.parse
 import io
@@ -9,13 +10,11 @@ from typing import NamedTuple, Iterator, Type
 import xml.etree.ElementTree as etree
 from dateutil.parser import parse as parse_date
 import pytz
-
-
 import requests
-
 from django.utils import timezone
 from django.contrib.gis.db import models
 from django.contrib.contenttypes.models import ContentType
+from django.core.cache import cache
 
 from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
 from tracking.models import SourcePlugin
@@ -31,6 +30,9 @@ SKYGISTICS_PLUGIN_DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 
 SKYGISTICS_API_XMLNS = '{http://www.skygistics.com/SkygisticsAPI}'
 SKYGISTICS_API_ENDPOINT = '/SkygisticsAPI/SkygisticsAPI.asmx'
+
+SKYGISTICS_DEFAULT_UNIT_DATETIME = datetime(
+    year=1970, month=1, day=1, tzinfo=pytz.UTC)
 
 
 def _qualify(s):
@@ -105,6 +107,7 @@ class Unit(NamedTuple):
     name: str
     time: datetime
     status: str
+    status_code: int
     speed: float
     voltage: int
     temperature: str
@@ -230,24 +233,42 @@ class SkygisticsQ3Client(SkygisticsClient):
 
             try:
                 imei = strArray2[18]
-                unit = Unit(
-                    name=strArray2[0],
-                    time=str2date(strArray2[1]),
-                    status=strArray2[2],
-                    speed=round(float(strArray2[3])),
-                    voltage=int(strArray2[4]),
-                    temperature=strArray2[5],
-                    user=strArray2[7],
-                    mobid=strArray2[11],
-                    longitude=strArray2[12],
-                    latitude=strArray2[13],
-                    lmtime=datetime.utcfromtimestamp(int(strArray2[15])),
-                    imei=strArray2[18],
-                    regno=strArray2[26]
-                )
+                name = strArray2[0]
+                time = str2date(strArray2[1]) if strArray2[1] else None
+                status = strArray2[2]
+                mobid = strArray2[11]
+                status_code = int(strArray2[24]) if len(
+                    strArray2[24]) > 0 else 0
+                if time is not None:
+                    unit = Unit(
+                        name=name,
+                        time=time,
+                        status=status,
+                        mobid=mobid,
+                        speed=round(float(strArray2[3])),
+                        voltage=int(strArray2[4]),
+                        temperature=strArray2[5],
+                        user=strArray2[7],
+                        longitude=strArray2[12],
+                        latitude=strArray2[13],
+                        lmtime=datetime.utcfromtimestamp(int(strArray2[15])),
+                        imei=imei,
+                        regno=strArray2[26],
+                        status_code=status_code
+                    )
+                else:
+                    unit = Unit(name=name, time=time, status=status, imei=imei,
+                                mobid=mobid, longitude=None, latitude=None, lmtime=None,
+                                regno=None,
+                                speed=None, voltage=None, temperature=None,
+                                user=None,
+                                status_code=status_code)
             except ValueError:
                 self.logger.info(
-                    'Invalid unit info for {imei}'.format(imei=imei))
+                    'Invalid unit info for {imei}, data={data}'.format(
+                        imei=imei,
+                        data=strArray2
+                    ))
                 continue
 
             yield unit
@@ -388,7 +409,7 @@ class SkygisticsQ3Client(SkygisticsClient):
 
         try:
             response = requests.post(
-                url, data=envelope, headers=headers, timeout=5.0)
+                url, data=envelope, headers=headers, timeout=(30, 60))
             if response.status_code != 200:
                 fault = self._get_fault(response.text)
                 raise DasPluginFetchError('{code} response for url {url}, {fault}'.format(
@@ -536,6 +557,23 @@ class SkygisticsQ3Client(SkygisticsClient):
         return replay_result.count
 
     def get_unit_list(self, lmtime='0'):
+        timeout = 600  # seconds
+        version = 1
+        key = '{classname}-get_unit_list-{lmtime}-{company}-{username}'.format(
+            classname=self.__class__.__name__,
+            lmtime=str(lmtime), company=str(self.company.company_id),
+            username=self.username)
+
+        unit_list = None
+        unit_list_raw = cache.get(key, version=version)
+        if unit_list_raw:
+            unit_list = pickle.loads(unit_list_raw)
+        if not unit_list or not isinstance(unit_list, list):
+            unit_list = self._uncached_get_unit_list(lmtime=lmtime)
+            cache.set(key, pickle.dumps(unit_list), timeout)
+        return unit_list
+
+    def _uncached_get_unit_list(self, lmtime):
         """
         company
         timezone
@@ -562,9 +600,17 @@ class SkygisticsQ3Client(SkygisticsClient):
     def begin_session(self):
         self.login()
 
+    def is_unit_active(self, unit):
+        return unit.status_code > 0
+
     def fetch_observations(self, imei, start_date, end_date=None):
         for unit in self.get_unit_list():
             if unit.imei == imei:
+                if not self.is_unit_active(unit):
+                    self.logger('Unit {imei} is not active, status_code {status_code}'.format(
+                        imei=unit.imei, status_code=unit.status_code))
+                    return
+
                 for replay in self.get_replay_data(unit,
                                                    start_date=start_date,
                                                    end_date=end_date):
@@ -572,7 +618,7 @@ class SkygisticsQ3Client(SkygisticsClient):
 
                 return
 
-        raise KeyError('IMEI {0} not found'.format(imei))
+        raise KeyError('IMEI {imei} not found'.format(imei=imei))
 
 
 class SkygisticsQ1Client(SkygisticsClient):
@@ -833,6 +879,11 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
         end_time = datetime.now(tz=pytz.utc)
 
         observation = None
+        params = dict(imei=source.manufacturer_id, start=st, stop=end_time)
+        self.logger.info('Fetching observations for {imei} {start} - {stop}'.format(
+            **params
+        ), extra=params)
+
         for unit_info in client.fetch_observations(imei=source.manufacturer_id,
                                                    start_date=st,
                                                    end_date=end_time):
@@ -896,17 +947,19 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
 
         client.begin_session()
 
-        try:
-            unitlist = client.get_unit_list()
-
-            for unit in unitlist:
+        unitlist = client.get_unit_list()
+        for unit in unitlist:
+            try:
                 src = ensure_source('tracking-device', unit.imei)
                 ensure_source_plugin(src, self)
                 ts = unit.time
+                if not ts:
+                    ts = SKYGISTICS_DEFAULT_UNIT_DATETIME
                 ensure_subject_source(src, ts, unit.name)
-        except Exception as e:
-            self.logger.exception('Error in syncing unit info')
-            raise
+            except Exception as e:
+                self.logger.exception(
+                    'Error in syncing unit info {unit}'.format(unit=unit))
+                raise
 
 
 # Helper functions for hydrating Source and Subject for the given message.
