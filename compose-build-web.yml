@@ -16,28 +16,12 @@ version: "3.2"
 #
 services:
 
-  web-base:
-    build:
-      context: $PWD/../das-web/
-      dockerfile: docker/build/base/Dockerfile
-
-  web-depends:
-    build:
-      context: $PWD/../das-web/
-      dockerfile: docker/build/depends/Dockerfile
-    depends_on:
-      - web-base
-
   web:
-    env_file: ../das-web/.env
+    env_file: $PWD/../das-web/.env
     ports:
       - 9000:9000
     build:
       context: $PWD/../das-web/
-      dockerfile: docker/develop/Dockerfile
-    depends_on:
-      - web-depends
-    volumes:
-      - ../das-web:/var/www/app
-
-
+      dockerfile: docker/Dockerfile-develop
+#    volumes:
+#      - $PWD/../das-web:/var/www/app
