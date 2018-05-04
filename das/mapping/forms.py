@@ -26,8 +26,7 @@ class MapCenterForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.starting_center = self.initial.get('center', None)
         if not isinstance(self.starting_center, Point):
-            self.data['center'] = Point(0, 0)
-            self.starting_center = self.data['center']
+            self.starting_center = Point(0, 0)
 
         if 'longitude' not in self.initial:
             self.initial['longitude'], self.initial['latitude'] = self.starting_center.tuple
