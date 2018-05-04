@@ -18,6 +18,7 @@ from django.utils.encoding import force_text, get_system_encoding
 from django.db import close_old_connections
 
 from rt_api.views import create_rt_socketio
+import rt_api.client as client
 
 
 logger = logging.getLogger('rt_api')
@@ -60,6 +61,8 @@ class Command(RunCommand):
         })
 
         close_old_connections()
+
+        client.init_redis_storage()
 
         try:
             sio = create_rt_socketio()
