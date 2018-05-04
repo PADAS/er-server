@@ -28,8 +28,6 @@ SERVICE_ID = str(get_ip_address())
 CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
 REALTIME_SERVICES_KEY = 'rt_api.services'
 
-# add the service as a member of services set
-redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
 
 FIELDS = ['username', 'sid', 'bbox']
 ClientData = collections.namedtuple('ClientData', FIELDS)
@@ -37,6 +35,13 @@ ClientData = collections.namedtuple('ClientData', FIELDS)
 # bbox, where bbox is the (west, south, east, north) lon,lat pairs.
 BBOX_FIELDS = ['west', 'south', 'east', 'north']
 Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
+
+
+def init_redis_storage():
+    # first, remove existing key to remove stale clients
+    redis_client.delete(CLIENT_LIST_KEY)
+    # add the service as a member of services set
+    redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
 
 
 def now(tz=pytz.utc):
@@ -70,11 +75,12 @@ def update_client(sid, bbox=None, event_filter=None):
 
 
 def get_all_connections():
-    all_conns = []
+    all_conns = {}
     for rt_server_key in get_rt_service_list():
         data = redis_client.hgetall(rt_server_key)
+        logger.info('Retrieved client connections. service_id=%s, data=%s', rt_server_key, data)
         if data:
-            all_conns.append(data)
+            all_conns.update(data)
     return all_conns
 
 
