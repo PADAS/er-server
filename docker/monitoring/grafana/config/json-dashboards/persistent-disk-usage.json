@@ -55,7 +55,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "1 - node_filesystem_free{mountpoint=\"/var/lib/postgresql/data\"} / node_filesystem_size{mountpoint=\"/data/db\"}",
+              "expr": "1 - node_filesystem_free{mountpoint=\"/var/lib/postgresql/data\"} / node_filesystem_size{mountpoint=\"/var/lib/postgresql/data\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{kubernetes_pod_name}}",

@@ -3,6 +3,8 @@ import collections
 import redis
 import datetime
 import pytz
+import socket
+import atexit
 
 from django.contrib.gis.geos import Polygon, MultiPolygon
 from observations.models import SocketClient
@@ -12,7 +14,20 @@ from utils import json
 
 logger = logging.getLogger(__name__)
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
-CLIENT_LIST_KEY = 'realtime_connections'
+
+
+# looks like socket.gethostname is not viable on all python distros,
+# so we make a connection to a private address, and get the host ip
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    return s.getsockname()[0]
+
+
+SERVICE_ID = str(get_ip_address())
+CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
+REALTIME_SERVICES_KEY = 'rt_api.services'
+
 
 FIELDS = ['username', 'sid', 'bbox']
 ClientData = collections.namedtuple('ClientData', FIELDS)
@@ -20,6 +35,13 @@ ClientData = collections.namedtuple('ClientData', FIELDS)
 # bbox, where bbox is the (west, south, east, north) lon,lat pairs.
 BBOX_FIELDS = ['west', 'south', 'east', 'north']
 Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
+
+
+def init_redis_storage():
+    # first, remove existing key to remove stale clients
+    redis_client.delete(CLIENT_LIST_KEY)
+    # add the service as a member of services set
+    redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
 
 
 def now(tz=pytz.utc):
@@ -50,6 +72,16 @@ def update_client(sid, bbox=None, event_filter=None):
             update_values['username'] = client_data.username
             socket_client, created = SocketClient.objects.update_or_create(
                 id=sid, defaults=update_values)
+
+
+def get_all_connections():
+    all_conns = {}
+    for rt_server_key in get_rt_service_list():
+        data = redis_client.hgetall(rt_server_key)
+        logger.info('Retrieved client connections. service_id=%s, data=%s', rt_server_key, data)
+        if data:
+            all_conns.update(data)
+    return all_conns
 
 
 def get_client_list():
@@ -123,3 +155,39 @@ def remove_clients(*sids):
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
         logger.exception('Failed to remove SocketClients for sids: %s', sids)
+
+
+def get_rt_service_list():
+    '''
+    :return: List of realtime services that have registered with redis.
+    '''
+    services = redis_client.smembers(REALTIME_SERVICES_KEY)
+    return services
+
+
+def remove_rt_service(service_key):
+    '''
+    Removes service key, and connection list for that key
+    :return:
+    '''
+    redis_client.srem(REALTIME_SERVICES_KEY, service_key)
+    redis_client.delete(service_key)
+
+
+def remove_all_rt_services():
+    '''
+    Removes all service keys, and connection list for those keys. We
+    leave the
+    :return:
+    '''
+    rt_services = redis_client.srem(REALTIME_SERVICES_KEY)
+    for rt_svc in rt_services:
+        remove_rt_service(rt_svc)
+
+
+def shutdown_cleanup():
+    remove_rt_service(CLIENT_LIST_KEY)
+
+
+# shutdown hook to clean up service keys on service exit
+atexit.register(shutdown_cleanup)
