@@ -88,7 +88,7 @@ def get_event_search_schema():
     properties['event_type']['items']['enum'] = [
         castIdToString(i) for i in event_types]
 
-    event_categories = EventCategory.objects.all().values('id', 'display')
+    event_categories = EventCategory.objects.all().values('id', 'display', 'value')
     properties['event_category']['items']['enum'] = [
         castIdToString(i) for i in event_categories]
 
