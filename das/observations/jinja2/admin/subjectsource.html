@@ -1,0 +1,7 @@
+{% for item in subjectsources %}
+<div border="1px solid gray;">
+    <p><strong>Manufacturer ID: </strong>{{ item.manufacturer_id }}</p>
+    <p><strong>FROM: {{ item.assigned_range.lower.strftime('%Y-%m-%dT%H:%M:%SZ') }}</strong></p>
+    <p><strong>TO: {{ item.assigned_range.upper.strftime('%Y-%m-%dT%H:%M:%SZ') }}</strong></p>
+</div>
+{% endfor %}

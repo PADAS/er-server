@@ -1,13 +1,64 @@
+import random
+from datetime import datetime
+
 from django.contrib import admin
 from django import forms
 from django.utils.translation import ugettext_lazy as _
-from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.contrib.admin.widgets import FilteredSelectMultiple, AdminSplitDateTime
+from django.contrib.postgres.forms import RangeWidget
+from django.db.models import F
 
 import observations.models as models
 import observations.forms
 from observations.forms import SubjectForm
 from core.admin import HierarchyModelAdmin
 from utils.html import make_html_list
+
+from django.contrib.postgres import fields
+from django_json_widget.widgets import JSONEditorWidget
+
+
+from django.template.loader import render_to_string
+from django.utils.html import format_html
+
+
+def assign_random_color(modeladmin, request, queryset):
+    for item in queryset:
+        if hasattr(item, 'additional') and not item.additional.get('rgb'):
+            item.additional['rgb'] = ','.join(
+                [str(random.randint(0, 255)) for i in range(3)])
+            item.save()
+
+
+assign_random_color.short_description = 'Assign random color'
+
+admin.site.site_header = 'DAS Administration'
+admin.site.site_title = 'DAS Administration'
+
+
+class SubjectSourceInline(admin.StackedInline):
+    model = models.SubjectSource
+    max_num = 1
+    can_delete = False
+    verbose_name = 'Source Assignment'
+    verbose_name_plural = 'Source Assignment'
+
+    fieldsets = (
+        (None, {
+            'fields': (('subject', 'source',),)
+        }
+        ),
+        (None, {
+            'classes': ('wide',),
+            'fields': ('assigned_range',)
+        }
+        ),
+        (None, {
+            'classes': ('wide',),
+            'fields': ('additional',)
+        }
+        )
+    )
 
 
 @admin.register(models.Subject)
@@ -16,13 +67,27 @@ class SubjectAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_type', 'subject_subtype',
                     'is_active', 'additional', 'all_groups', 'all_sources')
 
-    search_fields = ('name', 'subject_subtype', 'common_name__display')
+    search_fields = ('name', 'subject_subtype', 'common_name__display',
+                     'subjectsource__source__manufacturer_id')
 
-    fields = ('id', 'name', 'common_name', 'additional',
-              'groups', SubjectForm.SUBTYPE_FIELD)
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': (('id', 'name', SubjectForm.SUBTYPE_FIELD, 'common_name',
+                        'additional', 'groups',))
+        }
+        ),
+    )
     list_filter = ('is_active', 'subject_type',
                    'subject_subtype', 'common_name')
-    list_editable = ('is_active',)
+    list_editable = ('subject_type', 'subject_subtype',
+                     'additional', 'is_active',)
+    readonly_fields = ('id',)
+    list_per_page = 25
+    ordering = ('name',)
+    actions = [assign_random_color]
+
+    inlines = [SubjectSourceInline, ]
 
     def queryset(self, request):
         """Limit Subjects to those this person can administer"""
@@ -61,11 +126,12 @@ class SubjectAdmin(admin.ModelAdmin):
     def all_sources(self, instance):
         subjectsources = models.SubjectSource \
             .objects \
-            .filter(subject_id=instance.pk) \
+            .filter(subject_id=instance.pk).annotate(manufacturer_id=F('source__manufacturer_id')) \
             .order_by('-assigned_range')
 
-        return make_html_list(sorted('{} {}'.format(
-            str(ss.assigned_range.upper), str(ss.source_id)) for ss in subjectsources))
+        content = render_to_string(
+            'admin/subjectsource.html', {'subjectsources': list(subjectsources.values())})
+        return format_html(content)
 
     all_sources.short_description = 'Sources'
     all_sources.allow_tags = True
@@ -109,9 +175,50 @@ class SourceAdmin(admin.ModelAdmin):
 
 @admin.register(models.SubjectSource)
 class SubjectSourceAdmin(admin.ModelAdmin):
+    list_display = ('subject_name', 'manufacturer_id',
+                    'display_assigned_range')
     list_filter = ('subject__subject_subtype', 'source__source_type')
     search_fields = ('source__manufacturer_id', 'subject__name')
-    pass
+    readonly_fields = ('id',)
+
+    def subject_name(self, o):
+        return o.subject.name
+
+    def manufacturer_id(self, o):
+        return o.source.manufacturer_id
+
+    def display_assigned_range(self, o):
+
+        d1, d2 = o.assigned_range.lower, o.assigned_range.upper
+        if d1.year >= 9999:
+            d1 = '-'
+        if d2.year >= 9999:
+            d2 = '-'
+
+        return d1, d2
+
+    # formfield_overrides = {
+    #     models.DateTimeRangeField : {
+    #         'widget': RangeWidget(AdminSplitDateTime)
+    #     }
+    # }
+
+    fieldsets = (
+        (None, {
+            'fields': (('subject', 'source'),)
+        }
+        ),
+        ('Assigned Range', {
+            'classes': ('wide',),
+            'fields': ('assigned_range',)
+        }
+        ),
+        ('Advanced', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('additional',)
+        }
+        )
+    )
 
 
 @admin.register(models.Region)

@@ -6,7 +6,23 @@ import analyzers.models as models
 
 @admin.register(models.ObservationAnnotator)
 class ObservationAnnotatorAdmin(admin.ModelAdmin):
-    pass
+
+    list_display = ('subject_name', 'max_speed',
+                    'subject_type', 'subject_subtype')
+    list_editable = ('max_speed',)
+    search_fields = ('subject_name',)
+    list_filter = ('max_speed', 'subject__subject_type',
+                   'subject__subject_subtype',)
+    ordering = ('subject__name', )
+
+    def subject_name(self, o):
+        return o.subject.name
+
+    def subject_type(self, o):
+        return o.subject.subject_type
+
+    def subject_subtype(self, o):
+        return o.subject.subject_subtype
 
 
 @admin.register(models.ImmobilityAnalyzerConfig)
@@ -77,4 +93,3 @@ class SubjectSpeedProfileAdmin(admin.ModelAdmin):
 @admin.register(models.SpeedDistro)
 class SpeedDistroAdmin(admin.ModelAdmin):
     pass
-

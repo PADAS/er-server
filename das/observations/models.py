@@ -214,7 +214,7 @@ class Source(TimestampedModel):
         unique_together = ('provider', 'manufacturer_id')
 
     def __str__(self):
-        return '%s:%s' % (self.manufacturer_id, self.model_name)
+        return '%s:%s' % (self.provider.provider_key, self.manufacturer_id)
 
     def observations(self):
         queryset = Observation.objects.filter(source=self)
@@ -419,8 +419,9 @@ class SubjectSource(models.Model):
     objects = SubjectSourceManager()
 
     def __str__(self):
-        return '%s, %s %s-%s' % (self.subject.name, self.source.model_name,
-                                 self.assigned_range.lower, self.assigned_range.upper)
+        fmt = '%Y-%m-%d'
+        return '%s [%s] %s-%s' % (self.subject.name, self.source.manufacturer_id,
+                                  self.assigned_range.lower.strftime(fmt), self.assigned_range.upper.strftime(fmt))
 
 
 class SubjectTrackSegmentFilterManager(models.Manager):
