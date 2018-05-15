@@ -21,9 +21,6 @@ class ObservationAnnotatorAdmin(admin.ModelAdmin):
     def subject_type(self, o):
         return o.subject.subject_type.value
 
-    def subject_subtype(self, o):
-        return o.subject.subject_type.category.value
-
 
 @admin.register(models.ImmobilityAnalyzerConfig)
 class ImmobilityAnalyzerAdmin(admin.ModelAdmin):

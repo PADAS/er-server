@@ -364,7 +364,7 @@ class SubjectSourceManager(models.Manager):
 
         return subject_source
 
-    def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None,
+    def ensure_subject_source(self, source, timestamp=None, subject_type=None,
                               additional=None, subject_name=None):
 
         # TODO: Deprecate the use of this function, in favor of the ensure().
@@ -385,7 +385,7 @@ class SubjectSourceManager(models.Manager):
         if not subject_source:
 
             sub, created = Subject.objects.get_or_create(
-                subject_type=subject_type, subject_subtype=subject_subtype,
+                subject_type=subject_type,
                 name=(subject_name or source.manufacturer_id),
                 defaults=dict(additional=dict(
                     region='', country='', rgb=random_rgb()))
@@ -431,7 +431,7 @@ class SubjectTrackSegmentFilterManager(models.Manager):
 class SubjectTrackSegmentFilter(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     # TODO Should reference SubjectSubTypes model if it gets created...
-    subject_subtype = models.TextField(default="elephant")
+    subject_type = models.ForeignKey('SubjectType', on_delete=models.PROTECT)
     speed_KmHr = models.FloatField(default=7.0)
     additional = JSONField(default={})
     objects = SubjectTrackSegmentFilterManager()
@@ -656,10 +656,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='subjects', related_query_name='subject')
 
-    # old_subject_type = models.CharField(
-    #     'old_subject type',db_column='old_subject_type', max_length=100, default='elephant', choices=(('wildlife', 'W'),('person', 'P')))
-    # old_subject_subtype = models.CharField(db_column='old_subject_subtype', max_length=100, default='unassigned',
-    #                                    choices=(('unassigned', 'Un'),))
     additional = JSONField('additional data', default={})
     is_active = models.BooleanField(
         _('active'),
@@ -753,7 +749,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def default_trajectory_filter(self):
         # Get trajectory filter based on subject. Might not exist.
         try:
-            return SubjectTrackSegmentFilter.objects.filter(subject_subtype=self.subject_type.value).first()
+            return SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject_type.value).first()
         except SubjectTrackSegmentFilter.DoesNotExist:
             pass
 
@@ -851,6 +847,13 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
 
 OBSERVATION_DELAY_HRS = 72
+
+# class SubjectFacade(Subject):
+#
+#     class Meta:
+#         proxy = True
+#
+#     color = models.CharField(verbose_name='Subject Color')
 
 
 class SubjectStatusQuerySet(models.QuerySet):

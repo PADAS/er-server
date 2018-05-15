@@ -175,7 +175,6 @@ class SirtrackPlugin(TrackingPlugin):
     service_api = models.CharField(max_length=50,
                                    help_text='The API endpoint for SirTrack data.')
 
-    DEFAULT_SUBJECT_TYPE = 'wildlife'
     DEFAULT_SUBJECT_SUBTYPE = 'cheetah'
     DEFAULT_SOURCE_TYPE = 'tracking-device'
     DEFAULT_MODEL_NAME = 'Lotek'
@@ -200,8 +199,6 @@ class SirtrackPlugin(TrackingPlugin):
 
         # If these are indicated in the 'additional' blob, the use them.
         defaults = self.additional.get('defaults', {})
-        default_subject_type = defaults.get(
-            'subject_type', self.DEFAULT_SUBJECT_TYPE)
         default_subject_subtype = defaults.get(
             'subject_subtype', self.DEFAULT_SUBJECT_SUBTYPE)
         default_source_type = defaults.get(
@@ -242,8 +239,7 @@ class SirtrackPlugin(TrackingPlugin):
                                                               manufacturer_id=manufacturer_id,
                                                               model_name=default_model_name,
                                                               subject={
-                                                                  'subject_type': default_subject_type,
-                                                                  'subject_subtype': default_subject_subtype,
+                                                                  'subject_type': default_subject_subtype,
                                                                   'name': fix.get('tag_name') or manufacturer_id
                                                               }
                                                               )

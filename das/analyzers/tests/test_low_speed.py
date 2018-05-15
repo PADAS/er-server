@@ -200,7 +200,7 @@ class TestLowSpeedAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Heritage', subject_type='wildlife', subject_subtype='elephant')
+            name='Heritage', subject_type='elephant')
 
         source = Source.objects.create(manufacturer_id='007')
 
@@ -208,7 +208,8 @@ class TestLowSpeedAnalyzer(TestCase):
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
-        SubjectTrackSegmentFilter.objects.create(subject_subtype='elephant', speed_KmHr=7.0)
+        SubjectTrackSegmentFilter.objects.create(
+            subject_type='elephant', speed_KmHr=7.0)
 
         sg = SubjectGroup.objects.create(
             name='low_speed_subject_analyzer_group', )
@@ -218,7 +219,8 @@ class TestLowSpeedAnalyzer(TestCase):
         # Decide the percentile value to use for the algorithm
         percentile = 0.25
 
-        # Create the Low-Speed Analyzer Config object with a high value of speed to make sure we trigger the event
+        # Create the Low-Speed Analyzer Config object with a high value of
+        # speed to make sure we trigger the event
         LowSpeedPercentileAnalyzerConfig.objects.create(subject_group=sg,
                                                         low_threshold_percentile=percentile,
                                                         default_low_speed_value=1.0)
@@ -234,7 +236,8 @@ class TestLowSpeedAnalyzer(TestCase):
         distro = SpeedDistro.objects.create(subject_speed_profile=sp)
 
         # Update percentile value based on data when Heritage was moving Ok
-        distro.update_percentiles([percentile], end=pytz.utc.localize(dt.datetime.utcnow()) - dt.timedelta(days=30))
+        distro.update_percentiles([percentile], end=pytz.utc.localize(
+            dt.datetime.utcnow()) - dt.timedelta(days=30))
         speed_val = distro.percentiles[percentile]
         logger.info('PercentileSpeedVal: %s' % str(speed_val))
         self.assertTrue(speed_val > 0.0)
@@ -259,7 +262,7 @@ class TestLowSpeedAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Heritage', subject_type='wildlife', subject_subtype='elephant')
+            name='Heritage', subject_type='wildlife', subject_type='elephant')
 
         source = Source.objects.create(manufacturer_id='006')
 
@@ -267,7 +270,8 @@ class TestLowSpeedAnalyzer(TestCase):
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
-        SubjectTrackSegmentFilter.objects.create(subject_subtype='elephant', speed_KmHr=7.0)
+        SubjectTrackSegmentFilter.objects.create(
+            subject_type='elephant', speed_KmHr=7.0)
 
         sg = SubjectGroup.objects.create(
             name='low_speed_subject_analyzer_group', )
@@ -284,7 +288,8 @@ class TestLowSpeedAnalyzer(TestCase):
             Observation.objects.create(
                 recorded_at=recorded_at, location=location, source=source, additional={})
 
-        # Create the Low-Speed Analyzer Config object with a high value of speed to make sure we trigger the event
+        # Create the Low-Speed Analyzer Config object with a high value of
+        # speed to make sure we trigger the event
         LowSpeedWilcoxAnalyzerConfig.objects.create(subject_group=sg)
 
         # Run the analyzer
@@ -302,6 +307,3 @@ class TestLowSpeedAnalyzer(TestCase):
         for e in Event.objects.all():
             for ed in e.event_details.all():
                 print('Event Details: %s' % ed.data)
-
-
-

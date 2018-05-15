@@ -55,7 +55,6 @@ class GenericSensorHandler():
         except:
             location = None
 
-        subject_type = params.get('subject_type', cls.DEFAULT_SUBJECT_TYPE)
         subject_subtype = params.get(
             'subject_subtype', cls.DEFAULT_SUBJECT_SUBTYPE)
         source_type = params.get('source_type', cls.DEFAULT_SOURCE_TYPE)
@@ -69,8 +68,7 @@ class GenericSensorHandler():
                                            manufacturer_id=manufacturer_id,
                                            model_name=model_name,
                                            subject={
-                                               'subject_type': subject_type,
-                                               'subject_subtype': subject_subtype,
+                                               'subject_type': subject_subtype,
                                                'name': subject_name
                                            }
                                            )
@@ -104,7 +102,6 @@ class DasRadioAgentHandler():
     '''
     SENSOR_TYPE = 'dasradioagent'
     SOURCE_TYPE = 'gps-radio'
-    DEFAULT_SUBJECT_TYPE = 'person'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
 
     @staticmethod
@@ -162,8 +159,7 @@ class DasRadioAgentHandler():
                                            manufacturer_id=manufacturer_id,
                                            model_name=model_name,
                                            subject={
-                                               'subject_type': cls.DEFAULT_SUBJECT_TYPE,
-                                               'subject_subtype': cls.DEFAULT_SUBJECT_SUBTYPE,
+                                               'subject_type': cls.DEFAULT_SUBJECT_SUBTYPE,
                                                'name': manufacturer_id
                                            }
                                            )
@@ -198,7 +194,6 @@ class DasRadioAgentHandler():
 class GsatHandler():
     SENSOR_TYPE = 'gsat'
     SOURCE_TYPE = 'gps-radio'
-    DEFAULT_SUBJECT_TYPE = 'person'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
 
     @staticmethod
@@ -298,8 +293,7 @@ class GsatHandler():
         if created:
             ss, created = SubjectSource.objects.ensure_subject_source(src,
                                                                       timestamp=obj['recorded_at'],
-                                                                      subject_type=cls.DEFAULT_SUBJECT_TYPE,
-                                                                      subject_subtype=cls.DEFAULT_SUBJECT_SUBTYPE
+                                                                      subject_type=cls.DEFAULT_SUBJECT_SUBTYPE
                                                                       )
 
         obj['additional'] = dict((k, obj[k]) for k in obj if k not in (

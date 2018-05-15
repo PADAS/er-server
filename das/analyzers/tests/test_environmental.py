@@ -29,8 +29,8 @@ class TestEnvironmentAnalyzer(TestCase):
     def test_environmental_analyzer(self):
 
         # Create models (Subject, SubjectSource and Source)
-        sub = models.Subject.objects.create_subject(name='RandomWalkElephant', subject_type='wildlife',
-                                                    subject_subtype='elephant')
+        sub = models.Subject.objects.create_subject(
+            name='RandomWalkElephant', subject_type='elephant')
 
         source = models.Source.objects.create(manufacturer_id='random-collar')
 
@@ -39,7 +39,7 @@ class TestEnvironmentAnalyzer(TestCase):
 
         # Create a SubjectTrackSegmentFilter
         models.SubjectTrackSegmentFilter.objects.create(
-            subject_subtype='elephant', speed_KmHr=7.0)
+            subject_type='elephant', speed_KmHr=7.0)
 
         sg = models.SubjectGroup.objects.create(
             name='environmental_analyzer_group',)

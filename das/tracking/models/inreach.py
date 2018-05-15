@@ -275,7 +275,7 @@ def ensure_subject_source(source, event_time, subject_name=None):
             source.manufacturer_id)
 
         sub, created = Subject.objects.get_or_create(
-            subject_type='person', subject_subtype='ranger',
+            subject_type='ranger',
             name=subject_name,
             defaults=dict(additional=dict(region='', country='', ))
         )
