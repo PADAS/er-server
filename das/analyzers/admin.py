@@ -7,22 +7,22 @@ import analyzers.models as models
 @admin.register(models.ObservationAnnotator)
 class ObservationAnnotatorAdmin(admin.ModelAdmin):
 
-    list_display = ('subject_name', 'max_speed',
-                    'subject_type', 'subject_subtype')
+    list_display = ('subject_name', 'max_speed', 'subject_type',)
     list_editable = ('max_speed',)
     search_fields = ('subject_name',)
-    list_filter = ('max_speed', 'subject__subject_type',
-                   'subject__subject_subtype',)
+    list_filter = ('max_speed', 'subject__subject_type__display',
+                   'subject__subject_type__category__display',)
     ordering = ('subject__name', )
+    readonly_fields = ('id',)
 
     def subject_name(self, o):
         return o.subject.name
 
     def subject_type(self, o):
-        return o.subject.subject_type
+        return o.subject.subject_type.value
 
     def subject_subtype(self, o):
-        return o.subject.subject_subtype
+        return o.subject.subject_type.category.value
 
 
 @admin.register(models.ImmobilityAnalyzerConfig)

@@ -1,8 +1,30 @@
 from django import forms
+from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.utils.translation import ugettext_lazy as _
 
-from observations.models import Subject, SubjectGroup
+from observations.models import Subject, SubjectGroup, SubjectSource
+
+import logging
+logger = logging.getLogger(__name__)
+
+# class LoggingMixin(object):
+#     def full_clean(self):
+#         super(LoggingMixin, self).full_clean()
+#         for field, errors in self.errors.items():
+#             logger.info('Form error in %s: %s', ', '.join(errors))
+
+
+class SubjectSourceForm(forms.ModelForm):
+    def full_clean(self):
+        super().full_clean()
+
+    def clean(self):
+        super().clean()
+
+    class Meta:
+        model = SubjectSource
+        fields = ('id', 'subject', 'source', 'assigned_range', 'additional')
 
 
 class SubjectForm(forms.ModelForm):
@@ -21,16 +43,6 @@ class SubjectForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.fields['groups'].initial = self.instance.groups.all()
 
-    # From the type/sub-type hierarchy above, build a Django form choice
-    # definition.
-    TYPE_SUBTYPE_CHOICES = [
-        (item['name'], tuple(('{0}:{1}'.format(item['value'], x), y) for (x, y) in item['subtypes'])) for item in
-        Subject.TYPES_HIERARCHIES]
-
-    SUBTYPE_FIELD = 'type_subtype_view'
-    type_subtype_view = forms.ChoiceField(
-        choices=TYPE_SUBTYPE_CHOICES, label='Subject Type')
-
     class Meta:
         fields = '__all__'
         # exclude = ['subject_type', 'subject_subtype']
@@ -39,3 +51,14 @@ class SubjectForm(forms.ModelForm):
         groups = self.cleaned_data['groups']
         self.instance.groups.set(groups)
         return super()._save_m2m()
+
+
+class SubjectChangeListForm(forms.ModelForm):
+    class Meta:
+        model = Subject
+        # , 'get_attributes', 'all_groups', 'all_sources')
+        fields = ('name', 'is_active')
+
+
+class SetRandomColorForm(ActionForm):
+    pass

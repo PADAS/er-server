@@ -531,7 +531,7 @@ class SubjectQuerySet(models.QuerySet):
         return self.filter(pk__in=subjects)
 
     def get_staff(self):
-        return self.filter(subject_type=Subject.TYPE_PERSON)
+        return self.filter(subject_type__value='person')
 
     def by_group(self, subject_group_id):
         return self.filter(groups__id=subject_group_id)
@@ -581,132 +581,73 @@ class SubjectManager(models.Manager):
         return subjects
 
 
+class SubjectCategoryManager(models.Manager):
+
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
+    class Meta:
+        verbose_name = _('subject category')
+        verbose_name_plural = _('subject categories')
+
+
+class SubjectTypeManager(models.Manager):
+
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
+    class Meta:
+        verbose_name = _('subject type')
+        verbose_name_plural = _('subject types')
+
+
+def get_default_subject_type():
+    subject_type, created = SubjectType.objects.get_or_create(value='unassigned',
+                                                              defaults={'display': 'Unassigned'})
+    return subject_type.value
+
+
+def get_default_subject_category():
+    subject_category, created = SubjectCategory.objects.get_or_create(value='unassigned',
+                                                                      defaults={'display': 'Unassigned'})
+    return subject_category.value
+
+
+class SubjectCategory(TimestampedModel):
+    id = models.UUIDField(default=uuid.uuid4)
+    value = models.CharField(primary_key=True, max_length=40, unique=True)
+    display = models.CharField(
+        max_length=100, blank=True, verbose_name='Subject Category')
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    def natural_key(self):
+        return self.value
+
+    def __str__(self):
+        return self.display
+
+
+class SubjectType(TimestampedModel):
+    id = models.UUIDField(default=uuid.uuid4)
+    value = models.CharField(primary_key=True, max_length=40, unique=True)
+    display = models.CharField(
+        max_length=100, blank=True, verbose_name='Subject Type')
+    category = models.ForeignKey(SubjectCategory, null=False,
+                                 on_delete=models.PROTECT,
+                                 default=get_default_subject_category)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    def natural_key(self):
+        return self.value
+
+    def __str__(self):
+        return '{}: {}'.format(self.category.display, self.display)
+
+
 class Subject(TimestampedModel, PermissionSetGroupMixin):
-    """Person, Animal, Vehicle, etc"""
 
     def clean_fields(self, exclude=None):
         return super().clean_fields(exclude)
-
-    TYPE_WILDLIFE = 'wildlife'
-    TYPE_PERSON = 'person'
-    TYPE_VEHICLE = 'vehicle'
-    TYPE_STATIONARY_OBJECT = 'stationary-object'
-    TYPE_AIRCRAFT = 'aircraft'
-    TYPE_UNASSIGNED = 'unassigned'
-
-    SUBTYPE_ELEPHANT = 'elephant'
-    SUBTYPE_ZEBRA = 'zebra'
-    SUBTYPE_RHINO = 'rhino'
-    SUBTYPE_LION = 'lion'
-    SUBTYPE_GIRAFFE = 'giraffe'
-    SUBTYPE_ANTELOPE = 'antelope'
-    SUBTYPE_CHEETAH = 'cheetah'
-    SUBTYPE_COW = 'cow'
-    SUBTYPE_FOREST_ELEPHANT = 'forest_elephant'
-    SUBTYPE_SABLE = 'sable'
-    SUBTYPE_SCIMITAR_ORYX = 'scimitar_oryx'
-    SUBTYPE_UNDEPLOYED = 'undeployed'
-
-    SUBTYPE_SECURITY = 'security_vehicle'
-    SUBTYPE_RESEARCH = 'research'
-    SUBTYPE_TOURIST_VEHICLE = 'tourist_vehicle'
-    SUBTYPE_MOTORCYCLE = 'motorcycle'
-    SUBTYPE_BOAT = 'ranger_boat'
-    SUBTYPE_CAMERA_TRAP = 'camera_trap'
-    SUBTYPE_WEATHER_STATION = 'weather_station'
-
-    SUBTYPE_RANGER = 'ranger'
-    SUBTYPE_RANGER_TEAM = 'ranger_team'
-    SUBTYPE_SCOUT = 'scout'
-    SUBTYPE_DOG_TEAM = 'dog_team'
-    SUBTYPE_MANAGER = 'manager'
-    SUBTYPE_DRIVER = 'driver'
-    SUBTYPE_EXPEDITION = 'expedition'
-
-    SUBTYPE_PLANE = 'plane'
-    SUBTYPE_HELICOPTER = 'helicopter'
-    SUBTYPE_DRONE = 'drone'
-    SUBTYPE_UNASSIGNED = 'unassigned'
-
-    SUBTYPE_UNASSIGNED = 'unassigned'
-
-    TYPES_HIERARCHIES = [
-        {
-            'value': TYPE_WILDLIFE,
-            'name': 'Wildlife',
-            'subtypes': (
-                (SUBTYPE_ELEPHANT, 'Elephant'),
-                (SUBTYPE_ZEBRA, 'Zebra'),
-                (SUBTYPE_RHINO, 'Rhino'),
-                (SUBTYPE_LION, 'Lion'),
-                (SUBTYPE_GIRAFFE, 'Giraffe'),
-                (SUBTYPE_ANTELOPE, 'Antelope'),
-                (SUBTYPE_CHEETAH, 'Cheetah'),
-                (SUBTYPE_COW, 'Cow'),
-                (SUBTYPE_FOREST_ELEPHANT, 'Forest Elephant'),
-                (SUBTYPE_SABLE, 'Sable'),
-                (SUBTYPE_SCIMITAR_ORYX, 'Scimitar Oryx'),
-                (SUBTYPE_UNDEPLOYED, 'Undeployed'),
-            )
-
-        },
-        {
-            'value': TYPE_PERSON,
-            'name': 'Person',
-            'subtypes': (
-                (SUBTYPE_RANGER, 'Ranger'),
-                (SUBTYPE_RANGER_TEAM, 'Ranger Team'),
-                (SUBTYPE_SCOUT, 'Scout'),
-                (SUBTYPE_DOG_TEAM, 'Dog Team'),
-                (SUBTYPE_DRIVER, 'Driver'),
-                (SUBTYPE_MANAGER, 'Manager'),
-                (SUBTYPE_EXPEDITION, 'Expedition'),
-            )
-        },
-        {
-            'value': TYPE_VEHICLE,
-            'name': 'Vehicle',
-            'subtypes': (
-                (SUBTYPE_SECURITY, 'Security Vehicle'),
-                (SUBTYPE_RESEARCH, 'Research Vehicle'),
-                (SUBTYPE_TOURIST_VEHICLE, 'Tourist Vehicle'),
-                (SUBTYPE_MOTORCYCLE, 'Motorcycle'),
-                (SUBTYPE_BOAT, 'Boat'),
-            )
-        },
-        {
-            'value': TYPE_STATIONARY_OBJECT,
-            'name': 'Stationary Sensor',
-            'subtypes': (
-                (SUBTYPE_CAMERA_TRAP, 'Camera Trap'),
-                (SUBTYPE_WEATHER_STATION, 'Weather Sensor'),
-            )
-        },
-        {
-            'value': TYPE_AIRCRAFT,
-            'name': 'Aircraft',
-            'subtypes': (
-                (SUBTYPE_PLANE, 'Plane'),
-                (SUBTYPE_HELICOPTER, 'Helicopter'),
-                (SUBTYPE_DRONE, 'Drone'),
-            )
-        },
-        {
-            'value': TYPE_UNASSIGNED,
-            'name': 'Unassigned',
-            'subtypes': (
-                (SUBTYPE_UNASSIGNED, 'Unassigned'),
-            )
-        }
-    ]
-
-    TYPE_CHOICES = [(item['value'], item['name'])
-                    for item in TYPES_HIERARCHIES]
-    SUBTYPE_CHOICES = [(item['name'], item['subtypes'])
-                       for item in TYPES_HIERARCHIES]
-
-    SUBTYPE_DISPLAY_NAMES = dict(
-        itertools.chain(*(x[1] for x in SUBTYPE_CHOICES)))
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_('name'), max_length=100)
@@ -715,10 +656,10 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='subjects', related_query_name='subject')
 
-    subject_type = models.CharField(
-        'subject type', max_length=100, default=TYPE_UNASSIGNED, choices=TYPE_CHOICES)
-    subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_UNASSIGNED,
-                                       choices=SUBTYPE_CHOICES)
+    # old_subject_type = models.CharField(
+    #     'old_subject type',db_column='old_subject_type', max_length=100, default='elephant', choices=(('wildlife', 'W'),('person', 'P')))
+    # old_subject_subtype = models.CharField(db_column='old_subject_subtype', max_length=100, default='unassigned',
+    #                                    choices=(('unassigned', 'Un'),))
     additional = JSONField('additional data', default={})
     is_active = models.BooleanField(
         _('active'),
@@ -731,6 +672,9 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                                     blank=True,
                                     null=True)
     objects = SubjectManager.from_queryset(SubjectQuerySet)()
+
+    subject_type = models.ForeignKey(
+        'SubjectType', default=get_default_subject_type, on_delete=models.PROTECT)
 
     class Meta:
         permissions = (
@@ -809,7 +753,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def default_trajectory_filter(self):
         # Get trajectory filter based on subject. Might not exist.
         try:
-            return SubjectTrackSegmentFilter.objects.filter(subject_subtype=self.subject_subtype).first()
+            return SubjectTrackSegmentFilter.objects.filter(subject_subtype=self.subject_type.value).first()
         except SubjectTrackSegmentFilter.DoesNotExist:
             pass
 
@@ -871,7 +815,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     def _image_keys(self):
         """return the preferred key first"""
-        key = self.subject_subtype.lower()
+        key = self.subject_type.value.lower()
         sex = self.additional.get('sex', 'male')
         if sex:
             yield '-'.join((key, 'black', sex.lower()))
@@ -903,7 +847,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             return users
 
     def __str__(self):
-        return '%s, %s, %s' % (self.name, self.subject_type, self.subject_subtype)
+        return '%s, %s, %s' % (self.name, self.subject_type.category.value, self.subject_type.value)
 
 
 OBSERVATION_DELAY_HRS = 72
@@ -975,12 +919,16 @@ class CommonNameManager(models.Manager):
         return self.get(**{value: value})
 
 
+def get_default_subjecttype():
+    return SubjectType.objects.get(value='unassigned').id
+
+
 class CommonName(TimestampedModel):
     """Common name for an animal, could stretch this to other subtypes as well.
     """
-    #value = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    subject_subtype = models.CharField(max_length=100,
-                                       choices=Subject.SUBTYPE_CHOICES)
+    subject_type = models.ForeignKey('SubjectType', on_delete=models.PROTECT,
+                                     default=get_default_subjecttype)
+
     value = models.CharField(primary_key=True, max_length=100)
     display = models.CharField(max_length=100)
     objects = CommonNameManager()
