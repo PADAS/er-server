@@ -809,6 +809,7 @@ class EventSerializerMixin:
 
         new_event = activity.models.Event.objects.create_event(
             **validated_data)
+
         EventDetailsSerializer().update(new_event, details_data)
 
         for related_subject in related_subjects:
@@ -1011,7 +1012,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     created_by_user = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault()
     )
-    notes = EventNoteSerializer(many=True, required=False)
+    notes = EventNoteSerializer(many=True, required=False, read_only=True)
     reported_by = ReportedByRelatedField(required=False, allow_null=True)
     message = rest_framework.serializers.CharField(
         required=False, allow_blank=True)

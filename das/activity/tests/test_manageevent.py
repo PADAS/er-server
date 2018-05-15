@@ -129,14 +129,14 @@ class TestManageEvent(TestCase):
         command_under_test = Command()
         records = command_under_test.get_all_event_type_records()
 
-        self.assertEqual(len(records), 37)
+        self.assertEqual(len(records), 38)
 
     def test_delete_unused_types(self):
         self.delete_ran = True
         command_under_test = Command()
         records = command_under_test.get_unused_event_types()
 
-        self.assertEqual(len(records), 36)
+        self.assertEqual(len(records), 37)
 
     def test_migrate_event_type(self):
         self.migrate_ran = True

@@ -4,8 +4,10 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from observations.models import Observation, SubjectStatus, Subject
+from observations.utils import VIEW_END_WINDOWS
 
 logger = logging.getLogger(__name__)
+
 
 @receiver(post_save, sender=Observation)
 def observation_post_save(sender, instance, created, **kwargs):
@@ -17,8 +19,10 @@ def observation_post_save(sender, instance, created, **kwargs):
     observation = Observation.objects.get(id=instance.id)
 
     logger.debug('handling Observation.post_save')
-    for delay_hours in Subject.VIEW_END_WINDOWS:
-        SubjectStatus.objects.update_from_observation(observation, delay_hours=delay_hours[1]*24)
+    for delay_hours in VIEW_END_WINDOWS:
+        SubjectStatus.objects.update_from_observation(
+            observation, delay_hours=delay_hours[1] * 24)
+
 
 @receiver(post_save, sender=SubjectStatus)
 def subject_status_post_save(sender, instance, created, **kwargs):
@@ -30,7 +34,8 @@ def subject_status_post_save(sender, instance, created, **kwargs):
     if instance.delay_hours == 0:
         latest_subject_name = instance.additional.get('subject_name', None)
         if latest_subject_name and latest_subject_name != instance.subject.name:
-            logger.debug('Detected subject name change from %s to %s', instance.subject.name, latest_subject_name)
+            logger.debug('Detected subject name change from %s to %s',
+                         instance.subject.name, latest_subject_name)
             instance.subject.name = latest_subject_name
             instance.subject.save()
 
