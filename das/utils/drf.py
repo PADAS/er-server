@@ -65,9 +65,12 @@ def api_exception_handler(exc, context):
     return fixup_api_response(response)
 
 
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 25
+class OptionalResultsSetPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
+
+
+class StandardResultsSetPagination(OptionalResultsSetPagination):
+    page_size = 25
     max_page_size = 100
 
 
