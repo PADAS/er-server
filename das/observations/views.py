@@ -575,7 +575,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
     def get_queryset(self):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
-        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS,
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS,
                                                subject):
             raise PermissionDenied
 
