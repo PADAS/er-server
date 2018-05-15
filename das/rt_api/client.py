@@ -75,12 +75,7 @@ def update_client(sid, bbox=None, event_filter=None):
 
 
 def get_all_connections():
-    all_conns = {}
-    for rt_server_key in get_rt_service_list():
-        data = redis_client.hgetall(rt_server_key)
-        logger.info('Retrieved client connections. service_id=%s, data=%s', rt_server_key, data)
-        if data:
-            all_conns.update(data)
+    all_conns = redis_client.hgetall(CLIENT_LIST_KEY)
     return all_conns
 
 
