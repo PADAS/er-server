@@ -611,6 +611,10 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     SUBTYPE_TOURIST_VEHICLE = 'tourist_vehicle'
     SUBTYPE_MOTORCYCLE = 'motorcycle'
     SUBTYPE_BOAT = 'ranger_boat'
+    SUBTYPE_PICKUP = 'pickup_vehicle'
+    SUBTYPE_CAR = 'car_vehicle'
+    SUBTYPE_TRUCK = 'truck_vehicle'
+    SUBTYPE_VAN = 'vehicle_van'
     SUBTYPE_CAMERA_TRAP = 'camera_trap'
     SUBTYPE_WEATHER_STATION = 'weather_station'
 
@@ -671,6 +675,10 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 (SUBTYPE_TOURIST_VEHICLE, 'Tourist Vehicle'),
                 (SUBTYPE_MOTORCYCLE, 'Motorcycle'),
                 (SUBTYPE_BOAT, 'Boat'),
+                (SUBTYPE_CAR, 'Car'),
+                (SUBTYPE_PICKUP, 'Pick-Up'),
+                (SUBTYPE_TRUCK, 'Truck'),
+                (SUBTYPE_VAN, 'Van')
             )
         },
         {
