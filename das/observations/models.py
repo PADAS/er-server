@@ -848,13 +848,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
 OBSERVATION_DELAY_HRS = 72
 
-# class SubjectFacade(Subject):
-#
-#     class Meta:
-#         proxy = True
-#
-#     color = models.CharField(verbose_name='Subject Color')
-
 
 class SubjectStatusQuerySet(models.QuerySet):
     def get_last(self):

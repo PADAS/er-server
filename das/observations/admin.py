@@ -3,6 +3,8 @@ from datetime import datetime
 
 from django.contrib import admin
 from django import forms
+from django.utils.safestring import mark_safe
+from django.utils.html import escape
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminSplitDateTime
 from django.contrib.postgres.forms import RangeWidget
@@ -94,9 +96,18 @@ class SubjectAdmin(admin.ModelAdmin):
         (None, {
             'classes': ('wide',),
             'fields': (('id', 'name', 'subject_type', 'common_name',
-                        'additional', 'groups',))
+                        'groups',))
         }
         ),
+        ('Attributes', {
+            'classes': ('wide',),
+            'fields': (('rgb', 'sex', 'country', 'region',))
+        }
+        ),
+        ('Advanced', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('additional',)
+        })
     )
     list_filter = ('is_active', 'subject_type__category__value',
                    'subject_type__value', 'common_name')
@@ -144,7 +155,7 @@ class SubjectAdmin(admin.ModelAdmin):
             'implement filtering SubjectAdmin to user permissions')
         return qs.filter(owner=request.user)
 
-    form = observations.forms.SubjectForm
+    form = observations.forms.SubjectFormWithAttributes
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == 'common_name':
@@ -155,7 +166,8 @@ class SubjectAdmin(admin.ModelAdmin):
         context = dict((k, instance.additional[k]) for k in (
             'rgb', 'region', 'country', 'sex', 'age') if k in instance.additional)
 
-        return ', '.join(': '.join((k, v)) for k, v in context.items())
+        return mark_safe(''.join('<p><strong>{}</strong>: {}</p>'.format(escape(k), escape(v))
+                                 for k, v in context.items()))
 
     get_attributes.short_description = _('Attributes')
 

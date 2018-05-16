@@ -27,6 +27,29 @@ class SubjectSourceForm(forms.ModelForm):
         fields = ('id', 'subject', 'source', 'assigned_range', 'additional')
 
 
+class JSONFieldFormMixin(object):
+
+    json_field = "additional"
+
+    def get_json(self):
+        return getattr(self.instance, self.json_field)
+
+    def __init__(self, *args, **kwargs):
+        super(JSONFieldFormMixin, self).__init__(*args, **kwargs)
+        if self.instance:
+            json_data = self.get_json()
+            for field in self.Meta.json_fields:
+                if json_data.get(field):
+                    self.fields[field].initial = json_data.get(field)
+
+    def save(self, *args, **kwargs):
+        json_data = self.get_json()
+        for field in self.Meta.json_fields:
+            json_data[field] = self.cleaned_data[field]
+        setattr(self.instance, self.json_field, json_data)
+        return super(JSONFieldFormMixin, self).save(*args, **kwargs)
+
+
 class SubjectForm(forms.ModelForm):
 
     groups = forms.ModelMultipleChoiceField(
@@ -45,7 +68,6 @@ class SubjectForm(forms.ModelForm):
 
     class Meta:
         fields = '__all__'
-        # exclude = ['subject_type', 'subject_subtype']
 
     def _save_m2m(self):
         groups = self.cleaned_data['groups']
@@ -53,10 +75,60 @@ class SubjectForm(forms.ModelForm):
         return super()._save_m2m()
 
 
+from django import forms
+from django.conf import settings
+from django.utils.safestring import mark_safe
+
+
+class ColorPickerWidget(forms.TextInput):
+    '''
+    This widget works closely with a customized version of bootstrap-colorpicker.
+    '''
+    class Media:
+        css = {
+            'all': (
+                '/css/bootstrap-colorpicker.css',
+            )
+        }
+        js = (
+            '//code.jquery.com/jquery-3.2.1.js',
+            '/js/bootstrap-colorpicker.js',
+        )
+
+    def __init__(self, language=None, attrs=None):
+        self.language = language or settings.LANGUAGE_CODE[:2]
+        super(ColorPickerWidget, self).__init__(attrs=attrs)
+
+    def render(self, name, value, attrs=None):
+        rendered = super(ColorPickerWidget, self).render(name, value, attrs)
+        return rendered + mark_safe(
+            '''<script type="text/javascript">
+            $('#id_%s').colorpicker({format: 'rawrgb'});
+            </script>''' % (name,)
+        )
+
+
+class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
+    '''
+    This provides extra form fields for the attributes we expect to have stored in Subject.additional.
+    '''
+    rgb = forms.CharField(required=False, widget=ColorPickerWidget(), label='Color',
+                          help_text=_('This is a color value in r,g,b format (ex. "100, 150, 102") for displaying the subject\'s tracks.'))
+    sex = forms.ChoiceField(required=False, choices=(
+        ('male', 'Male'), ('female', 'Female')))
+    region = forms.CharField(
+        required=False, help_text='This is the region that will be shown in the DAS Mobile App.')
+    country = forms.CharField(
+        required=False, help_text='This is the country that will be shown in the DAS Mobile App.')
+
+    class Meta(SubjectForm.Meta):
+        json_fields = ('rgb', 'sex', 'region', 'country')
+        fields = ('name', 'subject_type', 'common_name', 'groups', json_fields)
+
+
 class SubjectChangeListForm(forms.ModelForm):
     class Meta:
         model = Subject
-        # , 'get_attributes', 'all_groups', 'all_sources')
         fields = ('name', 'is_active')
 
 
