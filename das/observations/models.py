@@ -364,7 +364,7 @@ class SubjectSourceManager(models.Manager):
 
         return subject_source
 
-    def ensure_subject_source(self, source, timestamp=None, subject_type=None,
+    def ensure_subject_source(self, source, timestamp=None, subject_subtype=None,
                               additional=None, subject_name=None):
 
         # TODO: Deprecate the use of this function, in favor of the ensure().
@@ -385,7 +385,7 @@ class SubjectSourceManager(models.Manager):
         if not subject_source:
 
             sub, created = Subject.objects.get_or_create(
-                subject_type=subject_type,
+                subject_subtype=subject_subtype,
                 name=(subject_name or source.manufacturer_id),
                 defaults=dict(additional=dict(
                     region='', country='', rgb=random_rgb()))
@@ -424,6 +424,69 @@ class SubjectSource(models.Model):
                                   self.assigned_range.lower.strftime(fmt), self.assigned_range.upper.strftime(fmt))
 
 
+class SubjectTypeManager(models.Manager):
+
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
+    class Meta:
+        verbose_name = _('subject type')
+        verbose_name_plural = _('subject types')
+
+
+class SubjectSubTypeManager(models.Manager):
+
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
+    class Meta:
+        verbose_name = _('subject sub-type')
+        verbose_name_plural = _('subject sub-types')
+
+
+def get_default_subject_subtype():
+    subject_subtype, created = SubjectSubType.objects.get_or_create(value='unassigned',
+                                                                    defaults={'display': 'Unassigned'})
+    return subject_subtype.value
+
+
+def get_default_subject_type():
+    subject_type, created = SubjectType.objects.get_or_create(value='unassigned',
+                                                              defaults={'display': 'Unassigned'})
+    return subject_type.value
+
+
+class SubjectType(TimestampedModel):
+    id = models.UUIDField(default=uuid.uuid4)
+    value = models.CharField(primary_key=True, max_length=40, unique=True)
+    display = models.CharField(
+        max_length=100, blank=True, verbose_name='Subject Type')
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    def natural_key(self):
+        return self.value
+
+    def __str__(self):
+        return self.display
+
+
+class SubjectSubType(TimestampedModel):
+    id = models.UUIDField(default=uuid.uuid4)
+    value = models.CharField(primary_key=True, max_length=40, unique=True)
+    display = models.CharField(
+        max_length=100, blank=True, verbose_name='Subject Sub-Type')
+    subject_type = models.ForeignKey(SubjectType, null=False,
+                                     on_delete=models.PROTECT,
+                                     default=get_default_subject_type)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    def natural_key(self):
+        return self.value
+
+    def __str__(self):
+        return self.value
+
+
 class SubjectTrackSegmentFilterManager(models.Manager):
     pass
 
@@ -431,7 +494,8 @@ class SubjectTrackSegmentFilterManager(models.Manager):
 class SubjectTrackSegmentFilter(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     # TODO Should reference SubjectSubTypes model if it gets created...
-    subject_type = models.ForeignKey('SubjectType', on_delete=models.PROTECT)
+    subject_subtype = models.ForeignKey(
+        SubjectSubType, on_delete=models.PROTECT)
     speed_KmHr = models.FloatField(default=7.0)
     additional = JSONField(default={})
     objects = SubjectTrackSegmentFilterManager()
@@ -531,7 +595,7 @@ class SubjectQuerySet(models.QuerySet):
         return self.filter(pk__in=subjects)
 
     def get_staff(self):
-        return self.filter(subject_type__value='person')
+        return self.filter(subject_subtype__subject_type__value='person')
 
     def by_group(self, subject_group_id):
         return self.filter(groups__id=subject_group_id)
@@ -581,69 +645,6 @@ class SubjectManager(models.Manager):
         return subjects
 
 
-class SubjectCategoryManager(models.Manager):
-
-    def get_by_natural_key(self, value):
-        return self.get(value=value)
-
-    class Meta:
-        verbose_name = _('subject category')
-        verbose_name_plural = _('subject categories')
-
-
-class SubjectTypeManager(models.Manager):
-
-    def get_by_natural_key(self, value):
-        return self.get(value=value)
-
-    class Meta:
-        verbose_name = _('subject type')
-        verbose_name_plural = _('subject types')
-
-
-def get_default_subject_type():
-    subject_type, created = SubjectType.objects.get_or_create(value='unassigned',
-                                                              defaults={'display': 'Unassigned'})
-    return subject_type.value
-
-
-def get_default_subject_category():
-    subject_category, created = SubjectCategory.objects.get_or_create(value='unassigned',
-                                                                      defaults={'display': 'Unassigned'})
-    return subject_category.value
-
-
-class SubjectCategory(TimestampedModel):
-    id = models.UUIDField(default=uuid.uuid4)
-    value = models.CharField(primary_key=True, max_length=40, unique=True)
-    display = models.CharField(
-        max_length=100, blank=True, verbose_name='Subject Category')
-    ordernum = models.SmallIntegerField(blank=True, null=True)
-
-    def natural_key(self):
-        return self.value
-
-    def __str__(self):
-        return self.display
-
-
-class SubjectType(TimestampedModel):
-    id = models.UUIDField(default=uuid.uuid4)
-    value = models.CharField(primary_key=True, max_length=40, unique=True)
-    display = models.CharField(
-        max_length=100, blank=True, verbose_name='Subject Type')
-    category = models.ForeignKey(SubjectCategory, null=False,
-                                 on_delete=models.PROTECT,
-                                 default=get_default_subject_category)
-    ordernum = models.SmallIntegerField(blank=True, null=True)
-
-    def natural_key(self):
-        return self.value
-
-    def __str__(self):
-        return '{}: {}'.format(self.category.display, self.display)
-
-
 class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     def clean_fields(self, exclude=None):
@@ -669,8 +670,12 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                                     null=True)
     objects = SubjectManager.from_queryset(SubjectQuerySet)()
 
-    subject_type = models.ForeignKey(
-        'SubjectType', default=get_default_subject_type, on_delete=models.PROTECT)
+    subject_subtype = models.ForeignKey(
+        SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
+
+    @property
+    def subject_type(self):
+        return self.subject_subtype.subject_type.value
 
     class Meta:
         permissions = (
@@ -749,7 +754,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def default_trajectory_filter(self):
         # Get trajectory filter based on subject. Might not exist.
         try:
-            return SubjectTrackSegmentFilter.objects.filter(subject_type=self.subject_type.value).first()
+            return SubjectTrackSegmentFilter.objects.filter(subject_subtype=self.subject_subtype.value).first()
         except SubjectTrackSegmentFilter.DoesNotExist:
             pass
 
@@ -811,7 +816,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     def _image_keys(self):
         """return the preferred key first"""
-        key = self.subject_type.value.lower()
+        key = self.subject_subtype.value.lower()
         sex = self.additional.get('sex', 'male')
         if sex:
             yield '-'.join((key, 'black', sex.lower()))
@@ -843,7 +848,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             return users
 
     def __str__(self):
-        return '%s, %s, %s' % (self.name, self.subject_type.category.value, self.subject_type.value)
+        return '%s, %s, %s' % (self.name, self.subject_subtype.subject_type.value, self.subject_subtype.value)
 
 
 OBSERVATION_DELAY_HRS = 72
@@ -915,15 +920,15 @@ class CommonNameManager(models.Manager):
         return self.get(**{value: value})
 
 
-def get_default_subjecttype():
-    return SubjectType.objects.get(value='unassigned').id
+def get_default_subject_subtype():
+    return SubjectSubType.objects.get(value='unassigned').id
 
 
 class CommonName(TimestampedModel):
     """Common name for an animal, could stretch this to other subtypes as well.
     """
-    subject_type = models.ForeignKey('SubjectType', on_delete=models.PROTECT,
-                                     default=get_default_subjecttype)
+    subject_subtype = models.ForeignKey(SubjectSubType, on_delete=models.PROTECT,
+                                        default=get_default_subject_subtype)
 
     value = models.CharField(primary_key=True, max_length=100)
     display = models.CharField(max_length=100)

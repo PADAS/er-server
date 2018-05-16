@@ -28,8 +28,8 @@ admin.site.site_header = _('DAS Administration')
 admin.site.site_title = _('DAS Administration')
 
 
-@admin.register(models.SubjectCategory)
-class SubjectCategoryAdmin(admin.ModelAdmin):
+@admin.register(models.SubjectType)
+class SubjectTypeAdmin(admin.ModelAdmin):
     list_display = ('value', 'display')
     list_editable = ('display', )
     readonly_fields = ('id', 'value',)
@@ -37,20 +37,20 @@ class SubjectCategoryAdmin(admin.ModelAdmin):
     ordering = ('display',)
 
 
-@admin.register(models.SubjectType)
-class SubjectTypeAdmin(admin.ModelAdmin):
-    list_display = ('category_display', 'value', 'display')
+@admin.register(models.SubjectSubType)
+class SubjectSubTypeAdmin(admin.ModelAdmin):
+    list_display = ('subject_type_display', 'value', 'display')
     list_editable = ('display', )
-    list_filter = ('category__display',)
+    list_filter = ('subject_type__display',)
     readonly_fields = ('value', 'id')
     search_fields = ('value', 'display',
-                     'category__display', 'category__value')
+                     'subject_type__display', 'subject_type__value')
 
-    ordering = ('category__display', 'display')
+    ordering = ('subject_type__display', 'display')
     list_display_links = ('value',)
 
-    def category_display(self, o):
-        return o.category.display
+    def subject_type_display(self, o):
+        return o.subject_type.display
 
 
 class SubjectSourceInline(admin.StackedInline):
@@ -83,19 +83,22 @@ class SubjectSourceInline(admin.StackedInline):
     )
 
 
+from django.contrib.admin.widgets import FilteredSelectMultiple, RelatedFieldWidgetWrapper
+
+
 @admin.register(models.Subject)
 class SubjectAdmin(admin.ModelAdmin):
 
-    list_display = ('name', 'subject_type',
+    list_display = ('name', 'subject_subtype',
                     'is_active', 'get_attributes', 'all_groups', 'all_sources')
 
-    search_fields = ('name', 'subject_type__value', 'common_name__display',
+    search_fields = ('name', 'subject_subtype__value', 'common_name__display',
                      'subjectsource__source__manufacturer_id')
 
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': (('id', 'name', 'subject_type', 'common_name',
+            'fields': (('id', 'name', 'subject_subtype', 'common_name',
                         'groups',))
         }
         ),
@@ -109,18 +112,26 @@ class SubjectAdmin(admin.ModelAdmin):
             'fields': ('additional',)
         })
     )
-    list_filter = ('is_active', 'subject_type__category__value',
-                   'subject_type__value', 'common_name')
-    list_editable = ('subject_type', 'is_active',)
+    list_filter = ('is_active', 'subject_subtype__subject_type__value',
+                   'subject_subtype__value', 'common_name')
+    list_editable = ('subject_subtype', 'is_active',)
     readonly_fields = ('id',)
     list_per_page = 25
     ordering = ('name',)
 
-    # def subject_type(self, o):
-    #     return o.subject.subject_type.category.value
+    def get_form(self, request, obj=None, **kwargs):
+        form = super(SubjectAdmin, self).get_form(request, obj=obj, **kwargs)
+        rel_model = form.Meta.model
+        remote_field = rel_model._meta.get_field(
+            'subject_subtype').remote_field
+        form.declared_fields['subject_subtype'].widget = RelatedFieldWidgetWrapper(form.declared_fields['subject_subtype'].widget, remote_field,
+                                                                                   admin.site, can_add_related=True,
+                                                                                   can_change_related=True)
+        return form
 
-    def subject_type(self, o):
-        return o.subject.subject_type
+    def subject_subtype_display(self, o):
+        return '{}: {}'.format(o.subject_subtype.subject_type.display,
+                               o.subject_subtype.display)
 
     def assign_random_color(self, request, queryset):
         update_count = 0
@@ -197,7 +208,7 @@ class SubjectAdmin(admin.ModelAdmin):
 
 @admin.register(models.CommonName)
 class CommonNameAdmin(admin.ModelAdmin):
-    list_display = ('value', 'display', 'subject_type')
+    list_display = ('value', 'display', 'subject_subtype')
 
     def queryset(self, request):
         """Limit Subjects to those this person can administer"""
@@ -223,7 +234,7 @@ class SourceAdmin(admin.ModelAdmin):
 class SubjectSourceAdmin(admin.ModelAdmin):
     list_display = ('subject_name', 'manufacturer_id',
                     'display_assigned_range')
-    list_filter = ('subject__subject_type__value', 'source__source_type')
+    list_filter = ('subject__subject_subtype__value', 'source__source_type')
     search_fields = ('source__manufacturer_id', 'subject__name')
     readonly_fields = ('id',)
 
@@ -338,7 +349,7 @@ class SubjectStatusAdmin(admin.ModelAdmin):
 
     list_display = ('subject', 'delay_hours', 'recorded_at', 'location')
 
-    list_filter = ('delay_hours', 'subject__subject_type__value')
+    list_filter = ('delay_hours', 'subject__subject_subtype__value')
 
 
 @admin.register(models.SourceProvider)

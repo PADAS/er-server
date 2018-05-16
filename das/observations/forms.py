@@ -1,8 +1,9 @@
 from django import forms
 from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.utils.translation import ugettext_lazy as _
+from django.contrib.admin.widgets import FilteredSelectMultiple, RelatedFieldWidgetWrapper
 
+from django.utils.translation import ugettext_lazy as _
+from django.db.models import ManyToOneRel
 from observations.models import Subject, SubjectGroup, SubjectSource
 
 import logging
@@ -50,6 +51,14 @@ class JSONFieldFormMixin(object):
         return super(JSONFieldFormMixin, self).save(*args, **kwargs)
 
 
+from observations.models import SubjectSubType
+
+
+class SubjectSubtypeChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        return '{}: {}'.format(obj.subject_type.display, obj.display)
+
+
 class SubjectForm(forms.ModelForm):
 
     groups = forms.ModelMultipleChoiceField(
@@ -60,6 +69,9 @@ class SubjectForm(forms.ModelForm):
             is_stacked=False
         )
     )
+
+    subject_subtype = SubjectSubtypeChoiceField(
+        queryset=SubjectSubType.objects.all(),)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -123,10 +135,15 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
 
     class Meta(SubjectForm.Meta):
         json_fields = ('rgb', 'sex', 'region', 'country')
-        fields = ('name', 'subject_type', 'common_name', 'groups', json_fields)
+        fields = ('name', 'subject_subtype',
+                  'common_name', 'groups', json_fields)
 
 
 class SubjectChangeListForm(forms.ModelForm):
+
+    subject_subtype = SubjectSubtypeChoiceField(
+        queryset=SubjectSubType.objects.all())
+
     class Meta:
         model = Subject
         fields = ('name', 'is_active')

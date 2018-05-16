@@ -49,14 +49,14 @@ class TestImmobilityAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = models.Subject.objects.create_subject(
-            name='Ishango', subject_type='elephant')
+            name='Ishango', subject_subtype='elephant')
         source = models.Source.objects.create(manufacturer_id='ishango-collar')
         models.SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
         SubjectTrackSegmentFilter.objects.create(
-            subject_type='elephant', speed_KmHr=7.0)
+            subject_subtype='elephant', speed_KmHr=7.0)
 
         sg = models.SubjectGroup.objects.create(
             name='immobility_analyzer_group',)

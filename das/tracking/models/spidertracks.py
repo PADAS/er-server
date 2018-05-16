@@ -181,7 +181,7 @@ class SpiderTracksPlugin(TrackingPlugin):
                                                               manufacturer_id=manufacturer_id,
                                                               model_name=self.DEFAULT_MODEL_NAME,
                                                               subject={
-                                                                  'subject_type': 'plane',
+                                                                  'subject_subtype': 'plane',
                                                                   'name': self._get_registration(fix) or manufacturer_id
                                                               }
                                                               )

@@ -19,22 +19,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='SubjectCategory',
-            fields=[
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('id', models.UUIDField(default=uuid.uuid4)),
-                ('value', models.CharField(max_length=40,
-                                           primary_key=True, serialize=False, unique=True)),
-                ('display', models.CharField(blank=True,
-                                             max_length=100, verbose_name='Subject Category')),
-                ('ordernum', models.SmallIntegerField(blank=True, null=True)),
-            ],
-            options={
-                'abstract': False,
-            },
-        ),
-        migrations.CreateModel(
             name='SubjectType',
             fields=[
                 ('created_at', models.DateTimeField(auto_now_add=True)),
@@ -45,49 +29,59 @@ class Migration(migrations.Migration):
                 ('display', models.CharField(blank=True,
                                              max_length=100, verbose_name='Subject Type')),
                 ('ordernum', models.SmallIntegerField(blank=True, null=True)),
-                ('category', models.ForeignKey(default=observations.models.get_default_subject_category,
-                                               on_delete=django.db.models.deletion.PROTECT,
-                                               to='observations.SubjectCategory')),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='SubjectSubType',
+            fields=[
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('id', models.UUIDField(default=uuid.uuid4)),
+                ('value', models.CharField(max_length=40,
+                                           primary_key=True, serialize=False, unique=True)),
+                ('display', models.CharField(blank=True,
+                                             max_length=100, verbose_name='Subject Type')),
+                ('ordernum', models.SmallIntegerField(blank=True, null=True)),
+                ('subject_type', models.ForeignKey(default=observations.models.get_default_subject_type,
+                                                   on_delete=django.db.models.deletion.PROTECT,
+                                                   to='observations.SubjectType')),
             ],
             options={
                 'abstract': False,
             },
         ),
 
-        # Drop subject_type. It will be replaced by SubjectCategory.
+        # Drop subject_type. It will be replaced by SubjectType.
         migrations.RemoveField(
             model_name='subject',
             name='subject_type',
         ),
 
-        # Rename subject_subtype to subject_type. It will become the foreign
-        # key reference to SubjectType.
-        migrations.RenameField(
-            model_name='subject',
-            old_name='subject_subtype',
-            new_name='subject_type',
-        ),
-
-        # Load data into SubjectType and SubjectCategory.
-        migrations.RunPython(load_subject_types),
+        # Load data into SubjectSubType and SubjectType.
+        migrations.RunPython(load_subject_types,
+                             reverse_code=migrations.RunPython.noop),
 
         migrations.AlterField(
             model_name='commonname',
             name='subject_subtype',
-            field=models.ForeignKey(default=observations.models.get_default_subject_type,
-                                    on_delete=django.db.models.deletion.PROTECT, to='observations.SubjectType'),
-        ),
-        migrations.RenameField(
-            model_name='commonname',
-            old_name='subject_subtype',
-            new_name='subject_type',
+            field=models.ForeignKey(default=observations.models.get_default_subject_subtype,
+                                    on_delete=django.db.models.deletion.PROTECT, to='observations.SubjectSubType'),
         ),
 
         migrations.AlterField(
             model_name='subject',
-            name='subject_type',
-            field=models.ForeignKey(default=observations.models.get_default_subject_type,
-                                    on_delete=django.db.models.deletion.PROTECT, to='observations.SubjectType'),
+            name='subject_subtype',
+            field=models.ForeignKey(default=observations.models.get_default_subject_subtype,
+                                    on_delete=django.db.models.deletion.PROTECT, to='observations.SubjectSubType'),
+        ),
+        migrations.AlterField(
+            model_name='subjecttracksegmentfilter',
+            name='subject_subtype',
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT, to='observations.SubjectSubType'),
         ),
 
     ]

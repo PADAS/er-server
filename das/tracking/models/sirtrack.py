@@ -199,6 +199,8 @@ class SirtrackPlugin(TrackingPlugin):
 
         # If these are indicated in the 'additional' blob, the use them.
         defaults = self.additional.get('defaults', {})
+
+        # Support legacy key 'subject_subtype')
         default_subject_subtype = defaults.get(
             'subject_subtype', self.DEFAULT_SUBJECT_SUBTYPE)
         default_source_type = defaults.get(
@@ -239,7 +241,7 @@ class SirtrackPlugin(TrackingPlugin):
                                                               manufacturer_id=manufacturer_id,
                                                               model_name=default_model_name,
                                                               subject={
-                                                                  'subject_type': default_subject_subtype,
+                                                                  'subject_subtype': default_subject_subtype,
                                                                   'name': fix.get('tag_name') or manufacturer_id
                                                               }
                                                               )

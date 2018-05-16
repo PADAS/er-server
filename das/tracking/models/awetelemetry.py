@@ -186,7 +186,7 @@ class AWETelemetryPlugin(TrackingPlugin):
                                                    manufacturer_id=manufacturer_id,
                                                    model_name=model_name,
                                                    subject={
-                                                       'subject_type': default_subject_subtype,
+                                                       'subject_subtype': default_subject_subtype,
                                                        'name': manufacturer_id
                                                    }
                                                    )

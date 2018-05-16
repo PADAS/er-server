@@ -50,9 +50,9 @@ class TestSubjectSourceReport(TestCase):
             u.permission_sets.add(pset)
 
         # Add Subjects
-        self.subject1 = Subject.objects.create(name='subject 1', subject_type='elephant',
+        self.subject1 = Subject.objects.create(name='subject 1', subject_subtype='elephant',
                                                additional=dict(region='Region 1', species='elephant'))
-        self.subject2 = Subject.objects.create(name='subject 2', subject_type='elephant',
+        self.subject2 = Subject.objects.create(name='subject 2', subject_subtype='elephant',
                                                additional=dict(region='Region 2', species='elephant'))
 
         provider = SourceProvider.objects.create(

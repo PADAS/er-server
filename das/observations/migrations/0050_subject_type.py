@@ -12,18 +12,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameField(
-            model_name='subjecttracksegmentfilter',
-            old_name='subject_subtype',
-            new_name='subject_type',
-        ),
-        migrations.AlterField(
-            model_name='commonname',
-            name='subject_type',
-            field=models.ForeignKey(default=observations.models.get_default_subjecttype,
-                                    on_delete=django.db.models.deletion.PROTECT,
-                                    to='observations.SubjectType'),
-        ),
         migrations.AlterField(
             model_name='sourceprovider',
             name='provider_key',

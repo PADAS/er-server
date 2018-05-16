@@ -82,14 +82,14 @@ class TestProximityAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Olchoda', subject_type='elephant')
+            name='Olchoda', subject_subtype='elephant')
         source = Source.objects.create(manufacturer_id='008')
         SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
         SubjectTrackSegmentFilter.objects.create(
-            subject_type='elephant', speed_KmHr=7.0)
+            subject_subtype='elephant', speed_KmHr=7.0)
 
         sg = SubjectGroup.objects.create(
             name='proximity_subject_analyzer_group', )

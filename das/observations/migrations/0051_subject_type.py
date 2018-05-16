@@ -11,10 +11,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='subjecttracksegmentfilter',
-            name='subject_type',
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.PROTECT, to='observations.SubjectType'),
-        ),
+
     ]
