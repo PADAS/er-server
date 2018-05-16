@@ -1,19 +1,12 @@
 from django import forms
 from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import FilteredSelectMultiple, RelatedFieldWidgetWrapper
+from django.contrib.admin.widgets import FilteredSelectMultiple
 
 from django.utils.translation import ugettext_lazy as _
-from django.db.models import ManyToOneRel
 from observations.models import Subject, SubjectGroup, SubjectSource
 
 import logging
 logger = logging.getLogger(__name__)
-
-# class LoggingMixin(object):
-#     def full_clean(self):
-#         super(LoggingMixin, self).full_clean()
-#         for field, errors in self.errors.items():
-#             logger.info('Form error in %s: %s', ', '.join(errors))
 
 
 class SubjectSourceForm(forms.ModelForm):

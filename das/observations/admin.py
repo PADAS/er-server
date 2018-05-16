@@ -124,9 +124,10 @@ class SubjectAdmin(admin.ModelAdmin):
         rel_model = form.Meta.model
         remote_field = rel_model._meta.get_field(
             'subject_subtype').remote_field
-        form.declared_fields['subject_subtype'].widget = RelatedFieldWidgetWrapper(form.declared_fields['subject_subtype'].widget, remote_field,
-                                                                                   admin.site, can_add_related=True,
-                                                                                   can_change_related=True)
+        form.declared_fields['subject_subtype'].widget = \
+            RelatedFieldWidgetWrapper(form.declared_fields['subject_subtype'].widget, remote_field,
+                                      admin.site, can_add_related=True,
+                                      can_change_related=True)
         return form
 
     def subject_subtype_display(self, o):
