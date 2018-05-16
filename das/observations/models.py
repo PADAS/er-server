@@ -31,11 +31,13 @@ from django.contrib.gis.geos import Point, Polygon
 import pymet
 import pytz
 
+from utils.json import zeroout_microseconds
 from das_server import settings
 from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
+from observations.utils import calculate_track_range
 
 
 SOURCE_TYPES = (
@@ -700,28 +702,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             ('access_ends_7', 'Can view tracks no less than 7 days old'),
         )
 
-    VIEW_POSITION_PERMS = ('observations.view_last_position',
-                           'observations.view_real_time')
-    VIEW_DELAYED_PERMS = ('observations.view_delayed',)
-
-    VIEW_BEGIN_WINDOWS = (('observations.access_begins_7', 7),
-                          ('observations.access_begins_16', 16),
-                          ('observations.access_begins_30', 30),
-                          ('observations.access_begins_60', 60),
-                          ('observations.access_begins_all', 36500))
-
-    VIEW_END_WINDOWS = (('observations.access_ends_0', 0),
-                        ('observations.access_ends_1', 1),
-                        ('observations.access_ends_3', 3),
-                        ('observations.access_ends_7', 7))
-
-    VIEW_BEGIN_ORDERED_DESC = sorted(
-        VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse=True)
-    VIEW_END_ORDERED_ASC = sorted(VIEW_END_WINDOWS, key=lambda _: _[1])
-
-    VIEW_SUBJECT_PERMS = ('observations.view_subject',) + \
-        VIEW_BEGIN_WINDOWS + VIEW_END_WINDOWS
-
     @property
     def color(self):
         color = self.additional.get('rgb', DEFAULT_COLOR)
@@ -738,6 +718,19 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             .first()
 
         return subject_source.source
+
+    def get_track(self, user, since, until, limit):
+        since, until, limit = calculate_track_range(user, since, until, limit)
+
+        qs = Observation.objects.get_subject_observations_values(
+            self, since=since, until=until, limit=limit)
+
+        qs = list(qs)
+        return [o['location'].coords for o in qs], [zeroout_microseconds(o['recorded_at']) for o in qs]
+
+    def get_subject_state(self):
+        for subject_status in self.subjectstatus_set.filter(delay_hours=0):
+            return subject_status.additional['state']
 
     def observations(self, last_hours=None, until=None):
         """ returns all observations for this Subject, spanning

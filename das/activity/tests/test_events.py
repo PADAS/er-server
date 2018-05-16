@@ -95,6 +95,8 @@ class TestEventView(BaseAPITest):
 
         self.notes_line1_prefix = 'note1 text'
         self.notes_line2_prefix = 'note2 text'
+        self.notes = [{'text': self.notes_line1_prefix + lorem_ipsum.paragraph()},
+                      {'text': self.notes_line2_prefix + lorem_ipsum.paragraph()}]
         self.event_data = dict(
             message=lorem_ipsum.paragraph(),
             time=DateTimeField().to_representation(timezone.now()),
@@ -102,11 +104,11 @@ class TestEventView(BaseAPITest):
             event_type=ET_OTHER,
             priority=Event.PRI_REFERENCE,
             location=dict(longitude='40.1353', latitude='-1.891517'),
-            notes=[{'text': self.notes_line1_prefix + lorem_ipsum.paragraph()},
-                   {'text': self.notes_line2_prefix + lorem_ipsum.paragraph()}]
         )
 
-        self.sample_event = self.create_event(self.event_data)
+        self.event_data_with_notes = copy.deepcopy(self.event_data)
+        self.event_data_with_notes['notes'] = self.notes
+        self.sample_event = self.create_event(self.event_data_with_notes)
 
         self.reported_by_permission_set = PermissionSet.objects.get(
             id=reported_by_permission_set_id)
@@ -807,7 +809,7 @@ class TestEventView(BaseAPITest):
             template_name='event_export_template.html')(request)
 
     def test_export_csv(self):
-        event = self.create_event(self.event_data)
+        event = self.create_event(self.event_data_with_notes)
         carcass_data = json.loads("""{"event_details":{"sectionArea":["bbbe77a9-f829-47dd-8a6f-bca76920f706","957a8bfa-ad0d-4b94-bc86-983cab105910"],"team":[],"conservancy":"346f5449-52b0-4b52-9d10-b44b8aa313a6","beginning_of_incident":"2017-10-13 12:00","end_of_incident":"2017-10-14 12:00","details":"interesting details","results_and_findings":"very interesting results and findings","species":"ad26adde-1261-4133-8d3f-a22d12ceae1f","sex":"Male","causeOfDeath":"ab468ffc-9745-4c71-a19d-c34b8c9c3b18"},"event_type":"carcass_rep","priority":200,"title":"Carcass","location":{"latitude":47.65636923655089,"longitude":-122.30770111083983}}""")
         request = self.factory.post(self.api_base + '/events/', carcass_data)
         self.force_authenticate(request, self.all_perms_user)
