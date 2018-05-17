@@ -512,7 +512,13 @@ class SubjectGroupManager(HierarchyManager):
         return self.get(id=DEFAULT_SUBJECT_GROUP_ID)
 
     def get_by_natural_key(self, name):
-        return self.get(**{name: name})
+        return self.get(**{'name': name})
+
+    def get_nested_groups(self, parent_id):
+        parent = self.get(**{'id': parent_id})
+        groups = set(parent.get_descendants())
+        groups.add(parent)
+        return groups
 
 
 class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
@@ -598,6 +604,9 @@ class SubjectQuerySet(models.QuerySet):
 
     def get_staff(self):
         return self.filter(subject_subtype__subject_type__value='person')
+
+    def by_groups(self, subject_groups):
+        return self.filter(groups__in=subject_groups)
 
     def by_group(self, subject_group_id):
         return self.filter(groups__id=subject_group_id)
