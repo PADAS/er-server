@@ -173,7 +173,9 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS)
         subject_group = self.request.query_params.get('subject_group', None)
         if subject_group:
-            queryset = queryset.by_group(subject_group_id=subject_group)
+            groups = models.SubjectGroup.objects.get_nested_groups(
+                subject_group)
+            queryset = queryset.by_groups(groups)
         queryset = queryset.by_user_subjects(self.request.user)
         queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
         return queryset
