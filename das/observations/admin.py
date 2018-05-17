@@ -75,6 +75,11 @@ class SubjectSourceInline(admin.StackedInline):
             'fields': ('assigned_range',)
         }
         ),
+        ('Source Assignment Attributes', {
+            'classes': ('wide',),
+            'fields': ('data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason')
+        }
+        ),
         ('Advanced Settings', {
             'classes': ('wide', 'collapse',),
             'fields': ('additional', 'id')
@@ -102,7 +107,7 @@ class SubjectAdmin(admin.ModelAdmin):
                         'groups',))
         }
         ),
-        ('Attributes', {
+        ('Subject Attributes', {
             'classes': ('wide',),
             'fields': (('rgb', 'sex', 'country', 'region',))
         }
@@ -230,6 +235,24 @@ class SourceAdmin(admin.ModelAdmin):
     list_filter = ('source_type', 'model_name')
 #    filter_horizontal = ('groups',)
 
+    form = observations.forms.SourceForm
+    fieldsets = (
+        (None, {
+            'fields': ('manufacturer_id', 'source_type', 'model_name', 'provider',)
+        }
+        ),
+        ('Source Attributes', {
+            'classes': ('wide',),
+            'fields': ('collar_status', 'collar_model', 'has_acc_data', 'data_owners', 'adjusted_beacon_freq')
+        }
+        ),
+        ('Advanced', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('id', 'additional',)
+        }
+        )
+    )
+
 
 @admin.register(models.SubjectSource)
 class SubjectSourceAdmin(admin.ModelAdmin):
@@ -271,12 +294,19 @@ class SubjectSourceAdmin(admin.ModelAdmin):
             'fields': ('assigned_range',)
         }
         ),
+        ('Attributes', {
+            'classes': ('wide',),
+            'fields': ('data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason')
+        }
+        ),
         ('Advanced', {
             'classes': ('wide', 'collapse'),
             'fields': ('additional',)
         }
         )
     )
+
+    form = observations.forms.SubjectSourceForm
 
 
 @admin.register(models.Region)

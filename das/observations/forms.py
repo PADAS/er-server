@@ -3,22 +3,41 @@ from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple
 
 from django.utils.translation import ugettext_lazy as _
-from observations.models import Subject, SubjectGroup, SubjectSource
+from django.utils.safestring import mark_safe
+from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType
+
+from django.conf import settings
 
 import logging
 logger = logging.getLogger(__name__)
 
 
-class SubjectSourceForm(forms.ModelForm):
-    def full_clean(self):
-        super().full_clean()
+class ColorPickerWidget(forms.TextInput):
+    '''
+    This widget works closely with a customized version of bootstrap-colorpicker.
+    '''
+    class Media:
+        css = {
+            'all': (
+                '/css/bootstrap-colorpicker.css',
+            )
+        }
+        js = (
+            '//code.jquery.com/jquery-3.2.1.js',
+            '/js/bootstrap-colorpicker.js',
+        )
 
-    def clean(self):
-        super().clean()
+    def __init__(self, language=None, attrs=None):
+        self.language = language or settings.LANGUAGE_CODE[:2]
+        super(ColorPickerWidget, self).__init__(attrs=attrs)
 
-    class Meta:
-        model = SubjectSource
-        fields = ('id', 'subject', 'source', 'assigned_range', 'additional')
+    def render(self, name, value, attrs=None):
+        rendered = super(ColorPickerWidget, self).render(name, value, attrs)
+        return rendered + mark_safe(
+            '''<script type="text/javascript">
+            $('#id_%s').colorpicker({format: 'rawrgb'});
+            </script>''' % (name,)
+        )
 
 
 class JSONFieldFormMixin(object):
@@ -44,7 +63,46 @@ class JSONFieldFormMixin(object):
         return super(JSONFieldFormMixin, self).save(*args, **kwargs)
 
 
-from observations.models import SubjectSubType
+class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
+
+    '''
+    This provides extra form fields for the attributes we expect to have stored in SubjectSource.additional.
+    '''
+    data_status = forms.CharField(required=False, label='Data Status')
+    data_starts_source = forms.CharField(
+        required=False, label='Data Starts Source')
+    data_stops_source = forms.CharField(
+        required=False, label='Data Stops Source')
+    data_stops_reason = forms.CharField(
+        required=False, label='Data Stops Reason')
+
+    class Meta:
+        model = SubjectSource
+        json_fields = ('data_status', 'data_starts_source',
+                       'data_stops_source', 'data_stops_reason')
+        fields = ('id', 'subject', 'source', 'assigned_range',
+                  'additional') + json_fields
+
+
+class SourceForm(JSONFieldFormMixin, forms.ModelForm):
+
+    '''
+    This provides extra form fields for the attributes we expect to have stored in Source.additional.
+    '''
+    collar_status = forms.CharField(required=False, label='Collar Status')
+    collar_model = forms.CharField(required=False, label='Collar Model')
+    has_acc_data = forms.BooleanField(
+        required=False, label='Has Accelerometer Data')
+    data_owners = forms.CharField(required=False, label='Data Owners')
+    adjusted_beacon_freq = forms.CharField(
+        required=False, label='Adjusted Beacon Frequency')
+
+    class Meta:
+        model = Source
+        json_fields = ('collar_status', 'collar_model',
+                       'has_acc_data', 'data_owners', 'adjusted_beacon_freq')
+        fields = ('id', 'manufacturer_id', 'provider', 'source_type',
+                  'model_name', 'additional') + json_fields
 
 
 class SubjectSubtypeChoiceField(forms.ModelChoiceField):
@@ -78,39 +136,6 @@ class SubjectForm(forms.ModelForm):
         groups = self.cleaned_data['groups']
         self.instance.groups.set(groups)
         return super()._save_m2m()
-
-
-from django import forms
-from django.conf import settings
-from django.utils.safestring import mark_safe
-
-
-class ColorPickerWidget(forms.TextInput):
-    '''
-    This widget works closely with a customized version of bootstrap-colorpicker.
-    '''
-    class Media:
-        css = {
-            'all': (
-                '/css/bootstrap-colorpicker.css',
-            )
-        }
-        js = (
-            '//code.jquery.com/jquery-3.2.1.js',
-            '/js/bootstrap-colorpicker.js',
-        )
-
-    def __init__(self, language=None, attrs=None):
-        self.language = language or settings.LANGUAGE_CODE[:2]
-        super(ColorPickerWidget, self).__init__(attrs=attrs)
-
-    def render(self, name, value, attrs=None):
-        rendered = super(ColorPickerWidget, self).render(name, value, attrs)
-        return rendered + mark_safe(
-            '''<script type="text/javascript">
-            $('#id_%s').colorpicker({format: 'rawrgb'});
-            </script>''' % (name,)
-        )
 
 
 class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
