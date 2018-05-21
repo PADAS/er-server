@@ -2,8 +2,12 @@ static-values:
   email-host: ""
   email-username: ""
   web-service-name: "web"
-  static-ip: ""
-  iaas-workspace: myResourceGroup
+  nginx-service-ip: ""
+  nginx-utility-service-ip: ""
+  alerts-slack-channel: "vcloud-demo-alerts"
+  send-alerts: "true"
+environment:
+  static-ip: STATIC_IP
 vault-lookups:
   email-password: padas-app/main/email-password
   bundle-crt: padas-app/main/bundle-crt

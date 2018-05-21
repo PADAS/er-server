@@ -9,7 +9,6 @@ from mapping.forms import MapCenterForm
 @admin.register(models.Map)
 class MapAdmin(admin.OSMGeoAdmin):
     form = MapCenterForm
-    openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
 
 
 @admin.register(models.TileLayer)
@@ -23,7 +22,6 @@ class FeatureSetAdmin(admin.ModelAdmin):
 
 
 class BaseFeatureAdmin(admin.OSMGeoAdmin):
-    openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
     list_filter = ('type', 'featureset')

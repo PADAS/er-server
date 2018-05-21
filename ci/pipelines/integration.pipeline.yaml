@@ -23,6 +23,16 @@ resources:
     paths: 
       - docker/PostGIS/*
       - docker/Nginx/*
+      - docker/Nginx_Utility/*
+    private_key: ((das-github))
+
+- name: git-monitoring
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    paths:
+      - docker/monitoring/*
     private_key: ((das-github))
 
 - name: git-server
@@ -146,6 +156,38 @@ resources:
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/nginx
 
+- name: image-nginx-utility
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/nginx-utility
+
+- name: image-prometheus
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/utility/prometheus
+
+- name: image-prometheus-alertmanager
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/utility/prometheus-alertmanager
+
+- name: image-grafana
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/utility/grafana
+
 # Web docker resources
 - name: image-web-base
   type: docker-image
@@ -181,6 +223,11 @@ resources:
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/app
 
+- name: slack-alert
+  type: slack-notification
+  source:
+    url: https://hooks.slack.com/services/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
+
 
 ################################################################################
 # 
@@ -195,6 +242,12 @@ resource_types:
     username: ((gcr-io-username))
     password: ((ss-infrastructure-container-registry-pull))
     repository: gcr.io/ss-infrastructure/concourse/versioned-git-resource
+
+- name: slack-notification
+  type: docker-image
+  source:
+    repository: cfcommunity/slack-notification-resource
+    tag: v1.2.0
 
 ################################################################################
 # 
@@ -279,6 +332,45 @@ jobs:
     - put: image-nginx
       params: { build: git-utility/docker/Nginx, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
+    - put: image-nginx-utility
+      params: { build: git-utility/docker/Nginx_Utility, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
+      get_params: {skip_download: true}
+
+- name: docker-build-monitoring
+  plan:
+  - do:
+    - get: git-monitoring
+      trigger: true
+    - aggregate:
+      - put: image-grafana
+        params: {
+          build: git-monitoring/docker/monitoring/grafana,
+          tag_as_latest: ((tag-as-latest)),
+          tag: git-monitoring/sha
+        }
+        get_params: {skip_download: true}
+      - put: image-prometheus
+        params: {
+          build: git-monitoring/docker/monitoring/prometheus,
+          tag_as_latest: ((tag-as-latest)),
+          tag: git-monitoring/sha
+        }
+        get_params: {skip_download: true}
+      - put: image-prometheus-alertmanager
+        params: {
+          build: git-monitoring/docker/monitoring/prometheus-alertmanager,
+          tag_as_latest: ((tag-as-latest)),
+          tag: git-monitoring/sha
+        }
+        get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 # Web Jobs
 - name: docker-build-web-base
@@ -405,6 +497,8 @@ jobs:
         passed: [docker-build-server]
       - get: git-deployment
         trigger: true
+      - get: git-monitoring
+        passed: [docker-build-monitoring]
       - get: image-server-api
         passed: [docker-build-server]
         trigger: true
@@ -431,6 +525,18 @@ jobs:
         params: {skip_download: true}
       - get: image-postgis
         passed: [docker-build-utility]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-grafana
+        passed: [docker-build-monitoring]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-prometheus
+        passed: [docker-build-monitoring]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-prometheus-alertmanager
+        passed: [docker-build-monitoring]
         trigger: true
         params: {skip_download: true}
       - get: image-web-app

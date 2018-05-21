@@ -1,1 +1,4 @@
 postgres-0,50
+elastic-search-data-0,50
+prometheus-0,30
+alertmanager-0,20

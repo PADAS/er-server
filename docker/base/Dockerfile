@@ -24,12 +24,13 @@ ENV LD_LIBRARY_PATH "/usr/local/lib"
 
 RUN pip3 install -U "pip"
 RUN pip3 install numpy
+
+RUN rm -rf /usr/lib/python3/dist-packages/GDAL-2.2.2.*
 RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt --no-cache-dir -f /workspace/dependencies/wheelhouse
 #RUN pip3 install django-debug-toolbar
 
 RUN mkdir -p /var/www/app && mkdir -p /startup
 ADD ./docker/base/start.sh /var/www/app/start.sh
 ADD ./docker/base/wait_for.sh /startup/wait_for.sh
-
 
 ENTRYPOINT ["/var/www/app/start.sh"]

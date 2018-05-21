@@ -6,3 +6,6 @@ django-extensions==1.9.8
 pre-commit==0.14.0
 mockredispy==2.9.3
 ptvsd==3.2.1
+pytest==3.5.0
+pytest-django==3.1.2
+pytest-pythonpath==0.7.2

@@ -2,6 +2,12 @@
 
 ## 1.X of DAS
 
+### Release 1.29.1 2018-04-25
+* Breadcrumbs for tracks. Under "Map Layers", feature to turn on Track Timepoints. Once enabled, each gps point on a track is displayed with a point. Click on a track point to view the time and latitude/longitude.
+* Report filtering by Date Range. In the Reports tab, click on the clock icon to set a date range filter on the viewed reports. This includes filtering by Today, Yesterday, Last Month. The date filter is also applied to the "Export Field Reports" feature to limit the csv export. 
+* Fix opening existing report. Opening an existing report took several seconds from click to open. The open time has been reduced from 5 or more seconds to less than one second.
+
+
 ### Release 1.28.1 2018-04-04
 * FIRMS feature. Notify DAS user when fire detected in a defined region provided by FIRMS. Options to filter by confidence level.
 * Fix subject/tracks realtime notification sending to many position points.

@@ -14,7 +14,6 @@ from rt_api import client
 import rt_api.pubsub_listener
 import utils.json
 
-
 logger = logging.getLogger('rt_api')
 
 GLOBAL_SIO = None
@@ -270,8 +269,8 @@ def create_realtime_handler(sios):
         @staticmethod
         def cleanup_disconnected_clients():
             """
-            TODO make this manager aware,
-            as this will not work for multiple rt servers running
+            XXX the assumption here is that this method is only called
+            internally by socket.io, so no need to be multi service aware
             """
             if not sios.environ:
                 return
@@ -285,7 +284,7 @@ def create_realtime_handler(sios):
                             extra=extra)
 
             client.remove_clients(
-                *[client.sid for client in remove_these_clients])
+                                  *[client.sid for client in remove_these_clients])
 
     return RealtimeServices
 

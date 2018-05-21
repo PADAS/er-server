@@ -1,7 +1,5 @@
 from django.conf.urls import url
 from mapping.views import *
-from mapping.sample_views import *
-from mapping.app_settings import MBTILES_ID_PATTERN
 
 app_name = 'mapping'
 
@@ -21,11 +19,4 @@ urlpatterns = (
     # a list of available base maps
     url(r'^maps/?$', MapListJsonView.as_view()),
 
-    url(r'^mbtiles/(?P<name>%s)/(?P<z>(\d+|\{z\}))/(?P<x>(\d+|\{x\}))/(?P<y>(\d+|\{y\})).png$' % MBTILES_ID_PATTERN, tile, name="tile"),
-    url(r'^mbtiles/(?P<name>%s)/(?P<z>(\d+|\{z\}))/(?P<x>(\d+|\{x\}))/(?P<y>(\d+|\{y\})).grid.json$' % MBTILES_ID_PATTERN, grid, name="grid"),
-    url(r'^mbtiles/(?P<name>%s)/preview.png$' % MBTILES_ID_PATTERN, preview, name="preview"),
-    url(r'^mbtiles/(?P<name>%s).json$' % MBTILES_ID_PATTERN, tilejson, name="tilejson"),
-
-    # samples based on data from test fixtures
-    url(r'^sample-maps/picker.html?$', SampleMapPicker.as_view()),
-    )
+)

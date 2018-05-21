@@ -1,0 +1,5 @@
+route:
+  receiver: silence
+
+receivers:
+- name: 'silence'
