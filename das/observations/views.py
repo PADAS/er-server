@@ -186,7 +186,7 @@ class SubjectsView(generics.ListCreateAPIView):
         context['render_last_location'] = True
         context['tracks'] = False
 
-        if parse_bool(request.query_params.get('tracks', None)):
+        if request and parse_bool(request.query_params.get('tracks', None)):
             context['tracks'] = True
             for t in self.TRACK_QPARAMS:
                 context[t] = request.query_params.get(t, None)
