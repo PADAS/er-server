@@ -8,9 +8,9 @@
 
 MANAGE_PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT=padas-app
-CONCOURSE_URL=https://ci.pamdas.org
+CONCOURSE_URL=https://35.197.37.215
 ELASTIC_URL=35.203.167.191
-TOOLS_VERSION=0.0.323
+TOOLS_VERSION=1.0.20
 VCLOUD_SERVICE_URL=http://35.197.21.185:5000/
 
 ### DO NOT EDIT BELOW THIS LINE
@@ -39,6 +39,7 @@ if [ ! "$(docker ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
         -e VAULT_SKIP_VERIFY=true \
         -e CONCOURSE_URL=$CONCOURSE_URL \
         -e ELASTIC_URL=$ELASTIC_URL \
+        -e AZURE_LOGIN=true \
         --name $CONTAINER_NAME \
         -v $CONTAINER_NAME-root:/root \
         --entrypoint run/startup.sh \
@@ -63,6 +64,7 @@ docker run -it --rm \
     "$(forward_port_if_set $K8S_PROXY_PORT)" \
     -e USERNAME=$(whoami) \
     -e TOOLS_CONTAINER_VERSION=$TOOLS_VERSION \
+    -e IAAS=azure \
     -v $MANAGE_PROJECT_DIR/ci:/vulcan-platform-tools/ci \
     -v $MANAGE_PROJECT_DIR/deployment:/vulcan-platform-tools/deployment \
     -v $(pwd):/vulcan-platform-tools/workdir \
