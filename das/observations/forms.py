@@ -111,6 +111,8 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
         fields = ('name', 'subject_subtype',
                   'common_name', 'groups', json_fields)
 
+    json_field = 'additional'
+
 
 class SubjectChangeListForm(forms.ModelForm):
 

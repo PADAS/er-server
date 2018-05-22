@@ -42,7 +42,7 @@ class JSONFieldFormMixin(object):
     This mixin can be used in a Form where we want to provide individual form elements for a set of keys
     within a Model's Json field identified by 'json_field'.
     '''
-    json_field = "side_data"
+    json_field = "additional"
 
     def get_json(self):
         return getattr(self.instance, self.json_field)
