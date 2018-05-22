@@ -33,6 +33,9 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
                   'additional') + json_fields
 
     assigned_range = AssignedDateTimeRangeField()
+
+    # For JSONFieldFormMixin -- this identifies the Model attribute that is
+    # the JSON Field.
     json_field = 'additional'
 
 
