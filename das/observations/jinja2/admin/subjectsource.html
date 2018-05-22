@@ -1,7 +1,17 @@
 {% for item in subjectsources %}
-<div border="1px solid gray;">
-    <p><strong>Manufacturer ID: </strong>{{ item.manufacturer_id }}</p>
-    <p><strong>FROM: {{ item.assigned_range.lower.strftime('%Y-%m-%dT%H:%M:%SZ') }}</strong></p>
-    <p><strong>TO: {{ item.assigned_range.upper.strftime('%Y-%m-%dT%H:%M:%SZ') }}</strong></p>
+<div>
+    <table style="border:1px solid #ccc;" >
+        <tr>
+        <th colspan="2">Manufacturer ID: {{ item.manufacturer_id }} </th></tabl
+        </tr>
+        <tr>
+            <td>From:</td>
+            <td>{{ item.assigned_range.lower.strftime('%Y-%m-%dT%H:%M:%SZ') }}</td>
+        </tr>
+        <tr>
+            <td>To:</td>
+            <td>{{ item.assigned_range.upper.strftime('%Y-%m-%dT%H:%M:%SZ') }}</td>
+        </tr>
+    </table>
 </div>
 {% endfor %}

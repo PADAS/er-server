@@ -28,13 +28,32 @@ admin.site.site_header = _('DAS Administration')
 admin.site.site_title = _('DAS Administration')
 
 
+class SubjectSubTypeInline(admin.TabularInline):
+    model = models.SubjectSubType
+
+    verbose_name = _('Subject Sub-Type')
+    verbose_name_plural = _('Subject Sub-Types')
+    show_change_link = True
+
+
 @admin.register(models.SubjectType)
 class SubjectTypeAdmin(admin.ModelAdmin):
     list_display = ('value', 'display')
     list_editable = ('display', )
-    readonly_fields = ('id', 'value',)
+    readonly_fields = ('id',)
     search_fields = ('value', 'display')
-    ordering = ('display',)
+    ordering = ('ordernum', 'display',)
+
+    fieldsets = (
+        (None,
+         {'fields': (('value', 'display', 'ordernum'))}
+         ),
+        ('Advanced',
+         {'fields': ('id',)}
+         )
+    )
+
+    # inlines = [SubjectSubTypeInline,]
 
 
 @admin.register(models.SubjectSubType)
@@ -42,12 +61,21 @@ class SubjectSubTypeAdmin(admin.ModelAdmin):
     list_display = ('subject_type_display', 'value', 'display')
     list_editable = ('display', )
     list_filter = ('subject_type__display',)
-    readonly_fields = ('value', 'id')
+    readonly_fields = ('id',)
     search_fields = ('value', 'display',
                      'subject_type__display', 'subject_type__value')
 
     ordering = ('subject_type__display', 'display')
     list_display_links = ('value',)
+
+    fieldsets = (
+        (None,
+         {'fields': (('value', 'display', 'ordernum'))}
+         ),
+        ('Advanced',
+         {'fields': ('id',)}
+         )
+    )
 
     def subject_type_display(self, o):
         return o.subject_type.display
@@ -257,7 +285,7 @@ class SourceAdmin(admin.ModelAdmin):
 @admin.register(models.SubjectSource)
 class SubjectSourceAdmin(admin.ModelAdmin):
     list_display = ('subject_name', 'manufacturer_id',
-                    'display_assigned_range')
+                    '_assigned_range')
     list_filter = ('subject__subject_subtype__value', 'source__source_type')
     search_fields = ('source__manufacturer_id', 'subject__name')
     readonly_fields = ('id',)
@@ -268,7 +296,7 @@ class SubjectSourceAdmin(admin.ModelAdmin):
     def manufacturer_id(self, o):
         return o.source.manufacturer_id
 
-    def display_assigned_range(self, o):
+    def _assigned_range(self, o):
 
         d1, d2 = o.assigned_range.lower, o.assigned_range.upper
         if d1.year >= 9999:
@@ -277,12 +305,6 @@ class SubjectSourceAdmin(admin.ModelAdmin):
             d2 = '-'
 
         return d1, d2
-
-    # formfield_overrides = {
-    #     models.DateTimeRangeField : {
-    #         'widget': RangeWidget(AdminSplitDateTime)
-    #     }
-    # }
 
     fieldsets = (
         (None, {

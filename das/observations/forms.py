@@ -1,66 +1,15 @@
+
+from django.utils.translation import ugettext_lazy as _
+
 from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple
 
-from django.utils.translation import ugettext_lazy as _
-from django.utils.safestring import mark_safe
 from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType
-
-from django.conf import settings
+from observations.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 
 import logging
 logger = logging.getLogger(__name__)
-
-
-class ColorPickerWidget(forms.TextInput):
-    '''
-    This widget works closely with a customized version of bootstrap-colorpicker.
-    '''
-    class Media:
-        css = {
-            'all': (
-                '/css/bootstrap-colorpicker.css',
-            )
-        }
-        js = (
-            '//code.jquery.com/jquery-3.2.1.js',
-            '/js/bootstrap-colorpicker.js',
-        )
-
-    def __init__(self, language=None, attrs=None):
-        self.language = language or settings.LANGUAGE_CODE[:2]
-        super(ColorPickerWidget, self).__init__(attrs=attrs)
-
-    def render(self, name, value, attrs=None):
-        rendered = super(ColorPickerWidget, self).render(name, value, attrs)
-        return rendered + mark_safe(
-            '''<script type="text/javascript">
-            $('#id_%s').colorpicker({format: 'rawrgb'});
-            </script>''' % (name,)
-        )
-
-
-class JSONFieldFormMixin(object):
-
-    json_field = "additional"
-
-    def get_json(self):
-        return getattr(self.instance, self.json_field)
-
-    def __init__(self, *args, **kwargs):
-        super(JSONFieldFormMixin, self).__init__(*args, **kwargs)
-        if self.instance:
-            json_data = self.get_json()
-            for field in self.Meta.json_fields:
-                if json_data.get(field):
-                    self.fields[field].initial = json_data.get(field)
-
-    def save(self, *args, **kwargs):
-        json_data = self.get_json()
-        for field in self.Meta.json_fields:
-            json_data[field] = self.cleaned_data[field]
-        setattr(self.instance, self.json_field, json_data)
-        return super(JSONFieldFormMixin, self).save(*args, **kwargs)
 
 
 class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
@@ -82,6 +31,9 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
                        'data_stops_source', 'data_stops_reason')
         fields = ('id', 'subject', 'source', 'assigned_range',
                   'additional') + json_fields
+
+    assigned_range = AssignedDateTimeRangeField()
+    json_field = 'additional'
 
 
 class SourceForm(JSONFieldFormMixin, forms.ModelForm):
