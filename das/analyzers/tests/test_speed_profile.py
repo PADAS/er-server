@@ -21,16 +21,19 @@ class TestSpeedProfile(TestCase):
     def test_build_speed_profile(self):
 
         # Define the subject
-        sub = Subject.objects.create(name='Heritage', subject_type='wildlife', subject_subtype='elephant')
+        sub = Subject.objects.create(
+            name='Heritage', subject_subtype='elephant')
 
         # create a dummy source
         source = Source.objects.create(manufacturer_id='007')
 
         # Assign the source to the subject
-        SubjectSource.objects.create(subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
+        SubjectSource.objects.create(
+            subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
-        SubjectTrackSegmentFilter.objects.create(subject_subtype='elephant', speed_KmHr=7.0)
+        SubjectTrackSegmentFilter.objects.create(
+            subject_subtype='elephant', speed_KmHr=7.0)
 
         # Store observations in the database
         test_observations = [parse_recorded_at(x) for x in HERITAGE_Track]
@@ -63,9 +66,3 @@ class TestSpeedProfile(TestCase):
         assert(len(speed_vals) == 3147)
         assert(round(np.min(speed_vals), 6) == 0.000926)
         assert(round(np.max(speed_vals), 6) == 3.181680)
-
-
-
-
-
-

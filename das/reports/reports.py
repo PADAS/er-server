@@ -59,8 +59,7 @@ def get_rhino_sightings(start, end):
 
 
 def get_rhinos():
-    rhinos = Subject.objects.filter(
-        subject_type=Subject.TYPE_WILDLIFE, subject_subtype=Subject.SUBTYPE_RHINO)
+    rhinos = Subject.objects.filter(subject_subtype='rhino')
     return rhinos
 
 

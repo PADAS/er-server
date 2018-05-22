@@ -29,8 +29,8 @@ class TestEnvironmentAnalyzer(TestCase):
     def test_environmental_analyzer(self):
 
         # Create models (Subject, SubjectSource and Source)
-        sub = models.Subject.objects.create_subject(name='RandomWalkElephant', subject_type='wildlife',
-                                                    subject_subtype='elephant')
+        sub = models.Subject.objects.create_subject(
+            name='RandomWalkElephant', subject_subtype='elephant')
 
         source = models.Source.objects.create(manufacturer_id='random-collar')
 

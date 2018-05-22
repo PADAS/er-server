@@ -1002,7 +1002,7 @@ def ensure_subject_source(source, event_time, subject_name=None):
         subject_name = subject_name or 'sky-{}'.format(source.manufacturer_id)
 
         sub, created = Subject.objects.get_or_create(
-            subject_type='wildlife', subject_subtype='elephant',
+            subject_subtype='elephant',
             name=subject_name,
             defaults=dict(additional=dict(region='', country='', ))
         )

@@ -49,7 +49,7 @@ class TestImmobilityAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = models.Subject.objects.create_subject(
-            name='Ishango', subject_type='wildlife', subject_subtype='elephant')
+            name='Ishango', subject_subtype='elephant')
         source = models.Source.objects.create(manufacturer_id='ishango-collar')
         models.SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)

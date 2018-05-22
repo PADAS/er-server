@@ -15,7 +15,7 @@ class TestLowSpeedAnalyzer(TestCase):
         # Create models to test whether we accurately find the analyzer configs
         # for a Subject.
         sub = Subject.objects.create(
-            name='Dinky', subject_type='wildlife', subject_subtype='SUBTYPE_ELEPHANT')
+            name='Dinky', subject_subtype='elephant')
 
         source = Source.objects.create(manufacturer_id='xyz-000001')
 

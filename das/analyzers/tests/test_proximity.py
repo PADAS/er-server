@@ -82,13 +82,14 @@ class TestProximityAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Olchoda', subject_type='wildlife', subject_subtype='elephant')
+            name='Olchoda', subject_subtype='elephant')
         source = Source.objects.create(manufacturer_id='008')
         SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
-        SubjectTrackSegmentFilter.objects.create(subject_subtype='elephant', speed_KmHr=7.0)
+        SubjectTrackSegmentFilter.objects.create(
+            subject_subtype='elephant', speed_KmHr=7.0)
 
         sg = SubjectGroup.objects.create(
             name='proximity_subject_analyzer_group', )
@@ -100,7 +101,8 @@ class TestProximityAnalyzer(TestCase):
         relocs_len = len(test_observations)
         test_observations = list(generate_observations(test_observations))
 
-        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2' geofence
+        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2'
+        # geofence
         sfs = SpatialFeature.objects.filter(
             name__iexact='Ol Donyo Farm 2')
         logger.info('Proximity features count: %s' % str(len(sfs)))
@@ -116,7 +118,8 @@ class TestProximityAnalyzer(TestCase):
         # Create the analyzer
         analyzer = ProximityAnalyzer(config=config, subject=sub)
 
-        # Iterate through the observations adding another point to the trajectory on each loop
+        # Iterate through the observations adding another point to the
+        # trajectory on each loop
         for i in range(2, relocs_len):
             try:
                 analyzer.analyze(observations=test_observations[i - 2:i])

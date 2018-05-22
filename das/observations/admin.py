@@ -1,28 +1,194 @@
+import random
+from datetime import datetime
+
 from django.contrib import admin
 from django import forms
+from django.utils.safestring import mark_safe
+from django.utils.html import escape
 from django.utils.translation import ugettext_lazy as _
-from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.contrib.admin.widgets import FilteredSelectMultiple, AdminSplitDateTime
+from django.contrib.postgres.forms import RangeWidget
+from django.db.models import F
 
 import observations.models as models
 import observations.forms
-from observations.forms import SubjectForm
+from observations.forms import SubjectForm, SubjectChangeListForm, SubjectSourceForm
 from core.admin import HierarchyModelAdmin
 from utils.html import make_html_list
+
+from django.contrib.postgres import fields
+# from django_json_widget.widgets import JSONEditorWidget
+
+
+from django.template.loader import render_to_string
+from django.utils.html import format_html
+
+
+admin.site.site_header = _('DAS Administration')
+admin.site.site_title = _('DAS Administration')
+
+
+class SubjectSubTypeInline(admin.TabularInline):
+    model = models.SubjectSubType
+
+    verbose_name = _('Subject Sub-Type')
+    verbose_name_plural = _('Subject Sub-Types')
+    show_change_link = True
+
+
+@admin.register(models.SubjectType)
+class SubjectTypeAdmin(admin.ModelAdmin):
+    list_display = ('value', 'display')
+    list_editable = ('display', )
+    readonly_fields = ('id',)
+    search_fields = ('value', 'display')
+    ordering = ('ordernum', 'display',)
+
+    fieldsets = (
+        (None,
+         {'fields': (('value', 'display', 'ordernum'))}
+         ),
+        ('Advanced',
+         {'fields': ('id',)}
+         )
+    )
+
+    # inlines = [SubjectSubTypeInline,]
+
+
+@admin.register(models.SubjectSubType)
+class SubjectSubTypeAdmin(admin.ModelAdmin):
+    list_display = ('subject_type_display', 'value', 'display')
+    list_editable = ('display', )
+    list_filter = ('subject_type__display',)
+    readonly_fields = ('id',)
+    search_fields = ('value', 'display',
+                     'subject_type__display', 'subject_type__value')
+
+    ordering = ('subject_type__display', 'display')
+    list_display_links = ('value',)
+
+    fieldsets = (
+        (None,
+         {'fields': (('value', 'display', 'ordernum'))}
+         ),
+        ('Advanced',
+         {'fields': ('id',)}
+         )
+    )
+
+    def subject_type_display(self, o):
+        return o.subject_type.display
+
+
+class SubjectSourceInline(admin.StackedInline):
+    model = models.SubjectSource
+    max_num = 1
+
+    can_delete = True
+    verbose_name = _('Source Assignment')
+    verbose_name_plural = _('Source Assignment')
+    show_change_link = True
+    fk_name = 'subject'
+
+    form = SubjectSourceForm
+
+    fieldsets = (
+        (None, {
+            'fields': (('subject', 'source',),)
+        }
+        ),
+        (None, {
+            'classes': ('wide',),
+            'fields': ('assigned_range',)
+        }
+        ),
+        ('Source Assignment Attributes', {
+            'classes': ('wide',),
+            'fields': ('data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason')
+        }
+        ),
+        ('Advanced Settings', {
+            'classes': ('wide', 'collapse',),
+            'fields': ('additional', 'id')
+        }
+        )
+    )
+
+
+from django.contrib.admin.widgets import FilteredSelectMultiple, RelatedFieldWidgetWrapper
 
 
 @admin.register(models.Subject)
 class SubjectAdmin(admin.ModelAdmin):
 
-    list_display = ('name', 'subject_type', 'subject_subtype',
-                    'is_active', 'additional', 'all_groups', 'all_sources')
+    list_display = ('name', 'subject_subtype',
+                    'is_active', 'get_attributes', 'all_groups', 'all_sources')
 
-    search_fields = ('name', 'subject_subtype', 'common_name__display')
+    search_fields = ('name', 'subject_subtype__value', 'common_name__display',
+                     'subjectsource__source__manufacturer_id')
 
-    fields = ('id', 'name', 'common_name', 'additional',
-              'groups', SubjectForm.SUBTYPE_FIELD)
-    list_filter = ('is_active', 'subject_type',
-                   'subject_subtype', 'common_name')
-    list_editable = ('is_active',)
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': (('id', 'name', 'subject_subtype', 'common_name',
+                        'groups',))
+        }
+        ),
+        ('Subject Attributes', {
+            'classes': ('wide',),
+            'fields': (('rgb', 'sex', 'country', 'region',))
+        }
+        ),
+        ('Advanced', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('additional',)
+        })
+    )
+    list_filter = ('is_active', 'subject_subtype__subject_type__value',
+                   'subject_subtype__value', 'common_name')
+    list_editable = ('subject_subtype', 'is_active',)
+    readonly_fields = ('id',)
+    list_per_page = 25
+    ordering = ('name',)
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super(SubjectAdmin, self).get_form(request, obj=obj, **kwargs)
+        rel_model = form.Meta.model
+        remote_field = rel_model._meta.get_field(
+            'subject_subtype').remote_field
+        form.declared_fields['subject_subtype'].widget = \
+            RelatedFieldWidgetWrapper(form.declared_fields['subject_subtype'].widget, remote_field,
+                                      admin.site, can_add_related=True,
+                                      can_change_related=True)
+        return form
+
+    def subject_subtype_display(self, o):
+        return '{}: {}'.format(o.subject_subtype.subject_type.display,
+                               o.subject_subtype.display)
+
+    def assign_random_color(self, request, queryset):
+        update_count = 0
+        for item in queryset:
+            if hasattr(item, 'additional') and not item.additional.get('rgb'):
+                item.additional['rgb'] = ','.join(
+                    [str(random.randint(0, 255)) for i in range(3)])
+                item.save()
+                update_count += 1
+
+        if update_count == 1:
+            msg = 'One subject was updated with a random color.'
+        else:
+            msg = '%s subjects were updated each with a random color.' % (
+                update_count,)
+
+        self.message_user(request, msg)
+
+    assign_random_color.short_description = _('Assign random color')
+
+    actions = ['assign_random_color', ]
+
+    inlines = [SubjectSourceInline, ]
 
     def queryset(self, request):
         """Limit Subjects to those this person can administer"""
@@ -34,53 +200,44 @@ class SubjectAdmin(admin.ModelAdmin):
             'implement filtering SubjectAdmin to user permissions')
         return qs.filter(owner=request.user)
 
-    form = observations.forms.SubjectForm
-
-    def type_subtype_view(self, obj):
-        if obj is not None:
-            return '{}:{}'.format(obj.subject_type, obj.subject_subtype)
-
-    def get_form(self, request, obj=None, **kwargs):
-        form = super().get_form(request, obj=obj, **kwargs)
-        form.base_fields[SubjectForm.SUBTYPE_FIELD].initial = self.type_subtype_view(
-            obj)
-        return form
+    form = observations.forms.SubjectFormWithAttributes
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == 'common_name':
             kwargs['queryset'] = models.CommonName.objects.all()
         return super().formfield_for_foreignkey(db_field, request=request, **kwargs)
 
+    def get_attributes(self, instance):
+        context = dict((k, instance.additional[k]) for k in (
+            'rgb', 'region', 'country', 'sex', 'age') if k in instance.additional)
+
+        return mark_safe(''.join('<p><strong>{}</strong>: {}</p>'.format(escape(k), escape(v))
+                                 for k, v in context.items()))
+
+    get_attributes.short_description = _('Attributes')
+
     def all_groups(self, instance):
         groups = instance.groups.all()
         return make_html_list(sorted(group.name for group in groups))
 
-    all_groups.short_description = 'Groups'
+    all_groups.short_description = _('Groups')
     all_groups.allow_tags = True
 
     def all_sources(self, instance):
         subjectsources = models.SubjectSource \
             .objects \
-            .filter(subject_id=instance.pk) \
+            .filter(subject_id=instance.pk).annotate(manufacturer_id=F('source__manufacturer_id')) \
             .order_by('-assigned_range')
 
-        return make_html_list(sorted('{} {}'.format(
-            str(ss.assigned_range.upper), str(ss.source_id)) for ss in subjectsources))
+        content = render_to_string(
+            'admin/subjectsource.html', {'subjectsources': list(subjectsources.values())})
+        return format_html(content)
 
-    all_sources.short_description = 'Sources'
+    all_sources.short_description = _('Sources')
     all_sources.allow_tags = True
 
-    def save_model(self, request, obj, form, change):
-        '''
-        Hook to coerce type_subtype value to valid subject_type and subject_subtype model fields.
-        '''
-        if change and SubjectForm.SUBTYPE_FIELD in form.changed_data:
-            (t, st) = form.cleaned_data.get(
-                SubjectForm.SUBTYPE_FIELD).split(':')
-            obj.subject_type = t
-            obj.subject_subtype = st
-
-        super().save_model(request, obj, form, change)
+    def get_changelist_form(self, request, **kwargs):
+        return SubjectChangeListForm
 
 
 @admin.register(models.CommonName)
@@ -89,7 +246,7 @@ class CommonNameAdmin(admin.ModelAdmin):
 
     def queryset(self, request):
         """Limit Subjects to those this person can administer"""
-        qs = super(SubjectAdmin, self).queryset(request)
+        qs = super(CommonNameAdmin, self).queryset(request)
         if request.user.is_superuser:
             return qs
 
@@ -106,12 +263,72 @@ class SourceAdmin(admin.ModelAdmin):
     list_filter = ('source_type', 'model_name')
 #    filter_horizontal = ('groups',)
 
+    form = observations.forms.SourceForm
+    fieldsets = (
+        (None, {
+            'fields': ('manufacturer_id', 'source_type', 'model_name', 'provider',)
+        }
+        ),
+        ('Source Attributes', {
+            'classes': ('wide',),
+            'fields': ('collar_status', 'collar_model', 'has_acc_data', 'data_owners', 'adjusted_beacon_freq')
+        }
+        ),
+        ('Advanced', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('id', 'additional',)
+        }
+        )
+    )
+
 
 @admin.register(models.SubjectSource)
 class SubjectSourceAdmin(admin.ModelAdmin):
-    list_filter = ('subject__subject_subtype', 'source__source_type')
+    list_display = ('subject_name', 'manufacturer_id',
+                    '_assigned_range')
+    list_filter = ('subject__subject_subtype__value', 'source__source_type')
     search_fields = ('source__manufacturer_id', 'subject__name')
-    pass
+    readonly_fields = ('id',)
+
+    def subject_name(self, o):
+        return o.subject.name
+
+    def manufacturer_id(self, o):
+        return o.source.manufacturer_id
+
+    def _assigned_range(self, o):
+
+        d1, d2 = o.assigned_range.lower, o.assigned_range.upper
+        if d1.year >= 9999:
+            d1 = '-'
+        if d2.year >= 9999:
+            d2 = '-'
+
+        return d1, d2
+
+    fieldsets = (
+        (None, {
+            'fields': (('subject', 'source'),)
+        }
+        ),
+        ('Assigned Range', {
+            'classes': ('wide',),
+            'fields': ('assigned_range',)
+        }
+        ),
+        ('Attributes', {
+            'classes': ('wide',),
+            'fields': ('data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason')
+        }
+        ),
+        ('Advanced', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('additional',)
+        }
+        )
+    )
+
+    form = observations.forms.SubjectSourceForm
 
 
 @admin.register(models.Region)
@@ -185,7 +402,7 @@ class SubjectStatusAdmin(admin.ModelAdmin):
 
     list_display = ('subject', 'delay_hours', 'recorded_at', 'location')
 
-    list_filter = ('delay_hours', 'subject__subject_subtype')
+    list_filter = ('delay_hours', 'subject__subject_subtype__value')
 
 
 @admin.register(models.SourceProvider)
