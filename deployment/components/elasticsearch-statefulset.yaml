@@ -60,7 +60,7 @@ spec:
       name: elasticsearch-data
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "ssd"
+      storageClassName: "azure"
       resources:
         requests:
           storage: 50Gi

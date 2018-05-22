@@ -6,8 +6,9 @@ static-values:
   nginx-utility-service-ip: ""
   alerts-slack-channel: "vcloud-demo-alerts"
   send-alerts: "true"
-environment:
-  static-ip: STATIC_IP
+  static-ip: ""
+  azure-subscription-id: "016c8074-e2bb-4eb5-b4b4-d86c4aa740fa"
+  iaas-workspace: "myResourceGroup"
 vault-lookups:
   email-password: padas-app/main/email-password
   bundle-crt: padas-app/main/bundle-crt

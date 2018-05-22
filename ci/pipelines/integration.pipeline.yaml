@@ -618,6 +618,7 @@ jobs:
           - name: git-web
           - name: git-server
           - name: git-deployment
+          - name: git-monitoring
           params: {
             PROJECT: padas-app,
             USERNAME: ((creator)),

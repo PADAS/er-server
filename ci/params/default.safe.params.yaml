@@ -1,5 +1,5 @@
 project-id: padas-app
-vp-tools-container-version: "0.0.323"
+vp-tools-container-version: "1.0.17"
 infrastructure-utilities-version-tag: "0.0.54"
 
 #Infrastructure
