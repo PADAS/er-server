@@ -16,12 +16,12 @@ class ColorPickerWidget(TextInput):
     class Media:
         css = {
             'all': (
-                '/css/bootstrap-colorpicker.css',
+                '{}css/bootstrap-colorpicker.css'.format(settings.STATIC_URL),
             )
         }
         js = (
             '//code.jquery.com/jquery-3.2.1.js',
-            '/js/bootstrap-colorpicker.js',
+            '{}static/js/bootstrap-colorpicker.js'.format(settings.STATIC_URL),
         )
 
     def __init__(self, language=None, attrs=None):
