@@ -68,8 +68,8 @@ class AssignedDateTimeRangeWidget(MultiWidget):
 
     def __init__(self):
         widgets = (
-            DateTimeInput(format='%Y:%m:%d %H:%M:%S%z', attrs={'size': '30'}),
-            DateTimeInput(format='%Y:%m:%d %H:%M:%S%z', attrs={'size': '30'}),
+            DateTimeInput(format='%Y-%m-%d %H:%M:%S%z', attrs={'size': '30'}),
+            DateTimeInput(format='%Y-%m-%d %H:%M:%S%z', attrs={'size': '30'}),
         )
         super().__init__(widgets)
 

@@ -58,27 +58,24 @@ class SubjectTypeAdmin(admin.ModelAdmin):
 
 @admin.register(models.SubjectSubType)
 class SubjectSubTypeAdmin(admin.ModelAdmin):
-    list_display = ('subject_type_display', 'value', 'display')
-    list_editable = ('display', )
+    list_display = ('value', 'display', 'subject_type', )
+    list_editable = ('display', 'subject_type',)
     list_filter = ('subject_type__display',)
     readonly_fields = ('id',)
     search_fields = ('value', 'display',
                      'subject_type__display', 'subject_type__value')
 
-    ordering = ('subject_type__display', 'display')
+    ordering = ('subject_type', 'display')
     list_display_links = ('value',)
 
     fieldsets = (
         (None,
-         {'fields': (('value', 'display', 'ordernum'))}
+         {'fields': (('value', 'display', 'subject_type', 'ordernum'))}
          ),
         ('Advanced',
          {'fields': ('id',)}
          )
     )
-
-    def subject_type_display(self, o):
-        return o.subject_type.display
 
 
 class SubjectSourceInline(admin.StackedInline):
@@ -155,17 +152,19 @@ class SubjectAdmin(admin.ModelAdmin):
     def get_form(self, request, obj=None, **kwargs):
         form = super(SubjectAdmin, self).get_form(request, obj=obj, **kwargs)
         rel_model = form.Meta.model
+
         remote_field = rel_model._meta.get_field(
             'subject_subtype').remote_field
+
         form.declared_fields['subject_subtype'].widget = \
             RelatedFieldWidgetWrapper(form.declared_fields['subject_subtype'].widget, remote_field,
                                       admin.site, can_add_related=True,
                                       can_change_related=True)
         return form
 
-    def subject_subtype_display(self, o):
-        return '{}: {}'.format(o.subject_subtype.subject_type.display,
-                               o.subject_subtype.display)
+    # def subject_subtype_display(self, o):
+    #     return '{}: {}'.format(o.subject_subtype.subject_type.display,
+    #                            o.subject_subtype.display)
 
     def assign_random_color(self, request, queryset):
         update_count = 0
