@@ -147,8 +147,7 @@ class TestEventView(TestCase):
         self.ranger = Subject.objects.create(
             id='00353be0-39b9-4b2b-acc5-c9bfd71d2b86',
             name='John IsA Ranger',
-            subject_type=Subject.TYPE_PERSON,
-            subject_subtype=Subject.SUBTYPE_RANGER,
+            subject_subtype_id='ranger',
             additional={})
 
         self.incident_data = dict(

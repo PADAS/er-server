@@ -81,20 +81,22 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Jolie', subject_type='wildlife', subject_subtype='elephant')
+            name='Jolie', subject_subtype_id='elephant')
         source = Source.objects.create(manufacturer_id='006')
         SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
-        SubjectTrackSegmentFilter.objects.create(subject_subtype='elephant', speed_KmHr=7.0)
+        SubjectTrackSegmentFilter.objects.create(
+            subject_subtype_id='elephant', speed_KmHr=7.0)
 
         sg = SubjectGroup.objects.create(
             name='geofence_subject_analyzer_group1', )
         sg.subjects.add(sub)
         sg.save()
 
-        # Create a SpatialFeatureGroupStatic group with the 'Moukabala-Doudou' geofence
+        # Create a SpatialFeatureGroupStatic group with the 'Moukabala-Doudou'
+        # geofence
         geofences = SpatialFeature.objects.filter(
             name__iexact='Moukalaba-Doudou')
         logger.info('Geofence count: %s' % str(len(geofences)))
@@ -111,10 +113,12 @@ class TestGeofenceAnalyzer(TestCase):
         GeofenceAnalyzerConfig.objects.create(
             subject_group=sg, geofences=gf_grp, search_time_hours=175200.0)
 
-        # Iterate through the observations adding another point to the trajectory on each loop
+        # Iterate through the observations adding another point to the
+        # trajectory on each loop
         for i in range(0, relocs_len):
             try:
-                store_observations(test_observations[i:i+1], timeshift=False, source=source)
+                store_observations(
+                    test_observations[i:i + 1], timeshift=False, source=source)
                 analyze_subject(str(sub.id))
             except InsufficientDataAnalyzerException:
                 pass
@@ -138,7 +142,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Olchoda', subject_type='wildlife', subject_subtype='elephant')
+            name='Olchoda', subject_subtype_id='elephant')
         source = Source.objects.create(manufacturer_id='007')
         SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
@@ -153,7 +157,8 @@ class TestGeofenceAnalyzer(TestCase):
         relocs_len = len(test_observations)
         test_observations = list(generate_observations(test_observations))
 
-        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2' geofence
+        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2'
+        # geofence
         geofences = SpatialFeature.objects.filter(
             name__iexact='Ol Donyo Farm 2')
         logger.info('Geofence count: %s' % str(len(geofences)))
@@ -175,17 +180,18 @@ class TestGeofenceAnalyzer(TestCase):
         config = GeofenceAnalyzerConfig.objects.create(
             subject_group=sg, geofences=gf_grp, containment_regions=cr_grp)
 
-        # Iterate through the observations adding another point to the trajectory on each loop
+        # Iterate through the observations adding another point to the
+        # trajectory on each loop
         for i in range(2, relocs_len):
             try:
                 analyzer = GeofenceAnalyzer(config=config, subject=sub)
-                analyzer.analyze(observations=test_observations[i-2:i])
+                analyzer.analyze(observations=test_observations[i - 2:i])
             except InsufficientDataAnalyzerException:
                 break
 
         # There should be 2 geofence breaks from this analysis.
         results = SubjectAnalyzerResult.objects.filter(subject=sub)
-        self.assertTrue(len(results)== 2)
+        self.assertTrue(len(results) == 2)
         for result in results:
             print('Geofence Result: %s' % result)
 
