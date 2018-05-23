@@ -134,7 +134,7 @@ class DemoDriver():
             id=self.subject_id,
             name=self.name,
             additional=subadd,
-            subject_subtype=self.subject_subtype,
+            subject_subtype_id=self.subject_subtype,
         )
         self.source.save()
         self.subject.save()

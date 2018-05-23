@@ -293,7 +293,7 @@ class GsatHandler():
         if created:
             ss, created = SubjectSource.objects.ensure_subject_source(src,
                                                                       timestamp=obj['recorded_at'],
-                                                                      subject_subtype=cls.DEFAULT_SUBJECT_SUBTYPE
+                                                                      subject_subtype_id=cls.DEFAULT_SUBJECT_SUBTYPE
                                                                       )
 
         obj['additional'] = dict((k, obj[k]) for k in obj if k not in (

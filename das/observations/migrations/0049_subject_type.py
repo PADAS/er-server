@@ -6,6 +6,22 @@ import django.db.models.deletion
 import observations.models
 import uuid
 
+CREATE_MISSING_SUBJECT_TYPES = '''
+with t0 as (select distinct(subject_type) val from observations_subject) 
+    insert into observations_subjecttype (created_at, updated_at, id, value, display, ordernum)
+       select current_timestamp, current_timestamp, uuid_generate_v4(), t0.val, t0.val, 0 
+       from t0 
+       on conflict (value) do nothing;
+'''
+
+CREATE_MISSING_SUBJECT_SUBTYPES = '''
+with t0 as (select distinct(subject_subtype) val from observations_subject) 
+     insert into observations_subjectsubtype (created_at, updated_at, id, value, display, ordernum, subject_type_id)
+        select current_timestamp, current_timestamp, uuid_generate_v4(), t0.val, t0.val, 0, 'unassigned' 
+        from t0 
+        on conflict (value) do nothing;
+'''
+
 
 def load_subject_types(apps, schema_editor):
     call_command('loaddata', 'subject_types')
@@ -54,15 +70,24 @@ class Migration(migrations.Migration):
             },
         ),
 
+        # Load data into SubjectSubType and SubjectType.
+        migrations.RunPython(load_subject_types,
+                             reverse_code=migrations.RunPython.noop),
+
+        migrations.RunSQL('SET CONSTRAINTS ALL IMMEDIATE',
+                          reverse_sql=migrations.RunSQL.noop),
+
+        migrations.RunSQL(sql=CREATE_MISSING_SUBJECT_TYPES,
+                          reverse_sql=migrations.RunSQL.noop),
+
+        migrations.RunSQL(sql=CREATE_MISSING_SUBJECT_SUBTYPES,
+                          reverse_sql=migrations.RunSQL.noop),
+
         # Drop subject_type. It will be replaced by SubjectType.
         migrations.RemoveField(
             model_name='subject',
             name='subject_type',
         ),
-
-        # Load data into SubjectSubType and SubjectType.
-        migrations.RunPython(load_subject_types,
-                             reverse_code=migrations.RunPython.noop),
 
         migrations.AlterField(
             model_name='commonname',
@@ -83,5 +108,8 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.PROTECT, to='observations.SubjectSubType'),
         ),
+
+        migrations.RunSQL(sql=migrations.RunSQL.noop,
+                          reverse_sql='SET CONSTRAINTS ALL IMMEDIATE'),
 
     ]
