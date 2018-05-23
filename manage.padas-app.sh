@@ -8,7 +8,7 @@
 
 MANAGE_PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT=padas-app
-CONCOURSE_URL=https://35.197.37.215
+CONCOURSE_URL=https://ci.pamdas.org
 ELASTIC_URL=35.203.167.191
 TOOLS_VERSION=1.0.17
 VCLOUD_SERVICE_URL=http://35.197.21.185:5000/
