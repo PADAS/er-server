@@ -7,8 +7,7 @@
       "created_at": "2015-11-01T00:00:00+00:00",
       "updated_at": "2015-11-01T00:00:00+00:00",
       "name": "Junkie",
-      "subject_subtype": "elephant",
-      "subject_type": "wildlife"
+      "subject_subtype_id": "elephant"
     },
     "pk": "0fa8ec9a-7e92-4575-9575-df202d5dde25",
     "model": "observations.subject"

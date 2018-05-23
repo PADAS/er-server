@@ -200,7 +200,7 @@ class TestLowSpeedAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Heritage', subject_subtype='elephant')
+            name='Heritage', subject_subtype_id='elephant')
 
         source = Source.objects.create(manufacturer_id='007')
 
@@ -209,7 +209,7 @@ class TestLowSpeedAnalyzer(TestCase):
 
         # Create a SubjectTrackSegmentFilter
         SubjectTrackSegmentFilter.objects.create(
-            subject_subtype='elephant', speed_KmHr=7.0)
+            subject_subtype_id='elephant', speed_KmHr=7.0)
 
         sg = SubjectGroup.objects.create(
             name='low_speed_subject_analyzer_group', )
@@ -262,7 +262,7 @@ class TestLowSpeedAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Heritage', subject_subtype='elephant')
+            name='Heritage', subject_subtype_id='elephant')
 
         source = Source.objects.create(manufacturer_id='006')
 
@@ -271,7 +271,7 @@ class TestLowSpeedAnalyzer(TestCase):
 
         # Create a SubjectTrackSegmentFilter
         SubjectTrackSegmentFilter.objects.create(
-            subject_subtype='elephant', speed_KmHr=7.0)
+            subject_subtype_id='elephant', speed_KmHr=7.0)
 
         sg = SubjectGroup.objects.create(
             name='low_speed_subject_analyzer_group', )

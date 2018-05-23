@@ -22,7 +22,7 @@ class TestSpeedProfile(TestCase):
 
         # Define the subject
         sub = Subject.objects.create(
-            name='Heritage', subject_subtype='elephant')
+            name='Heritage', subject_subtype_id='elephant')
 
         # create a dummy source
         source = Source.objects.create(manufacturer_id='007')
@@ -33,7 +33,7 @@ class TestSpeedProfile(TestCase):
 
         # Create a SubjectTrackSegmentFilter
         SubjectTrackSegmentFilter.objects.create(
-            subject_subtype='elephant', speed_KmHr=7.0)
+            subject_subtype_id='elephant', speed_KmHr=7.0)
 
         # Store observations in the database
         test_observations = [parse_recorded_at(x) for x in HERITAGE_Track]

@@ -40,17 +40,14 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
 
         # Create three elephants in two different regions
         self.elephant_1 = Subject.objects.create_subject(id='d2ed403e-9419-41aa-8fa9-45a70e5ce2ed', name='Elephant 1',
-                                                         subject_type='wildlife',
-                                                         subject_subtype='elephant',
+                                                         subject_subtype_id='elephant',
                                                          additional={'region': 'Region 1', 'country': 'USA',
                                                                      'rgb': '220,30,30'})
         self.elephant_2 = Subject.objects.create_subject(id='c25e17d0-0337-4f0c-9274-25e5ae4da7c8', name='Elephant 2',
-                                                         subject_type='wildlife',
-                                                         subject_subtype='elephant',
+                                                         subject_subtype_id='elephant',
                                                          additional={'region': 'Region 1', 'country': 'USA'})
         self.elephant_3 = Subject.objects.create_subject(id='a873e49c-1cb5-4ad4-b29d-e4b8931036ba', name='Elephant 3',
-                                                         subject_type='wildlife',
-                                                         subject_subtype='elephant',
+                                                         subject_subtype_id='elephant',
                                                          additional={'region': 'Region 2', 'country': 'USA'})
 
         # Put these elephants in a group so we can give permissions to see them

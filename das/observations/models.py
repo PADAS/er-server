@@ -366,7 +366,7 @@ class SubjectSourceManager(models.Manager):
 
         return subject_source
 
-    def ensure_subject_source(self, source, timestamp=None, subject_subtype=None,
+    def ensure_subject_source(self, source, timestamp=None, subject_subtype_id=None,
                               additional=None, subject_name=None):
 
         # TODO: Deprecate the use of this function, in favor of the ensure().
@@ -387,7 +387,7 @@ class SubjectSourceManager(models.Manager):
         if not subject_source:
 
             sub, created = Subject.objects.get_or_create(
-                subject_subtype=subject_subtype,
+                subject_subtype_id=subject_subtype_id,
                 name=(subject_name or source.manufacturer_id),
                 defaults=dict(additional=dict(
                     region='', country='', rgb=random_rgb()))

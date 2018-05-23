@@ -81,14 +81,14 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Jolie', subject_subtype='elephant')
+            name='Jolie', subject_subtype_id='elephant')
         source = Source.objects.create(manufacturer_id='006')
         SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
         SubjectTrackSegmentFilter.objects.create(
-            subject_subtype='elephant', speed_KmHr=7.0)
+            subject_subtype_id='elephant', speed_KmHr=7.0)
 
         sg = SubjectGroup.objects.create(
             name='geofence_subject_analyzer_group1', )
@@ -142,7 +142,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(
-            name='Olchoda', subject_subtype='elephant')
+            name='Olchoda', subject_subtype_id='elephant')
         source = Source.objects.create(manufacturer_id='007')
         SubjectSource.objects.create(
             subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
