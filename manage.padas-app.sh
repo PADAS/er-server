@@ -9,9 +9,9 @@
 MANAGE_PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT=padas-app
 CONCOURSE_URL=https://ci.pamdas.org
-ELASTIC_URL=35.203.167.191
+ELASTIC_URL=elastic.vulcancloud.io
 TOOLS_VERSION=0.0.323
-VCLOUD_SERVICE_URL=http://35.197.21.185:5000/
+VCLOUD_SERVICE_URL=http://vcloud.vulcancloud.io:5000/
 
 ### DO NOT EDIT BELOW THIS LINE
 ### Below this line is generic copy pasted from the master in infrastructure
@@ -21,7 +21,7 @@ K8S_PROXY_PORT=$1
 
 IMAGE_NAME=gcr.io/ss-infrastructure-public/platform/tools:$TOOLS_VERSION
 CONTAINER_NAME=vp_tools_$PROJECT
-VAULT_ADDR=https://35.197.70.36:8200
+VAULT_ADDR=https://vault.vulcancloud.io:8200
 
 function forward_port_if_set()
 {
