@@ -31,11 +31,13 @@ from django.contrib.gis.geos import Point, Polygon
 import pymet
 import pytz
 
+from utils.json import zeroout_microseconds
 from das_server import settings
 from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
+from observations.utils import calculate_track_range
 
 
 SOURCE_TYPES = (
@@ -214,7 +216,7 @@ class Source(TimestampedModel):
         unique_together = ('provider', 'manufacturer_id')
 
     def __str__(self):
-        return '%s:%s' % (self.manufacturer_id, self.model_name)
+        return '%s:%s' % (self.provider.provider_key, self.manufacturer_id)
 
     def observations(self):
         queryset = Observation.objects.filter(source=self)
@@ -364,7 +366,7 @@ class SubjectSourceManager(models.Manager):
 
         return subject_source
 
-    def ensure_subject_source(self, source, timestamp=None, subject_type=None, subject_subtype=None,
+    def ensure_subject_source(self, source, timestamp=None, subject_subtype_id=None,
                               additional=None, subject_name=None):
 
         # TODO: Deprecate the use of this function, in favor of the ensure().
@@ -385,7 +387,7 @@ class SubjectSourceManager(models.Manager):
         if not subject_source:
 
             sub, created = Subject.objects.get_or_create(
-                subject_type=subject_type, subject_subtype=subject_subtype,
+                subject_subtype_id=subject_subtype_id,
                 name=(subject_name or source.manufacturer_id),
                 defaults=dict(additional=dict(
                     region='', country='', rgb=random_rgb()))
@@ -419,8 +421,72 @@ class SubjectSource(models.Model):
     objects = SubjectSourceManager()
 
     def __str__(self):
-        return '%s, %s %s-%s' % (self.subject.name, self.source.model_name,
-                                 self.assigned_range.lower, self.assigned_range.upper)
+        fmt = '%Y-%m-%d'
+        return '%s [%s] %s-%s' % (self.subject.name, self.source.manufacturer_id,
+                                  self.assigned_range.lower.strftime(fmt), self.assigned_range.upper.strftime(fmt))
+
+
+class SubjectTypeManager(models.Manager):
+
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
+    class Meta:
+        verbose_name = _('subject type')
+        verbose_name_plural = _('subject types')
+
+
+class SubjectSubTypeManager(models.Manager):
+
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
+    class Meta:
+        verbose_name = _('subject sub-type')
+        verbose_name_plural = _('subject sub-types')
+
+
+def get_default_subject_subtype():
+    subject_subtype, created = SubjectSubType.objects.get_or_create(value='unassigned',
+                                                                    defaults={'display': 'Unassigned'})
+    return subject_subtype.value
+
+
+def get_default_subject_type():
+    subject_type, created = SubjectType.objects.get_or_create(value='unassigned',
+                                                              defaults={'display': 'Unassigned'})
+    return subject_type.value
+
+
+class SubjectType(TimestampedModel):
+    id = models.UUIDField(default=uuid.uuid4)
+    value = models.CharField(primary_key=True, max_length=40, unique=True)
+    display = models.CharField(
+        max_length=100, blank=True, verbose_name='Subject Type')
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    def natural_key(self):
+        return self.value
+
+    def __str__(self):
+        return self.display
+
+
+class SubjectSubType(TimestampedModel):
+    id = models.UUIDField(default=uuid.uuid4)
+    value = models.CharField(primary_key=True, max_length=40, unique=True)
+    display = models.CharField(
+        max_length=100, blank=True, verbose_name='Subject Sub-Type')
+    subject_type = models.ForeignKey(SubjectType, null=False,
+                                     on_delete=models.PROTECT,
+                                     default=get_default_subject_type)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    def natural_key(self):
+        return self.value
+
+    def __str__(self):
+        return self.value
 
 
 class SubjectTrackSegmentFilterManager(models.Manager):
@@ -430,7 +496,8 @@ class SubjectTrackSegmentFilterManager(models.Manager):
 class SubjectTrackSegmentFilter(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     # TODO Should reference SubjectSubTypes model if it gets created...
-    subject_subtype = models.TextField(default="elephant")
+    subject_subtype = models.ForeignKey(
+        SubjectSubType, on_delete=models.PROTECT)
     speed_KmHr = models.FloatField(default=7.0)
     additional = JSONField(default={})
     objects = SubjectTrackSegmentFilterManager()
@@ -445,7 +512,13 @@ class SubjectGroupManager(HierarchyManager):
         return self.get(id=DEFAULT_SUBJECT_GROUP_ID)
 
     def get_by_natural_key(self, name):
-        return self.get(**{name: name})
+        return self.get(**{'name': name})
+
+    def get_nested_groups(self, parent_id):
+        parent = self.get(**{'id': parent_id})
+        groups = set(parent.get_descendants())
+        groups.add(parent)
+        return groups
 
 
 class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
@@ -530,7 +603,10 @@ class SubjectQuerySet(models.QuerySet):
         return self.filter(pk__in=subjects)
 
     def get_staff(self):
-        return self.filter(subject_type=Subject.TYPE_PERSON)
+        return self.filter(subject_subtype__subject_type__value='person')
+
+    def by_groups(self, subject_groups):
+        return self.filter(groups__in=subject_groups)
 
     def by_group(self, subject_group_id):
         return self.filter(groups__id=subject_group_id)
@@ -581,139 +657,9 @@ class SubjectManager(models.Manager):
 
 
 class Subject(TimestampedModel, PermissionSetGroupMixin):
-    """Person, Animal, Vehicle, etc"""
 
     def clean_fields(self, exclude=None):
         return super().clean_fields(exclude)
-
-    TYPE_WILDLIFE = 'wildlife'
-    TYPE_PERSON = 'person'
-    TYPE_VEHICLE = 'vehicle'
-    TYPE_STATIONARY_OBJECT = 'stationary-object'
-    TYPE_AIRCRAFT = 'aircraft'
-    TYPE_UNASSIGNED = 'unassigned'
-
-    SUBTYPE_ELEPHANT = 'elephant'
-    SUBTYPE_ZEBRA = 'zebra'
-    SUBTYPE_RHINO = 'rhino'
-    SUBTYPE_LION = 'lion'
-    SUBTYPE_GIRAFFE = 'giraffe'
-    SUBTYPE_ANTELOPE = 'antelope'
-    SUBTYPE_CHEETAH = 'cheetah'
-    SUBTYPE_COW = 'cow'
-    SUBTYPE_FOREST_ELEPHANT = 'forest_elephant'
-    SUBTYPE_SABLE = 'sable'
-    SUBTYPE_SCIMITAR_ORYX = 'scimitar_oryx'
-    SUBTYPE_UNDEPLOYED = 'undeployed'
-
-    SUBTYPE_SECURITY = 'security_vehicle'
-    SUBTYPE_RESEARCH = 'research'
-    SUBTYPE_TOURIST_VEHICLE = 'tourist_vehicle'
-    SUBTYPE_MOTORCYCLE = 'motorcycle'
-    SUBTYPE_BOAT = 'ranger_boat'
-    SUBTYPE_PICKUP = 'pickup_vehicle'
-    SUBTYPE_CAR = 'car_vehicle'
-    SUBTYPE_TRUCK = 'truck_vehicle'
-    SUBTYPE_VAN = 'vehicle_van'
-    SUBTYPE_CAMERA_TRAP = 'camera_trap'
-    SUBTYPE_WEATHER_STATION = 'weather_station'
-
-    SUBTYPE_RANGER = 'ranger'
-    SUBTYPE_RANGER_TEAM = 'ranger_team'
-    SUBTYPE_SCOUT = 'scout'
-    SUBTYPE_DOG_TEAM = 'dog_team'
-    SUBTYPE_MANAGER = 'manager'
-    SUBTYPE_DRIVER = 'driver'
-    SUBTYPE_EXPEDITION = 'expedition'
-
-    SUBTYPE_PLANE = 'plane'
-    SUBTYPE_HELICOPTER = 'helicopter'
-    SUBTYPE_DRONE = 'drone'
-    SUBTYPE_UNASSIGNED = 'unassigned'
-
-    SUBTYPE_UNASSIGNED = 'unassigned'
-
-    TYPES_HIERARCHIES = [
-        {
-            'value': TYPE_WILDLIFE,
-            'name': 'Wildlife',
-            'subtypes': (
-                (SUBTYPE_ELEPHANT, 'Elephant'),
-                (SUBTYPE_ZEBRA, 'Zebra'),
-                (SUBTYPE_RHINO, 'Rhino'),
-                (SUBTYPE_LION, 'Lion'),
-                (SUBTYPE_GIRAFFE, 'Giraffe'),
-                (SUBTYPE_ANTELOPE, 'Antelope'),
-                (SUBTYPE_CHEETAH, 'Cheetah'),
-                (SUBTYPE_COW, 'Cow'),
-                (SUBTYPE_FOREST_ELEPHANT, 'Forest Elephant'),
-                (SUBTYPE_SABLE, 'Sable'),
-                (SUBTYPE_SCIMITAR_ORYX, 'Scimitar Oryx'),
-                (SUBTYPE_UNDEPLOYED, 'Undeployed'),
-            )
-
-        },
-        {
-            'value': TYPE_PERSON,
-            'name': 'Person',
-            'subtypes': (
-                (SUBTYPE_RANGER, 'Ranger'),
-                (SUBTYPE_RANGER_TEAM, 'Ranger Team'),
-                (SUBTYPE_SCOUT, 'Scout'),
-                (SUBTYPE_DOG_TEAM, 'Dog Team'),
-                (SUBTYPE_DRIVER, 'Driver'),
-                (SUBTYPE_MANAGER, 'Manager'),
-                (SUBTYPE_EXPEDITION, 'Expedition'),
-            )
-        },
-        {
-            'value': TYPE_VEHICLE,
-            'name': 'Vehicle',
-            'subtypes': (
-                (SUBTYPE_SECURITY, 'Security Vehicle'),
-                (SUBTYPE_RESEARCH, 'Research Vehicle'),
-                (SUBTYPE_TOURIST_VEHICLE, 'Tourist Vehicle'),
-                (SUBTYPE_MOTORCYCLE, 'Motorcycle'),
-                (SUBTYPE_BOAT, 'Boat'),
-                (SUBTYPE_CAR, 'Car'),
-                (SUBTYPE_PICKUP, 'Pick-Up'),
-                (SUBTYPE_TRUCK, 'Truck'),
-                (SUBTYPE_VAN, 'Van')
-            )
-        },
-        {
-            'value': TYPE_STATIONARY_OBJECT,
-            'name': 'Stationary Sensor',
-            'subtypes': (
-                (SUBTYPE_CAMERA_TRAP, 'Camera Trap'),
-                (SUBTYPE_WEATHER_STATION, 'Weather Sensor'),
-            )
-        },
-        {
-            'value': TYPE_AIRCRAFT,
-            'name': 'Aircraft',
-            'subtypes': (
-                (SUBTYPE_PLANE, 'Plane'),
-                (SUBTYPE_HELICOPTER, 'Helicopter'),
-                (SUBTYPE_DRONE, 'Drone'),
-            )
-        },
-        {
-            'value': TYPE_UNASSIGNED,
-            'name': 'Unassigned',
-            'subtypes': (
-                (SUBTYPE_UNASSIGNED, 'Unassigned'),
-            )
-        }
-    ]
-
-    TYPE_CHOICES = [(item['value'], item['name'])
-                    for item in TYPES_HIERARCHIES]
-    SUBTYPE_CHOICES = [(item['name'], item['subtypes'])
-                       for item in TYPES_HIERARCHIES]
-
-    SUBTYPE_DISPLAY_NAMES = dict(
-        itertools.chain(*(x[1] for x in SUBTYPE_CHOICES)))
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_('name'), max_length=100)
@@ -722,10 +668,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='subjects', related_query_name='subject')
 
-    subject_type = models.CharField(
-        'subject type', max_length=100, default=TYPE_UNASSIGNED, choices=TYPE_CHOICES)
-    subject_subtype = models.CharField(db_column='subject_subtype', max_length=100, default=SUBTYPE_UNASSIGNED,
-                                       choices=SUBTYPE_CHOICES)
     additional = JSONField('additional data', default={})
     is_active = models.BooleanField(
         _('active'),
@@ -738,6 +680,13 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                                     blank=True,
                                     null=True)
     objects = SubjectManager.from_queryset(SubjectQuerySet)()
+
+    subject_subtype = models.ForeignKey(
+        SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
+
+    @property
+    def subject_type(self):
+        return self.subject_subtype.subject_type.value
 
     class Meta:
         permissions = (
@@ -762,28 +711,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             ('access_ends_7', 'Can view tracks no less than 7 days old'),
         )
 
-    VIEW_POSITION_PERMS = ('observations.view_last_position',
-                           'observations.view_real_time')
-    VIEW_DELAYED_PERMS = ('observations.view_delayed',)
-
-    VIEW_BEGIN_WINDOWS = (('observations.access_begins_7', 7),
-                          ('observations.access_begins_16', 16),
-                          ('observations.access_begins_30', 30),
-                          ('observations.access_begins_60', 60),
-                          ('observations.access_begins_all', 36500))
-
-    VIEW_END_WINDOWS = (('observations.access_ends_0', 0),
-                        ('observations.access_ends_1', 1),
-                        ('observations.access_ends_3', 3),
-                        ('observations.access_ends_7', 7))
-
-    VIEW_BEGIN_ORDERED_DESC = sorted(
-        VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse=True)
-    VIEW_END_ORDERED_ASC = sorted(VIEW_END_WINDOWS, key=lambda _: _[1])
-
-    VIEW_SUBJECT_PERMS = ('observations.view_subject',) + \
-        VIEW_BEGIN_WINDOWS + VIEW_END_WINDOWS
-
     @property
     def color(self):
         color = self.additional.get('rgb', DEFAULT_COLOR)
@@ -801,6 +728,19 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         return subject_source.source
 
+    def get_track(self, user, since, until, limit):
+        since, until, limit = calculate_track_range(user, since, until, limit)
+
+        qs = Observation.objects.get_subject_observations_values(
+            self, since=since, until=until, limit=limit)
+
+        qs = list(qs)
+        return [o['location'].coords for o in qs], [zeroout_microseconds(o['recorded_at']) for o in qs]
+
+    def get_subject_state(self):
+        for subject_status in self.subjectstatus_set.filter(delay_hours=0):
+            return subject_status.additional['state']
+
     def observations(self, last_hours=None, until=None):
         """ returns all observations for this Subject, spanning
         Sources as necessary """
@@ -816,7 +756,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def default_trajectory_filter(self):
         # Get trajectory filter based on subject. Might not exist.
         try:
-            return SubjectTrackSegmentFilter.objects.filter(subject_subtype=self.subject_subtype).first()
+            return SubjectTrackSegmentFilter.objects.filter(subject_subtype=self.subject_subtype.value).first()
         except SubjectTrackSegmentFilter.DoesNotExist:
             pass
 
@@ -878,7 +818,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     def _image_keys(self):
         """return the preferred key first"""
-        key = self.subject_subtype.lower()
+        key = self.subject_subtype.value.lower()
         sex = self.additional.get('sex', 'male')
         if sex:
             yield '-'.join((key, 'black', sex.lower()))
@@ -910,7 +850,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             return users
 
     def __str__(self):
-        return '%s, %s, %s' % (self.name, self.subject_type, self.subject_subtype)
+        return '%s, %s, %s' % (self.name, self.subject_subtype.subject_type.value, self.subject_subtype.value)
 
 
 OBSERVATION_DELAY_HRS = 72
@@ -982,12 +922,16 @@ class CommonNameManager(models.Manager):
         return self.get(**{value: value})
 
 
+def get_default_subject_subtype():
+    return SubjectSubType.objects.get(value='unassigned').id
+
+
 class CommonName(TimestampedModel):
     """Common name for an animal, could stretch this to other subtypes as well.
     """
-    #value = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    subject_subtype = models.CharField(max_length=100,
-                                       choices=Subject.SUBTYPE_CHOICES)
+    subject_subtype = models.ForeignKey(SubjectSubType, on_delete=models.PROTECT,
+                                        default=get_default_subject_subtype)
+
     value = models.CharField(primary_key=True, max_length=100)
     display = models.CharField(max_length=100)
     objects = CommonNameManager()

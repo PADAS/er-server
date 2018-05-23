@@ -1,6 +1,5 @@
 import logging
 import datetime
-import zipfile
 import dateutil.parser
 import pytz
 from io import BytesIO
@@ -22,12 +21,12 @@ from rest_framework import status
 
 
 import utils
-from utils.drf import StandardResultsSetPagination
-from utils.json import zeroout_microseconds
+from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination
+from utils.json import zeroout_microseconds, parse_bool
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
 from observations import models
-from observations.utils import calculate_subject_view_window
+from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS
 
 import observations.serializers as serializers
 
@@ -146,13 +145,21 @@ class SubjectsView(generics.ListCreateAPIView):
     """
     Returns all subjects in the system.
     Optional qparam of:
+    page_size enable paging of subjects, sets the page size of subjects returned
     bbox, where bbox is the (west, south, east, north) lon,lat pairs.
         example: bbox=14.24, .41, 15.45, 1.66
+    subject_group   id of subject group
+    tracks [true,false] return track with subject resource. Default false. Returns the site wide setting number of days
+    track_since starting date range for the requested track, default follow the tracks logic of returning x number of days. ISO date/time
+    track_until stop date range for the requested track, default is now. ISO date/time
     """
     serializer_class = serializers.SubjectSerializer
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
-    #pagination_class = StandardResultsSetPagination
+    pagination_class = OptionalResultsSetPagination
+
+    TRACK_QPARAMS = ('tracks_limit',)
+    TRACK_DATE_QPARAMS = ('tracks_since', 'tracks_until')
 
     def get_queryset(self):
         queryset = models.Subject.objects.all()
@@ -166,14 +173,26 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS)
         subject_group = self.request.query_params.get('subject_group', None)
         if subject_group:
-            queryset = queryset.by_group(subject_group_id=subject_group.id)
+            groups = models.SubjectGroup.objects.get_nested_groups(
+                subject_group)
+            queryset = queryset.by_groups(groups)
         queryset = queryset.by_user_subjects(self.request.user)
         queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
         return queryset
 
     def get_serializer_context(self):
+        request = self.request
         context = super().get_serializer_context()
         context['render_last_location'] = True
+        context['tracks'] = False
+
+        if request and parse_bool(request.query_params.get('tracks', None)):
+            context['tracks'] = True
+            for t in self.TRACK_QPARAMS:
+                context[t] = request.query_params.get(t, None)
+            for t in self.TRACK_DATE_QPARAMS:
+                context[t] = dateparse(request.query_params.get(
+                    t, None)) if request.query_params.get(t, None) else None
         return context
 
 
@@ -185,7 +204,7 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
-        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
         queryset = models.Subject.objects.all()
@@ -199,7 +218,7 @@ class SubjectSourcesView(generics.ListCreateAPIView):
     def get_queryset(self):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
-        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
         subject_sources = models.SubjectSource.objects.get_subject_sources(
             subject)
@@ -247,7 +266,7 @@ class SubjectSourceView(generics.RetrieveAPIView):
     def get_queryset(self):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
-        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
         return models.Source.objects.all()
@@ -300,14 +319,23 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
 
 class SubjectTracksView(generics.RetrieveAPIView):
-    # permission_classes = (StandardObjectPermissions,)
-    lookup_field = 'subject_id'
-    serializer_class = serializers.TrackSerializer
+    """
+    Optional qparam of:
+    limit
+    since starting date range for the requested track, default follow the tracks logic of returning x number of days. ISO date/time
+    until stop date range for the requested track, default is now. ISO date/time
+    """
+    lookup_url_kwarg = 'subject_id'
+    serializer_class = serializers.SubjectTrackSerializer
 
-    # TODO: Fix this so it accounts for the authenticated user's view-window
-    # permissions.
-    queryset = models.SubjectStatus.objects.filter(
-        delay_hours=0).prefetch_related('subject')
+    def get_queryset(self):
+        queryset = models.Subject.objects.all()
+        queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
+        return queryset
+
+    def check_object_permissions(self, request, obj):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, obj):
+            raise PermissionDenied
 
     def get_object(self):
         try:
@@ -318,104 +346,15 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         return self._cached_object
 
-    def get(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance.subject)
-        data = serializer.data
-        response = Response(data)
-        return response
-
     def get_serializer_context(self):
         context = super().get_serializer_context()
+        context['tracks_limit'] = self.request.query_params.get('limit', None)
+        context['tracks_since'] = self.request.query_params.get('since', None)
+        context['tracks_until'] = self.request.query_params.get('until', None)
 
-        subjectstatus = self.get_object()
-        subject = subjectstatus.subject
+        for key in ('tracks_since', 'tracks_until'):
+            context[key] = dateparse(context[key]) if context[key] else None
 
-        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS, subject):
-            raise PermissionDenied
-
-        # Max number of observations in the track
-        limit = self.request.query_params.get('limit', None)
-
-        # Find the min and max boundaries for track data
-        oldest_age_allowed = -1
-        newest_age_allowed = 999
-        mou_expiry_date = self.request.user.additional.get('expiry', None)
-
-        for permission_tuple in sorted(models.Subject.VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse=True):
-            if permission_tuple[1] > oldest_age_allowed and self.request.user.has_perm(permission_tuple[0]):
-                oldest_age_allowed = permission_tuple[1]
-                break
-
-        for permission_tuple in sorted(models.Subject.VIEW_END_WINDOWS, key=lambda _: _[1]):
-            if permission_tuple[1] < newest_age_allowed and self.request.user.has_perm(permission_tuple[0]):
-                newest_age_allowed = permission_tuple[1]
-                break
-
-        if oldest_age_allowed < 0 or newest_age_allowed > oldest_age_allowed:
-            raise PermissionDenied
-
-        requested_oldest_age = self.request.query_params.get('since', None)
-        requested_newest_age = self.request.query_params.get('until', None)
-        now = pytz.utc.localize(datetime.datetime.utcnow())
-
-        if requested_oldest_age is None:
-            oldest_age = min(settings.SHOW_TRACK_DAYS, oldest_age_allowed)
-        else:
-            requested_oldest_age = (now - requested_oldest_age).days
-            oldest_age = min(requested_oldest_age, oldest_age_allowed)
-
-        if requested_newest_age is None:
-            newest_age = newest_age_allowed
-        else:
-            requested_newest_age = (now - requested_newest_age).days
-            newest_age = max(requested_newest_age, newest_age_allowed)
-
-        if mou_expiry_date is not None:
-            now = pytz.utc.localize(datetime.datetime.utcnow())
-            mou_expiry_date = pytz.utc.localize(
-                dateutil.parser.parse(mou_expiry_date))
-            mou_expiry_age = now - mou_expiry_date
-
-            newest_age = max(mou_expiry_age.days, newest_age)
-            if oldest_age < newest_age:
-                raise PermissionDenied
-
-        begin = now - datetime.timedelta(days=oldest_age)
-        until = now - datetime.timedelta(days=newest_age)
-
-        context['subject'] = subject
-        try:
-            # ss = models.SubjectStatus.objects.get(subject=subject, delay_hours=0)
-            # for k in ('last_voice_call_start_at', 'requested_location_at'):
-            #     if k in ss.additional:
-            #         context[k] = ss.additional[k]
-            ss = subjectstatus
-            # TODO: Investigate why we use the alternative key for 'state'
-            if 'state' in ss.additional:
-                context['subject_state'] = ss.additional['state']
-
-        except models.SubjectStatus.DoesNotExist:
-            pass
-
-        coordinates = []
-        times = []
-
-        qs = models.Observation.objects.get_subject_observations_values(subject,
-                                                                        since=begin, until=until, limit=limit)
-
-        # for ob in qs:
-        #     coordinates.append(ob['location'].coords)
-        #     times.append(zeroout_microseconds(ob['recorded_at']))
-
-        qs = list(qs)
-        # context['times'] = [zeroout_microseconds(o.recorded_at) for o in qs]
-        # context['coordinates'] = [o.location.coords for o in qs]
-        context['times'] = [zeroout_microseconds(o['recorded_at']) for o in qs]
-        context['coordinates'] = [o['location'].coords for o in qs]
-
-        # context['times'] = times
-        # context['coordinates'] = coordinates
         return context
 
 
@@ -638,7 +577,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
     def get_queryset(self):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
-        if not self.request.user.has_any_perms(models.Subject.VIEW_SUBJECT_PERMS,
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS,
                                                subject):
             raise PermissionDenied
 

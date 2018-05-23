@@ -1,24 +1,20 @@
+from datetime import datetime, timedelta
 from collections import OrderedDict
 
+import pytz
+from dateutil.parser import parse as parse_date
 from django.contrib.gis.geos import Point
+from django.urls import reverse
+from django.conf import settings
 import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
-from django.db.utils import IntegrityError
-from django.urls import reverse
 
 from core.serializers import ContentTypeField
-
-from django.conf import settings
 from observations import models
+from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age
 import utils.json
-import datetime
-from dateutil.parser import parse as parse_date
 from utils import add_base_url
-from datetime import datetime, timedelta
-import pytz
-import time
-import sys
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
@@ -135,19 +131,9 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
         if user and render_last_location:
             # Find the user's allowed viewable date range
-            maximum_allowed_age = None
-            minimum_allowed_age = None
+            maximum_allowed_age = get_maximum_allowed_age(user)
+            minimum_allowed_age = get_minimum_allowed_age(user)
             mou_expiry_date = user.additional.get('expiry', None)
-
-            for permission_tuple in sorted(models.Subject.VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse=True):
-                if user.has_perm(permission_tuple[0]) and (maximum_allowed_age is None or permission_tuple[1] > maximum_allowed_age):
-                    maximum_allowed_age = permission_tuple[1]
-                    break
-
-            for permission_tuple in sorted(models.Subject.VIEW_END_WINDOWS, key=lambda _: _[1]):
-                if user.has_perm(permission_tuple[0]) and (minimum_allowed_age is None or permission_tuple[1] < minimum_allowed_age):
-                    minimum_allowed_age = permission_tuple[1]
-                    break
 
             if mou_expiry_date is not None:
                 now = pytz.utc.localize(datetime.utcnow())
@@ -178,6 +164,11 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             request = self.context['request']
             rep['url'] = utils.add_base_url(
                 request, reverse('subject-view', args=[instance.id, ]))
+
+        if self.context.get('tracks', False):
+            track_serializer = SubjectTrackSerializer(
+                instance, context=self.context)
+            rep['tracks'] = track_serializer.data
         return rep
 
     def create(self, validated_data):
@@ -276,6 +267,27 @@ class SourceProviderSerializer(rest_framework.serializers.Serializer):
         return instance
 
 
+class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
+    def to_representation(self, subject):
+        image_url = subject.image_url
+        user = self.context['request'].user
+        tracks_since = self.context.get('tracks_since', None)
+        tracks_until = self.context.get('tracks_until', None)
+        tracks_limit = self.context.get('tracks_limit', None)
+
+        coordinates, times = subject.get_track(
+            user, tracks_since, tracks_until, tracks_limit)
+
+        feature = make_feature(self.context['request'],
+                               coordinates, subject,
+                               times, image_url=image_url)
+
+        rep = utils.json.empty_geojson_featurecollection()
+        rep['features'].append(feature)
+
+        return rep
+
+
 class TrackSerializer(rest_framework.serializers.Serializer):
 
     def to_representation(self, instance):
@@ -344,8 +356,8 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         'type': 'Feature',
         'properties': {
             'title': subject.name,
-            'subject_type': subject.subject_type,
-            'subject_subtype': subject.subject_subtype,
+            'subject_type': subject.subject_subtype.subject_type.value,
+            'subject_subtype': subject.subject_subtype.value,
             'id': subject.id,
         },
     }

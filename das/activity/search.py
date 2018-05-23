@@ -98,7 +98,7 @@ def get_event_search_schema():
         {'id': s[0], 'display': s[1]} for s in Event.PRIORITY_CHOICES]
 
     reported_by = list(Community.objects.all().annotate(display=F('name')).values('id', 'display')) + \
-        list(Subject.objects.filter(subject_type='person', ).annotate(display=F('name')).
+        list(Subject.objects.filter(subject_subtype='person', ).annotate(display=F('name')).
              values('id', 'display'))
     properties['reported_by']['items']['enum'] = [
         castIdToString(o) for o in reported_by]
