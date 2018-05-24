@@ -428,8 +428,7 @@ class SourceProvidersView( generics.ListCreateAPIView,):
         return context
 
 
-class SourceProvidersViewPartial(mixins.UpdateModelMixin,
-                                 generics.ListCreateAPIView,):
+class SourceProvidersViewPartial(generics.UpdateAPIView):
 
     serializer_class = serializers.SourceProviderSerializer
     permission_classes = (StandardObjectPermissions,)
