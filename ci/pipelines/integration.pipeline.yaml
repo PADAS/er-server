@@ -226,7 +226,7 @@ resources:
 - name: slack-alert
   type: slack-notification
   source:
-    url: https://hooks.slack.com/services/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
+    url: ((slack-webhook-url-concourse))
 
 
 ################################################################################
