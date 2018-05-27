@@ -48,7 +48,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                                                  warn_level='CRITICAL')
                     gfs.append(vf)
                 elif feat.feature_type.name == 'Geofence_Warning':
-                    vf = pymet.geofence.Geofence(ogr_geometry=ogr.CreateGeometryFromWkt(wkt=feat.feature_geometry.wkt),
+                    vf = pymet.geofence.Geofence(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
                                                  fence_name=feat.name,
                                                  unique_id=feat.id,
                                                  warn_level='WARNING')
@@ -58,7 +58,8 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         if self.config.containment_regions is not None:
             rgns = self.config.containment_regions.features.all()
             for feat in rgns:
-                print('Containment Region Geo Type:', type(feat.feature_geometry))
+                print('Containment Region Geo Type:',
+                      type(feat.feature_geometry))
                 cr = pymet.base.SpatialFeature(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
                                                name=feat.name,
                                                unique_id=feat.id)
