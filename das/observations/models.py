@@ -216,7 +216,7 @@ class Source(TimestampedModel):
         unique_together = ('provider', 'manufacturer_id')
 
     def __str__(self):
-        return '%s:%s' % (self.provider.provider_key, self.manufacturer_id)
+        return f'{self.manufacturer_id} ({self.provider.provider_key})'
 
     def observations(self):
         queryset = Observation.objects.filter(source=self)
@@ -460,9 +460,12 @@ def get_default_subject_type():
 
 class SubjectType(TimestampedModel):
     id = models.UUIDField(default=uuid.uuid4)
-    value = models.CharField(primary_key=True, max_length=40, unique=True)
+    value = models.CharField(primary_key=True, max_length=40,
+                             verbose_name='Subject Type Key',
+                             unique=True, help_text="System key for the subject type")
     display = models.CharField(
-        max_length=100, blank=True, verbose_name='Subject Type')
+        max_length=100, blank=True, verbose_name='Subject Type', help_text=_('Subject Type description')
+    )
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
     def natural_key(self):
@@ -474,8 +477,12 @@ class SubjectType(TimestampedModel):
 
 class SubjectSubType(TimestampedModel):
     id = models.UUIDField(default=uuid.uuid4)
-    value = models.CharField(primary_key=True, max_length=40, unique=True)
+    value = models.CharField(primary_key=True, max_length=40,
+                             verbose_name='Sub-Type Key',
+                             unique=True, help_text="System key for the sub-type")
+
     display = models.CharField(
+        help_text=_('Subject Sub-Type description'),
         max_length=100, blank=True, verbose_name='Subject Sub-Type')
     subject_type = models.ForeignKey(SubjectType, null=False,
                                      on_delete=models.PROTECT,
@@ -486,7 +493,7 @@ class SubjectSubType(TimestampedModel):
         return self.value
 
     def __str__(self):
-        return self.value
+        return str(self.value)
 
 
 class SubjectTrackSegmentFilterManager(models.Manager):
@@ -850,7 +857,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             return users
 
     def __str__(self):
-        return '%s, %s, %s' % (self.name, self.subject_subtype.subject_type.value, self.subject_subtype.value)
+        return f'{self.name} ({self.subject_subtype.display})'
 
 
 OBSERVATION_DELAY_HRS = 72

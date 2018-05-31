@@ -1,31 +1,58 @@
 import random
-from datetime import datetime
+import csv
+from datetime import datetime, timedelta
+import pytz
 
 from django.contrib import admin
+
+from django.conf import settings
+
+from django.contrib.admin.widgets import FilteredSelectMultiple, RelatedFieldWidgetWrapper
+
 from django import forms
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
 from django.utils.translation import ugettext_lazy as _
-from django.contrib.admin.widgets import FilteredSelectMultiple, AdminSplitDateTime
-from django.contrib.postgres.forms import RangeWidget
-from django.db.models import F
+
+from django.db.models import Q, F, Count, Value, ExpressionWrapper
+from django.db.models import BooleanField
+from django.db.models.functions import Now
+from django.http import HttpResponse
 
 import observations.models as models
 import observations.forms
 from observations.forms import SubjectForm, SubjectChangeListForm, SubjectSourceForm
+
 from core.admin import HierarchyModelAdmin
 from utils.html import make_html_list
-
-from django.contrib.postgres import fields
-# from django_json_widget.widgets import JSONEditorWidget
-
 
 from django.template.loader import render_to_string
 from django.utils.html import format_html
 
-
 admin.site.site_header = _('DAS Administration')
 admin.site.site_title = _('DAS Administration')
+admin.site.index_title = _('DAS Administration')
+
+
+class ExportCsvMixin:
+    def export_as_csv(self, request, queryset):
+
+        meta = self.model._meta
+        field_names = [field.name for field in meta.fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(
+            meta)
+        writer = csv.writer(response)
+
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field)
+                                   for field in field_names])
+
+        return response
+
+    export_as_csv.short_description = "Export Selected Items"
 
 
 class SubjectSubTypeInline(admin.TabularInline):
@@ -33,27 +60,40 @@ class SubjectSubTypeInline(admin.TabularInline):
 
     verbose_name = _('Subject Sub-Type')
     verbose_name_plural = _('Subject Sub-Types')
-    show_change_link = True
+    show_change_link = False
+
+    readonly_fields = ('value',)
+
+    fields = ('value', 'display', )
+
+    ordering = ('display',)
+
+    extra = 1
+
+    def get_extra(self, request, obj=None, **kwargs):
+        # This allows me to override the 'number of extra inline forms' if the
+        # containing object already exists.
+        if obj:
+            return 0
+        return self.extra
 
 
 @admin.register(models.SubjectType)
 class SubjectTypeAdmin(admin.ModelAdmin):
-    list_display = ('value', 'display')
+    list_display = ('value', 'display',)
     list_editable = ('display', )
     readonly_fields = ('id',)
     search_fields = ('value', 'display')
-    ordering = ('ordernum', 'display',)
+    ordering = ('display',)
 
     fieldsets = (
         (None,
-         {'fields': (('value', 'display', 'ordernum'))}
+         {'fields': (('display', 'value')),
+          'classes': ('wide',)}
          ),
-        ('Advanced',
-         {'fields': ('id',)}
-         )
     )
 
-    # inlines = [SubjectSubTypeInline,]
+    inlines = [SubjectSubTypeInline, ]
 
 
 @admin.register(models.SubjectSubType)
@@ -70,11 +110,8 @@ class SubjectSubTypeAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None,
-         {'fields': (('value', 'display', 'subject_type', 'ordernum'))}
+         {'fields': (('display', 'value', 'subject_type'))}
          ),
-        ('Advanced',
-         {'fields': ('id',)}
-         )
     )
 
 
@@ -113,22 +150,41 @@ class SubjectSourceInline(admin.StackedInline):
     )
 
 
-from django.contrib.admin.widgets import FilteredSelectMultiple, RelatedFieldWidgetWrapper
+class GroupAssignedFilter(admin.SimpleListFilter):
+    title = 'In Group(s)?'
+    parameter_name = 'is_assigned_to_groups'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('ingroups', 'In Groups'),
+            ('nogroups', 'Not in any Groups'),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == 'ingroups':
+            return queryset.annotate(groups_count=Count('groups')).filter(groups_count__gt=0)
+        elif value == 'nogroups':
+            return queryset.annotate(groups_count=Count('groups')).filter(groups_count=0)
+        return queryset
+
+
+from django.contrib.postgres.aggregates import ArrayAgg
 
 
 @admin.register(models.Subject)
-class SubjectAdmin(admin.ModelAdmin):
+class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
 
     list_display = ('name', 'subject_subtype',
-                    'is_active', 'get_attributes', 'all_groups', 'all_sources')
+                    '_is_active', 'get_attributes', 'all_groups', 'all_sources',)
 
-    search_fields = ('name', 'subject_subtype__value', 'common_name__display',
+    search_fields = ('name', 'subject_subtype__display', 'common_name__display',
                      'subjectsource__source__manufacturer_id')
 
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': (('id', 'name', 'subject_subtype', 'common_name',
+            'fields': (('id', 'name', 'subject_subtype', 'is_active', 'common_name',
                         'groups',))
         }
         ),
@@ -137,34 +193,25 @@ class SubjectAdmin(admin.ModelAdmin):
             'fields': (('rgb', 'sex', 'country', 'region',))
         }
         ),
-        ('Advanced', {
+        ('Advanced Subject Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('additional',)
+            'fields': ('additional', 'created_at', 'updated_at',)
         })
     )
-    list_filter = ('is_active', 'subject_subtype__subject_type__value',
-                   'subject_subtype__value', 'common_name')
-    list_editable = ('subject_subtype', 'is_active',)
-    readonly_fields = ('id',)
+    list_filter = ('is_active', GroupAssignedFilter,
+                   'subject_subtype__subject_type__display',
+                   'subject_subtype__display',
+                   )
+    list_editable = ('subject_subtype',)
+    readonly_fields = ('id', 'created_at', 'updated_at',)
     list_per_page = 25
     ordering = ('name',)
 
-    def get_form(self, request, obj=None, **kwargs):
-        form = super(SubjectAdmin, self).get_form(request, obj=obj, **kwargs)
-        rel_model = form.Meta.model
+    def _is_active(self, o):
+        return o.is_active
 
-        remote_field = rel_model._meta.get_field(
-            'subject_subtype').remote_field
-
-        form.declared_fields['subject_subtype'].widget = \
-            RelatedFieldWidgetWrapper(form.declared_fields['subject_subtype'].widget, remote_field,
-                                      admin.site, can_add_related=True,
-                                      can_change_related=True)
-        return form
-
-    # def subject_subtype_display(self, o):
-    #     return '{}: {}'.format(o.subject_subtype.subject_type.display,
-    #                            o.subject_subtype.display)
+    _is_active.short_description = 'Active?'
+    _is_active.boolean = True
 
     def assign_random_color(self, request, queryset):
         update_count = 0
@@ -185,25 +232,26 @@ class SubjectAdmin(admin.ModelAdmin):
 
     assign_random_color.short_description = _('Assign random color')
 
-    actions = ['assign_random_color', ]
+    actions = ['assign_random_color', 'export_as_csv', ]
 
     inlines = [SubjectSourceInline, ]
 
-    def queryset(self, request):
+    def get_queryset(self, request):
         """Limit Subjects to those this person can administer"""
-        qs = super(SubjectAdmin, self).queryset(request)
-        if request.user.is_superuser:
-            return qs
-
-        raise NotImplementedError(
-            'implement filtering SubjectAdmin to user permissions')
-        return qs.filter(owner=request.user)
+        qs = super(SubjectAdmin, self).get_queryset(request)
+        qs = qs.annotate(groups_names=ArrayAgg('groups__name'))
+        return qs
 
     form = observations.forms.SubjectFormWithAttributes
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == 'common_name':
             kwargs['queryset'] = models.CommonName.objects.all()
+
+        if db_field.name == 'subject_subtype':
+            kwargs['queryset'] = models.SubjectSubType.objects.order_by(
+                'display')
+
         return super().formfield_for_foreignkey(db_field, request=request, **kwargs)
 
     def get_attributes(self, instance):
@@ -213,26 +261,43 @@ class SubjectAdmin(admin.ModelAdmin):
         return mark_safe(''.join('<p><strong>{}</strong>: {}</p>'.format(escape(k), escape(v))
                                  for k, v in context.items()))
 
-    get_attributes.short_description = _('Attributes')
+    get_attributes.short_description = _('Subject Attributes')
 
     def all_groups(self, instance):
-        groups = instance.groups.all()
-        return make_html_list(sorted(group.name for group in groups))
+        return make_html_list(instance.groups_names)
 
     all_groups.short_description = _('Groups')
     all_groups.allow_tags = True
 
     def all_sources(self, instance):
+        '''
+        Get all the source assignments for this Subject and annotate each assignment to indicate whether it is
+        'current' meaning that its assignment range includes 'now'.
+        :param instance:
+        :return:
+        '''
         subjectsources = models.SubjectSource \
             .objects \
             .filter(subject_id=instance.pk).annotate(manufacturer_id=F('source__manufacturer_id')) \
-            .order_by('-assigned_range')
+            .order_by('-assigned_range').annotate(current=ExpressionWrapper(Q(assigned_range__contains=Now()), output_field=BooleanField())
 
+                                                  )
+
+        def set_current_flag(o):
+            if o['current']:
+                o['active_icon'] = settings.STATIC_URL + 'admin/img/icon-yes.svg'
+            else:
+                o['active_icon'] = settings.STATIC_URL + 'admin/img/icon-no.svg'
+            return o
+
+        subjectsources = list(set_current_flag(o)
+                              for o in subjectsources.values())
         content = render_to_string(
-            'admin/subjectsource.html', {'subjectsources': list(subjectsources.values())})
+            'admin/subjectsource.html', {'subjectsources': list(subjectsources)})
+
         return format_html(content)
 
-    all_sources.short_description = _('Sources')
+    all_sources.short_description = _('Source Assignments')
     all_sources.allow_tags = True
 
     def get_changelist_form(self, request, **kwargs):
@@ -256,10 +321,11 @@ class CommonNameAdmin(admin.ModelAdmin):
 
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
-    list_display = ['id', 'source_type',
-                    'manufacturer_id', 'model_name', 'additional']
-    search_fields = ('id', 'manufacturer_id', 'model_name')
+    list_display = ['manufacturer_id', 'source_type',
+                    'model_name', 'get_attributes']
+    search_fields = ('id', 'manufacturer_id', 'model_name', 'additional')
     list_filter = ('source_type', 'model_name')
+    readonly_fields = ('id', 'created_at', 'updated_at',)
 #    filter_horizontal = ('groups',)
 
     form = observations.forms.SourceForm
@@ -273,19 +339,48 @@ class SourceAdmin(admin.ModelAdmin):
             'fields': ('collar_status', 'collar_model', 'has_acc_data', 'data_owners', 'adjusted_beacon_freq')
         }
         ),
-        ('Advanced', {
+        ('Advanced Source Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'additional',)
+            'fields': ('id', 'additional', 'created_at', 'updated_at')
         }
         )
     )
+
+    def get_attributes(self, instance):
+        context = dict((k, instance.additional[k]) for k in (
+            'frequency',) if k in instance.additional)
+
+        return mark_safe(''.join('<p><strong>{}</strong>: {}</p>'.format(escape(k), escape(v))
+                                 for k, v in context.items()))
+
+    get_attributes.short_description = _('Source Attributes')
+
+
+class CurrentAssignmentFilter(admin.SimpleListFilter):
+    title = 'Assignment Status'
+    parameter_name = 'is_current_assignment'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('yes', 'Currently assigned'),
+            ('no', 'Expired (or future) assignment'),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == 'yes':
+            return queryset.filter(current=True)
+        elif value == 'no':
+            return queryset.filter(current=False)
+        return queryset
 
 
 @admin.register(models.SubjectSource)
 class SubjectSourceAdmin(admin.ModelAdmin):
     list_display = ('subject_name', 'manufacturer_id',
-                    '_assigned_range')
-    list_filter = ('subject__subject_subtype__value', 'source__source_type')
+                    'current', '_assigned_range')
+    list_filter = ('source__source_type', CurrentAssignmentFilter,
+                   'subject__subject_subtype__subject_type__value', 'subject__subject_subtype__value')
     search_fields = ('source__manufacturer_id', 'subject__name')
     readonly_fields = ('id',)
 
@@ -294,6 +389,11 @@ class SubjectSourceAdmin(admin.ModelAdmin):
 
     def manufacturer_id(self, o):
         return o.source.manufacturer_id
+
+    def current(self, o):
+        return o.current
+    current.short_description = 'Is Current?'
+    current.boolean = True
 
     def _assigned_range(self, o):
 
@@ -328,6 +428,12 @@ class SubjectSourceAdmin(admin.ModelAdmin):
     )
 
     form = observations.forms.SubjectSourceForm
+
+    def get_queryset(self, request):
+        qs = super(SubjectSourceAdmin, self).get_queryset(request)
+        qs = qs.annotate(current=ExpressionWrapper(
+            Q(assigned_range__contains=Now()), output_field=BooleanField()))
+        return qs
 
 
 @admin.register(models.Region)
