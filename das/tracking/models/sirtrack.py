@@ -241,7 +241,7 @@ class SirtrackPlugin(TrackingPlugin):
                                                               manufacturer_id=manufacturer_id,
                                                               model_name=default_model_name,
                                                               subject={
-                                                                  'subject_subtype': default_subject_subtype,
+                                                                  'subject_subtype_id': default_subject_subtype,
                                                                   'name': fix.get('tag_name') or manufacturer_id
                                                               }
                                                               )
