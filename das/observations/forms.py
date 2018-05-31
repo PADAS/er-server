@@ -38,6 +38,9 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
     # the JSON Field.
     json_field = 'additional'
 
+    source = forms.ModelChoiceField(
+        queryset=Source.objects.all().order_by('manufacturer_id'))
+
 
 class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
@@ -119,7 +122,7 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
 class SubjectChangeListForm(forms.ModelForm):
 
     subject_subtype = SubjectSubtypeChoiceField(
-        queryset=SubjectSubType.objects.all())
+        queryset=SubjectSubType.objects.order_by('display'))
 
     class Meta:
         model = Subject

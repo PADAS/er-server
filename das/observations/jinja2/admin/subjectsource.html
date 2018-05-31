@@ -1,8 +1,9 @@
 {% for item in subjectsources %}
 <div>
-    <table style="border:1px solid #ccc;" >
+    <table style="border-collapse: collapse;" >
         <tr>
-        <th colspan="2">Manufacturer ID: {{ item.manufacturer_id }} </th></tabl
+            <th><img src="{{ item.active_icon }}" border="0"></th>
+            <th>Man. ID: {{ item.manufacturer_id }} </th>
         </tr>
         <tr>
             <td>From:</td>
@@ -15,3 +16,4 @@
     </table>
 </div>
 {% endfor %}
+
