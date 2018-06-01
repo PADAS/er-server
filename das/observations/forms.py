@@ -62,7 +62,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
 class SubjectSubtypeChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
-        return '{}: {}'.format(obj.subject_type.display, obj.display)
+        return '{1} ({0})'.format(obj.subject_type.display, obj.display)
 
 
 class SubjectForm(forms.ModelForm):
@@ -77,7 +77,7 @@ class SubjectForm(forms.ModelForm):
     )
 
     subject_subtype = SubjectSubtypeChoiceField(
-        queryset=SubjectSubType.objects.all(),)
+        queryset=SubjectSubType.objects.all().order_by('display'))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -100,7 +100,9 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
     rgb = forms.CharField(required=False, widget=ColorPickerWidget(), label='Color',
                           help_text=_('This is a color value in r,g,b format (ex. "100, 150, 102") for displaying the subject\'s tracks.'))
     sex = forms.ChoiceField(required=False, choices=(
-        ('male', 'Male'), ('female', 'Female')))
+        ('male', _('Male')),
+        ('female', _('Female'))
+    ))
     region = forms.CharField(
         required=False, help_text='This is the region that will be shown in the DAS Mobile App.')
     country = forms.CharField(
