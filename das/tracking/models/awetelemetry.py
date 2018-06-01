@@ -90,7 +90,6 @@ class AWETelemetryPlugin(TrackingPlugin):
     DEFAULT_START_OFFSET = timedelta(days=14)
     DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
     EXECUTION_THROTTLE = timedelta(minutes=15)
-    DEFAULT_SUBJECT_TYPE = 'wildlife'
     DEFAULT_SUBJECT_SUBTYPE = 'elephant'
     DEFAULT_SOURCE_TYPE = 'tracking-device'
 
@@ -170,12 +169,9 @@ class AWETelemetryPlugin(TrackingPlugin):
 
         # If these are indicated in the 'additional' blob, the use them.
         defaults = self.additional.get('defaults', {})
-        default_subject_type = defaults.get(
-            'subject_type', self.DEFAULT_SUBJECT_TYPE)
+
         default_subject_subtype = defaults.get(
             'subject_subtype', self.DEFAULT_SUBJECT_SUBTYPE)
-        default_source_type = defaults.get(
-            'source_type', self.DEFAULT_SOURCE_TYPE)
 
         try:
 
@@ -190,8 +186,7 @@ class AWETelemetryPlugin(TrackingPlugin):
                                                    manufacturer_id=manufacturer_id,
                                                    model_name=model_name,
                                                    subject={
-                                                       'subject_type': default_subject_type,
-                                                       'subject_subtype': default_subject_subtype,
+                                                       'subject_subtype_id': default_subject_subtype,
                                                        'name': manufacturer_id
                                                    }
                                                    )

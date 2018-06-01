@@ -20,6 +20,8 @@ def index(request):
 
 class VersionSerializer(rest_framework.serializers.Serializer):
     version = rest_framework.serializers.CharField(read_only=True)
+    show_track_days = rest_framework.serializers.IntegerField(
+        read_only=True)
     event_matrix_enabled = rest_framework.serializers.BooleanField(
         read_only=True)
     event_search_enabled = rest_framework.serializers.BooleanField(
@@ -47,7 +49,7 @@ class StatusView(generics.RetrieveAPIView):
 
         resp['event_matrix_enabled'] = settings.EVENT_MATRIX_ENABLED
         resp['export_kml_enabled'] = settings.EXPORT_KML_ENABLED
-
+        resp['show_track_days'] = settings.SHOW_TRACK_DAYS
         resp['event_search_enabled'] = True
 
         if self.get_support_settings():

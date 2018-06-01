@@ -294,8 +294,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'priority': event.priority_label,
                 'priority_internal': event.priority,
                 'reported_at': event.time.strftime('%Y-%m-%d %H:%M'),
-                'lat': event.location.x if event.location is not None else '',
-                'lon': event.location.y if event.location is not None else '',
+                'lat': event.location.y if event.location is not None else '',
+                'lon': event.location.x if event.location is not None else '',
                 'num_notes': event.notes.count(),
                 'notes': '\n'.join([note.text for note in event.notes.all()]),
                 'num_attach': event.related_subjects.count(),
@@ -417,8 +417,6 @@ class EventsView(generics.ListCreateAPIView):
         request = context['request']
         context['include_updates'] = parse_bool(
             query_params.get('include_updates', True))
-        context['include_notes'] = parse_bool(
-            query_params.get('include_notes', True))
         context['include_details'] = parse_bool(
             query_params.get('include_details', True))
         context['include_files'] = parse_bool(
@@ -426,12 +424,15 @@ class EventsView(generics.ListCreateAPIView):
 
         # if this is a POST, returned any contained events
         try:
-            default_include_related_events = request._request.method == 'POST'
+            include_for_posts = request._request.method == 'POST'
         except AttributeError:
-            default_include_related_events = False
+            include_for_posts = False
 
         context['include_related_events'] = parse_bool(query_params.get('include_related_events',
-                                                                        default_include_related_events))
+                                                                        include_for_posts))
+        context['include_notes'] = parse_bool(
+            query_params.get('include_notes', include_for_posts))
+
         return context
 
     def get_queryset(self):

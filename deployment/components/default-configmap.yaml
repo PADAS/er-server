@@ -16,4 +16,5 @@ data:
   PROMETHEUS_URL: http://prometheus:9090
   ALERTMANAGER_URL: http://alertmanager:9093
   ALERTS_SLACK_CHANNEL: "<<alerts-slack-channel>>"
+  ALERTS_SLACK_URL: "<<alerts-slack-url>>"
   SEND_ALERTS: "<<send-alerts>>"

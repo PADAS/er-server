@@ -116,7 +116,6 @@ class DemoDriver():
         self.manufacturer_id = kwargs.pop(
             'manufacturer_id', name.lower().replace(' ', '_'))
         self.group = group
-        self.subject_type = kwargs.pop('subject_type', 'person')
         self.subject_subtype = kwargs.pop('subject_subtype', 'ranger')
         self.kwargs = kwargs
 
@@ -136,8 +135,7 @@ class DemoDriver():
             id=self.subject_id,
             name=self.name,
             additional=subadd,
-            subject_type=self.subject_type,
-            subject_subtype=self.subject_subtype,
+            subject_subtype_id=self.subject_subtype,
         )
         self.source.save()
         self.subject.save()
