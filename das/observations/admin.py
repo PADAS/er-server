@@ -14,8 +14,11 @@ from django.utils.safestring import mark_safe
 from django.utils.html import escape
 from django.utils.translation import ugettext_lazy as _
 
-from django.db.models import Q, F, Count, Value, ExpressionWrapper
-from django.db.models import BooleanField
+from django.db.models import Q, F, Count, Value, ExpressionWrapper, Avg, Window, Max, Sum, Min
+
+from django.db.models.functions import FirstValue, LastValue, Trunc
+from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
+
 from django.db.models.functions import Now
 from django.http import HttpResponse
 
@@ -242,7 +245,21 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         qs = qs.annotate(groups_names=ArrayAgg('groups__name'))
         return qs
 
+    def annotate_with_latest_observation(self, queryset):
+        '''
+        Annotate Subject record with latest Observation.
+        This should be not be done by default.
+        :param queryset:
+        :return: updated queryset
+        '''
+        newest = models.Observation.objects.filter(
+            source__subjectsource__subject=OuterRef('pk'),
+            source__subjectsource__assigned_range__contains=F('recorded_at')).exclude(
+            location=models.EMPTY_POINT).order_by('-recorded_at')
+        return queryset.annotate(newest_observation_at=Subquery(newest.values('recorded_at')[:1]))
+
     form = observations.forms.SubjectFormWithAttributes
+    save_on_top = True
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == 'common_name':
@@ -302,6 +319,17 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
 
     def get_changelist_form(self, request, **kwargs):
         return SubjectChangeListForm
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+
+        extra_context = extra_context or {}
+        latest_observations = models.Observation.objects.filter(source__subjectsource__subject__id=object_id).order_by(
+            '-recorded_at').values('recorded_at', 'location', 'additional')
+        extra_context['observations'] = latest_observations[:10]
+
+        return super().change_view(
+            request, object_id, form_url, extra_context=extra_context,
+        )
 
 
 @admin.register(models.CommonName)
@@ -515,3 +543,75 @@ class SourceProviderAdmin(admin.ModelAdmin):
     search_fields = ('provider_key', 'display_name',)
     ordering = ('provider_key',)
     list_display = ('provider_key', 'display_name',)
+
+
+@admin.register(models.SubjectSummary)
+class SubjectSummaryAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/subject_summary_change_list.html'
+    date_hierarchy = 'updated_at'
+
+    list_filter = ('subject_subtype__subject_type__display',)
+
+    def changelist_view(self, request, extra_context=None):
+        response = super().changelist_view(
+            request,
+            extra_context=extra_context
+        )
+
+        try:
+            qs = response.context_data['cl'].queryset
+        except (AttributeError, KeyError):
+            return response
+
+        metrics = {
+            'total': Count('id'),
+        }
+
+        response.context_data['summary'] = list(
+            qs.values('subject_subtype__display')
+            .annotate(**metrics)
+            .order_by('-total')
+        )
+
+        response.context_data['summary_total'] = dict(
+            qs.aggregate(**metrics)
+        )
+
+        period = get_next_in_date_hierarchy(
+            request, self.date_hierarchy
+        )
+        summary_over_time = qs.annotate(
+            period=Trunc(
+                'updated_at',
+                period,
+                output_field=DateTimeField(),
+            ),
+
+        ).values('period').annotate(total=Count('id')).order_by('period')
+
+        summary_range = summary_over_time.aggregate(
+            low=Min('total'),
+            high=Max('total'),
+        )
+        high = summary_range.get('high', 0)
+        low = summary_range.get('low', 0)
+
+        response.context_data['summary_over_time'] = [{
+            'period': x['period'],
+            'total': x['total'] or 0,
+            'pct':
+            ((x['total'] or 0) - low) / (high - low) * 100
+            if high > low else 0,
+        } for x in summary_over_time]
+
+        return response
+
+
+def get_next_in_date_hierarchy(request, date_hierarchy):
+    if date_hierarchy + '__day' in request.GET:
+        return 'hour'
+    if date_hierarchy + '__month' in request.GET:
+        return 'day'
+    if date_hierarchy + '__year' in request.GET:
+        return 'week'
+    return 'month'

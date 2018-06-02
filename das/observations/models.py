@@ -863,6 +863,13 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 OBSERVATION_DELAY_HRS = 72
 
 
+class SubjectSummary(Subject):
+    class Meta:
+        proxy = True
+        verbose_name = _('Subject Summary')
+        verbose_name_plural = _('Subject Summary')
+
+
 class SubjectStatusQuerySet(models.QuerySet):
     def get_last(self):
         for row in self:

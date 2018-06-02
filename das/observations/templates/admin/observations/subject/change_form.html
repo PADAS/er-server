@@ -1,0 +1,11 @@
+{% extends "admin/change_form.html" %}
+
+{% block form_top %}
+  <p>form top stuff here.</p>
+{% endblock %}
+
+{% block after_related_objects %}
+    {% for observation in observations %}
+      <p>{{observation.recorded_at}}{{ observation.location.x}}, {{observation.location.y}}, {{observation.location.additional.state}}</p>
+    {% endfor %}
+{% endblock %}
