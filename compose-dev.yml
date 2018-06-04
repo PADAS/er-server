@@ -1,10 +1,6 @@
 version: "3.2"
 
 services:
-  web:
-    image: gcr.io/padas-app/web/develop
-    volumes:
-      - ../das-web:/var/www/app
 
   api:
     volumes:

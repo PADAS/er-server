@@ -1,6 +1,6 @@
 project-id: padas-app
 cluster-name: integration
-server-branch-name: develop
+server-branch-name: feature/multistage-build
 web-branch-name: develop
 tag-as-latest: false
 static-ip: 35.197.23.193
