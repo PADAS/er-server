@@ -50,6 +50,11 @@ spec:
             configMapKeyRef:
               name: default-configmap
               key: ALERTS_SLACK_CHANNEL
+        - name: ALERTS_SLACK_URL
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: ALERTS_SLACK_URL
         - name: SEND_ALERTS
           valueFrom:
             configMapKeyRef:

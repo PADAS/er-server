@@ -1,5 +1,5 @@
 global:
-  slack_api_url: 'https://hooks.slack.com/services/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'
+  slack_api_url: ${ALERTS_SLACK_URL}
 
 route:
   group_by: [alertname, datacenter, app]
@@ -8,7 +8,7 @@ route:
 receivers:
 - name: 'shared-services-slack'
   slack_configs:
-  - api_url: 'https://hooks.slack.com/services/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'
+  - api_url: ${ALERTS_SLACK_URL}
     channel: ${ALERTS_SLACK_CHANNEL}
     send_resolved: true
 

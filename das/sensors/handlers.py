@@ -68,7 +68,7 @@ class GenericSensorHandler():
                                            manufacturer_id=manufacturer_id,
                                            model_name=model_name,
                                            subject={
-                                               'subject_subtype': subject_subtype,
+                                               'subject_subtype_id': subject_subtype,
                                                'name': subject_name
                                            }
                                            )
@@ -159,7 +159,7 @@ class DasRadioAgentHandler():
                                            manufacturer_id=manufacturer_id,
                                            model_name=model_name,
                                            subject={
-                                               'subject_subtype': cls.DEFAULT_SUBJECT_SUBTYPE,
+                                               'subject_subtype_id': cls.DEFAULT_SUBJECT_SUBTYPE,
                                                'name': manufacturer_id
                                            }
                                            )
