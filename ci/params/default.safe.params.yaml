@@ -15,6 +15,14 @@ elastic-url: "35.203.167.191"
 cluster-spec: deployment/cluster-specs/default.yaml
 deploy-params-environment: develop
 
+#Azure
+azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa
+azure-tenant-id: 0e10ccd8-5b77-476f-af4c-13ff073b52f6
+azure-service-account-id: 5f25a917-54dd-4eda-8d9d-126798fa7b1b
+azure-region: westus
+azure-workspace: DAS-Dev
+
+
 #Build
 server-branch-name: develop
 web-branch-name: develop
