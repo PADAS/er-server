@@ -13,4 +13,4 @@ vault-lookups:
   email-password: padas-app/main/email-password
   bundle-crt: padas-app/main/bundle-crt
   pamdas-org-private-key-pem: padas-app/main/pamdas-org-private-key-pem
-  azure-subscription-id: ss-infrastructure/main/ss-integration-tests-azure-subscription-id
+  azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa
