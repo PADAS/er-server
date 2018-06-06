@@ -8,9 +8,9 @@ static-values:
   send-alerts: "true"
   static-ip: ""
   iaas-workspace: "myResourceGroup"
+  azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
   bundle-crt: padas-app/main/bundle-crt
   pamdas-org-private-key-pem: padas-app/main/pamdas-org-private-key-pem
-  azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa
