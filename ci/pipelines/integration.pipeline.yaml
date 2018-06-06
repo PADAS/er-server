@@ -51,26 +51,6 @@ resources:
       - deployment/*
     private_key: ((das-github))
 
-- name: git-web-base
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das-web.git
-    branch: ((web-branch-name))
-    paths:
-      - docker/build/base/*
-    private_key: ((das-web-github))
-
-- name: git-web-depends
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das-web.git
-    branch: ((web-branch-name))
-    paths:
-      - docker/build/depends/*
-      - bower.json
-      - package.json
-    private_key: ((das-web-github))
-
 - name: git-web
   type: versioned-git-resource
   source:
@@ -189,23 +169,6 @@ resources:
     repository: gcr.io/padas-app/utility/grafana
 
 # Web docker resources
-- name: image-web-base
-  type: docker-image
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/web/build/base
-
-- name: image-web-depends
-  type: docker-image
-  source:
-    tag: $(cat<git-web-depends/sha)
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/web/build/depends
-    
 - name: image-web-develop
   type: docker-image
   source:
@@ -373,39 +336,18 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 # Web Jobs
-- name: docker-build-web-base
-  serial: true
-  plan:
-  - get: git-web-base
-    trigger: true
-  - put: image-web-base
-    params: {
-      build: git-web-base,
-      dockerfile: git-web-base/docker/build/base/Dockerfile,
-      tag:  git-web-base/sha,
-      tag_as_latest: ((tag-as-latest))
-    }        
-    get_params: {skip_download: true}
-
-- name: docker-build-web-depends
+- name: docker-build-web-develop
   serial: true
   plan:
   - aggregate:
-    - get: image-web-base
-      passed: [docker-build-web-base]
+    - get: git-web
       trigger: true
-      params: { skip_download: true }
-    - get: git-web-base
-      passed: [docker-build-web-base]
-    - get: git-web-depends
-      trigger: true
-  - put: image-web-depends
+  - put: image-web-develop
     params: {
-      build: git-web-depends,
-      dockerfile: git-web-depends/docker/build/depends/Dockerfile,
-      tag:  git-web-depends/sha,
-      build_args_file: git-web-base/build_args,
-      tag_as_latest: ((tag-as-latest))
+      build: git-web,
+      dockerfile: git-web/docker/Dockerfile-develop,
+      tag:  git-web/sha,
+      tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
 
@@ -413,72 +355,42 @@ jobs:
   serial: true
   plan:
   - aggregate:
-    - get: image-web-depends
-      passed: [docker-build-web-depends]
-      trigger: true
-      params: { save: true }
-    - get: git-web-depends
-      passed: [docker-build-web-depends]
     - get: git-web
       trigger: true
+      passed: [docker-build-web-develop]
+    - get: image-web-develop
+      trigger: true
+      passed: [docker-build-web-develop]
+      params: {
+        skip_download: true
+      }
   - task: test
-    image: image-web-depends
+    image: image-web-develop
     config:
-      platform: linux      
+      platform: linux
       inputs:
       - name: git-web
       run:
         dir: git-web
-        path: docker/build/compile/test.sh
-
-- name: docker-build-web-develop
-  serial: true
-  plan:
-  - aggregate:
-    - get: image-web-depends
-      passed: [test-web-unit]
-      trigger: true
-      params: { skip_download: true }
-    - get: git-web-depends
-      passed: [test-web-unit]
-    - get: git-web
-      passed: [test-web-unit]
-      trigger: true
-  - put: image-web-develop
-    params: {
-      build: git-web,
-      dockerfile: git-web/docker/develop/Dockerfile,
-      tag:  git-web/sha,
-      tag_as_latest: ((tag-as-latest)),
-      build_args_file: git-web-depends/build_args
-    }
-    get_params: {skip_download: true}
+        path: docker/test.sh
 
 - name: docker-build-web-app
   serial: true
   plan:
   - aggregate:
-    - get: image-web-depends
-      passed: [test-web-unit]
-      trigger: true
     - get: git-web
       passed: [test-web-unit]
       trigger: true
-  - task: build
-    image: image-web-depends
-    config:
-      platform: linux
-      inputs:
-      - name: git-web
-      outputs: 
-      - name: web-distribution
-      run:
-        dir: git-web
-        path: docker/build/compile/build.sh
+    - get: image-web-develop
+      trigger: true
+      passed: [test-web-unit]
+      params: {
+        skip_download: true
+      }
   - put: image-web-app
     params: {
-      build: web-distribution,
-      dockerfile: web-distribution/docker/app/Dockerfile,
+      build: git-web,
+      dockerfile: git-web/docker/Dockerfile-build,
       tag:  git-web/sha,
       tag_as_latest: ((tag-as-latest)),
     }
@@ -618,6 +530,7 @@ jobs:
           - name: git-web
           - name: git-server
           - name: git-deployment
+          - name: git-monitoring
           params: {
             PROJECT: padas-app,
             USERNAME: ((creator)),
