@@ -415,15 +415,21 @@ class SubjectSource(models.Model):
     assigned_range = DateTimeRangeField(
         'time assigned to subject', default=DEFAULT_ASSIGNED_RANGE)
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
-    subject = models.ForeignKey('Subject', on_delete=models.CASCADE)
+    subject = models.ForeignKey('Subject', on_delete=models.CASCADE, related_name='subjectsources',
+                                related_query_name='subjectsource')
     additional = JSONField('additional', default={})
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     objects = SubjectSourceManager()
 
     def __str__(self):
         fmt = '%Y-%m-%d'
-        return '%s [%s] %s-%s' % (self.subject.name, self.source.manufacturer_id,
-                                  self.assigned_range.lower.strftime(fmt), self.assigned_range.upper.strftime(fmt))
+        ind = ' (expired)' if datetime.now(
+            tz=pytz.utc) not in self.assigned_range else ''
+        return f'{self.subject.name} <-> {self.source.manufacturer_id}{ind}'
+
+    class Meta:
+        verbose_name = _('Subject Source Assignment')
+        verbose_name_plural = _('Subject Source Assignments')
 
 
 class SubjectTypeManager(models.Manager):
@@ -857,7 +863,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             return users
 
     def __str__(self):
-        return f'{self.name} ({self.subject_subtype.display})'
+        return f'{self.name}'  # ({self.subject_subtype.display})'
 
 
 OBSERVATION_DELAY_HRS = 72
@@ -868,6 +874,13 @@ class SubjectSummary(Subject):
         proxy = True
         verbose_name = _('Subject Summary')
         verbose_name_plural = _('Subject Summary')
+
+
+class SubjectPositionSummary(Observation):
+    class Meta:
+        proxy = True
+        verbose_name = _('Subject Positions')
+        verbose_name_plural = _('Subject Positions')
 
 
 class SubjectStatusQuerySet(models.QuerySet):
@@ -965,7 +978,7 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
 
     class Meta:
         verbose_name = _('Subject Status')
-        verbose_name_plural = _('Subject Statuses')
+        verbose_name_plural = _('Subject Status')
         unique_together = ('subject', 'delay_hours')
 
     @property
@@ -1006,6 +1019,32 @@ class SocketClient(TimestampedModel):
     bbox = models.MultiPolygonField(
         'Viewport bounding box.', null=True, blank=True)
     event_filter = JSONField('Event filter', default={})
+
+#
+# def get_radio_status():
+#
+#     return Observation.objects.raw(
+#         '''
+#         with t0 as (
+#    select obs.id "id",
+#            obs.location "location",
+#           obs.recorded_at "recorded_at",
+#           sub.name "subject_name",
+#           sub.id "subject_id",
+#           obs.additional->>'event_action' event_action,
+#           obs.additional->>'state' state,
+#           obs.additional->>'gps_fix' gps_fix,
+#           row_number() over (partition by sub.name order by obs.recorded_at desc) seq
+#        from observations_subject sub
+#             join observations_subjectsource ss on ss.subject_id = sub.id
+#             join observations_observation obs on obs.source_id = ss.source_id
+#                  and obs.recorded_at <@ ss.assigned_range
+#             join observations_source src on src.id = ss.source_id
+#        where obs.recorded_at > current_timestamp - interval '10 day'
+#           )
+# select id, subject_name, event_action, state, gps_fix, recorded_at, location from t0 where seq <= 1
+# '''
+#     )
 
 
 import observations.signals

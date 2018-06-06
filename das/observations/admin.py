@@ -3,7 +3,10 @@ import csv
 from datetime import datetime, timedelta
 import pytz
 
+import humanize
+
 from django.contrib import admin
+from django.contrib.gis import admin as gisadmin
 
 from django.conf import settings
 
@@ -15,9 +18,10 @@ from django.utils.html import escape
 from django.utils.translation import ugettext_lazy as _
 
 from django.db.models import Q, F, Count, Value, ExpressionWrapper, Avg, Window, Max, Sum, Min
+from django.contrib.postgres.aggregates import ArrayAgg
 
-from django.db.models.functions import FirstValue, LastValue, Trunc
-from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
+from django.db.models.functions import FirstValue, LastValue, Trunc, RowNumber
+from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField, CharField, TextField
 
 from django.db.models.functions import Now
 from django.http import HttpResponse
@@ -58,7 +62,21 @@ class ExportCsvMixin:
     export_as_csv.short_description = "Export Selected Items"
 
 
-class SubjectSubTypeInline(admin.TabularInline):
+class InlineExtraDynamicMixin:
+    '''
+    This allows me to override the 'number of extra inline forms' depending on whether the
+    containing object already exists.
+    Inheriting class should include `extra` if the default is not desired.
+    '''
+    extra = 1
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj:
+            return 0
+        return self.extra
+
+
+class SubjectSubTypeInline(InlineExtraDynamicMixin, admin.TabularInline):
     model = models.SubjectSubType
 
     verbose_name = _('Subject Sub-Type')
@@ -70,15 +88,6 @@ class SubjectSubTypeInline(admin.TabularInline):
     fields = ('value', 'display', )
 
     ordering = ('display',)
-
-    extra = 1
-
-    def get_extra(self, request, obj=None, **kwargs):
-        # This allows me to override the 'number of extra inline forms' if the
-        # containing object already exists.
-        if obj:
-            return 0
-        return self.extra
 
 
 @admin.register(models.SubjectType)
@@ -118,15 +127,16 @@ class SubjectSubTypeAdmin(admin.ModelAdmin):
     )
 
 
-class SubjectSourceInline(admin.StackedInline):
+class SubjectSourceInline(InlineExtraDynamicMixin, admin.StackedInline):
     model = models.SubjectSource
-    max_num = 1
 
     can_delete = True
     verbose_name = _('Source Assignment')
-    verbose_name_plural = _('Source Assignment')
+    verbose_name_plural = _('Source Assignments')
     show_change_link = True
     fk_name = 'subject'
+    readonly_fields = ('additional', )
+    template = 'admin/observations/subjectsource/edit_inline/stacked.html'
 
     form = SubjectSourceForm
 
@@ -141,16 +151,23 @@ class SubjectSourceInline(admin.StackedInline):
         }
         ),
         ('Source Assignment Attributes', {
-            'classes': ('wide',),
+            'classes': ('wide', 'collapse',),
             'fields': ('data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason')
         }
         ),
-        ('Advanced Settings', {
+        ('Raw Attributes Data', {
             'classes': ('wide', 'collapse',),
             'fields': ('additional', 'id')
         }
         )
     )
+
+
+from django.contrib.contenttypes.admin import GenericTabularInline
+
+
+class SourceGenericInline(GenericTabularInline):
+    model = models.Source
 
 
 class GroupAssignedFilter(admin.SimpleListFilter):
@@ -172,14 +189,11 @@ class GroupAssignedFilter(admin.SimpleListFilter):
         return queryset
 
 
-from django.contrib.postgres.aggregates import ArrayAgg
-
-
 @admin.register(models.Subject)
 class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
 
-    list_display = ('name', 'subject_subtype',
-                    '_is_active', 'get_attributes', 'all_groups', 'all_sources',)
+    list_display = ('name', 'subject_subtype',  # '_subject_subtype_display',
+                    '_is_active', 'get_attributes', 'all_groups', 'all_sources', '_status',)
 
     search_fields = ('name', 'subject_subtype__display', 'common_name__display',
                      'subjectsource__source__manufacturer_id')
@@ -209,6 +223,11 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
     readonly_fields = ('id', 'created_at', 'updated_at',)
     list_per_page = 25
     ordering = ('name',)
+
+    def _status(self, o):
+
+        return mark_safe(f'<img src="{o.image_url}" style="height:2.0em;"/>')
+    _status.short_description = 'Status'
 
     def _is_active(self, o):
         return o.is_active
@@ -243,7 +262,25 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         """Limit Subjects to those this person can administer"""
         qs = super(SubjectAdmin, self).get_queryset(request)
         qs = qs.annotate(groups_names=ArrayAgg('groups__name'))
+
+        # Status
+        subst = models.SubjectStatus.objects.filter(
+            subject=OuterRef('pk'), delay_hours=0)
+        qs = qs.annotate(subject_status=Subquery(
+            subst.values('additional')[:1]))
+
+        # # Latest SubjectSource
+        # ss = models.SubjectSource.objects.filter(subject=OuterRef('pk')).order_by('-assigned_range')
+        # qs = qs.annotate(latest_subjectsource_id=Subquery(ss.values('id')[:1]))
+
+        # , 'subjectsource_set__source')
+        qs = qs.prefetch_related('subject_subtype', 'subjectsources',)
         return qs
+
+    def _subject_subtype_display(self, o):
+        return o.subject_subtype.display
+
+    _subject_subtype_display.short_description = 'Subject Sub-Type'
 
     def annotate_with_latest_observation(self, queryset):
         '''
@@ -281,7 +318,12 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
     get_attributes.short_description = _('Subject Attributes')
 
     def all_groups(self, instance):
-        return make_html_list(instance.groups_names)
+
+        gnlist = [x for x in instance.groups_names if x is not None]
+        if gnlist:
+            return make_html_list(gnlist)
+        else:
+            return ''
 
     all_groups.short_description = _('Groups')
     all_groups.allow_tags = True
@@ -295,7 +337,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         '''
         subjectsources = models.SubjectSource \
             .objects \
-            .filter(subject_id=instance.pk).annotate(manufacturer_id=F('source__manufacturer_id')) \
+            .filter(subject_id=instance.pk).annotate(manufacturer_id=F('source__manufacturer_id'), provider_display=F('source__provider__display_name')) \
             .order_by('-assigned_range').annotate(current=ExpressionWrapper(Q(assigned_range__contains=Now()), output_field=BooleanField())
 
                                                   )
@@ -350,8 +392,8 @@ class CommonNameAdmin(admin.ModelAdmin):
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
     list_display = ['manufacturer_id', 'source_type',
-                    'model_name', 'get_attributes']
-    search_fields = ('id', 'manufacturer_id', 'model_name', 'additional')
+                    'model_name', 'get_attributes', 'plugin_names']
+    search_fields = ('id', 'manufacturer_id', 'model_name', 'additional',)
     list_filter = ('source_type', 'model_name')
     readonly_fields = ('id', 'created_at', 'updated_at',)
 #    filter_horizontal = ('groups',)
@@ -374,6 +416,9 @@ class SourceAdmin(admin.ModelAdmin):
         )
     )
 
+    def _plugin_names(self, o):
+        return o.source_plugin.plugin.name
+
     def get_attributes(self, instance):
         context = dict((k, instance.additional[k]) for k in (
             'frequency',) if k in instance.additional)
@@ -382,6 +427,14 @@ class SourceAdmin(admin.ModelAdmin):
                                  for k, v in context.items()))
 
     get_attributes.short_description = _('Source Attributes')
+
+    def get_queryset(self, request):
+        qs = super(SourceAdmin, self).get_queryset(request)
+        qs = qs.annotate(plugin_names=ArrayAgg('source_plugin__pin__name'))
+        return qs
+
+    def plugin_names(self, o):
+        return o.plugin_names
 
 
 class CurrentAssignmentFilter(admin.SimpleListFilter):
@@ -461,6 +514,9 @@ class SubjectSourceAdmin(admin.ModelAdmin):
         qs = super(SubjectSourceAdmin, self).get_queryset(request)
         qs = qs.annotate(current=ExpressionWrapper(
             Q(assigned_range__contains=Now()), output_field=BooleanField()))
+
+        # 'subject__subject_subtype', 'source__provider')
+        qs = qs.prefetch_related('source', 'subject',)
         return qs
 
 
@@ -528,14 +584,95 @@ class SourceGroupAdmin(HierarchyModelAdmin):
     filter_horizontal = ('children', 'permission_sets', 'sources')
 
 
+class RadioStatusFilter(admin.SimpleListFilter):
+    title = 'Radio Status'
+    parameter_name = 'radiostatus'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('online_gps', 'Green'),
+            ('online_nogps', 'Blue'),
+            ('offline', 'Offline'),
+            ('alarm', 'Red'),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == 'online_gps':
+            return queryset.filter(additional__state='online', additional__gps_fix=True)
+        elif value == 'online_nogps':
+            return queryset.filter(additional__state='online', additional__gps_fix=False)
+        elif value == 'offline':
+            return queryset.filter(additional__state='offline')
+        elif value == 'alarm':
+            return queryset.filter(additional__state='alarm')
+
+        return queryset
+
+
+class SourceTypeFilter(admin.SimpleListFilter):
+    title = 'Source Type'
+    parameter_name = 'radio_identifier'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('trbonet', 'TRBOnet Radios'),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == 'trbonet':
+            return queryset.filter(subject__subjectsource__assigned_range__contains=F('recorded_at'),
+                                   subject__subjectsource__source__manufacturer_id__startswith='trbonet-')
+
+        return queryset
+
+
+from django.db.models.expressions import RawSQL
+
+
 @admin.register(models.SubjectStatus)
 class SubjectStatusAdmin(admin.ModelAdmin):
-    search_fields = ('subject__name',)
+    search_fields = (
+        'subject__name', 'subject__subjectsource__source__manufacturer_id')
     ordering = ('-recorded_at',)
+    # change_list_template = 'admin/subject_status_change_list.html'
+    # readonly_fields = ('recorded_at', 'subject','delay_hours', 'additional')
+    list_display = ('_status', 'subject', 'recorded_at', '_location', '_age')
+    list_filter = (RadioStatusFilter, SourceTypeFilter,
+                   'subject__subject_subtype__display',)
+    list_display_links = None  # Disable all links
 
-    list_display = ('subject', 'delay_hours', 'recorded_at', 'location')
+    actions = None  # Disable all actions.
 
-    list_filter = ('delay_hours', 'subject__subject_subtype__value')
+    def _age(self, o):
+        return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at)
+    _age.short_description = _('Age of Observation')
+    _age.admin_order_field = '-recorded_at'
+
+    def _status(self, o):
+        state_desc = o.additional.get('state', '')
+        if state_desc:
+            state_desc = state_desc.capitalize()
+            state_desc = f"{state_desc} w/GPS" if o.additional.get('gps_fix') else state_desc
+        else:
+            state_desc = f"{o.subject.subject_subtype.display}"
+        return mark_safe(f'<img src="{o.subject.image_url}" style="height:1.8em;float:right;" alt="{state_desc}"/>')
+    _status.short_description = _('Map Marker')
+    _status.admin_order_field = 'state_order'  # , 'additional__gps_fix')
+
+    def get_queryset(self, request):
+        """Limit Subjects to those this person can administer"""
+        qs = super(SubjectStatusAdmin, self).get_queryset(request)
+        qs = qs.filter(delay_hours=0)
+        qs = qs.annotate(state_order=RawSQL(
+            '''jsonb_extract_path_text(observations_subjectstatus.additional, 'state') || jsonb_extract_path_text(observations_subjectstatus.additional, 'gps_fix')''', ()))
+        return qs
+
+    def _location(self, o):
+        return f'{o.location.x:0.4} / {o.location.y:0.4}'
+    _location.short_description = 'Longitude / Latitude'
+    _location.admin_order_field = 'location'
 
 
 @admin.register(models.SourceProvider)
@@ -603,6 +740,55 @@ class SubjectSummaryAdmin(admin.ModelAdmin):
             ((x['total'] or 0) - low) / (high - low) * 100
             if high > low else 0,
         } for x in summary_over_time]
+
+        return response
+
+
+@admin.register(models.SubjectPositionSummary)
+class SubjectPositionSummaryAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/subject_position_change_list.html'
+    date_hierarchy = 'recorded_at'
+    # list_filter = ('subject_subtype__subject_type__display',)
+
+    def changelist_view(self, request, extra_context=None):
+        response = super().changelist_view(
+            request,
+            extra_context=extra_context
+        )
+
+        try:
+            qs = response.context_data['cl'].queryset
+        except (AttributeError, KeyError):
+            return response
+
+        window_asc = {
+            'partition_by': [F('source__subjectsource__subject'), ],
+            'order_by': [F('recorded_at').asc(), ],
+        }
+        window_desc = {
+            'partition_by': [F('source__subjectsource__subject'), ],
+            'order_by': [F('recorded_at').desc(), ],
+        }
+
+        end = datetime.now(tz=pytz.utc)
+        start = end - timedelta(days=30)
+
+        o = models.Observation.objects.filter(
+            source__subjectsource__assigned_range__contains=F('recorded_at'),
+            recorded_at__gte=start, recorded_at__lt=end, ).exclude(
+            location=models.EMPTY_POINT).annotate(
+            subject_name=F('source__subjectsource__subject__name'),
+            subject_id=F('source__subjectsource__subject__id'),
+            subject_subtype=F(
+                'source__subjectsource__subject__subject_subtype'),
+            latest_location=Window(expression=FirstValue(
+                F('location')), **window_desc),
+            latest_additional=Window(expression=FirstValue(
+                F('additional')), **window_desc),
+            latest_recorded_at=Window(expression=FirstValue(F('recorded_at')), **window_desc))\
+            .order_by('subject_name', 'subject_id').distinct('subject_name', 'subject_id')
+
+        response.context_data['subject_position_endpoints'] = o.values()
 
         return response
 
