@@ -6,11 +6,13 @@ import pytz
 import humanize
 
 from django.contrib import admin
-from django.contrib.gis import admin as gisadmin
+from django.db import connection
 
 from django.conf import settings
+from django.urls import reverse
 
-from django.contrib.admin.widgets import FilteredSelectMultiple, RelatedFieldWidgetWrapper
+from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.contrib.contenttypes.admin import GenericTabularInline
 
 from django import forms
 from django.utils.safestring import mark_safe
@@ -21,14 +23,14 @@ from django.db.models import Q, F, Count, Value, ExpressionWrapper, Avg, Window,
 from django.contrib.postgres.aggregates import ArrayAgg
 
 from django.db.models.functions import FirstValue, LastValue, Trunc, RowNumber
-from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField, CharField, TextField
+from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
 
 from django.db.models.functions import Now
 from django.http import HttpResponse
 
 import observations.models as models
 import observations.forms
-from observations.forms import SubjectForm, SubjectChangeListForm, SubjectSourceForm
+from observations.forms import SubjectChangeListForm, SubjectSourceForm
 
 from core.admin import HierarchyModelAdmin
 from utils.html import make_html_list
@@ -36,9 +38,12 @@ from utils.html import make_html_list
 from django.template.loader import render_to_string
 from django.utils.html import format_html
 
-admin.site.site_header = _('DAS Administration')
-admin.site.site_title = _('DAS Administration')
-admin.site.index_title = _('DAS Administration')
+site_title = _('DAS Administration (advanced view)')
+admin.site.site_title = site_title
+admin.site.site_header = site_title
+admin.site.index_title = site_title
+
+admin.site.index_template = 'admin/standard_admin_index.html'
 
 
 class ExportCsvMixin:
@@ -163,9 +168,6 @@ class SubjectSourceInline(InlineExtraDynamicMixin, admin.StackedInline):
     )
 
 
-from django.contrib.contenttypes.admin import GenericTabularInline
-
-
 class SourceGenericInline(GenericTabularInline):
     model = models.Source
 
@@ -187,6 +189,138 @@ class GroupAssignedFilter(admin.SimpleListFilter):
         elif value == 'nogroups':
             return queryset.annotate(groups_count=Count('groups')).filter(groups_count=0)
         return queryset
+
+
+class InputFilter(admin.SimpleListFilter):
+    '''
+    Create a filter with no choices, just a simple text box.
+    '''
+    template = 'admin/input_filter.html'
+
+    def lookups(self, request, model_admin):
+        return ((),)
+
+    def choices(self, changelist):
+
+        all_choice = next(super().choices(changelist))
+        all_choice['query_parts'] = (
+            (k, v)
+            for k, v in changelist.get_filters_params().items()
+            if k != self.parameter_name
+        )
+        yield all_choice
+
+
+class SubjectNameFilter(InputFilter):
+    parameter_name = 'subject_name'
+    title = _('Subject Name')
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(source__subjectsource__subject__name=self.value(), )
+            )
+
+
+class SubjectIdFilter(InputFilter):
+    parameter_name = 'subject_id'
+    title = _('Subject ID')
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(source__subjectsource__subject_id=self.value(), )
+            )
+
+
+from django.core.paginator import Paginator
+
+
+class LargeTablePaginator(Paginator):
+    '''
+    If the query has no filter, then get count from pg_class.
+    '''
+
+    def _get_count(self):
+        # Handle subsequent calls in same request.
+        if getattr(self, '_count', None) is not None:
+            return self._count
+
+        query = self.object_list.query
+        self._count = None
+
+        if not query.where:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT reltuples FROM pg_class WHERE relname = %s",
+                                   [query.model._meta.db_table])
+                    self._count = int(cursor.fetchone()[0])
+            except:
+                pass
+
+        return self._count if self._count is not None else super().count
+
+    count = property(_get_count)
+
+
+@admin.register(models.Observation)
+class ObservationAdmin(ExportCsvMixin, admin.ModelAdmin):
+    list_display = ('_subject_name', '_manufacturer_id', 'recorded_at',
+                    '_location', '_state', '_gps_fix', '_event_action')
+    date_hierarchy = 'recorded_at'
+
+    paginator = LargeTablePaginator
+
+    list_filter = (SubjectNameFilter, SubjectIdFilter)
+
+    def _location(self, o):
+        return f'{o.location.x} / {o.location.y}'
+    _location.short_description = _('Longitude / Latitude')
+
+    def _state(self, o):
+        return o.additional.get('state')
+    _state.short_description = 'Radio Status'
+
+    def _gps_fix(self, o):
+        return o.additional.get('gps_fix')
+    _gps_fix.short_description = 'w/GPS?'
+
+    def _event_action(self, o):
+        return o.additional.get('event_action')
+    _event_action.short_description = 'Event Action'
+
+    def _subject_name(self, o):
+        return o.subject_name
+
+    def _manufacturer_id(self, o):
+        return o.manufacturer_id
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
+
+    def get_queryset(self, request):
+        qs = super(ObservationAdmin, self).get_queryset(request)
+
+        # Hard-limit at 180 days.
+        dt = datetime.now(tz=pytz.utc) - timedelta(days=180)
+        qs = qs.filter(recorded_at__gte=dt)
+
+        # Reference Subject to get Name.
+        # TODO: Consider a raw query.
+        subject = models.Subject.objects.filter(subjectsource__source_id=OuterRef('source_id'),
+                                                subjectsource__assigned_range__contains=OuterRef('recorded_at'))
+        qs = qs.annotate(subject_name=Subquery(subject.values('name')[:1]))
+
+        qs = qs.annotate(manufacturer_id=F('source__manufacturer_id'),
+                         subject_name=F('source__subjectsource__subject__name'))
+        qs = qs.select_related('source',)
+
+        return qs
+
+    actions = ['export_as_csv', ]
 
 
 @admin.register(models.Subject)
@@ -227,12 +361,12 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
     def _status(self, o):
 
         return mark_safe(f'<img src="{o.image_url}" style="height:2.0em;"/>')
-    _status.short_description = 'Status'
+    _status.short_description = _('Map Marker')
 
     def _is_active(self, o):
         return o.is_active
 
-    _is_active.short_description = 'Active?'
+    _is_active.short_description = _('Active?')
     _is_active.boolean = True
 
     def assign_random_color(self, request, queryset):
@@ -365,10 +499,13 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
     def change_view(self, request, object_id, form_url='', extra_context=None):
 
         extra_context = extra_context or {}
-        latest_observations = models.Observation.objects.filter(source__subjectsource__subject__id=object_id).order_by(
-            '-recorded_at').values('recorded_at', 'location', 'additional')
-        extra_context['observations'] = latest_observations[:10]
+        latest_observations = models.Observation.objects.filter(
+            source__subjectsource__subject__id=object_id,
+            source__subjectsource__assigned_range__contains=F('recorded_at')).order_by('-recorded_at')\
+            .values('source__manufacturer_id', 'recorded_at', 'location', 'additional')
+        extra_context['observations'] = latest_observations[:25]
 
+        extra_context['subject_id'] = str(object_id)
         return super().change_view(
             request, object_id, form_url, extra_context=extra_context,
         )
@@ -666,7 +803,8 @@ class SubjectStatusAdmin(admin.ModelAdmin):
         qs = super(SubjectStatusAdmin, self).get_queryset(request)
         qs = qs.filter(delay_hours=0)
         qs = qs.annotate(state_order=RawSQL(
-            '''jsonb_extract_path_text(observations_subjectstatus.additional, 'state') || jsonb_extract_path_text(observations_subjectstatus.additional, 'gps_fix')''', ()))
+            '''jsonb_extract_path_text(observations_subjectstatus.additional, 'state')
+             || jsonb_extract_path_text(observations_subjectstatus.additional, 'gps_fix')''', ()))
         return qs
 
     def _location(self, o):
