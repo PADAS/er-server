@@ -1,0 +1,7 @@
+project-id: padas-app
+cluster-name: esri
+server-branch-name: develop
+web-branch-name: feature/ESRI-satellite-tile-layer
+tag-as-latest: false
+static-ip: 35.233.246.133
+deployment-plan: integration

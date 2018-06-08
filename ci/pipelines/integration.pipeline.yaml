@@ -362,7 +362,7 @@ jobs:
       trigger: true
       passed: [docker-build-web-develop]
       params: {
-        skip_download: true
+        save: true
       }
   - task: test
     image: image-web-develop
@@ -390,7 +390,7 @@ jobs:
   - put: image-web-app
     params: {
       build: git-web,
-      dockerfile: git-web/docker/Dockerfile-build,
+      dockerfile: git-web/docker/Dockerfile-app,
       tag:  git-web/sha,
       tag_as_latest: ((tag-as-latest)),
     }
