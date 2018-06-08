@@ -173,10 +173,9 @@ class SourceProvider(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     provider_key = models.CharField('Natural key for source provider',
                                     max_length=100, null='False', unique=True)
-
     display_name = models.CharField('Display name for source provider.',
                                     max_length=100, null=False,)
-
+    additional = JSONField('additional data', default={})
     objects = SourceProviderManager()
 
     def __str__(self):

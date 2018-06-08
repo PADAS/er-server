@@ -255,10 +255,12 @@ class SourceProviderSerializer(rest_framework.serializers.Serializer):
         label='Source Provider Value', max_length=100, required=True)
     display_name = rest_framework.serializers.CharField(
         label='Display Name', max_length=100,)
+    additional = rest_framework.serializers.JSONField(
+        label='Additional Data', )
 
     class Meta:
         model = models.SourceProvider
-        fields = ('id', 'provider_key', 'display_name', )
+        fields = ('id', 'provider_key', 'display_name', 'additional')
 
     def create(self, validated_data):
 
