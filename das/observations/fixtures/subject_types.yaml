@@ -130,3 +130,18 @@
   fields: {created_at: ! '2018-05-15 16:14:00.552926+00:00', updated_at: ! '2018-05-15
       16:14:00.552950+00:00', value: tourist_vehicle, display: Tourist Vehicle, subject_type: vehicle,
     ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: ! '2018-05-17 16:14:00.546324+00:00', updated_at: ! '2018-05-17
+      16:14:00.546349+00:00', value: van, display: Van, subject_type: vehicle, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: ! '2018-05-17 16:14:00.482915+00:00', updated_at: ! '2018-05-17
+      16:14:00.482941+00:00', value: car, display: Car, subject_type: vehicle,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: ! '2018-05-17 16:14:00.582442+00:00', updated_at: ! '2018-05-17
+      16:14:00.582466+00:00', value: pickup, display: Pickup, subject_type: vehicle, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: ! '2018-05-17 16:14:00.552926+00:00', updated_at: ! '2018-05-17
+      16:14:00.552950+00:00', value: excavator, display: Excavator, subject_type: vehicle,
+    ordernum: null}
+
