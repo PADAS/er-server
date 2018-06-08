@@ -24,7 +24,7 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/postgresql/data
           name: pgdata
-      - image: prom/node-exporter
+      - image: prom/node-exporter:<<node-exporter-version>>
         name: disk-exporter
         resources:
           requests:

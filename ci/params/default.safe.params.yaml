@@ -1,5 +1,5 @@
 project-id: padas-app
-vp-tools-container-version: "1.0.17"
+vp-tools-container-version: "1.0.26"
 infrastructure-utilities-version-tag: "0.0.54"
 
 #Infrastructure
@@ -19,7 +19,7 @@ deploy-params-environment: develop
 azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa
 azure-tenant-id: 0e10ccd8-5b77-476f-af4c-13ff073b52f6
 azure-service-account-id: 5f25a917-54dd-4eda-8d9d-126798fa7b1b
-azure-region: westus
+azure-region: eastus
 azure-workspace: DAS-Dev
 
 

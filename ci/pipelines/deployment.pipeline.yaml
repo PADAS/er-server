@@ -24,97 +24,106 @@ jobs:
   - aggregate:
     - get: git-deployment
   - do:
-      - task: ensure-disks-exist
-        config:
-          platform: linux
-          image_resource:
-            type: docker-image
-            source: {
-              repository: gcr.io/ss-infrastructure-public/platform/tools,
-              tag: ((vp-tools-container-version)),
-            }
-          inputs:
-          - name: git-deployment
-          params: {
-            PROJECT: padas-app,
-            SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
-            USERNAME: ((creator)),
-            ELASTIC_URL: ((elastic-url)),
-            BUILD_PIPELINE_NAME: ((pipeline-name))
+    - task: ensure-disks-exist
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
           }
-          run:
-            path: /vulcan-platform-tools/run/run.with.gcloud.service.account.sh
-            args:
-            - vcloud
-            - disks
-            - create
-            - git-deployment/deployment/storage/default.disks.csv
-            - --prefix=((cluster-name))
-            - --zone=((gcp-compute-zone))
-            - --iaas=gcp
-            - --workspace=((iaas-workspace))
-            - --type=ssd
-      - task: ensure-cluster-exists
-        config:
-          platform: linux
-          image_resource:
-            type: docker-image
-            source: {
-              repository: gcr.io/ss-infrastructure-public/platform/tools,
-              tag: ((vp-tools-container-version)),
-            }
-          inputs:
-          - name: git-deployment
-          params: {
-            PROJECT: padas-app,
-            SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
-            USERNAME: ((creator)),
-            VAULT_TOKEN: ((vault-automation-token)),
-            VAULT_ADDR: ((vault-address)),
-            ELASTIC_URL: ((elastic-url))
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_CLIENT_ID: ((azure-service-account-id)),
+          AZURE_CLIENT_SECRET: ((DAS-Dev-ConcourseProvisioner-Password)),
+          USERNAME: ((creator)),
+          ELASTIC_URL: ((elastic-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name))
+        }
+        run:
+          path: /bin/bash
+          args:
+          - vcloud
+          - disks
+          - create
+          - git-deployment/deployment/storage/default.disks.csv
+          - --prefix=((cluster-name))
+          - --zone=((azure-region))
+          - --iaas=azure
+          - --workspace=((azure-workspace))
+          - --type=ssd
+    - task: ensure-cluster-exists
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
           }
-          run:
-            path: /vulcan-platform-tools/run/run.with.gcloud.service.account.sh
-            args:
-            - vcloud
-            - clusters
-            - create
-            - git-deployment/((cluster-spec))
-            - --name=((cluster-name))
-            - --zone=((gcp-compute-zone))
-            - --iaas=gcp
-            - --workspace=((iaas-workspace))
-      - task: deploy
-        config:
-          platform: linux
-          image_resource:
-            type: docker-image
-            source: {
-              repository: gcr.io/ss-infrastructure-public/platform/tools,
-              tag: ((vp-tools-container-version)),
-            }
-          inputs:
-          - name: git-deployment
-          params: {
-            PROJECT: padas-app,
-            SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
-            USERNAME: ((creator)),
-            VAULT_TOKEN: ((vault-automation-token)),
-            VAULT_ADDR: ((vault-address)),
-            ELASTIC_URL: ((elastic-url)),
-            VCLOUD_SERVICE_URL: ((vcloud-service-url)),
-            STATIC_IP: ((static-ip))
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_CLIENT_ID: ((azure-service-account-id)),
+          AZURE_CLIENT_SECRET: ((DAS-Dev-ConcourseProvisioner-Password)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url))
+        }
+        run:
+          path: /bin/bash
+          args:
+          - vcloud
+          - clusters
+          - create
+          - git-deployment/((cluster-spec))
+          - --name=((cluster-name))
+          - --zone=((azure-region))
+          - --iaas=azure
+          - --workspace=((azure-workspace))
+    - task: deploy
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
           }
-          run:
-            path: /vulcan-platform-tools/run/run.with.gcloud.service.account.sh
-            args:
-            - vcloud
-            - clusters
-            - deploy
-            - git-deployment/deployment/components
-            - --params-file=git-deployment/deployment/params/((deploy-params-environment)).params.yaml
-            - --name=((cluster-name))
-            - --workspace=((iaas-workspace))
-            - --iaas=gcp
-            - --zone=((gcp-compute-zone))
-            - --plan=((deployment-plan))
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_CLIENT_ID: ((azure-service-account-id)),
+          AZURE_CLIENT_SECRET: ((DAS-Dev-ConcourseProvisioner-Password)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+          STATIC_IP: ((static-ip))
+        }
+        run:
+          path: /bin/bash
+          args:
+          - vcloud 
+          - clusters 
+          - deploy 
+          - git-deployment/deployment/components
+          - --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml
+          - --name ((cluster-name))
+          - --zone=((azure-region))
+          - --iaas=azure
+          - --workspace=((azure-workspace))
+          - --plan ((deployment-plan))

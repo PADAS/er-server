@@ -7,8 +7,9 @@ static-values:
   alerts-slack-channel: "vcloud-demo-alerts"
   send-alerts: "true"
   static-ip: ""
-  iaas-workspace: "myResourceGroup"
+  iaas-workspace: "DAS-Dev"
   azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa
+  node-exporter-version: v0.16.0
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password

@@ -43,7 +43,7 @@ spec:
         resources:
           requests:
             cpu: "50m"
-      - image: prom/node-exporter
+      - image: prom/node-exporter:<<node-exporter-version>>
         name: disk-exporter
         resources:
           requests:
