@@ -45,7 +45,7 @@ spec:
             configMapKeyRef:
               name: default-configmap
               key: ALERTMANAGER_URL
-      - image: prom/node-exporter
+      - image: prom/node-exporter:<<node-exporter-version>>
         name: disk-exporter
         resources:
           requests:

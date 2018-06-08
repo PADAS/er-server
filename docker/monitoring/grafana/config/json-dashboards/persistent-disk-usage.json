@@ -55,28 +55,28 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "1 - node_filesystem_free{mountpoint=\"/var/lib/postgresql/data\"} / node_filesystem_size{mountpoint=\"/var/lib/postgresql/data\"}",
+              "expr": "1 - node_filesystem_free_bytes{mountpoint=\"/var/lib/postgresql/data\"} / node_filesystem_size_bytes{mountpoint=\"/var/lib/postgresql/data\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{kubernetes_pod_name}}",
               "refId": "A"
             },
             {
-              "expr": "1 - node_filesystem_free{mountpoint=\"/prometheus\"} / node_filesystem_size{mountpoint=\"/prometheus\"}",
+              "expr": "1 - node_filesystem_free_bytes{mountpoint=\"/prometheus\"} / node_filesystem_size_bytes{mountpoint=\"/prometheus\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{kubernetes_pod_name}}",
               "refId": "B"
             },
             {
-              "expr": "1 - node_filesystem_free{mountpoint=\"/alertmanager\"} / node_filesystem_size{mountpoint=\"/alertmanager\"}",
+              "expr": "1 - node_filesystem_free_bytes{mountpoint=\"/alertmanager\"} / node_filesystem_size_bytes{mountpoint=\"/alertmanager\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{kubernetes_pod_name}}",
               "refId": "C"
             },
             {
-              "expr": "1 - node_filesystem_free{mountpoint=\"/usr/share/elasticsearch/data\"} / node_filesystem_size{mountpoint=\"/usr/share/elasticsearch/data\"}",
+              "expr": "1 - node_filesystem_free_bytes{mountpoint=\"/usr/share/elasticsearch/data\"} / node_filesystem_size_bytes{mountpoint=\"/usr/share/elasticsearch/data\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{kubernetes_pod_name}}",
