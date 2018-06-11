@@ -179,7 +179,8 @@ class TrackingPlugin(TimestampedModel):
     # A convenient relation to find the SourcePlugins that associate this
     # Plugin.
     source_plugins = GenericRelation(
-        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id')
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name='pin', related_name='pins')
 
     provider = models.ForeignKey(
         SourceProvider, related_name='+', null=False, default=get_default_source_provider_id,

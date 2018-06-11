@@ -81,3 +81,5 @@ openpyxl==2.5.0b1
 rasterio==1.0a9
 geojson==2.3.0
 pymet==0.1.17
+
+humanize==0.5.1
