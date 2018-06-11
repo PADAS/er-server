@@ -177,7 +177,8 @@ class SubjectsView(generics.ListCreateAPIView):
                 subject_group)
             queryset = queryset.by_groups(groups)
         queryset = queryset.by_user_subjects(self.request.user)
-        queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
+        queryset = queryset.prefetch_related(
+            Prefetch('subjectstatus_set')).prefetch_related('subject_subtype')
         return queryset
 
     def get_serializer_context(self):
@@ -412,7 +413,7 @@ class SourcesView(generics.ListCreateAPIView,):
         return context
 
 
-class SourceProvidersView( generics.ListCreateAPIView,):
+class SourceProvidersView(generics.ListCreateAPIView,):
     serializer_class = serializers.SourceProviderSerializer
     permission_classes = (StandardObjectPermissions,)
     pagination_class = StandardResultsSetPagination
