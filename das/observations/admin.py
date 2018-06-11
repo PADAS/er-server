@@ -10,6 +10,7 @@ from django.db import connection
 
 from django.conf import settings
 from django.urls import reverse
+from django.core.paginator import Paginator
 
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.contenttypes.admin import GenericTabularInline
@@ -44,6 +45,8 @@ admin.site.site_header = site_title
 admin.site.index_title = site_title
 
 admin.site.index_template = 'admin/standard_admin_index.html'
+
+OBSERVATIONS_HISTORY_LIMIT = timedelta(days=90)
 
 
 class ExportCsvMixin:
@@ -233,9 +236,6 @@ class SubjectIdFilter(InputFilter):
             )
 
 
-from django.core.paginator import Paginator
-
-
 class LargeTablePaginator(Paginator):
     '''
     If the query has no filter, then get count from pg_class.
@@ -266,16 +266,21 @@ class LargeTablePaginator(Paginator):
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, admin.ModelAdmin):
     list_display = ('_subject_name', '_manufacturer_id', 'recorded_at',
-                    '_location', '_state', '_gps_fix', '_event_action')
+                    '_longitude', '_latitude', '_state', '_gps_fix', '_event_action')
     date_hierarchy = 'recorded_at'
+    list_display_links = None
 
     paginator = LargeTablePaginator
 
     list_filter = (SubjectNameFilter, SubjectIdFilter)
 
-    def _location(self, o):
-        return f'{o.location.x} / {o.location.y}'
-    _location.short_description = _('Longitude / Latitude')
+    def _longitude(self, o):
+        return round(o.location.x, 5)
+    _longitude.short_description = _('Longitude')
+
+    def _latitude(self, o):
+        return round(o.location.y, 5)
+    _latitude.short_description = _('Latitude')
 
     def _state(self, o):
         return o.additional.get('state')
@@ -305,7 +310,7 @@ class ObservationAdmin(ExportCsvMixin, admin.ModelAdmin):
         qs = super(ObservationAdmin, self).get_queryset(request)
 
         # Hard-limit at 180 days.
-        dt = datetime.now(tz=pytz.utc) - timedelta(days=180)
+        dt = datetime.now(tz=pytz.utc) - OBSERVATIONS_HISTORY_LIMIT
         qs = qs.filter(recorded_at__gte=dt)
 
         # Reference Subject to get Name.
@@ -319,6 +324,11 @@ class ObservationAdmin(ExportCsvMixin, admin.ModelAdmin):
         qs = qs.select_related('source',)
 
         return qs
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
+        return super().changelist_view(request, extra_context=extra_context)
 
     actions = ['export_as_csv', ]
 
@@ -395,20 +405,8 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
     def get_queryset(self, request):
         """Limit Subjects to those this person can administer"""
         qs = super(SubjectAdmin, self).get_queryset(request)
-        qs = qs.annotate(groups_names=ArrayAgg('groups__name'))
-
-        # Status
-        subst = models.SubjectStatus.objects.filter(
-            subject=OuterRef('pk'), delay_hours=0)
-        qs = qs.annotate(subject_status=Subquery(
-            subst.values('additional')[:1]))
-
-        # # Latest SubjectSource
-        # ss = models.SubjectSource.objects.filter(subject=OuterRef('pk')).order_by('-assigned_range')
-        # qs = qs.annotate(latest_subjectsource_id=Subquery(ss.values('id')[:1]))
-
-        # , 'subjectsource_set__source')
-        qs = qs.prefetch_related('subject_subtype', 'subjectsources',)
+        qs = qs.annotate(groups_names=ArrayAgg('groups__name'))\
+            .prefetch_related('subject_subtype', 'subjectsources',)
         return qs
 
     def _subject_subtype_display(self, o):
