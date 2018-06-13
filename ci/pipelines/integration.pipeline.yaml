@@ -372,7 +372,7 @@ jobs:
       - name: git-web
       run:
         dir: git-web
-        path: ls
+        path: docker/test.sh
 
 - name: docker-build-web-app
   serial: true
