@@ -274,34 +274,64 @@ class TestEventView(BaseAPITest):
         response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
-    # These tests don't pass anymore because of the permissions change, but
-    # Since we're refactoring notes anyway, I'm going to leave them commented
-    # out instead of fixing them so they pass.
-    # def test_add_note(self):
-    #     note_data = {'text': lorem_ipsum.paragraph()}
-    #     request = self.factory.post(self.api_base
-    #         + '/event/{0}/notes'.format(self.sample_event.id),
-    #                                 note_data)
-    #     self.force_authenticate(request, self.user)
-    #
-    #     response = views.EventNotesView.as_view()(request,
-    #                                               id=str(self.sample_event.id))
-    #     self.assertEqual(response.status_code, 201)
-    #     response_data = response.data
-    #     response_data = {k: response_data[k] for k in note_data.keys()}
-    #     self.assertDictEqual(response_data, note_data)
-    #
-    # def test_add_note_view_permission(self):
-    #     note_data = {'text': lorem_ipsum.paragraph()}
-    #     request = self.factory.post(self.api_base
-    #                                 + '/event/{0}/notes'.format(
-    #         self.sample_event.id),
-    #                                 note_data)
-    #     self.force_authenticate(request, self.readonly_user)
-    #
-    #     response = views.EventNotesView.as_view()(request,
-    #                                               id=str(self.sample_event.id))
-    #     self.assertEqual(response.status_code, 403)
+    def test_add_note(self):
+        note_data = {'text': lorem_ipsum.paragraph()}
+        request = self.factory.post(self.api_base
+                                    + '/event/{0}/notes'.format(self.sample_event.id),
+                                    note_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventNotesView.as_view()(request,
+                                                  id=str(self.sample_event.id))
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        response_data = {k: response_data[k] for k in note_data.keys()}
+        self.assertDictEqual(response_data, note_data)
+
+    def test_add_note_view_permission(self):
+        note_data = {'text': lorem_ipsum.paragraph()}
+        request = self.factory.post(self.api_base
+                                    + '/event/{0}/notes'.format(
+                                        self.sample_event.id),
+                                    note_data)
+        self.force_authenticate(request, self.no_perms_user)
+
+        response = views.EventNotesView.as_view()(request,
+                                                  id=str(self.sample_event.id))
+        self.assertEqual(response.status_code, 403)
+
+    def test_update_note_using_patch(self):
+        existing_notes = self.sample_event.notes.all()
+        note_id = existing_notes[0].id
+        note_text = lorem_ipsum.paragraph()
+        note_data = {'text': note_text, 'id': note_id}
+        event_data = {'notes': [note_data, ]}
+        request = self.factory.patch(self.api_base
+                                     + '/event/{0}'.format(self.sample_event.id),
+                                     event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventView.as_view()(request,
+                                             id=str(self.sample_event.id))
+        self.assertEqual(response.status_code, 200)
+        response_notes = response.data['notes']
+        self.assertEqual([note for note in response_notes if note['id'] == str(
+            note_id)][0]['text'], note_text)
+
+    def test_add_note_using_patch(self):
+        note_data = {'text': lorem_ipsum.paragraph()}
+        event_data = {'notes': [note_data, ]}
+        request = self.factory.patch(self.api_base
+                                     + '/event/{0}'.format(self.sample_event.id),
+                                     event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventView.as_view()(request,
+                                             id=str(self.sample_event.id))
+        self.assertEqual(response.status_code, 200)
+        response_notes = response.data['notes']
+        self.assertTrue(len(list(
+            filter(lambda note: note['text'] == note_data['text'], response_notes))) == 1)
 
     def test_update_message_succeed(self):
         event = self.create_event(self.event_data)
