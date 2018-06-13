@@ -64,3 +64,61 @@ class EventCategoryPermissions(IsAuthenticated):
             EventCategoryPermissions.http_method_map[request.method]
         )
         return request.user.has_perm(permission_name)
+
+
+class EventCategoryPermissions(IsAuthenticated):
+
+    http_method_map = {
+        'GET': 'read',
+        'OPTIONS': 'read',
+        'HEAD': 'read',
+        'POST': 'create',
+        'PUT': 'update',
+        'PATCH': 'update',
+        'DELETE': 'delete',
+    }
+
+    def has_permission(self, request, view):
+        # These methods are allowed for everyone
+        if request.method in ['OPTIONS', 'HEAD']:
+            super().has_permission(request, view)
+
+        # If they're trying to make a new event, we need to check the type here
+        if request.method == 'POST' and 'event_type' in request.data:
+            event_type = EventType.objects.get_by_natural_key(
+                request.data['event_type'])
+            permission_name = 'activity.{0}_{1}'.format(
+                event_type.category.value,
+                'create'
+            )
+            return request.user.has_perm(permission_name)
+
+        # Otherwise, let it through here and check at the object level later on
+        return super().has_permission(request, view)
+
+    def has_object_permission(self, request, view, obj):
+
+        permission_name = 'activity.{0}_{1}'.format(
+            obj.event_type.category.value,
+            EventCategoryPermissions.http_method_map[request.method]
+        )
+        return request.user.has_perm(permission_name)
+
+
+class EventNotesCategoryPermissions(EventCategoryPermissions):
+    def has_permission(self, request, view):
+        # These methods are allowed for everyone
+        if request.method in ['OPTIONS', 'HEAD']:
+            super().has_permission(request, view)
+
+        # If they're trying to make a new note, we need to check the type here
+        if request.method == 'POST':
+            event = view.get_event()
+            event_type = event.event_type
+            permission_name = 'activity.{0}_{1}'.format(
+                event_type.category.value,
+                'create'
+            )
+            return request.user.has_perm(permission_name)
+
+        return super().has_permission(request, view)
