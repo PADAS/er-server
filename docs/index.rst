@@ -25,6 +25,7 @@ Contents:
    :caption: Documentation
     
    faq
+   topics/browser-and-os-support
    topics/map_feature_styles
    topics/sensors
    writers
