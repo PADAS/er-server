@@ -31,7 +31,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
-from activity.permissions import EventCategoryPermissions, EventObjectPermissions
+from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
 import utils
@@ -567,7 +567,7 @@ class EventStateView(generics.RetrieveUpdateAPIView):
 
 
 class EventNotesView(generics.ListCreateAPIView):
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (EventNotesCategoryPermissions,)
     serializer_class = EventNoteSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -576,20 +576,23 @@ class EventNotesView(generics.ListCreateAPIView):
         return super().create(request, *args, **kwargs)
 
     def get_queryset(self):
-        event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['id'])
+        event = self.get_event()
 
         notes = EventNote.objects.all().filter(event=event)
         return notes
 
+    def get_event(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['id'])
+        return event
+
 
 class EventNoteView(generics.RetrieveUpdateAPIView):
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (EventNotesCategoryPermissions,)
     serializer_class = EventNoteSerializer
 
     def get_queryset(self):
-        event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['id'])
+        event = self.get_event()
 
         notes = EventNote.objects.all().filter(event=event)
         return notes
@@ -601,6 +604,11 @@ class EventNoteView(generics.RetrieveUpdateAPIView):
         obj = generics.get_object_or_404(queryset, **filters)
 
         return obj
+
+    def get_event(self):
+        event = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['id'])
+        return event
 
 
 def resolve_first(dicts, keys):

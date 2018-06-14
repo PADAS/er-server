@@ -1,5 +1,6 @@
 import logging
 import traceback
+import copy
 from collections import OrderedDict
 
 from core.serializers import ContentTypeField
@@ -14,6 +15,7 @@ from django.contrib.auth import get_user_model
 from django.http import Http404
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import ForeignKey
 
 from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
@@ -451,6 +453,7 @@ def get_update_type(revision, previous_revisions=[]):
 
 
 class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
+    id = rest_framework.serializers.UUIDField(required=False, read_only=False)
     created_by_user = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault()
     )
@@ -461,15 +464,6 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
         write_only_fields = ('event',)
         fields = ('id', 'created_by_user',
                   'text') + write_only_fields + read_only_fields
-
-    def create(self, validated_data):
-        return activity.models.EventNote.objects.create_note(**validated_data)
-
-    def update(self, instance, validated_data):
-        for k, v in validated_data.items():
-            setattr(instance, k, v)
-        instance.save()
-        return instance
 
     def to_representation(self, note):
         rep = super().to_representation(note)
@@ -797,6 +791,8 @@ class EventSerializerMixin:
             details_data['event_details'] = validated_data['event_details']
             del validated_data['event_details']
 
+        event_notes = validated_data.pop('notes', [])
+
         # [_.type for _ in activity.models.EventRelationshipType.objects.all()]
         rel_types = ('contains', 'is_linked_to',)
 
@@ -811,6 +807,14 @@ class EventSerializerMixin:
             **validated_data)
 
         EventDetailsSerializer().update(new_event, details_data)
+
+        for note in event_notes:
+            note = copy.deepcopy(note)
+            note['event'] = new_event.id
+            enser = EventNoteSerializer(data=note,
+                                        context=self.context)
+            enser = enser.is_valid(raise_exception=True)
+            enser.create(enser.validated_data)
 
         for related_subject in related_subjects:
             activity.models.EventRelatedSubject.objects.get_or_create(
@@ -847,6 +851,22 @@ class EventSerializerMixin:
             if k == 'event_details':
                 EventDetailsSerializer().update(instance, {k: v})
                 continue
+            if k == 'notes':
+                for note in v:
+                    note = copy.deepcopy(note)
+                    note['event'] = instance.id
+                    note_id = note.pop('id', None)
+                    enser = EventNoteSerializer(data=note,
+                                                context=self.context)
+                    enser.is_valid(raise_exception=True)
+                    if note_id:
+                        note_instance = activity.models.EventNote.objects.get(
+                            id=note_id)
+                        enser.update(note_instance, enser.validated_data)
+                    else:
+                        enser.create(enser.validated_data)
+                continue
+
             if getattr(instance, k) != v:
                 setattr(instance, k, v)
                 if k == 'reported_by':
@@ -1012,7 +1032,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     created_by_user = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault()
     )
-    notes = EventNoteSerializer(many=True, required=False, read_only=True)
+    notes = EventNoteSerializer(many=True, required=False)
     reported_by = ReportedByRelatedField(required=False, allow_null=True)
     message = rest_framework.serializers.CharField(
         required=False, allow_blank=True)
