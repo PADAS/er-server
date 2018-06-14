@@ -1,9 +1,14 @@
 - model: mapping.map
-  pk: 6d33d3a5-e3c2-4e19-b723-267635e812b3
+  pk: 03bd4486-9dee-404e-a666-055afee90434
   fields:
-    created_at: 2017-03-03 00:40:03.818038+00:00
-    updated_at: 2017-03-03 00:40:53.164781+00:00
-    name: localmap
-    attributes: {field: key}
-    center: SRID=4326;POINT (-122.3284935780880431 47.5979956357618761)
-    zoom: 15
+    created_at: 2017-06-12 17:44:44.017683+00:00
+    updated_at: 2017-06-13 20:53:19.390337+00:00
+    name: Seattle
+    attributes:
+      default: false
+      icon: {bottom: 0, height: 34, src: 'https://cdn1.iconfinder.com/data/icons/world-top-cities-1/512/18-Seattle-256.png'}
+      id: seattle
+      title: Seattle
+    center: SRID=4326;POINT (-122.3286437817934 47.58949410579475)
+    zoom: 12
+
