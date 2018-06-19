@@ -1,5 +1,5 @@
 ALERT DiskUsage
-  IF (node_filesystem_size{mountpoint="/data"} - node_filesystem_free{mountpoint="/data"} ) / node_filesystem_size{mountpoint="/data"} > 0.8
+  IF (node_filesystem_size_bytes{mountpoint="/data"} - node_filesystem_free_bytes{mountpoint="/data"} ) / node_filesystem_size_bytes{mountpoint="/data"} > 0.8
   FOR 60m
   LABELS {
     severity = "page"
@@ -10,7 +10,7 @@ ALERT DiskUsage
   }
 
 ALERT NodeCPUUsage
-  IF (1 - (avg by (instance) (irate(node_cpu{name="node-exporter", mode="idle"}[5m])))) > 0.8
+  IF (1 - (avg by (instance) (irate(node_cpu_seconds_total{name="node-exporter", mode="idle"}[5m])))) > 0.8
   FOR 2m
   LABELS {
     severity="page"
@@ -21,7 +21,7 @@ ALERT NodeCPUUsage
 }
 
 ALERT IOUsage
-  IF (avg by (instance) (irate(node_cpu{name="node-exporter", mode="iowait"}[5m]))) > 0.8
+  IF (avg by (instance) (irate(node_cpu_seconds_total{name="node-exporter", mode="iowait"}[5m]))) > 0.8
   FOR 2m
   LABELS {
     severity="page"
