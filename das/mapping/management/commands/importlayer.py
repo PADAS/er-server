@@ -103,14 +103,12 @@ class Command(BaseCommand):
     def make_external_id(self, layer, feature):
         external_id = '-'.join((layer.name, feature[self.name_field].value))
         for name in feature.fields:
-            name = name.decode('utf8')
             if self.id_field and name == self.id_field:
                 external_id += '-' + str(feature[name].value)
         return external_id
 
     def get_feature_type_for_feature(self, feature, default=None):
         for name in feature.fields:
-            name = name.decode('utf8')
             if name in ('roadclass',):
                 value = feature[name].value
                 type_name = FEATURE_TYPES[value]
@@ -151,7 +149,6 @@ class Command(BaseCommand):
                 external_id = external_id + '-' + str(i)
             fields = {}
             for name in feature.fields:
-                name = name.decode('utf8')
                 if name.lower() in (self.name_field.lower(), 'description'):
                     continue
                 value = feature[name].value
@@ -180,6 +177,6 @@ class Command(BaseCommand):
             feature_record.name = feature[self.name_field].value
             try:
                 feature_record.description = feature['Description'].value
-            except KeyError:
+            except (KeyError, IndexError):
                 pass
             feature_record.save()
