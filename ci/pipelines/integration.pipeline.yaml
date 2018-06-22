@@ -398,7 +398,6 @@ jobs:
 
 
 - name: deploy-to-k8s
-  serial: true
   plan:
     - aggregate:
       - get: git-utility
