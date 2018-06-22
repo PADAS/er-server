@@ -454,7 +454,7 @@ jobs:
         passed: [docker-build-web-app]
         trigger: true
         params: {skip_download: true}
-    - do:
+    - aggregate:
       - task: ensure-disks-exist
         config:
           platform: linux
@@ -546,6 +546,7 @@ jobs:
             - create
             - git-deployment/deployment/default-deployment-plan-spec.yaml
             - --series=((cluster-name))
+    - do:
       - task: deploy
         config:
           platform: linux
