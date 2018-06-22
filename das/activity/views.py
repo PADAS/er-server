@@ -22,16 +22,17 @@ import versatileimagefield.files
 
 from activity.models import Event, EventNote, EventClass,\
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community,\
-    EventFilter
+    EventFilter, EventSource
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
     EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer, \
-    EventFilterSerializer
+    EventFilterSerializer, EventSourceSerializer
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
-from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions
+from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwnerOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
 import utils
@@ -102,6 +103,26 @@ class EventFiltersView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return EventFilter.objects.order_by('ordernum')
+
+
+class EventSourcesView(generics.ListCreateAPIView):
+
+    serializer_class = EventSourceSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        qs = EventSource.objects.all()
+        if not self.request.user.is_superuser:
+            qs = qs.filter(owner=self.request.user)
+        return qs
+
+
+class EventSourceView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = EventSourceSerializer
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    queryset = EventSource.objects.all()
+    lookup_field = 'external_event_type'
 
 
 class EventTypeSchemaView(generics.ListCreateAPIView):
@@ -421,6 +442,9 @@ class EventsView(generics.ListCreateAPIView):
             query_params.get('include_details', True))
         context['include_files'] = parse_bool(
             query_params.get('include_files', True))
+
+        # context['external_event_type'] = self.request.data.pop('external_event_type', None)
+        # context['external_event_id'] = self.request.data.pop('external_event_id', None)
 
         # if this is a POST, returned any contained events
         try:

@@ -9,20 +9,35 @@ class EventRelationshipInline(admin.TabularInline):
     fk_name = 'from_event'
 
 
+class EventDetailsInline(admin.TabularInline):
+    model = models.EventDetails
+
+
 @admin.register(models.Event)
 class EventAdmin(admin.OSMGeoAdmin):
     openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
 
-    list_display = ('created_at', 'event_type',
-                    'message', 'location', 'attributes',)
-    readonly_fields = ('id', 'created_at', 'updated_at')
+    list_display = ('serial_number', 'created_at', 'event_type',
+                    'title', 'location', 'attributes',)
+    readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
+    search_fields = ('title', 'serial_number')
+    list_filter = ('event_type',)
     inlines = [
-        EventRelationshipInline,
+        EventDetailsInline,
+        # EventRelationshipInline,
     ]
 
-    # list_display = ['id', 'plugin_class', 'plugin_name', 'created_at', 'updated_at', 'configuration']
+    fieldsets = (
+        (None, {
+            'fields': ('serial_number', 'title', 'event_type', 'event_time', 'end_time',)
+        }),
+        ('Advanced', {
+            'classes': ('wide', 'collapse',),
+            'fields': ('state', 'priority', 'location', 'id', 'created_at', 'updated_at',)
+        })
+    )
 
 
 @admin.register(models.Community)
@@ -44,9 +59,13 @@ class EventTypeAdmin(admin.ModelAdmin):
     list_editable = ('ordernum',)
     fieldsets = (
         (None, {
-            'fields': ('display', 'value', 'is_collection', 'ordernum', 'schema', 'category',
-                       )}
-         ),
+            'fields': ('display', 'value', 'is_collection', 'ordernum', 'category',)
+        }
+        ),
+        ('Schema & Definition',
+         {
+             'fields': ('schema', 'icon', 'default_priority'),
+         })
     )
 
 
@@ -61,6 +80,27 @@ class EventClassAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventFactor)
 class EventFactorAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(models.EventSource)
+class EventSourceAdmin(admin.ModelAdmin):
+    list_display = ('display', 'owner', 'event_type', 'is_active',)
+    readonly_fields = ('external_event_type', 'id',)
+
+    fieldsets = (
+        (None, {
+            'fields': ('display', 'event_type', 'is_active',)
+        }),
+        ('Advanced', {
+            'fields': ('owner', 'external_event_type', 'id'),
+            'classes': ('wide', 'collapse',)
+        })
+    )
+
+
+@admin.register(models.EventsourceEvent)
+class EventsourceEventAdmin(admin.ModelAdmin):
     pass
 
 

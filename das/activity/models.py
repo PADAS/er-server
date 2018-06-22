@@ -160,6 +160,19 @@ class EventTypeFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.filter_field('is_collection', value)
 
 
+PRI_URGENT = 300
+PRI_IMPORTANT = 200
+PRI_REFERENCE = 100
+PRI_NONE = 0
+
+PRIORITY_CHOICES = (
+    (PRI_NONE, 'None'),
+    (PRI_REFERENCE, 'Green'),
+    (PRI_IMPORTANT, 'Amber'),
+    (PRI_URGENT, 'Red')
+)
+
+
 class EventTypeManager(EventBaseManager):
     def create_type(self, **values):
         return self.create(**values)
@@ -175,6 +188,12 @@ class EventType(TimestampedModel):
     category = models.ForeignKey(EventCategory, null=True,
                                  on_delete=models.PROTECT)
     ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    default_priority = models.PositiveSmallIntegerField(default=PRI_NONE,
+                                                        choices=PRIORITY_CHOICES)
+
+    icon = models.CharField(max_length=100, blank=True, null=True)
+
     schema = models.TextField(blank=True, default='''{
                 "schema": 
                 {
@@ -195,6 +214,10 @@ class EventType(TimestampedModel):
 
     def natural_key(self):
         return (self.value,)
+
+    @property
+    def icon_key(self):
+        return self.icon if self.icon else self.value
 
 
 def parse_date_range(val):
@@ -539,17 +562,12 @@ class Event(RevisionMixin, TimestampedModel):
         (SC_RESOLVED, 'Resolved'),
     )
 
-    PRI_URGENT = 300
-    PRI_IMPORTANT = 200
-    PRI_REFERENCE = 100
-    PRI_NONE = 0
+    PRI_URGENT = PRI_URGENT
+    PRI_IMPORTANT = PRI_IMPORTANT
+    PRI_REFERENCE = PRI_REFERENCE
+    PRI_NONE = PRI_NONE
 
-    PRIORITY_CHOICES = (
-        (0, 'None'),
-        (100, 'Green'),
-        (200, 'Amber'),
-        (300, 'Red')
-    )
+    PRIORITY_CHOICES = PRIORITY_CHOICES
 
     PRIORITY_LABELS_MAP = dict((x, y) for (x, y) in PRIORITY_CHOICES)
 
@@ -999,3 +1017,113 @@ class EventFilter(TimestampedModel):
     filter_name = models.CharField(verbose_name='Display name that is meaningful to a user',
                                    null=False, max_length=100)
     filter_spec = JSONField(verbose_name='Filter specification', default='{}')
+
+
+class EventSourceManager(models.Manager):
+    pass
+
+
+class EventSource(TimestampedModel):
+    # class EventSource(RevisionMixin, TimestampedModel):
+
+    objects = EventSourceManager()
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    external_event_type = models.SlugField(max_length=100,
+                                           verbose_name='External Event Type',
+                                           unique=True, help_text='External event-type identifier.',
+                                           )
+
+    display = models.CharField(max_length=50, verbose_name='Description',
+                               help_text='Friendly description of the event source.',
+                               blank=True, default='')
+
+    event_type = models.ForeignKey(EventType, on_delete=models.PROTECT,
+                                   blank=True, null=True)
+
+    is_active = models.BooleanField(
+        default=True, verbose_name='Whether this EventSource may accept new events.')
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='eventsources', related_query_name='eventsource')
+
+    additional = JSONField(default=dict, blank=True)
+
+    @property
+    def is_ready(self):
+        return self.is_active and self.event_type is not None
+
+    # revision = Revision()
+
+    class Meta:
+        permissions = (
+            ('create_event_for_eventsource',
+             'Permission to add an event for an event source'),
+        )
+        unique_together = ('owner', 'external_event_type',)
+
+    # def natural_key(self):
+    #     return self.value
+    #
+    def __str__(self):
+        return f'{self.owner.username}:{self.external_event_type}'
+
+
+class EventsourceEventManager(models.Manager):
+
+    def add_relation(self, event, eventsource, external_event_id):
+
+        correlation, created = EventsourceEvent.objects.get_or_create(
+            event=event, eventsource=eventsource, external_event_id=external_event_id)
+
+        return correlation
+
+    def get_relation(self, eventsource, external_event_id):
+        try:
+            correlation = EventsourceEvent.objects.get(
+                eventsource=eventsource, external_event_id=external_event_id)
+            return correlation
+        except EventsourceEvent.DoesNotExist:
+            pass
+
+    def remove_relation(self, eventsource, external_event_id):
+
+        result = EventsourceEvent.objects.filter(eventsource=eventsource,
+                                                 external_event_id=external_event_id).delete()
+
+        return result
+
+
+class EventsourceEvent(TimestampedModel):
+
+    objects = EventsourceEventManager()
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    event = models.ForeignKey('Event',
+                              related_name='eventsource_event_refs',
+                              related_query_name='eventsource_event_ref',
+                              on_delete=models.CASCADE)
+
+    eventsource = models.ForeignKey('EventSource',
+                                    related_name='eventsource_event_refs',
+                                    related_query_name='eventsource_event_ref',
+                                    on_delete=models.CASCADE)
+
+    external_event_id = models.CharField(max_length=100, null=False)
+
+    class Meta:
+        unique_together = ('eventsource', 'external_event_id')
+
+    # def save(self, *args, **kwargs):
+    #     self.full_clean()
+    #     result = super().save(*args, **kwargs)
+    #     self.event.dependent_table_updated()
+    #     return result
+
+    def clean(self):
+        super().clean()
+
+        # if something is wrong:
+        #     raise ValidationError(
+        #         {'a-field': ValidationError(_('There is an error.'), code='invalid')})
