@@ -3,8 +3,8 @@ static-values:
   email-username: ""
   web-service-name: "web"
   nginx-utility-service-ip: ""
-  alerts-slack-channel: ""
-  send-alerts: "false"
+  alerts-slack-channel: "das-dev"
+  send-alerts: "true"
   node-exporter-version: v0.16.0
 environment:
   static-ip: STATIC_IP
