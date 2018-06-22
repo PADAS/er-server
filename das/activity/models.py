@@ -160,6 +160,19 @@ class EventTypeFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.filter_field('is_collection', value)
 
 
+PRI_URGENT = 300
+PRI_IMPORTANT = 200
+PRI_REFERENCE = 100
+PRI_NONE = 0
+
+PRIORITY_CHOICES = (
+    (PRI_NONE, 'None'),
+    (PRI_REFERENCE, 'Green'),
+    (PRI_IMPORTANT, 'Amber'),
+    (PRI_URGENT, 'Red')
+)
+
+
 class EventTypeManager(EventBaseManager):
     def create_type(self, **values):
         return self.create(**values)
@@ -175,6 +188,10 @@ class EventType(TimestampedModel):
     category = models.ForeignKey(EventCategory, null=True,
                                  on_delete=models.PROTECT)
     ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    default_priority = models.PositiveSmallIntegerField(default=PRI_NONE,
+                                                        choices=PRIORITY_CHOICES)
+
     schema = models.TextField(blank=True, default='''{
                 "schema": 
                 {
@@ -539,17 +556,12 @@ class Event(RevisionMixin, TimestampedModel):
         (SC_RESOLVED, 'Resolved'),
     )
 
-    PRI_URGENT = 300
-    PRI_IMPORTANT = 200
-    PRI_REFERENCE = 100
-    PRI_NONE = 0
+    PRI_URGENT = PRI_URGENT
+    PRI_IMPORTANT = PRI_IMPORTANT
+    PRI_REFERENCE = PRI_REFERENCE
+    PRI_NONE = PRI_NONE
 
-    PRIORITY_CHOICES = (
-        (0, 'None'),
-        (100, 'Green'),
-        (200, 'Amber'),
-        (300, 'Red')
-    )
+    PRIORITY_CHOICES = PRIORITY_CHOICES
 
     PRIORITY_LABELS_MAP = dict((x, y) for (x, y) in PRIORITY_CHOICES)
 
@@ -999,3 +1011,37 @@ class EventFilter(TimestampedModel):
     filter_name = models.CharField(verbose_name='Display name that is meaningful to a user',
                                    null=False, max_length=100)
     filter_spec = JSONField(verbose_name='Filter specification', default='{}')
+
+
+class EventSourceManager(models.Manager):
+    pass
+
+
+class EventSource(RevisionMixin, TimestampedModel):
+
+    objects = EventSourceManager()
+
+    value = models.CharField(primary_key=True, max_length=50)
+    display = models.CharField(max_length=50)
+
+    event_type = models.ForeignKey(EventType, on_delete=models.PROTECT,
+                                   blank=True, null=True)
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='sources', related_query_name='source')
+
+    revision = Revision()
+
+    class Meta:
+        permissions = (
+            ('create_event_for_eventsource',
+             'Permission to add an event for an event source'),
+        )
+        unique_together = ('value', 'owner')
+
+    def natural_key(self):
+        return self.value
+
+    def __str__(self):
+        return str(self.value)
