@@ -1,0 +1,12 @@
+[
+  {
+    "pk": "d608ef0e-ce0b-4b62-b9c9-81e9786967d1",
+    "model": "observations.subjectsource",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"0001-01-01T00:00:00+00:00\", \"upper\": \"9999-12-31T00:00:00+00:00\"}",
+      "source": "43d22e4d-debf-402d-b49b-efdc67dddb93",
+      "subject": "a51d6901-4ece-484f-b0a6-baf1e44d2108",
+      "additional": {"x":1}
+    }
+  }
+  ]

@@ -928,7 +928,7 @@ class SubjectStatusManager(models.Manager):
         substatus, created = SubjectStatus.objects.get_or_create(subject=subject, delay_hours=delay_hours,
                                                                  defaults=dict(recorded_at=observation.recorded_at,
                                                                                location=observation.location,
-                                                                               additional={}))
+                                                                               additional=observation.additional))
 
         if created or substatus.recorded_at >= observation.recorded_at:
             pass
