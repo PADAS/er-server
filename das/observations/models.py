@@ -175,7 +175,7 @@ class SourceProvider(TimestampedModel):
                                     max_length=100, null='False', unique=True)
     display_name = models.CharField('Display name for source provider.',
                                     max_length=100, null=False,)
-    additional = JSONField('additional data', default=dict)
+    additional = JSONField('additional data', default=dict, blank=True)
     objects = SourceProviderManager()
 
     def __str__(self):
@@ -511,7 +511,7 @@ class SubjectTrackSegmentFilter(TimestampedModel):
     subject_subtype = models.ForeignKey(
         SubjectSubType, on_delete=models.PROTECT)
     speed_KmHr = models.FloatField(default=7.0)
-    additional = JSONField(default=dict)
+    additional = JSONField(default=dict, blank=True)
     objects = SubjectTrackSegmentFilterManager()
 
 
