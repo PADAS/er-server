@@ -23,7 +23,8 @@ from observations.models import Subject
 logger = logging.getLogger(__name__)
 
 import django.dispatch
-relation_deleted = django.dispatch.Signal(providing_args=['relation', 'instance', 'related_query_name'])
+relation_deleted = django.dispatch.Signal(
+    providing_args=['relation', 'instance', 'related_query_name'])
 
 
 class RevisionManager(models.Manager):
@@ -61,8 +62,8 @@ class RevisionDescriptor(object):
 
 
 class UserField(models.ForeignKey):
-    def __init__(self, to = getattr(settings, 'AUTH_USER_MODEL', 'auth.User'), null = True, editable = False,  **kwargs):
-        super().__init__(to = to, null = null, editable = editable, **kwargs)
+    def __init__(self, to=getattr(settings, 'AUTH_USER_MODEL', 'auth.User'), null=True, editable=False,  **kwargs):
+        super().__init__(to=to, null=null, editable=editable, **kwargs)
 
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)
@@ -126,7 +127,7 @@ class RevisionAdapter(object):
         if fields_diff:
             if not set(fields_diff) ^ set(self.ignore_fields):
                 return None
-        return {k:v for k,v in obj_data.items() if k in fields_diff}
+        return {k: v for k, v in obj_data.items() if k in fields_diff}
 
 
 AC_ADDED = 'added'
@@ -161,11 +162,13 @@ class Revision(object):
         elif action == AC_DELETED:
             data = {}
         elif action == AC_RELATION_DELETED:
-            relation=kwargs.get('relation')
-            related_query_name=kwargs.get('related_query_name')
-            relation_model = '.'.join((relation._meta.app_label, relation._meta.object_name))
+            relation = kwargs.get('relation')
+            related_query_name = kwargs.get('related_query_name')
+            relation_model = '.'.join(
+                (relation._meta.app_label, relation._meta.object_name))
             # relation_name = kwargs.get('related_query_name')
-            data = {'relation_id': str(relation.id), 'relation_model': relation_model, 'related_query_name': related_query_name}
+            data = {'relation_id': str(
+                relation.id), 'relation_model': relation_model, 'related_query_name': related_query_name}
         else:
             data = adapter.get_serialized_data_diff(instance,
                                                     instance.revision_original)
@@ -192,7 +195,8 @@ class Revision(object):
         self.create_revision(instance, AC_DELETED)
 
     def relation_deleted(self, relation, instance, **kwargs):
-        self.create_revision(instance, AC_RELATION_DELETED, relation=relation, **kwargs)
+        self.create_revision(instance, AC_RELATION_DELETED,
+                             relation=relation, **kwargs)
 
     def post_init(self, instance, **kwargs):
         manager = getattr(instance, self.manager_name)
@@ -209,42 +213,47 @@ class Revision(object):
     def finalize(self, sender, **kwargs):
         revision_model = self.create_revision_model(sender)
 
-        models.signals.post_save.connect(self.post_save, sender = sender, weak = False)
-        models.signals.post_delete.connect(self.post_delete, sender = sender, weak = False)
-        models.signals.post_init.connect(self.post_init, sender=sender, weak=False)
-        relation_deleted.connect(self.relation_deleted, sender=sender, weak=False)
+        models.signals.post_save.connect(
+            self.post_save, sender=sender, weak=False)
+        models.signals.post_delete.connect(
+            self.post_delete, sender=sender, weak=False)
+        models.signals.post_init.connect(
+            self.post_init, sender=sender, weak=False)
+        relation_deleted.connect(
+            self.relation_deleted, sender=sender, weak=False)
 
-        descriptor = RevisionDescriptor(revision_model, self.manager_class, self.manager_name)
+        descriptor = RevisionDescriptor(
+            revision_model, self.manager_class, self.manager_name)
         setattr(sender, self.manager_name, descriptor)
 
     def get_table_fields(self, model):
-        rel_name = '_%s_revision'%model._meta.object_name.lower()
-
+        rel_name = '_%s_revision' % model._meta.object_name.lower()
 
         def to_str(instance):
-            result = '%s: %s %s at %s'%(model._meta.object_name,
-                                            instance.object_id,
-                                            instance.get_action_display().lower(),
-                                            instance.revision_at,
-                                                )
+            result = '%s: %s %s at %s' % (model._meta.object_name,
+                                          instance.object_id,
+                                          instance.get_action_display().lower(),
+                                          instance.revision_at,
+                                          )
             return result
 
-        user_field = UserField(related_name = rel_name, editable = False,
+        user_field = UserField(related_name=rel_name, editable=False,
                                on_delete=models.SET_NULL)
 
-        #check if this manager has been attached to auth user model
+        # check if this manager has been attached to auth user model
         if [model._meta.app_label, model.__name__] == getattr(settings, 'AUTH_USER_MODEL', 'auth.User').split("."):
-            user_field = UserField(related_name = rel_name, editable = False, to = 'self')
+            user_field = UserField(related_name=rel_name,
+                                   editable=False, to='self')
 
         return {
             'id': models.UUIDField(primary_key=True, default=uuid.uuid4),
             'object_id': models.UUIDField(),
             'action': models.CharField(max_length=10, choices=ACTION_CHOICES,
-                                          default=AC_ADDED),
+                                       default=AC_ADDED),
             'revision_at': models.DateTimeField(auto_now_add=True),
             'sequence': models.IntegerField(help_text='Revision sequence'),
             'user': user_field,
-            'data': JSONField(default={}),
+            'data': JSONField(default=dict),
             '__str__': to_str,
             '__module__': model.__module__,
         }
@@ -261,7 +270,7 @@ class Revision(object):
 
     def create_revision_model(self, model):
         attrs = self.get_table_fields(model)
-        attrs.update(Meta = type(str('Meta'), (), self.get_meta_options(model)))
+        attrs.update(Meta=type(str('Meta'), (), self.get_meta_options(model)))
         name = make_revision_model_name(model)
         return type(name, (models.Model,), attrs)
 
@@ -270,4 +279,3 @@ class RevisionMixin(object):
     def save(self, *args, **kwargs):
         with transaction.atomic():
             return super().save(*args, **kwargs)
-

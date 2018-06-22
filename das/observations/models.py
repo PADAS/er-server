@@ -175,7 +175,7 @@ class SourceProvider(TimestampedModel):
                                     max_length=100, null='False', unique=True)
     display_name = models.CharField('Display name for source provider.',
                                     max_length=100, null=False,)
-    additional = JSONField('additional data', default={})
+    additional = JSONField('additional data', default=dict)
     objects = SourceProviderManager()
 
     def __str__(self):
@@ -416,7 +416,7 @@ class SubjectSource(models.Model):
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     subject = models.ForeignKey('Subject', on_delete=models.CASCADE, related_name='subjectsources',
                                 related_query_name='subjectsource')
-    additional = JSONField('additional', default={})
+    additional = JSONField('additional', default=dict)
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     objects = SubjectSourceManager()
 
@@ -511,7 +511,7 @@ class SubjectTrackSegmentFilter(TimestampedModel):
     subject_subtype = models.ForeignKey(
         SubjectSubType, on_delete=models.PROTECT)
     speed_KmHr = models.FloatField(default=7.0)
-    additional = JSONField(default={})
+    additional = JSONField(default=dict)
     objects = SubjectTrackSegmentFilterManager()
 
 
@@ -680,7 +680,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='subjects', related_query_name='subject')
 
-    additional = JSONField('additional data', default={})
+    additional = JSONField('additional data', default=dict, blank=True)
     is_active = models.BooleanField(
         _('active'),
         default=True,
