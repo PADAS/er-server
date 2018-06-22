@@ -255,10 +255,12 @@ class SourceProviderSerializer(rest_framework.serializers.Serializer):
         label='Source Provider Value', max_length=100, required=True)
     display_name = rest_framework.serializers.CharField(
         label='Display Name', max_length=100,)
+    additional = rest_framework.serializers.JSONField(
+        label='Additional Data', )
 
     class Meta:
         model = models.SourceProvider
-        fields = ('id', 'provider_key', 'display_name', )
+        fields = ('id', 'provider_key', 'display_name', 'additional')
 
     def create(self, validated_data):
 
@@ -368,6 +370,15 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         properties['stroke-opacity'] = 1.0
         properties['stroke-width'] = 2
         properties['image'] = image_url
+
+    for ss in subject.subjectstatus_set.filter(delay_hours=0):
+        if 'state' in ss.additional:
+            properties['subject_state'] = ss.additional['state']
+
+        for k in ('last_voice_call_start_at', 'requested_location_at'):
+            if k in ss.additional:
+                properties[k] = ss.additional[k]
+        break
 
     # see https://github.com/mapbox/geojson-coordinate-properties
     if coordinate_times:

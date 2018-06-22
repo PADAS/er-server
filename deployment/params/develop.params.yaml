@@ -2,14 +2,14 @@ static-values:
   email-host: ""
   email-username: ""
   web-service-name: "web"
-  nginx-service-ip: ""
   nginx-utility-service-ip: ""
-  alerts-slack-channel: "vcloud-demo-alerts"
-  send-alerts: "true"
-  static-ip: ""
   iaas-workspace: "DAS-Dev"
   azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa
+  alerts-slack-channel: ""
+  send-alerts: "false"
   node-exporter-version: v0.16.0
+environment:
+  static-ip: STATIC_IP
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password

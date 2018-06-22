@@ -23,7 +23,9 @@ User = django.contrib.auth.get_user_model()
 
 
 sensor_user_permissions = ['add_observation',
-                           'change_observation', 'add_source']
+                           'change_observation',
+                           'add_source',
+                           'security_create']
 
 
 SAMPLES = [

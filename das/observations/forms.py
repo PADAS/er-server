@@ -38,6 +38,9 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
     # the JSON Field.
     json_field = 'additional'
 
+    source = forms.ModelChoiceField(
+        queryset=Source.objects.all().order_by('manufacturer_id').prefetch_related('provider',))
+
 
 class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
@@ -77,7 +80,7 @@ class SubjectForm(forms.ModelForm):
     )
 
     subject_subtype = SubjectSubtypeChoiceField(
-        queryset=SubjectSubType.objects.all().order_by('display'))
+        queryset=SubjectSubType.objects.all().order_by('display').select_related('subject_type',))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -119,7 +122,7 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
 class SubjectChangeListForm(forms.ModelForm):
 
     subject_subtype = SubjectSubtypeChoiceField(
-        queryset=SubjectSubType.objects.all())
+        queryset=SubjectSubType.objects.order_by('display').select_related('subject_type'))
 
     class Meta:
         model = Subject
@@ -128,3 +131,12 @@ class SubjectChangeListForm(forms.ModelForm):
 
 class SetRandomColorForm(ActionForm):
     pass
+
+# from django.contrib.gis import forms as gisforms
+# class SubjectStatusForm(forms.ModelForm):
+#     w = gisforms.OSMWidget(attrs={'default_zoom': 10})
+#     location = gisforms.PointField(srid=4326, widget=w,)
+#
+#     def save(self, commit=True):
+#         return super().save(commit=commit)
+#

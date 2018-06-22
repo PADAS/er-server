@@ -3,6 +3,11 @@
 Sensors
 ===========================
 
+GPS Radio API
+-----------------------------
+
+.. http:post:: /sensors/gps-radio/<provider_key>/status
+
 Camera Trap API
 -----------------------------
 

@@ -1,0 +1,15 @@
+static-values:
+  email-host: ""
+  email-username: ""
+  web-service-name: "web"
+  nginx-utility-service-ip: ""
+  alerts-slack-channel: "das-dev"
+  send-alerts: "true"
+  node-exporter-version: v0.16.0
+environment:
+  static-ip: STATIC_IP
+vault-lookups:
+  alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
+  email-password: padas-app/main/email-password
+  bundle-crt: padas-app/main/bundle-crt
+  pamdas-org-private-key-pem: padas-app/main/pamdas-org-private-key-pem

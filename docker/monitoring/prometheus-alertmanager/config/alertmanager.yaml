@@ -3,10 +3,10 @@ global:
 
 route:
   group_by: [alertname, datacenter, app]
-  receiver: shared-services-slack
+  receiver: das-slack
 
 receivers:
-- name: 'shared-services-slack'
+- name: 'das-slack'
   slack_configs:
   - api_url: ${ALERTS_SLACK_URL}
     channel: ${ALERTS_SLACK_CHANNEL}

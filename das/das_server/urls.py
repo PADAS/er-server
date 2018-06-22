@@ -21,6 +21,7 @@ import oauth2_provider.views as oauth2_views
 from rest_framework.documentation import include_docs_urls
 from das_server import views
 import das_server.metrics
+from das_server.admin import dasadmin_site
 
 urlpatterns = [
     url(r'^api/v1.0/status/?$', views.StatusView.as_view()),
@@ -34,6 +35,7 @@ urlpatterns = [
         include('rest_framework.urls', namespace='rest_framework')),
     url(r'^api/v1.0/docs/', include_docs_urls(title='DAS API Documentation')),
     url(r'^admin/', admin.site.urls),
+    url(r'^dasadmin/', dasadmin_site.urls),
     url(r'^accounts/', include('accounts.urls_user')),
     url(r'^oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^oauth2/token$', oauth2_views.TokenView.as_view(), name="token"),

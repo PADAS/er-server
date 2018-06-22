@@ -203,6 +203,7 @@ def get_subject_view_details(view, user, subject_id):
     # enforcement for free
     request = DummyRequest('/subject/{0}/'.format(subject_id), 'GET',
                            query_parameters={'limit': 2}, user=user)
+
     result = view(request, subject_id=subject_id,)
 
     # If there's nothing to send, no need to send it
@@ -218,15 +219,16 @@ def get_subject_view_details(view, user, subject_id):
         return
 
     payload = {'geo_json': geojson_data}
+    properties = geojson_data['properties']
 
     # also need to send subject status if it exists
-    if 'subject_state' in result.data.serializer.context:
-        payload['state'] = result.data.serializer.context['subject_state']
+    if 'subject_state' in properties:
+        payload['state'] = properties['subject_state']
 
     # Include radio details:
     for k in ('last_voice_call_start_at', 'requested_location_at'):
-        if k in result.data.serializer.context:
-            payload[k] = result.data.serializer.context[k]
+        if k in properties:
+            payload[k] = properties[k]
 
     return payload
 

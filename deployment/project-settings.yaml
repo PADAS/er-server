@@ -5,6 +5,6 @@ settings:
   zone: eastus
   cluster_machine_type: Standard_A1_v2
   cluster_node_count: 3
-  cluster_kubernetes_version: "1.9"
+  cluster_kubernetes_version: "1.10"
   disk_type: ssd
   region: eastus

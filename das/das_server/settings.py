@@ -62,6 +62,7 @@ INSTALLED_APPS = (
     'django_readonly_field',
     'usercontent',
     'django.contrib.postgres',
+    'django.contrib.humanize',
 
 )
 

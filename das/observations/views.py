@@ -12,7 +12,7 @@ from django.template.loader import render_to_string
 from django.utils.translation import ugettext_lazy as _
 
 from django.db.models import Prefetch
-from rest_framework import generics, status
+from rest_framework import generics, mixins, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
@@ -177,7 +177,8 @@ class SubjectsView(generics.ListCreateAPIView):
                 subject_group)
             queryset = queryset.by_groups(groups)
         queryset = queryset.by_user_subjects(self.request.user)
-        queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
+        queryset = queryset.prefetch_related(
+            Prefetch('subjectstatus_set')).prefetch_related('subject_subtype')
         return queryset
 
     def get_serializer_context(self):
@@ -426,6 +427,26 @@ class SourceProvidersView(generics.ListCreateAPIView,):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         return context
+
+
+class SourceProvidersViewPartial(generics.UpdateAPIView):
+
+    serializer_class = serializers.SourceProviderSerializer
+    permission_classes = (StandardObjectPermissions,)
+
+    lookup_field = 'provider_key'
+
+    def get_queryset(self):
+        queryset = models.SourceProvider.objects.all()
+        return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        return context
+
+    # TODO - filter so only 'additional' can get updated
+    def put(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
 
 
 class SourceObservationsView(generics.ListAPIView):
