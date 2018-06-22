@@ -202,7 +202,7 @@ class Source(TimestampedModel):
                                        null=True)
     model_name = models.CharField(
         'device model name', max_length=100, null=True)
-    additional = JSONField('additional data', default={})
+    additional = JSONField('additional data', default=dict, blank=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='sources', related_query_name='source')
@@ -416,7 +416,7 @@ class SubjectSource(models.Model):
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     subject = models.ForeignKey('Subject', on_delete=models.CASCADE, related_name='subjectsources',
                                 related_query_name='subjectsource')
-    additional = JSONField('additional', default=dict)
+    additional = JSONField('additional', default=dict, blank=True)
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     objects = SubjectSourceManager()
 

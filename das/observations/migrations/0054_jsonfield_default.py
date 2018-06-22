@@ -35,11 +35,18 @@ class Migration(migrations.Migration):
             model_name='subjectsource',
             name='additional',
             field=django.contrib.postgres.fields.jsonb.JSONField(
-                default=dict, verbose_name='additional'),
+                blank=True, default=dict, verbose_name='additional'),
         ),
         migrations.AlterField(
             model_name='subjecttracksegmentfilter',
             name='additional',
             field=django.contrib.postgres.fields.jsonb.JSONField(default=dict),
         ),
+        migrations.AlterField(
+            model_name='source',
+            name='additional',
+            field=django.contrib.postgres.fields.jsonb.JSONField(blank=True, default=dict,
+                                                                 verbose_name='additional data'),
+        ),
+
     ]
