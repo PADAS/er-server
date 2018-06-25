@@ -1,0 +1,20 @@
+[
+  {
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT (37.2 1.21)",
+      "recorded_at": "2018-05-09T00:00:00Z",
+      "created_at": "2018-05-09T00:00:00Z",
+      "source": "43d22e4d-debf-402d-b49b-efdc67dddb93",
+      "additional": {
+        "last_voice_call_start_at": "2018-06-22T04:57:57.058000+00:00",
+        "received_time": "2018-05-09T04:55:16.000000Z"
+      }
+    }
+  }
+
+]
+
+
+
+

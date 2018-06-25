@@ -219,15 +219,16 @@ def get_subject_view_details(view, user, subject_id):
         return
 
     payload = {'geo_json': geojson_data}
+    properties = geojson_data['properties']
 
     # also need to send subject status if it exists
-    if 'subject_state' in result.data:
-        payload['state'] = result.data['subject_state']
+    if 'subject_state' in properties:
+        payload['state'] = properties['subject_state']
 
     # Include radio details:
     for k in ('last_voice_call_start_at', 'requested_location_at'):
-        if k in result.data:
-            payload[k] = result.data[k]
+        if k in properties:
+            payload[k] = properties[k]
 
     return payload
 

@@ -630,7 +630,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     priority = models.PositiveSmallIntegerField(default=PRI_NONE,
                                                 choices=PRIORITY_CHOICES)
-    attributes = JSONField(default={}, blank=True)
+    attributes = JSONField(default=dict, blank=True)
 
     related_subjects = models.ManyToManyField(
         Subject, through='EventRelatedSubject')
