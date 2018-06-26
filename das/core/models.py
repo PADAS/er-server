@@ -1,5 +1,7 @@
+import uuid
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.db import models
 
 from treebeard.al_tree import AL_Node
@@ -80,3 +82,22 @@ class HierarchyModel(models.Model):
 
     def get_ancestor_ids(self):
         return [a.id for a in self.get_ancestors()]
+
+
+class QueryHistory(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    pid = models.IntegerField('The OS process id', null=False, blank=False)
+    elapsed = DurationField(null=False, blank=False)
+    wait_event = models.CharField(max_length=100, null=True, blank=True)
+    cpu_percent = models.DecimalField(decimal_places=2, max_digits=10, null=True, blank=True)
+    mem_percent = models.DecimalField(decimal_places=2, max_digits=10, null=True, blank=True)
+    query = models.TextField(db_index=True)
+    digest = models.CharField("The sha1 digest of the query field", max_length=512, db_index=True)
+
+    class Meta:
+        verbose_name = _('query history')
+        verbose_name_plural = _('query histories')
+        index_together = [('pid', 'digest', 'updated_at')]
+
+    def __str__(self):
+        return self.query
