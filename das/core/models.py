@@ -87,7 +87,7 @@ class HierarchyModel(models.Model):
 class QueryHistory(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     pid = models.IntegerField('The OS process id', null=False, blank=False)
-    elapsed = DurationField(null=False, blank=False)
+    elapsed = models.DurationField(null=False, blank=False)
     wait_event = models.CharField(max_length=100, null=True, blank=True)
     cpu_percent = models.DecimalField(decimal_places=2, max_digits=10, null=True, blank=True)
     mem_percent = models.DecimalField(decimal_places=2, max_digits=10, null=True, blank=True)
