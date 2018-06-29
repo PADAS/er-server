@@ -371,6 +371,15 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         properties['stroke-width'] = 2
         properties['image'] = image_url
 
+    for ss in subject.subjectstatus_set.filter(delay_hours=0):
+        if 'state' in ss.additional:
+            properties['subject_state'] = ss.additional['state']
+
+        for k in ('last_voice_call_start_at', 'requested_location_at'):
+            if k in ss.additional:
+                properties[k] = ss.additional[k]
+        break
+
     # see https://github.com/mapbox/geojson-coordinate-properties
     if coordinate_times:
         properties['coordinateProperties'] = {'times': coordinate_times}
