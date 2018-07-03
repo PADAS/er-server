@@ -3,8 +3,10 @@ import logging
 from django.contrib.admin import AdminSite
 from django.utils.translation import ugettext_lazy as _
 
-from observations.models import Subject, SubjectSource, Source, Observation, SubjectStatus
-from observations.admin import SubjectAdmin, SubjectSourceAdmin, SubjectStatusAdmin, SourceAdmin, ObservationAdmin
+from observations.models import Subject, SubjectSource, Source, SubjectStatus, \
+    SubjectType, SubjectSubType, SubjectGroup
+from observations.admin import SubjectAdmin, SubjectSourceAdmin, SubjectStatusAdmin, SourceAdmin, \
+    SubjectTypeAdmin, SubjectSubTypeAdmin, SubjectGroupAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -25,5 +27,6 @@ class DasAdminSite(AdminSite):
 dasadmin_site = DasAdminSite(name='das_admin')
 
 for x in (Subject, SubjectAdmin), (SubjectSource, SubjectSourceAdmin), (Source, SourceAdmin),\
-         (SubjectStatus, SubjectStatusAdmin), (Observation, ObservationAdmin):
+         (SubjectStatus, SubjectStatusAdmin), (SubjectType, SubjectTypeAdmin), (SubjectSubType, SubjectSubTypeAdmin), \
+         (SubjectGroup, SubjectGroupAdmin):
     dasadmin_site.register(*x)
