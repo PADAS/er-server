@@ -265,7 +265,7 @@ class LargeTablePaginator(Paginator):
 
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, admin.ModelAdmin):
-    list_display = ('_subject_name', '_manufacturer_id', 'recorded_at',
+    list_display = ('_subject_name', '_manufacturer_id', 'recorded_at', 'created_at',
                     '_longitude', '_latitude', '_state', '_gps_fix', '_event_action')
     date_hierarchy = 'recorded_at'
     list_display_links = None
@@ -818,7 +818,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
     list_display = ('provider_key', 'display_name',)
 
 
-@admin.register(models.SubjectSummary)
+# @admin.register(models.SubjectSummary)
 class SubjectSummaryAdmin(admin.ModelAdmin):
     change_list_template = 'admin/subject_summary_change_list.html'
     date_hierarchy = 'updated_at'
@@ -880,7 +880,7 @@ class SubjectSummaryAdmin(admin.ModelAdmin):
         return response
 
 
-@admin.register(models.SubjectPositionSummary)
+# @admin.register(models.SubjectPositionSummary)
 class SubjectPositionSummaryAdmin(admin.ModelAdmin):
     change_list_template = 'admin/subject_position_change_list.html'
     date_hierarchy = 'recorded_at'

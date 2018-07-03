@@ -19,11 +19,10 @@ resource_types:
 
 jobs:
 - name: deploy-to-k8s
-  serial: true
   plan:
   - aggregate:
     - get: git-deployment
-  - do:
+  - aggregate:
       - task: ensure-disks-exist
         config:
           platform: linux
@@ -84,6 +83,7 @@ jobs:
             - --zone=((gcp-compute-zone))
             - --iaas=gcp
             - --workspace=((iaas-workspace))
+  - do:
       - task: deploy
         config:
           platform: linux
