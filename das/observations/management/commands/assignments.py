@@ -18,7 +18,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import Permission
 from django.db.models import F, Q
 
-from observations.models import Subject, Source, SubjectSource, SourceProvider
+from observations.models import Subject, Source, SubjectSource, SourceProvider, SOURCE_TYPES
 
 
 def find_assignments(subject=None, source=None, start_date=None, end_date=None):
@@ -90,7 +90,8 @@ def add_assignment(subject, source, start_date=None, end_date=None):
             subject=subject, source=source, assigned_range=assignment_range)
 
 
-def ensure_assignment(subject_name, manufacturer_id, model_name, source_type, source_provider_key):
+def ensure_assignment(subject_name, manufacturer_id, model_name, source_type, source_provider_key,
+                      start_date):
 
     source_provider = SourceProvider.objects.get(
         provider_key=source_provider_key)
@@ -98,18 +99,20 @@ def ensure_assignment(subject_name, manufacturer_id, model_name, source_type, so
     print(f'Ensuring assignment for name {subject_name} with source {manufacturer_id}')
 
     # Get subjects by name
+    subject = None
+
     subs = Subject.objects.filter(name=subject_name)
     if len(subs) > 1:
         raise Exception(f'name {subject_name} is assigned to multiple subjects')
     if subs:
         subject = subs[0]
-        assignments = find_assignments(subject=subject, start_date=START_DATE)
+        assignments = find_assignments(subject=subject, start_date=start_date)
         print(f'Subject found assignments {assignments}') if assignments else print('No assignments yet.')
 
         for assignment in assignments:
             if assignment.source.manufacturer_id != manufacturer_id:
                 print(f'Ending assignment for subject {subject_name} to source {assignment.source.manufacturer_id}')
-                update_assignment(assignment, end_date=START_DATE)
+                update_assignment(assignment, end_date=start_date)
 
     else:
         print(f'name {subject_name} does not exist.')
@@ -120,13 +123,13 @@ def ensure_assignment(subject_name, manufacturer_id, model_name, source_type, so
         raise Exception(f'source {manufacturer_id} is not unique.')
     if srcs:
         source = srcs[0]
-        assignments = find_assignments(source=source, start_date=START_DATE)
+        assignments = find_assignments(source=source, start_date=start_date)
         print(f'Source found assignements {assignments}') if assignments else print('No assignments yet.')
 
         for assignment in assignments:
             if assignment.subject.name != subject_name:
                 print(f'Ending assignment for source {manufacturer_id} to subject {assignment.subject.name}')
-                update_assignment(assignment, end_date=START_DATE)
+                update_assignment(assignment, end_date=start_date)
     else:
         print(f'mid {manufacturer_id} does not exist.')
         source = Source.objects.create(manufacturer_id=manufacturer_id, model_name=model_name,
@@ -134,41 +137,15 @@ def ensure_assignment(subject_name, manufacturer_id, model_name, source_type, so
 
     if subject and source:
         existing_assignment = find_assignments(
-            subject=subject, source=source, start_date=START_DATE)
+            subject=subject, source=source, start_date=start_date)
         if not existing_assignment:
             print(f'Adding assignment for {subject_name} to {manufacturer_id}')
-            add_assignment(subject, source, start_date=START_DATE)
+            add_assignment(subject, source, start_date=start_date)
         else:
             print(f'Found existing assignment for {subject_name} to {manufacturer_id}')
 
 
-subject_radio_pairs = (
-    ('G10A', 'trbonet-50712'),
-    ('G10B', 'trbonet-50713'),
-    ('G10C', 'trbonet-50714'),
-    ('G15A', 'trbonet-50715'),
-    ('G15B', 'trbonet-50716'),
-    ('G16A', 'trbonet-50717'),
-    ('G16B', 'trbonet-50718'),
-    ('G17A', 'trbonet-50719'),
-    ('G17B', 'trbonet-50720'),
-    ('G18A', 'trbonet-50721'),
-    ('G18B', 'trbonet-50722'),
-    ('G1KA', 'trbonet-50723'),
-    ('G1KB', 'trbonet-50724'),
-    ('G1KC', 'trbonet-50725'),
-    ('G1KD', 'trbonet-50726'),
-    ('G1KE', 'trbonet-50727')
-)
-
-
-model_name = 'dasradioagent:grumeti-trbonet'
-source_type = 'gps-radio'
-source_provider_key = 'grumeti-trbonet'
-
-START_DATE = datetime(2018, 6, 14, tzinfo=pytz.utc)
-
-
+# source_type_list = (k for k,v in SOURCE_TYPES)
 class Command(BaseCommand):
 
     help = 'Administer Subject-Source assigments.'
@@ -178,7 +155,7 @@ class Command(BaseCommand):
             '-n', '--subject_name',
             action='store',
             dest='subject_name',
-            default='',
+            required=True,
             help='Subject Name',
         )
 
@@ -186,7 +163,7 @@ class Command(BaseCommand):
             '-m', '--manufacturer_id',
             action='store',
             dest='manufacturer_id',
-            default='',
+            required=True,
             help='Device Manufacturer Id',
         )
 
@@ -194,7 +171,7 @@ class Command(BaseCommand):
             '-d', '--start_date',
             action='store',
             dest='start_date',
-            default=None,
+            required=True,
             help='Start date for new assignment.',
         )
 
@@ -202,16 +179,19 @@ class Command(BaseCommand):
             '-t', '--source_type',
             action='store',
             dest='source_type',
-            default='gps-radio',
-            help='Source Type.',
+            required=True,
+            # ['gps-radio', 'tracking-device'],
+            choices=list((k for k, v in SOURCE_TYPES)),
+            help='Source Type.'
         )
 
         parser.add_argument(
             '-p', '--provider_key',
             action='store',
             dest='provider_key',
-            default='default',
+            required=True,
             help='Source Provider Key.',
+
         )
 
     def handle(self, *args, **options):
@@ -222,10 +202,17 @@ class Command(BaseCommand):
         except ValueError:
             print(f"-start_date={options['start_date']} is not valid. Please provide a valid date string.")
             return
+        else:
 
-        print(f'Start date = {start_date.isoformat()}')
-        print(f'Options = {options}')
+            print(f'Subject Name = {options["subject_name"]}')
+            print(f'Manufacturer ID = {options["manufacturer_id"]}')
+            print(f'Model Name = {options["model_name"]}')
+            print(f'Source Type = {options["source_type"]}')
+            print(f'Provider Key = {options["provider_key"]}')
 
-        ensure_assignment(subject_name=options['subject_name'], manufacturer_id=options['manufacturer_id'],
-                          model_name=options['model_name'],
-                          source_type=options['source_type'], source_provider_key=options['provider_key'])
+            ensure_assignment(subject_name=options['subject_name'],
+                              manufacturer_id=options['manufacturer_id'],
+                              model_name=options['model_name'],
+                              source_type=options['source_type'],
+                              source_provider_key=options['provider_key'],
+                              start_date=start_date)
