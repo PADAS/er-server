@@ -192,6 +192,8 @@ class EventType(TimestampedModel):
     default_priority = models.PositiveSmallIntegerField(default=PRI_NONE,
                                                         choices=PRIORITY_CHOICES)
 
+    icon = models.CharField(max_length=100, blank=True, null=True)
+
     schema = models.TextField(blank=True, default='''{
                 "schema": 
                 {
@@ -1017,31 +1019,99 @@ class EventSourceManager(models.Manager):
     pass
 
 
-class EventSource(RevisionMixin, TimestampedModel):
+class EventSource(TimestampedModel):
+    # class EventSource(RevisionMixin, TimestampedModel):
 
     objects = EventSourceManager()
 
-    value = models.CharField(primary_key=True, max_length=50)
-    display = models.CharField(max_length=50)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    external_event_type = models.CharField(max_length=100,
+                                           verbose_name='External Event Type',
+                                           unique=True, help_text='External event-type identifier.')
+
+    display = models.CharField(max_length=50, verbose_name='Description',
+                               help_text='Friendly description of the event source.',
+                               blank=True, default='')
 
     event_type = models.ForeignKey(EventType, on_delete=models.PROTECT,
                                    blank=True, null=True)
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='sources', related_query_name='source')
+        null=True, blank=True, related_name='eventsources', related_query_name='eventsource')
 
-    revision = Revision()
+    additional = JSONField(default=dict, blank=True)
+
+    # revision = Revision()
 
     class Meta:
         permissions = (
             ('create_event_for_eventsource',
              'Permission to add an event for an event source'),
         )
-        unique_together = ('value', 'owner')
+        unique_together = ('owner', 'external_event_type',)
 
-    def natural_key(self):
-        return self.value
-
+    # def natural_key(self):
+    #     return self.value
+    #
     def __str__(self):
-        return str(self.value)
+        return f'{self.owner.username}:{self.external_event_type}'
+
+
+class EventsourceEventManager(models.Manager):
+
+    def add_relation(self, event, eventsource, external_event_id):
+
+        correlation, created = EventsourceEvent.objects.get_or_create(
+            event=event, eventsource=eventsource, external_event_id=external_event_id)
+
+        return correlation
+
+    def get_relation(self, eventsource, external_event_id):
+        try:
+            correlation = EventsourceEvent.objects.get(
+                eventsource=eventsource, external_event_id=external_event_id)
+            return correlation
+        except EventsourceEvent.DoesNotExist:
+            pass
+
+    def remove_relation(self, eventsource, external_event_id):
+
+        result = EventsourceEvent.objects.filter(eventsource=eventsource,
+                                                 external_event_id=external_event_id).delete()
+
+        return result
+
+
+class EventsourceEvent(TimestampedModel):
+
+    objects = EventsourceEventManager()
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    event = models.ForeignKey('Event',
+                              related_name='eventsource_event_refs',
+                              related_query_name='eventsource_event_ref',
+                              on_delete=models.CASCADE)
+
+    eventsource = models.ForeignKey('EventSource',
+                                    related_name='eventsource_event_refs',
+                                    related_query_name='eventsource_event_ref',
+                                    on_delete=models.CASCADE)
+
+    external_event_id = models.CharField(max_length=100, null=False)
+
+    class Meta:
+        unique_together = ('eventsource', 'external_event_id')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        result = super().save(*args, **kwargs)
+        self.event.dependent_table_updated()
+        return result
+
+    def clean(self):
+        super().clean()
+
+        # if something is wrong:
+        #     raise ValidationError(
+        #         {'a-field': ValidationError(_('There is an error.'), code='invalid')})

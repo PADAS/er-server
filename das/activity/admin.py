@@ -44,9 +44,13 @@ class EventTypeAdmin(admin.ModelAdmin):
     list_editable = ('ordernum',)
     fieldsets = (
         (None, {
-            'fields': ('display', 'value', 'is_collection', 'ordernum', 'schema', 'category',
-                       )}
-         ),
+            'fields': ('display', 'value', 'is_collection', 'ordernum', 'category',)
+        }
+        ),
+        ('Schema & Definition',
+         {
+             'fields': ('schema', 'icon', 'default_priority'),
+         })
     )
 
 
@@ -61,6 +65,16 @@ class EventClassAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventFactor)
 class EventFactorAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(models.EventSource)
+class EventSourceAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(models.EventsourceEvent)
+class EventsourceEventAdmin(admin.ModelAdmin):
     pass
 
 

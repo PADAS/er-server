@@ -38,7 +38,7 @@ from utils.json import loads
 from utils.drf import PointValidator
 import activity.models
 import utils
-from accounts.serializers import UserDisplaySerializer, get_user_display
+from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
 from observations.serializers import SubjectSerializer, SourceSerializer, get_subject_display
 from observations.models import Subject
 from analyzers.serializers import SubjectAnalyzerResultSerializer
@@ -392,7 +392,7 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventType
         read_only_fields = ('value', 'display', 'ordernum',
-                            'is_collection', 'category')
+                            'is_collection', 'category', 'icon', 'default_priority',)
         fields = read_only_fields
 
     def to_representation(self, obj):
@@ -1268,3 +1268,27 @@ class EventFilterSerializer(rest_framework.serializers.ModelSerializer):
     def create(self, validated_data):
         ef = activity.models.EventFilter.objects.create(**validated_data)
         return ef
+
+
+class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
+
+    owner = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault())
+    event_type = EventTypeRelatedField(required=False, allow_null=True,)
+
+    class Meta:
+        model = activity.models.EventSource
+        read_only_fields = ('id', 'owner',)
+        fields = read_only_fields + \
+            ('external_event_type', 'display', 'event_type', 'additional',)
+
+    def to_representation(self, obj):
+        rep = super().to_representation(obj, )
+
+        rep['owner'] = UserSerializer().to_representation(obj.owner)
+
+        rep['url'] = utils.add_base_url(self.context['request'],
+                                        reverse('eventsource-view',
+                                                args=[obj.id]))
+
+        return rep

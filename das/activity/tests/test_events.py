@@ -63,6 +63,14 @@ radio_room_user_permissions = [
     'security_create',
     'monitoring_create', 'monitoring_read', 'monitoring_update',
     'logistics_create', 'logistics_read', 'logistics_update']
+
+eventsource_user_permissions = [
+    'security_create',
+    'add_eventsource',
+    'change_eventsource',
+    'delete_eventsource',
+    'create_event_for_eventsource',
+]
 # Guest users can see logistics events and nothing else
 guest_user_permissions = ['logistics_read']
 
@@ -92,6 +100,14 @@ class TestEventView(BaseAPITest):
         self.all_perms_user = User.objects.create_user(
             'all_perms_user', 'das_all_perms@vulcan.com', 'all_perms_user',
             **self.user_const)
+
+        self.eventsource_user_no1 = User.objects.create_user(
+            'eventsource_user_no1', 'eventsource_user_no1@tempuri.org',
+            'eventsource_user_no1', **self.user_const)
+
+        self.eventsource_user_no2 = User.objects.create_user(
+            'eventsource_user_no2', 'eventsource_user_no2@tempuri.org',
+            'eventsource_user_no2', **self.user_const)
 
         self.notes_line1_prefix = 'note1 text'
         self.notes_line2_prefix = 'note2 text'
@@ -145,6 +161,14 @@ class TestEventView(BaseAPITest):
             self.guest_user_permissionset.permissions.add(
                 Permission.objects.get(codename=perm))
         self.guest_user.permission_sets.add(self.guest_user_permissionset)
+
+        self.eventsource_user_permissionset = PermissionSet.objects.create(
+            name='eventsource_permissionset')
+        for perm in eventsource_user_permissions:
+            self.eventsource_user_permissionset.permissions.add(
+                Permission.objects.get(codename=perm))
+        for u in (self.eventsource_user_no1, self.eventsource_user_no2):
+            u.permission_sets.add(self.radio_room_user_permissionset)
 
         self.user_rep = UserDisplaySerializer().to_representation(self.guest_user)
 
@@ -1004,3 +1028,81 @@ class TestEventView(BaseAPITest):
                 ] = response.status_code == 204
 
         return results
+
+    #
+    # EventSource tests.
+    def test_add_eventsource(self):
+
+        eventsource_data = {
+            'external_event_type': 'carcass',
+            'display': 'DAS: Carcass',
+            # 'event_type': 'carcass_rep',
+            'additional': {'version': 0},
+        }
+        request = self.factory.post(self.api_base
+                                    + '/eventsources', eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventSourcesView.as_view()(request,)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+
+        response_data = {k: response_data[k] for k in eventsource_data.keys()}
+        self.assertDictEqual(response_data, eventsource_data)
+
+    def test_eventsourceview_update_permission_denied(self):
+        eventsource_data = {
+            'external_event_type': 'carcass',
+            'display': 'DAS: Carcass',
+            'event_type': 'carcass_rep',
+            'additional': {'version': 0},
+        }
+        request = self.factory.post(self.api_base
+                                    + '/eventsources', eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        # Create event source.
+        response = views.EventSourcesView.as_view()(request,)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+
+        esid = response_data['id']
+
+        eventsource_patch = {'additional': {'a': 1, 'b': 'some string'}}
+        request = self.factory.patch(f'{self.api_base}event/eventsource/{esid}', eventsource_patch)
+        self.force_authenticate(request, self.eventsource_user_no2)
+
+        response = views.EventSourceView.as_view()(request, id=str(esid))
+        self.assertEqual(response.status_code, 403)
+
+    def test_update_eventsource_using_patch(self):
+
+        eventsource_data = {
+            'external_event_type': 'carcass',
+            'display': 'DAS: Carcass',
+            'event_type': 'carcass_rep',
+            'additional': {'version': 0},
+        }
+        request = self.factory.post(self.api_base
+                                    + '/eventsources', eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        # Create event source.
+        response = views.EventSourcesView.as_view()(request,)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+
+        esid = response_data['id']
+
+        eventsource_patch = {'additional': {'a': 1, 'b': 'some string'}}
+        request = self.factory.patch(f'{self.api_base}event/eventsource/{esid}', eventsource_patch)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventSourceView.as_view()(request,
+                                                   id=str(esid))
+        self.assertEqual(response.status_code, 200)
+
+        print(json.dumps(response.data, indent=2, default=str))
+
+        additional_data = response.data.get('additional', {})
+        self.assertDictEqual(additional_data, eventsource_patch['additional'])
