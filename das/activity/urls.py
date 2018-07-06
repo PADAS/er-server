@@ -25,8 +25,10 @@ urlpatterns = [
         views.EventFilterSchemaView.as_view(), name='eventfilter-schema-view'),
     url(r'^events/eventsources/?$',
         views.EventSourcesView.as_view(), name='eventsources-view'),
-    url(r'^events/eventsource/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
+    url(r'^events/eventsource/(?P<external_event_type>[0-9a-zA-Z_-]+)/?$',
         views.EventSourceView.as_view(), name='eventsource-view'),
+    # url(r'^events/eventsource/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
+    #     views.EventSourceView.as_view(), name='eventsource-view'),
     url(
         r'^event/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/state/?$',
         views.EventStateView.as_view(), name='event-view-state'),

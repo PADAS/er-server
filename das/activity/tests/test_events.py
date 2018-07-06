@@ -1053,6 +1053,30 @@ class TestEventView(BaseAPITest):
         response_data = {k: response_data[k] for k in eventsource_data.keys()}
         self.assertDictEqual(response_data, eventsource_data)
 
+    def test_add_eventsource_twice(self):
+
+        eventsource_data = {
+            'external_event_type': 'carcass',
+            'display': 'DAS: Carcass',
+            # 'event_type': 'carcass_rep',
+            'additional': {'version': 0},
+        }
+        request = self.factory.post(self.api_base
+                                    + '/eventsources', eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventSourcesView.as_view()(request,)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+
+        request = self.factory.post(self.api_base
+                                    + '/eventsources', eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventSourcesView.as_view()(request,)
+        self.assertEqual(response.status_code, 400)
+        response_data = response.data
+
     def test_eventsourceview_update_permission_denied(self):
         eventsource_data = {
             'external_event_type': 'carcass',
@@ -1069,13 +1093,15 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         response_data = response.data
 
-        esid = response_data['id']
+        # esid = response_data['id']
 
         eventsource_patch = {'additional': {'a': 1, 'b': 'some string'}}
-        request = self.factory.patch(f'{self.api_base}event/eventsource/{esid}', eventsource_patch)
+        request = self.factory.patch(f'{self.api_base}event/eventsource/{eventsource_data["external_event_type"]}',
+                                     eventsource_patch)
         self.force_authenticate(request, self.eventsource_user_no2)
 
-        response = views.EventSourceView.as_view()(request, id=str(esid))
+        response = views.EventSourceView.as_view()(
+            request, external_event_type=eventsource_data['external_event_type'])
         self.assertEqual(response.status_code, 403)
 
     def test_update_eventsource_using_patch(self):

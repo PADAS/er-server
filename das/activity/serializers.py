@@ -1123,17 +1123,18 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         # If we're creating an event, and event_type is not present in the
         # request, raise ValidationError.
 
-        external_event_type = attrs.pop('external_event_type', None)
-        event_type = attrs.get('event_type')
-        if event_type is None and self.instance is None:
-            if external_event_type:
-                event_type = external_event_type.event_type
+        if self.instance is None:
+            event_type = attrs.get('event_type')
+            if event_type is None:
+                external_event_type = attrs.pop('external_event_type', None)
+                if external_event_type:
+                    event_type = external_event_type.event_type
 
-        if not event_type:
-            raise rest_framework.serializers.ValidationError(
-                {'event_type': 'Event type must be provided.'})
-        else:
-            attrs['event_type'] = event_type
+            if not event_type:
+                raise rest_framework.serializers.ValidationError(
+                    {'event_type': 'Event type must be provided.'})
+            else:
+                attrs['event_type'] = event_type
 
         return super().validate(attrs)
 
@@ -1185,7 +1186,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             self.fields.pop('is_linked_to')
 
     def to_representation(self, event):
-        self.fields.pop('external_event_type',)
+        self.fields.pop('external_event_type', None)
         rep = super().to_representation(event)
         if 'request' in self.context:
             request = self.context['request']
@@ -1350,6 +1351,6 @@ class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
 
         rep['url'] = utils.add_base_url(self.context['request'],
                                         reverse('eventsource-view',
-                                                args=[obj.id]))
+                                                args=[obj.external_event_type]))
 
         return rep

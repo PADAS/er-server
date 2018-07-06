@@ -122,7 +122,7 @@ class EventSourceView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = EventSourceSerializer
     permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
     queryset = EventSource.objects.all()
-    lookup_field = 'id'
+    lookup_field = 'external_event_type'
 
 
 class EventTypeSchemaView(generics.ListCreateAPIView):
