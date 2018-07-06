@@ -9,6 +9,9 @@ import string
 import random
 import io
 
+from datetime import datetime, timedelta
+import pytz
+
 import django.contrib.auth
 from django.db import transaction
 from django.utils import lorem_ipsum
@@ -1106,3 +1109,82 @@ class TestEventView(BaseAPITest):
 
         additional_data = response.data.get('additional', {})
         self.assertDictEqual(additional_data, eventsource_patch['additional'])
+
+    def test_add_event_with_external_event_type(self):
+
+        eventsource_data = {
+            'external_event_type': 'carcass',
+            'display': 'DAS: Carcass',
+            'event_type': 'carcass_rep',
+            'additional': {'version': 0},
+        }
+
+        request = self.factory.post(self.api_base
+                                    + '/eventsources', eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        # Create event source.
+        response = views.EventSourcesView.as_view()(request,)
+        self.assertEqual(response.status_code, 201)
+
+        # Create an event with an "External Event ID"
+        event_data = {
+            "event_details": {
+                "attributes": [
+                    {"key": "a", "value": "1"}
+                ]
+            },
+
+            "external_event_type": "carcass",
+            "priority": 100,
+            "title": "Test External Event",
+            "location": {"latitude": 1.4, "longitude": 37.5},
+            "time": datetime.now(tz=pytz.utc).isoformat(),
+        }
+
+        request = self.factory.post(f'{self.api_base}/events', event_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventsView.as_view()(request,)
+        self.assertEqual(response.status_code, 201)
+
+    def test_add_event_with_external_event_type_and_no_permissions(self):
+
+        eventsource_data = {
+            'external_event_type': 'smart_carcass_report',
+            'display': 'DAS: Carcass',
+            'event_type': 'carcass_rep',
+            'additional': {'version': 0},
+        }
+
+        request = self.factory.post(self.api_base
+                                    + '/eventsources', eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        # Create event source.
+        response = views.EventSourcesView.as_view()(request,)
+        self.assertEqual(response.status_code, 201)
+
+        # Create an event with an "External Event ID"
+        event_data = {
+            "event_details": {
+                "attributes": [
+                    {"key": "a", "value": "1"}
+                ]
+            },
+
+            "external_event_type": "smart_carcass_report",
+            "priority": 100,
+            "title": "Test External Event",
+            "location": {"latitude": 1.4, "longitude": 37.5},
+            "time": datetime.now(tz=pytz.utc).isoformat(),
+        }
+
+        request = self.factory.post(f'{self.api_base}/events', event_data)
+        self.force_authenticate(request, self.eventsource_user_no2)
+
+        response = views.EventsView.as_view()(request,)
+
+        # Expect 400 Bad Request, because the given external_event_type will
+        # not be found for this user.
+        self.assertEqual(response.status_code, 400)

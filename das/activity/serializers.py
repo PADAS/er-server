@@ -347,12 +347,51 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
         return value.value if value else None
 
     def to_internal_value(self, data):
+
         if data:
             try:
                 return activity.models.EventType.objects.get_by_value(data)
             except activity.models.EventType.DoesNotExist:
                 raise rest_framework.serializers.ValidationError(
                     {'event_type': 'Value \'%s\' does not exist.' % data})
+        else:
+            request_data = self.context['request'].data
+            external_event_type = request_data.get('external_event_type')
+            if external_event_type:
+                eventsource = resolve_external_event_source()
+                if eventsource:
+                    return eventsource.event_type
+
+        return None
+
+    @property
+    def choices(self):
+        return OrderedDict(((row.value, row.display)
+                            for row in self.get_queryset()))
+
+
+class ExternalEventTypeRelatedField(rest_framework.serializers.RelatedField):
+
+    def get_queryset(self):
+        user = self.context['request'].user
+        return activity.models.EventSource.objects.filter(owner=user)
+
+    def to_representation(self, value):
+        return value.external_event_type if value else None
+
+    def to_internal_value(self, data):
+
+        if data:
+            try:
+                user = self.context['request'].user
+            except AttributeError:
+                pass
+            else:
+                try:
+                    return activity.models.EventSource.objects.get(owner=user, external_event_type=data)
+                except activity.models.EventSource.DoesNotExist:
+                    raise rest_framework.serializers.ValidationError(
+                        {'external_event_type': 'Value \'%s\' does not exist.' % data})
         return None
 
     @property
@@ -1021,6 +1060,17 @@ def resolve_image_url(event):
     return event.image_url
 
 
+def resolve_external_event_source(user, external_event_type):
+    ''' Resolve external event source.'''
+    try:
+        eventsource = activity.models.EventSource.objects.get(
+            owner=user, external_event_type=external_event_type
+        )
+        return eventsource
+    except activity.models.EventSource.DoesNotExist:
+        pass
+
+
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
@@ -1043,6 +1093,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     # photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
+
+    external_event_type = ExternalEventTypeRelatedField(required=False)
 
     contains = rest_framework.serializers.SerializerMethodField()
     is_linked_to = rest_framework.serializers.SerializerMethodField()
@@ -1070,10 +1122,18 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
         # If we're creating an event, and event_type is not present in the
         # request, raise ValidationError.
+
+        external_event_type = attrs.pop('external_event_type', None)
         event_type = attrs.get('event_type')
         if event_type is None and self.instance is None:
+            if external_event_type:
+                event_type = external_event_type.event_type
+
+        if not event_type:
             raise rest_framework.serializers.ValidationError(
                 {'event_type': 'Event type must be provided.'})
+        else:
+            attrs['event_type'] = event_type
 
         return super().validate(attrs)
 
@@ -1100,7 +1160,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
-            'files', 'related_subjects', ) + read_only_fields
+            'files', 'related_subjects', 'external_event_type', ) + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1125,6 +1185,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             self.fields.pop('is_linked_to')
 
     def to_representation(self, event):
+        self.fields.pop('external_event_type',)
         rep = super().to_representation(event)
         if 'request' in self.context:
             request = self.context['request']
