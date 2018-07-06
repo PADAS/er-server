@@ -1,0 +1,3 @@
+cluster-name: smartconnect
+version-suffix: smartconnect  
+server-branch-name: feature/smartconnect
