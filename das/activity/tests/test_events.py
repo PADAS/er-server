@@ -29,7 +29,7 @@ from core.tests import BaseAPITest
 from choices.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory,\
-    EventRelationship, EventRelationshipType, EventNote
+    EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, EventSource
 
 from activity.models import get_sentinel_user
 from activity import views
@@ -1138,8 +1138,9 @@ class TestEventView(BaseAPITest):
 
     def test_add_event_with_external_event_type(self):
 
+        external_event_type = 'smart-carcass'
         eventsource_data = {
-            'external_event_type': 'carcass',
+            'external_event_type': external_event_type,
             'display': 'DAS: Carcass',
             'event_type': 'carcass_rep',
             'additional': {'version': 0},
@@ -1153,7 +1154,10 @@ class TestEventView(BaseAPITest):
         response = views.EventSourcesView.as_view()(request,)
         self.assertEqual(response.status_code, 201)
 
+        esid = response.data['id']
+        external_event_id = 'asdfioaasfseiuro11414sfa'
         # Create an event with an "External Event ID"
+        event_title = 'Some arbirtrary event title.'
         event_data = {
             "event_details": {
                 "attributes": [
@@ -1161,10 +1165,11 @@ class TestEventView(BaseAPITest):
                 ]
             },
 
-            "external_event_type": "carcass",
+            "external_event_type": external_event_type,
             "priority": 100,
-            "title": "Test External Event",
-            "location": {"latitude": 1.4, "longitude": 37.5},
+            "title": event_title,
+            "external_event_id": external_event_id,
+            "location": {"latitude": 39.4, "longitude": -117.5},
             "time": datetime.now(tz=pytz.utc).isoformat(),
         }
 
@@ -1173,6 +1178,15 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request,)
         self.assertEqual(response.status_code, 201)
+
+        eselist = EventsourceEvent.objects.filter(
+            eventsource_id=esid, external_event_id=external_event_id)
+
+        self.assertEqual(eselist.count(), 1)
+
+        self.assertEqual(
+            eselist[0].eventsource.external_event_type, external_event_type)
+        self.assertEqual(eselist[0].event.title, event_title)
 
     def test_add_event_with_external_event_type_and_no_permissions(self):
 

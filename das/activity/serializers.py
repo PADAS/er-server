@@ -842,10 +842,17 @@ class EventSerializerMixin:
 
         related_subjects = validated_data.pop('related_subjects', ())
 
+        external_event_type = validated_data.pop('external_event_type', None)
+        external_event_id = validated_data.pop('external_event_id', None)
+
         new_event = activity.models.Event.objects.create_event(
             **validated_data)
 
         EventDetailsSerializer().update(new_event, details_data)
+
+        if external_event_type and external_event_id:
+            activity.models.EventsourceEvent.objects.add_relation(new_event,
+                                                                  external_event_type, external_event_id)
 
         for note in event_notes:
             note = copy.deepcopy(note)
@@ -1095,6 +1102,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     event_details = EventDetailsSerializer(required=False, default={})
 
     external_event_type = ExternalEventTypeRelatedField(required=False)
+    external_event_id = rest_framework.serializers.CharField(
+        max_length=100, required=False)
 
     contains = rest_framework.serializers.SerializerMethodField()
     is_linked_to = rest_framework.serializers.SerializerMethodField()
@@ -1126,7 +1135,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         if self.instance is None:
             event_type = attrs.get('event_type')
             if event_type is None:
-                external_event_type = attrs.pop('external_event_type', None)
+                external_event_type = attrs.get('external_event_type')
                 if external_event_type:
                     event_type = external_event_type.event_type
 
@@ -1161,7 +1170,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
-            'files', 'related_subjects', 'external_event_type', ) + read_only_fields
+            'files', 'related_subjects', 'external_event_type', 'external_event_id', ) + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

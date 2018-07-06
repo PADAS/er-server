@@ -1025,9 +1025,10 @@ class EventSource(TimestampedModel):
     objects = EventSourceManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    external_event_type = models.CharField(max_length=100,
+    external_event_type = models.SlugField(max_length=100,
                                            verbose_name='External Event Type',
-                                           unique=True, help_text='External event-type identifier.')
+                                           unique=True, help_text='External event-type identifier.',
+                                           )
 
     display = models.CharField(max_length=50, verbose_name='Description',
                                help_text='Friendly description of the event source.',
@@ -1103,11 +1104,11 @@ class EventsourceEvent(TimestampedModel):
     class Meta:
         unique_together = ('eventsource', 'external_event_id')
 
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        result = super().save(*args, **kwargs)
-        self.event.dependent_table_updated()
-        return result
+    # def save(self, *args, **kwargs):
+    #     self.full_clean()
+    #     result = super().save(*args, **kwargs)
+    #     self.event.dependent_table_updated()
+    #     return result
 
     def clean(self):
         super().clean()
