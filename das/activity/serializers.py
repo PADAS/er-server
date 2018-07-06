@@ -851,8 +851,11 @@ class EventSerializerMixin:
         EventDetailsSerializer().update(new_event, details_data)
 
         if external_event_type and external_event_id:
-            activity.models.EventsourceEvent.objects.add_relation(new_event,
-                                                                  external_event_type, external_event_id)
+            try:
+                activity.models.EventsourceEvent.objects.add_relation(new_event,
+                                                                      external_event_type, external_event_id)
+            except Exception as e:
+                raise
 
         for note in event_notes:
             note = copy.deepcopy(note)
@@ -1139,6 +1142,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 if external_event_type:
                     event_type = external_event_type.event_type
 
+                if activity.models.EventsourceEvent.objects.filter(eventsource=external_event_type,
+                                                                   external_event_id=attrs.get('external_event_id')).exists():
+                    raise rest_framework.serializers.ValidationError(
+                        {'external_event_id': 'External event ID already exists.'}
+                    )
             if not event_type:
                 raise rest_framework.serializers.ValidationError(
                     {'event_type': 'Event type must be provided.'})

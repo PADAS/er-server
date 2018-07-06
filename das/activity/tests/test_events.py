@@ -1096,8 +1096,10 @@ class TestEventView(BaseAPITest):
         # esid = response_data['id']
 
         eventsource_patch = {'additional': {'a': 1, 'b': 'some string'}}
-        request = self.factory.patch(f'{self.api_base}event/eventsource/{eventsource_data["external_event_type"]}',
-                                     eventsource_patch)
+        request = self.factory.patch(
+            f'{self.api_base}event/eventsource/{eventsource_data["external_event_type"]}',
+            eventsource_patch)
+
         self.force_authenticate(request, self.eventsource_user_no2)
 
         response = views.EventSourceView.as_view()(
@@ -1142,7 +1144,7 @@ class TestEventView(BaseAPITest):
         eventsource_data = {
             'external_event_type': external_event_type,
             'display': 'DAS: Carcass',
-            'event_type': 'carcass_rep',
+            # 'event_type': 'carcass_rep',
             'additional': {'version': 0},
         }
 
