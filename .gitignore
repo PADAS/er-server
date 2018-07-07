@@ -7,6 +7,9 @@ __pycache__/
 *$py.class
 dc
 
+# Mac filesystem
+.DS_Store
+
 # C extensions
 *.so
 
@@ -70,6 +73,7 @@ target/
 
 ## Directory-based project format:
 .idea/
+
 # if you remove the above rule, at least ignore the following:
 
 # User-specific stuff:

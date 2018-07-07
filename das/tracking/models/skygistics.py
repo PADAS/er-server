@@ -878,7 +878,7 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
 
         end_time = datetime.now(tz=pytz.utc)
 
-        observation = None
+        latest_observation = None
         params = dict(imei=source.manufacturer_id, start=st, stop=end_time)
         self.logger.info('Fetching observations for {imei} {start} - {stop}'.format(
             **params
@@ -891,12 +891,14 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
             try:
                 observation = self._transform(source, unit_info)
                 if observation and self._pass_filter(observation):
+                    if not latest_observation or latest_observation.recorded_at < observation.recorded_at:
+                        latest_observation = observation
                     yield observation
             except Exception as e:
                 self.logger.exception('processing unit_info.')
 
-        if observation:
-            self.cursor_data['latest_timestamp'] = observation.recorded_at.isoformat(
+        if latest_observation:
+            self.cursor_data['latest_timestamp'] = latest_observation.recorded_at.isoformat(
             )
 
     def _pass_filter(self, observation):
