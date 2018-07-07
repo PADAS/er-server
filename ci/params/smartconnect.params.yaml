@@ -2,4 +2,4 @@ cluster-name: smartconnect
 version-suffix: smartconnect  
 server-branch-name: feature/smartconnect
 web-branch-name: develop
-deplyment-plan: integration
+deployment-plan: integration
