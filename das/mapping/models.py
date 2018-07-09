@@ -2,6 +2,7 @@ import uuid
 import os
 import logging
 import glob
+import zipfile
 
 from django.conf import settings
 from django.contrib.gis.db import models
@@ -11,6 +12,7 @@ from django.urls import reverse, NoReverseMatch
 from django.utils.translation import ugettext_lazy as _
 from tagulous.models import TagField, TagModel
 from model_utils.managers import InheritanceManager
+from django.core import management
 
 from core.models import TimestampedModel
 from utils.decorator import reify
@@ -552,3 +554,44 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 
     def __str__(self):
         return '{0}-{1}-{2}'.format(self.feature_type.name, self.id, self.name)
+
+
+class SpatialFile(TimestampedModel):
+    """
+    Model for uploading Spatial files such as shapefile.
+    Script would later add selected layer from the file to DB a
+    specific geometry type [polygon, line, point]
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    data = models.FileField()
+    feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
+    feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
+    layer_number = models.IntegerField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        """
+        Invoke import-layer management command on file save. This command
+        creates DB models based on features from shapefiles.
+        """
+        super(SpatialFile, self).save(*args, **kwargs)
+        uploaded_file_path = self.data.path
+        print(uploaded_file_path)
+        # Extract user-uploaded zip file.
+        with zipfile.ZipFile(uploaded_file_path, 'r') as zip_file_object:
+            zip_file_object.extractall('/user-uploads/')
+
+        # Find shapefile with extension '.shp'
+        extracted_directory_path = uploaded_file_path[:-4]
+        for file_name in os.listdir(extracted_directory_path):
+            print(file_name)
+            if file_name.endswith('.shp'):
+                shapefile_path = os.path.join(extracted_directory_path,
+                                              file_name)
+                management.call_command('importlayer', shapefile_path,
+                                        self.feature_set.name,
+                                        self.feature_type.name)
+                break
+
+    def __str__(self):
+        return str(self.id)
