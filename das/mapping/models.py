@@ -564,10 +564,12 @@ class SpatialFile(TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=25, blank=True)
+    description = models.CharField(max_length=100, blank=True)
     data = models.FileField()
     feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
     feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
-    layer_number = models.IntegerField(blank=True, null=True)
+    layer_number = models.IntegerField(blank=True, null=True, default=0)
 
     def save(self, *args, **kwargs):
         """
@@ -576,7 +578,7 @@ class SpatialFile(TimestampedModel):
         """
         super(SpatialFile, self).save(*args, **kwargs)
         uploaded_file_path = self.data.path
-        print(uploaded_file_path)
+        logger.info('User uploaded file path:   '.format(uploaded_file_path))
         # Extract user-uploaded zip file.
         with zipfile.ZipFile(uploaded_file_path, 'r') as zip_file_object:
             zip_file_object.extractall('/user-uploads/')
@@ -584,13 +586,16 @@ class SpatialFile(TimestampedModel):
         # Find shapefile with extension '.shp'
         extracted_directory_path = uploaded_file_path[:-4]
         for file_name in os.listdir(extracted_directory_path):
-            print(file_name)
             if file_name.endswith('.shp'):
                 shapefile_path = os.path.join(extracted_directory_path,
                                               file_name)
-                management.call_command('importlayer', shapefile_path,
-                                        self.feature_set.name,
-                                        self.feature_type.name)
+                try:
+                    management.call_command('importlayer', shapefile_path,
+                                            self.feature_set.name,
+                                            self.feature_type.name,
+                                            layer=self.layer_number)
+                except Exception as err:
+                    logger.error(err)
                 break
 
     def __str__(self):
