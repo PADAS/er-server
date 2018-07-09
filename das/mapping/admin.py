@@ -86,5 +86,4 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
 
 @admin.register(models.SpatialFile)
 class SpatialFileAdmin(admin.ModelAdmin):
-    # search_fields = ('name',)
     pass
