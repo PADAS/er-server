@@ -13,6 +13,7 @@ from django.utils.translation import ugettext_lazy as _
 from tagulous.models import TagField, TagModel
 from model_utils.managers import InheritanceManager
 from django.core import management
+from django.core.exceptions import ValidationError
 
 from core.models import TimestampedModel
 from utils.decorator import reify
@@ -571,6 +572,41 @@ class SpatialFile(TimestampedModel):
     feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
 
+    def import_spatial_file(self, uploaded_file_path):
+        """
+        Import features by invoking importlayer management command.
+        :param uploaded_file_path: Path of uploaded file.
+        """
+        try:
+            if uploaded_file_path.endswith('.zip'):
+                # Extract user-uploaded zip file.
+                with zipfile.ZipFile(
+                        uploaded_file_path, 'r') as zip_file_object:
+                    zip_file_object.extractall('/user-uploads/')
+
+                # Find shapefile with extension '.shp'
+                extracted_directory_path = uploaded_file_path[:-4]
+                for file_name in os.listdir(extracted_directory_path):
+                    if file_name.endswith('.shp'):
+                        shapefile_path = os.path.join(extracted_directory_path,
+                                                      file_name)
+                        management.call_command(
+                            'importlayer', shapefile_path,
+                            self.feature_set.name, self.feature_type.name,
+                            layer=self.layer_number)
+                        break
+
+            # Import features from geojson file.
+            elif uploaded_file_path.endswith('json'):
+                management.call_command('importlayer', uploaded_file_path,
+                                        self.feature_set.name,
+                                        self.feature_type.name,
+                                        layer=self.layer_number)
+        except Exception as err:
+            logger.error(err)
+            raise ValidationError('Error in retrieving features from '
+                                  'spatial file:    {}'.format(err))
+
     def save(self, *args, **kwargs):
         """
         Invoke import-layer management command on file save. This command
@@ -579,24 +615,7 @@ class SpatialFile(TimestampedModel):
         super(SpatialFile, self).save(*args, **kwargs)
         uploaded_file_path = self.data.path
         logger.info('User uploaded file path:   '.format(uploaded_file_path))
-        # Extract user-uploaded zip file.
-        with zipfile.ZipFile(uploaded_file_path, 'r') as zip_file_object:
-            zip_file_object.extractall('/user-uploads/')
-
-        # Find shapefile with extension '.shp'
-        extracted_directory_path = uploaded_file_path[:-4]
-        for file_name in os.listdir(extracted_directory_path):
-            if file_name.endswith('.shp'):
-                shapefile_path = os.path.join(extracted_directory_path,
-                                              file_name)
-                try:
-                    management.call_command('importlayer', shapefile_path,
-                                            self.feature_set.name,
-                                            self.feature_type.name,
-                                            layer=self.layer_number)
-                except Exception as err:
-                    logger.error(err)
-                break
+        self.import_spatial_file(uploaded_file_path)
 
     def __str__(self):
         return str(self.id)
