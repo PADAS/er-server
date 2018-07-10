@@ -9,20 +9,35 @@ class EventRelationshipInline(admin.TabularInline):
     fk_name = 'from_event'
 
 
+class EventDetailsInline(admin.TabularInline):
+    model = models.EventDetails
+
+
 @admin.register(models.Event)
 class EventAdmin(admin.OSMGeoAdmin):
     openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
 
-    list_display = ('created_at', 'event_type',
-                    'message', 'location', 'attributes',)
-    readonly_fields = ('id', 'created_at', 'updated_at')
+    list_display = ('serial_number', 'created_at', 'event_type',
+                    'title', 'location', 'attributes',)
+    readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
+    search_fields = ('title', 'serial_number')
+    list_filter = ('event_type',)
     inlines = [
-        EventRelationshipInline,
+        EventDetailsInline,
+        # EventRelationshipInline,
     ]
 
-    # list_display = ['id', 'plugin_class', 'plugin_name', 'created_at', 'updated_at', 'configuration']
+    fieldsets = (
+        (None, {
+            'fields': ('serial_number', 'title', 'event_type', 'event_time', 'end_time',)
+        }),
+        ('Advanced', {
+            'classes': ('wide', 'collapse',),
+            'fields': ('state', 'priority', 'location', 'id', 'created_at', 'updated_at',)
+        })
+    )
 
 
 @admin.register(models.Community)

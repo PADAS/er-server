@@ -1037,11 +1037,18 @@ class EventSource(TimestampedModel):
     event_type = models.ForeignKey(EventType, on_delete=models.PROTECT,
                                    blank=True, null=True)
 
+    is_active = models.BooleanField(
+        default=True, verbose_name='Whether this EventSource may accept new events.')
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='eventsources', related_query_name='eventsource')
 
     additional = JSONField(default=dict, blank=True)
+
+    @property
+    def is_ready(self):
+        return self.is_active and self.event_type is not None
 
     # revision = Revision()
 

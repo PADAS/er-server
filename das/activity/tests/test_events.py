@@ -1190,6 +1190,65 @@ class TestEventView(BaseAPITest):
             eselist[0].eventsource.external_event_type, external_event_type)
         self.assertEqual(eselist[0].event.title, event_title)
 
+    def test_add_duplicate_external_event_id(self):
+
+        external_event_type = 'smart-carcass-report'
+        eventsource_data = {
+            'external_event_type': external_event_type,
+            'display': 'DAS: Carcass',
+            'event_type': 'carcass_rep',
+            'additional': {'version': 0},
+        }
+
+        request = self.factory.post(self.api_base
+                                    + '/eventsources', eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        # Create event source.
+        response = views.EventSourcesView.as_view()(request,)
+        self.assertEqual(response.status_code, 201)
+
+        esid = response.data['id']
+        external_event_id = 'abcdefgh-ijklmnop'
+        # Create an event with an "External Event ID"
+        event_title = 'Some arbirtrary event title.'
+        event_data = {
+            "event_details": {
+                "attributes": [
+                    {"key": "a", "value": "1"}
+                ]
+            },
+
+            "external_event_type": external_event_type,
+            "priority": 100,
+            "title": event_title,
+            "external_event_id": external_event_id,
+            "location": {"latitude": 38.4, "longitude": -116.5},
+            "time": datetime.now(tz=pytz.utc).isoformat(),
+        }
+
+        request = self.factory.post(f'{self.api_base}/events', event_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventsView.as_view()(request,)
+        self.assertEqual(response.status_code, 201)
+
+        eselist = EventsourceEvent.objects.filter(
+            eventsource_id=esid, external_event_id=external_event_id)
+
+        self.assertEqual(eselist.count(), 1)
+
+        self.assertEqual(
+            eselist[0].eventsource.external_event_type, external_event_type)
+        self.assertEqual(eselist[0].event.title, event_title)
+
+        # Add duplicate
+        request = self.factory.post(f'{self.api_base}/events', event_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventsView.as_view()(request,)
+        self.assertEqual(response.status_code, 409)
+
     def test_add_event_with_external_event_type_and_no_permissions(self):
 
         eventsource_data = {

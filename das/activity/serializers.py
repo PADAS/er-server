@@ -20,9 +20,11 @@ from django.db.models import ForeignKey
 from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
 import rest_framework.serializers
+import rest_framework.status
 from rest_framework.metadata import BaseMetadata
 from rest_framework.fields import DateTimeField
 from rest_framework.exceptions import ValidationError, APIException
+from django.utils.encoding import force_text
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from versatileimagefield.serializers import VersatileImageFieldSerializer
@@ -47,6 +49,31 @@ from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 import utils.schema_utils as schema_utils
 from activity.models import EventRelationship
 import usercontent.serializers
+
+
+class DuplicateResourceError(APIException):
+    default_status_code = rest_framework.status.HTTP_409_CONFLICT
+    default_fieldname = 'unknown field'
+    default_detail = 'The resource provided conflicts with an existing resource.'
+
+    def __init__(self, fieldname=None, detail=None, status_code=None):
+
+        self.status_code = status_code or self.default_status_code
+
+        self.detail = {
+            fieldname or self.default_fieldname: force_text(detail or self.default_detail)
+        }
+
+# class CustomValidation(APIException):
+#     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+#     default_detail = 'A server error occurred.'
+#
+#     def __init__(self, detail, field, status_code):
+#         if status_code is not None:self.status_code = status_code
+#         if detail is not None:
+#             self.detail = {field: force_text(detail)}
+#         else: self.detail = {'detail': force_text(self.default_detail)}
+
 
 logger = logging.getLogger(__name__)
 
@@ -1144,9 +1171,13 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
                 if activity.models.EventsourceEvent.objects.filter(eventsource=external_event_type,
                                                                    external_event_id=attrs.get('external_event_id')).exists():
-                    raise rest_framework.serializers.ValidationError(
-                        {'external_event_id': 'External event ID already exists.'}
+                    # raise rest_framework.serializers.ValidationError(
+                    #     {'external_event_id': 'External event ID already exists.'}
+                    # )
+                    error = DuplicateResourceError(
+                        fieldname='external_event_id', detail='External event ID already exists.'
                     )
+                    raise error
             if not event_type:
                 raise rest_framework.serializers.ValidationError(
                     {'event_type': 'Event type must be provided.'})
@@ -1359,7 +1390,8 @@ class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
         model = activity.models.EventSource
         read_only_fields = ('id', 'owner',)
         fields = read_only_fields + \
-            ('external_event_type', 'display', 'event_type', 'additional',)
+            ('external_event_type', 'display',
+             'event_type', 'additional', 'is_ready',)
 
     def to_representation(self, obj):
         rep = super().to_representation(obj, )
