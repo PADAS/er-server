@@ -85,7 +85,18 @@ class EventFactorAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventSource)
 class EventSourceAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('display', 'owner', 'event_type', 'is_active',)
+    readonly_fields = ('external_event_type', 'id',)
+
+    fieldsets = (
+        (None, {
+            'fields': ('display', 'event_type', 'is_active',)
+        }),
+        ('Advanced', {
+            'fields': ('owner', 'external_event_type', 'id'),
+            'classes': ('wide', 'collapse',)
+        })
+    )
 
 
 @admin.register(models.EventsourceEvent)
