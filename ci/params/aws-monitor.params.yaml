@@ -1,0 +1,5 @@
+cluster-name: aws-monitor
+version-suffix: aws-monitor
+server-branch-name: feature/aws-monitor
+web-branch-name: develop
+deployment-plan: integration
