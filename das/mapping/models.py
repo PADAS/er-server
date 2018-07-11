@@ -563,7 +563,6 @@ class SpatialFile(TimestampedModel):
     Script would later add selected layer from the file to DB a
     specific geometry type [polygon, line, point]
     """
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=25, blank=True)
     description = models.CharField(max_length=100, blank=True)
@@ -578,44 +577,75 @@ class SpatialFile(TimestampedModel):
         :param uploaded_file_path: Path of uploaded file.
         """
         try:
+            import_file = None
             if uploaded_file_path.endswith('.zip'):
                 # Extract user-uploaded zip file.
                 with zipfile.ZipFile(
                         uploaded_file_path, 'r') as zip_file_object:
                     zip_file_object.extractall('/user-uploads/')
 
-                # Find shapefile with extension '.shp'
+                # Extract features from File Geodatabase. Ext='.gbd'
                 extracted_directory_path = uploaded_file_path[:-4]
-                for file_name in os.listdir(extracted_directory_path):
-                    if file_name.endswith('.shp'):
-                        shapefile_path = os.path.join(extracted_directory_path,
-                                                      file_name)
-                        management.call_command(
-                            'importlayer', shapefile_path,
-                            self.feature_set.name, self.feature_type.name,
-                            layer=self.layer_number)
-                        break
+                if extracted_directory_path.endswith('.gdb'):
+                    import_file = extracted_directory_path
+
+                # Find shapefile with extension '.shp'
+                else:
+                    for file_name in os.listdir(extracted_directory_path):
+                        if file_name.endswith('.shp'):
+                            shapefile_path = os.path.join(
+                                extracted_directory_path, file_name)
+                            import_file = shapefile_path
+                            break
 
             # Import features from geojson file.
             elif uploaded_file_path.endswith('json'):
-                management.call_command('importlayer', uploaded_file_path,
+                import_file = uploaded_file_path
+
+            if import_file:
+                management.call_command('importlayer', import_file,
                                         self.feature_set.name,
                                         self.feature_type.name,
                                         layer=self.layer_number)
         except Exception as err:
             logger.error(err)
-            raise ValidationError('Error in retrieving features from '
-                                  'spatial file:    {}'.format(err))
+            raise ValidationError(err)
 
-    def save(self, *args, **kwargs):
+    @staticmethod
+    def cleanup_files(uploaded_file_path):
         """
-        Invoke import-layer management command on file save. This command
-        creates DB models based on features from shapefiles.
+        Remove files/directories from the provided path.
+        If provided path is a .zip file, extracted file/directory will also be
+        removed.
+        :param uploaded_file_path: Path of file/directory to be removed.
         """
-        super(SpatialFile, self).save(*args, **kwargs)
+        if os.path.isfile(uploaded_file_path):
+            os.remove(uploaded_file_path)
+        if uploaded_file_path.endswith('.zip') and os.path.isdir(
+                uploaded_file_path[:-4]):
+            import shutil
+            shutil.rmtree(uploaded_file_path[:-4])
+
+    # Clean method is used for better error handling within the admin form
+    # itself. To have the file data available, save method needs to be invoked.
+    #  Cleanup method will remove files in case of validation error.
+    # Can a better way be utilized which avoids saving the Spatial file model?
+    def clean(self):
+        """
+        Overwriting clean method to have error handling within the admin form.
+        """
+        self.save()
         uploaded_file_path = self.data.path
         logger.info('User uploaded file path:   '.format(uploaded_file_path))
-        self.import_spatial_file(uploaded_file_path)
+        try:
+            self.import_spatial_file(uploaded_file_path)
+        except ValidationError as err:
+            SpatialFile.objects.filter(id=self.id).delete()
+            self.cleanup_files(uploaded_file_path)
+            raise ValidationError(
+                'Error in retrieving features from spatial file:    {}\n '
+                'Please verify the spatial file.'.format(err)
+            )
 
     def __str__(self):
         return str(self.id)
