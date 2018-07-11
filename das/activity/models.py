@@ -216,7 +216,7 @@ class EventType(TimestampedModel):
         return (self.value,)
 
     @property
-    def icon_key(self):
+    def icon_id(self):
         return self.icon if self.icon else self.value
 
 
@@ -676,6 +676,10 @@ class Event(RevisionMixin, TimestampedModel):
     def time(self):
         return self.event_time
 
+    @property
+    def icon_id(self):
+        return self.event_type.icon_id
+
     @staticmethod
     def image_basename(event_type, priority, state):
         CONVERSION = {0: 'gray', 100: 'med_green', 200: 'amber', 300: 'red'}
@@ -708,7 +712,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     @property
     def image_url(self):
-        return Event.marker_icon(self.event_type.value, self.priority, self.state)
+        return Event.marker_icon(self.event_type.icon_id, self.priority, self.state)
 
     def dependent_table_updated(self):
         self.updated_at = timezone.now()
