@@ -1025,7 +1025,7 @@ class EventHeaderSerializer(EventSerializerMixin, rest_framework.serializers.Mod
     class Meta:
         model = activity.models.Event
         fields = ('id', 'message', 'time', 'end_time',
-                  'serial_number', 'priority', 'event_type')
+                  'serial_number', 'priority', 'event_type', 'icon_id',)
 
     def to_representation(self, event):
         rep = super().to_representation(event)
@@ -1205,13 +1205,13 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     class Meta:
         model = activity.models.Event
-        read_only_fields = ('updated_at', 'created_at')
+        read_only_fields = ('updated_at', 'created_at', 'icon_id',)
         fields = (
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
-            'files', 'related_subjects', 'external_event_type', 'external_event_id', ) + read_only_fields
+            'files', 'related_subjects', 'external_event_type', 'external_event_id') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

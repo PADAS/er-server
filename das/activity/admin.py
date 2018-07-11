@@ -55,7 +55,7 @@ class EventTypeAdmin(admin.ModelAdmin):
     ordering = ('category', 'ordernum', 'display',)
     list_filter = ('category',)
     list_display = ('display', 'value', 'ordernum',
-                    'category', 'is_collection')
+                    'category', 'is_collection', 'default_priority',)
     list_editable = ('ordernum',)
     fieldsets = (
         (None, {
