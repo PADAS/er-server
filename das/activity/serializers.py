@@ -1171,9 +1171,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
                 if activity.models.EventsourceEvent.objects.filter(eventsource=external_event_type,
                                                                    external_event_id=attrs.get('external_event_id')).exists():
-                    # raise rest_framework.serializers.ValidationError(
-                    #     {'external_event_id': 'External event ID already exists.'}
-                    # )
                     error = DuplicateResourceError(
                         fieldname='external_event_id', detail='External event ID already exists.'
                     )
@@ -1183,6 +1180,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                     {'event_type': 'Event type must be provided.'})
             else:
                 attrs['event_type'] = event_type
+
+        # Default priority from Event-Type if it's not provided in POST.
+        if self.instance is None:
+            if attrs.get('priority') is None:
+                attrs['priority'] = attrs['event_type'].default_priority
 
         return super().validate(attrs)
 

@@ -215,6 +215,10 @@ class EventType(TimestampedModel):
     def natural_key(self):
         return (self.value,)
 
+    @property
+    def icon_key(self):
+        return self.icon if self.icon else self.value
+
 
 def parse_date_range(val):
     lower, upper = (None, None)
