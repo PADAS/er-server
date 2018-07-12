@@ -570,6 +570,9 @@ class SpatialFile(TimestampedModel):
     feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
     feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
+    name_field = models.CharField(max_length=100, blank=True)
+    id_field = models.CharField(max_length=100, blank=True)
+    utm = models.CharField(max_length=50, blank=True)
 
     def import_spatial_file(self, uploaded_file_path):
         """
@@ -578,7 +581,7 @@ class SpatialFile(TimestampedModel):
         """
         try:
             import_file = None
-            if uploaded_file_path.endswith('.zip'):
+            if uploaded_file_path.lower().endswith('.zip'):
                 # Extract user-uploaded zip file.
                 with zipfile.ZipFile(
                         uploaded_file_path, 'r') as zip_file_object:
@@ -586,27 +589,29 @@ class SpatialFile(TimestampedModel):
 
                 # Extract features from File Geodatabase. Ext='.gbd'
                 extracted_directory_path = uploaded_file_path[:-4]
-                if extracted_directory_path.endswith('.gdb'):
+                if extracted_directory_path.lower().endswith('.gdb'):
                     import_file = extracted_directory_path
 
                 # Find shapefile with extension '.shp'
                 else:
                     for file_name in os.listdir(extracted_directory_path):
-                        if file_name.endswith('.shp'):
+                        if file_name.lower().endswith('.shp'):
                             shapefile_path = os.path.join(
                                 extracted_directory_path, file_name)
                             import_file = shapefile_path
                             break
 
             # Import features from geojson file.
-            elif uploaded_file_path.endswith('json'):
+            elif uploaded_file_path.lower().endswith('json'):
                 import_file = uploaded_file_path
 
             if import_file:
-                management.call_command('importlayer', import_file,
-                                        self.feature_set.name,
-                                        self.feature_type.name,
-                                        layer=self.layer_number)
+                management.call_command(
+                    'importlayer', import_file, self.feature_set.name,
+                    self.feature_type.name, layer=self.layer_number,
+                    name_field=self.name_field, id_field=self.id_field,
+                    utm=self.utm
+                )
         except Exception as err:
             logger.error(err)
             raise ValidationError(err)
