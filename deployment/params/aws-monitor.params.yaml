@@ -2,13 +2,12 @@ static-values:
   email-host: ""
   email-username: ""
   web-service-name: "web"
-  nginx-utility-service-ip: ""
+  nginx-utility-service-ip: 35.233.255.38
   alerts-slack-channel: "das-dev"
   send-alerts: "true"
   node-exporter-version: v0.16.0
 environment:
   static-ip: STATIC_IP
-  nginx-utility-service-ip: 35.233.255.38
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
