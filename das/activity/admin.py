@@ -2,6 +2,9 @@ from django.contrib.gis import admin
 import activity.models as models
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.forms import Textarea
+from django.contrib.admin.widgets import AdminFileWidget
+from django.utils.translation import ugettext as _
+from django.utils.safestring import mark_safe
 
 
 class EventRelationshipInline(admin.TabularInline):
@@ -50,13 +53,26 @@ class EventRelatedSubject(admin.ModelAdmin):
     ordering = ('event__id', 'subject')
 
 
+# class AdminImageWidget(AdminFileWidget):
+#     def render(self, name, value, attrs=None):
+#         output = []
+#         if value and getattr(value, "url", None):
+#             image_url = value.url
+#             file_name=str(value)
+#             output.append(u' <a href="%s" target="_blank"><img src="%s" alt="%s" /></a> %s ' % \
+#                 (image_url, image_url, file_name, _('Change:')))
+#         output.append(super(AdminImageWidget, self).render(name, value, attrs))
+#         return mark_safe(u''.join(output))
+
+
 @admin.register(models.EventType)
 class EventTypeAdmin(admin.ModelAdmin):
     ordering = ('category', 'ordernum', 'display',)
     list_filter = ('category',)
     list_display = ('display', 'value', 'ordernum',
-                    'category', 'is_collection', 'default_priority',)
+                    'category', 'is_collection', '_default_priority_display', '_icon_display',)
     list_editable = ('ordernum',)
+
     fieldsets = (
         (None, {
             'fields': ('display', 'value', 'is_collection', 'ordernum', 'category',)
@@ -67,6 +83,30 @@ class EventTypeAdmin(admin.ModelAdmin):
              'fields': ('schema', 'icon', 'default_priority'),
          })
     )
+
+    def _icon_display(self, obj):
+        url = models.Event.marker_icon(
+            obj.icon_id, models.Event.PRI_NONE, models.Event.SC_NEW)
+        return mark_safe(f'<img src="{url}" style="height:2.5em" />')
+
+    _icon_display.short_description = 'Icon'
+
+    def _default_priority_display(self, obj):
+        url = models.Event.marker_icon(
+            obj.icon_id, obj.default_priority, models.Event.SC_NEW)
+        priority_name = models.Event.PRIORITY_LABELS_MAP.get(
+            obj.default_priority, models.Event.PRI_NONE)
+        return mark_safe(f'<img src="{url}" style="max-height:2.5em" /><p>({priority_name})</p>')
+
+    _default_priority_display.short_description = 'Default Priority'
+
+    # def formfield_for_dbfield(self, db_field, **kwargs):
+    #     if db_field.name == 'icon':
+    #         request = kwargs.pop("request", None)
+    #         kwargs['widget'] = AdminImageWidget
+    #         return db_field.formfield(**kwargs)
+    # return super(EventTypeAdmin, self).formfield_for_dbfield(db_field,
+    # **kwargs)
 
 
 @admin.register(models.EventClass)
