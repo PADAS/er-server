@@ -121,6 +121,10 @@ class EventCategory(TimestampedModel):
     def natural_key(self):
         return (self.value,)
 
+    @property
+    def auto_permissionset_name(self):
+        return _('Admin {} Permissions').format(self.display)
+
 
 @receiver(post_save, sender=EventCategory)
 def ensure_perms_exist(sender, **kwargs):
@@ -129,12 +133,19 @@ def ensure_perms_exist(sender, **kwargs):
             app_label='activity', model='event')
         category_name = kwargs['instance'].value
 
+        category_display = kwargs['instance'].display
+        permissionset_name = kwargs['instance'].auto_permissionset_name
+        permissionset, created = PermissionSet.objects.get_or_create(
+            name=permissionset_name)
+
         for operation in ['create', 'read', 'update', 'delete']:
             codename = '{0}_{1}'.format(category_name, operation)
             defaults = {'name': 'Can {1} {0} events'.format(category_name, operation),
                         'content_type': content_type}
-            Permission.objects.get_or_create(
+            permission, created = Permission.objects.get_or_create(
                 codename=codename, defaults=defaults)
+
+            permissionset.permissions.add(permission)
 
 
 class FilterFieldMixin(object):

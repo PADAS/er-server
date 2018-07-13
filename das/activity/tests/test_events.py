@@ -915,11 +915,22 @@ class TestEventView(BaseAPITest):
     def test_add_event_category(self):
         value = 'new'
         display = 'new event permissions'
-        EventCategory.objects.create(value=value, display=display)
+        event_category = EventCategory.objects.create(
+            value=value, display=display)
+
+        expected_permissionset_name = event_category.auto_permissionset_name
+        permissionset_list = PermissionSet.objects.filter(
+            name=expected_permissionset_name)
+
+        self.assertEqual(permissionset_list.count(), 1)
 
         for operation in ['create', 'read', 'update', 'delete']:
             codename = '{0}_{1}'.format(value, operation)
-            self.assertIsNotNone(Permission.objects.get(codename=codename))
+            permission_list = Permission.objects.filter(codename=codename)
+
+            self.assertEqual(permission_list.count(), 1)
+            self.assertTrue(
+                permission_list[0] in permissionset_list[0].permissions.all())
 
     def test_all_perms_user_permissions(self):
         results = self.do_all_operations_on_all_event_types(
