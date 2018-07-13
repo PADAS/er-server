@@ -48,11 +48,12 @@
 
         var ans = true;
 
-        if (document.getElementById('id_schema').innerHTML.length > 0) {
+        if (document.getElementById('id_schema').value.length > 0) {
             ans = confirm('The schema will be replaced with a generic schema. Are you sure you want to do this?');
         }
         if (ans == true) {
-            document.getElementById('id_schema').innerHTML = JSON.stringify(generic_keyvalue_schema, undefined, 4);
+            var ta = document.getElementById('id_schema');
+            ta.value = JSON.stringify(generic_keyvalue_schema, undefined, 4);
         }
 
     });
