@@ -24,7 +24,6 @@ class Migration(migrations.Migration):
                 ('layer_number', models.IntegerField(blank=True, default=0, null=True)),
                 ('name_field', models.CharField(blank=True, max_length=100)),
                 ('id_field', models.CharField(blank=True, max_length=100)),
-                ('utm', models.CharField(blank=True, max_length=50)),
                 ('feature_set', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='mapping.FeatureSet')),
                 ('feature_type', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='mapping.FeatureType')),
             ],

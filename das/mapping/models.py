@@ -572,7 +572,7 @@ class SpatialFile(TimestampedModel):
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True)
     id_field = models.CharField(max_length=100, blank=True)
-    utm = models.CharField(max_length=50, blank=True)
+    # utm = models.CharField(max_length=50, blank=True)
 
     def import_spatial_file(self, uploaded_file_path):
         """
