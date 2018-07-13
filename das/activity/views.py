@@ -443,9 +443,6 @@ class EventsView(generics.ListCreateAPIView):
         context['include_files'] = parse_bool(
             query_params.get('include_files', True))
 
-        # context['external_event_type'] = self.request.data.pop('external_event_type', None)
-        # context['external_event_id'] = self.request.data.pop('external_event_id', None)
-
         # if this is a POST, returned any contained events
         try:
             include_for_posts = request._request.method == 'POST'

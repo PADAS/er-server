@@ -51,6 +51,9 @@ from activity.models import EventRelationship
 import usercontent.serializers
 
 
+logger = logging.getLogger(__name__)
+
+
 class DuplicateResourceError(APIException):
     default_status_code = rest_framework.status.HTTP_409_CONFLICT
     default_fieldname = 'unknown field'
@@ -63,19 +66,6 @@ class DuplicateResourceError(APIException):
         self.detail = {
             fieldname or self.default_fieldname: force_text(detail or self.default_detail)
         }
-
-# class CustomValidation(APIException):
-#     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-#     default_detail = 'A server error occurred.'
-#
-#     def __init__(self, detail, field, status_code):
-#         if status_code is not None:self.status_code = status_code
-#         if detail is not None:
-#             self.detail = {field: force_text(detail)}
-#         else: self.detail = {'detail': force_text(self.default_detail)}
-
-
-logger = logging.getLogger(__name__)
 
 
 class EventAttributesField(rest_framework.serializers.JSONField):
