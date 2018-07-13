@@ -44,8 +44,7 @@ def handle_gps_plus_position(position):
                                           model_name=MODEL_NAME,
                                           provider=provider.provider_key,
                                           subject={
-                                              'subject_type': Subject.TYPE_UNASSIGNED,
-                                              'subject_subtype_id': Subject.SUBTYPE_UNASSIGNED,
+                                              'subject_subtype_id': 'unassigned',
                                               'name': manufacturer_id
                                           }
                                           )
