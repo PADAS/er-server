@@ -1,0 +1,9 @@
+.das_button {
+    font-size: 13px;
+    background: #79aec8;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+}

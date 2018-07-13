@@ -65,8 +65,15 @@ class EventRelatedSubject(admin.ModelAdmin):
 #         return mark_safe(u''.join(output))
 
 
+from activity.forms import EventTypeForm
+
+from django.http.response import HttpResponseRedirect
+
+
 @admin.register(models.EventType)
 class EventTypeAdmin(admin.ModelAdmin):
+
+    form = EventTypeForm
     ordering = ('category', 'ordernum', 'display',)
     list_filter = ('category',)
     list_display = ('display', 'value', 'ordernum',
@@ -75,12 +82,13 @@ class EventTypeAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {
-            'fields': ('display', 'value', 'is_collection', 'ordernum', 'category',)
+            'fields': ('display', 'value', 'category', 'is_collection', 'default_priority', 'icon', 'ordernum', )
         }
         ),
-        ('Schema & Definition',
+        ('Schema & Form Definition',
          {
-             'fields': ('schema', 'icon', 'default_priority'),
+             "classes": ('wide',),
+             'fields': ('schema',),
          })
     )
 
@@ -100,13 +108,9 @@ class EventTypeAdmin(admin.ModelAdmin):
 
     _default_priority_display.short_description = 'Default Priority'
 
-    # def formfield_for_dbfield(self, db_field, **kwargs):
-    #     if db_field.name == 'icon':
-    #         request = kwargs.pop("request", None)
-    #         kwargs['widget'] = AdminImageWidget
-    #         return db_field.formfield(**kwargs)
-    # return super(EventTypeAdmin, self).formfield_for_dbfield(db_field,
-    # **kwargs)
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        return form
 
 
 @admin.register(models.EventClass)
@@ -133,7 +137,7 @@ class EventSourceAdmin(admin.ModelAdmin):
             'fields': ('display', 'event_type', 'is_active',)
         }),
         ('Advanced', {
-            'fields': ('owner', 'external_event_type', 'id'),
+            'fields': ('owner', 'external_event_type', 'additional', 'id'),
             'classes': ('wide', 'collapse',)
         })
     )
