@@ -9,7 +9,7 @@
 MANAGE_PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT=padas-app
 CONCOURSE_URL=https://ci.pamdas.org
-ELASTIC_URL=
+ELASTIC_URL=elastic.vulcancloud.io
 TOOLS_VERSION=1.0.64
 VCLOUD_SERVICE_URL=http://vcloud.vulcancloud.io:5000/
 
