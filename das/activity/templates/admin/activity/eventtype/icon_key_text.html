@@ -1,2 +1,28 @@
-<input type="{{ widget.type }}" name="{{ widget.name }}"{% if widget.value != None %} value="{{ widget.value|stringformat:'s' }}"{% endif %}{% include "django/forms/widgets/attrs.html" %} />
-<span>add picker here.</span>
+<script>
+  
+  const onImageClick = (val) => {
+    const input = document.querySelector('#id_icon');
+    console.log('val', val);
+
+    input.value = val;
+    
+  };
+
+</script>
+
+<div id="icon_key_text">
+  <input disabled type="{{ widget.type }}" name="{{ widget.name }}"{% if widget.value != None %} value="{{ widget.value|stringformat:'s' }}"{% endif %}{% include "django/forms/widgets/attrs.html" %} />
+  
+  <ul>
+    <li>
+      <img src="/static/sprite-src/carcass_rep.svg" onclick="onImageClick('carcass_rep')"/>
+    </li>
+   <!-- 
+     list of images goes here. format is 
+     <li>
+       <img src="/path/to/image.svg" onclick="onImageClick('image_name')" />
+     </li>
+    -->
+  </ul>
+
+</div>

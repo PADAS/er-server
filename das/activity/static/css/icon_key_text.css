@@ -1,0 +1,18 @@
+#id_icon {
+  border: none;
+  outline: none;
+  padding: 0;
+  pointer-events: none;
+}
+
+#icon_key_text ul {
+  list-style-type: none;
+  display: flex;
+  padding: 0;
+}
+
+#icon_key_text li {
+  height: 4rem;
+  padding: 1rem;
+  width: 4rem;
+}
