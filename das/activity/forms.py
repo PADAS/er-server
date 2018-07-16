@@ -39,7 +39,17 @@ class IconKeyInput(Widget):
     def get_context(self, name, value, attrs):
         context = super().get_context(name, value, attrs)
         context['widget']['type'] = self.input_type
-        context['image_list'] = list(self.image_list_fn())
+        image_list = list(self.image_list_fn())
+        context['image_list'] = image_list
+
+        if context['widget']['value']:
+            try:
+                context['widget']['file_path'] = \
+                    next(o for o in image_list if o['key'] == context['widget']['value'])[
+                    'file_path']
+            except StopIteration:
+                pass
+
         return context
 
     class Media:
