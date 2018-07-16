@@ -1,0 +1,26 @@
+<script>
+  
+  const onImageClick = (val) => {
+    const input = document.querySelector('#{{ widget.attrs.id }}');
+    console.log('val', val);
+
+    input.value = val;
+    
+  };
+
+</script>
+
+<div id="icon_key_text">
+  <input disabled type="{{ widget.type }}"
+         name="{{ widget.name }}"{% if widget.value != None %}
+         value="{{ widget.value|stringformat:'s' }}"{% endif %}{% include "django/forms/widgets/attrs.html" %} />
+
+  <ul>
+      {% for item in image_list %}
+    <li>
+      <img src="{{item.file_path}}" onclick="onImageClick('{{item.key}}')"/>
+    </li>
+      {% endfor %}
+  </ul>
+
+</div>
