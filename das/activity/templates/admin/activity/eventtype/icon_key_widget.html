@@ -46,8 +46,6 @@
     const list = document.querySelector('.event-type-icon-list');
     const clearIconLink = document.querySelector('.clear-selected-icon');
 
-    console.log('label', label);
-
     const hideListOnOutsideClick = (e) => {
       const clickIsOutside = ![input, label, label.querySelector('img'), sampleImage, list, clearIconLink].some(el => el === e.target);
 
