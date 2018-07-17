@@ -74,4 +74,5 @@ class EventTypeForm(forms.ModelForm):
         attrs={'rows': 30, 'cols': 100}))
 
     icon = forms.CharField(required=False,
+                           label='Icon Override',
                            widget=IconKeyInput(image_list_fn=get_event_icon_select_list))
