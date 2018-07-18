@@ -14,6 +14,7 @@ from tagulous.models import TagField, TagModel
 from model_utils.managers import InheritanceManager
 from django.core import management
 from django.core.exceptions import ValidationError
+from django.core.files.storage import FileSystemStorage
 
 from core.models import TimestampedModel
 from utils.decorator import reify
@@ -563,16 +564,20 @@ class SpatialFile(TimestampedModel):
     Script would later add selected layer from the file to DB a
     specific geometry type [polygon, line, point]
     """
+    import tempfile
+
+    temp_directory_name = tempfile.mkdtemp()
+    fs = FileSystemStorage(location=temp_directory_name)
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=25, blank=True)
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField()
+    data = models.FileField(storage=fs)
     feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
     feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True)
     id_field = models.CharField(max_length=100, blank=True)
-    # utm = models.CharField(max_length=50, blank=True)
 
     def import_spatial_file(self, uploaded_file_path):
         """
@@ -585,7 +590,7 @@ class SpatialFile(TimestampedModel):
                 # Extract user-uploaded zip file.
                 with zipfile.ZipFile(
                         uploaded_file_path, 'r') as zip_file_object:
-                    zip_file_object.extractall('/user-uploads/')
+                    zip_file_object.extractall(self.temp_directory_name)
 
                 # Extract features from File Geodatabase. Ext='.gbd'
                 extracted_directory_path = uploaded_file_path[:-4]
@@ -609,27 +614,18 @@ class SpatialFile(TimestampedModel):
                 management.call_command(
                     'importlayer', import_file, self.feature_set.name,
                     self.feature_type.name, layer=self.layer_number,
-                    name_field=self.name_field, id_field=self.id_field,
-                    utm=self.utm
+                    name_field=self.name_field, id_field=self.id_field
                 )
         except Exception as err:
             logger.error(err)
             raise ValidationError(err)
 
-    @staticmethod
-    def cleanup_files(uploaded_file_path):
+    def cleanup_files(self):
         """
-        Remove files/directories from the provided path.
-        If provided path is a .zip file, extracted file/directory will also be
-        removed.
-        :param uploaded_file_path: Path of file/directory to be removed.
+        Remove files/directories from the temporary folder.
         """
-        if os.path.isfile(uploaded_file_path):
-            os.remove(uploaded_file_path)
-        if uploaded_file_path.endswith('.zip') and os.path.isdir(
-                uploaded_file_path[:-4]):
-            import shutil
-            shutil.rmtree(uploaded_file_path[:-4])
+        import shutil
+        shutil.rmtree(self.temp_directory_name)
 
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
@@ -641,16 +637,17 @@ class SpatialFile(TimestampedModel):
         """
         self.save()
         uploaded_file_path = self.data.path
-        logger.info('User uploaded file path:   '.format(uploaded_file_path))
+        logger.info('User uploaded file path:   {}'.format(uploaded_file_path))
         try:
             self.import_spatial_file(uploaded_file_path)
         except ValidationError as err:
             SpatialFile.objects.filter(id=self.id).delete()
-            self.cleanup_files(uploaded_file_path)
             raise ValidationError(
                 'Error in retrieving features from spatial file:    {}\n '
                 'Please verify the spatial file.'.format(err)
             )
+        finally:
+            self.cleanup_files()
 
     def __str__(self):
         return str(self.id)
