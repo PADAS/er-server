@@ -18,4 +18,4 @@ vault-lookups:
 
   ndoki-smartconnect-provider-username: padas-app/sites/ndoki/smartconnect-provider-username
   ndoki-smartconnect-provider-password: padas-app/sites/ndoki/smartconnect-provider-password
-  ndoki-smartconnect-provider-das-token: padas/app/sites/ndoki/smartconnect-provider-das-token
+  ndoki-smartconnect-provider-das-token: padas-app/sites/ndoki/smartconnect-provider-das-token
