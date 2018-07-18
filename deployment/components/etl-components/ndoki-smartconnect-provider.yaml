@@ -40,8 +40,4 @@ spec:
                   name: ndoki-configmap
                   key: NDOKI_SMARTCONNECT_PROVIDER_PASSWORD
 
-            args:
-            - --config
-            - config/config.yaml
-            - config/action.yaml
           restartPolicy: Never
