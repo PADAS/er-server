@@ -15,3 +15,7 @@ vault-lookups:
   pamdas-org-private-key-pem: padas-app/main/pamdas-org-private-key-pem
   nginx-utility-ssl-key: padas-app/main/es-ssl-key
   elastic-basic-auth-password: padas-app/main/es-basic-auth-password
+
+  ndoki-smartconnect-provider-username: padas-app/sites/ndoki/smartconnect-provider-username
+  ndoki-smartconnect-provider-password: padas-app/sites/ndoki/smartconnect-provider-password
+  ndoki-smartconnect-provider-das-token: padas/app/sites/ndoki/smartconnect-provider-das-token
