@@ -2,11 +2,18 @@ from django.contrib.gis import admin
 import activity.models as models
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.forms import Textarea
+from django.contrib.admin.widgets import AdminFileWidget
+from django.utils.translation import ugettext as _
+from django.utils.safestring import mark_safe
 
 
 class EventRelationshipInline(admin.TabularInline):
     model = models.EventRelationship
     fk_name = 'from_event'
+
+
+class EventDetailsInline(admin.TabularInline):
+    model = models.EventDetails
 
 
 @admin.register(models.Event)
@@ -15,14 +22,25 @@ class EventAdmin(admin.OSMGeoAdmin):
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
 
-    list_display = ('created_at', 'event_type',
-                    'message', 'location', 'attributes',)
-    readonly_fields = ('id', 'created_at', 'updated_at')
+    list_display = ('serial_number', 'created_at', 'event_type',
+                    'title', 'location', 'attributes',)
+    readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
+    search_fields = ('title', 'serial_number')
+    list_filter = ('event_type',)
     inlines = [
-        EventRelationshipInline,
+        EventDetailsInline,
+        # EventRelationshipInline,
     ]
 
-    # list_display = ['id', 'plugin_class', 'plugin_name', 'created_at', 'updated_at', 'configuration']
+    fieldsets = (
+        (None, {
+            'fields': ('serial_number', 'title', 'event_type', 'event_time', 'end_time',)
+        }),
+        ('Advanced', {
+            'classes': ('wide', 'collapse',),
+            'fields': ('state', 'priority', 'location', 'id', 'created_at', 'updated_at',)
+        })
+    )
 
 
 @admin.register(models.Community)
@@ -35,19 +53,64 @@ class EventRelatedSubject(admin.ModelAdmin):
     ordering = ('event__id', 'subject')
 
 
+# class AdminImageWidget(AdminFileWidget):
+#     def render(self, name, value, attrs=None):
+#         output = []
+#         if value and getattr(value, "url", None):
+#             image_url = value.url
+#             file_name=str(value)
+#             output.append(u' <a href="%s" target="_blank"><img src="%s" alt="%s" /></a> %s ' % \
+#                 (image_url, image_url, file_name, _('Change:')))
+#         output.append(super(AdminImageWidget, self).render(name, value, attrs))
+#         return mark_safe(u''.join(output))
+
+
+from activity.forms import EventTypeForm
+
+from django.http.response import HttpResponseRedirect
+
+
 @admin.register(models.EventType)
 class EventTypeAdmin(admin.ModelAdmin):
+
+    form = EventTypeForm
     ordering = ('category', 'ordernum', 'display',)
     list_filter = ('category',)
     list_display = ('display', 'value', 'ordernum',
-                    'category', 'is_collection')
+                    'category', 'is_collection', '_default_priority_display', '_icon_display',)
     list_editable = ('ordernum',)
+
     fieldsets = (
         (None, {
-            'fields': ('display', 'value', 'is_collection', 'ordernum', 'schema', 'category',
-                       )}
-         ),
+            'fields': ('display', 'value', 'category', 'is_collection', 'default_priority', 'icon', 'ordernum', )
+        }
+        ),
+        ('Schema & Form Definition',
+         {
+             "classes": ('wide',),
+             'fields': ('schema',),
+         })
     )
+
+    def _icon_display(self, obj):
+        url = models.Event.marker_icon(
+            obj.icon_id, models.Event.PRI_NONE, models.Event.SC_NEW)
+        return mark_safe(f'<img src="{url}" style="height:2.5em" />')
+
+    _icon_display.short_description = 'Icon'
+
+    def _default_priority_display(self, obj):
+        url = models.Event.marker_icon(
+            obj.icon_id, obj.default_priority, models.Event.SC_NEW)
+        priority_name = models.Event.PRIORITY_LABELS_MAP.get(
+            obj.default_priority, models.Event.PRI_NONE)
+        return mark_safe(f'<img src="{url}" style="max-height:2.5em" /><p>({priority_name})</p>')
+
+    _default_priority_display.short_description = 'Default Priority'
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        return form
 
 
 @admin.register(models.EventClass)
@@ -61,6 +124,27 @@ class EventClassAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventFactor)
 class EventFactorAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(models.EventSource)
+class EventSourceAdmin(admin.ModelAdmin):
+    list_display = ('display', 'owner', 'event_type', 'is_active',)
+    readonly_fields = ('external_event_type', 'id',)
+
+    fieldsets = (
+        (None, {
+            'fields': ('display', 'event_type', 'is_active',)
+        }),
+        ('Advanced', {
+            'fields': ('owner', 'external_event_type', 'additional', 'id'),
+            'classes': ('wide', 'collapse',)
+        })
+    )
+
+
+@admin.register(models.EventsourceEvent)
+class EventsourceEventAdmin(admin.ModelAdmin):
     pass
 
 

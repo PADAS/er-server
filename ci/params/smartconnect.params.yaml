@@ -1,5 +1,9 @@
 cluster-name: smartconnect
 version-suffix: smartconnect  
-server-branch-name: feature/smartconnect
+server-branch-name: develop
 web-branch-name: develop
-deployment-plan: integration
+deployment-plan: smartconnect
+smartconnect-provider-branch-name: develop
+
+# Use deployment files from feature branch
+deploy-params-environment: develop
