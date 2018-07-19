@@ -18,7 +18,7 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: ndoki-configmap
-                  key: NDOKI_SMARTCONNECDT_PROVIDER_DAS_API
+                  key: NDOKI_SMARTCONNECT_PROVIDER_DAS_API
             - name: DAS_TOKEN
               valueFrom:
                 configMapKeyRef:

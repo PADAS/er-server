@@ -8,4 +8,4 @@ data:
   NDOKI_SMARTCONNECT_PROVIDER_PASSWORD: "<<ndoki-smartconnect-provider-password>>"
   NDOKI_SMARTCONNECT_PROVIDER_API: "https://ndokiconnect.smartconservationtools.org:8443/"
   NDOKI_SMARTCONNECT_PROVIDER_DAS_TOKEN: "<<ndoki-smartconnect-provider-das-token>>"
-  NDOKI_SMARTCONNECDT_PROVIDER_DAS_API: "https://smartconnect.pamdas.org/api/v1.0"
+  NDOKI_SMARTCONNECT_PROVIDER_DAS_API: "https://smartconnect.pamdas.org/api/v1.0"
