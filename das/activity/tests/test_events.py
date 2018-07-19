@@ -1119,8 +1119,9 @@ class TestEventView(BaseAPITest):
 
     def test_update_eventsource_using_patch(self):
 
+        external_event_type = 'carass-report'
         eventsource_data = {
-            'external_event_type': 'carcass',
+            'external_event_type': external_event_type,
             'display': 'DAS: Carcass',
             'event_type': 'carcass_rep',
             'additional': {'version': 0},
@@ -1141,7 +1142,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.eventsource_user_no1)
 
         response = views.EventSourceView.as_view()(request,
-                                                   id=str(esid))
+                                                   external_event_type=external_event_type)
         self.assertEqual(response.status_code, 200)
 
         print(json.dumps(response.data, indent=2, default=str))
@@ -1168,6 +1169,18 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         esid = response.data['id']
+
+        # Establish category and event-type to associate with the source.
+        event_category = EventCategory.objects.create(
+            value='sample-event-category', display='Some display',)
+
+        event_type = EventType.objects.create(value='some-generic-event-type',
+                                              display='Some event-type', category=event_category)
+
+        # Manual step here: Associate the new generic event type to the
+        # EventSource
+        EventSource.objects.filter(id=esid).update(event_type=event_type)
+
         external_event_id = 'asdfioaasfseiuro11414sfa'
         # Create an event with an "External Event ID"
         event_title = 'Some arbirtrary event title.'
