@@ -15,6 +15,7 @@ from model_utils.managers import InheritanceManager
 from django.core import management
 from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
+from django.utils.deconstruct import deconstructible
 
 from core.models import TimestampedModel
 from utils.decorator import reify
@@ -558,31 +559,37 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
         return '{0}-{1}-{2}'.format(self.feature_type.name, self.id, self.name)
 
 
+@deconstructible
+class TempStorage(FileSystemStorage):
+    def __init__(self, **kwargs):
+        import tempfile
+
+        temp_directory_name = tempfile.mkdtemp()
+        kwargs.update({'location': temp_directory_name, })
+        super(TempStorage, self).__init__(**kwargs)
+
+
 class SpatialFile(TimestampedModel):
     """
     Model for uploading Spatial files such as shapefile.
     Script would later add selected layer from the file to DB a
     specific geometry type [polygon, line, point]
     """
-    import tempfile
-
-    temp_directory_name = tempfile.mkdtemp()
-    fs = FileSystemStorage(location=temp_directory_name)
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=25, blank=True)
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(storage=fs)
+    data = models.FileField(storage=TempStorage(), blank=True)
     feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
     feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True)
     id_field = models.CharField(max_length=100, blank=True)
 
-    def import_spatial_file(self, uploaded_file_path):
+    def import_spatial_file(self, uploaded_file_path, uploaded_file_directory):
         """
         Import features by invoking importlayer management command.
         :param uploaded_file_path: Path of uploaded file.
+        :param uploaded_file_directory: Directory of uploaded file.
         """
         try:
             import_file = None
@@ -590,7 +597,7 @@ class SpatialFile(TimestampedModel):
                 # Extract user-uploaded zip file.
                 with zipfile.ZipFile(
                         uploaded_file_path, 'r') as zip_file_object:
-                    zip_file_object.extractall(self.temp_directory_name)
+                    zip_file_object.extractall(uploaded_file_directory)
 
                 # Extract features from File Geodatabase. Ext='.gbd'
                 extracted_directory_path = uploaded_file_path[:-4]
@@ -620,12 +627,13 @@ class SpatialFile(TimestampedModel):
             logger.error(err)
             raise ValidationError(err)
 
-    def cleanup_files(self):
+    @staticmethod
+    def cleanup_files(uploaded_file_path):
         """
         Remove files/directories from the temporary folder.
         """
         import shutil
-        shutil.rmtree(self.temp_directory_name)
+        shutil.rmtree(uploaded_file_path)
 
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
@@ -637,9 +645,12 @@ class SpatialFile(TimestampedModel):
         """
         self.save()
         uploaded_file_path = self.data.path
+        uploaded_file_directory = '/'.join(
+            uploaded_file_path.split('/')[:-1])
         logger.info('User uploaded file path:   {}'.format(uploaded_file_path))
         try:
-            self.import_spatial_file(uploaded_file_path)
+            self.import_spatial_file(uploaded_file_path,
+                                     uploaded_file_directory)
         except ValidationError as err:
             SpatialFile.objects.filter(id=self.id).delete()
             raise ValidationError(
@@ -647,7 +658,8 @@ class SpatialFile(TimestampedModel):
                 'Please verify the spatial file.'.format(err)
             )
         finally:
-            self.cleanup_files()
+            self.cleanup_files(uploaded_file_directory)
+            self.data.name = ''
 
     def __str__(self):
         return str(self.id)

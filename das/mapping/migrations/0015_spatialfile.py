@@ -2,6 +2,7 @@
 
 from django.db import migrations, models
 import django.db.models.deletion
+import mapping.models
 import uuid
 
 
@@ -20,7 +21,7 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
                 ('name', models.CharField(blank=True, max_length=25)),
                 ('description', models.CharField(blank=True, max_length=100)),
-                ('data', models.FileField(upload_to='')),
+                ('data', models.FileField(blank=True, storage=mapping.models.TempStorage(), upload_to='')),
                 ('layer_number', models.IntegerField(blank=True, default=0, null=True)),
                 ('name_field', models.CharField(blank=True, max_length=100)),
                 ('id_field', models.CharField(blank=True, max_length=100)),
