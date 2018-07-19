@@ -19,20 +19,19 @@ resource_types:
 
 jobs:
 - name: deploy-to-k8s
-  serial: true
   plan:
   - aggregate:
     - get: git-deployment
-  - do:
-    - task: ensure-disks-exist
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source: {
-            repository: gcr.io/ss-infrastructure-public/platform/tools,
-            tag: ((vp-tools-container-version)),
-          }
+  - aggregate:
+      - task: ensure-disks-exist
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
         inputs:
         - name: git-deployment
         params: {
@@ -90,14 +89,26 @@ jobs:
           - --zone=((azure-region))
           - --iaas=azure
           - --workspace=((azure-workspace))
-    - task: deploy
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source: {
-            repository: gcr.io/ss-infrastructure-public/platform/tools,
-            tag: ((vp-tools-container-version)),
+      - task: deploy
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
+          inputs:
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url)),
+            VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+            STATIC_IP: ((static-ip))
           }
         inputs:
         - name: git-deployment

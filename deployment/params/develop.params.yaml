@@ -15,3 +15,5 @@ vault-lookups:
   email-password: padas-app/main/email-password
   bundle-crt: padas-app/main/bundle-crt
   pamdas-org-private-key-pem: padas-app/main/pamdas-org-private-key-pem
+  nginx-utility-ssl-key: padas-app/main/es-ssl-key
+  elastic-basic-auth-password: padas-app/main/es-basic-auth-password

@@ -103,7 +103,7 @@ class SubjectAnalyzerResult(TimestampedModel):
     estimated_time = models.DateTimeField()
     level = models.IntegerField()
     observations = models.ManyToManyField(Observation, related_name='+')
-    values = JSONField(default={}, blank=True)
+    values = JSONField(default=dict, blank=True)
     title = models.TextField(default='', blank=True)
     message = models.TextField(default='', blank=True)
 

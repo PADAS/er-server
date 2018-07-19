@@ -1,4 +1,5 @@
 import logging
+from celery_once import QueueOnce
 from django.apps import apps
 from das_server import celery
 from tracking.models import *
@@ -15,8 +16,8 @@ def run_plugins(self, expire_subtasks=EXPIRE_SUBTASKS):
                                      expires=expire_subtasks)
 
 
-@celery.app.task(bind=True)
-def run_plugin_class(self, plugin_class, expire_subtasks=EXPIRE_SUBTASKS):
+@celery.app.task(base=QueueOnce, once={'graceful': True, })
+def run_plugin_class(plugin_class, expire_subtasks=EXPIRE_SUBTASKS):
     '''
     Fetch all instances of plugin_class and execute.
     :param plugin_class:
@@ -60,8 +61,8 @@ def run_sirtrack_plugins(self):
         p.execute()
 
 
-@celery.app.task(bind=True)
-def run_source_plugin(self, source_plugin_id):
+@celery.app.task(base=QueueOnce, once={'graceful': True, })
+def run_source_plugin(source_plugin_id):
 
     sp = SourcePlugin.objects.get(id=source_plugin_id)
 
