@@ -32,3 +32,6 @@ postman-environment:
 slack-notification-channel: ""
 alerts-slack-channel: ""
 send-alerts: false
+
+#
+deploy-recipe: git-deployment/deployment/recipes/standard.yaml

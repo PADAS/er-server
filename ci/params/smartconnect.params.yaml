@@ -5,3 +5,4 @@ web-branch-name: develop
 deployment-plan: smartconnect
 smartconnect-provider-branch-name: develop
 
+deploy-recipe: git-deployment/deployment/recipes/standard-ndoki.yaml

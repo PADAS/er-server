@@ -58,6 +58,13 @@ resources:
     branch: ((web-branch-name))
     private_key: ((das-web-github))
 
+- name: git-smartconnect-provider
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-smartconnect-provider.git
+    branch: ((smartconnect-provider-branch-name))
+    private_key: ((das-smartconnect-provider-github))
+
 #base docker resources
 - name: image-server-base
   type: docker-image
@@ -185,6 +192,14 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/app
+
+- name: image-smartconnect-provider
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/etl/smartconnect-provider
 
 - name: slack-alert
   type: slack-notification
@@ -372,7 +387,7 @@ jobs:
       - name: git-web
       run:
         dir: git-web
-        path: docker/test.sh
+        path: ls
 
 - name: docker-build-web-app
   serial: true
@@ -397,6 +412,18 @@ jobs:
     get_params: {skip_download: true}
 
 
+- name: docker-build-smartconnect-provider
+  plan:
+  - get: git-smartconnect-provider
+    trigger: true
+  - put: image-smartconnect-provider
+    params: {
+      build: git-smartconnect-provider,
+      tag: git-smartconnect-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+
 - name: deploy-to-k8s
   plan:
     - aggregate:
@@ -410,6 +437,8 @@ jobs:
         trigger: true
       - get: git-monitoring
         passed: [docker-build-monitoring]
+      - get: git-smartconnect-provider
+        passed: [docker-build-smartconnect-provider]
       - get: image-server-api
         passed: [docker-build-server]
         trigger: true
@@ -530,6 +559,7 @@ jobs:
           - name: git-server
           - name: git-deployment
           - name: git-monitoring
+          - name: git-smartconnect-provider
           params: {
             PROJECT: padas-app,
             USERNAME: ((creator)),
@@ -581,3 +611,4 @@ jobs:
               --iaas gcp 
               --zone ((gcp-compute-zone)) 
               --plan ((cluster-name))
+              --recipe ((deploy-recipe))
