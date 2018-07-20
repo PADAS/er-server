@@ -1,0 +1,3 @@
+cluster-name: das-azure
+version-suffix: das-azure-pipeline
+server-branch-name: das-azure-disk-poc
