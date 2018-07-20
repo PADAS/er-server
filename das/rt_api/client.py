@@ -24,7 +24,7 @@ def get_ip_address():
     return s.getsockname()[0]
 
 
-SERVICE_ID = str(get_ip_address())
+SERVICE_ID = '1'  # str(get_ip_address())
 CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
 REALTIME_SERVICES_KEY = 'rt_api.services'
 
