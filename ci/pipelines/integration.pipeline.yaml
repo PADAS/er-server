@@ -611,4 +611,4 @@ jobs:
               --iaas gcp 
               --zone ((gcp-compute-zone)) 
               --plan ((cluster-name))
-              --recipe ((deploy-recipe))
+              --recipe git-deployment/deployment/recipes/((deploy-recipe))
