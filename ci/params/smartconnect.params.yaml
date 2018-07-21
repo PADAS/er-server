@@ -1,9 +1,8 @@
 cluster-name: smartconnect
 version-suffix: smartconnect  
-server-branch-name: develop
+server-branch-name: feature/deploy-with-recipes
 web-branch-name: develop
 deployment-plan: smartconnect
 smartconnect-provider-branch-name: develop
 
-# Use deployment files from feature branch
-deploy-params-environment: develop
+deploy-recipe: standard-ndoki.yaml
