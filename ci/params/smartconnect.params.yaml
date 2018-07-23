@@ -1,6 +1,6 @@
 cluster-name: smartconnect
 version-suffix: smartconnect  
-server-branch-name: feature/deploy-with-recipes
+server-branch-name: develop
 web-branch-name: develop
 deployment-plan: smartconnect
 smartconnect-provider-branch-name: develop
