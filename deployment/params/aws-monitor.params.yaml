@@ -2,7 +2,7 @@ static-values:
   email-host: ""
   email-username: ""
   web-service-name: "web"
-  nginx-utility-service-ip: ""
+  nginx-utility-service-ip: 35.233.255.38
   alerts-slack-channel: "das-dev"
   send-alerts: "true"
   node-exporter-version: v0.16.0
