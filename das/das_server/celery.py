@@ -77,13 +77,7 @@ app.conf.beat_schedule = {
     'service-status': {
         'task': 'rt_api.tasks.broadcast_service_status',
         'schedule': timedelta(seconds=15),
-    },
-
-    'run_query_monitor': {
-        'task': 'core.tasks.query_monitor',
-        'schedule': timedelta(minutes=4),
-        'relative': True
-    },
+    }
 }
 
 # Patch Celery's configuration with some attributes that Celery_once will
