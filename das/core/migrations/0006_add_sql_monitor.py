@@ -4,7 +4,7 @@ from django.db import migrations, models
 import uuid
 import os
 
-util_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'sql', 'util'))
+util_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'util', 'sql'))
 
 util_files = ['aggregate.sql',
               'get_current_timeofday.sql',
