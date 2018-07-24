@@ -1,6 +1,9 @@
 from collections import namedtuple
 from django.contrib.staticfiles.storage import staticfiles_storage
 
+def message_digest(record):
+    return sha1(str(record).encode("utf8")).hexdigest()
+
 
 class StaticImageFinder(object):
     image_caches = {}
