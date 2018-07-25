@@ -140,14 +140,18 @@ class EventSourceView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = EventSourceSerializer
     permission_classes = (IsAuthenticated, IsEventProviderOwnerPermission)
     queryset = EventSource.objects.all()
-    lookup_fields = ('eventprovider_id', 'external_event_type')
+
+    # lookup_field = 'id'
+
+    lookup_fields = ('eventprovider_id', 'id', 'external_event_type')
 
     def get_object(self):
         queryset = self.get_queryset()
 
         filter = {}
         for field in self.lookup_fields:
-            filter[field] = self.kwargs[field]
+            if field in self.kwargs:
+                filter[field] = self.kwargs[field]
 
         obj = get_object_or_404(queryset, **filter)
         self.check_object_permissions(self.request, obj)
@@ -483,7 +487,7 @@ class EventsView(generics.ListCreateAPIView):
         context['include_notes'] = parse_bool(
             query_params.get('include_notes', include_for_posts))
 
-        context['eventprovider_id'] = request.data.get('eventprovider_id')
+        context['eventsource_id'] = request.data.get('eventsource_id')
 
         return context
 

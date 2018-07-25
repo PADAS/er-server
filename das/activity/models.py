@@ -1106,9 +1106,11 @@ class EventsourceEventManager(models.Manager):
 
     def add_relation(self, event, eventsource, external_event_id):
 
-        correlation, created = EventsourceEvent.objects.get_or_create(
-            event=event, eventsource=eventsource, external_event_id=external_event_id)
-
+        correlation = EventsourceEvent.objects.get_or_create(
+            eventsource=eventsource,
+            external_event_id=external_event_id,
+            event=event,
+        )
         return correlation
 
     def get_relation(self, eventsource, external_event_id):

@@ -1054,7 +1054,6 @@ class TestEventView(BaseAPITest):
         eventsource_data = {
             'external_event_type': 'carcass',
             'display': 'DAS: Carcass',
-            # 'event_type': 'carcass_rep',
             'additional': {'version': 0},
         }
         request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
@@ -1069,6 +1068,36 @@ class TestEventView(BaseAPITest):
         response_data = {k: response_data[k] for k in eventsource_data.keys()}
         self.assertDictEqual(response_data, eventsource_data)
 
+    def test_get_existing_eventsource(self):
+        eventprovider = EventProvider.objects.create(
+            display='Smart CSD Provider', owner=self.eventsource_user_no1)
+
+        external_event_type = 'asoviuaodbiuapsoef'
+        eventsource_data = {
+            'external_event_type': external_event_type,
+            'display': 'DAS: Carcass',
+            'additional': {'version': 0},
+        }
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+                                    eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventSourcesView.as_view()(
+            request, eventprovider_id=str(eventprovider.id))
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+
+        response_data = {k: response_data[k] for k in eventsource_data.keys()}
+        self.assertDictEqual(response_data, eventsource_data)
+
+        request = self.factory.get(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsource/{external_event_type}')
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventSourceView.as_view()(request, eventprovider_id=str(
+            eventprovider.id), external_event_type=external_event_type)
+        print(response.data)
+        self.assertEqual(response.status_code, 200)
+
     def test_add_eventsource_twice(self):
 
         eventprovider = EventProvider.objects.create(
@@ -1077,7 +1106,6 @@ class TestEventView(BaseAPITest):
         eventsource_data = {
             'external_event_type': 'carcass',
             'display': 'DAS: Carcass',
-            # 'event_type': 'carcass_rep',
             'additional': {'version': 0},
         }
         request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
@@ -1119,19 +1147,16 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         response_data = response.data
 
-        # esid = response_data['id']
+        esid = response_data['id']
 
         eventsource_patch = {'additional': {'a': 1, 'b': 'some string'}}
         request = self.factory.patch(
-            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsource/{eventsource_data["external_event_type"]}',
+            f'{self.api_base}/activity/eventsource/{esid}',
             eventsource_patch)
 
         self.force_authenticate(request, self.eventsource_user_no2)
 
-        response = views.EventSourceView.as_view()(request,
-                                                   eventprovider_id=str(
-                                                       eventprovider.id),
-                                                   external_event_type=eventsource_data['external_event_type'])
+        response = views.EventSourceView.as_view()(request, id=esid)
         self.assertEqual(response.status_code, 403)
 
     def test_update_eventsource_using_patch(self):
@@ -1158,13 +1183,10 @@ class TestEventView(BaseAPITest):
         esid = response_data['id']
 
         eventsource_patch = {'additional': {'a': 1, 'b': 'some string'}}
-        request = self.factory.patch(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsource/{esid}', eventsource_patch)
+        request = self.factory.patch(f'{self.api_base}/activity/eventsource/{esid}', eventsource_patch)
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventSourceView.as_view()(request,
-                                                   eventprovider_id=str(
-                                                       eventprovider.id),
-                                                   external_event_type=external_event_type)
+        response = views.EventSourceView.as_view()(request, id=esid)
         self.assertEqual(response.status_code, 200)
 
         print(json.dumps(response.data, indent=2, default=str))
@@ -1193,7 +1215,7 @@ class TestEventView(BaseAPITest):
                                                     eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
 
-        esid = response.data['id']
+        eventsource_id = response.data['id']
 
         # Establish category and event-type to associate with the source.
         event_category = EventCategory.objects.create(
@@ -1205,7 +1227,7 @@ class TestEventView(BaseAPITest):
         # Manual step here: Associate the new generic event type to the
         # EventSource
         EventSource.objects.filter(eventprovider_id=str(
-            eventprovider.id), id=esid).update(event_type=event_type)
+            eventprovider.id), id=eventsource_id).update(event_type=event_type)
 
         external_event_id = 'asdfioaasfseiuro11414sfa'
         # Create an event with an "External Event ID"
@@ -1221,6 +1243,7 @@ class TestEventView(BaseAPITest):
             "priority": 100,
             "title": event_title,
             "external_event_id": external_event_id,
+            "eventsource": eventsource_id,
             "location": {"latitude": 39.4, "longitude": -117.5},
             "time": datetime.now(tz=pytz.utc).isoformat(),
         }
@@ -1232,7 +1255,7 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         eselist = EventsourceEvent.objects.filter(
-            eventsource_id=esid, external_event_id=external_event_id)
+            eventsource_id=eventsource_id, external_event_id=external_event_id)
 
         self.assertEqual(eselist.count(), 1)
 
@@ -1265,7 +1288,7 @@ class TestEventView(BaseAPITest):
             request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
 
-        esid = response.data['id']
+        eventsource_id = response.data['id']
         external_event_id = 'abcdefgh-ijklmnop'
         # Create an event with an "External Event ID"
         event_title = 'Some arbirtrary event title.'
@@ -1280,6 +1303,7 @@ class TestEventView(BaseAPITest):
             "priority": 100,
             "title": event_title,
             "external_event_id": external_event_id,
+            "eventsource": eventsource_id,
             "location": {"latitude": 38.4, "longitude": -116.5},
             "time": datetime.now(tz=pytz.utc).isoformat(),
         }
@@ -1291,7 +1315,7 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         eselist = EventsourceEvent.objects.filter(
-            eventsource_id=esid, external_event_id=external_event_id)
+            eventsource_id=eventsource_id, external_event_id=external_event_id)
 
         self.assertEqual(eselist.count(), 1)
 
@@ -1400,7 +1424,7 @@ class TestEventView(BaseAPITest):
             "priority": 100,
             "title": event_title,
             "external_event_id": external_event_id,
-            "eventprovider_id": str(eventprovider_no1.id),
+            "eventsource": esid_no1,
             "location": {"latitude": 38.4, "longitude": -116.5},
             "time": datetime.now(tz=pytz.utc).isoformat(),
         }
@@ -1426,7 +1450,7 @@ class TestEventView(BaseAPITest):
             "priority": 100,
             "title": event_title,
             "external_event_id": external_event_id,
-            "eventprovider_id": str(eventprovider_no2.id),
+            "eventsource": esid_no2,
             "location": {"latitude": 38.4, "longitude": -116.5},
             "time": datetime.now(tz=pytz.utc).isoformat(),
         }
@@ -1458,6 +1482,7 @@ class TestEventView(BaseAPITest):
             request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
 
+        eventsource_id = response.data['id']
         # Create an event with an "External Event ID"
         event_data = {
             "event_details": {
@@ -1466,7 +1491,7 @@ class TestEventView(BaseAPITest):
                 ]
             },
 
-            "external_event_type": "smart_carcass_report",
+            "eventsource": eventsource_id,
             "priority": 100,
             "title": "Test External Event",
             "location": {"latitude": 1.4, "longitude": 37.5},
