@@ -129,7 +129,7 @@ class EventFactorAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventSource)
 class EventSourceAdmin(admin.ModelAdmin):
-    list_display = ('display', 'owner', 'event_type', 'is_active',)
+    list_display = ('display', 'eventprovider', 'event_type', 'is_active',)
     readonly_fields = ('external_event_type', 'id',)
 
     fieldsets = (
@@ -137,10 +137,21 @@ class EventSourceAdmin(admin.ModelAdmin):
             'fields': ('display', 'event_type', 'is_active',)
         }),
         ('Advanced', {
-            'fields': ('owner', 'external_event_type', 'additional', 'id'),
+            'fields': ('external_event_type', 'additional', 'id'),
             'classes': ('wide', 'collapse',)
         })
     )
+
+
+class EventSourceInline(admin.TabularInline):
+    model = models.EventSource
+
+
+@admin.register(models.EventProvider)
+class EventProviderAdmin(admin.ModelAdmin):
+    list_display = ('display', 'owner', 'is_active',)
+
+    inlines = [EventSourceInline, ]
 
 
 @admin.register(models.EventsourceEvent)

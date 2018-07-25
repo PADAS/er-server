@@ -22,16 +22,16 @@ import versatileimagefield.files
 
 from activity.models import Event, EventNote, EventClass,\
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community,\
-    EventFilter, EventSource
+    EventFilter, EventSource, EventProvider
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
     EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer, \
-    EventFilterSerializer, EventSourceSerializer
+    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
-from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwnerOrReadOnly
+from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
 from rest_framework.permissions import IsAuthenticated
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
@@ -105,24 +105,53 @@ class EventFiltersView(generics.ListCreateAPIView):
         return EventFilter.objects.order_by('ordernum')
 
 
+class EventProvidersView(generics.ListCreateAPIView):
+    serializer_class = EventProviderSerializer
+    pagination_class = StandardResultsSetPagination
+    queryset = EventProvider.objects.all()
+    permission_classes = (IsOwner,)
+
+    def get_queryset(self):
+        qs = EventProvider.objects.filter(owner=self.request.user)
+        return qs
+
+
 class EventSourcesView(generics.ListCreateAPIView):
+
+    def post(self, request, *args, **kwargs):
+
+        request.data['eventprovider'] = kwargs['eventprovider_id']
+        return super().post(request, *args, **kwargs)
 
     serializer_class = EventSourceSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
-        qs = EventSource.objects.all()
-        if not self.request.user.is_superuser:
-            qs = qs.filter(owner=self.request.user)
-        return qs
+        eventprovider_id = self.kwargs['eventprovider_id']
+        return EventSource.objects.filter(eventprovider_id=eventprovider_id)
+
+
+from django.shortcuts import get_object_or_404
+from activity.permissions import IsEventProviderOwnerPermission
 
 
 class EventSourceView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = EventSourceSerializer
-    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
+    permission_classes = (IsAuthenticated, IsEventProviderOwnerPermission)
     queryset = EventSource.objects.all()
-    lookup_field = 'external_event_type'
+    lookup_fields = ('eventprovider_id', 'external_event_type')
+
+    def get_object(self):
+        queryset = self.get_queryset()
+
+        filter = {}
+        for field in self.lookup_fields:
+            filter[field] = self.kwargs[field]
+
+        obj = get_object_or_404(queryset, **filter)
+        self.check_object_permissions(self.request, obj)
+        return obj
 
 
 class EventTypeSchemaView(generics.ListCreateAPIView):
@@ -453,6 +482,8 @@ class EventsView(generics.ListCreateAPIView):
                                                                         include_for_posts))
         context['include_notes'] = parse_bool(
             query_params.get('include_notes', include_for_posts))
+
+        context['eventprovider_id'] = request.data.get('eventprovider_id')
 
         return context
 

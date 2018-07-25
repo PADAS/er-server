@@ -405,7 +405,9 @@ class ExternalEventTypeRelatedField(rest_framework.serializers.RelatedField):
                 pass
             else:
                 try:
-                    return activity.models.EventSource.objects.get(owner=user, external_event_type=data)
+                    eventprovider_id = self.context.get('eventprovider_id')
+                    return activity.models.EventSource.objects.get(eventprovider_id=eventprovider_id,
+                                                                   eventprovider__owner=user, external_event_type=data)
                 except activity.models.EventSource.DoesNotExist:
                     raise rest_framework.serializers.ValidationError(
                         {'external_event_type': 'Value \'%s\' does not exist.' % data})
@@ -1160,7 +1162,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                     event_type = external_event_type.event_type
 
                 if activity.models.EventsourceEvent.objects.filter(eventsource=external_event_type,
-                                                                   external_event_id=attrs.get('external_event_id')).exists():
+                                                                   external_event_id=attrs.get(
+                                                                       'external_event_id'),
+                                                                   eventsource__eventprovider_id=attrs.get(
+                                                                       'eventprovider_id'),
+                                                                   ).exists():
                     error = DuplicateResourceError(
                         fieldname='external_event_id', detail='External event ID already exists.'
                     )
@@ -1372,18 +1378,16 @@ class EventFilterSerializer(rest_framework.serializers.ModelSerializer):
         return ef
 
 
-class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
+class EventProviderSerializer(rest_framework.serializers.ModelSerializer):
 
     owner = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault())
-    event_type = EventTypeRelatedField(required=False, allow_null=True,)
 
     class Meta:
         model = activity.models.EventSource
         read_only_fields = ('id', 'owner',)
         fields = read_only_fields + \
-            ('external_event_type', 'display',
-             'event_type', 'additional', 'is_ready',)
+            ('display', 'additional', 'is_active',)
 
     def to_representation(self, obj):
         rep = super().to_representation(obj, )
@@ -1391,7 +1395,32 @@ class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
         rep['owner'] = UserSerializer().to_representation(obj.owner)
 
         rep['url'] = utils.add_base_url(self.context['request'],
+                                        reverse('eventprovider-view',
+                                                args=[obj.id]))
+
+        return rep
+
+
+class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
+
+    # owner = rest_framework.serializers.HiddenField(
+    #     default=rest_framework.serializers.CurrentUserDefault())
+    event_type = EventTypeRelatedField(required=False, allow_null=True,)
+
+    class Meta:
+        model = activity.models.EventSource
+        read_only_fields = ('id',)
+        fields = read_only_fields + \
+            ('eventprovider', 'external_event_type', 'display',
+             'event_type', 'additional', 'is_ready',)
+
+    def to_representation(self, obj):
+        rep = super().to_representation(obj, )
+
+        # rep['owner'] = UserSerializer().to_representation(obj.owner)
+
+        rep['url'] = utils.add_base_url(self.context['request'],
                                         reverse('eventsource-view',
-                                                args=[obj.external_event_type]))
+                                                args=[obj.eventprovider.id, obj.external_event_type]))
 
         return rep
