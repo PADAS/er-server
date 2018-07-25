@@ -1095,7 +1095,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventSourceView.as_view()(request, eventprovider_id=str(
             eventprovider.id), external_event_type=external_event_type)
-        print(response.data)
+
         self.assertEqual(response.status_code, 200)
 
     def test_add_eventsource_twice(self):
@@ -1188,8 +1188,6 @@ class TestEventView(BaseAPITest):
 
         response = views.EventSourceView.as_view()(request, id=esid)
         self.assertEqual(response.status_code, 200)
-
-        print(json.dumps(response.data, indent=2, default=str))
 
         additional_data = response.data.get('additional', {})
         self.assertDictEqual(additional_data, eventsource_patch['additional'])
