@@ -1099,7 +1099,8 @@ class EventSource(TimestampedModel):
         unique_together = ('eventprovider', 'external_event_type',)
 
     def __str__(self):
-        return f'{self.eventprovider.display}:{self.external_event_type}'
+        epname = self.eventprovider.display if self.eventprovider else 'unspecified-provider'
+        return f'{epname}:{self.external_event_type}'
 
 
 class EventsourceEventManager(models.Manager):

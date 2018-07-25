@@ -30,7 +30,7 @@ urlpatterns = [
         views.EventProvidersView.as_view(), name='eventprovider-view'),
 
     url(
-        r'^eventprovider/(?P<eventprovider_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/eventsource/?$',
+        r'^eventprovider/(?P<eventprovider_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/eventsources/?$',
         views.EventSourcesView.as_view(), name='eventsources-view'),
 
     url(r'^eventprovider/(?P<eventprovider_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/eventsource/(?P<external_event_type>[0-9a-zA-Z_-]+)$',
