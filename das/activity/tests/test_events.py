@@ -1437,24 +1437,6 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request,)
         self.assertEqual(response.status_code, 201)
 
-        #
-        # eselist = EventsourceEvent.objects.filter(
-        #     eventsource_id=esid, external_event_id=external_event_id)
-        #
-        # self.assertEqual(eselist.count(), 1)
-        #
-        # self.assertEqual(
-        #     eselist[0].eventsource.external_event_type, external_event_type)
-        # self.assertEqual(eselist[0].event.title, event_title)
-        #
-        # # Add duplicate
-        # request = self.factory.post(f'{self.api_base}/events', event_data)
-        # self.force_authenticate(request, self.eventsource_user_no1)
-        #
-        # response = views.EventsView.as_view()(request,)
-        # self.assertEqual(response.status_code, 409)
-        #
-
     def test_add_event_with_external_event_type_and_no_permissions(self):
 
         eventprovider = EventProvider.objects.create(
