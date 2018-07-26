@@ -134,7 +134,7 @@ class EventSourceAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {
-            'fields': ('display', 'event_type', 'is_active',)
+            'fields': ('display', 'event_type', 'is_active', 'eventprovider',)
         }),
         ('Advanced', {
             'fields': ('external_event_type', 'additional', 'id'),

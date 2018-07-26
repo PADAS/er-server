@@ -1056,6 +1056,9 @@ class EventProvider(TimestampedModel):
 
     additional = JSONField(default=dict, blank=True)
 
+    def __str__(self):
+        return self.display
+
 
 class EventSourceManager(models.Manager):
     pass
