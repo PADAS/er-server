@@ -12,6 +12,7 @@ CONCOURSE_URL=https://ci.pamdas.org
 ELASTIC_URL=elastic.vulcancloud.io
 TOOLS_VERSION=1.0.72
 VCLOUD_SERVICE_URL=http://vcloud.vulcancloud.io:5000/
+AZURE_SUBSCRIPTION=DAS
 
 ### DO NOT EDIT BELOW THIS LINE
 ### Below this line is generic copy pasted from the master in infrastructure
@@ -40,6 +41,7 @@ if [ ! "$(docker ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
         -e CONCOURSE_URL=$CONCOURSE_URL \
         -e ELASTIC_URL=$ELASTIC_URL \
         -e AZURE_LOGIN=true \
+        -e AZURE_SUBSCRIPTION=$AZURE_SUBSCRIPTION \
         --name $CONTAINER_NAME \
         -v $CONTAINER_NAME-root:/root \
         --entrypoint run/startup.sh \
