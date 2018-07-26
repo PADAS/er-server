@@ -29,7 +29,7 @@ from core.tests import BaseAPITest
 from choices.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory,\
-    EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, EventSource
+    EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, EventSource, EventProvider
 
 from activity.models import get_sentinel_user
 from activity import views
@@ -1045,79 +1045,161 @@ class TestEventView(BaseAPITest):
 
     #
     # EventSource tests.
+
+    def test_eventprovider_permissions(self):
+
+        eventprovider_data = {
+            'display': 'Smart CSD Provider',
+            'owner': self.eventsource_user_no1,
+            'is_active': False,
+            'additional': {
+                'type': 'foobar',
+                'service_api': 'https://tempuri.org/',
+                'service_password': 'afdo12313uapsdfiue@afouapel1.org',
+                'service_username': 'asfoiusofasf1241rfspue'
+            }
+        }
+        eventprovider = EventProvider.objects.create(**eventprovider_data)
+
+        request = self.factory.get(f'{self.api_base}/activity/eventproviders')
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventProvidersView.as_view()(request,)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 0)
+
+        EventProvider.objects.filter(
+            id=eventprovider.id).update(is_active=True)
+        request = self.factory.get(f'{self.api_base}/activity/eventproviders')
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventProvidersView.as_view()(request, )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 1)
+
+        eventprovider_data.update({'is_active': True})
+        result_eventprovider = {
+            k: response.data['results'][0][k] for k in eventprovider_data.keys()}
+        self.assertEqual(response.data['results']
+                         [0]['id'], str(eventprovider.id))
+
     def test_add_eventsource(self):
+
+        eventprovider = EventProvider.objects.create(
+            display='Smart CSD Provider', owner=self.eventsource_user_no1)
 
         eventsource_data = {
             'external_event_type': 'carcass',
             'display': 'DAS: Carcass',
-            # 'event_type': 'carcass_rep',
             'additional': {'version': 0},
         }
-        request = self.factory.post(self.api_base
-                                    + '/eventsources', eventsource_data)
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+                                    eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventSourcesView.as_view()(request,)
+        response = views.EventSourcesView.as_view()(
+            request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
         response_data = response.data
 
         response_data = {k: response_data[k] for k in eventsource_data.keys()}
         self.assertDictEqual(response_data, eventsource_data)
 
+    def test_get_existing_eventsource(self):
+        eventprovider = EventProvider.objects.create(
+            display='Smart CSD Provider', owner=self.eventsource_user_no1)
+
+        external_event_type = 'asoviuaodbiuapsoef'
+        eventsource_data = {
+            'external_event_type': external_event_type,
+            'display': 'DAS: Carcass',
+            'additional': {'version': 0},
+        }
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+                                    eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventSourcesView.as_view()(
+            request, eventprovider_id=str(eventprovider.id))
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+
+        response_data = {k: response_data[k] for k in eventsource_data.keys()}
+        self.assertDictEqual(response_data, eventsource_data)
+
+        request = self.factory.get(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsource/{external_event_type}')
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventSourceView.as_view()(request, eventprovider_id=str(
+            eventprovider.id), external_event_type=external_event_type)
+
+        self.assertEqual(response.status_code, 200)
+
     def test_add_eventsource_twice(self):
+
+        eventprovider = EventProvider.objects.create(
+            display='Smart CSD Provider', owner=self.eventsource_user_no1)
 
         eventsource_data = {
             'external_event_type': 'carcass',
             'display': 'DAS: Carcass',
-            # 'event_type': 'carcass_rep',
             'additional': {'version': 0},
         }
-        request = self.factory.post(self.api_base
-                                    + '/eventsources', eventsource_data)
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+                                    eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventSourcesView.as_view()(request,)
+        response = views.EventSourcesView.as_view()(
+            request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
         response_data = response.data
 
-        request = self.factory.post(self.api_base
-                                    + '/eventsources', eventsource_data)
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+                                    eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventSourcesView.as_view()(request,)
+        response = views.EventSourcesView.as_view()(
+            request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 400)
         response_data = response.data
 
     def test_eventsourceview_update_permission_denied(self):
+
+        eventprovider = EventProvider.objects.create(
+            display='Smart CSD Provider', owner=self.eventsource_user_no1)
+
         eventsource_data = {
             'external_event_type': 'carcass',
             'display': 'DAS: Carcass',
             'event_type': 'carcass_rep',
             'additional': {'version': 0},
         }
-        request = self.factory.post(self.api_base
-                                    + '/eventsources', eventsource_data)
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+                                    eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         # Create event source.
-        response = views.EventSourcesView.as_view()(request,)
+        response = views.EventSourcesView.as_view()(
+            request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
         response_data = response.data
 
-        # esid = response_data['id']
+        esid = response_data['id']
 
         eventsource_patch = {'additional': {'a': 1, 'b': 'some string'}}
         request = self.factory.patch(
-            f'{self.api_base}event/eventsource/{eventsource_data["external_event_type"]}',
+            f'{self.api_base}/activity/eventsource/{esid}',
             eventsource_patch)
 
         self.force_authenticate(request, self.eventsource_user_no2)
 
-        response = views.EventSourceView.as_view()(
-            request, external_event_type=eventsource_data['external_event_type'])
+        response = views.EventSourceView.as_view()(request, id=esid)
         self.assertEqual(response.status_code, 403)
 
     def test_update_eventsource_using_patch(self):
+
+        eventprovider = EventProvider.objects.create(
+            display='Smart CSD Provider', owner=self.eventsource_user_no1)
 
         external_event_type = 'carass-report'
         eventsource_data = {
@@ -1126,31 +1208,31 @@ class TestEventView(BaseAPITest):
             'event_type': 'carcass_rep',
             'additional': {'version': 0},
         }
-        request = self.factory.post(self.api_base
-                                    + '/eventsources', eventsource_data)
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources', eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         # Create event source.
-        response = views.EventSourcesView.as_view()(request,)
+        response = views.EventSourcesView.as_view()(
+            request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
         response_data = response.data
 
         esid = response_data['id']
 
         eventsource_patch = {'additional': {'a': 1, 'b': 'some string'}}
-        request = self.factory.patch(f'{self.api_base}event/eventsource/{esid}', eventsource_patch)
+        request = self.factory.patch(f'{self.api_base}/activity/eventsource/{esid}', eventsource_patch)
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventSourceView.as_view()(request,
-                                                   external_event_type=external_event_type)
+        response = views.EventSourceView.as_view()(request, id=esid)
         self.assertEqual(response.status_code, 200)
-
-        print(json.dumps(response.data, indent=2, default=str))
 
         additional_data = response.data.get('additional', {})
         self.assertDictEqual(additional_data, eventsource_patch['additional'])
 
     def test_add_event_with_external_event_type(self):
+
+        eventprovider = EventProvider.objects.create(
+            display='Smart CSD Provider', owner=self.eventsource_user_no1)
 
         external_event_type = 'smart-carcass'
         eventsource_data = {
@@ -1160,15 +1242,15 @@ class TestEventView(BaseAPITest):
             'additional': {'version': 0},
         }
 
-        request = self.factory.post(self.api_base
-                                    + '/eventsources', eventsource_data)
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources', eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         # Create event source.
-        response = views.EventSourcesView.as_view()(request,)
+        response = views.EventSourcesView.as_view()(request,
+                                                    eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
 
-        esid = response.data['id']
+        eventsource_id = response.data['id']
 
         # Establish category and event-type to associate with the source.
         event_category = EventCategory.objects.create(
@@ -1179,7 +1261,8 @@ class TestEventView(BaseAPITest):
 
         # Manual step here: Associate the new generic event type to the
         # EventSource
-        EventSource.objects.filter(id=esid).update(event_type=event_type)
+        EventSource.objects.filter(eventprovider_id=str(
+            eventprovider.id), id=eventsource_id).update(event_type=event_type)
 
         external_event_id = 'asdfioaasfseiuro11414sfa'
         # Create an event with an "External Event ID"
@@ -1195,6 +1278,7 @@ class TestEventView(BaseAPITest):
             "priority": 100,
             "title": event_title,
             "external_event_id": external_event_id,
+            "eventsource": eventsource_id,
             "location": {"latitude": 39.4, "longitude": -117.5},
             "time": datetime.now(tz=pytz.utc).isoformat(),
         }
@@ -1206,7 +1290,7 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         eselist = EventsourceEvent.objects.filter(
-            eventsource_id=esid, external_event_id=external_event_id)
+            eventsource_id=eventsource_id, external_event_id=external_event_id)
 
         self.assertEqual(eselist.count(), 1)
 
@@ -1215,6 +1299,13 @@ class TestEventView(BaseAPITest):
         self.assertEqual(eselist[0].event.title, event_title)
 
     def test_add_duplicate_external_event_id(self):
+        '''
+        Ensure that for a single EventProvider / EventSource, we're not able to add a duplicate event identified
+        by external_event_id.
+        :return:
+        '''
+        eventprovider = EventProvider.objects.create(
+            display='Smart CSD Provider', owner=self.eventsource_user_no1)
 
         external_event_type = 'smart-carcass-report'
         eventsource_data = {
@@ -1224,15 +1315,15 @@ class TestEventView(BaseAPITest):
             'additional': {'version': 0},
         }
 
-        request = self.factory.post(self.api_base
-                                    + '/eventsources', eventsource_data)
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources', eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         # Create event source.
-        response = views.EventSourcesView.as_view()(request,)
+        response = views.EventSourcesView.as_view()(
+            request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
 
-        esid = response.data['id']
+        eventsource_id = response.data['id']
         external_event_id = 'abcdefgh-ijklmnop'
         # Create an event with an "External Event ID"
         event_title = 'Some arbirtrary event title.'
@@ -1247,6 +1338,7 @@ class TestEventView(BaseAPITest):
             "priority": 100,
             "title": event_title,
             "external_event_id": external_event_id,
+            "eventsource": eventsource_id,
             "location": {"latitude": 38.4, "longitude": -116.5},
             "time": datetime.now(tz=pytz.utc).isoformat(),
         }
@@ -1258,7 +1350,7 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         eselist = EventsourceEvent.objects.filter(
-            eventsource_id=esid, external_event_id=external_event_id)
+            eventsource_id=eventsource_id, external_event_id=external_event_id)
 
         self.assertEqual(eselist.count(), 1)
 
@@ -1273,7 +1365,141 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request,)
         self.assertEqual(response.status_code, 409)
 
+    def test_cannot_see_another_users_eventprovider(self):
+        '''
+        EventProvider by its nature may hold sensitive information. So it's critical that a user may not see
+        another user's EventProvider.
+        '''
+        eventprovider_no1 = EventProvider.objects.create(
+            display='EP No. 1', owner=self.eventsource_user_no1)
+        eventprovider_no2 = EventProvider.objects.create(
+            display='EP No. 2', owner=self.eventsource_user_no2)
+
+        request = self.factory.get(f'{self.api_base}/activity/eventproviders')
+        self.force_authenticate(request, self.eventsource_user_no1)
+        response = views.EventProvidersView.as_view()(request,)
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results']
+                         [0]['id'], str(eventprovider_no1.id))
+
+        request = self.factory.get(f'{self.api_base}/activity/eventproviders')
+        self.force_authenticate(request, self.eventsource_user_no2)
+        response = views.EventProvidersView.as_view()(request,)
+        self.assertEqual(len(response.data['results']), 1)
+
+        self.assertEqual(response.data['results']
+                         [0]['id'], str(eventprovider_no2.id))
+
+    def test_add_identical_external_event_id_with_different_event_providers(self):
+        '''
+        Ensure uniqueness constraint is applied to EventSource + External Event Id.
+        '''
+        eventprovider_no1 = EventProvider.objects.create(
+            display='Smart CSD Provider No. 1', owner=self.eventsource_user_no1)
+
+        eventprovider_no2 = EventProvider.objects.create(
+            display='Smart CSD Provider No. 2', owner=self.eventsource_user_no1)
+
+        external_event_type = 'smart-carcass-report'
+        eventsource_data = {
+            'external_event_type': external_event_type,
+            'display': 'DAS: Carcass',
+            # 'event_type': 'carcass_rep',
+            'additional': {'version': 0},
+        }
+
+        # Create event source for provider No. 1
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider_no1.id)}/eventsources',
+                                    eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+        response = views.EventSourcesView.as_view()(
+            request, eventprovider_id=str(eventprovider_no1.id))
+        self.assertEqual(response.status_code, 201)
+        esid_no1 = response.data['id']
+
+        # Create event source for provider No. 2
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider_no2.id)}/eventsources',
+                                    eventsource_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+        response = views.EventSourcesView.as_view()(
+            request, eventprovider_id=str(eventprovider_no2.id))
+        self.assertEqual(response.status_code, 201)
+        esid_no2 = response.data['id']
+
+        self.assertNotEqual(esid_no1, esid_no2)
+
+        # Manual step here: Associate the new EventSources with some new
+        # EventTypes.
+        event_category = EventCategory.objects.create(
+            value='sample-event-category', display='Some display', )
+
+        event_type_no1 = EventType.objects.create(value='eventsource_no1_event_type',
+                                                  display='eventsource_no1_event_type', category=event_category)
+        EventSource.objects.filter(eventprovider_id=str(
+            eventprovider_no1.id), id=esid_no1).update(event_type=event_type_no1)
+
+        event_type_no2 = EventType.objects.create(value='eventsource_no2_event_type',
+                                                  display='eventsource_no2_event_type', category=event_category)
+        EventSource.objects.filter(eventprovider_id=str(
+            eventprovider_no2.id), id=esid_no2).update(event_type=event_type_no2)
+
+        # Carry on with the tests.
+
+        # Add an event for event source No. 1.
+        event_title = 'Some arbirtrary event title.'
+        external_event_id = 'abcdefgh-ijklmnop'
+        event_data = {
+            "event_details": {
+                "attributes": [
+                    {"key": "a", "value": "1"}
+                ]
+            },
+
+            "external_event_type": external_event_type,
+            "priority": 100,
+            "title": event_title,
+            "external_event_id": external_event_id,
+            "eventsource": esid_no1,
+            "location": {"latitude": 38.4, "longitude": -116.5},
+            "time": datetime.now(tz=pytz.utc).isoformat(),
+        }
+
+        request = self.factory.post(f'{self.api_base}/events', event_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventsView.as_view()(request,)
+        self.assertEqual(response.status_code, 201)
+
+        # Add an event for event source No. 2, and use the same
+        # external_event_id as was use for event source No. 1.
+        event_title = 'Some arbirtrary event title.'
+        external_event_id = 'abcdefgh-ijklmnop'
+        event_data = {
+            "event_details": {
+                "attributes": [
+                    {"key": "a", "value": "1"}
+                ]
+            },
+
+            "external_event_type": external_event_type,
+            "priority": 100,
+            "title": event_title,
+            "external_event_id": external_event_id,
+            "eventsource": esid_no2,
+            "location": {"latitude": 38.4, "longitude": -116.5},
+            "time": datetime.now(tz=pytz.utc).isoformat(),
+        }
+
+        request = self.factory.post(f'{self.api_base}/events', event_data)
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventsView.as_view()(request,)
+        self.assertEqual(response.status_code, 201)
+
     def test_add_event_with_external_event_type_and_no_permissions(self):
+
+        eventprovider = EventProvider.objects.create(
+            display='Smart CSD Provider', owner=self.eventsource_user_no1)
 
         eventsource_data = {
             'external_event_type': 'smart_carcass_report',
@@ -1282,14 +1508,16 @@ class TestEventView(BaseAPITest):
             'additional': {'version': 0},
         }
 
-        request = self.factory.post(self.api_base
-                                    + '/eventsources', eventsource_data)
+        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+                                    eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         # Create event source.
-        response = views.EventSourcesView.as_view()(request,)
+        response = views.EventSourcesView.as_view()(
+            request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
 
+        eventsource_id = response.data['id']
         # Create an event with an "External Event ID"
         event_data = {
             "event_details": {
@@ -1298,7 +1526,7 @@ class TestEventView(BaseAPITest):
                 ]
             },
 
-            "external_event_type": "smart_carcass_report",
+            "eventsource": eventsource_id,
             "priority": 100,
             "title": "Test External Event",
             "location": {"latitude": 1.4, "longitude": 37.5},

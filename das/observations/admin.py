@@ -33,7 +33,7 @@ import observations.models as models
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm
 
-from core.admin import HierarchyModelAdmin
+from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
 from utils.html import make_html_list
 
 from django.template.loader import render_to_string
@@ -68,20 +68,6 @@ class ExportCsvMixin:
         return response
 
     export_as_csv.short_description = "Export Selected Items"
-
-
-class InlineExtraDynamicMixin:
-    '''
-    This allows me to override the 'number of extra inline forms' depending on whether the
-    containing object already exists.
-    Inheriting class should include `extra` if the default is not desired.
-    '''
-    extra = 1
-
-    def get_extra(self, request, obj=None, **kwargs):
-        if obj:
-            return 0
-        return self.extra
 
 
 class SubjectSubTypeInline(InlineExtraDynamicMixin, admin.TabularInline):

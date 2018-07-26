@@ -1034,19 +1034,44 @@ class EventFilter(TimestampedModel):
     filter_spec = JSONField(verbose_name='Filter specification', default='{}')
 
 
+class EventProviderManager(models.Manager):
+    pass
+
+
+class EventProvider(TimestampedModel):
+    objects = EventProviderManager()
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+
+    display = models.CharField(max_length=50, verbose_name='Description',
+                               help_text='Friendly description of the Event Provider.',
+                               blank=True, default='')
+
+    is_active = models.BooleanField(
+        default=True, verbose_name='Whether this Event Provider is active.')
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='eventproviders', related_query_name='eventprovider')
+
+    additional = JSONField(default=dict, blank=True)
+
+    def __str__(self):
+        return self.display
+
+
 class EventSourceManager(models.Manager):
     pass
 
 
 class EventSource(TimestampedModel):
-    # class EventSource(RevisionMixin, TimestampedModel):
 
     objects = EventSourceManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     external_event_type = models.SlugField(max_length=100,
                                            verbose_name='External Event Type',
-                                           unique=True, help_text='External event-type identifier.',
+                                           help_text='External event-type identifier.',
                                            )
 
     display = models.CharField(max_length=50, verbose_name='Description',
@@ -1059,9 +1084,9 @@ class EventSource(TimestampedModel):
     is_active = models.BooleanField(
         default=True, verbose_name='Whether this EventSource may accept new events.')
 
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='eventsources', related_query_name='eventsource')
+    eventprovider = models.ForeignKey(EventProvider, on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name='eventsources', related_query_name='eventsource'
+                                      )
 
     additional = JSONField(default=dict, blank=True)
 
@@ -1069,29 +1094,27 @@ class EventSource(TimestampedModel):
     def is_ready(self):
         return self.is_active and self.event_type is not None
 
-    # revision = Revision()
-
     class Meta:
         permissions = (
             ('create_event_for_eventsource',
              'Permission to add an event for an event source'),
         )
-        unique_together = ('owner', 'external_event_type',)
+        unique_together = ('eventprovider', 'external_event_type',)
 
-    # def natural_key(self):
-    #     return self.value
-    #
     def __str__(self):
-        return f'{self.owner.username}:{self.external_event_type}'
+        epname = self.eventprovider.display if self.eventprovider else 'unspecified-provider'
+        return f'{epname}:{self.external_event_type}'
 
 
 class EventsourceEventManager(models.Manager):
 
     def add_relation(self, event, eventsource, external_event_id):
 
-        correlation, created = EventsourceEvent.objects.get_or_create(
-            event=event, eventsource=eventsource, external_event_id=external_event_id)
-
+        correlation = EventsourceEvent.objects.get_or_create(
+            eventsource=eventsource,
+            external_event_id=external_event_id,
+            event=event,
+        )
         return correlation
 
     def get_relation(self, eventsource, external_event_id):

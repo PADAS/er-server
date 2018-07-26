@@ -98,3 +98,30 @@ class IsOwnerOrReadOnly(BasePermission):
 
         # Write permissions are only allowed to the owner of the snippet.
         return obj.owner == request.user
+
+
+class IsOwner(BasePermission):
+    """
+    Custom permission to only allow owners of an object to see or edit its attributes.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        # Read permissions are allowed to any request,
+        # so we'll always allow GET, HEAD or OPTIONS requests.
+        if request.method in ('HEAD', 'OPTIONS',):
+            return True
+
+        # Write permissions are only allowed to the owner of the snippet.
+        return obj.owner == request.user
+
+
+class IsEventProviderOwnerPermission(BasePermission):
+
+    relation_field = 'eventprovider'
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in ('HEAD', 'OPTIONS'):
+            return True
+
+        eventprovider = getattr(obj, self.relation_field, None)
+        return eventprovider is not None and eventprovider.owner == request.user

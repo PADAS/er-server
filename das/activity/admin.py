@@ -5,6 +5,7 @@ from django.forms import Textarea
 from django.contrib.admin.widgets import AdminFileWidget
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
+from core.admin import InlineExtraDynamicMixin
 
 
 class EventRelationshipInline(admin.TabularInline):
@@ -129,15 +130,39 @@ class EventFactorAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventSource)
 class EventSourceAdmin(admin.ModelAdmin):
-    list_display = ('display', 'owner', 'event_type', 'is_active',)
+    list_display = ('display', 'eventprovider', 'event_type', 'is_active',)
     readonly_fields = ('external_event_type', 'id',)
 
     fieldsets = (
         (None, {
-            'fields': ('display', 'event_type', 'is_active',)
+            'fields': ('display', 'event_type', 'is_active', 'eventprovider',)
         }),
         ('Advanced', {
-            'fields': ('owner', 'external_event_type', 'additional', 'id'),
+            'fields': ('external_event_type', 'additional', 'id'),
+            'classes': ('wide', 'collapse',)
+        })
+    )
+
+
+class EventSourceInline(InlineExtraDynamicMixin, admin.TabularInline):
+    fields = ('external_event_type', 'display',
+              'event_type', 'is_active', 'additional',)
+    model = models.EventSource
+
+
+@admin.register(models.EventProvider)
+class EventProviderAdmin(admin.ModelAdmin):
+    list_display = ('display', 'owner', 'is_active',)
+    readonly_fields = ('id',)
+
+    inlines = [EventSourceInline, ]
+
+    fieldsets = (
+        (None, {
+            'fields': ('display', 'owner', 'is_active',)
+        }),
+        ('Advanced', {
+            'fields': ('additional', 'id'),
             'classes': ('wide', 'collapse',)
         })
     )

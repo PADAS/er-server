@@ -13,6 +13,7 @@ from django.urls import reverse
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from django.http import Http404
+import django.db
 
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import ForeignKey
@@ -387,14 +388,14 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
                             for row in self.get_queryset()))
 
 
-class ExternalEventTypeRelatedField(rest_framework.serializers.RelatedField):
+class EventSourceRelatedField(rest_framework.serializers.RelatedField):
 
     def get_queryset(self):
         user = self.context['request'].user
-        return activity.models.EventSource.objects.filter(owner=user)
+        return activity.models.EventSource.objects.filter(eventprovider__owner=user)
 
     def to_representation(self, value):
-        return value.external_event_type if value else None
+        return value.id if value else None
 
     def to_internal_value(self, data):
 
@@ -405,10 +406,10 @@ class ExternalEventTypeRelatedField(rest_framework.serializers.RelatedField):
                 pass
             else:
                 try:
-                    return activity.models.EventSource.objects.get(owner=user, external_event_type=data)
+                    return activity.models.EventSource.objects.get(id=data, eventprovider__owner=user)
                 except activity.models.EventSource.DoesNotExist:
                     raise rest_framework.serializers.ValidationError(
-                        {'external_event_type': 'Value \'%s\' does not exist.' % data})
+                        {'eventsource': 'ID \'%s\' does not exist.' % data})
         return None
 
     @property
@@ -859,7 +860,7 @@ class EventSerializerMixin:
 
         related_subjects = validated_data.pop('related_subjects', ())
 
-        external_event_type = validated_data.pop('external_event_type', None)
+        eventsource = validated_data.pop('eventsource', None)
         external_event_id = validated_data.pop('external_event_id', None)
 
         new_event = activity.models.Event.objects.create_event(
@@ -867,12 +868,15 @@ class EventSerializerMixin:
 
         EventDetailsSerializer().update(new_event, details_data)
 
-        if external_event_type and external_event_id:
+        if eventsource and external_event_id:
             try:
                 activity.models.EventsourceEvent.objects.add_relation(new_event,
-                                                                      external_event_type, external_event_id)
-            except Exception as e:
-                raise
+                                                                      eventsource, external_event_id)
+
+            except django.db.utils.IntegrityError:
+                raise DuplicateResourceError(
+                    fieldname='external_event_id', detail='External event ID already exists.'
+                )
 
         for note in event_notes:
             note = copy.deepcopy(note)
@@ -1121,7 +1125,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
 
-    external_event_type = ExternalEventTypeRelatedField(required=False)
+    eventsource = EventSourceRelatedField(required=False)
+
     external_event_id = rest_framework.serializers.CharField(
         max_length=100, required=False)
 
@@ -1155,12 +1160,14 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         if self.instance is None:
             event_type = attrs.get('event_type')
             if event_type is None:
-                external_event_type = attrs.get('external_event_type')
-                if external_event_type:
-                    event_type = external_event_type.event_type
+                eventsource = attrs.get('eventsource')
+                if eventsource:
+                    event_type = eventsource.event_type
 
-                if activity.models.EventsourceEvent.objects.filter(eventsource=external_event_type,
-                                                                   external_event_id=attrs.get('external_event_id')).exists():
+                if activity.models.EventsourceEvent.objects.filter(eventsource=eventsource,
+                                                                   external_event_id=attrs.get(
+                                                                       'external_event_id')
+                                                                   ).exists():
                     error = DuplicateResourceError(
                         fieldname='external_event_id', detail='External event ID already exists.'
                     )
@@ -1201,7 +1208,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
-            'files', 'related_subjects', 'external_event_type', 'external_event_id') + read_only_fields
+            'files', 'related_subjects', 'eventsource', 'external_event_id') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1226,7 +1233,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             self.fields.pop('is_linked_to')
 
     def to_representation(self, event):
-        self.fields.pop('external_event_type', None)
+        self.fields.pop('eventsource', None)
         rep = super().to_representation(event)
         if 'request' in self.context:
             request = self.context['request']
@@ -1372,18 +1379,16 @@ class EventFilterSerializer(rest_framework.serializers.ModelSerializer):
         return ef
 
 
-class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
+class EventProviderSerializer(rest_framework.serializers.ModelSerializer):
 
     owner = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault())
-    event_type = EventTypeRelatedField(required=False, allow_null=True,)
 
     class Meta:
         model = activity.models.EventSource
         read_only_fields = ('id', 'owner',)
         fields = read_only_fields + \
-            ('external_event_type', 'display',
-             'event_type', 'additional', 'is_ready',)
+            ('display', 'additional', 'is_active',)
 
     def to_representation(self, obj):
         rep = super().to_representation(obj, )
@@ -1391,7 +1396,28 @@ class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
         rep['owner'] = UserSerializer().to_representation(obj.owner)
 
         rep['url'] = utils.add_base_url(self.context['request'],
+                                        reverse('eventprovider-view',
+                                                args=[obj.id]))
+
+        return rep
+
+
+class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
+
+    event_type = EventTypeRelatedField(required=False, allow_null=True,)
+
+    class Meta:
+        model = activity.models.EventSource
+        read_only_fields = ('id',)
+        fields = read_only_fields + \
+            ('eventprovider', 'external_event_type', 'display',
+             'event_type', 'additional', 'is_ready',)
+
+    def to_representation(self, obj):
+        rep = super().to_representation(obj, )
+
+        rep['url'] = utils.add_base_url(self.context['request'],
                                         reverse('eventsource-view',
-                                                args=[obj.external_event_type]))
+                                                args=[obj.id, ]))
 
         return rep
