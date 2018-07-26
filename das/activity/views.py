@@ -112,8 +112,7 @@ class EventProvidersView(generics.ListCreateAPIView):
     permission_classes = (IsOwner,)
 
     def get_queryset(self):
-        qs = EventProvider.objects.filter(owner=self.request.user)
-        return qs
+        return EventProvider.objects.filter(owner=self.request.user, is_active=True).order_by('display')
 
 
 class EventSourcesView(generics.ListCreateAPIView):

@@ -1046,6 +1046,43 @@ class TestEventView(BaseAPITest):
     #
     # EventSource tests.
 
+    def test_eventprovider_permissions(self):
+
+        eventprovider_data = {
+            'display': 'Smart CSD Provider',
+            'owner': self.eventsource_user_no1,
+            'is_active': False,
+            'additional': {
+                'type': 'foobar',
+                'service_api': 'https://tempuri.org/',
+                'service_password': 'afdo12313uapsdfiue@afouapel1.org',
+                'service_username': 'asfoiusofasf1241rfspue'
+            }
+        }
+        eventprovider = EventProvider.objects.create(**eventprovider_data)
+
+        request = self.factory.get(f'{self.api_base}/activity/eventproviders')
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventProvidersView.as_view()(request,)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 0)
+
+        EventProvider.objects.filter(
+            id=eventprovider.id).update(is_active=True)
+        request = self.factory.get(f'{self.api_base}/activity/eventproviders')
+        self.force_authenticate(request, self.eventsource_user_no1)
+
+        response = views.EventProvidersView.as_view()(request, )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 1)
+
+        eventprovider_data.update({'is_active': True})
+        result_eventprovider = {
+            k: response.data['results'][0][k] for k in eventprovider_data.keys()}
+        self.assertEqual(response.data['results']
+                         [0]['id'], str(eventprovider.id))
+
     def test_add_eventsource(self):
 
         eventprovider = EventProvider.objects.create(

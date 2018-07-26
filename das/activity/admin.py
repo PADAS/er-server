@@ -5,6 +5,7 @@ from django.forms import Textarea
 from django.contrib.admin.widgets import AdminFileWidget
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
+from core.admin import InlineExtraDynamicMixin
 
 
 class EventRelationshipInline(admin.TabularInline):
@@ -143,15 +144,28 @@ class EventSourceAdmin(admin.ModelAdmin):
     )
 
 
-class EventSourceInline(admin.TabularInline):
+class EventSourceInline(InlineExtraDynamicMixin, admin.TabularInline):
+    fields = ('external_event_type', 'display',
+              'event_type', 'is_active', 'additional',)
     model = models.EventSource
 
 
 @admin.register(models.EventProvider)
 class EventProviderAdmin(admin.ModelAdmin):
     list_display = ('display', 'owner', 'is_active',)
+    readonly_fields = ('id',)
 
     inlines = [EventSourceInline, ]
+
+    fieldsets = (
+        (None, {
+            'fields': ('display', 'owner', 'is_active',)
+        }),
+        ('Advanced', {
+            'fields': ('additional', 'id'),
+            'classes': ('wide', 'collapse',)
+        })
+    )
 
 
 @admin.register(models.EventsourceEvent)
