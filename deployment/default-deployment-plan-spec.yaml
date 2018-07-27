@@ -5,3 +5,4 @@ artifacts:
   alertmanager-version: git-monitoring/sha
   prometheus-version: git-monitoring/sha
   grafana-version: git-monitoring/sha
+  smartconnect-provider-version: git-smartconnect-provider/sha

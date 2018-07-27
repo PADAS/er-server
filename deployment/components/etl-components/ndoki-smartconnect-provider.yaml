@@ -1,0 +1,28 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: ndoki-smartconnect-provider-etl
+spec:
+  schedule: "*/20 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          imagePullSecrets:
+          - name: gcr-secret
+          containers:
+          - name: smartconnect-provider-etl
+            image: gcr.io/padas-app/etl/smartconnect-provider:<<smartconnect-provider-version>>
+            env:
+            - name: DAS_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: ndoki-configmap
+                  key: NDOKI_SMARTCONNECT_PROVIDER_DAS_API
+            - name: DAS_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  name: ndoki-configmap
+                  key: NDOKI_SMARTCONNECT_PROVIDER_DAS_TOKEN
+
+          restartPolicy: Never

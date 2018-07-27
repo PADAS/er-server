@@ -2,6 +2,46 @@
 
 ## 1.X of DAS
 
+### Release 1.33.1 2018-07-13
+* Fix refactor bootstrapping of the web app streamlining initial http requests. Initial page load is faster now. [PR300](https://github.com/PADAS/das-web/pull/300)
+* Feature: Sprite Generation. This replaces all server-queried icons and PNG-based sprite sheet icons (for events only thus far) with an SVG sprite that we're building from a simple folder of SVG assets. This yields a few benefits:
+   * Reduces the initial page load by ~650kb.
+   * Removes design work from the process - rather than making a new sprite sheet by hand and adding in position calculations to the code, you simply drop a file into a folder and it's added to the sprite sheet, referencable by filename instantly. This should save us hours of manual design and code work.
+   * Sets us up for a couple of good things: more spriting on the client side for remaining icons, and the tooling/workflow for moving some spriting to the back-end, meaning admin-controlled SVG icons and a very extensible icon sprite system for DAS.
+* Feature: you can't select a TO date (on the right) that's before the FROM date (on the left). and vice versa. it does this by disabling those dates as selectable once you've chosen FROM or TO. Use the CLEAR button to reset. [PR295](https://github.com/PADAS/das-web/pull/295)
+* Enhancement: dates now default to the previously selected dates after closing the Date Range popover and re-opening it.
+* enhancement: there's now a blue dot under the from & to dates (i.e. if you're on FROM the TO date will have a blue dot and vice versa)
+* Fix: if the FROM calendar is open, clicking directly into the TO date field to open the TO calendar would put the TO calendar in a non-responsive state (e.g. clicking on it would close the Date Range popover).
+* Fix: when you switch directly from one date picker to another, you lose focus (and click doesn’t work)
+* Fix: the Yesterday preset wasn’t wasn't showing the end-of-day time correctly (00:00 instead of 23:59.
+* Fix: The Timeslider (TM) was sluggish with live data (hundreds of radios, much denser tracks). This performance fix addresses that for the Timeslider - drawing subject positions (and calculating sub-tracks) is an easy 50x faster now.
+* Fix: Add to Incident dialog lacks Paging [DAS-2161](https://vulcan.atlassian.net/browse/DAS-2161))
+* Enhancement: Poison Report Icon, new report icon for the posion report [DAS-2570](https://vulcan.atlassian.net/browse/DAS-2570)
+* Enhancement: Poacher Sighting Icon, new report icon for the poacher sighting report [DAS-2573](https://vulcan.atlassian.net/browse/DAS-2573)
+* Fix: Icons not aligned in the Report Feed. When using the browser's zoom feature, the icons are not aligned as expected. The layout was based on using pixel measurements which is not the proper solution with modern zoom and accessibility features. [DAS-2751](https://vulcan.atlassian.net/browse/DAS-2751)
+* Fix: "Recent Radio Calls" populating slowly. [DAS-2757](https://vulcan.atlassian.net/browse/DAS-2757)
+* Fix: Vectronics import using new subtype id.
+* Fix: Firms plugin executing multiple jobs at once. Should only have on firms job running at a time. Caused delays in retrieving collar data. 
+
+
+### Release 1.32.1 2018-06
+* Feature: Time Slider – playback of the movement of device tracks
+* Feature: Map Layer Feature Selection – Individually select map layer features to show/hide
+* Feature: Heatmap – now works on groups of devices
+* Feature: Heatmap – User Configuration of parameters
+* Feature: Tracks – Selectable default track duration
+* Fix: Notes sometimes did not display correctly
+* Fix: Edit Reports not saving changes
+* Fix: Recent Radio Calls not populating correctly
+* Fix: Ability to clear a selection in a drop down field
+* Fix: Devices no longer showing when disabled in Map Layers
+* Fix: Feed not scrolling on tall screens
+
+### Release 1.31.1 2018-05-31
+* Heatmaps for single tracked subjects such as Animals or Radios.  This will give you a visual representation of map coverage of a particular device with the amount of time spent in various areas.  You can see a sample in the image below.
+* Heatmaps for Reports.  If you wanted to know the hotspots where snares were recovered, for instance, filter the reports by report type and date, and display a heatmap of the results.  You will see a quick visual representation of snare locations.
+* Various Bug Fixes and Improvements.
+
 ### Release 1.29.1 2018-04-25
 * Breadcrumbs for tracks. Under "Map Layers", feature to turn on Track Timepoints. Once enabled, each gps point on a track is displayed with a point. Click on a track point to view the time and latitude/longitude.
 * Report filtering by Date Range. In the Reports tab, click on the clock icon to set a date range filter on the viewed reports. This includes filtering by Today, Yesterday, Last Month. The date filter is also applied to the "Export Field Reports" feature to limit the csv export. 
