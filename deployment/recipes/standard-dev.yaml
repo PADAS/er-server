@@ -4,4 +4,4 @@ paths:
 - deployments
 - services
 - etl-components/smartconnect-provider.yaml
-- environments/ndoki-configmap.yaml
+- environments/dev-configmap.yaml
