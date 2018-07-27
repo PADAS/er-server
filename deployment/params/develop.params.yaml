@@ -18,3 +18,4 @@ vault-lookups:
 
   ndoki-smartconnect-provider-das-token: padas-app/sites/ndoki/smartconnect-provider-das-token
   dev-smartconnect-provider-das-token: padas-app/sites/dev/smartconnect-provider-das-token
+  integration-smartconnect-provider-das-token: padas-app/sites/integration/smartconnect-provider-das-token

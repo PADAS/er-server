@@ -4,4 +4,4 @@ paths:
 - deployments
 - services
 - etl-components/smartconnect-provider.yaml
-- environments/dev-configmap.yaml
+- environments/integration-configmap.yaml
