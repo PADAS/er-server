@@ -1,7 +1,7 @@
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: ndoki-smartconnect-provider-etl
+  name: smartconnect-provider-etl
 spec:
   schedule: "*/20 * * * *"
   jobTemplate:
@@ -17,12 +17,12 @@ spec:
             - name: DAS_ENDPOINT
               valueFrom:
                 configMapKeyRef:
-                  name: ndoki-configmap
-                  key: NDOKI_SMARTCONNECT_PROVIDER_DAS_API
+                  name: site-configmap
+                  key: SMARTCONNECT_PROVIDER_DAS_API
             - name: DAS_TOKEN
               valueFrom:
                 configMapKeyRef:
-                  name: ndoki-configmap
-                  key: NDOKI_SMARTCONNECT_PROVIDER_DAS_TOKEN
+                  name: site-configmap
+                  key: SMARTCONNECT_PROVIDER_DAS_TOKEN
 
           restartPolicy: Never
