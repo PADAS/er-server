@@ -17,3 +17,4 @@ vault-lookups:
   elastic-basic-auth-password: padas-app/main/es-basic-auth-password
 
   ndoki-smartconnect-provider-das-token: padas-app/sites/ndoki/smartconnect-provider-das-token
+  dev-smartconnect-provider-das-token: padas-app/sites/dev/smartconnect-provider-das-token
