@@ -132,7 +132,7 @@ class EventFactorAdmin(admin.ModelAdmin):
 class EventSourceAdmin(admin.ModelAdmin):
     list_display = ('display', 'eventprovider', 'event_type', 'is_active',)
     readonly_fields = ('external_event_type', 'id',)
-
+    list_filter = ('eventprovider', 'is_active',)
     fieldsets = (
         (None, {
             'fields': ('display', 'event_type', 'is_active', 'eventprovider',)
@@ -155,7 +155,7 @@ class EventProviderAdmin(admin.ModelAdmin):
     list_display = ('display', 'owner', 'is_active',)
     readonly_fields = ('id',)
 
-    inlines = [EventSourceInline, ]
+    # inlines = [EventSourceInline, ]
 
     fieldsets = (
         (None, {
