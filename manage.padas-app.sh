@@ -11,7 +11,7 @@ PROJECT=padas-app
 CONCOURSE_URL=https://ci.pamdas.org
 ELASTIC_URL=elastic.vulcancloud.io
 LOGSTASH_URL=nginx-udp.vulcancloud.io:5045
-TOOLS_VERSION=1.0.64
+TOOLS_VERSION=1.0.83
 VCLOUD_SERVICE_URL=http://vcloud.vulcancloud.io:5000/
 CONCOURSE_TEAM=main
 
