@@ -13,6 +13,7 @@ from django.urls import reverse
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from django.http import Http404
+import django.db
 
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import ForeignKey
@@ -20,9 +21,11 @@ from django.db.models import ForeignKey
 from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
 import rest_framework.serializers
+import rest_framework.status
 from rest_framework.metadata import BaseMetadata
 from rest_framework.fields import DateTimeField
 from rest_framework.exceptions import ValidationError, APIException
+from django.utils.encoding import force_text
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from versatileimagefield.serializers import VersatileImageFieldSerializer
@@ -38,7 +41,7 @@ from utils.json import loads
 from utils.drf import PointValidator
 import activity.models
 import utils
-from accounts.serializers import UserDisplaySerializer, get_user_display
+from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
 from observations.serializers import SubjectSerializer, SourceSerializer, get_subject_display
 from observations.models import Subject
 from analyzers.serializers import SubjectAnalyzerResultSerializer
@@ -48,7 +51,22 @@ import utils.schema_utils as schema_utils
 from activity.models import EventRelationship
 import usercontent.serializers
 
+
 logger = logging.getLogger(__name__)
+
+
+class DuplicateResourceError(APIException):
+    default_status_code = rest_framework.status.HTTP_409_CONFLICT
+    default_fieldname = 'unknown field'
+    default_detail = 'The resource provided conflicts with an existing resource.'
+
+    def __init__(self, fieldname=None, detail=None, status_code=None):
+
+        self.status_code = status_code or self.default_status_code
+
+        self.detail = {
+            fieldname or self.default_fieldname: force_text(detail or self.default_detail)
+        }
 
 
 class EventAttributesField(rest_framework.serializers.JSONField):
@@ -347,12 +365,51 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
         return value.value if value else None
 
     def to_internal_value(self, data):
+
         if data:
             try:
                 return activity.models.EventType.objects.get_by_value(data)
             except activity.models.EventType.DoesNotExist:
                 raise rest_framework.serializers.ValidationError(
                     {'event_type': 'Value \'%s\' does not exist.' % data})
+        else:
+            request_data = self.context['request'].data
+            external_event_type = request_data.get('external_event_type')
+            if external_event_type:
+                eventsource = resolve_external_event_source()
+                if eventsource:
+                    return eventsource.event_type
+
+        return None
+
+    @property
+    def choices(self):
+        return OrderedDict(((row.value, row.display)
+                            for row in self.get_queryset()))
+
+
+class EventSourceRelatedField(rest_framework.serializers.RelatedField):
+
+    def get_queryset(self):
+        user = self.context['request'].user
+        return activity.models.EventSource.objects.filter(eventprovider__owner=user)
+
+    def to_representation(self, value):
+        return value.id if value else None
+
+    def to_internal_value(self, data):
+
+        if data:
+            try:
+                user = self.context['request'].user
+            except AttributeError:
+                pass
+            else:
+                try:
+                    return activity.models.EventSource.objects.get(id=data, eventprovider__owner=user)
+                except activity.models.EventSource.DoesNotExist:
+                    raise rest_framework.serializers.ValidationError(
+                        {'eventsource': 'ID \'%s\' does not exist.' % data})
         return None
 
     @property
@@ -392,7 +449,7 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventType
         read_only_fields = ('value', 'display', 'ordernum',
-                            'is_collection', 'category')
+                            'is_collection', 'category', 'icon_id', 'default_priority',)
         fields = read_only_fields
 
     def to_representation(self, obj):
@@ -803,10 +860,23 @@ class EventSerializerMixin:
 
         related_subjects = validated_data.pop('related_subjects', ())
 
+        eventsource = validated_data.pop('eventsource', None)
+        external_event_id = validated_data.pop('external_event_id', None)
+
         new_event = activity.models.Event.objects.create_event(
             **validated_data)
 
         EventDetailsSerializer().update(new_event, details_data)
+
+        if eventsource and external_event_id:
+            try:
+                activity.models.EventsourceEvent.objects.add_relation(new_event,
+                                                                      eventsource, external_event_id)
+
+            except django.db.utils.IntegrityError:
+                raise DuplicateResourceError(
+                    fieldname='external_event_id', detail='External event ID already exists.'
+                )
 
         for note in event_notes:
             note = copy.deepcopy(note)
@@ -949,7 +1019,7 @@ class EventHeaderSerializer(EventSerializerMixin, rest_framework.serializers.Mod
     class Meta:
         model = activity.models.Event
         fields = ('id', 'message', 'time', 'end_time',
-                  'serial_number', 'priority', 'event_type')
+                  'serial_number', 'priority', 'event_type', 'icon_id',)
 
     def to_representation(self, event):
         rep = super().to_representation(event)
@@ -1021,11 +1091,23 @@ def resolve_image_url(event):
     return event.image_url
 
 
+def resolve_external_event_source(user, external_event_type):
+    ''' Resolve external event source.'''
+    try:
+        eventsource = activity.models.EventSource.objects.get(
+            owner=user, external_event_type=external_event_type
+        )
+        return eventsource
+    except activity.models.EventSource.DoesNotExist:
+        pass
+
+
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
     #  json {lat/lon} and our internal representation.
-    location = PointField(required=False, validators=[PointValidator(), ])
+    location = PointField(required=False, allow_null=True,
+                          validators=[PointValidator(), ])
     time = DateTimeField(source='event_time', required=False)
     created_at = DateTimeField(required=False)
     updated_at = DateTimeField(source='sort_at', required=False)
@@ -1043,6 +1125,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     # photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
     event_details = EventDetailsSerializer(required=False, default={})
+
+    eventsource = EventSourceRelatedField(required=False)
+
+    external_event_id = rest_framework.serializers.CharField(
+        max_length=100, required=False)
 
     contains = rest_framework.serializers.SerializerMethodField()
     is_linked_to = rest_framework.serializers.SerializerMethodField()
@@ -1070,10 +1157,32 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
         # If we're creating an event, and event_type is not present in the
         # request, raise ValidationError.
-        event_type = attrs.get('event_type')
-        if event_type is None and self.instance is None:
-            raise rest_framework.serializers.ValidationError(
-                {'event_type': 'Event type must be provided.'})
+
+        if self.instance is None:
+            event_type = attrs.get('event_type')
+            if event_type is None:
+                eventsource = attrs.get('eventsource')
+                if eventsource:
+                    event_type = eventsource.event_type
+
+                if activity.models.EventsourceEvent.objects.filter(eventsource=eventsource,
+                                                                   external_event_id=attrs.get(
+                                                                       'external_event_id')
+                                                                   ).exists():
+                    error = DuplicateResourceError(
+                        fieldname='external_event_id', detail='External event ID already exists.'
+                    )
+                    raise error
+            if not event_type:
+                raise rest_framework.serializers.ValidationError(
+                    {'event_type': 'Event type must be provided.'})
+            else:
+                attrs['event_type'] = event_type
+
+        # Default priority from Event-Type if it's not provided in POST.
+        if self.instance is None:
+            if attrs.get('priority') is None:
+                attrs['priority'] = attrs['event_type'].default_priority
 
         return super().validate(attrs)
 
@@ -1094,13 +1203,13 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     class Meta:
         model = activity.models.Event
-        read_only_fields = ('updated_at', 'created_at')
+        read_only_fields = ('updated_at', 'created_at', 'icon_id',)
         fields = (
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
-            'files', 'related_subjects', ) + read_only_fields
+            'files', 'related_subjects', 'eventsource', 'external_event_id') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1125,6 +1234,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             self.fields.pop('is_linked_to')
 
     def to_representation(self, event):
+        self.fields.pop('eventsource', None)
         rep = super().to_representation(event)
         if 'request' in self.context:
             request = self.context['request']
@@ -1268,3 +1378,47 @@ class EventFilterSerializer(rest_framework.serializers.ModelSerializer):
     def create(self, validated_data):
         ef = activity.models.EventFilter.objects.create(**validated_data)
         return ef
+
+
+class EventProviderSerializer(rest_framework.serializers.ModelSerializer):
+
+    owner = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault())
+
+    class Meta:
+        model = activity.models.EventSource
+        read_only_fields = ('id', 'owner',)
+        fields = read_only_fields + \
+            ('display', 'additional', 'is_active',)
+
+    def to_representation(self, obj):
+        rep = super().to_representation(obj, )
+
+        rep['owner'] = UserSerializer().to_representation(obj.owner)
+
+        rep['url'] = utils.add_base_url(self.context['request'],
+                                        reverse('eventprovider-view',
+                                                args=[obj.id]))
+
+        return rep
+
+
+class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
+
+    event_type = EventTypeRelatedField(required=False, allow_null=True,)
+
+    class Meta:
+        model = activity.models.EventSource
+        read_only_fields = ('id',)
+        fields = read_only_fields + \
+            ('eventprovider', 'external_event_type', 'display',
+             'event_type', 'additional', 'is_ready',)
+
+    def to_representation(self, obj):
+        rep = super().to_representation(obj, )
+
+        rep['url'] = utils.add_base_url(self.context['request'],
+                                        reverse('eventsource-view',
+                                                args=[obj.id, ]))
+
+        return rep

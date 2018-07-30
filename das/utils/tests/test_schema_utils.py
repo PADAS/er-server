@@ -1,8 +1,10 @@
 from collections import OrderedDict
-
+import json
 from django.test import TestCase
 import utils.schema_utils as schema_utils
 from unittest.mock import MagicMock
+from choices.models import Choice, DynamicChoice
+from observations.models import Subject
 
 
 class TestReportUtils(TestCase):
@@ -55,8 +57,8 @@ class TestReportUtils(TestCase):
                 "carcassrep_species": {
                     "type": "string",
                     "title": "Line 3: Species",
-                    "enum": [],
-                    "enumNames": {}
+                    "enum": ["zebra"],
+                    "enumNames": {"zebra": "Zebra"}
                 },
                 "carcassrep_trophystatus": {
                     "type": "string",
@@ -74,6 +76,15 @@ class TestReportUtils(TestCase):
 
     def setUp(self):
         super().setUp()
+
+        choices = [
+            {'model': 'activity.event',
+             'field': 'carcassrep_species',
+             'value': 'zebra',
+             'display': 'Zebra',
+             }
+        ]
+        Choice.objects.create(**choices[0])
 
     def test_get_all_replacement_fields(self):
         result = schema_utils.get_replacement_fields_in_schema(
@@ -97,3 +108,62 @@ class TestReportUtils(TestCase):
         result = schema_utils.definition_key_order_as_dict(
             self.rendered_schema_1)
         self.assertEquals(result, self.definition_order_dict_schema_1)
+
+    def test_lookup_type_query(self):
+
+        # lookup = {
+        #     "key": "whiteRhinos",
+        #     "type": "checkboxes",
+        #     "title": "White Rhino Names",
+        #     "titleMap": {{query___whiteRhinos___map}}
+        # },
+
+        DynamicChoice.objects.create(**{
+            'id': 'elephants',
+            'model_name': 'observations.subject',
+            'criteria': '[["subject_subtype", "elephant"]]',
+            'value_col': 'id',
+            'display_col': 'name'
+        })
+
+        elephant_list = []
+        elephant_list.append(Subject.objects.create(**{
+            'name': 'Alvin', 'subject_subtype_id': 'elephant',
+        }))
+        elephant_list.append(Subject.objects.create(**{
+            'name': 'Theodore', 'subject_subtype_id': 'elephant',
+        }))
+
+        elephant_list = sorted(elephant_list, key=lambda subject: subject.name)
+        zebra_list = []
+        zebra_list.append(Subject.objects.create(**{
+            'name': 'Simon', 'subject_subtype_id': 'zebra',
+        }))
+
+        # As values
+        replacement_fields = [{'lookup': 'query', 'field': 'elephants', 'type': 'values',
+                               'tag': 'query___elephants___values'}, ]
+        values_list = schema_utils.get_dynamic_choices(replacement_fields[0], )
+        print('Values: %s' % values_list)
+        self.assertListEqual([str(x.id)
+                              for x in elephant_list], json.loads(values_list))
+
+        # As names
+        replacement_fields = [{'lookup': 'query', 'field': 'elephants', 'type': 'names',
+                               'tag': 'query___elephants___names'}, ]
+        names_list = schema_utils.get_dynamic_choices(replacement_fields[0], )
+        print('Names: %s' % names_list)
+        self.assertDictEqual(dict([(str(sub.id), sub.name)
+                                   for sub in elephant_list]), json.loads(names_list))
+
+        # As map
+        replacement_fields = [{'lookup': 'query', 'field': 'elephants', 'type': 'map',
+                               'tag': 'query___elephants___map'}, ]
+        map_result = schema_utils.get_dynamic_choices(replacement_fields[0],)
+        print('Map: %s' % map_result)
+
+        expected_map_result = [
+            dict(value=str(sub.id), name=sub.name)
+            for sub in elephant_list
+        ]
+        self.assertListEqual(expected_map_result, json.loads(map_result))

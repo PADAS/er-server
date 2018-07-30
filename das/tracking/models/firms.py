@@ -287,17 +287,20 @@ class FirmsPlugin(TrackingPlugin):
                                       'bright_ti5', 'scan', 'track'
                                       )
                              )
+
+        firms_event_type = EventType.objects.get_by_value('firms_rep')
+
         event_data = dict(
             title=_('FIRMS Fire Detected'),
             updated_at=observation.recorded_at,
-            priority=Event.PRI_REFERENCE,
+            priority=firms_event_type.default_priority,
         )
 
         event_key = dict(
             event_time=observation.recorded_at,
             location=Point(x=observation.longitude, y=observation.latitude),
             provenance=Event.PC_ANALYZER,
-            event_type=EventType.objects.get_by_value('firms_rep'),
+            event_type=firms_event_type,
         )
 
         with transaction.atomic():

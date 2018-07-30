@@ -42,3 +42,8 @@ spec:
         resources:
           requests:
             cpu: "15m"
+        env:
+        - name: SSL_SECRET
+          value: "<<nginx-utility-ssl-key>>"
+        - name: ELASTIC_BASIC_AUTH_PASSWORD
+          value: "<<elastic-basic-auth-password>>"

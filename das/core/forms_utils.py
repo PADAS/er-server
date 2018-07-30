@@ -21,7 +21,7 @@ class ColorPickerWidget(TextInput):
         }
         js = (
             '//code.jquery.com/jquery-3.2.1.js',
-            '{}static/js/bootstrap-colorpicker.js'.format(settings.STATIC_URL),
+            '{}js/bootstrap-colorpicker.js'.format(settings.STATIC_URL),
         )
 
     def __init__(self, language=None, attrs=None):
