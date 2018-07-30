@@ -736,6 +736,21 @@ class TestEventView(BaseAPITest):
                                                   id=str(event.id))
         self.assertEqual(response.status_code, 403)
 
+    def test_update_event_remove_location(self):
+        event = self.create_event(self.event_data)
+        update_data = {'location': None}
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}'.format(str(event.id)),
+            update_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventView.as_view()(request,
+                                             id=str(event.id))
+        self.assertEqual(response.status_code, 200)
+        response_data = response.data
+        self.assertEqual(response_data['location'], update_data['location'])
+
     def test_event_type_collection(self):
         event_type = EventType.objects.get_by_value('incident_collection')
 
