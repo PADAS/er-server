@@ -75,7 +75,7 @@ Jinja2==2.10
 docxtpl==0.4.6
 python-docx==0.8.6
 lxml==4.1.1
-openpyxl==2.5.0b1
+openpyxl==2.5.4
 
 #pymet and requirements that pymet is not pinning
 rasterio==1.0a9
