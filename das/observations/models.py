@@ -58,15 +58,15 @@ def to_rgb(color):
 
 DEFAULT_COLOR = '255,255,0'
 
-STATUS_COLORS = {'online': 'green', 'offline': 'gray',
-                 'alarm': 'red', 'default': 'black'}
+STATUS_COLORS = {'online-gps': 'green',
+                 'online': 'blue',
+                 'offline': 'gray',
+                 'alarm': 'red',
+                 'na': 'black'}
 
 
-def get_radio_color(state, additional):
-    color = STATUS_COLORS.get(state, 'black')
-    if state == 'online' \
-            and False == additional.get('gps_fix', True):
-        color = 'blue'
+def get_radio_color(subject_status):
+    color = STATUS_COLORS.get(subject_status.radio_state, 'black')
     return color
 
 
@@ -313,8 +313,8 @@ class Observation(models.Model):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     location = models.PointField('point location')
-    # point in time of object at lat lon. 
-    # Note: index is set to false, as we add a compound geospatial index 
+    # point in time of object at lat lon.
+    # Note: index is set to false, as we add a compound geospatial index
     # via a migration script
     recorded_at = models.DateTimeField('recorded at', db_index=False)
     created_at = models.DateTimeField(
@@ -753,7 +753,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     def get_subject_state(self):
         for subject_status in self.subjectstatus_set.filter(delay_hours=0):
-            return subject_status.additional['state']
+            return subject_status.radio_state
 
     def observations(self, last_hours=None, until=None):
         """ returns all observations for this Subject, spanning
@@ -840,11 +840,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         status = self.subjectstatus_set.filter(delay_hours=0)
         if status:
-            status = status[0]
-            if 'state' in status.additional:
-                color = get_radio_color(status.additional['state'],
-                                        status.additional)
-                yield '-'.join((key, color))
+            color = get_radio_color(status[0])
+            yield '-'.join((key, color))
 
         yield key
         yield '-'.join((key, 'black'))
@@ -919,30 +916,142 @@ class SubjectStatusManager(models.Manager):
             return
 
         try:
-            # TODO: Account for the case where multiple subjects are returned.
-            subject = Subject.objects.filter(subjectsource__source=observation.source,
-                                             subjectsource__assigned_range__contains=observation.recorded_at).first()
+            update_subject_status_from_observation(
+                observation, delay_hours=delay_hours)
         except Subject.DoesNotExist:
             return
-        if not subject:
-            return
 
-        substatus, created = SubjectStatus.objects.get_or_create(subject=subject, delay_hours=delay_hours,
-                                                                 defaults=dict(recorded_at=observation.recorded_at,
-                                                                               location=observation.location,
-                                                                               additional=observation.additional))
 
-        if created or substatus.recorded_at >= observation.recorded_at:
+import logging
+from dateutil.parser import parse as parse_date
+
+from django.db.models import Case, CharField, Value, When, F, Q
+from django.db.models.functions import Greatest
+from django.contrib.gis.db import models as dbmodels
+from django.db import connection
+from django.contrib.gis.geos import Point
+from tracking.pubsub_registry import notify_new_tracks
+
+logger = logging.getLogger(__name__)
+
+
+def ensure_subjectstatus_exists(subject_id, delay_hours=0):
+    SubjectStatus.objects.get_or_create(
+        subject_id=subject_id, delay_hours=delay_hours)
+
+
+import json
+
+
+def update_subject_status_from_observation(observation, delay_hours=0):
+
+    before = SubjectStatus.objects.filter(subject__subjectsource__source=observation.source,
+                                          subject__subjectsource__assigned_range__contains=observation.recorded_at,
+                                          delay_hours=delay_hours).values()
+
+    status_updates = build_updates_from_observation(observation)
+
+    SubjectStatus.objects.filter(subject__subjectsource__source=observation.source,
+                                 subject__subjectsource__assigned_range__contains=observation.recorded_at,
+                                 delay_hours=delay_hours).update(additional=observation.additional, **status_updates)
+
+    after = SubjectStatus.objects.filter(subject__subjectsource__source=observation.source,
+                                         subject__subjectsource__assigned_range__contains=observation.recorded_at,
+                                         delay_hours=delay_hours).values()
+
+    notify_new_tracks(observation.source.id)
+
+
+def update_subject_status_from_post(source, recorded_at, location, additional):
+    '''
+    Intention is to update latest SubjectStatus record under the case where a redundant GPS fix has been posted.
+    '''
+
+    radio_state = additional.get('radio_state', SubjectStatus.UNKNOWN)
+
+    status_updates = build_updates(recorded_at=recorded_at,
+                                   location=location,
+                                   radio_state=radio_state,
+                                   radio_state_at=additional.get(
+                                       'radio_state_at'),
+                                   last_voice_call_start_at=additional.get(
+                                       'last_voice_call_start_at'),
+                                   location_requested_at=additional.get('location_requested_at'))
+
+    SubjectStatus.objects.filter(subject__subjectsource__source=source,
+                                 subject__subjectsource__assigned_range__contains=recorded_at,
+                                 delay_hours=0).update(additional=additional, **status_updates)
+    notify_new_tracks(source.id)
+
+
+def build_updates_from_observation(observation):
+    '''
+    Build conditional updates from Observation model instance.
+    :param observation:
+    :return:
+    '''
+    data = observation.additional
+
+    radio_state = data.get('radio_state', SubjectStatus.UNKNOWN)
+
+    return build_updates(recorded_at=observation.recorded_at,
+                         location={'longitude': observation.location.x,
+                                   'latitude': observation.location.y},
+                         radio_state=radio_state,
+                         radio_state_at=data.get('radio_state_at'),
+                         last_voice_call_start_at=data.get(
+                             'last_voice_call_start_at'),
+                         location_requested_at=data.get('location_requested_at'))
+
+
+def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
+                  last_voice_call_start_at=None, location_requested_at=None):
+    '''
+    Build conditional updates from parsed observation attributes.
+    '''
+    location = Point(x=location['longitude'],
+                     y=location['latitude'], srid=4326)
+
+    conditional_updates = {
+        'recorded_at': Greatest(F('recorded_at'), Value(recorded_at)),
+        'location': Case(
+            When(recorded_at__lt=Value(recorded_at), then=Value(str(location))),
+            default=F('location')
+        ),
+    }
+
+    if radio_state_at:
+        try:
+            radio_state_at = parse_date(radio_state_at)
+            if radio_state:
+                conditional_updates['radio_state'] = Case(
+                    When(radio_state_at__lt=Value(
+                        radio_state_at), then=Value(radio_state)),
+                    default=F('radio_state'), output_field=dbmodels.CharField())
+
+                conditional_updates['radio_state_at'] = Greatest(F('radio_state_at'), Value(radio_state_at),
+                                                                 output_field=dbmodels.DateTimeField())
+
+        except:
             pass
-        else:
-            # Update subject-status location only for non-empty points.
-            if observation.location != EMPTY_POINT:
-                substatus.recorded_at = observation.recorded_at
-                substatus.location = observation.location
-            substatus.additional = observation.additional
-            substatus.save()
 
-        return substatus
+    if last_voice_call_start_at:
+        try:
+            last_voice_call_start_at = parse_date(last_voice_call_start_at)
+            conditional_updates['last_voice_call_start_at'] = Greatest(F('last_voice_call_start_at'),
+                                                                       Value(last_voice_call_start_at))
+        except:
+            pass
+
+    if location_requested_at:
+        try:
+            location_requested_at = parse_date(location_requested_at)
+            conditional_updates['location_requested_at'] = Greatest(F('location_requested_at'),
+                                                                    Value(location_requested_at))
+        except:
+            pass
+
+    return conditional_updates
 
 
 class CommonNameManager(models.Manager):
@@ -969,11 +1078,32 @@ class CommonName(TimestampedModel):
 
 
 class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
+
+    ONLINE_GPS = 'online-gps'
+    ONLINE = 'online'
+    OFFLINE = 'offline'
+    ALARM = 'alarm'
+    UNKNOWN = 'na'
+    RADIO_STATE_CHOICES = ((ONLINE_GPS, 'Online w/GPS'),
+                           (ONLINE, 'Online'),
+                           (OFFLINE, 'Offline'),
+                           (ALARM, 'Alarm'),
+                           (UNKNOWN, 'Unknown')
+                           )
     subject = models.ForeignKey('Subject', on_delete=models.CASCADE)
     location = models.PointField('location')
-    recorded_at = models.DateTimeField('location at')
+    recorded_at = models.DateTimeField('location at',)
     delay_hours = models.IntegerField('delay in hours')
-    additional = JSONField('additional')
+    additional = JSONField('additional', blank=True, default=dict)
+
+    radio_state = models.CharField(
+        'state', null=False, choices=RADIO_STATE_CHOICES, default=UNKNOWN, max_length=20)
+    radio_state_at = models.DateTimeField(
+        'Time of state', null=True, blank=True)
+    last_voice_call_start_at = models.DateTimeField(
+        'Last time voice call was initiated', null=True, blank=True)
+    location_requested_at = models.DateTimeField(
+        'Last time location was requested', null=True, blank=True)
 
     objects = SubjectStatusManager.from_queryset(SubjectStatusQuerySet)()
 

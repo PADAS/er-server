@@ -3,7 +3,7 @@ import logging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from observations.models import Observation, SubjectStatus, Subject
+from observations.models import Observation, SubjectStatus, Subject, EMPTY_POINT
 from observations.utils import VIEW_END_WINDOWS
 
 logger = logging.getLogger(__name__)
@@ -40,4 +40,24 @@ def subject_status_post_save(sender, instance, created, **kwargs):
             instance.subject.save()
 
 
-# TODO: Consider the cases for update and delete.
+from datetime import datetime
+import pytz
+
+
+@receiver(post_save, sender=Subject)
+def ensure_subject_status_exists(sender, **kwargs):
+
+    if kwargs.get('created', False):
+
+        defaults = {
+            'location': EMPTY_POINT,
+            'recorded_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
+            'radio_state_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
+
+        }
+
+        subject = kwargs.get('instance')
+        for delay_hours in VIEW_END_WINDOWS:
+            SubjectStatus.objects.get_or_create(
+                subject=subject, delay_hours=delay_hours[1] * 24,
+                defaults=defaults)

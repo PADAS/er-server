@@ -251,14 +251,23 @@ class LargeTablePaginator(Paginator):
 
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, admin.ModelAdmin):
-    list_display = ('_subject_name', '_manufacturer_id', 'recorded_at', 'created_at',
-                    '_longitude', '_latitude', '_state', '_gps_fix', '_event_action')
+    list_display = ('subject_link', '_manufacturer_id', 'recorded_at', 'created_at',
+                    '_longitude', '_latitude', '_state', '_event_action')
     date_hierarchy = 'recorded_at'
     list_display_links = None
 
     paginator = LargeTablePaginator
 
     list_filter = (SubjectNameFilter, SubjectIdFilter)
+
+    def subject_link(self, obj):
+        return mark_safe('<a href="{}">{}</a>'.format(
+            reverse("admin:observations_subject_change",
+                    args=(obj.subject_id,)),
+            obj.subject_name
+        ))
+
+    subject_link.short_description = 'Subject'
 
     def _longitude(self, o):
         return round(o.location.x, 5)
@@ -269,12 +278,8 @@ class ObservationAdmin(ExportCsvMixin, admin.ModelAdmin):
     _latitude.short_description = _('Latitude')
 
     def _state(self, o):
-        return o.additional.get('state')
+        return o.additional.get('radio_state')
     _state.short_description = 'Radio Status'
-
-    def _gps_fix(self, o):
-        return o.additional.get('gps_fix')
-    _gps_fix.short_description = 'w/GPS?'
 
     def _event_action(self, o):
         return o.additional.get('event_action')
@@ -306,7 +311,10 @@ class ObservationAdmin(ExportCsvMixin, admin.ModelAdmin):
         qs = qs.annotate(subject_name=Subquery(subject.values('name')[:1]))
 
         qs = qs.annotate(manufacturer_id=F('source__manufacturer_id'),
-                         subject_name=F('source__subjectsource__subject__name'))
+                         subject_name=F(
+                             'source__subjectsource__subject__name'),
+                         subject_id=F('source__subjectsource__subject__id')
+                         )
         qs = qs.select_related('source',)
 
         return qs
@@ -759,12 +767,22 @@ class SubjectStatusAdmin(admin.ModelAdmin):
     ordering = ('-recorded_at',)
     # change_list_template = 'admin/subject_status_change_list.html'
     # readonly_fields = ('recorded_at', 'subject','delay_hours', 'additional')
-    list_display = ('_status', 'subject', 'recorded_at', '_location', '_age')
+    list_display = ('_status', 'subject_link',
+                    'recorded_at', '_location', '_age')
     list_filter = (RadioStatusFilter, SourceTypeFilter,
                    'subject__subject_subtype__display',)
     list_display_links = None  # Disable all links
 
     actions = None  # Disable all actions.
+
+    def subject_link(self, obj):
+        return mark_safe('<a href="{}">{}</a>'.format(
+            reverse("admin:observations_subject_change",
+                    args=(obj.subject.pk,)),
+            obj.subject.name
+        ))
+
+    subject_link.short_description = 'Subject'
 
     def _age(self, o):
         return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at)
