@@ -375,7 +375,7 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         properties['stroke-width'] = 2
         properties['image'] = image_url
 
-    for ss in subject.subjectstatus_set.filter(delay_hours=0).values(SUBJECT_STATUS_RETURN_FIELDS):
+    for ss in subject.subjectstatus_set.filter(delay_hours=0).values(*SUBJECT_STATUS_RETURN_FIELDS):
 
         properties['subject_state'] = ss.get('radio_state', 'na')
 
