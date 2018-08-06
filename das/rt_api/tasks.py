@@ -28,6 +28,7 @@ from observations.models import SocketClient
 
 logger = logging.getLogger(__name__)
 
+queue_client = redis.from_url(settings.CELERY_BROKER_URL)
 
 def get_context():
     return {'request': DummyRequest(uri='', http_method='GET')}
@@ -263,8 +264,7 @@ def handle_new_source_observation(source_id):
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
 def handle_new_subject_observation(subject_id):
     logger.info(
-        'Celery worker handling new observation. subject_id={}', subject_id)
-    logger.info({'rt_event': 'new_subject_obs'})
+        'Celery worker handling new observation. subject_id=%s', subject_id, extra={'rt_event': 'new_subject_obs'})
     _observation_handler(subject_id)
 
 
@@ -279,14 +279,14 @@ def check_redis_queues():
     Periodic check of redis connections and queue sizes, so that we can expose them 
     to elasticsearch via a log message
     """
-    redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
-    conn = redis_client.client_list()
+    conn = queue_client.client_list()
     conn_count = len(conn)
     logger.info({'redis_connections': conn_count})
     # realtime queues
-    rt_p1 = redis_client.llen('realtime_p1')
-    rt_p2 = redis_client.llen('realtime_p2')
-    rt_p3 = redis_client.llen('realtime_p3')
+    # TODO - encapsulte the queries into a rt_api.queue_client
+    rt_p1 = queue_client.llen('realtime_p1')
+    rt_p2 = queue_client.llen('realtime_p2')
+    rt_p3 = queue_client.llen('realtime_p3')
     logger.info({'realtime_p1': rt_p1})
     logger.info({'realtime_p2': rt_p2})
     logger.info({'realtime_p3': rt_p3})
