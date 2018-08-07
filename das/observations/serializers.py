@@ -347,6 +347,10 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
         return rep
 
 
+SUBJECT_STATUS_RETURN_FIELDS = (
+    'last_voice_call_start_at', 'location_requested_at', 'radio_state_at') + ('radio_state',)
+
+
 def make_feature(request, coordinates, subject, coordinate_times=None, time=None, image_url=None):
     is_point = isinstance(coordinates, Point)
     image_url = add_base_url(request, image_url or subject.image_url)
@@ -371,13 +375,14 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         properties['stroke-width'] = 2
         properties['image'] = image_url
 
-    for ss in subject.subjectstatus_set.filter(delay_hours=0):
-        if 'state' in ss.additional:
-            properties['subject_state'] = ss.additional['state']
+    for ss in subject.subjectstatus_set.filter(delay_hours=0).values(*SUBJECT_STATUS_RETURN_FIELDS):
 
-        for k in ('last_voice_call_start_at', 'requested_location_at'):
-            if k in ss.additional:
-                properties[k] = ss.additional[k]
+        properties['subject_state'] = ss.get('radio_state', 'na')
+
+        for k in ('last_voice_call_start_at', 'location_requested_at', 'radio_state_at'):
+            val = ss.get(k)
+            if val:
+                properties[k] = val
         break
 
     # see https://github.com/mapbox/geojson-coordinate-properties
