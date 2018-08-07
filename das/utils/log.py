@@ -22,3 +22,16 @@ def log_file(filename, level=logging.DEBUG):
     logger = logging.getLogger()
     logger.addHandler(lh)
     logger.setLevel(level)
+
+
+# utility to flatten nested dictionaries into unique k:v pairs
+# so that they can be used in elasticsearch
+def flatten_keys(d, parent_key='', sep='.'):
+    items = []
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_keys(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)

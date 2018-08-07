@@ -59,7 +59,7 @@ class GenericSensorHandler():
         subject_subtype = params.get(
             'subject_subtype', cls.DEFAULT_SUBJECT_SUBTYPE)
 
-        source_type = params.get('source_type', cls.DEFAULT_SOURCE_TYPE)
+        source_type = params.get('source_type', provider_key)
         model_name = params.get('model_name', None) or '{}:{}'.format(
             sensor_type, provider_key)
 
@@ -80,6 +80,7 @@ class GenericSensorHandler():
 
         # Short-circuit if we already have this observation.
         if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
+            logger.info("Processed duplicate observation %s", subject_subtype, extra={'obs.dup': provider_key})
             return Response({}, status=status.HTTP_201_CREATED)
 
         observation = {
@@ -92,6 +93,7 @@ class GenericSensorHandler():
         serializer = ObservationSerializer(data=observation)
         if serializer.is_valid():
             serializer.save()
+            logger.info("Added new observation %s", observation, extra={'obs.new': provider_key})
             notify_new_tracks(src.id)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -212,6 +214,7 @@ class DasRadioAgentHandler():
             if serializer.is_valid():
                 serializer.save()
                 notify_new_tracks(src.id)
+                logger.info("Processed duplicate %s observation", cls.DEFAULT_SUBJECT_SUBTYPE, extra={'obs.new': provider_key})
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -338,7 +341,7 @@ class GsatHandler():
             serializer.save()
 
             notify_new_tracks(src.id)
-
+            logger.info("Processed duplicate %s observation", cls.DEFAULT_SUBJECT_SUBTYPE, extra={'obs.new': provider_key})
             # GSAT service expects 200 and considers anything else bad.
             return Response(serializer.data, status=status.HTTP_200_OK)
 
