@@ -3,6 +3,7 @@ from django.contrib.staticfiles.templatetags.staticfiles import static
 import mapping.models as models
 from mapping.forms import MapCenterForm
 
+from django.contrib import admin as django_admin
 # Register your models here.
 
 
@@ -74,14 +75,52 @@ class DisplayCategegoryAdmin(admin.ModelAdmin):
     pass
 
 
+from django.db.models.expressions import RawSQL
+
+
+class GeometryTypeFilter(django_admin.SimpleListFilter):
+    title = 'Geometry Type'
+    parameter_name = 'geometry_type'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('MULTILINESTRING', 'Multi-line String'),
+            ('MULTIPOLYGON', 'Multi-polygon'),
+            ('LINESTRING', 'Line String'),
+            ('POLYGON', 'Polygon'),
+            ('MULTIPOINT', 'Multi-point'),
+            ('POINT', 'Point'),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(geometry_type=value)
+
+        return queryset
+
+
 @admin.register(models.SpatialFeature)
 class SpatialFeatureAdmin(BaseFeatureAdmin):
-    list_display = ('name', 'feature_type', 'external_source')
-    list_filter = ('feature_type',)
+    list_display = ('name', 'feature_type',
+                    'external_source', 'geometry_type',)
+    list_filter = (GeometryTypeFilter, 'feature_type',)
     search_fields = ('name', 'short_name', 'external_id',)
     inlines = (
         FeaturesInline,
     )
+
+    def get_queryset(self, request):
+        """Limit Subjects to those this person can administer"""
+        qs = super().get_queryset(request)
+        qs = qs.annotate(geometry_type=RawSQL(
+            '''geometryType(feature_geometry)''', ()))
+        return qs
+
+    def geometry_type(self, obj):
+        return obj.geometry_type
+
+    geometry_type.short_description = 'Geometry Type'
 
 
 @admin.register(models.SpatialFile)

@@ -4,7 +4,7 @@ from core.serializers import ContentTypeField
 import rest_framework.serializers
 
 import analyzers.models
-
+from mapping.serializers import SpatialFeatureGroupStaticSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +28,24 @@ class SpatialAnalyzerConfigSerializer(rest_framework.serializers.Serializer):
 
 
 class GeofenceAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
-    pass
+
+    geofences = rest_framework.serializers.HyperlinkedRelatedField(
+        read_only=True, view_name='mapping:spatialfeaturegroup-view', lookup_field='id',)
+
+    threshold_seconds = rest_framework.serializers.IntegerField(
+        source='threshold_time')
+
+    containment_regions = rest_framework.serializers.HyperlinkedRelatedField(
+        read_only=True, view_name='mapping:spatialfeaturegroup-view', lookup_field='id')
 
 
 class ProximityAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
-    pass
+
+    proximal_features = rest_framework.serializers.HyperlinkedRelatedField(
+        read_only=True, view_name='mapping:spatialfeaturegroup-view', lookup_field='id')
+    threshold_seconds = rest_framework.serializers.IntegerField(
+        source='threshold_time')
+    threshold_dist_meters = rest_framework.serializers.FloatField()
 
 
 class SubjectAnalyzerResultSerializer(rest_framework.serializers.Serializer):

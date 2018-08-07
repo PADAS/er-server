@@ -20,7 +20,8 @@ class SpatialAnalyzerListView(generics.ListAPIView):
         results = []
         for spatial_model, spatial_serializer in self.MODEL_TO_SERIALIZER:
             for row in spatial_model.objects.all():
-                serializer = spatial_serializer(row)
+                serializer = spatial_serializer(
+                    row, context={'request': request})
                 results.append(serializer.data)
 
         return Response(results)
