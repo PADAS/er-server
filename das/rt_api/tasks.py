@@ -236,26 +236,26 @@ def get_subject_view_details(view, user, subject_id):
 
 @celery.app.task()
 def handle_new_event(event_id):
-    logger.info('Celery worker handling new event_id: %s', event_id, extra={'rt_event': 'new'})
+    logger.info('Celery worker handling new event_id: %s', event_id, extra={'rt.event': 'new'})
     _event_handler(event_id, 'new_event')
 
 
 @celery.app.task()
 def handle_update_event(event_id):
-    logger.info('Celery worker handling update event_id: %s', event_id, extra={'rt_event': 'update'})
+    logger.info('Celery worker handling update event_id: %s', event_id, extra={'rt.event': 'update'})
     _event_handler(event_id, 'update_event')
 
 
 @celery.app.task()
 def handle_delete_event(event_id):
-    logger.info('Celery worker handling delete event_id: %s', event_id, extra={'rt_event': 'delete'})
+    logger.info('Celery worker handling delete event_id: %s', event_id, extra={'rt.event': 'delete'})
     _event_handler(event_id, 'delete_event')
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
 def handle_new_source_observation(source_id):
     logger.info(
-        'Celery worker handling new observation. source_id=%s', source_id, extra={'rt_event': 'new_source_obs'})
+        'Celery worker handling new observation. source_id=%s', source_id, extra={'rt.event': 'new_source_obs'})
     subject_source = SubjectSource.objects.filter(source=source_id)\
         .order_by('assigned_range').reverse().first()
     _observation_handler(subject_source.subject_id)
@@ -264,13 +264,13 @@ def handle_new_source_observation(source_id):
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
 def handle_new_subject_observation(subject_id):
     logger.info(
-        'Celery worker handling new observation. subject_id=%s', subject_id, extra={'rt_event': 'new_subject_obs'})
+        'Celery worker handling new observation. subject_id=%s', subject_id, extra={'rt.event': 'new_subject_obs'})
     _observation_handler(subject_id)
 
 
 @celery.app.task()
 def handle_emit_data(event_id):
-    logger.info('event mailer event_id: %s', event_id, extra={'rt_emit_event_id': event_id})
+    logger.info('event mailer event_id: %s', event_id)
 
 
 @celery.app.task()
@@ -281,14 +281,14 @@ def check_redis_queues():
     """
     conn = queue_client.client_list()
     conn_count = len(conn)
-    logger.info({'redis_connections': conn_count})
+    logger.info({'redis.conn.count': conn_count})
     # realtime queues
     # TODO - encapsulte the queries into a rt_api.queue_client
     rt_p1 = queue_client.llen('realtime_p1')
     rt_p2 = queue_client.llen('realtime_p2')
     rt_p3 = queue_client.llen('realtime_p3')
-    logger.info({'realtime_p1': rt_p1})
-    logger.info({'realtime_p2': rt_p2})
-    logger.info({'realtime_p3': rt_p3})
+    logger.info({'rt.realtime.p1': rt_p1})
+    logger.info({'rt.realtime.p2': rt_p2})
+    logger.info({'rt.realtime.p3': rt_p3})
 
 
