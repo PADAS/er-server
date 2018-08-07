@@ -119,12 +119,10 @@ def _broadcast_service_status(service_status_data=None):
 
     service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
 
-    logger.info({'rt_status_data': service_status_data})
-
     try:
         all_connections = client.get_all_connections()
 
-        logger.info({'rt_conn_count': len(all_connections)})
+        logger.info({'rt.conn.count': len(all_connections)})
         for sid, session_data in all_connections.items():
             sid = sid.decode('utf8')
 
