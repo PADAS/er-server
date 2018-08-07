@@ -219,7 +219,7 @@ class DasRadioAgentHandler():
         else:
 
             update_subject_status_from_post(existing_observation.source, recorded_at=recorded_at,
-                                            location=location, additional=data['additional'])
+                                            location=location, additional={'subject_name': postdata['subject_name'], **data['additional']})
 
         return Response({}, status=status.HTTP_200_OK)
 

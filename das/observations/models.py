@@ -915,11 +915,8 @@ class SubjectStatusManager(models.Manager):
         if not observation:
             return
 
-        try:
-            update_subject_status_from_observation(
-                observation, delay_hours=delay_hours)
-        except Subject.DoesNotExist:
-            return
+        update_subject_status_from_observation(
+            observation, delay_hours=delay_hours)
 
 
 import logging
@@ -945,9 +942,9 @@ import json
 
 def update_subject_status_from_observation(observation, delay_hours=0):
 
-    before = SubjectStatus.objects.filter(subject__subjectsource__source=observation.source,
-                                          subject__subjectsource__assigned_range__contains=observation.recorded_at,
-                                          delay_hours=delay_hours).values()
+    # before = SubjectStatus.objects.filter(subject__subjectsource__source=observation.source,
+    #                                       subject__subjectsource__assigned_range__contains=observation.recorded_at,
+    #                                       delay_hours=delay_hours).values()
 
     status_updates = build_updates_from_observation(observation)
 
@@ -955,9 +952,15 @@ def update_subject_status_from_observation(observation, delay_hours=0):
                                  subject__subjectsource__assigned_range__contains=observation.recorded_at,
                                  delay_hours=delay_hours).update(additional=observation.additional, **status_updates)
 
-    after = SubjectStatus.objects.filter(subject__subjectsource__source=observation.source,
-                                         subject__subjectsource__assigned_range__contains=observation.recorded_at,
-                                         delay_hours=delay_hours).values()
+    # after = SubjectStatus.objects.filter(subject__subjectsource__source=observation.source,
+    #                                      subject__subjectsource__assigned_range__contains=observation.recorded_at,
+    #                                      delay_hours=delay_hours).values()
+
+    new_name = observation.additional.get('subject_name')
+    if new_name:
+        Subject.objects.filter(subjectsource__assigned_range__contains=observation.recorded_at,
+                               subjectsource__source=observation.source
+                               ).exclude(name=new_name).update(name=new_name)
 
     notify_new_tracks(observation.source.id)
 
@@ -981,6 +984,12 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
     SubjectStatus.objects.filter(subject__subjectsource__source=source,
                                  subject__subjectsource__assigned_range__contains=recorded_at,
                                  delay_hours=0).update(additional=additional, **status_updates)
+
+    new_name = additional.get('subject_name')
+    if new_name:
+        Subject.objects.filter(subjectsource__assigned_range__contains=recorded_at,
+                               subjectsource__source=source).exclude(name=new_name).update(name=new_name)
+
     notify_new_tracks(source.id)
 
 
@@ -1005,7 +1014,7 @@ def build_updates_from_observation(observation):
 
 
 def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
-                  last_voice_call_start_at=None, location_requested_at=None):
+                  last_voice_call_start_at=None, location_requested_at=None,):
     '''
     Build conditional updates from parsed observation attributes.
     '''
