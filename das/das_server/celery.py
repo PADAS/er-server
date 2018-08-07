@@ -48,6 +48,7 @@ app.conf.task_routes = {
 
     # Queue analyzer tasks separately.
     'analyzers.tasks.*': {'queue': 'analyzers', },
+
 }
 
 
@@ -77,7 +78,13 @@ app.conf.beat_schedule = {
     'service-status': {
         'task': 'rt_api.tasks.broadcast_service_status',
         'schedule': timedelta(seconds=15),
-    }
+    },
+
+    'redis-status': {
+        'task': 'rt_api.tasks.check_redis_queues',
+        'schedule': timedelta(seconds=60),
+    }  
+
 }
 
 # Patch Celery's configuration with some attributes that Celery_once will
