@@ -1106,7 +1106,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
     #  json {lat/lon} and our internal representation.
-    location = PointField(required=False, validators=[PointValidator(), ])
+    location = PointField(required=False, allow_null=True,
+                          validators=[PointValidator(), ])
     time = DateTimeField(source='event_time', required=False)
     created_at = DateTimeField(required=False)
     updated_at = DateTimeField(source='sort_at', required=False)

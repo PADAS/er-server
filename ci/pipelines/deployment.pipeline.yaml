@@ -118,3 +118,4 @@ jobs:
             - --iaas=gcp
             - --zone=((gcp-compute-zone))
             - --plan=((deployment-plan))
+            - --recipe git-deployment/deployment/recipes/((deploy-recipe))

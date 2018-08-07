@@ -82,3 +82,10 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
     inlines = (
         FeaturesInline,
     )
+
+
+@admin.register(models.SpatialFile)
+class SpatialFileAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
+                    'layer_number')
+    list_filter = ('feature_set', 'feature_type')

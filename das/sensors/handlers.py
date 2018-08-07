@@ -8,7 +8,7 @@ from rest_framework.response import Response
 
 from rest_framework import serializers
 
-from observations.models import SubjectSource, Source, Observation, SourceProvider
+from observations.models import SubjectSource, Source, Observation, SubjectStatus
 from observations.serializers import ObservationSerializer
 from observations import servicesutils
 from tracking.pubsub_registry import notify_new_tracks
@@ -142,7 +142,7 @@ class DasRadioAgentHandler():
 
     @classmethod
     def handle_observation(cls, data, provider_key):
-        location = None
+
         try:
             location = data.get('location')
             lat = location.get('lat', None)
@@ -168,31 +168,48 @@ class DasRadioAgentHandler():
 
         recorded_at = cls.__str2date(data['recorded_at'])
 
-        # Short-circuit if we already have this observation.
-        if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
-            logger.info("Processed duplicate %s observation", cls.DEFAULT_SUBJECT_SUBTYPE, extra={'obs.dup': provider_key})
-            return Response({}, status=status.HTTP_201_CREATED)
+        try:
+            existing_observation = Observation.objects.get(
+                source=src, recorded_at=recorded_at)
+        except Observation.DoesNotExist:
 
-        observation = {
-            'location': location,
-            'recorded_at': recorded_at,
-            'source': str(src.id),
-            'additional': data['additional'],
-        }
+            # Saving a new observation
+            observation = {
+                'location': location,
+                'recorded_at': recorded_at,
+                'source': str(src.id),
+                'additional': data['additional'],
+            }
 
-        # Anything else that was included in the posted object should move into
-        # additional.
-        observation['additional'].update(
-            dict((k, data[k]) for k in data if k not in observation.keys()))
+            # Anything else that was included in the posted object should move into
+            # additional.
+            observation['additional'].update(
+                dict((k, data[k]) for k in data if k not in observation.keys()))
 
-        serializer = ObservationSerializer(data=observation)
-        if serializer.is_valid():
-            serializer.save()
-            notify_new_tracks(src.id)
-            logger.info("Added new observation %s", observation, extra={'obs.new': provider_key})
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            serializer = ObservationSerializer(data=observation)
+            if serializer.is_valid():
+                serializer.save()
+                notify_new_tracks(src.id)
+                logger.info("Processed duplicate %s observation", cls.DEFAULT_SUBJECT_SUBTYPE, extra={'obs.new': provider_key})
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+
+            # TODO: Move this to a service module.
+            subject_status = SubjectStatus.objects.filter(subject__subjectsource__source=existing_observation.source,
+                                                          delay_hours=0).first()
+
+            if subject_status:
+                these_keys = (
+                    'state', 'gps_fix', 'last_voice_call_start_at', 'location_requested_at')
+                if any(subject_status.additional.get(k) != data['additional'].get(k) for k in these_keys):
+                    SubjectStatus.objects.filter(id=subject_status.id) \
+                        .update(additional={**subject_status.additional, **data['additional']})
+                    notify_new_tracks(src.id)
+
+        return Response({}, status=status.HTTP_200_OK)
 
 
 class GsatHandler():
