@@ -8,9 +8,11 @@ from rest_framework.response import Response
 
 from rest_framework import serializers
 
-from observations.models import SubjectSource, Source, Observation, SubjectStatus
+from observations.models import SubjectSource, Source, Observation
 from observations.serializers import ObservationSerializer
 from observations import servicesutils
+from observations.models import update_subject_status_from_post
+
 from tracking.pubsub_registry import notify_new_tracks
 
 logger = logging.getLogger(__name__)
@@ -98,6 +100,32 @@ class GenericSensorHandler():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class LocationDictSerializer(serializers.Serializer):
+    lon = serializers.FloatField(min_value=-180.0, max_value=180.0)
+    lat = serializers.FloatField(min_value=0.0, max_value=90.0)
+
+
+class RadioAdditionalSerializer(serializers.Serializer):
+    event_action = serializers.CharField(max_length=40)
+    radio_state = serializers.CharField(max_length=20)
+    radio_state_at = serializers.DateTimeField()
+    last_voice_call_start_at = serializers.DateTimeField(required=False)
+    location_requested_at = serializers.DateTimeField(required=False)
+
+
+class DraObservationSerializer(serializers.Serializer):
+
+    manufacturer_id = serializers.CharField()
+    source_type = serializers.CharField(default=None)
+    subject_name = serializers.CharField(default=None)
+    recorded_at = serializers.DateTimeField()
+    location = LocationDictSerializer()
+
+    subject_subtype = serializers.CharField(required=False, default='ranger')
+    # model_name = serializers.CharField(default=None)
+    additional = RadioAdditionalSerializer()
+
+
 class DasRadioAgentHandler():
     '''
     Deprecated. I need to move das-radio-agent to the generic handler above.
@@ -105,14 +133,6 @@ class DasRadioAgentHandler():
     SENSOR_TYPE = 'dasradioagent'
     SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
-
-    @staticmethod
-    def __str2date(d, default_tzinfo=pytz.UTC):
-        '''Parse a date and if it's naive, replace tzinfo with default_tzinfo.'''
-        dt = parse_date(d)
-        if not dt.tzinfo:
-            dt = dt.replace(tzinfo=default_tzinfo)
-        return dt
 
     @classmethod
     def handle_heartbeat(cls, data, provider_key):
@@ -143,18 +163,20 @@ class DasRadioAgentHandler():
     @classmethod
     def handle_observation(cls, data, provider_key):
 
-        try:
-            location = data.get('location')
-            lat = location.get('lat', None)
-            lon = location.get('lon', None)
+        postdata = DraObservationSerializer(data=data)
+        if not postdata.is_valid():
+            return Response(data=postdata.errors, status=status.HTTP_400_BAD_REQUEST)
+        postdata = postdata.validated_data
 
-            # location = Point(x=float(lon), y=float(lat))
-            location = {'latitude': lat, 'longitude': lon}
-        except:
-            location = None
+        print('Handling: ' + str(postdata))
+
+        location = {
+            'longitude': postdata['location']['lon'],
+            'latitude': postdata['location']['lat']
+        }
 
         model_name = '{}:{}'.format(cls.SENSOR_TYPE, provider_key)
-        manufacturer_id = data.get('manufacturer_id')
+        manufacturer_id = postdata['manufacturer_id']
 
         src = Source.objects.ensure_source(source_type=cls.SOURCE_TYPE,
                                            provider=provider_key,
@@ -166,11 +188,13 @@ class DasRadioAgentHandler():
                                            }
                                            )
 
-        recorded_at = cls.__str2date(data['recorded_at'])
+        recorded_at = postdata['recorded_at']
 
         try:
+
             existing_observation = Observation.objects.get(
                 source=src, recorded_at=recorded_at)
+
         except Observation.DoesNotExist:
 
             # Saving a new observation
@@ -197,17 +221,8 @@ class DasRadioAgentHandler():
 
         else:
 
-            # TODO: Move this to a service module.
-            subject_status = SubjectStatus.objects.filter(subject__subjectsource__source=existing_observation.source,
-                                                          delay_hours=0).first()
-
-            if subject_status:
-                these_keys = (
-                    'state', 'gps_fix', 'last_voice_call_start_at', 'location_requested_at')
-                if any(subject_status.additional.get(k) != data['additional'].get(k) for k in these_keys):
-                    SubjectStatus.objects.filter(id=subject_status.id) \
-                        .update(additional={**subject_status.additional, **data['additional']})
-                    notify_new_tracks(src.id)
+            update_subject_status_from_post(existing_observation.source, recorded_at=recorded_at,
+                                            location=location, additional={'subject_name': postdata['subject_name'], **data['additional']})
 
         return Response({}, status=status.HTTP_200_OK)
 
