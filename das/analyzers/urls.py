@@ -4,7 +4,7 @@ app_name = 'analyzers'
 
 urlpatterns = (
     # a list of available features
-    url(r'^spatial?$', SpatialAnalyzerListView.as_view()),
+    url(r'^spatial/?$', SpatialAnalyzerListView.as_view()),
 
 
 )
