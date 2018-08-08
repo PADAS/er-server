@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser
 from rest_framework_extensions.etag.decorators import etag
 
-from mapping.models import PolygonFeature, LineFeature, PointFeature, SpatialFeatureGroupStatic
+from mapping.models import PolygonFeature, LineFeature, PointFeature, SpatialFeatureGroupStatic, SpatialFeature
 from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError, Map
 import mapping.serializers as serializers
 from mapping import app_settings
@@ -28,3 +28,11 @@ class SpatialFeatureGroupView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return SpatialFeatureGroupStatic.objects.all()
+
+
+class SpatialFeatureView(generics.RetrieveAPIView):
+
+    serializer_class = serializers.SpatialFeatureSerializer
+    lookup_field = 'id'
+
+    queryset = SpatialFeature.objects.all()

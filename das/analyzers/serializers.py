@@ -3,6 +3,7 @@ import logging
 from core.serializers import ContentTypeField
 import rest_framework.serializers
 
+import mapping.models
 import analyzers.models
 from mapping.serializers import SpatialFeatureGroupStaticSerializer
 
@@ -29,8 +30,8 @@ class SpatialAnalyzerConfigSerializer(rest_framework.serializers.Serializer):
 
 class GeofenceAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
 
-    geofences = rest_framework.serializers.HyperlinkedRelatedField(
-        read_only=True, view_name='mapping:spatialfeaturegroup-view', lookup_field='id',)
+    geofence_group = rest_framework.serializers.HyperlinkedRelatedField(source='geofences',
+                                                                        read_only=True, view_name='mapping:spatialfeaturegroup-view', lookup_field='id')
 
     threshold_seconds = rest_framework.serializers.IntegerField(
         source='threshold_time')
