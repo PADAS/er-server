@@ -30,14 +30,26 @@ class SpatialAnalyzerConfigSerializer(rest_framework.serializers.Serializer):
 
 class GeofenceAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
 
-    geofence_group = rest_framework.serializers.HyperlinkedRelatedField(source='geofences',
-                                                                        read_only=True, view_name='mapping:spatialfeaturegroup-view', lookup_field='id')
+    geofence_group = rest_framework.serializers.HyperlinkedRelatedField(
+        source='geofences',
+        read_only=True, view_name='mapping:spatialfeaturegroup-view',
+        lookup_field='id')
 
     threshold_seconds = rest_framework.serializers.IntegerField(
         source='threshold_time')
 
     containment_regions = rest_framework.serializers.HyperlinkedRelatedField(
         read_only=True, view_name='mapping:spatialfeaturegroup-view', lookup_field='id')
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        critical_group = rep.pop('geofence_group')
+
+        rep['spatial_groups'] = {
+            'warning_group': None,
+            'critical_group': critical_group}
+
+        return rep
 
 
 class ProximityAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
@@ -47,6 +59,15 @@ class ProximityAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
     threshold_seconds = rest_framework.serializers.IntegerField(
         source='threshold_time')
     threshold_dist_meters = rest_framework.serializers.FloatField()
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        proximal_group = rep.pop('proximal_features')
+        rep['spatial_groups'] = {
+            'proximity_group': proximal_group
+        }
+
+        return rep
 
 
 class SubjectAnalyzerResultSerializer(rest_framework.serializers.Serializer):
