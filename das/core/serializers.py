@@ -23,12 +23,14 @@ class ContentTypeField(serializers.Field):
 class Serializer(geojson.Serializer):
     def get_dump_object(self, obj):
         property_map = self.options.get('properties', None)
-        for name, new_name in property_map.items():
-            if name in self._current:
-                self._current[new_name] = self._current[name]
-                del self._current[name]
-            elif hasattr(obj, name):
-                self._current[new_name] = getattr(obj, name)
+
+        if property_map:
+            for name, new_name in property_map.items():
+                if name in self._current:
+                    self._current[new_name] = self._current[name]
+                    del self._current[name]
+                elif hasattr(obj, name):
+                    self._current[new_name] = getattr(obj, name)
 
         field_name = 'presentation'
         if field_name in self._current:
