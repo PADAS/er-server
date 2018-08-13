@@ -44,10 +44,13 @@ class GeofenceAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
     def to_representation(self, instance):
         rep = super().to_representation(instance)
         critical_group = rep.pop('geofence_group')
+        containment_regions = rep.pop('containment_regions')
 
         rep['spatial_groups'] = {
             'warning_group': None,
-            'critical_group': critical_group}
+            'critical_group': critical_group,
+            'containment_regions_group': containment_regions,
+        }
 
         return rep
 
