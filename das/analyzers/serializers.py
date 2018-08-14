@@ -1,4 +1,5 @@
 import logging
+import urllib
 
 from core.serializers import ContentTypeField
 import rest_framework.serializers
@@ -30,8 +31,11 @@ class SpatialAnalyzerConfigSerializer(rest_framework.serializers.Serializer):
 
 class GeofenceAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
 
-    geofence_group = rest_framework.serializers.HyperlinkedRelatedField(
-        source='geofences',
+    critical_geofence_group = rest_framework.serializers.HyperlinkedRelatedField(
+        read_only=True, view_name='mapping:spatialfeaturegroup-view',
+        lookup_field='id')
+
+    warning_geofence_group = rest_framework.serializers.HyperlinkedRelatedField(
         read_only=True, view_name='mapping:spatialfeaturegroup-view',
         lookup_field='id')
 
@@ -43,11 +47,12 @@ class GeofenceAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
-        critical_group = rep.pop('geofence_group')
+        critical_group = rep.pop('critical_geofence_group')
+        warning_group = rep.pop('warning_geofence_group')
         containment_regions = rep.pop('containment_regions')
 
         rep['spatial_groups'] = {
-            'warning_group': None,
+            'warning_group': warning_group,
             'critical_group': critical_group,
             'containment_regions_group': containment_regions,
         }

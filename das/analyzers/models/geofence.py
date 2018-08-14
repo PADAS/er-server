@@ -38,12 +38,4 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
         verbose_name='This analyzer applies to containment polygons in this SpatialFeatureGroupStatic.'
     )
 
-    @property
-    def warning_geofences(self):
-        return self.geofences.features.filter(feature_type__name='Geofence_Warning')
-
-    @property
-    def primary_geofences(self):
-        return self.geofences.features.filter(feature_type__name='Geofence_Primary')
-
     analyzer_category = 'geofence'
