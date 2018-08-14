@@ -14,20 +14,36 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
     threshold_time = models.IntegerField(
         null=False, default=43200, verbose_name='Threshold time (seconds)')  # 12 hours
 
-    geofences = models.ForeignKey(
+    critical_geofence_group = models.ForeignKey(
         to=SpatialFeatureGroupStatic,
         on_delete=models.CASCADE,
         null=True,
-        related_name='geofences',
-        verbose_name='This analyzer applies to geofences in this SpatialFeatureGroupStatic.'
+        related_name='+',
+        verbose_name='Critical geo-fences for this analyzer'
+    )
+
+    warning_geofence_group = models.ForeignKey(
+        to=SpatialFeatureGroupStatic,
+        on_delete=models.CASCADE,
+        null=True,
+        related_name='+',
+        verbose_name='Warning geo-fences for this analyzer'
     )
 
     containment_regions = models.ForeignKey(
         to=SpatialFeatureGroupStatic,
         on_delete=models.CASCADE,
         null=True,
-        related_name='containmentregions',
+        related_name='+',
         verbose_name='This analyzer applies to containment polygons in this SpatialFeatureGroupStatic.'
     )
+
+    @property
+    def warning_geofences(self):
+        return self.geofences.features.filter(feature_type__name='Geofence_Warning')
+
+    @property
+    def primary_geofences(self):
+        return self.geofences.features.filter(feature_type__name='Geofence_Primary')
 
     analyzer_category = 'geofence'

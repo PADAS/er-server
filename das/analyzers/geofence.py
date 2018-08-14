@@ -37,33 +37,26 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         gfs, crs = [], []
 
         # Get the SpatialFeatureGroupStatic containing the fences
-        if self.config.geofences is not None:
-            fs = self.config.geofences.features.all()
-            for feat in fs:
-                if feat.feature_type.name == 'Geofence_Primary':
-                    print('Geofence GeoType:', type(feat.feature_geometry))
-                    vf = pymet.geofence.Geofence(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
-                                                 fence_name=feat.name,
-                                                 unique_id=feat.id,
-                                                 warn_level='CRITICAL')
-                    gfs.append(vf)
-                elif feat.feature_type.name == 'Geofence_Warning':
-                    vf = pymet.geofence.Geofence(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
-                                                 fence_name=feat.name,
-                                                 unique_id=feat.id,
-                                                 warn_level='WARNING')
-                    gfs.append(vf)
+        for feat in self.config.critical_geofence_group.features.all():
+            vf = pymet.geofence.Geofence(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
+                                         fence_name=feat.name,
+                                         unique_id=feat.id,
+                                         warn_level='CRITICAL')
+            gfs.append(vf)
+
+        for feat in self.config.warning_geofence_group.features.all():
+            vf = pymet.geofence.Geofence(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
+                                         fence_name=feat.name,
+                                         unique_id=feat.id,
+                                         warn_level='WARNING')
+            gfs.append(vf)
 
         # Get the SpatialFeatureGroupStatic containing the containment regions
-        if self.config.containment_regions is not None:
-            rgns = self.config.containment_regions.features.all()
-            for feat in rgns:
-                print('Containment Region Geo Type:',
-                      type(feat.feature_geometry))
-                cr = pymet.base.SpatialFeature(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
-                                               name=feat.name,
-                                               unique_id=feat.id)
-                crs.append(cr)
+        for feat in self.config.containment_regions.features.all():
+            cr = pymet.base.SpatialFeature(ogr_geometry=ogr.CreateGeometryFromWkt(feat.feature_geometry.wkt),
+                                           name=feat.name,
+                                           unique_id=feat.id)
+            crs.append(cr)
 
         return pymet.geofence.GeofenceAnalysisParams(geofences=gfs, regions=crs)
 
