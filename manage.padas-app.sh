@@ -71,6 +71,7 @@ docker run -it --rm \
     -e USERNAME=$(whoami) \
     -e TOOLS_CONTAINER_VERSION=$TOOLS_VERSION \
     -e IAAS=azure \
+    -e AZURE_SUBSCRIPTION=$AZURE_SUBSCRIPTION \
     -v $MANAGE_PROJECT_DIR/ci:/vulcan-platform-tools/ci \
     -v $MANAGE_PROJECT_DIR/deployment:/vulcan-platform-tools/deployment \
     -v $(pwd):/vulcan-platform-tools/workdir \

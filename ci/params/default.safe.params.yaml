@@ -3,25 +3,23 @@ vp-tools-container-version: "1.0.83"
 infrastructure-utilities-version-tag: "0.0.54"
 
 #Infrastructure
-iaas-workspace: padas-app
+iaas: gcp
+iaas-workspace: "padas-app"
+iaas-zone: "us-west1-a"
+cluster-spec: deployment/cluster-specs/gcp.yaml
 cluster-name: ""
 static-ip: ""
 utility-static-ip: ""
 disk-namespace: ""
-gcp-compute-zone: "us-west1-a"
 vault-address: "https://vault.vulcancloud.io:8200"
 vcloud-service-url: "http://vcloud.vulcancloud.io:5000/"
 elastic-url: "elastic.vulcancloud.io"
-cluster-spec: deployment/cluster-specs/default.yaml
 deploy-params-environment: develop
 
 #Azure
 azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa
 azure-tenant-id: 0e10ccd8-5b77-476f-af4c-13ff073b52f6
-azure-service-account-id: 5f25a917-54dd-4eda-8d9d-126798fa7b1b
-azure-region: eastus
-azure-workspace: DAS-Dev
-
+azure-client-id: 10d28313-7de9-4d1d-a1e3-cd366e8ae65a
 
 #Build
 server-branch-name: develop
