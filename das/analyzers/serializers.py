@@ -1,12 +1,16 @@
 import logging
 import urllib
 
+from django.urls import reverse
+
 from core.serializers import ContentTypeField
 import rest_framework.serializers
 
 import mapping.models
 import analyzers.models
 from mapping.serializers import SpatialFeatureGroupStaticSerializer
+
+import utils
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +61,11 @@ class GeofenceAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
             'containment_regions_group': containment_regions,
         }
 
+        if 'request' in self.context:
+            rep['admin_href'] = utils.add_base_url(self.context['request'],
+                                                   reverse("admin:analyzers_geofenceanalyzerconfig_change",
+                                                           args=(instance.pk,)))
+
         return rep
 
 
@@ -74,6 +83,11 @@ class ProximityAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
         rep['spatial_groups'] = {
             'proximity_group': proximal_group
         }
+
+        if 'request' in self.context:
+            rep['admin_href'] = utils.add_base_url(self.context['request'],
+                                                   reverse("admin:analyzers_proximityanalyzerconfig_change",
+                                                           args=(instance.pk,)))
 
         return rep
 
