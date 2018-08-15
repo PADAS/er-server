@@ -19,3 +19,7 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
     )
 
     analyzer_category = 'proximity'
+
+    class Meta(SubjectAnalyzerConfig.Meta):
+        permissions = (('view_proximityanalyzerconfig',
+                        'Can view Proximity Analyzer Configurations'), )

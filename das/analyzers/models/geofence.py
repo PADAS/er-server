@@ -39,3 +39,7 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
     )
 
     analyzer_category = 'geofence'
+
+    class Meta(SubjectAnalyzerConfig.Meta):
+        permissions = (('view_geofenceanalyzerconfig',
+                        'Can view Geofence Analyzer configurations'),)
