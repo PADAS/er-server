@@ -1,0 +1,7 @@
+project-id: padas-app
+cluster-name: importlayer
+server-branch-name: feature/DAS-2374
+web-branch-name: develop
+tag-as-latest: false
+static-ip: 104.198.14.33
+deploy-params-environment: integration

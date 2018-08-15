@@ -1,0 +1,7 @@
+paths:
+- persistentvolumes
+- statefulsets
+- deployments
+- services
+- etl-components/smartconnect-provider.yaml
+- environments/ndoki-configmap.yaml

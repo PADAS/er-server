@@ -138,3 +138,4 @@ jobs:
           - --iaas=azure
           - --workspace=((azure-workspace))
           - --plan ((deployment-plan))
+          - --recipe git-deployment/deployment/recipes/((deploy-recipe))

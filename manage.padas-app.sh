@@ -10,8 +10,10 @@ MANAGE_PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT=padas-app
 CONCOURSE_URL=https://ci.pamdas.org
 ELASTIC_URL=elastic.vulcancloud.io
-TOOLS_VERSION=1.0.72
+LOGSTASH_URL=nginx-udp.vulcancloud.io:5045
+TOOLS_VERSION=1.0.83
 VCLOUD_SERVICE_URL=http://vcloud.vulcancloud.io:5000/
+CONCOURSE_TEAM=main
 AZURE_SUBSCRIPTION=DAS
 
 ### DO NOT EDIT BELOW THIS LINE
@@ -58,7 +60,9 @@ docker run -it --rm \
     --volumes-from $CONTAINER_NAME \
     -e PROJECT=$PROJECT \
     -e CONCOURSE_URL=$CONCOURSE_URL \
+    -e LOGSTASH_URL=$LOGSTASH_URL \
     -e ELASTIC_URL=$ELASTIC_URL \
+    -e CONCOURSE_TEAM=$CONCOURSE_TEAM \
     -e VCLOUD_SERVICE_URL=$VCLOUD_SERVICE_URL \
     -e VAULT_ADDR=$VAULT_ADDR \
     -e VAULT_SKIP_VERIFY=true \

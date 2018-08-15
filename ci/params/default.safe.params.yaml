@@ -1,5 +1,5 @@
 project-id: padas-app
-vp-tools-container-version: "1.0.64"
+vp-tools-container-version: "1.0.83"
 infrastructure-utilities-version-tag: "0.0.54"
 
 #Infrastructure
@@ -28,6 +28,7 @@ server-branch-name: develop
 web-branch-name: develop
 tag-as-latest: false
 version-suffix: "not-set"
+smartconnect-provider-branch-name: develop
 
 #Application
 email-host: ""
@@ -39,3 +40,6 @@ postman-environment:
 slack-notification-channel: ""
 alerts-slack-channel: ""
 send-alerts: false
+
+#
+deploy-recipe: standard.yaml

@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import redis
 from functools import partial
 
 from celery_once import QueueOnce
@@ -27,6 +28,7 @@ from observations.models import SocketClient
 
 logger = logging.getLogger(__name__)
 
+queue_client = redis.from_url(settings.CELERY_BROKER_URL)
 
 def get_context():
     return {'request': DummyRequest(uri='', http_method='GET')}
@@ -115,15 +117,12 @@ def _event_handler(event_id, type):
 
 def _broadcast_service_status(service_status_data=None):
 
-    logger.info('Inside _broadcast_service_status.')
     service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
-
-    logger.info('Got service status data: %s', service_status_data)
 
     try:
         all_connections = client.get_all_connections()
 
-        logger.info('Going to send to these folks: %s', all_connections)
+        logger.info({'rt.conn.count': len(all_connections)})
         for sid, session_data in all_connections.items():
             sid = sid.decode('utf8')
 
@@ -185,7 +184,7 @@ def _observation_handler(subject_id):
                         'object_id': subject_id,
                         'data': payload
                     }
-
+                    logger.info(emit_data)
                     pubsub.publish(json.dumps(
                         emit_data, default=dumps_helper), 'das.realtime.emit')
 
@@ -235,26 +234,26 @@ def get_subject_view_details(view, user, subject_id):
 
 @celery.app.task()
 def handle_new_event(event_id):
-    logger.info('Celery worker handling new event_id: %s', event_id)
+    logger.info('Celery worker handling new event_id: %s', event_id, extra={'rt.event': 'new'})
     _event_handler(event_id, 'new_event')
 
 
 @celery.app.task()
 def handle_update_event(event_id):
-    logger.info('Celery worker handling update event_id: %s', event_id)
+    logger.info('Celery worker handling update event_id: %s', event_id, extra={'rt.event': 'update'})
     _event_handler(event_id, 'update_event')
 
 
 @celery.app.task()
 def handle_delete_event(event_id):
-    logger.info('Celery worker handling delete event_id: %s', event_id)
+    logger.info('Celery worker handling delete event_id: %s', event_id, extra={'rt.event': 'delete'})
     _event_handler(event_id, 'delete_event')
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
 def handle_new_source_observation(source_id):
     logger.info(
-        'Celery worker handling new observation. source_id=%s', source_id)
+        'Celery worker handling new observation. source_id=%s', source_id, extra={'rt.event': 'new_source_obs'})
     subject_source = SubjectSource.objects.filter(source=source_id)\
         .order_by('assigned_range').reverse().first()
     _observation_handler(subject_source.subject_id)
@@ -263,10 +262,31 @@ def handle_new_source_observation(source_id):
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
 def handle_new_subject_observation(subject_id):
     logger.info(
-        'Celery worker handling new observation. subject_id=%s', subject_id)
+        'Celery worker handling new observation. subject_id=%s', subject_id, extra={'rt.event': 'new_subject_obs'})
     _observation_handler(subject_id)
 
 
 @celery.app.task()
 def handle_emit_data(event_id):
     logger.info('event mailer event_id: %s', event_id)
+
+
+@celery.app.task()
+def check_redis_queues():
+    """
+    Periodic check of redis connections and queue sizes, so that we can expose them 
+    to elasticsearch via a log message
+    """
+    conn = queue_client.client_list()
+    conn_count = len(conn)
+    logger.info({'redis.conn.count': conn_count})
+    # realtime queues
+    # TODO - encapsulte the queries into a rt_api.queue_client
+    rt_p1 = queue_client.llen('realtime_p1')
+    rt_p2 = queue_client.llen('realtime_p2')
+    rt_p3 = queue_client.llen('realtime_p3')
+    logger.info({'rt.realtime.p1': rt_p1})
+    logger.info({'rt.realtime.p2': rt_p2})
+    logger.info({'rt.realtime.p3': rt_p3})
+
+

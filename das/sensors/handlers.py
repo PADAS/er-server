@@ -8,9 +8,11 @@ from rest_framework.response import Response
 
 from rest_framework import serializers
 
-from observations.models import SubjectSource, Source, Observation, SourceProvider
+from observations.models import SubjectSource, Source, Observation
 from observations.serializers import ObservationSerializer
 from observations import servicesutils
+from observations.models import update_subject_status_from_post
+
 from tracking.pubsub_registry import notify_new_tracks
 
 logger = logging.getLogger(__name__)
@@ -57,7 +59,7 @@ class GenericSensorHandler():
         subject_subtype = params.get(
             'subject_subtype', cls.DEFAULT_SUBJECT_SUBTYPE)
 
-        source_type = params.get('source_type', cls.DEFAULT_SOURCE_TYPE)
+        source_type = params.get('source_type', provider_key)
         model_name = params.get('model_name', None) or '{}:{}'.format(
             sensor_type, provider_key)
 
@@ -78,6 +80,7 @@ class GenericSensorHandler():
 
         # Short-circuit if we already have this observation.
         if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
+            logger.info("Processed duplicate observation %s", subject_subtype, extra={'obs.dup': provider_key})
             return Response({}, status=status.HTTP_201_CREATED)
 
         observation = {
@@ -90,10 +93,37 @@ class GenericSensorHandler():
         serializer = ObservationSerializer(data=observation)
         if serializer.is_valid():
             serializer.save()
+            logger.info("Added new observation %s", observation, extra={'obs.new': provider_key})
             notify_new_tracks(src.id)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LocationDictSerializer(serializers.Serializer):
+    lon = serializers.FloatField(min_value=-180.0, max_value=180.0)
+    lat = serializers.FloatField(min_value=0.0, max_value=90.0)
+
+
+class RadioAdditionalSerializer(serializers.Serializer):
+    event_action = serializers.CharField(max_length=40)
+    radio_state = serializers.CharField(max_length=20)
+    radio_state_at = serializers.DateTimeField()
+    last_voice_call_start_at = serializers.DateTimeField(required=False)
+    location_requested_at = serializers.DateTimeField(required=False)
+
+
+class DraObservationSerializer(serializers.Serializer):
+
+    manufacturer_id = serializers.CharField()
+    source_type = serializers.CharField(default=None)
+    subject_name = serializers.CharField(default=None)
+    recorded_at = serializers.DateTimeField()
+    location = LocationDictSerializer()
+
+    subject_subtype = serializers.CharField(required=False, default='ranger')
+    # model_name = serializers.CharField(default=None)
+    additional = RadioAdditionalSerializer()
 
 
 class DasRadioAgentHandler():
@@ -103,14 +133,6 @@ class DasRadioAgentHandler():
     SENSOR_TYPE = 'dasradioagent'
     SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
-
-    @staticmethod
-    def __str2date(d, default_tzinfo=pytz.UTC):
-        '''Parse a date and if it's naive, replace tzinfo with default_tzinfo.'''
-        dt = parse_date(d)
-        if not dt.tzinfo:
-            dt = dt.replace(tzinfo=default_tzinfo)
-        return dt
 
     @classmethod
     def handle_heartbeat(cls, data, provider_key):
@@ -140,19 +162,21 @@ class DasRadioAgentHandler():
 
     @classmethod
     def handle_observation(cls, data, provider_key):
-        location = None
-        try:
-            location = data.get('location')
-            lat = location.get('lat', None)
-            lon = location.get('lon', None)
 
-            # location = Point(x=float(lon), y=float(lat))
-            location = {'latitude': lat, 'longitude': lon}
-        except:
-            location = None
+        postdata = DraObservationSerializer(data=data)
+        if not postdata.is_valid():
+            return Response(data=postdata.errors, status=status.HTTP_400_BAD_REQUEST)
+        postdata = postdata.validated_data
+
+        print('Handling: ' + str(postdata))
+
+        location = {
+            'longitude': postdata['location']['lon'],
+            'latitude': postdata['location']['lat']
+        }
 
         model_name = '{}:{}'.format(cls.SENSOR_TYPE, provider_key)
-        manufacturer_id = data.get('manufacturer_id')
+        manufacturer_id = postdata['manufacturer_id']
 
         src = Source.objects.ensure_source(source_type=cls.SOURCE_TYPE,
                                            provider=provider_key,
@@ -164,31 +188,43 @@ class DasRadioAgentHandler():
                                            }
                                            )
 
-        recorded_at = cls.__str2date(data['recorded_at'])
+        recorded_at = postdata['recorded_at']
 
-        # Short-circuit if we already have this observation.
-        if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
-            return Response({}, status=status.HTTP_201_CREATED)
+        try:
 
-        observation = {
-            'location': location,
-            'recorded_at': recorded_at,
-            'source': str(src.id),
-            'additional': data['additional'],
-        }
+            existing_observation = Observation.objects.get(
+                source=src, recorded_at=recorded_at)
 
-        # Anything else that was included in the posted object should move into
-        # additional.
-        observation['additional'].update(
-            dict((k, data[k]) for k in data if k not in observation.keys()))
+        except Observation.DoesNotExist:
 
-        serializer = ObservationSerializer(data=observation)
-        if serializer.is_valid():
-            serializer.save()
-            notify_new_tracks(src.id)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            # Saving a new observation
+            observation = {
+                'location': location,
+                'recorded_at': recorded_at,
+                'source': str(src.id),
+                'additional': data['additional'],
+            }
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            # Anything else that was included in the posted object should move into
+            # additional.
+            observation['additional'].update(
+                dict((k, data[k]) for k in data if k not in observation.keys()))
+
+            serializer = ObservationSerializer(data=observation)
+            if serializer.is_valid():
+                serializer.save()
+                notify_new_tracks(src.id)
+                logger.info("Processed duplicate %s observation", cls.DEFAULT_SUBJECT_SUBTYPE, extra={'obs.new': provider_key})
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        else:
+
+            update_subject_status_from_post(existing_observation.source, recorded_at=recorded_at,
+                                            location=location, additional={'subject_name': postdata['subject_name'], **data['additional']})
+
+        return Response({}, status=status.HTTP_200_OK)
 
 
 class GsatHandler():
@@ -305,7 +341,7 @@ class GsatHandler():
             serializer.save()
 
             notify_new_tracks(src.id)
-
+            logger.info("Processed duplicate %s observation", cls.DEFAULT_SUBJECT_SUBTYPE, extra={'obs.new': provider_key})
             # GSAT service expects 200 and considers anything else bad.
             return Response(serializer.data, status=status.HTTP_200_OK)
 

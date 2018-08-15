@@ -6,7 +6,7 @@ from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple
 
 from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType
-from observations.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
+from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 
 import logging
 logger = logging.getLogger(__name__)

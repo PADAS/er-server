@@ -1,0 +1,7 @@
+paths:
+- persistentvolumes
+- statefulsets
+- deployments
+- services
+- etl-components/smartconnect-provider.yaml
+- environments/integration-configmap.yaml
