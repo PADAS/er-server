@@ -447,7 +447,7 @@ class SpatialFeatureGroupQuery(SpatialFeatureGroup):
 class SpatialFeatureGroupStatic(SpatialFeatureGroup):
     """Static group of features
     """
-    features = models.ManyToManyField(to='SpatialFeature', related_name='groups', related_query_name='feature_group',
+    features = models.ManyToManyField(to='SpatialFeature', related_name='groups', related_query_name='group',
                                       blank=True,)
 
 
