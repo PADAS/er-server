@@ -1,4 +1,5 @@
 from django.contrib.gis.db import models
+from django.utils.translation import ugettext as _
 from analyzers.models.base import SubjectAnalyzerConfig
 from mapping.models import SpatialFeatureGroupStatic
 
@@ -21,5 +22,8 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
     analyzer_category = 'proximity'
 
     class Meta(SubjectAnalyzerConfig.Meta):
+        abstract = False
         permissions = (('view_proximityanalyzerconfig',
                         'Can view Proximity Analyzer Configurations'), )
+        verbose_name = _('Proximity Analyzer')
+        verbose_name_plural = _('Proximity Analyzers')
