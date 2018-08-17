@@ -486,7 +486,10 @@ class EventsView(generics.ListCreateAPIView):
         context['include_notes'] = parse_bool(
             query_params.get('include_notes', include_for_posts))
 
-        context['eventsource_id'] = request.data.get('eventsource_id')
+        try:
+            context['eventsource_id'] = request.data.get('eventsource_id')
+        except AttributeError:
+            pass
 
         return context
 
