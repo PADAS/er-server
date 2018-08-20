@@ -96,6 +96,18 @@ def run_inreach_plugins(self, inline=True):
 
 
 @celery.app.task(bind=True)
+def run_inreachkml_plugins(self, inline=True):
+    '''
+    :param inline: Whether to run directly. If False, then queue tasks.
+    '''
+    plugins = InreachKMLPlugin.objects.filter(
+        status=InreachKMLPlugin.STATUS_ENABLED)
+
+    for p in plugins:
+        p.execute()
+
+
+@celery.app.task(bind=True)
 def run_awetelementry_plugins(self, inline=True):
     for p in AWETelemetryPlugin.objects.filter(status=AWETelemetryPlugin.STATUS_ENABLED):
         p.execute()
