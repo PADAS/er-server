@@ -11,4 +11,4 @@ from tracking.models.spidertracks import SpiderTracksPlugin
 from tracking.models.plugin_base import TrackingPlugin
 from tracking.models.sirtrack import SirtrackPlugin
 runnable_plugins = (SavannahPlugin, DemoSourcePlugin, InreachPlugin, InreachKMLPlugin, AWTHttpPlugin,
-                    SkygisticsSatellitePlugin, FirmsPlugin, SpiderTracksPlugin, AWETelemetryPlugin, SirtrackPlugin)
+                    SkygisticsSatellitePlugin, SpiderTracksPlugin, AWETelemetryPlugin, SirtrackPlugin)

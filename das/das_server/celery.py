@@ -63,6 +63,13 @@ app.conf.beat_schedule = {
         'kwargs': {'expire_subtasks': PLUGINS_INTERVAL},
         'options': {'expires': PLUGINS_INTERVAL},
     },
+
+    'firms-plugins': {
+        'task': 'tracking.tasks.schedule_firms_plugins',
+        'schedule': timedelta(minutes=30),
+        'options': {'expires': 15 * 60},
+    },
+
     'demo-plugins': {
         'task': 'tracking.tasks.run_demo_plugins',
         'schedule': timedelta(seconds=PLUGINS_INTERVAL),
@@ -83,7 +90,7 @@ app.conf.beat_schedule = {
     'redis-status': {
         'task': 'rt_api.tasks.check_redis_queues',
         'schedule': timedelta(seconds=60),
-    }  
+    }
 
 }
 
