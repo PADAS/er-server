@@ -48,16 +48,20 @@ import pytz
 def ensure_subject_status_exists(sender, **kwargs):
 
     if kwargs.get('created', False):
-
-        defaults = {
-            'location': EMPTY_POINT,
-            'recorded_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
-            'radio_state_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
-
-        }
-
         subject = kwargs.get('instance')
-        for delay_hours in VIEW_END_WINDOWS:
-            SubjectStatus.objects.get_or_create(
-                subject=subject, delay_hours=delay_hours[1] * 24,
-                defaults=defaults)
+        create_subjectstatus_records(subject)
+
+
+def create_subjectstatus_records(subject):
+
+    defaults = {
+        'location': EMPTY_POINT,
+        'recorded_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
+        'radio_state_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
+
+    }
+
+    for delay_hours in VIEW_END_WINDOWS:
+        SubjectStatus.objects.get_or_create(
+            subject=subject, delay_hours=delay_hours[1] * 24,
+            defaults=defaults)

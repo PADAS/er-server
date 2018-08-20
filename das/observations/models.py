@@ -22,14 +22,22 @@ import itertools
 # from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
-from django.db.models import Q
-from django.db.models import Max, F, Case, When
+from django.db.models import Case, CharField, Value, When, F, Q, Max, When
 from django.db import transaction
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
 import pymet
 import pytz
+
+import logging
+from dateutil.parser import parse as parse_date
+
+from django.db.models.functions import Greatest
+from django.contrib.gis.db import models as dbmodels
+
+from django.contrib.gis.geos import Point
+from tracking.pubsub_registry import notify_new_tracks
 
 from utils.json import zeroout_microseconds
 from das_server import settings
@@ -38,6 +46,9 @@ from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
 from observations.utils import calculate_track_range
+
+
+logger = logging.getLogger(__name__)
 
 
 SOURCE_TYPES = (
@@ -919,42 +930,13 @@ class SubjectStatusManager(models.Manager):
             observation, delay_hours=delay_hours)
 
 
-import logging
-from dateutil.parser import parse as parse_date
-
-from django.db.models import Case, CharField, Value, When, F, Q
-from django.db.models.functions import Greatest
-from django.contrib.gis.db import models as dbmodels
-from django.db import connection
-from django.contrib.gis.geos import Point
-from tracking.pubsub_registry import notify_new_tracks
-
-logger = logging.getLogger(__name__)
-
-
-def ensure_subjectstatus_exists(subject_id, delay_hours=0):
-    SubjectStatus.objects.get_or_create(
-        subject_id=subject_id, delay_hours=delay_hours)
-
-
-import json
-
-
 def update_subject_status_from_observation(observation, delay_hours=0):
-
-    # before = SubjectStatus.objects.filter(subject__subjectsource__source=observation.source,
-    #                                       subject__subjectsource__assigned_range__contains=observation.recorded_at,
-    #                                       delay_hours=delay_hours).values()
 
     status_updates = build_updates_from_observation(observation)
 
     SubjectStatus.objects.filter(subject__subjectsource__source=observation.source,
                                  subject__subjectsource__assigned_range__contains=observation.recorded_at,
                                  delay_hours=delay_hours).update(additional=observation.additional, **status_updates)
-
-    # after = SubjectStatus.objects.filter(subject__subjectsource__source=observation.source,
-    #                                      subject__subjectsource__assigned_range__contains=observation.recorded_at,
-    #                                      delay_hours=delay_hours).values()
 
     new_name = observation.additional.get('subject_name')
     if new_name:
@@ -1098,6 +1080,12 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
                            (OFFLINE, 'Offline'),
                            (ALARM, 'Alarm'),
                            (UNKNOWN, 'Unknown')
+                           )
+    RADIO_STATE_CHOICES = ((ONLINE_GPS, 'online-gps'),
+                           (ONLINE, 'online'),
+                           (OFFLINE, 'offline'),
+                           (ALARM, 'alarm'),
+                           (UNKNOWN, 'n/a')
                            )
     subject = models.ForeignKey('Subject', on_delete=models.CASCADE)
     location = models.PointField('location')
