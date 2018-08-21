@@ -785,12 +785,12 @@ class SubjectStatusAdmin(admin.ModelAdmin):
     subject_link.short_description = 'Subject'
 
     def _age(self, o):
-        return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at)
+        return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at) if o.recorded_at else 'n/a'
     _age.short_description = _('Age of Observation')
     _age.admin_order_field = '-recorded_at'
 
     def _age_of_state(self, o):
-        return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.radio_state_at)
+        return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.radio_state_at) if o.radio_state_at else 'n/a'
     _age.short_description = _('Age of State')
     _age.admin_order_field = '-radio_state_at'
 
