@@ -930,20 +930,67 @@ class SubjectStatusManager(models.Manager):
             observation, delay_hours=delay_hours)
 
 
+def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
+                  last_voice_call_start_at=None, location_requested_at=None,):
+    '''
+    Build conditional updates from parsed observation attributes.
+    '''
+    conditional_updates = {
+        'recorded_at': Greatest(F('recorded_at'), Value(recorded_at)),
+        'location': Case(
+            When(recorded_at__lte=Value(recorded_at), then=Value(str(location))),
+            default=F('location')
+        ),
+    }
+
+    if radio_state_at and radio_state:
+        conditional_updates['radio_state'] = Case(
+            When(radio_state_at__lte=Value(
+                radio_state_at), then=Value(radio_state)),
+            default=F('radio_state'), output_field=dbmodels.CharField())
+
+        conditional_updates['radio_state_at'] = Greatest(F('radio_state_at'), Value(radio_state_at),
+                                                         output_field=dbmodels.DateTimeField())
+
+    if last_voice_call_start_at:
+        conditional_updates['last_voice_call_start_at'] = Greatest(F('last_voice_call_start_at'),
+                                                                   Value(last_voice_call_start_at))
+
+    if location_requested_at:
+        conditional_updates['location_requested_at'] = Greatest(F('location_requested_at'),
+                                                                Value(location_requested_at))
+
+    return conditional_updates
+
+
+def update_subject_status(source, recorded_at, location,
+                          last_voice_call_start_at=None,
+                          location_requested_at=None,
+                          radio_state=None,
+                          radio_state_at=None,
+                          reported_subject_name=None):
+
+    status_updates = build_updates(recorded_at=recorded_at,
+                                   location=location,
+                                   radio_state=radio_state,
+                                   radio_state_at=radio_state_at,
+                                   last_voice_call_start_at=last_voice_call_start_at,
+                                   location_requested_at=location_requested_at)
+
+    if reported_subject_name:
+        status_updates['additional'] = {'subject_name': reported_subject_name}
+
+    SubjectStatusLatest.objects.filter(subject__subjectsource__source=source,
+                                       subject__subjectsource__assigned_range__contains=recorded_at
+                                       ).update(**status_updates)
+
+    if reported_subject_name:
+        Subject.objects.filter(subjectsource__assigned_range__contains=recorded_at,
+                               subjectsource__source=source) \
+            .exclude(name=reported_subject_name).update(name=reported_subject_name)
+
+
 def update_subject_status_from_observation(observation, delay_hours=0):
-
-    # status_updates = build_updates_from_observation(observation)
-    #
-    # SubjectStatus.objects.filter(subject__subjectsource__source=observation.source,
-    #                              subject__subjectsource__assigned_range__contains=observation.recorded_at,
-    # delay_hours=delay_hours).update(additional=observation.additional,
-    # **status_updates)
-
-    # new_name = observation.additional.get('subject_name')
-    # if new_name:
-    #     Subject.objects.filter(subjectsource__assigned_range__contains=observation.recorded_at,
-    #                            subjectsource__source=observation.source
-    #                            ).exclude(name=new_name).update(name=new_name)
 
     additional = observation.additional
 
@@ -970,35 +1017,12 @@ def update_subject_status_from_observation(observation, delay_hours=0):
     except:
         radio_state_at = None
 
-    SubjectStatus.objects.filter(subject__subjectsource__source=source,
-                                 subject__subjectsource__assigned_range__contains=recorded_at,
-                                 delay_hours=0, recorded_at__lt=recorded_at).update(
-        recorded_at=recorded_at,
-        location=location)
-
-    if last_voice_call_start_at:
-        SubjectStatus.objects.filter(subject__subjectsource__source=source,
-                                     subject__subjectsource__assigned_range__contains=recorded_at,
-                                     delay_hours=0, last_voice_call_start_at__lt=last_voice_call_start_at).update(
-            last_voice_call_start_at=last_voice_call_start_at)
-
-    if location_requested_at:
-        SubjectStatus.objects.filter(subject__subjectsource__source=source,
-                                     subject__subjectsource__assigned_range__contains=recorded_at,
-                                     delay_hours=0, location_requested_at__lt=location_requested_at).update(
-            location_requested_at=location_requested_at)
-
-    if radio_state and radio_state_at:
-        SubjectStatus.objects.filter(subject__subjectsource__source=source,
-                                     subject__subjectsource__assigned_range__contains=recorded_at,
-                                     delay_hours=0,
-                                     radio_state_at__lte=radio_state_at).update(radio_state_at=radio_state_at,
-                                                                                radio_state=radio_state)
-
-    if reported_subject_name:
-        Subject.objects.filter(subjectsource__assigned_range__contains=recorded_at,
-                               subjectsource__source=source) \
-            .exclude(name=reported_subject_name).update(name=reported_subject_name)
+    update_subject_status(source=source, location=location, recorded_at=recorded_at,
+                          last_voice_call_start_at=last_voice_call_start_at,
+                          location_requested_at=location_requested_at,
+                          radio_state=radio_state,
+                          radio_state_at=radio_state_at,
+                          reported_subject_name=reported_subject_name)
 
     notify_new_tracks(observation.source.id)
 
@@ -1007,16 +1031,6 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
     '''
     Intention is to update latest SubjectStatus record under the case where a redundant GPS fix has been posted.
     '''
-
-    # status_updates = build_updates(recorded_at=recorded_at,
-    #                                location=location,
-    #                                radio_state=radio_state,
-    #                                radio_state_at=radio_state_at,
-    #                                last_voice_call_start_at=last_voice_call_start_at,
-    #                                location_requested_at=location_requested_at)
-    # SubjectStatus.objects.filter(subject__subjectsource__source=source,
-    #                              subject__subjectsource__assigned_range__contains=recorded_at,
-    # delay_hours=0).update(additional=additional, **status_updates)
 
     radio_state = additional.get('radio_state', SubjectStatus.UNKNOWN)
 
@@ -1040,106 +1054,14 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
                      y=location['latitude'], srid=4326)
     reported_subject_name = additional.get('subject_name')
 
-    SubjectStatus.objects.filter(subject__subjectsource__source=source,
-                                 subject__subjectsource__assigned_range__contains=recorded_at,
-                                 delay_hours=0, recorded_at__lt=recorded_at).update(
-        recorded_at=recorded_at,
-        location=location)
-
-    if last_voice_call_start_at:
-        SubjectStatus.objects.filter(subject__subjectsource__source=source,
-                                     subject__subjectsource__assigned_range__contains=recorded_at,
-                                     delay_hours=0, last_voice_call_start_at__lt=last_voice_call_start_at).update(
-            last_voice_call_start_at=last_voice_call_start_at)
-
-    if location_requested_at:
-        SubjectStatus.objects.filter(subject__subjectsource__source=source,
-                                     subject__subjectsource__assigned_range__contains=recorded_at,
-                                     delay_hours=0, location_requested_at__lt=location_requested_at).update(
-            location_requested_at=location_requested_at)
-
-    if radio_state and radio_state_at:
-        SubjectStatus.objects.filter(subject__subjectsource__source=source,
-                                     subject__subjectsource__assigned_range__contains=recorded_at,
-                                     delay_hours=0,
-                                     radio_state_at__lte=radio_state_at).update(radio_state_at=radio_state_at,
-                                                                                radio_state=radio_state)
-
-    if reported_subject_name:
-        Subject.objects.filter(subjectsource__assigned_range__contains=recorded_at,
-                               subjectsource__source=source) \
-            .exclude(name=reported_subject_name).update(name=reported_subject_name)
+    update_subject_status(source=source, location=location, recorded_at=recorded_at,
+                          last_voice_call_start_at=last_voice_call_start_at,
+                          location_requested_at=location_requested_at,
+                          radio_state=radio_state,
+                          radio_state_at=radio_state_at,
+                          reported_subject_name=reported_subject_name)
 
     notify_new_tracks(source.id)
-
-
-# def build_updates_from_observation(observation):
-#     '''
-#     Build conditional updates from Observation model instance.
-#     :param observation:
-#     :return:
-#     '''
-#     data = observation.additional
-#
-#     radio_state = data.get('radio_state', SubjectStatus.UNKNOWN)
-#     try:
-#         radio_state_at = parse_date(data.get('radio_state_at'))
-#     except:
-#         radio_state_at = None
-#
-#     try:
-#         last_voice_call_start_at = parse_date(data['last_voice_call_start_at'])
-#     except:
-#         last_voice_call_start_at = None
-#
-#     try:
-#         location_requested_at = parse_date(data['location_requested_at'])
-#     except:
-#         location_requested_at = None
-#
-#     return build_updates(recorded_at=observation.recorded_at,
-#                          location={'longitude': observation.location.x,
-#                                    'latitude': observation.location.y},
-#                          radio_state=radio_state,
-#                          radio_state_at=radio_state_at,
-#                          last_voice_call_start_at=last_voice_call_start_at,
-#                          location_requested_at=location_requested_at)
-#
-#
-# def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
-#                   last_voice_call_start_at=None, location_requested_at=None,):
-#     '''
-#     Build conditional updates from parsed observation attributes.
-#     '''
-#     location = Point(x=location['longitude'],
-#                      y=location['latitude'], srid=4326)
-#
-#     conditional_updates = {
-#         'recorded_at': Greatest(F('recorded_at'), Value(recorded_at)),
-#         'location': Case(
-#             When(recorded_at__lt=Value(recorded_at), then=Value(str(location))),
-#             default=F('location')
-#         ),
-#     }
-#
-#     if radio_state_at and radio_state:
-#         conditional_updates['radio_state'] = Case(
-#             When(radio_state_at__lt=Value(
-#                 radio_state_at), then=Value(radio_state)),
-#             default=F('radio_state'), output_field=dbmodels.CharField())
-#
-#         conditional_updates['radio_state_at'] = Greatest(F('radio_state_at'), Value(radio_state_at),
-#                                                          output_field=dbmodels.DateTimeField())
-#
-#     if last_voice_call_start_at:
-#         conditional_updates['last_voice_call_start_at'] = Greatest(F('last_voice_call_start_at'),
-#                                                                    Value(last_voice_call_start_at))
-#
-#     if location_requested_at:
-#         conditional_updates['location_requested_at'] = Greatest(F('location_requested_at'),
-#                                                                 Value(location_requested_at))
-#
-#     return conditional_updates
 
 
 class CommonNameManager(models.Manager):
