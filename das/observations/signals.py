@@ -20,7 +20,7 @@ def observation_post_save(sender, instance, created, **kwargs):
         return
 
     observation = Observation.objects.get(id=instance.id)
-    SubjectStatus.objects.update_from_observation(observation)
+    SubjectStatus.objects.update_current_from_source(observation.source)
 
 
 @receiver(post_save, sender=SubjectStatus)
@@ -44,4 +44,4 @@ def ensure_subject_status_exists(sender, **kwargs):
 
     if kwargs.get('created', False):
         subject = kwargs.get('instance')
-        create_subjectstatus_records(subject)
+        SubjectStatus.objects.ensure_for_subject(subject)

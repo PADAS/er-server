@@ -921,19 +921,23 @@ from observations.utils import VIEW_END_WINDOWS
 
 class SubjectStatusManager(models.Manager):
 
+    DEFAULT_STATUS_VALUES = {
+        'location': EMPTY_POINT,
+        'recorded_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
+        'radio_state_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
+    }
+
     # Delayed windows include all but 'current'.
     delayed_windows = list((item for item in VIEW_END_WINDOWS if item[1] > 0))
 
-    def update_from_observation(self, observation, delay_hours=0):
+    def update_current_from_source(self, source):
 
-        observation = Observation.objects.get_last_source_observation(
-            observation.source, delay_hours=delay_hours)
+        observation = Observation.objects.get_last_source_observation(source)
 
         if not observation:
             return
 
-        update_subject_status_from_observation(
-            observation, delay_hours=delay_hours)
+        update_subject_status_from_observation(observation)
 
     def update_delayed_status(self, subject):
         '''
@@ -972,17 +976,10 @@ class SubjectStatusManager(models.Manager):
 
     def ensure_for_subject(self, subject):
 
-        defaults = {
-            'location': EMPTY_POINT,
-            'recorded_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
-            'radio_state_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
-
-        }
-
         for delay_hours in VIEW_END_WINDOWS:
             SubjectStatus.objects.get_or_create(
                 subject=subject, delay_hours=delay_hours[1] * 24,
-                defaults=defaults)
+                defaults=SubjectStatusManager.DEFAULT_STATUS_VALUES)
 
     def maintain_subject_status(self, subject_id):
 
