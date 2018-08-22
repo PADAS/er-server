@@ -961,11 +961,14 @@ def update_subject_status_from_observation(observation, delay_hours=0):
     recorded_at = observation.recorded_at
     source = observation.source
     location = observation.location
+    reported_subject_name = additional.get('subject_name')
 
-    # SubjectStatus.objects.filter(subject__subjectsource__source=source,
-    #                              subject__subjectsource__assigned_range__contains=recorded_at,
-    #                              delay_hours=0).update(additional={},
-    #                                                    )
+    radio_state = observation.additional.get('radio_state')
+    try:
+        radio_state_at = parse_date(
+            observation.additional.get('radio_state_at'))
+    except:
+        radio_state_at = None
 
     SubjectStatus.objects.filter(subject__subjectsource__source=source,
                                  subject__subjectsource__assigned_range__contains=recorded_at,
@@ -985,13 +988,6 @@ def update_subject_status_from_observation(observation, delay_hours=0):
                                      delay_hours=0, location_requested_at__lt=location_requested_at).update(
             location_requested_at=location_requested_at)
 
-    radio_state = observation.additional.get('radio_state')
-    try:
-        radio_state_at = parse_date(
-            observation.additional.get('radio_state_at'))
-    except:
-        radio_state_at = None
-
     if radio_state and radio_state_at:
         SubjectStatus.objects.filter(subject__subjectsource__source=source,
                                      subject__subjectsource__assigned_range__contains=recorded_at,
@@ -999,10 +995,10 @@ def update_subject_status_from_observation(observation, delay_hours=0):
                                      radio_state_at__lte=radio_state_at).update(radio_state_at=radio_state_at,
                                                                                 radio_state=radio_state)
 
-    new_name = additional.get('subject_name')
-    if new_name:
+    if reported_subject_name:
         Subject.objects.filter(subjectsource__assigned_range__contains=recorded_at,
-                               subjectsource__source=source).exclude(name=new_name).update(name=new_name)
+                               subjectsource__source=source) \
+            .exclude(name=reported_subject_name).update(name=reported_subject_name)
 
     notify_new_tracks(observation.source.id)
 
@@ -1040,13 +1036,9 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
     except:
         location_requested_at = None
 
-    # SubjectStatus.objects.filter(subject__subjectsource__source=source,
-    #                              subject__subjectsource__assigned_range__contains=recorded_at,
-    #                              delay_hours=0).update(additional={})
-    #
-
     location = Point(x=location['longitude'],
                      y=location['latitude'], srid=4326)
+    reported_subject_name = additional.get('subject_name')
 
     SubjectStatus.objects.filter(subject__subjectsource__source=source,
                                  subject__subjectsource__assigned_range__contains=recorded_at,
@@ -1073,10 +1065,10 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
                                      radio_state_at__lte=radio_state_at).update(radio_state_at=radio_state_at,
                                                                                 radio_state=radio_state)
 
-    new_name = additional.get('subject_name')
-    if new_name:
+    if reported_subject_name:
         Subject.objects.filter(subjectsource__assigned_range__contains=recorded_at,
-                               subjectsource__source=source).exclude(name=new_name).update(name=new_name)
+                               subjectsource__source=source) \
+            .exclude(name=reported_subject_name).update(name=reported_subject_name)
 
     notify_new_tracks(source.id)
 
@@ -1217,6 +1209,18 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
     @property
     def groups(self):
         return self.subject.groups
+
+
+class SubjectStatusLatestManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(delay_hours=0)
+
+
+class SubjectStatusLatest(SubjectStatus):
+    objects = SubjectStatusLatestManager()
+
+    class Meta:
+        proxy = True
 
 
 class RegionManager(models.Manager):
