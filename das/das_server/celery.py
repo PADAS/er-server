@@ -70,6 +70,11 @@ app.conf.beat_schedule = {
         'options': {'expires': 15 * 60},
     },
 
+    'subject-status-maintenance': {
+        'task': 'observations.tasks.maintain_subjectstatus_all',
+        'schedule': timedelta(hours=12),
+    },
+
     'demo-plugins': {
         'task': 'tracking.tasks.run_demo_plugins',
         'schedule': timedelta(seconds=PLUGINS_INTERVAL),

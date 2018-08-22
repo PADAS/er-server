@@ -4,6 +4,7 @@ import json
 from celery_once import QueueOnce
 from das_server import celery, pubsub
 from observations import servicesutils
+from observations.models import Subject, SubjectStatus
 
 
 logger = logging.getLogger(__name__)
@@ -16,13 +17,14 @@ def store_and_forward_service_status(provider_key=None, data=None):
     servicesutils.store_service_status(provider_key=provider_key, data=data)
 
 
-# @celery.app.task(base=QueueOnce, once={'graceful': True, })
-# def update_subject_status(subject_id):
-#     logger.info(
-#         'Celery worker handling new observation. subject_id=%s', subject_id)
-#     observation = Observation.objects.get(id=instance.id)
-#
-#     logger.debug('handling Observation.post_save')
-#     for delay_hours in VIEW_END_WINDOWS:
-#         SubjectStatus.objects.update_from_observation(
-#             observation, delay_hours=delay_hours[1] * 24)
+@celery.app.task(base=QueueOnce, once={'graceful': True})
+def maintain_subjectstatus_all():
+    for subject in Subject.objects.filter(is_active=True):
+        maintain_subjectstatus_for_subject.apply_async(
+            args=(str(subject['id']),))
+
+
+@celery.app.task(base=QueueOnce, once={'graceful': True, })
+def maintain_subjectstatus_for_subject(subject_id):
+
+    SubjectStatus.objects.maintain_subject_status(subject_id)

@@ -1,3 +1,6 @@
+from datetime import datetime
+import pytz
+
 import logging
 
 from django.db.models.signals import post_save
@@ -17,11 +20,7 @@ def observation_post_save(sender, instance, created, **kwargs):
         return
 
     observation = Observation.objects.get(id=instance.id)
-
-    logger.debug('handling Observation.post_save')
-    for delay_hours in VIEW_END_WINDOWS:
-        SubjectStatus.objects.update_from_observation(
-            observation, delay_hours=delay_hours[1] * 24)
+    SubjectStatus.objects.update_from_observation(observation)
 
 
 @receiver(post_save, sender=SubjectStatus)
@@ -40,28 +39,9 @@ def subject_status_post_save(sender, instance, created, **kwargs):
             instance.subject.save()
 
 
-from datetime import datetime
-import pytz
-
-
 @receiver(post_save, sender=Subject)
 def ensure_subject_status_exists(sender, **kwargs):
 
     if kwargs.get('created', False):
         subject = kwargs.get('instance')
         create_subjectstatus_records(subject)
-
-
-def create_subjectstatus_records(subject):
-
-    defaults = {
-        'location': EMPTY_POINT,
-        'recorded_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
-        'radio_state_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
-
-    }
-
-    for delay_hours in VIEW_END_WINDOWS:
-        SubjectStatus.objects.get_or_create(
-            subject=subject, delay_hours=delay_hours[1] * 24,
-            defaults=defaults)

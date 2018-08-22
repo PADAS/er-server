@@ -916,7 +916,13 @@ class SubjectStatusQuerySet(models.QuerySet):
         return range_start, range_end
 
 
+from observations.utils import VIEW_END_WINDOWS
+
+
 class SubjectStatusManager(models.Manager):
+
+    # Delayed windows include all but 'current'.
+    delayed_windows = list((item for item in VIEW_END_WINDOWS if item[1] > 0))
 
     def update_from_observation(self, observation, delay_hours=0):
 
@@ -929,11 +935,72 @@ class SubjectStatusManager(models.Manager):
         update_subject_status_from_observation(
             observation, delay_hours=delay_hours)
 
+    def update_delayed_status(self, subject):
+        '''
+        For a given subject, update its SubjectStatus Records.
+        :param subject:
+        :return:
+        '''
+        # Initialize the loop with the most recent 'delayed' observation.
+        key, delay_days = self.delayed_windows[0]
+        delay_hours = delay_days * 24
+        until = datetime.now(tz=pytz.utc) - timedelta(hours=delay_hours)
+        observation = Observation.objects.get_subject_observations(
+            subject=subject, until=until, limit=1).first()
+
+        # March through the view windows.
+        for key, delay_days in self.delayed_windows:
+
+            if not observation:  # No more work to be done.
+                return
+
+            delay_hours = delay_days * 24
+            until = datetime.now(tz=pytz.utc) - timedelta(hours=delay_hours)
+
+            if observation.recorded_at <= until:
+                # Update using the current observation until it's no longer
+                # valid.
+                update_subject_status_from_observation(
+                    observation, delay_hours=delay_hours)
+            else:
+                # Refresh the 'latest observation' for the given window.
+                observation = Observation.objects.get_subject_observations(subject=subject,
+                                                                           until=until, limit=1).first()
+                if observation:
+                    update_subject_status_from_observation(
+                        observation, delay_hours=delay_hours)
+
+    def ensure_for_subject(self, subject):
+
+        defaults = {
+            'location': EMPTY_POINT,
+            'recorded_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
+            'radio_state_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
+
+        }
+
+        for delay_hours in VIEW_END_WINDOWS:
+            SubjectStatus.objects.get_or_create(
+                subject=subject, delay_hours=delay_hours[1] * 24,
+                defaults=defaults)
+
+    def maintain_subject_status(self, subject_id):
+
+        try:
+            subject = Subject.objects.get(id=subject_id)
+        except Subject.DoesNotExist:
+            logger.warning('Cannot find Subject with id: %s', subject_id)
+        else:
+            logger.info(
+                'SubjectStatus maintenance for Subject: %s, id: %s', subject.name, subject_id)
+            self.ensure_for_subject(subject)
+            self.update_delayed_status(subject)
+
 
 def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
                   last_voice_call_start_at=None, location_requested_at=None,):
     '''
-    Build conditional updates from parsed observation attributes.
+    Build conditional updates for SubjectStatus Record..
     '''
     conditional_updates = {
         'recorded_at': Greatest(F('recorded_at'), Value(recorded_at)),
@@ -968,7 +1035,8 @@ def update_subject_status(source, recorded_at, location,
                           location_requested_at=None,
                           radio_state=None,
                           radio_state_at=None,
-                          reported_subject_name=None):
+                          reported_subject_name=None,
+                          delay_hours=0):
 
     status_updates = build_updates(recorded_at=recorded_at,
                                    location=location,
@@ -980,11 +1048,12 @@ def update_subject_status(source, recorded_at, location,
     if reported_subject_name:
         status_updates['additional'] = {'subject_name': reported_subject_name}
 
-    SubjectStatusLatest.objects.filter(subject__subjectsource__source=source,
-                                       subject__subjectsource__assigned_range__contains=recorded_at
-                                       ).update(**status_updates)
+    SubjectStatus.objects.filter(subject__subjectsource__source=source,
+                                 subject__subjectsource__assigned_range__contains=recorded_at,
+                                 delay_hours=delay_hours
+                                 ).update(**status_updates)
 
-    if reported_subject_name:
+    if reported_subject_name and delay_hours == 0:
         Subject.objects.filter(subjectsource__assigned_range__contains=recorded_at,
                                subjectsource__source=source) \
             .exclude(name=reported_subject_name).update(name=reported_subject_name)
@@ -1022,9 +1091,10 @@ def update_subject_status_from_observation(observation, delay_hours=0):
                           location_requested_at=location_requested_at,
                           radio_state=radio_state,
                           radio_state_at=radio_state_at,
-                          reported_subject_name=reported_subject_name)
+                          reported_subject_name=reported_subject_name,
+                          delay_hours=delay_hours)
 
-    notify_new_tracks(observation.source.id)
+    # notify_new_tracks(observation.source.id)
 
 
 def update_subject_status_from_post(source, recorded_at, location, additional):
@@ -1132,17 +1202,18 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
     def groups(self):
         return self.subject.groups
 
-
-class SubjectStatusLatestManager(models.Manager):
-    def get_queryset(self):
-        return super().get_queryset().filter(delay_hours=0)
-
-
-class SubjectStatusLatest(SubjectStatus):
-    objects = SubjectStatusLatestManager()
-
-    class Meta:
-        proxy = True
+#
+# class SubjectStatusLatestManager(models.Manager):
+#     def get_queryset(self):
+#         return super().get_queryset().filter(delay_hours=0)
+#
+#
+# class SubjectStatusLatest(SubjectStatus):
+#     objects = SubjectStatusLatestManager()
+#
+#     class Meta:
+#         proxy = True
+#
 
 
 class RegionManager(models.Manager):
