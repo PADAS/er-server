@@ -33,6 +33,7 @@ app.conf.task_queues = (
     Queue('realtime_p2', default_exchange, routing_key='realtime.tasks.p2'),
     Queue('realtime_p3', default_exchange, routing_key='realtime.tasks.p3'),
     Queue('analyzers', default_exchange, routing_key='analyzers.tasks'),
+    Queue('maintenance', default_exchange, routing_key='maintenance.tasks'),
 )
 
 
@@ -45,7 +46,7 @@ app.conf.task_routes = {
     'rt_api.tasks.handle_new_subject_observation': {'queue': 'realtime_p3', },
     'rt_api.tasks.broadcast_service_status': {'queue': 'realtime_p1'},
     'observations.tasks.handle_source_with_new_observations': {'queue': 'realtime_p2'},
-
+    'observations.tasks.maintain_subjectstatus_all': {'queue': 'maintenance'},
     # Queue analyzer tasks separately.
     'analyzers.tasks.*': {'queue': 'analyzers', },
 
@@ -63,6 +64,18 @@ app.conf.beat_schedule = {
         'kwargs': {'expire_subtasks': PLUGINS_INTERVAL},
         'options': {'expires': PLUGINS_INTERVAL},
     },
+
+    'firms-plugins': {
+        'task': 'tracking.tasks.schedule_firms_plugins',
+        'schedule': timedelta(minutes=30),
+        'options': {'expires': 15 * 60},
+    },
+
+    'subject-status-maintenance': {
+        'task': 'observations.tasks.maintain_subjectstatus_all',
+        'schedule': timedelta(hours=12),
+    },
+
     'demo-plugins': {
         'task': 'tracking.tasks.run_demo_plugins',
         'schedule': timedelta(seconds=PLUGINS_INTERVAL),
@@ -83,7 +96,7 @@ app.conf.beat_schedule = {
     'redis-status': {
         'task': 'rt_api.tasks.check_redis_queues',
         'schedule': timedelta(seconds=60),
-    }  
+    }
 
 }
 
