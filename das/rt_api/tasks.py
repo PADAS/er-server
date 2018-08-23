@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 queue_client = redis.from_url(settings.CELERY_BROKER_URL)
 
+
 def get_context():
     return {'request': DummyRequest(uri='', http_method='GET')}
 
@@ -277,6 +278,7 @@ def check_redis_queues():
     Periodic check of redis connections and queue sizes, so that we can expose them 
     to elasticsearch via a log message
     """
+    logger.info('Checking redis connectivity')
     conn = queue_client.client_list()
     conn_count = len(conn)
     logger.info({'redis.conn.count': conn_count})

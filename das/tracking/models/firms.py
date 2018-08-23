@@ -21,6 +21,8 @@ from mapping.models import SpatialFeatureGroupStatic
 from tracking.models.plugin_base import Obs, TrackingPlugin, DasFireEventTarget, SourcePlugin
 from observations.models import Source
 
+logger = logging.getLogger(__name__)
+
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
@@ -184,10 +186,14 @@ class FirmsPlugin(TrackingPlugin):
 
     def execute(self):
 
+        logger.info('Running FIRMS Plugin. region-name=%s',
+                    self.firms_region_name)
         with DasFireEventTarget() as t:
             for observation in self.fetch():
                 t.send(observation)
         self.save()
+        logger.info('Finished FIRMS Plugin. region-name=%s',
+                    self.firms_region_name)
 
     def get_firms_source(self):
         '''

@@ -10,7 +10,7 @@ from analyzers.permissions import ModelPermissions
 
 
 class SpatialAnalyzerListView(generics.ListAPIView):
-    #permission_classes = (ModelPermissions,)
+    # permission_classes = (ModelPermissions,)
     #pagination_class = StandardResultsSetPagination
 
     MODEL_TO_SERIALIZER = ((GeofenceAnalyzerConfig, GeofenceAnalyzerConfigSerializer),
@@ -19,9 +19,12 @@ class SpatialAnalyzerListView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         results = []
         for spatial_model, spatial_serializer in self.MODEL_TO_SERIALIZER:
-            for row in spatial_model.objects.all():
-                serializer = spatial_serializer(
-                    row, context={'request': request})
-                results.append(serializer.data)
+
+            required_perm = f'{spatial_model._meta.app_label}.view_{spatial_model._meta.model_name}'
+            if self.request.user.has_perm(required_perm):
+                for row in spatial_model.objects.all():
+                    serializer = spatial_serializer(
+                        row, context={'request': request})
+                    results.append(serializer.data)
 
         return Response(results)
