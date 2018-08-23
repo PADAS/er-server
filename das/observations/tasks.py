@@ -19,7 +19,7 @@ def store_and_forward_service_status(provider_key=None, data=None):
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def maintain_subjectstatus_all():
-    for subject in Subject.objects.filter(is_active=True):
+    for subject in Subject.objects.filter(is_active=True).values('id'):
         maintain_subjectstatus_for_subject.apply_async(
             args=(str(subject['id']),))
 
