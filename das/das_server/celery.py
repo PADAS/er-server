@@ -46,7 +46,7 @@ app.conf.task_routes = {
     'rt_api.tasks.handle_new_subject_observation': {'queue': 'realtime_p3', },
     'rt_api.tasks.broadcast_service_status': {'queue': 'realtime_p1'},
     'observations.tasks.handle_source_with_new_observations': {'queue': 'realtime_p2'},
-    'observations.tasks.maintain_subjectstatus_all': {'queue': 'maintenance'},
+    'observations.tasks.maintain_subjectstatus_for_subject': {'queue': 'maintenance'},
     # Queue analyzer tasks separately.
     'analyzers.tasks.*': {'queue': 'analyzers', },
 
