@@ -154,7 +154,15 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     default_window_cutoff = pytz.utc.localize(
                         datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
                     rep['tracks_available'] = end.recorded_at > default_window_cutoff
-                    rep['last_position_status'] = end.additional or {}
+
+                    # TODO: These values might be more appropriate in the
+                    # geeojson properties.
+                    rep['last_position_status'] = {
+                        'last_voice_call_start_at': end.last_voice_call_start_at,
+                        'radio_state_at': end.radio_state_at,
+                        'radio_state': end.radio_state
+                    }
+
                     rep['last_position_date'] = end.recorded_at
                     rep['last_position'] = make_feature(
                         self.context['request'], end.location, instance, time=end.recorded_at, image_url=rep['image_url'])
