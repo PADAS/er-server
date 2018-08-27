@@ -190,6 +190,8 @@ class DasRadioAgentHandler():
 
         recorded_at = postdata['recorded_at']
 
+        event_action = data.get('additional', {}).get(
+            'event_action', 'unknown')
         try:
 
             existing_observation = Observation.objects.get(
@@ -214,13 +216,16 @@ class DasRadioAgentHandler():
             if serializer.is_valid():
                 serializer.save()
                 notify_new_tracks(src.id)
-                logger.info("Processed duplicate %s observation",
-                            cls.DEFAULT_SUBJECT_SUBTYPE, extra={'obs.new': provider_key})
+                logger.info("Adding new radio observation", extra={'radio.obs.new': provider_key,
+                                                                   'radio.event_action': event_action})
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         else:
+            logger.info("Processing new radio status", extra={'radio.status.update': provider_key,
+                                                              'radio.event_action': event_action}
+                        )
 
             update_subject_status_from_post(existing_observation.source, recorded_at=recorded_at,
                                             location=location, additional={'subject_name': postdata['subject_name'], **data['additional']})
