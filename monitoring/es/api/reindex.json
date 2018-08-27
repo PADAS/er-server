@@ -1,0 +1,9 @@
+POST _reindex
+{
+  "source": {
+    "index": "filebeat-6.3.1-2018.08.24"
+  },
+  "dest": {
+    "index": "das_metrics"
+  }
+}
