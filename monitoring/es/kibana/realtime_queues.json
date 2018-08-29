@@ -1,0 +1,53 @@
+[
+  {
+    "_id": "189b24f0-a962-11e8-9805-596f3f539c45",
+    "_type": "visualization",
+    "_source": {
+      "title": "P1 Queue Length",
+      "visState": "{\"title\":\"P1 Queue\",\"type\":\"gauge\",\"params\":{\"addLegend\":false,\"addTooltip\":true,\"gauge\":{\"backStyle\":\"Full\",\"colorSchema\":\"Green to Red\",\"colorsRange\":[{\"from\":0,\"to\":200},{\"from\":201,\"to\":300},{\"from\":301,\"to\":500}],\"extendRange\":true,\"gaugeColorMode\":\"Labels\",\"gaugeStyle\":\"Full\",\"gaugeType\":\"Arc\",\"invertColors\":false,\"labels\":{\"color\":\"black\",\"show\":false},\"orientation\":\"vertical\",\"percentageMode\":false,\"scale\":{\"color\":\"#333\",\"labels\":false,\"show\":true},\"style\":{\"bgColor\":false,\"bgFill\":\"#eee\",\"bgMask\":false,\"bgWidth\":0.9,\"fontSize\":60,\"labelColor\":true,\"mask\":false,\"maskBars\":50,\"subText\":\"\",\"width\":0.9},\"type\":\"meter\",\"verticalSplit\":false},\"isDisplayWarning\":false,\"type\":\"gauge\"},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"rt.realtime.p1\",\"customLabel\":\"\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"filters\",\"schema\":\"group\",\"params\":{\"filters\":[{\"input\":{\"query\":\"beat.name: dev.pamdas.org\"},\"label\":\"\"}]}}]}",
+      "uiStateJSON": "{\"vis\":{\"defaultColors\":{\"0 - 200\":\"rgb(0,104,55)\",\"201 - 300\":\"rgb(255,255,190)\",\"301 - 500\":\"rgb(165,0,38)\"}}}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"index\":\"b8e4eb30-a953-11e8-9805-596f3f539c45\",\"filter\":[],\"query\":{\"language\":\"lucene\",\"query\":\"\"}}"
+      }
+    },
+    "_meta": {
+      "savedObjectVersion": 2
+    }
+  },
+  {
+    "_id": "189b24f0-a962-11e8-9805-596f3f539c45",
+    "_type": "visualization",
+    "_source": {
+      "title": "P2 Queue Length",
+      "visState": "{\"title\":\"P1 Queue\",\"type\":\"gauge\",\"params\":{\"addLegend\":false,\"addTooltip\":true,\"gauge\":{\"backStyle\":\"Full\",\"colorSchema\":\"Green to Red\",\"colorsRange\":[{\"from\":0,\"to\":200},{\"from\":201,\"to\":300},{\"from\":301,\"to\":500}],\"extendRange\":true,\"gaugeColorMode\":\"Labels\",\"gaugeStyle\":\"Full\",\"gaugeType\":\"Arc\",\"invertColors\":false,\"labels\":{\"color\":\"black\",\"show\":false},\"orientation\":\"vertical\",\"percentageMode\":false,\"scale\":{\"color\":\"#333\",\"labels\":false,\"show\":true},\"style\":{\"bgColor\":false,\"bgFill\":\"#eee\",\"bgMask\":false,\"bgWidth\":0.9,\"fontSize\":60,\"labelColor\":true,\"mask\":false,\"maskBars\":50,\"subText\":\"\",\"width\":0.9},\"type\":\"meter\",\"verticalSplit\":false},\"isDisplayWarning\":false,\"type\":\"gauge\"},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"rt.realtime.p2\",\"customLabel\":\"\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"filters\",\"schema\":\"group\",\"params\":{\"filters\":[{\"input\":{\"query\":\"beat.name: dev.pamdas.org\"},\"label\":\"\"}]}}]}",
+      "uiStateJSON": "{\"vis\":{\"defaultColors\":{\"0 - 200\":\"rgb(0,104,55)\",\"201 - 300\":\"rgb(255,255,190)\",\"301 - 500\":\"rgb(165,0,38)\"}}}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"index\":\"b8e4eb30-a953-11e8-9805-596f3f539c45\",\"filter\":[],\"query\":{\"language\":\"lucene\",\"query\":\"\"}}"
+      }
+    },
+    "_meta": {
+      "savedObjectVersion": 2
+    }
+  },
+  {
+    "_id": "189b24f0-a962-11e8-9805-596f3f539c45",
+    "_type": "visualization",
+    "_source": {
+      "title": "P3 Queue Length",
+      "visState": "{\"title\":\"P1 Queue\",\"type\":\"gauge\",\"params\":{\"addLegend\":false,\"addTooltip\":true,\"gauge\":{\"backStyle\":\"Full\",\"colorSchema\":\"Green to Red\",\"colorsRange\":[{\"from\":0,\"to\":200},{\"from\":201,\"to\":300},{\"from\":301,\"to\":500}],\"extendRange\":true,\"gaugeColorMode\":\"Labels\",\"gaugeStyle\":\"Full\",\"gaugeType\":\"Arc\",\"invertColors\":false,\"labels\":{\"color\":\"black\",\"show\":false},\"orientation\":\"vertical\",\"percentageMode\":false,\"scale\":{\"color\":\"#333\",\"labels\":false,\"show\":true},\"style\":{\"bgColor\":false,\"bgFill\":\"#eee\",\"bgMask\":false,\"bgWidth\":0.9,\"fontSize\":60,\"labelColor\":true,\"mask\":false,\"maskBars\":50,\"subText\":\"\",\"width\":0.9},\"type\":\"meter\",\"verticalSplit\":false},\"isDisplayWarning\":false,\"type\":\"gauge\"},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"rt.realtime.p3\",\"customLabel\":\"\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"filters\",\"schema\":\"group\",\"params\":{\"filters\":[{\"input\":{\"query\":\"beat.name: dev.pamdas.org\"},\"label\":\"\"}]}}]}",
+      "uiStateJSON": "{\"vis\":{\"defaultColors\":{\"0 - 200\":\"rgb(0,104,55)\",\"201 - 300\":\"rgb(255,255,190)\",\"301 - 500\":\"rgb(165,0,38)\"}}}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"index\":\"b8e4eb30-a953-11e8-9805-596f3f539c45\",\"filter\":[],\"query\":{\"language\":\"lucene\",\"query\":\"\"}}"
+      }
+    },
+    "_meta": {
+      "savedObjectVersion": 2
+    }
+  }
+]
