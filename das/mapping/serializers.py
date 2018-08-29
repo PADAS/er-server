@@ -7,6 +7,7 @@ import rest_framework.serializers as serializers
 
 import mapping.models as models
 
+import utils
 
 logger = logging.getLogger(__name__)
 
@@ -69,4 +70,57 @@ class MapSerializer(serializers.ModelSerializer):
                 logger.exception("Failed to serialize map")
 
         rep['layers'] = layers
+        return rep
+
+
+class FeatureTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.FeatureType
+        fields = ('id', 'name')  # , 'presentation',)
+
+
+# from django.contrib.gis.geos import (
+#     GeometryCollection, GEOSException, GEOSGeometry, LineString,
+#     MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
+# )
+from django.core.serializers import serialize
+# class FeatureGeometrySerializer(serializers.Serializer):
+#
+#     def to_representation(self, instance):
+#         return super().to_representation(instance)
+
+
+class SpatialFeatureSerializer(serializers.ModelSerializer):
+
+    # feature_geometry = FeatureGeometrySerializer()
+    feature_type = FeatureTypeSerializer()
+
+    class Meta:
+        model = models.SpatialFeature
+        fields = ('id', 'name', 'feature_type', )  # 'feature_geometry',)
+
+    def to_representation(self, instance):
+        # rep = super().to_representation(instance)
+        return json.loads(serialize('geojson', (instance,), properties={}, geometry_field='feature_geometry',))
+
+        return rep
+
+
+class SpatialFeatureGroupStaticSerializer(serializers.ModelSerializer):
+
+    features = SpatialFeatureSerializer(many=True)
+
+    class Meta:
+        model = models.SpatialFeatureGroupStatic
+        fields = ('name', 'features', 'description')
+
+    def to_representation(self, instance):
+
+        rep = super().to_representation(instance)
+
+        if 'request' in self.context:
+            rep['url'] = utils.add_base_url(self.context['request'],
+                                            reverse('mapping:spatialfeaturegroup-view',
+                                                    args=[instance.id, ]))
+
         return rep

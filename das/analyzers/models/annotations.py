@@ -6,6 +6,7 @@ import pytz
 import psycopg2.extras
 import geopandas as gpd
 from django.contrib.gis.db import models
+from django.utils.translation import ugettext as _
 from django.conf import settings
 from observations.models import Observation, SubjectSource
 

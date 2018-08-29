@@ -1,4 +1,5 @@
 from django.contrib.gis.db import models
+from django.utils.translation import ugettext as _
 from analyzers.models.base import SubjectAnalyzerConfig
 
 
@@ -20,8 +21,15 @@ class ImmobilityAnalyzerConfig(SubjectAnalyzerConfig):
 
      """
 
-    threshold_radius = models.FloatField(null=False, default=13.0)
-    threshold_time = models.IntegerField(null=False, default=18000)  # 5 hours
+    threshold_radius = models.FloatField(
+        null=False, default=13.0, verbose_name='Threshold Radius (meters)')
+    threshold_time = models.IntegerField(
+        null=False, default=18000, verbose_name='Threshold Time (seconds)')  # 5 hours
     threshold_probability = models.FloatField(null=False, default=0.8)
 
     analyzer_category = 'immobility'
+
+    class Meta(SubjectAnalyzerConfig.Meta):
+        abstract = False
+        verbose_name = _('Immobility Analyzer')
+        verbose_name_plural = _('Immobility Analyzers')

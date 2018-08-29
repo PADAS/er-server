@@ -20,7 +20,7 @@ from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
 
 
 class AWETelemetryClient(object):
-    def __init__(self, service_url='https://www.awetelemetry.com', username=None, password=None):
+    def __init__(self, service_url='https://www.awetelemetry.co.za', username=None, password=None):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -44,7 +44,7 @@ class AWETelemetryClient(object):
             'accept': "application/json",
         }
 
-        response = requests.request("GET", '{}/awt/restunitquery.php'.format(self.service_url), headers=headers,
+        response = requests.request("GET", '{}/api/restunitquery.php'.format(self.service_url), headers=headers,
                                     params=params)
 
         if response and response.status_code == 200:
@@ -70,7 +70,7 @@ class AWETelemetryClient(object):
             'accept': 'application/json'
         }
 
-        response = requests.request('GET', '{}/awt/restunitquery.php'.format(self.service_url), headers=headers,
+        response = requests.request('GET', '{}/api/restunitquery.php'.format(self.service_url), headers=headers,
                                     params=params)
 
         if response and response.status_code == 200:

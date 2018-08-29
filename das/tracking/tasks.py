@@ -41,6 +41,32 @@ def run_plugin_class(plugin_class, expire_subtasks=EXPIRE_SUBTASKS):
             plugin.execute()
 
 
+@celery.app.task(base=QueueOnce, once={'graceful': True, })
+def run_firms_plugin(id: str):
+    '''
+    Run for an individual FIRMS plugin.
+    '''
+    try:
+        plugin = FirmsPlugin.objects.get(
+            id=id, status=FirmsPlugin.STATUS_ENABLED)
+        plugin.execute()
+    except FirmsPlugin.DoesNotExist:
+        logger.warning('Failed to find FirmsPlugin for id:%s', id)
+
+
+@celery.app.task
+def schedule_firms_plugins():
+    '''
+    This task is intended to run as a scheduled job.
+    It delegates work to 'run_firms_plugin' which, when run using apply_async, will reject redundant/concurrent tasks.
+    '''
+    plugins = FirmsPlugin.objects.filter(
+        status=FirmsPlugin.STATUS_ENABLED).values('id',)
+    for plugin in plugins:
+        plugin_id = str(plugin['id'])
+        run_firms_plugin.apply_async(args=(plugin_id,))
+
+
 @celery.app.task(bind=True)
 def run_spidertracks_plugins(self):
 
@@ -90,6 +116,18 @@ def run_inreach_plugins(self, inline=True):
     :param inline: Whether to run directly. If False, then queue tasks.
     '''
     plugins = InreachPlugin.objects.filter(status=InreachPlugin.STATUS_ENABLED)
+
+    for p in plugins:
+        p.execute()
+
+
+@celery.app.task(bind=True)
+def run_inreachkml_plugins(self, inline=True):
+    '''
+    :param inline: Whether to run directly. If False, then queue tasks.
+    '''
+    plugins = InreachKMLPlugin.objects.filter(
+        status=InreachKMLPlugin.STATUS_ENABLED)
 
     for p in plugins:
         p.execute()

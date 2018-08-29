@@ -138,7 +138,8 @@ class Feature(TimestampedModel):
     # todo:  evaluate whether many-to-many might be a better approach or stick
     # with this simple approach
     # probably should be spelled feature_set
-    featureset = models.ForeignKey(to=FeatureSet, null=True, on_delete=models.PROTECT)
+    featureset = models.ForeignKey(
+        to=FeatureSet, null=True, on_delete=models.PROTECT)
 
     @property
     def default_presentation(self):
@@ -446,8 +447,8 @@ class SpatialFeatureGroupQuery(SpatialFeatureGroup):
 class SpatialFeatureGroupStatic(SpatialFeatureGroup):
     """Static group of features
     """
-    features = models.ManyToManyField(to='SpatialFeature', related_name='groups',
-                                      blank=True)
+    features = models.ManyToManyField(to='SpatialFeature', related_name='groups', related_query_name='group',
+                                      blank=True,)
 
 
 class SpatialFeatureTypeTag(TagModel):
@@ -467,11 +468,13 @@ class SpatialFeatureType(models.Model):
     name = models.CharField(max_length=100)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict)
-    tags = TagField(to=SpatialFeatureTypeTag)  # Tags will allow categorization according to different views (e.g., HF)
+    # Tags will allow categorization according to different views (e.g., HF)
+    tags = TagField(to=SpatialFeatureTypeTag)
 
     # presentation fields
     # Boundaries, Water, Security etc.
-    display_category = models.ForeignKey(to='DisplayCategory', on_delete=models.PROTECT)
+    display_category = models.ForeignKey(
+        to='DisplayCategory', on_delete=models.PROTECT)
     # JSON Field for defining the basic presentation of the feature
     presentation = JSONField(default=dict)
     provenance = JSONField(default=dict)
@@ -516,7 +519,8 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     # data fields
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    feature_type = models.ForeignKey(SpatialFeatureType, on_delete=models.PROTECT)
+    feature_type = models.ForeignKey(
+        SpatialFeatureType, on_delete=models.PROTECT)
 
     name = models.CharField(max_length=50, blank=True)
     # A shorter name used for cartographic display
