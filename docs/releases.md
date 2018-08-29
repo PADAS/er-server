@@ -2,6 +2,48 @@
 
 ## 1.X of DAS
 
+### Release 1.35.1 2018-09-03
+Feature: Updated Radio informational popover includes Mic key and GPS status. When selecting a radio on the map to view its status, include information on the last reported Mic key activity.
+
+
+### Release 1.34.1 2018-08-29
+* Feature: New report icons for Patrol, Vehicle Overspeed and Vehicle Movement.
+* Feature: Django manage command for manually synchronizing the configured InReach devices using KML for importing InReach track data.
+~~~~
+python manage.py run_inreachkml_plugins
+~~~~
+* Fix: InReach KML integration failed after InReach changed their API to use a non-trusted SSL certificate. Turned off SSL certificate validation.
+* Feature: View Geofence and Proximity Analyzers in the web UI. The option to view and navigate to these analyzers is done through Map Layers tab.
+    * Once in Map Layers, expand the Features entry and check the Analyzers to view all of the Analyzers on the map.
+    * Expand Analyzers to see the list. Select the pin on any of the analyzers to quickly pan the map to that analyzer.
+    * Geofence Analyzers are made up of a warning fence and a critical fence. Both are highlighted on the map with a yellow outline for warning, red outline for critical.
+    * Prior to editing an analyzer, ensure your DAS admin has granted you permissions for editing analyzers. Select the line or point on the map representing the analyzer. A popover appears displaying the name and a gear icon. Select the gear icon which then navigates you to the analyzer edit screen in the DAS Django Admin. You may be prompted to login to the DAS Admin at this point. Simply use your existing DAS credentials to authenticate into this system.
+* Feature: Django manage command for manually importing a single position point from Vectronics.
+~~~~
+python manage.py vectronics_maintenance --id-position <id from gps_plus_positions table>
+~~~~
+* Enhancement: For the geofence analyzer, specify the geospatial groups for the warning and critical thresholds seperately. Previously this distinction between warning and critical was discovered by a suffix on the spatial group name.
+* Fix: TRBOnet status reporting delays or mis-reporting in DAS.
+* Fix: Remember Satellite map layer setting across refreshes (F5). [DAS-2925](https://vulcan.atlassian.net/browse/DAS-2925) After refreshing or closing the DAS browser tab, DAS reverted back to showing the default terrian map.
+* Enhancement - Administrative: Option during installation of the DAS Server to send DAS Server logs to a Kibana based dashboard for viewing DAS Server operations status.
+* Enhancement - Administrative: Support logging current background service activity. For example when a call is made to retrieve data for a configured vehicle tracker, note that activity so that we can view it from the Kibana Dashboard.
+* Feature - Ability to upload a spatial data file into DAS from the Django Admin. 
+      * Navigate to the sites Django admin https://<site-name>.pamdas.org/admin/mapping/spatialfile/
+      * Select "Add Spatial File" to create a record for uploading your spatial file
+      * In the options supply a name for your spatial file.
+      * Select "Choose File", which displays a file navigation dialog. Find and select your spatial data file
+      * Note for shapefiles, you will need to have previously zipped the shapefiles into a single zip archive to select above in "Choose File".
+      * Select the Feature Type and Feature Set that the uploaded spatial data is tagged with as it is imported.
+      * On success, your new spatial features are available in the Web UI.
+* Feature: Report location validation and simplified entry. Validation as you type of the four supported location types: DEG, DMS, UTM, MGRS. Ability to clear out the location field and save the Report. After manually entering a location value, no longer required to press <enter> to save the value.
+* Feature: When selecting a vehicle or animal in the Web UI, show both the actual date of last activity and the time since.
+* Feature: When viewing a list of Reports in the report feed, display both actual date of last update and time since.
+      
+  
+      
+      
+   
+
 ### Release 1.33.1 2018-07-13
 * Fix refactor bootstrapping of the web app streamlining initial http requests. Initial page load is faster now. [PR300](https://github.com/PADAS/das-web/pull/300)
 * Feature: Sprite Generation. This replaces all server-queried icons and PNG-based sprite sheet icons (for events only thus far) with an SVG sprite that we're building from a simple folder of SVG assets. This yields a few benefits:
