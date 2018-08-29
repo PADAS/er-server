@@ -589,6 +589,20 @@ class SpatialFile(TimestampedModel):
     name_field = models.CharField(max_length=100, blank=True)
     id_field = models.CharField(max_length=100, blank=True)
 
+    @staticmethod
+    def fetch_shape_file_path(directory_path):
+        """
+        Fetch shape file path from the given directory.
+        :param directory_path: Directory to iterate through.
+        :return: Path of the shape file.
+        """
+        import_file = None
+        for file_name in os.listdir(directory_path):
+            if file_name.lower()[-4:] in ['.shp', '.gdb']:
+                import_file = os.path.join(directory_path, file_name)
+                break
+        return import_file
+
     def import_spatial_file(self, uploaded_file_path, uploaded_file_directory):
         """
         Import features by invoking importlayer management command.
@@ -598,22 +612,25 @@ class SpatialFile(TimestampedModel):
         try:
             import_file = None
             if uploaded_file_path.lower().endswith('.zip'):
+                print(uploaded_file_directory)
                 # Extract user-uploaded zip file.
                 with zipfile.ZipFile(
                         uploaded_file_path, 'r') as zip_file_object:
                     zip_file_object.extractall(uploaded_file_directory)
 
-                for file_name in os.listdir(uploaded_file_directory):
-                    if file_name.lower()[-4:] in ['.shp', '.gdb']:
-                        import_file = os.path.join(
-                            uploaded_file_directory, file_name)
-                        break
+                import_file = self.fetch_shape_file_path(
+                    uploaded_file_directory)
+                # If zip contains a directory encapsulating all the shape files
+                if not import_file:
+                    import_file = self.fetch_shape_file_path(
+                        uploaded_file_path[:-4])
 
             # Import features from geojson file.
             elif uploaded_file_path.lower().endswith('json'):
                 import_file = uploaded_file_path
 
             if import_file:
+                print(import_file)
                 management.call_command(
                     'importlayer', import_file, self.feature_set.name,
                     self.feature_type.name, layer=self.layer_number,
@@ -641,8 +658,11 @@ class SpatialFile(TimestampedModel):
         """
         self.save()
         uploaded_file_path = self.data.path
+        print('='*100)
+        print(uploaded_file_path)
         uploaded_file_directory = '/'.join(
             uploaded_file_path.split('/')[:-1])
+        print(uploaded_file_directory)
         logger.info('User uploaded file path:   {}'.format(uploaded_file_path))
         try:
             self.import_spatial_file(uploaded_file_path,
