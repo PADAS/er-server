@@ -603,19 +603,11 @@ class SpatialFile(TimestampedModel):
                         uploaded_file_path, 'r') as zip_file_object:
                     zip_file_object.extractall(uploaded_file_directory)
 
-                # Extract features from File Geodatabase. Ext='.gbd'
-                extracted_directory_path = uploaded_file_path[:-4]
-                if extracted_directory_path.lower().endswith('.gdb'):
-                    import_file = extracted_directory_path
-
-                # Find shapefile with extension '.shp'
-                else:
-                    for file_name in os.listdir(extracted_directory_path):
-                        if file_name.lower().endswith('.shp'):
-                            shapefile_path = os.path.join(
-                                extracted_directory_path, file_name)
-                            import_file = shapefile_path
-                            break
+                for file_name in os.listdir(uploaded_file_directory):
+                    if file_name.lower()[-4:] in ['.shp', '.gdb']:
+                        import_file = os.path.join(
+                            uploaded_file_directory, file_name)
+                        break
 
             # Import features from geojson file.
             elif uploaded_file_path.lower().endswith('json'):
