@@ -612,7 +612,6 @@ class SpatialFile(TimestampedModel):
         try:
             import_file = None
             if uploaded_file_path.lower().endswith('.zip'):
-                print(uploaded_file_directory)
                 # Extract user-uploaded zip file.
                 with zipfile.ZipFile(
                         uploaded_file_path, 'r') as zip_file_object:
@@ -630,7 +629,6 @@ class SpatialFile(TimestampedModel):
                 import_file = uploaded_file_path
 
             if import_file:
-                print(import_file)
                 management.call_command(
                     'importlayer', import_file, self.feature_set.name,
                     self.feature_type.name, layer=self.layer_number,
@@ -658,11 +656,8 @@ class SpatialFile(TimestampedModel):
         """
         self.save()
         uploaded_file_path = self.data.path
-        print('='*100)
-        print(uploaded_file_path)
         uploaded_file_directory = '/'.join(
             uploaded_file_path.split('/')[:-1])
-        print(uploaded_file_directory)
         logger.info('User uploaded file path:   {}'.format(uploaded_file_path))
         try:
             self.import_spatial_file(uploaded_file_path,
