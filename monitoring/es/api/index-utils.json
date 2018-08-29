@@ -1,0 +1,3 @@
+GET _cat/indices?v
+
+DELETE /das_metrics

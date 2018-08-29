@@ -1,0 +1,19 @@
+{
+  "size": 0,
+  "aggs": {
+    "dev.redis.conn": {
+      "filter": {
+        "term": {
+          "beat.name": "dev.pamdas.org"
+        }
+      },
+      "aggs": {
+        "conn.count": {
+          "max": {
+            "field": "redis.conn.count"
+          }
+        }
+      }
+    }
+  }
+}
