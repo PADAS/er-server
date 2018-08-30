@@ -14,6 +14,7 @@ LOGSTASH_URL=nginx-udp.vulcancloud.io:5045
 TOOLS_VERSION=1.0.109
 VCLOUD_SERVICE_URL=http://vcloud.vulcancloud.io:5000/
 CONCOURSE_TEAM=main
+AZURE_SUBSCRIPTION=DAS
 
 ### DO NOT EDIT BELOW THIS LINE
 ### Below this line is generic copy pasted from the master in infrastructure
@@ -41,6 +42,8 @@ if [ ! "$(docker ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
         -e VAULT_SKIP_VERIFY=true \
         -e CONCOURSE_URL=$CONCOURSE_URL \
         -e ELASTIC_URL=$ELASTIC_URL \
+        -e AZURE_LOGIN=true \
+        -e AZURE_SUBSCRIPTION=$AZURE_SUBSCRIPTION \
         --name $CONTAINER_NAME \
         -v $CONTAINER_NAME-root:/root \
         --entrypoint run/startup.sh \
@@ -67,6 +70,8 @@ docker run -it --rm \
     "$(forward_port_if_set $K8S_PROXY_PORT)" \
     -e USERNAME=$(whoami) \
     -e TOOLS_CONTAINER_VERSION=$TOOLS_VERSION \
+    -e IAAS=azure \
+    -e AZURE_SUBSCRIPTION=$AZURE_SUBSCRIPTION \
     -v $MANAGE_PROJECT_DIR/ci:/vulcan-platform-tools/ci \
     -v $MANAGE_PROJECT_DIR/deployment:/vulcan-platform-tools/deployment \
     -v $(pwd):/vulcan-platform-tools/workdir \

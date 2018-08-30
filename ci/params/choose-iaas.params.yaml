@@ -1,0 +1,8 @@
+cluster-name: choose-iaas
+version-suffix: choose-iaas
+server-branch-name: choose-iaas
+
+iaas: gcp
+iaas-workspace: "padas-app"
+iaas-zone: "us-west1-a"
+cluster-spec: deployment/cluster-specs/gcp.yaml
