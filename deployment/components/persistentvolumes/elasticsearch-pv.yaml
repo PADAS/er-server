@@ -12,7 +12,8 @@ spec:
   accessModes:
     - "ReadWriteOnce"
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: "ssd"
-  gcePersistentDisk:
-    fsType: "ext4"
-    pdName: "<<cluster-name>>-elastic-search-data-0"
+  storageClassName: "azure"
+  azureDisk:
+    kind: Managed
+    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-elastic-search-data-0"
+    diskName: "<<cluster-name>>-elastic-search-data-0"

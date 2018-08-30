@@ -3,11 +3,13 @@ static-values:
   email-username: ""
   web-service-name: "web"
   nginx-utility-service-ip: ""
+  iaas-workspace: "DAS-Dev"
   alerts-slack-channel: ""
   send-alerts: "false"
   node-exporter-version: v0.16.0
 environment:
   static-ip: STATIC_IP
+  azure-subscription-id: AZURE_SUBSCRIPTION_ID
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
@@ -15,6 +17,5 @@ vault-lookups:
   pamdas-org-private-key-pem: padas-app/main/pamdas-org-private-key-pem
   nginx-utility-ssl-key: padas-app/main/es-ssl-key
   elastic-basic-auth-password: padas-app/main/es-basic-auth-password
-
   ndoki-smartconnect-provider-das-token: padas-app/sites/ndoki/smartconnect-provider-das-token
   dev-smartconnect-provider-das-token: padas-app/sites/dev/smartconnect-provider-das-token

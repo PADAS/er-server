@@ -39,3 +39,21 @@ function prompt_for_branch()
 
 prompt_for_branch das server-branch-name
 prompt_for_branch das-web web-branch-name
+
+read -p "Please enter the IAAS (blank defaults to gcp): " IAAS_PROVIDER
+IAAS_PROVIDER=${IAAS_PROVIDER:-"gcp"}
+echo "iaas: $IAAS_PROVIDER" >> $PIPELINE_PARAMS_FILE
+if [ "$IAAS_PROVIDER" == "gcp" ]; then
+    echo "iaas-zone: us-west1-a" >> $PIPELINE_PARAMS_FILE
+    echo "iaas-workspace: padas-app" >> $PIPELINE_PARAMS_FILE
+    echo "cluster-spec: deployment/cluster-specs/gcp.yaml" >> $PIPELINE_PARAMS_FILE
+elif [ "$IAAS_PROVIDER" == "azure" ]; then
+    echo "iaas-zone: eastus" >> $PIPELINE_PARAMS_FILE
+    echo "iaas-workspace: DAS-Dev" >> $PIPELINE_PARAMS_FILE
+    echo "cluster-spec: deployment/cluster-specs/azure.yaml" >> $PIPELINE_PARAMS_FILE
+else
+    echo "Supported IAAS are: azure, gcp but you selected $IAAS_PROVIDER"
+    echo "bailing out"
+    rm $PIPELINE_PARAMS_FILE
+    exit 1
+fi

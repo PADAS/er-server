@@ -12,7 +12,8 @@ spec:
   accessModes:
     - "ReadWriteOnce"
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: ssd
-  gcePersistentDisk:
-    fsType: "ext4"
-    pdName: "<<cluster-name>>-alertmanager-0"
+  storageClassName: azure
+  azureDisk:
+    kind: Managed
+    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-alertmanager-0"
+    diskName: "<<cluster-name>>-alertmanager-0"
