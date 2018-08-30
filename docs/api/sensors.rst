@@ -6,7 +6,73 @@ Sensors
 GPS Radio API
 -----------------------------
 
-.. http:post:: /sensors/gps-radio/<provider_key>/status
+.. http:post:: /sensors/gps-radio/(string:provider_key)/status
+
+    Post lat/lon positional data from a GPS tracking device. This is a generic API for posting positional data.
+    Include the unique device id in the data.
+
+    :param provider_key: this maps to the provider name
+
+
+   :reqheader Authorization: Bearer <auth token>
+   :reqheader Accept: application/json
+
+   :reqjson string subject_name: the name that appears in DAS for this sensor. default is the manufacturer_id
+   :reqjson string subject_subtype: the default is 'ranger', subtypes are defined here /admin/observations/subjectsubtype/
+   :reqjson string subject_type: types are defined here /admin/observations/subjecttype/
+   :reqjson string source_type: the default is the provider_key, possible values are [tracking-device, trap, seismic, firms, gps-radio]
+   :reqjson string model_name: the default is to concatenate "sensor_type:provider_key"
+   :reqjson string recorded_at: iso time at gps location
+   :reqjson string manufacturer_id: serial number or other unique sensor value
+   :reqjson obj additional: json key value pairs of unstructured information stored with observation
+
+   **Example Sensor Post**:
+
+   .. code-block:: json
+
+        {
+            "location": {"lat": 0, "lon": 0},
+            "recorded_at": "018-08-29T16:18:44.056439",
+            "manufacturer_id": "radio_sn_1",
+            "subject_name": "Ranger Alpha",
+            "subject_type": "person",
+            "subject_subtype": "ranger",
+            "model_name": "hytera",
+            "source_type": "",
+            "additional": {"gps_error": ".05"}
+        }
+
+.. http:post:: /sensors/dasradioagent/(string:provider_key)/status
+
+   Similar to the gps-radio API, this interface supports the unique attributes of the TRBOnet radio software.
+   This includes GPS recording status and general radio status.
+
+   This api supports the gps-radio json parameters plus:
+
+   :reqjson string message_key: if heartbeat, this is a heartbeat message describing the sensor handlers operational status default is observation. For instance is the TRBOnet server running. [observation, heartbeat]
+
+   The following are fields found in the "additional" obj field:
+
+   :reqjson string event_action: default is unknown. [unknown,
+   :reqjson string radio_state: default is na. [na, online-gps, online, alarm]
+   :reqjson string last_voice_call_start_at: iso date of last mic key
+   :reqjson string radio_state_at: iso date of radio state change time
+   :reqjson string location_requested_at: iso date of...
+   :reqjson string subject_name: updated subject name for tied to this source
+
+   :reqheader Authorization: Bearer <auth token>
+   :reqheader Accept: application/json
+   :statuscode 201: image successfully posted
+
+.. http:post:: /sensors/gsat/(string:provider_key)/status
+
+    Similar to the gps-radio API, this interface supports the unique attributes of the GSAT satellite radio.
+
+
+   :reqheader Authorization: Bearer <auth token>
+   :reqheader Accept: application/json
+   :statuscode 201: image successfully posted
+
 
 Camera Trap API
 -----------------------------
