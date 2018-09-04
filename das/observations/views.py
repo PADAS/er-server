@@ -628,7 +628,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
         maximum_history_days = 60
         if start_timestamp:
             delta = datetime.datetime.now(pytz.utc) - start_timestamp
-            if delta.days > 60:
+            if delta.days > maximum_history_days:
                 maximum_history_days = delta.days
         (lower, upper) = calculate_subject_view_window(
             self.request.user, maximum_history_days)
@@ -660,18 +660,21 @@ class KmlSubjectView(generics.RetrieveAPIView):
                 'start': utc.localize(dateutil.parser.parse(
                     self.request.GET.get('start')))})
         except (ValueError, TypeError):
-            pass
+            logger.info('Invalid start-date format - {}'.format(
+                self.request.GET.get('start')))
         try:
             filter_parameters.update({
                 'end': utc.localize(dateutil.parser.parse(
                     self.request.GET.get('end')))})
         except (ValueError, TypeError):
-            pass
+            logger.info('Invalid end-date format - {}'.format(
+                self.request.GET.get('end')))
         try:
             filter_parameters.update({
                 'filter': int(self.request.GET.get('filter', 0))})
         except (ValueError, TypeError):
-            pass
+            logger.info('Invalid filter flag format - {}'.format(
+                self.request.GET.get('filter')))
         return filter_parameters
 
     def get(self, request, *args, **kwargs):
