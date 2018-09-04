@@ -1,4 +1,5 @@
 from django.contrib.gis.db import models
+from django.utils.translation import ugettext as _
 from analyzers.models.base import SubjectAnalyzerConfig
 
 
@@ -14,9 +15,19 @@ class LowSpeedPercentileAnalyzerConfig(SubjectAnalyzerConfig):
 
     analyzer_category = 'low_speed'
 
+    class Meta(SubjectAnalyzerConfig.Meta):
+        abstract = False
+        verbose_name = _('Low-Speed Analyzer (Percentile method)')
+        verbose_name_plural = _('Low-Speed Analyzers (Percentile method)')
+
 
 class LowSpeedWilcoxAnalyzerConfig(SubjectAnalyzerConfig):
 
     low_speed_probability_cutoff = models.FloatField(null=False, default=0.001)
 
     analyzer_category = 'low_speed'
+
+    class Meta(SubjectAnalyzerConfig.Meta):
+        abstract = False
+        verbose_name = _('Low-Speed Analyzer (Wilcox method)')
+        verbose_name_plural = _('Low-Speed Analyzers (Wilcox method)')

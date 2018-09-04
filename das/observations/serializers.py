@@ -154,7 +154,15 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     default_window_cutoff = pytz.utc.localize(
                         datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
                     rep['tracks_available'] = end.recorded_at > default_window_cutoff
-                    rep['last_position_status'] = end.additional or {}
+
+                    # TODO: These values might be more appropriate in the
+                    # geeojson properties.
+                    rep['last_position_status'] = {
+                        'last_voice_call_start_at': end.last_voice_call_start_at,
+                        'radio_state_at': end.radio_state_at,
+                        'radio_state': end.radio_state
+                    }
+
                     rep['last_position_date'] = end.recorded_at
                     rep['last_position'] = make_feature(
                         self.context['request'], end.location, instance, time=end.recorded_at, image_url=rep['image_url'])
@@ -347,6 +355,10 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
         return rep
 
 
+SUBJECT_STATUS_RETURN_FIELDS = (
+    'last_voice_call_start_at', 'location_requested_at', 'radio_state_at') + ('radio_state',)
+
+
 def make_feature(request, coordinates, subject, coordinate_times=None, time=None, image_url=None):
     is_point = isinstance(coordinates, Point)
     image_url = add_base_url(request, image_url or subject.image_url)
@@ -371,13 +383,14 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         properties['stroke-width'] = 2
         properties['image'] = image_url
 
-    for ss in subject.subjectstatus_set.filter(delay_hours=0):
-        if 'state' in ss.additional:
-            properties['subject_state'] = ss.additional['state']
+    for ss in subject.subjectstatus_set.filter(delay_hours=0).values(*SUBJECT_STATUS_RETURN_FIELDS):
 
-        for k in ('last_voice_call_start_at', 'requested_location_at'):
-            if k in ss.additional:
-                properties[k] = ss.additional[k]
+        properties['subject_state'] = ss.get('radio_state', 'na')
+
+        for k in ('last_voice_call_start_at', 'location_requested_at', 'radio_state_at'):
+            val = ss.get(k)
+            if val:
+                properties[k] = val
         break
 
     # see https://github.com/mapbox/geojson-coordinate-properties

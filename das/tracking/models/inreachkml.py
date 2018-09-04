@@ -2,6 +2,7 @@ import logging
 import copy
 
 import base64
+import ssl
 import http.client
 import datetime
 from datetime import timedelta
@@ -42,7 +43,8 @@ class InreachKMLClient(object):
         self._authheader = 'Basic {}'.format(auth.decode('utf8'))
 
     def get_data(self, imei=None, d1=None, d2=None):
-        conn = http.client.HTTPSConnection("share.delorme.com")
+        conn = http.client.HTTPSConnection(
+            "share.delorme.com", context=ssl._create_unverified_context())
         headers = {
             'authorization': self._authheader,
             'cache-control': "no-cache",

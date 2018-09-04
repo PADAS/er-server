@@ -7,6 +7,20 @@
 
 {% block after_related_objects %}
 
+<style type="text/css">
+    td span.online-gps {
+        color:#81bf43;
+    }
+    td span.online {
+        color:#0abaff;
+    }
+    td span.offline {
+        color:#9ea7b3;
+    }
+    td span.alarm {
+        color:#d0021b;
+    }
+</style>
 <div class="module">
 <h2>Latest Observations</h2>
 <div class="results">
@@ -45,11 +59,6 @@
              </th>
              <th>
                  <div class="text">
-                     Radio GPS Fix?
-                 </div>
-             </th>
-             <th>
-                 <div class="text">
                      System Event Action
                  </div>
              </th>
@@ -63,8 +72,7 @@
                 <td>{{ observation.recorded_at|naturaltime }}</td>
                 <td>{{ observation.location.x }}</td>
                 <td>{{ observation.location.y }}</td>
-                <td>{{ observation.additional.state }}</td>
-                <td>{{ observation.additional.gps_fix }}</td>
+                <td><span class="{{observation.additional.radio_state}}">{{ observation.additional.radio_state }}</span></td>
                 <td>{{ observation.additional.event_action }}</td>
             </tr>
             {% endfor %}

@@ -111,7 +111,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create the Geofence Analyzer Config object
         GeofenceAnalyzerConfig.objects.create(
-            subject_group=sg, geofences=gf_grp, search_time_hours=175200.0)
+            subject_group=sg, critical_geofence_group=gf_grp, search_time_hours=175200.0)
 
         # Iterate through the observations adding another point to the
         # trajectory on each loop
@@ -178,7 +178,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create the Geofence Analyzer Config object
         config = GeofenceAnalyzerConfig.objects.create(
-            subject_group=sg, geofences=gf_grp, containment_regions=cr_grp)
+            subject_group=sg, critical_geofence_group=gf_grp, containment_regions=cr_grp)
 
         # Iterate through the observations adding another point to the
         # trajectory on each loop
