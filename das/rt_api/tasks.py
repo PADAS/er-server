@@ -116,7 +116,7 @@ def _event_handler(event_id, type):
         close_old_connections()
 
 
-@celery.app.task(base=QueueOnce, once={'graceful': True})
+@celery.app.task(base=QueueOnce, once={'graceful': True}, rate_limit='10/m')
 def _broadcast_service_status(service_status_data=None):
 
     service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
