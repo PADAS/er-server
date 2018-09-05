@@ -116,6 +116,7 @@ def _event_handler(event_id, type):
         close_old_connections()
 
 
+@celery.app.task(base=QueueOnce, once={'graceful': True})
 def _broadcast_service_status(service_status_data=None):
 
     service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
@@ -144,7 +145,7 @@ def _broadcast_service_status(service_status_data=None):
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, 'timeout': 60}, rate_limit='4/m')
 def broadcast_service_status():
-    _broadcast_service_status()
+    _broadcast_service_status.apply_async()
 
 
 def _observation_handler(subject_id):
@@ -235,19 +236,22 @@ def get_subject_view_details(view, user, subject_id):
 
 @celery.app.task()
 def handle_new_event(event_id):
-    logger.info('Celery worker handling new event_id: %s', event_id, extra={'rt.event': 'new'})
+    logger.info('Celery worker handling new event_id: %s',
+                event_id, extra={'rt.event': 'new'})
     _event_handler(event_id, 'new_event')
 
 
 @celery.app.task()
 def handle_update_event(event_id):
-    logger.info('Celery worker handling update event_id: %s', event_id, extra={'rt.event': 'update'})
+    logger.info('Celery worker handling update event_id: %s',
+                event_id, extra={'rt.event': 'update'})
     _event_handler(event_id, 'update_event')
 
 
 @celery.app.task()
 def handle_delete_event(event_id):
-    logger.info('Celery worker handling delete event_id: %s', event_id, extra={'rt.event': 'delete'})
+    logger.info('Celery worker handling delete event_id: %s',
+                event_id, extra={'rt.event': 'delete'})
     _event_handler(event_id, 'delete_event')
 
 
@@ -290,5 +294,3 @@ def check_redis_queues():
     logger.info({'rt.realtime.p1': rt_p1})
     logger.info({'rt.realtime.p2': rt_p2})
     logger.info({'rt.realtime.p3': rt_p3})
-
-
