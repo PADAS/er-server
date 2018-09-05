@@ -767,7 +767,7 @@ class SubjectStatusAdmin(admin.ModelAdmin):
     ordering = ('-recorded_at',)
     # change_list_template = 'admin/subject_status_change_list.html'
     # readonly_fields = ('recorded_at', 'subject','delay_hours', 'additional')
-    list_display = ('_status', 'subject_link',
+    list_display = ('_status', 'radio_state_at', '_age_of_state', 'subject_link',
                     'recorded_at', '_location', '_age')
     list_filter = (RadioStatusFilter, SourceTypeFilter,
                    'subject__subject_subtype__display',)
@@ -785,9 +785,14 @@ class SubjectStatusAdmin(admin.ModelAdmin):
     subject_link.short_description = 'Subject'
 
     def _age(self, o):
-        return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at)
+        return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at) if o.recorded_at else 'n/a'
     _age.short_description = _('Age of Observation')
     _age.admin_order_field = '-recorded_at'
+
+    def _age_of_state(self, o):
+        return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.radio_state_at) if o.radio_state_at else 'n/a'
+    _age_of_state.short_description = _('Age of State')
+    _age_of_state.admin_order_field = '-radio_state_at'
 
     def _status(self, o):
         state_desc = o.additional.get('state', '')

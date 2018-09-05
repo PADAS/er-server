@@ -255,3 +255,13 @@ class SpoorFootTypeAdmin(admin.ModelAdmin):
 @admin.register(models.SnareAction)
 class SnareActionAdmin(admin.ModelAdmin):
     pass
+
+
+@admin.register(models.Conservancy)
+class ConservancyAdmin(BaseChoiceAdmin):
+    pass
+
+
+@admin.register(models.Team)
+class TeamAdmin(BaseChoiceAdmin):
+    pass

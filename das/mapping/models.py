@@ -589,6 +589,20 @@ class SpatialFile(TimestampedModel):
     name_field = models.CharField(max_length=100, blank=True)
     id_field = models.CharField(max_length=100, blank=True)
 
+    @staticmethod
+    def fetch_shape_file_path(directory_path):
+        """
+        Fetch shape file path from the given directory.
+        :param directory_path: Directory to iterate through.
+        :return: Path of the shape file.
+        """
+        import_file = None
+        for file_name in os.listdir(directory_path):
+            if file_name.lower()[-4:] in ['.shp', '.gdb']:
+                import_file = os.path.join(directory_path, file_name)
+                break
+        return import_file
+
     def import_spatial_file(self, uploaded_file_path, uploaded_file_directory):
         """
         Import features by invoking importlayer management command.
@@ -603,19 +617,12 @@ class SpatialFile(TimestampedModel):
                         uploaded_file_path, 'r') as zip_file_object:
                     zip_file_object.extractall(uploaded_file_directory)
 
-                # Extract features from File Geodatabase. Ext='.gbd'
-                extracted_directory_path = uploaded_file_path[:-4]
-                if extracted_directory_path.lower().endswith('.gdb'):
-                    import_file = extracted_directory_path
-
-                # Find shapefile with extension '.shp'
-                else:
-                    for file_name in os.listdir(extracted_directory_path):
-                        if file_name.lower().endswith('.shp'):
-                            shapefile_path = os.path.join(
-                                extracted_directory_path, file_name)
-                            import_file = shapefile_path
-                            break
+                import_file = self.fetch_shape_file_path(
+                    uploaded_file_directory)
+                # If zip contains a directory encapsulating all the shape files
+                if not import_file:
+                    import_file = self.fetch_shape_file_path(
+                        uploaded_file_path[:-4])
 
             # Import features from geojson file.
             elif uploaded_file_path.lower().endswith('json'):
