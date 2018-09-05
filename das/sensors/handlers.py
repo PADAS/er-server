@@ -104,7 +104,7 @@ class GenericSensorHandler():
 
 class LocationDictSerializer(serializers.Serializer):
     lon = serializers.FloatField(min_value=-180.0, max_value=180.0)
-    lat = serializers.FloatField(min_value=0.0, max_value=90.0)
+    lat = serializers.FloatField(min_value=-90.0, max_value=90.0)
 
 
 class RadioAdditionalSerializer(serializers.Serializer):
