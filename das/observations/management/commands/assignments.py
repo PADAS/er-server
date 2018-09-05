@@ -194,6 +194,16 @@ class Command(BaseCommand):
 
         )
 
+        parser.add_argument(
+            '--model_name',
+            action='store',
+            dest='model_name',
+            required=False,
+            default='unspecified',
+            help='Model name.',
+
+        )
+
     def handle(self, *args, **options):
 
         try:
