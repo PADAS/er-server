@@ -14,6 +14,7 @@ disk-namespace: ""
 vault-address: "https://vault.vulcancloud.io:8200"
 vcloud-service-url: "http://vcloud.vulcancloud.io:5000/"
 elastic-url: "elastic.vulcancloud.io"
+logstash-url: "nginx-udp.vulcancloud.io:5045"
 deploy-params-environment: develop
 
 #Azure
