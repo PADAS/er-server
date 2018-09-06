@@ -193,7 +193,7 @@ SERIALIZATION_MODULES = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'grumeti_20180813',
+        'NAME': 'das',
         'USER': 'das',
         'HOST': os.getenv('DB_HOST', 'postgis'),
         'PORT': os.getenv('DB_PORT', '5432'),
