@@ -13,7 +13,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from django.db.models import Prefetch
 from rest_framework import generics, mixins, status
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from django.http import Http404
@@ -556,7 +556,11 @@ class KmlSubjectsView(generics.GenericAPIView):
         :param subtype:
         :return:
         '''
-        return models.Subject.SUBTYPE_DISPLAY_NAMES.get(subtype, 'Unassigned')
+        try:
+            return models.SubjectSubType.objects.get(value=subtype).display
+        except Exception as e:
+            logger.exception(e)
+            return 'Unassigned'
 
     def get(self, request, *args, **kwargs):
 
@@ -566,8 +570,7 @@ class KmlSubjectsView(generics.GenericAPIView):
         DEFAULT_REGION_NAME = 'Unknown Region'
 
         subject_list = [{'name': subject['name'],
-                         'species': 'demo',
-                         # 'species': self.get_display_subtype(subject.get('subject_subtype')),
+                         'species': self.get_display_subtype(subject.get('subject_subtype')),
                          'region': subject.get('additional').get('region', DEFAULT_REGION_NAME),
                          'visibility': 0,
                          'href': self.build_link_for_subject(subject)
@@ -628,7 +631,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
         maximum_history_days = 60
         if start_timestamp:
             delta = datetime.datetime.now(pytz.utc) - start_timestamp
-            if delta.days > 60:
+            if delta.days > maximum_history_days:
                 maximum_history_days = delta.days
         (lower, upper) = calculate_subject_view_window(
             self.request.user, maximum_history_days)
@@ -656,22 +659,28 @@ class KmlSubjectView(generics.RetrieveAPIView):
         filter_parameters = {}
         utc = pytz.UTC
         try:
-            filter_parameters.update({
-                'start': utc.localize(dateutil.parser.parse(
-                    self.request.GET.get('start')))})
+            if self.request.GET.get('start'):
+                filter_parameters.update({
+                    'start': utc.localize(dateutil.parser.parse(
+                        self.request.GET.get('start')))})
         except (ValueError, TypeError):
-            pass
+            raise ValueError('Invalid start-date format - {}'.format(
+                self.request.GET.get('start')))
         try:
-            filter_parameters.update({
-                'end': utc.localize(dateutil.parser.parse(
-                    self.request.GET.get('end')))})
+            if self.request.GET.get('end'):
+                filter_parameters.update({
+                    'end': utc.localize(dateutil.parser.parse(
+                        self.request.GET.get('end')))})
         except (ValueError, TypeError):
-            pass
+            raise ValueError('Invalid end-date format - {}'.format(
+                self.request.GET.get('end')))
         try:
-            filter_parameters.update({
-                'filter': int(self.request.GET.get('filter', 0))})
+            if self.request.GET.get('filter'):
+                filter_parameters.update({
+                    'filter': int(self.request.GET.get('filter', 0))})
         except (ValueError, TypeError):
-            pass
+            raise ValueError('Invalid filter flag format - {}'.format(
+                self.request.GET.get('filter')))
         return filter_parameters
 
     def get(self, request, *args, **kwargs):
