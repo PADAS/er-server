@@ -1,17 +1,17 @@
 import io
-import zipfile
-import fastkml
 import random
+import zipfile
 from datetime import datetime, timedelta
-from pytz import utc,timezone
-from django.contrib.auth.models import Permission
 from urllib.parse import urlencode
-from core.tests import BaseAPITest
-from observations.models import Observation, SubjectGroup, Subject, Source
-from accounts.models import User, PermissionSet
-from observations.serializers import ObservationSerializer
+
+import fastkml
+from pytz import utc, timezone
 
 import observations.views as views
+from accounts.models import User, PermissionSet
+from core.tests import BaseAPITest
+from observations.models import SubjectGroup, Subject
+from observations.serializers import ObservationSerializer
 
 API_BASE = '/api/v1.0'
 
@@ -42,8 +42,16 @@ class KmlSubjectViewTest(BaseAPITest):
             name='View Tracks Last 7 Days')
         )
 
-    def get_observations(self, response):
+    @staticmethod
+    def get_observations_timestamp(response):
+        """
+        This will take response(kmz file) as parameter and return back
+        list of timestamp(recorded_at) from observations.
+        :param response:
+        :return list of timestamp:
+        """
         kmz = zipfile.ZipFile(io.BytesIO(response.render().content), 'r')
+        kml_data = ''
         for name in kmz.namelist():
             kml_data = kmz.read(name)
         kml_object = fastkml.kml.KML()
@@ -51,6 +59,7 @@ class KmlSubjectViewTest(BaseAPITest):
         timestamps = []
         kml_subject = list(kml_object.features())
         kml_subject_details = list(kml_subject[0].features())
+        observation_details = None
         for point_type in kml_subject_details:
             if 'points' in point_type.name:
                 observation_details = point_type
@@ -69,7 +78,7 @@ class KmlSubjectViewTest(BaseAPITest):
 
         response = views.KmlSubjectView.as_view()(self.request, **kwargs)
         self.assertEqual(response.status_code, 200)
-        timestamps = self.get_observations(response)
+        timestamps = self.get_observations_timestamp(response)
         lower = utc.localize(datetime.now() - timedelta(days=60))
         upper = utc.localize(datetime.now())
         self.assertTrue(
@@ -91,7 +100,7 @@ class KmlSubjectViewTest(BaseAPITest):
 
         response = views.KmlSubjectView.as_view()(self.request, **kwargs)
         self.assertEqual(response.status_code, 200)
-        timestamps = self.get_observations(response)
+        timestamps = self.get_observations_timestamp(response)
         if timestamps:
             lower = utc.localize(datetime.strptime(start_date, '%Y-%m-%d'))
             upper = utc.localize(datetime.strptime(end_date, '%Y-%m-%d'))
@@ -129,12 +138,14 @@ class KmlSubjectViewTest(BaseAPITest):
 
         response = views.KmlSubjectView.as_view()(self.request, **kwargs)
         self.assertEqual(response.status_code, 200)
-        timestamps = self.get_observations(response)
+        timestamps = self.get_observations_timestamp(response)
         if timestamps:
             start_date = utc.localize(start_date)
             end_date = utc.localize(end_date)
             self.assertTrue(
-                any(end_date >= timestamp >= start_date for timestamp in timestamps)
+                any(end_date >= timestamp >= start_date for timestamp in
+                    timestamps)
             )
             self.assertTrue(observation.recorded_at in timestamps or
-                            observation.recorded_at.astimezone(timezone('US/Pacific')))
+                            observation.recorded_at.astimezone(
+                                timezone('US/Pacific')))
