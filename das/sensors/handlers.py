@@ -15,6 +15,8 @@ from observations.models import update_subject_status_from_post
 
 from tracking.pubsub_registry import notify_new_tracks
 
+from sensors.vehicle_tracker import SkylineObservations
+
 logger = logging.getLogger(__name__)
 
 
@@ -353,3 +355,21 @@ class GsatHandler():
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VehicleTrackerHandler():
+
+    SENSOR_TYPE = 'vehicle-tracker'
+    DEFAULT_SUBJECT_SUBTYPE = 'truck'
+
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+
+        params = SkylineObservations(data=request.data)
+
+        if not params.is_valid():
+            return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        logger.info(params.data)
+
+        return Response(data=params.data, status=status.HTTP_200_OK)
