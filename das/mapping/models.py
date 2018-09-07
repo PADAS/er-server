@@ -34,7 +34,7 @@ class Map(TimestampedModel):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
-    attributes = JSONField()
+    attributes = JSONField(default=dict, blank=True)
     center = models.PointField(srid=4326)
     zoom = models.IntegerField()
 
@@ -54,7 +54,7 @@ class TileLayer(TimestampedModel):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
-    attributes = JSONField()
+    attributes = JSONField(default=dict, blank=True)
     version = models.CharField(max_length=80, default='1.0.0')
     tile_type = models.CharField(max_length=20,
                                  choices=TILE_TYPES, default='mbtiles')
@@ -81,7 +81,7 @@ class FeatureType(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
-    presentation = JSONField(default=dict)
+    presentation = JSONField(default=dict, blank=True)
     objects = FeatureTypeManager()
 
     def __str__(self):
@@ -130,8 +130,8 @@ class Feature(TimestampedModel):
     description = models.TextField(null=True, blank=True)
 
     # attributes for presentation
-    presentation = JSONField(default=dict)
-    fields = JSONField(default=dict)
+    presentation = JSONField(default=dict, blank=True)
+    fields = JSONField(default=dict, blank=True)
     external_id = models.CharField(max_length=80, blank=True, null=True)
 
     # the feature set with which this feature is being grouped.
@@ -467,7 +467,7 @@ class SpatialFeatureType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     # JSON field for storing the json schema for each unique feature type
-    attribute_schema = JSONField(default=dict)
+    attribute_schema = JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
     tags = TagField(to=SpatialFeatureTypeTag)
 
@@ -476,8 +476,8 @@ class SpatialFeatureType(models.Model):
     display_category = models.ForeignKey(
         to='DisplayCategory', on_delete=models.PROTECT)
     # JSON Field for defining the basic presentation of the feature
-    presentation = JSONField(default=dict)
-    provenance = JSONField(default=dict)
+    presentation = JSONField(default=dict, blank=True)
+    provenance = JSONField(default=dict, blank=True)
     external_id = models.CharField(max_length=100, unique=True, blank=True,
                                    null=True)
     external_source = models.CharField(max_length=25, blank=True)
@@ -530,7 +530,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
                                    null=True)
     external_source = models.CharField(max_length=25, blank=True)
 
-    attributes = JSONField(default=dict)
+    attributes = JSONField(default=dict, blank=True)
 
     # Status: Open/Closed/Seasonal/Unknown) <Roads Only>
     # SpeedLimit <Roads Only>
@@ -542,7 +542,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     # Notes
 
     # where did the data come from? method?
-    provenance = JSONField(default=dict)
+    provenance = JSONField(default=dict, blank=True)
     # collect_user # who collected the data?
     # collect_method # the method used to collect the data (e.g., GPS, Satellite, etc.)
     # collect_date # when was the data collected?
