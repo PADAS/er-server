@@ -15,9 +15,13 @@ from observations.models import update_subject_status_from_post
 
 from tracking.pubsub_registry import notify_new_tracks
 
-from sensors.vehicle_tracker import SkylineObservations
+from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter
 
 logger = logging.getLogger(__name__)
+
+DAS_SOURCE_TYPE = 'tracking-device'
+DAS_MODEL_NAME = 'vehicle-tracker'
+DAS_SUBJECT = 'vehicle'
 
 
 class SensorPostParameters(serializers.Serializer):
@@ -370,6 +374,43 @@ class VehicleTrackerHandler():
         if not params.is_valid():
             return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        logger.info(params.data)
+        adapter = SkylineAdapter()
+        # TODO bulk_create
+        obs_to_insert = []
+
+        for observations in params.data['Messages']:  
+
+            das_obs = adapter.create_das_object()
+
+            src = Source.objects.ensure_source(
+                source_type,
+                provider=provider_key,
+                manufacturer_id=manufacturer_id,
+                model_name=model_name,
+                subject={
+                    'subject_subtype_id': subject_subtype,
+                    'name': subject_name
+                }
+            )
+            # skip if we already have this observation.
+            if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
+                logger.info("Processed duplicate observation %s",
+                            subject_subtype, extra={'obs.dup': provider_key})
+                continue
+
+            observation = {
+                'location': location,
+                'recorded_at': recorded_at,
+                'source': str(src.id),
+                'additional': additional,
+            }
+
+            serializer = ObservationSerializer(data=observation)
+            if serializer.is_valid():
+                serializer.save()
+                logger.info("Added new observation %s", observation,
+                            extra={'obs.new': provider_key})
+                notify_new_tracks(src.id)
+            
 
         return Response(data=params.data, status=status.HTTP_200_OK)

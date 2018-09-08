@@ -84,8 +84,8 @@ class SkylineAdapter:
             subject_type=DAS_SUBJECT,
             model_name=DAS_MODEL_NAME,
             subject_subtype=DAS_DEF_VEHICLE_TYPE,
-            # subject_subtype=VEHICLE_DICT.get(skyline_obs.vehicle_type, DAS_DEF_SUBJECT_TYPE),
             source_type=DAS_SOURCE_TYPE,
             additional={}
         )
+        logger.info("Created DAS observation", extra=das_obs)
         return das_obs
