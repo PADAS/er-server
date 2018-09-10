@@ -376,33 +376,33 @@ class VehicleTrackerHandler():
 
         adapter = SkylineAdapter()
         # TODO bulk_create
-        obs_to_insert = []
+        # obs_to_insert = []
 
-        for observations in params.data['Messages']:  
+        for observation in params.data['Messages']:  
 
-            das_obs = adapter.create_das_object()
+            das_obs = adapter.create_das_object(observation)
 
             src = Source.objects.ensure_source(
-                source_type,
+                das_obs.source_type,
                 provider=provider_key,
-                manufacturer_id=manufacturer_id,
-                model_name=model_name,
+                manufacturer_id=das_obs.manufacturer_id,
+                model_name=das_obs.model_name,
                 subject={
-                    'subject_subtype_id': subject_subtype,
-                    'name': subject_name
+                    'subject_subtype_id': das_obs.subject_subtype,
+                    'name': das_obs.subject_name
                 }
             )
             # skip if we already have this observation.
-            if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
+            if Observation.objects.filter(source=src, recorded_at=das_obs.recorded_at).exists():
                 logger.info("Processed duplicate observation %s",
-                            subject_subtype, extra={'obs.dup': provider_key})
+                            das_obs.subject_subtype, extra={'obs.dup': provider_key})
                 continue
 
             observation = {
-                'location': location,
-                'recorded_at': recorded_at,
+                'location': das_obs.location,
+                'recorded_at': das_obs.recorded_at,
                 'source': str(src.id),
-                'additional': additional,
+                'additional': das_obs.additional,
             }
 
             serializer = ObservationSerializer(data=observation)

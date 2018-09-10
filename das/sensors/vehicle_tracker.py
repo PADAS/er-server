@@ -1,8 +1,18 @@
+import logging
+import pytz
+from dateutil.parser import parse
+from datetime import datetime
+from typing import NamedTuple
+
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework import serializers
 
-DAS_DEF_VEHICLE_TYPE = 'truck'
+DAS_SUBJECT = 'vehicle'
+DAS_DEF_VEHICLE_TYPE = 'security_vehicle'
+DAS_MODEL_NAME = 'vehicle-tracker'
+DAS_SOURCE_TYPE = 'tracking-device'
+
 # map skyline vehicle types
 VEHICLE_DICT = {
     'Truck': DAS_DEF_VEHICLE_TYPE,
@@ -21,7 +31,7 @@ class SkylineVehicleData(serializers.Serializer):
 class SkylineObservation(serializers.Serializer):
     Lat = serializers.FloatField()
     Lon = serializers.FloatField()
-    GPSTime = serializers.DateField()
+    GPSTime = serializers.CharField()
     Dir = serializers.CharField()
     Speed = serializers.IntegerField()
     Vehicle = SkylineVehicleData()
@@ -62,12 +72,12 @@ class SkylineAdapter:
         Skyline AssetData format - dd/MM/yyyy HH:mm:ss
         Observation format - YYYY-MM-DDThh:mm:ss
         """
-        obs_fmt = datetime.strptime(date_str, '%d-%m-%Y %H:%M:%S')
+        obs_fmt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
         utc_date = pytz.utc.localize(obs_fmt)
         iso_date = utc_date.isoformat()
         return iso_date
 
-    def create_das_obs(self, skyline_obs):
+    def create_das_object(self, skyline_obs):
         """
         Generate a DAS observation from a SkylineObservation
         :param skyline_obs: an SkylineObservation instance
@@ -87,5 +97,4 @@ class SkylineAdapter:
             source_type=DAS_SOURCE_TYPE,
             additional={}
         )
-        logger.info("Created DAS observation", extra=das_obs)
         return das_obs
