@@ -64,6 +64,7 @@ urlpatterns = [
     url(r'^sourceproviders/?$', views.SourceProvidersView.as_view()),
     url(r'^sourceprovider/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.SourceProvidersViewPartial.as_view()),
+    url(r'^tracking_data/$', views.TrackingDataCsvView.as_view()),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

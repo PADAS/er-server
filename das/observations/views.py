@@ -4,6 +4,7 @@ import dateutil.parser
 import pytz
 from io import BytesIO
 import re
+import csv
 
 from django.conf import settings
 from django.urls import reverse
@@ -16,9 +17,8 @@ from rest_framework import generics, mixins, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
-from django.http import Http404
-from rest_framework import status
-
+from django.http import Http404, HttpResponse
+from rest_framework import status, views
 
 import utils
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination
@@ -709,3 +709,61 @@ class KmlSubjectView(generics.RetrieveAPIView):
         }
         result = render_to_string('kml/subject_track.xml', context)
         return kmlutils.render_to_kmz(result, filename)
+
+
+class TrackingDataCsvView(generics.RetrieveAPIView):
+    permission_classes = (StandardObjectPermissions,)
+
+    def get_queryset(self):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
+            raise PermissionDenied
+        queryset = models.Subject.objects.all()
+        queryset = queryset.by_is_active()
+        queryset = queryset.by_user_subjects(self.request.user)
+        return queryset
+
+    def get(self, request, *args, **kwargs):
+        filter_flag = 0
+        try:
+            if self.request.GET.get('filter'):
+                filter_flag = int(self.request.GET.get('filter', 0))
+        except (ValueError, TypeError):
+            filter_flag = 0
+
+        csv_data = []
+        fieldnames = ['chronofile', 'recordserial', 'fixtime', 'dloadtime',
+                      'lon', 'lat', 'height', 'temp']
+        subjects = self.get_queryset()
+        for subject in subjects:
+            observations = models.Observation.objects.filter(
+                source__subjectsource__subject=subject,
+                exclusion_flags=filter_flag)
+            if observations:
+                for observation in observations.all():
+                    subject_source = models.SubjectSource.objects.filter(
+                        assigned_range__contains=observation.recorded_at,
+                        subject=subject)[0]
+                    chrono = subject_source.additional.get('chronofile', '')
+                    data = {'lat': observation.location.x,
+                            'lon': observation.location.y,
+                            'height': observation.location.z,
+                            'chronofile': chrono,
+                            'recordserial': observation.id,
+                            'fixtime': observation.recorded_at.strftime(
+                                '%m/%d%Y %H:%M:%S'),
+                            'dloadtime': observation.created_at.strftime(
+                                '%m/%d%Y %H:%M:%S'),
+                            'temp': observation.additional.get('temp', '')
+                            }
+                    csv_data.append(data)
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; \
+            filename=observation_data{}.csv'.format(
+            datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
+        )
+        writer = csv.DictWriter(response, fieldnames=fieldnames)
+        writer.writeheader()
+        if csv_data:
+            writer.writerows(csv_data)
+        return response
