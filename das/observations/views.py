@@ -10,6 +10,7 @@ from django.conf import settings
 from django.urls import reverse
 
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
 from django.db.models import Prefetch
@@ -767,3 +768,100 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         if csv_data:
             writer.writerows(csv_data)
         return response
+
+
+class TrackingMetaDataExportView(generics.RetrieveAPIView):
+
+    permission_classes = (StandardObjectPermissions,)
+
+    def get_source_details(self):
+        """
+        Gather required details for each Subject/Source combination.
+        :return: List of dictionaries containing required details.
+        """
+        tracking_metadata = []
+        headers = ['chronofile', 'collar_type', 'collar_id', 'active',
+                   'frequency', 'animal_id', 'name', 'species', 'data_starts',
+                   'data_stops', 'date_off_or_removed', 'comments',
+                   'predicted_expiry', 'rgb', 'sex', 'gmt', 'data_status',
+                   'data_starts_source', 'data_stops_source',
+                   'data_stops_reason', 'collar_status', 'collar_model',
+                   'has_acc_data', 'data_owners', 'region', 'country']
+
+        for subject in self.get_queryset():
+            source_details = {}
+            try:
+                source_details.update({
+                    'name': subject.name,
+                    'species': subject.additional.get('species', ''),
+                    'rgb': subject.additional.get('rgb', ''),
+                    'sex': subject.additional.get('sex', ''),
+                    'region': subject.additional.get('region', ''),
+                    'country': subject.additional.get('country', '')})
+                if subject.source:
+                    source_details.update({
+                        'chronofile': subject.source.additional.get(
+                            'chronofile', ''),
+                        'collar_type': subject.source.model_name,
+                        'collar_id': subject.source.manufacturer_id,
+                        'active': subject.source.additional.get('active', ''),
+                        'frequency': subject.source.additional.get(
+                            'frequency', ''),
+                        'animal_id': subject.source.additional.get(
+                            'tm_animal_id', ''),
+                        # 'data_starts': subject.source.assigned_range,
+                        # 'data_stops': subject.source.assigned_range,
+                        'comments': subject.source.additional.get(
+                            'comments', ''),
+                        'predicted_expiry':
+                            subject.source.additional.get(
+                                'predicted_expiry', ''),
+                        'data_status': subject.source.additional.get(
+                            'data_status', ''),
+                        'data_starts_source':
+                            subject.source.additional.get(
+                                'data_starts_source', ''),
+                        'data_stops_source':
+                            subject.source.additional.get(
+                                'data_stops_source', ''),
+                        'data_stops_reason':
+                            subject.source.additional.get(
+                                'data_stops_reason', ''),
+                        'collar_status':
+                            subject.source.additional.get('collar_status', ''),
+                        'collar_model': subject.source.additional.get(
+                            'collar_model', ''),
+                        'has_acc_data': subject.source.additional.get(
+                            'has_acc_data', ''),
+                        'data_owners': subject.source.additional.get(
+                            'data_owners', '')
+                    })
+            except Exception as error:
+                logger.exception(error)
+            finally:
+                tracking_metadata.append(source_details)
+        return tracking_metadata, headers
+
+    def get(self, request, *args, **kwargs):
+        # Create the HttpResponse object with the appropriate CSV header.
+        current_tz = pytz.timezone(timezone.get_current_timezone_name())
+        timestamp = current_tz.localize(datetime.datetime.utcnow())
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=' \
+            '"Tracking Meta Data Export {}.csv"'.format(
+            timestamp.strftime('%Y-%m-%d'))
+
+        tracking_metadata, headers = self.get_source_details()
+        writer = csv.DictWriter(response, headers)
+        writer.writeheader()
+        for row in tracking_metadata:
+            writer.writerow(row)
+
+        return response
+
+    def get_queryset(self):
+        # Get user accessible active subjects.
+        queryset = models.Subject.objects.all()
+        queryset = queryset.by_is_active()
+        queryset = queryset.by_user_subjects(self.request.user)
+        return queryset
