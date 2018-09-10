@@ -37,11 +37,20 @@ logger = logging.getLogger(__name__)
 
 
 def get_sentinel_user():
+    '''
+    This is no longer used by the application, but it is still referenced within some migrations.
+    :return: a default user
+    '''
     User = get_user_model()
-    return User.objects.get_or_create(username='deleted', last_name='account', first_name='deleted',
-                                      email='deleted@test.com',
-                                      is_active=False,
-                                      password=User.objects.make_random_password())[0]
+    user, created = User.objects.get_or_create(username='deleted',
+                                               defaults=dict(
+                                                   last_name='account',
+                                                   first_name='deleted',
+                                                   email='deleted@test.com',
+                                                   is_active=False,
+                                                   password=User.objects.make_random_password()
+                                               ))
+    return user
 
 
 class CommunityManager(models.Manager):
@@ -628,7 +637,7 @@ class Event(RevisionMixin, TimestampedModel):
                              verbose_name='Event Title.')
 
     created_by_user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
         null=True, blank=True, related_name='events', related_query_name='event')
 
     event_time = models.DateTimeField(default=django.utils.timezone.now)
@@ -901,7 +910,7 @@ class EventNote(RevisionMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     text = models.TextField()
     created_by_user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
         null=True)
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE,
@@ -967,7 +976,7 @@ class EventPhoto(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     created_by_user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET(get_sentinel_user),
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
         null=True, blank=True, related_name='event_photos', related_query_name='event_photo')
     image = VersatileImageField(upload_to=upload_to, null=True, max_length=512)
     filename = models.TextField(
