@@ -724,6 +724,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         return queryset
 
     def get(self, request, *args, **kwargs):
+        # Set exclusion flag value
         filter_flag = 0
         try:
             if self.request.GET.get('filter'):
@@ -731,6 +732,14 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         except (ValueError, TypeError):
             filter_flag = 0
 
+        # Time range to query observation data according to user's permission
+        max_days = 36500  # View All time days permission's number of days
+        (lower, upper) = calculate_subject_view_window(
+            self.request.user, max_days)
+        if lower >= upper:
+            raise PermissionDenied
+
+        # Get SubjectSource and Observations with in time range for subjects
         csv_data = []
         fieldnames = ['chronofile', 'recordserial', 'fixtime', 'dloadtime',
                       'lon', 'lat', 'height', 'temp']
@@ -738,17 +747,17 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         for subject in subjects:
             observations = models.Observation.objects.filter(
                 source__subjectsource__subject=subject,
-                exclusion_flags=filter_flag)
+                exclusion_flags=filter_flag, recorded_at__range=[lower, upper])
             if observations:
                 for observation in observations.all():
                     subject_source = models.SubjectSource.objects.filter(
                         assigned_range__contains=observation.recorded_at,
                         subject=subject)[0]
-                    chrono = subject_source.additional.get('chronofile', '')
                     data = {'lat': observation.location.x,
                             'lon': observation.location.y,
                             'height': observation.location.z,
-                            'chronofile': chrono,
+                            'chronofile': subject_source.additional.get(
+                                'chronofile', ''),
                             'recordserial': observation.id,
                             'fixtime': observation.recorded_at.strftime(
                                 '%m/%d%Y %H:%M:%S'),
@@ -758,11 +767,13 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                             }
                     csv_data.append(data)
 
+        # Generate CSV attachment and send it with response
+        current_tz = pytz.timezone(timezone.get_current_timezone_name())
+        timestamp = current_tz.localize(datetime.datetime.utcnow())
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; \
-            filename=observation_data{}.csv'.format(
-            datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-        )
+        response['Content-Disposition'] = 'attachment;' \
+                                          'filename=Tracking Data {}.csv'.\
+            format(timestamp.strftime('%Y-%m-%d'))
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         if csv_data:
