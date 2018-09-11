@@ -47,7 +47,7 @@ class GenericSensorHandler():
 
         params = SensorPostParameters(data=request.data)
         if not params.is_valid():
-            return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data={'status' : 105, 'message' : params.errors}, status=status.HTTP_400_BAD_REQUEST)
 
         params = params.validated_data
         manufacturer_id = params['manufacturer_id']
@@ -412,5 +412,5 @@ class VehicleTrackerHandler():
                             extra={'obs.new': provider_key})
                 notify_new_tracks(src.id)
             
-
-        return Response(data=params.data, status=status.HTTP_200_OK)
+            status_ok = {'status' : 0, 'message' : 'success'}
+        return Response(data=status_ok, status=status.HTTP_200_OK)
