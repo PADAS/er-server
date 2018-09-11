@@ -237,12 +237,13 @@ EMPTY_POINT = Point(0, 0)
 
 
 class ObservationManager(models.Manager):
-
-    def get_subject_observations(self, subject, since=None, until=None, limit=None, values=None):
-        queryset = Observation.objects.filter(source__subjectsource__subject=subject,
-                                              source__subjectsource__assigned_range__contains=F(
-                                                  'recorded_at'),
-                                              exclusion_flags=0)
+    def get_subject_observations(
+            self, subject, since=None, until=None, limit=None, values=None,
+            filter_flag=0):
+        queryset = Observation.objects.filter(
+            source__subjectsource__subject=subject,
+            source__subjectsource__assigned_range__contains=F('recorded_at'),
+            exclusion_flags=filter_flag)
 
         if since and until:
             queryset = queryset.filter(Q(recorded_at__range=(since, until)))
@@ -261,9 +262,13 @@ class ObservationManager(models.Manager):
 
         return queryset
 
-    def get_subject_observations_values(self, subject, since=None, until=None, limit=None,
-                                        values=('recorded_at', 'location')):
-        return self.get_subject_observations(subject, since=since, until=until, limit=limit, values=values)
+    def get_subject_observations_values(
+            self, subject, since=None, until=None, limit=None,
+            values=('recorded_at', 'location'), filter_flag=0):
+        return self.get_subject_observations(
+            subject, since=since, until=until, limit=limit, values=values,
+            filter_flag=filter_flag
+        )
 
     def set_flag(self, id_list, flags):
         '''Hide the nuances of manipulating a bitmap associated with an observation.'''
