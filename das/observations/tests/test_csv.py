@@ -27,13 +27,44 @@ class TrackingMetaDataExportViewTest(BaseAPITest):
         self.superuser = User.objects.create_user(
             'super', 'super@test.com', 'super', is_superuser=True,
             is_staff=True, **user_const)
+        new_user_const = dict(last_name='Joe', first_name='Don')
+        self.user = User.objects.create_user(
+            'new', 'user@test.com', 'user', is_superuser=False,
+            is_staff=True, **new_user_const)
+        self.user.permission_sets.add(PermissionSet.objects.get(
+            name='View Tracks Last 60 Days')
+        )
+        self.subject_group = SubjectGroup.objects.get(
+            name='Indian elephant subjet group')
+        self.subject_group.permission_sets.add(PermissionSet.objects.get(
+            name='View Tracks Last 60 Days')
+        )
 
     def test_csv_metadata(self):
         self.request = self.factory.get(API_BASE + '/trackingmetadata/export/')
         self.force_authenticate(self.request, self.superuser)
         response = TrackingMetaDataExportView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
-        # print(response.content.decode("utf-8"))
+
+    def test_csv_metadata_with_simple_user(self):
+        self.request = self.factory.get(API_BASE + '/trackingmetadata/export/')
+        self.force_authenticate(self.request, self.user)
+        response = TrackingMetaDataExportView.as_view()(self.request)
+        self.assertEqual(response.status_code, 200)
+        csv_file_data = response.content.decode("utf-8").split('\r\n')
+
+        # Header from first line of csv file data
+        header = csv_file_data[0].split(',')
+
+        # Remove header and empty line from csv_data to get actual values
+        csv_data = [row.split(',') for row in csv_file_data[1:-1]]
+        metadatas = [dict(zip(header, data)) for data in csv_data]
+        subject_names = [
+            subject.name for subject in self.subject_group.get_all_subjects(
+                self.user)
+        ]
+        metadata_subject_names = [metadata['name'] for metadata in metadatas]
+        self.assertEqual(subject_names, metadata_subject_names)
 
 
 class TrackingDataCsvViewTest(BaseAPITest):
@@ -156,7 +187,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
 
         # Get list of chronofile
         chrono_files = [observation['chronofile']
-                              for observation in observations]
+                        for observation in observations]
         unique_chrono_files = list(set(chrono_files))
 
         self.assertTrue(len(unique_chrono_files) > 1)
