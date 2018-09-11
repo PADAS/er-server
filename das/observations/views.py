@@ -791,6 +791,7 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         for subject in self.get_queryset():
             source_details = {}
             try:
+                # Collect Subject details.
                 source_details.update({
                     'name': subject.name,
                     'species': subject.additional.get('species', ''),
@@ -798,9 +799,13 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                     'sex': subject.additional.get('sex', ''),
                     'region': subject.additional.get('region', ''),
                     'country': subject.additional.get('country', '')})
+
                 if subject.source:
+                    # Collect Source details.
+                    subject_source = models.SubjectSource.objects.\
+                        get_subject_source(subject, subject.source.id).first()
                     source_details.update({
-                        'chronofile': subject.source.additional.get(
+                        'chronofile': subject_source.additional.get(
                             'chronofile', ''),
                         'collar_type': subject.source.model_name,
                         'collar_id': subject.source.manufacturer_id,
@@ -809,23 +814,23 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                             'frequency', ''),
                         'animal_id': subject.source.additional.get(
                             'tm_animal_id', ''),
-                        # 'data_starts': subject.source.assigned_range,
-                        # 'data_stops': subject.source.assigned_range,
-                        'comments': subject.source.additional.get(
+                        'data_starts': subject_source.assigned_range.lower,
+                        'data_stops': subject_source.assigned_range.upper,
+                        'comments': subject_source.additional.get(
                             'comments', ''),
                         'predicted_expiry':
                             subject.source.additional.get(
                                 'predicted_expiry', ''),
-                        'data_status': subject.source.additional.get(
+                        'data_status': subject_source.additional.get(
                             'data_status', ''),
                         'data_starts_source':
-                            subject.source.additional.get(
+                            subject_source.additional.get(
                                 'data_starts_source', ''),
                         'data_stops_source':
-                            subject.source.additional.get(
+                            subject_source.additional.get(
                                 'data_stops_source', ''),
                         'data_stops_reason':
-                            subject.source.additional.get(
+                            subject_source.additional.get(
                                 'data_stops_reason', ''),
                         'collar_status':
                             subject.source.additional.get('collar_status', ''),
