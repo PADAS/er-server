@@ -7,6 +7,8 @@ from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
 from core.admin import InlineExtraDynamicMixin
 
+from activity.forms import EventProviderForm
+
 
 class EventRelationshipInline(admin.TabularInline):
     model = models.EventRelationship
@@ -160,16 +162,36 @@ class EventProviderAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
 
     # inlines = [EventSourceInline, ]
+    #
+    # fieldsets = (
+    #     (None, {
+    #         'fields': ('display', 'owner', 'is_active',)
+    #     }),
+    #     ('Advanced', {
+    #         'fields': ('additional', 'id'),
+    #         'classes': ('wide', 'collapse',)
+    #     })
+    # )
 
     fieldsets = (
         (None, {
-            'fields': ('display', 'owner', 'is_active',)
-        }),
-        ('Advanced', {
-            'fields': ('additional', 'id'),
-            'classes': ('wide', 'collapse',)
-        })
+            'fields': ('display', 'owner', 'is_active', )
+        }
+        ),
+        ('Particulars',
+         {
+             "classes": ('wide',),
+             'fields': ('provider_api', 'provider_username', 'provider_password', 'provider_token',),
+         }
+         ),
+        ('Advanced',
+         {"classes": ('collapse',),
+          'fields': ('additional', 'id',)
+          }
+         )
     )
+
+    form = EventProviderForm
 
 
 @admin.register(models.EventsourceEvent)
