@@ -62,7 +62,7 @@ spec:
       name: prometheus-data
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "azure"
+      storageClassName: "<<persistentvolume-storage-class>>"
       resources:
         requests:
           storage: 30Gi
