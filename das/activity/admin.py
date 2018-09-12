@@ -78,12 +78,16 @@ class EventTypeAdmin(admin.ModelAdmin):
     ordering = ('category', 'ordernum', 'display',)
     list_filter = ('category',)
     list_display = ('display', 'value', 'ordernum',
-                    'category', 'is_collection', '_default_priority_display', '_icon_display',)
-    list_editable = ('ordernum',)
+                    'category', 'is_collection', '_default_priority_display', '_icon_display', 'default_state')
+    list_editable = ('ordernum', 'default_state',)
 
     fieldsets = (
         (None, {
-            'fields': ('display', 'value', 'category', 'is_collection', 'default_priority', 'icon', 'ordernum', )
+            'fields': ('display', 'value', 'category', 'is_collection', 'icon', 'ordernum', )
+        }
+        ),
+        ('Default Values', {
+            'fields': ('default_priority', 'default_state',)
         }
         ),
         ('Schema & Form Definition',
