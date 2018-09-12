@@ -6,3 +6,5 @@ deployment-plan: integration
 smartconnect-provider-branch-name: develop
 
 deploy-recipe: standard-ndoki.yaml
+
+deploy-params-environment: gcp-develop
