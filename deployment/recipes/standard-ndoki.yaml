@@ -1,6 +1,6 @@
 paths:
 - persistentvolumes/gcp
-- statefulsets
+- statefulsets/gcp
 - deployments
 - services
 - etl-components/smartconnect-provider.yaml
