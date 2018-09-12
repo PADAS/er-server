@@ -11,6 +11,7 @@ RUN apt-get update \
     libgdal-dev \
     curl \
     python3-openssl \
+    libssl-dev \
     && apt-get autoremove \
     && apt-get clean
 
