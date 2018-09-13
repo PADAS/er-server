@@ -86,7 +86,7 @@ spec:
       name: alertmanager-data
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "azure"
+      storageClassName: "persistentdisk"
       resources:
         requests:
           storage: 20Gi

@@ -12,7 +12,7 @@ spec:
   accessModes:
     - "ReadWriteOnce"
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: "ssd"
+  storageClassName: persistentdisk
   gcePersistentDisk:
     fsType: "ext4"
     pdName: "<<cluster-name>>-elastic-search-data-0"
