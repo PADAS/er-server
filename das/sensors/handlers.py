@@ -416,5 +416,5 @@ class VehicleTrackerHandler():
                 notify_new_tracks(src.id)
             else:
                 logger.info("An error occured whle serializing the observation: %s", serializer.errors)
-            status_ok = {'status' : 0, 'message' : 'success'}
+        status_ok = {'status' : 0, 'message' : 'success'}
         return Response(data=status_ok, status=status.HTTP_200_OK)
