@@ -10,6 +10,8 @@ RUN apt-get update \
     python-numpy-dev \
     libgdal-dev \
     curl \
+    python3-openssl \
+    libssl-dev \
     && apt-get autoremove \
     && apt-get clean
 
