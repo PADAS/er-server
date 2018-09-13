@@ -12,16 +12,10 @@ from observations.models import SubjectSource, Source, Observation
 from observations.serializers import ObservationSerializer
 from observations import servicesutils
 from observations.models import update_subject_status_from_post
-
 from tracking.pubsub_registry import notify_new_tracks
-
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter
 
 logger = logging.getLogger(__name__)
-
-DAS_SOURCE_TYPE = 'tracking-device'
-DAS_MODEL_NAME = 'vehicle-tracker'
-DAS_SUBJECT = 'vehicle'
 
 
 class SensorPostParameters(serializers.Serializer):
@@ -47,7 +41,7 @@ class GenericSensorHandler():
 
         params = SensorPostParameters(data=request.data)
         if not params.is_valid():
-            return Response(data={'status' : 105, 'message' : params.errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
 
         params = params.validated_data
         manufacturer_id = params['manufacturer_id']
