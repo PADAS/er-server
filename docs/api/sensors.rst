@@ -6,6 +6,21 @@ Sensors
 GPS Radio API
 -----------------------------
 
+The GPS Radio API is the preferred method for posting track data. The pieces of information submitted identify the radio
+to the system. To do this need the unique name for the radio, which appears in the UI. The person/animal type being tracked by this radio for instance
+if its an elephant. The radio type, whether its a vehicle tracking or ranger radio. The unique device id, preferably the device serial number or unique number coming from TRBOnet.
+Any additional data to be stored with the observation. For example some collars record the ambient temperature which we do not have a discrete field to store this value.
+
+Provider_key
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In the URL of the api, is referenced a provider_key. This is authored in the "Source providers" table prior to posting to the API.
+
+.. figure:: ../images/source_provider_add.png
+   :scale: 50 %
+   :alt: adding a Source provider
+
+   Example of adding a Source provider in the Django admin. Here we are adding a Hytera radio source provider.
+
 .. http:post:: /sensors/gps-radio/(string:provider_key)/status
 
     Post lat/lon positional data from a GPS tracking device. This is a generic API for posting positional data.
