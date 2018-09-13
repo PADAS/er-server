@@ -12,9 +12,8 @@ spec:
   accessModes:
     - "ReadWriteOnce"
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: "azure"
-  azureDisk:
-    kind: Managed
-    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-prometheus-0"
-    diskName: "<<cluster-name>>-prometheus-0"
-
+  storageClassName: "ssd"
+  gcePersistentDisk:
+    fsType: "ext4"
+    pdName: "<<cluster-name>>-prometheus-0"
+    
