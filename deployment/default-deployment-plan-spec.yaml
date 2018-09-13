@@ -3,4 +3,3 @@ artifacts:
   git-web-version: git-web/sha
   git-server-version: git-server/sha
   smartconnect-provider-version: git-smartconnect-provider/sha
-  monitoring-version: 0.0.6
