@@ -617,6 +617,7 @@ jobs:
           run:
             path: /bin/bash
             args:
+            - rm deployment/components/persistentvolumes/*.((iaas)); rename 's/\.yaml$/\.yaml.azure/' *.yaml
             - vcloud
             - clusters
             - deploy
