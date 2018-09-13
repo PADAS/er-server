@@ -371,8 +371,10 @@ class VehicleTrackerHandler():
 
         params = SkylineObservations(data=request.data)
 
-        if not params.is_valid():
-            return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
+        # short term don't throw away bad data, until
+        # we understand what skyline is sending us
+        # if not params.is_valid():
+        #     return Response(data={params.errors, status=status.HTTP_400_BAD_REQUEST)
 
         adapter = SkylineAdapter()
         # TODO bulk_create
@@ -411,6 +413,7 @@ class VehicleTrackerHandler():
                 logger.info("Added new observation %s", observation,
                             extra={'obs.new': provider_key})
                 notify_new_tracks(src.id)
-            
+            else:
+                logger.info("An error occured whle serializing the observation: %s", serializer.errors)
             status_ok = {'status' : 0, 'message' : 'success'}
         return Response(data=status_ok, status=status.HTTP_200_OK)

@@ -87,7 +87,7 @@ class SkylineAdapter:
         in the api server before using the VEHICLE_DICT
         """
         das_obs = DasObservation(
-            location={'lat': skyline_obs['Lat'], 'lon': skyline_obs['Lon']},
+            location={'latitude': skyline_obs['Lat'], 'longitude': skyline_obs['Lon']},
             recorded_at=self.convert_asset_date(skyline_obs['GPSTime']),
             manufacturer_id=skyline_obs['Vehicle']['Id'],
             subject_name=skyline_obs['Vehicle']['Id'],
