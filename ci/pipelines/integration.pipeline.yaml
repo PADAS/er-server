@@ -26,15 +26,6 @@ resources:
       - docker/Nginx_Utility/*
     private_key: ((das-github))
 
-- name: git-monitoring
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das.git
-    branch: ((server-branch-name))
-    paths:
-      - docker/monitoring/*
-    private_key: ((das-github))
-
 - name: git-server
   type: versioned-git-resource
   source:
@@ -64,6 +55,16 @@ resources:
     uri: git@github.com:PADAS/das-smartconnect-provider.git
     branch: ((smartconnect-provider-branch-name))
     private_key: ((das-smartconnect-provider-github))
+
+- name: git-monitoring-version
+  type: prefixed-semver
+  source:
+    driver: git
+    file: ((baseimages-version-prefix)).baseimages.monitoring.version
+    version_prefix: ((baseimages-version-prefix))
+    uri: git@github.com:VulcanTechnologies/infrastructure.versions.git
+    branch: master
+    private_key: ((infrastructure-versions-github))
 
 #base docker resources
 - name: image-server-base
@@ -314,41 +315,6 @@ jobs:
       params: { build: git-utility/docker/Nginx_Utility, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
 
-- name: docker-build-monitoring
-  plan:
-  - do:
-    - get: git-monitoring
-      trigger: true
-    - aggregate:
-      - put: image-grafana
-        params: {
-          build: git-monitoring/docker/monitoring/grafana,
-          tag_as_latest: ((tag-as-latest)),
-          tag: git-monitoring/sha
-        }
-        get_params: {skip_download: true}
-      - put: image-prometheus
-        params: {
-          build: git-monitoring/docker/monitoring/prometheus,
-          tag_as_latest: ((tag-as-latest)),
-          tag: git-monitoring/sha
-        }
-        get_params: {skip_download: true}
-      - put: image-prometheus-alertmanager
-        params: {
-          build: git-monitoring/docker/monitoring/prometheus-alertmanager,
-          tag_as_latest: ((tag-as-latest)),
-          tag: git-monitoring/sha
-        }
-        get_params: {skip_download: true}
-    on_failure:
-      do:
-      - put: slack-alert
-        params:
-          channel: ((slack-notification-channel))
-          text: |
-            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
-            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 # Web Jobs
 - name: docker-build-web-develop
@@ -429,14 +395,14 @@ jobs:
     - aggregate:
       - get: git-utility
         passed: [docker-build-utility]
+      - get: git-monitoring-version
+        trigger: true
       - get: git-web
         passed: [docker-build-web-app]
       - get: git-server
         passed: [docker-build-server]
       - get: git-deployment
         trigger: true
-      - get: git-monitoring
-        passed: [docker-build-monitoring]
       - get: git-smartconnect-provider
         passed: [docker-build-smartconnect-provider]
       - get: image-server-api
@@ -465,18 +431,6 @@ jobs:
         params: {skip_download: true}
       - get: image-postgis
         passed: [docker-build-utility]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-grafana
-        passed: [docker-build-monitoring]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-prometheus
-        passed: [docker-build-monitoring]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-prometheus-alertmanager
-        passed: [docker-build-monitoring]
         trigger: true
         params: {skip_download: true}
       - get: image-web-app
@@ -568,7 +522,7 @@ jobs:
           - name: git-web
           - name: git-server
           - name: git-deployment
-          - name: git-monitoring
+          - name: git-monitoring-version
           - name: git-smartconnect-provider
           params: {
             PROJECT: padas-app,
