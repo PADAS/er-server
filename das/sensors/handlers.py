@@ -373,8 +373,9 @@ class VehicleTrackerHandler():
 
         # short term don't throw away bad data, until
         # we understand what skyline is sending us
-        # if not params.is_valid():
-        #     return Response(data={params.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not params.is_valid():
+            status_fail = {'status' : 105, 'message' : params.errors}
+            return Response(data={status_fail, status=status.HTTP_400_BAD_REQUEST)
 
         adapter = SkylineAdapter()
         # TODO bulk_create
