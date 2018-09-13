@@ -56,16 +56,6 @@ resources:
     branch: ((smartconnect-provider-branch-name))
     private_key: ((das-smartconnect-provider-github))
 
-- name: git-monitoring-version
-  type: prefixed-semver
-  source:
-    driver: git
-    file: ((baseimages-version-prefix)).baseimages.monitoring.version
-    version_prefix: ((baseimages-version-prefix))
-    uri: git@github.com:VulcanTechnologies/infrastructure.versions.git
-    branch: master
-    private_key: ((infrastructure-versions-github))
-
 #base docker resources
 - name: image-server-base
   type: docker-image
@@ -427,8 +417,6 @@ jobs:
     - aggregate:
       - get: git-utility
         passed: [docker-build-utility]
-      - get: git-monitoring-version
-        trigger: true
       - get: git-web
         passed: [docker-build-web-app]
       - get: git-server
@@ -554,7 +542,6 @@ jobs:
           - name: git-web
           - name: git-server
           - name: git-deployment
-          - name: git-monitoring-version
           - name: git-smartconnect-provider
           params: {
             PROJECT: padas-app,

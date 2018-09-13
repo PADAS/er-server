@@ -2,7 +2,5 @@ artifacts:
   git-utility-version: git-utility/sha
   git-web-version: git-web/sha
   git-server-version: git-server/sha
-  alertmanager-version: git-monitoring/sha
-  prometheus-version: git-monitoring/sha
-  grafana-version: git-monitoring/sha
   smartconnect-provider-version: git-smartconnect-provider/sha
+  monitoring-version: 0.0.6
