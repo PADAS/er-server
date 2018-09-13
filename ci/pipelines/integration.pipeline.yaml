@@ -603,6 +603,10 @@ jobs:
           run:
             path: /bin/bash
             args:
+            - rename 's/\.yaml\.((iaas))$/\.yaml/' deployment/components/persistentvolumes/*.yaml.((iaas))
+            - ;
+            - rm deployment/components/persistentvolumes/*.yaml\.*
+            - ;
             - vcloud
             - clusters
             - deploy

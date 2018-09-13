@@ -1,0 +1,18 @@
+apiVersion: "v1"
+kind: "PersistentVolume"
+metadata:
+  annotations:
+      volume.beta.kubernetes.io/mount-options: "discard"
+  name: elasticsearch
+  labels:
+    component: elasticsearch
+spec:
+  capacity:
+    storage: "50Gi"
+  accessModes:
+    - "ReadWriteOnce"
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: "ssd"
+  gcePersistentDisk:
+    fsType: "ext4"
+    pdName: "<<cluster-name>>-elastic-search-data-0"
