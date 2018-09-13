@@ -48,7 +48,7 @@ spec:
           name: alert-config
         env:
         - name: ALERTMANAGER_PUBLIC_IP
-          value: <<nginx-service-ip>>
+          value: <<nginx-utility-service-ip>>
         - name: SEND_ALERTS
           value: <<send-alerts>>
         - name: ALERTS_SLACK_CHANNEL
