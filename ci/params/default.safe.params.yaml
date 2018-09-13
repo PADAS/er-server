@@ -1,7 +1,6 @@
 project-id: padas-app
 vp-tools-container-version: "1.0.109"
 infrastructure-utilities-version-tag: "0.0.54"
-monitoring-version: "0.0.6"
 
 #Infrastructure
 iaas: gcp
