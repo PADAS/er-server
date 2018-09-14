@@ -6,7 +6,7 @@ static-values:
   alerts-slack-channel: "das-dev"
   send-alerts: "true"
   node-exporter-version: v0.16.0
-  monitoring-version: "0.0.6"
+  monitoring-version: latest
 environment:
   static-ip: STATIC_IP
 vault-lookups:
