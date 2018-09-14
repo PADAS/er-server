@@ -12,7 +12,7 @@ spec:
   accessModes:
     - "ReadWriteOnce"
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: persistentdisk
+  storageClassName: ssd
   gcePersistentDisk:
     fsType: "ext4"
     pdName: "<<cluster-name>>-prometheus-0"

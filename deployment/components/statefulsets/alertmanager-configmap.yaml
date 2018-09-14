@@ -32,7 +32,6 @@ data:
         title: "{{ range .Alerts }}{{ .Labels.alertname }} | env = {{.Labels.environment}} | severity = {{.Labels.severity}}\n{{ end }}"
         text: "
           {{ range .Alerts }}
-            *Summary:* {{ .Annotations.summary }}\n
             *Description:* {{ .Annotations.description }}\n
             *Details:*\n
             {{ range .Labels.SortedPairs }} \t*{{ .Name }}:* `{{ .Value }}`\n

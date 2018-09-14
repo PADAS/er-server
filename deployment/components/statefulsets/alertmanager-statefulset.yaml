@@ -86,7 +86,7 @@ spec:
       name: alertmanager-data
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "persistentdisk"
+      storageClassName: ssd
       resources:
         requests:
           storage: 20Gi
