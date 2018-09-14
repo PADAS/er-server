@@ -563,6 +563,13 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     name = models.CharField(_('name'), max_length=80, unique=True)
     subjects = models.ManyToManyField('Subject', related_name='groups',
                                       blank=True)
+    is_visible = models.BooleanField(
+        _('visible'),
+        default=True,
+        help_text=_(
+            'This Subject group is visible in visualizations.'
+        ),
+    )
     objects = SubjectGroupManager()
 
     def get_all_subjects(self, user=None, active=None):
