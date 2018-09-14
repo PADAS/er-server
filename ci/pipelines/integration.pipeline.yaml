@@ -26,15 +26,6 @@ resources:
       - docker/Nginx_Utility/*
     private_key: ((das-github))
 
-- name: git-monitoring
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das.git
-    branch: ((server-branch-name))
-    paths:
-      - docker/monitoring/*
-    private_key: ((das-github))
-
 - name: git-server
   type: versioned-git-resource
   source:
@@ -167,30 +158,6 @@ resources:
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/nginx-utility
 
-- name: image-prometheus
-  type: docker-image
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/utility/prometheus
-
-- name: image-prometheus-alertmanager
-  type: docker-image
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/utility/prometheus-alertmanager
-
-- name: image-grafana
-  type: docker-image
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/utility/grafana
-
 # Web docker resources
 - name: image-web-develop
   type: docker-image
@@ -261,6 +228,14 @@ jobs:
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-server-app
   plan:
@@ -284,6 +259,14 @@ jobs:
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 # API, Beat, MQL, RT_AIS_API, RT_API, Worker
 - name: docker-build-server
@@ -320,7 +303,6 @@ jobs:
     - put: image-server-worker-analyzer
       params: { build: git-server/docker/Worker_Analyzer, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
-
 - name: docker-build-utility
   plan:
   - get: git-utility
@@ -336,41 +318,6 @@ jobs:
       params: { build: git-utility/docker/Nginx_Utility, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
 
-- name: docker-build-monitoring
-  plan:
-  - do:
-    - get: git-monitoring
-      trigger: true
-    - aggregate:
-      - put: image-grafana
-        params: {
-          build: git-monitoring/docker/monitoring/grafana,
-          tag_as_latest: ((tag-as-latest)),
-          tag: git-monitoring/sha
-        }
-        get_params: {skip_download: true}
-      - put: image-prometheus
-        params: {
-          build: git-monitoring/docker/monitoring/prometheus,
-          tag_as_latest: ((tag-as-latest)),
-          tag: git-monitoring/sha
-        }
-        get_params: {skip_download: true}
-      - put: image-prometheus-alertmanager
-        params: {
-          build: git-monitoring/docker/monitoring/prometheus-alertmanager,
-          tag_as_latest: ((tag-as-latest)),
-          tag: git-monitoring/sha
-        }
-        get_params: {skip_download: true}
-    on_failure:
-      do:
-      - put: slack-alert
-        params:
-          channel: ((slack-notification-channel))
-          text: |
-            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
-            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 # Web Jobs
 - name: docker-build-web-develop
@@ -387,6 +334,14 @@ jobs:
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: test-web-unit
   serial: true
@@ -410,6 +365,14 @@ jobs:
       run:
         dir: git-web
         path: ls
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-web-app
   serial: true
@@ -432,6 +395,14 @@ jobs:
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 
 - name: docker-build-smartconnect-provider
@@ -445,6 +416,14 @@ jobs:
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: deploy-to-k8s
   plan:
@@ -457,8 +436,6 @@ jobs:
         passed: [docker-build-server]
       - get: git-deployment
         trigger: true
-      - get: git-monitoring
-        passed: [docker-build-monitoring]
       - get: git-smartconnect-provider
         passed: [docker-build-smartconnect-provider]
       - get: image-server-api
@@ -497,18 +474,6 @@ jobs:
         passed: [docker-build-utility]
         trigger: true
         params: {skip_download: true}
-      - get: image-grafana
-        passed: [docker-build-monitoring]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-prometheus
-        passed: [docker-build-monitoring]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-prometheus-alertmanager
-        passed: [docker-build-monitoring]
-        trigger: true
-        params: {skip_download: true}
       - get: image-web-app
         passed: [docker-build-web-app]
         trigger: true
@@ -534,7 +499,8 @@ jobs:
             AZURE_TENANT_ID: ((azure-tenant-id)),
             AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
             AZURE_CLIENT_ID: ((azure-client-id)),
-            AZURE_CLIENT_SECRET: ((azure-client-secret))
+            AZURE_CLIENT_SECRET: ((azure-client-secret)),
+            LOGSTASH_URL: ((logstash-url))
           }
           run:
             path: /bin/bash
@@ -569,7 +535,8 @@ jobs:
             AZURE_TENANT_ID: ((azure-tenant-id)),
             AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
             AZURE_CLIENT_ID: ((azure-client-id)),
-            AZURE_CLIENT_SECRET: ((azure-client-secret))
+            AZURE_CLIENT_SECRET: ((azure-client-secret)),
+            LOGSTASH_URL: ((logstash-url))
           }
           run:
             path: /bin/bash
@@ -596,7 +563,6 @@ jobs:
           - name: git-web
           - name: git-server
           - name: git-deployment
-          - name: git-monitoring
           - name: git-smartconnect-provider
           params: {
             PROJECT: padas-app,
@@ -604,7 +570,8 @@ jobs:
             VAULT_TOKEN: ((vault-automation-token)),
             VAULT_ADDR: ((vault-address)),
             ELASTIC_URL: ((elastic-url)),
-            VCLOUD_SERVICE_URL: ((vcloud-service-url))
+            VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+            LOGSTASH_URL: ((logstash-url))
           }
           run:
             path: /bin/bash
@@ -638,19 +605,23 @@ jobs:
             AZURE_TENANT_ID: ((azure-tenant-id)),
             AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
             AZURE_CLIENT_ID: ((azure-client-id)),
-            AZURE_CLIENT_SECRET: ((azure-client-secret))
+            AZURE_CLIENT_SECRET: ((azure-client-secret)),
+            LOGSTASH_URL: ((logstash-url))
           }
           run:
             path: /bin/bash
             args:
-            - vcloud
-            - clusters
-            - deploy
-            - git-deployment/deployment/components
-            - --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml
-            - --name ((cluster-name))
-            - --workspace ((iaas-workspace))
-            - --iaas ((iaas))
-            - --zone ((iaas-zone))
-            - --plan ((cluster-name))
-            - --recipe git-deployment/deployment/recipes/((deploy-recipe))
+            - -exc
+            - |
+              echo "Finalizing the PV definitions to be used for this IAAS"
+              rename 's/\.yaml\.((iaas))$/\.yaml/' git-deployment/deployment/components/persistentvolumes/*.yaml.((iaas))
+              rm git-deployment/deployment/components/persistentvolumes/*.yaml\.*
+              vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((cluster-name)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
+      on_failure:
+        do:
+        - put: slack-alert
+          params:
+            channel: ((slack-notification-channel))
+            text: |
+              :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+              $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME

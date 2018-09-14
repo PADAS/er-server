@@ -31,7 +31,6 @@ from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory,\
     EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, EventSource, EventProvider
 
-from activity.models import get_sentinel_user
 from activity import views
 from observations.models import Subject
 from accounts.serializers import UserDisplaySerializer

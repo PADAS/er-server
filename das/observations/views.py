@@ -13,7 +13,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from django.db.models import Prefetch
 from rest_framework import generics, mixins, status
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from django.http import Http404
@@ -556,7 +556,11 @@ class KmlSubjectsView(generics.GenericAPIView):
         :param subtype:
         :return:
         '''
-        return models.Subject.SUBTYPE_DISPLAY_NAMES.get(subtype, 'Unassigned')
+        try:
+            return models.SubjectSubType.objects.get(value=subtype).display
+        except Exception as e:
+            logger.exception(e)
+            return 'Unassigned'
 
     def get(self, request, *args, **kwargs):
 
@@ -619,20 +623,74 @@ class KmlSubjectView(generics.RetrieveAPIView):
 
         return kml_color
 
-    def get_allowed_subject_observations(self, subject):
-        (lower, upper) = calculate_subject_view_window(self.request.user)
+    def get_allowed_subject_observations(self, subject, filter_parameters=None):
+        start_timestamp = filter_parameters.get('start')
+        end_timestamp = filter_parameters.get('end')
+        filter_flag = filter_parameters.get('filter', 0)
+
+        maximum_history_days = 60
+        if start_timestamp:
+            delta = datetime.datetime.now(pytz.utc) - start_timestamp
+            if delta.days > maximum_history_days:
+                maximum_history_days = delta.days
+        (lower, upper) = calculate_subject_view_window(
+            self.request.user, maximum_history_days)
 
         if lower >= upper:
             raise PermissionDenied
 
-        return models.Observation.objects.get_subject_observations_values(subject, since=lower, until=upper)
+        if start_timestamp and upper >= start_timestamp >= lower:
+            lower = start_timestamp
+        if end_timestamp and upper >= end_timestamp >= lower:
+            upper = end_timestamp
+        if start_timestamp and end_timestamp \
+                and end_timestamp < start_timestamp:
+            raise ValueError('Start date can not be greater than end date.')
+
+        return models.Observation.objects.get_subject_observations_values(
+            subject, since=lower, until=upper, filter_flag=filter_flag
+        )
+
+    def parse_filter_parameters(self):
+        """
+       Parse GET request filter parameters.
+       :return: Dict of filter parameters in the appropriate format.
+       """
+        filter_parameters = {}
+        utc = pytz.UTC
+        try:
+            if self.request.GET.get('start'):
+                filter_parameters.update({
+                    'start': utc.localize(dateutil.parser.parse(
+                        self.request.GET.get('start')))})
+        except (ValueError, TypeError):
+            raise ValueError('Invalid start-date format - {}'.format(
+                self.request.GET.get('start')))
+        try:
+            if self.request.GET.get('end'):
+                filter_parameters.update({
+                    'end': utc.localize(dateutil.parser.parse(
+                        self.request.GET.get('end')))})
+        except (ValueError, TypeError):
+            raise ValueError('Invalid end-date format - {}'.format(
+                self.request.GET.get('end')))
+        try:
+            if self.request.GET.get('filter'):
+                filter_parameters.update({
+                    'filter': int(self.request.GET.get('filter', 0))})
+        except (ValueError, TypeError):
+            raise ValueError('Invalid filter flag format - {}'.format(
+                self.request.GET.get('filter')))
+        return filter_parameters
 
     def get(self, request, *args, **kwargs):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
+        filter_parameters = self.parse_filter_parameters()
         self.check_object_permissions(self.request, subject)
 
-        observations = list(self.get_allowed_subject_observations(subject))
+        observations = list(self.get_allowed_subject_observations(
+            subject, filter_parameters))
 
         filename = 'DAS-KML_{}-{}'.format(re.sub('[^a-zA-Z0-9]', '_', subject.name),
                                           datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))

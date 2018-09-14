@@ -728,13 +728,13 @@ class RadioStatusFilter(admin.SimpleListFilter):
     def queryset(self, request, queryset):
         value = self.value()
         if value == 'online_gps':
-            return queryset.filter(additional__state='online', additional__gps_fix=True)
+            return queryset.filter(radio_state='online-gps')
         elif value == 'online_nogps':
-            return queryset.filter(additional__state='online', additional__gps_fix=False)
+            return queryset.filter(radio_state='online')
         elif value == 'offline':
-            return queryset.filter(additional__state='offline')
+            return queryset.filter(radio_state='offline')
         elif value == 'alarm':
-            return queryset.filter(additional__state='alarm')
+            return queryset.filter(radio_state='alarm')
 
         return queryset
 
