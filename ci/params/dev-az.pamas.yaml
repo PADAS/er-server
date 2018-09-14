@@ -1,0 +1,5 @@
+cluster-name: dev-az
+version-suffix: dev-azure
+server-branch-name: dev-azure
+web-branch-name: develop
+deployment-plan: integration
