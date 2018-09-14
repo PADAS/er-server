@@ -1,0 +1,18 @@
+apiVersion: "v1"
+kind: "PersistentVolume"
+metadata:
+  annotations:
+      volume.beta.kubernetes.io/mount-options: "discard"
+  name: prometheus
+  labels:
+    component: prometheus
+spec:
+  capacity:
+    storage: "30Gi"
+  accessModes:
+    - "ReadWriteOnce"
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: persistentdisk
+  gcePersistentDisk:
+    fsType: "ext4"
+    pdName: "<<cluster-name>>-prometheus-0"
