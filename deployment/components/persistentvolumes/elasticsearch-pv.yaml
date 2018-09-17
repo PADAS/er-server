@@ -17,4 +17,3 @@ spec:
     kind: Managed
     diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-elastic-search-data-0"
     diskName: "<<cluster-name>>-elastic-search-data-0"
-
