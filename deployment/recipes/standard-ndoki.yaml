@@ -1,5 +1,5 @@
 paths:
-- persistentvolumes/gcp
+- persistentvolumes
 - statefulsets
 - deployments
 - services
