@@ -7,6 +7,8 @@ from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
 from core.admin import InlineExtraDynamicMixin
 
+from activity.forms import EventProviderForm
+
 
 class EventRelationshipInline(admin.TabularInline):
     model = models.EventRelationship
@@ -78,12 +80,16 @@ class EventTypeAdmin(admin.ModelAdmin):
     ordering = ('category', 'ordernum', 'display',)
     list_filter = ('category',)
     list_display = ('display', 'value', 'ordernum',
-                    'category', 'is_collection', '_default_priority_display', '_icon_display',)
-    list_editable = ('ordernum',)
+                    'category', 'is_collection', '_default_priority_display', '_icon_display', 'default_state')
+    list_editable = ('ordernum', 'default_state',)
 
     fieldsets = (
         (None, {
-            'fields': ('display', 'value', 'category', 'is_collection', 'default_priority', 'icon', 'ordernum', )
+            'fields': ('display', 'value', 'category', 'is_collection', 'icon', 'ordernum', )
+        }
+        ),
+        ('Default Values', {
+            'fields': ('default_priority', 'default_state',)
         }
         ),
         ('Schema & Form Definition',
@@ -156,16 +162,36 @@ class EventProviderAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
 
     # inlines = [EventSourceInline, ]
+    #
+    # fieldsets = (
+    #     (None, {
+    #         'fields': ('display', 'owner', 'is_active',)
+    #     }),
+    #     ('Advanced', {
+    #         'fields': ('additional', 'id'),
+    #         'classes': ('wide', 'collapse',)
+    #     })
+    # )
 
     fieldsets = (
         (None, {
-            'fields': ('display', 'owner', 'is_active',)
-        }),
-        ('Advanced', {
-            'fields': ('additional', 'id'),
-            'classes': ('wide', 'collapse',)
-        })
+            'fields': ('display', 'owner', 'is_active', )
+        }
+        ),
+        ('Particulars',
+         {
+             "classes": ('wide',),
+             'fields': ('provider_api', 'provider_username', 'provider_password', 'provider_token',),
+         }
+         ),
+        ('Advanced',
+         {"classes": ('collapse',),
+          'fields': ('additional', 'id',)
+          }
+         )
     )
+
+    form = EventProviderForm
 
 
 @admin.register(models.EventsourceEvent)

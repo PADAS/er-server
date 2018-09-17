@@ -740,7 +740,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
 
         if not current_details:
             current_details = activity.models.EventDetails.objects.create(
-                **{'event': instance, 'data': validated_data})
+                event=instance, data=validated_data, update_parent_event=False)
 
         elif current_details.data != validated_data:
             current_details.data = validated_data
@@ -867,6 +867,12 @@ class EventSerializerMixin:
             **validated_data)
 
         EventDetailsSerializer().update(new_event, details_data)
+
+        # edser = EventDetailsSerializer(data=dict(event=new_event, data=details_data))
+        # if edser.is_valid():
+        #     edser.create(edser.validated_data)
+        # else:
+        #     raise ValueError()
 
         if eventsource and external_event_id:
             try:
@@ -1111,6 +1117,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     time = DateTimeField(source='event_time', required=False)
     created_at = DateTimeField(required=False)
     updated_at = DateTimeField(source='sort_at', required=False)
+    sort_at = DateTimeField(required=False,)
     created_by_user = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault()
     )
@@ -1183,6 +1190,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         if self.instance is None:
             if attrs.get('priority') is None:
                 attrs['priority'] = attrs['event_type'].default_priority
+            if attrs.get('state') is None:
+                attrs['state'] = attrs['event_type'].default_state
 
         return super().validate(attrs)
 
@@ -1209,7 +1218,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
-            'files', 'related_subjects', 'eventsource', 'external_event_id') + read_only_fields
+            'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at', ) + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

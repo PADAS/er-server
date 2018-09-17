@@ -192,6 +192,16 @@ PRIORITY_CHOICES = (
     (PRI_URGENT, 'Red')
 )
 
+SC_NEW = 'new'
+SC_ACTIVE = 'active'
+SC_RESOLVED = 'resolved'
+
+STATE_CHOICES = (
+    (SC_NEW, 'New'),
+    (SC_ACTIVE, 'Active'),
+    (SC_RESOLVED, 'Resolved'),
+)
+
 
 class EventTypeManager(EventBaseManager):
     def create_type(self, **values):
@@ -211,6 +221,10 @@ class EventType(TimestampedModel):
 
     default_priority = models.PositiveSmallIntegerField(default=PRI_NONE,
                                                         choices=PRIORITY_CHOICES)
+
+    default_state = models.CharField(default=SC_NEW,
+                                     choices=STATE_CHOICES,
+                                     max_length=20)
 
     icon = models.CharField(max_length=100, blank=True, null=True)
 
@@ -548,7 +562,9 @@ class EventRelationship(TimestampedModel):
         return result
 
 
+# class Event(RevisionMixin, models.Model):
 class Event(RevisionMixin, TimestampedModel):
+
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
     revision_ignore_fields = ('updated_at', 'sort_at')
     revision_follow_relations = ('activity.EventPhoto',)
@@ -572,15 +588,11 @@ class Event(RevisionMixin, TimestampedModel):
         (PC_COMMUNITY, 'Community'),
     )
 
-    SC_NEW = 'new'
-    SC_ACTIVE = 'active'
-    SC_RESOLVED = 'resolved'
+    SC_NEW = SC_NEW
+    SC_ACTIVE = SC_ACTIVE
+    SC_RESOLVED = SC_RESOLVED
 
-    STATE_CHOICES = (
-        (SC_NEW, 'New'),
-        (SC_ACTIVE, 'Active'),
-        (SC_RESOLVED, 'Resolved'),
-    )
+    STATE_CHOICES = STATE_CHOICES
 
     PRI_URGENT = PRI_URGENT
     PRI_IMPORTANT = PRI_IMPORTANT
@@ -624,6 +636,8 @@ class Event(RevisionMixin, TimestampedModel):
     class ReadonlyMeta:
         readonly = ['serial_number', ]
 
+    # created_at = models.DateTimeField(auto_now_add=True)
+    # updated_at = models.DateTimeField()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
     serial_number = models.BigIntegerField(
@@ -681,8 +695,7 @@ class Event(RevisionMixin, TimestampedModel):
     reported_by = GenericForeignKey('reported_by_content_type',
                                     'reported_by_id')
 
-    sort_at = models.DateTimeField(default=django.utils.timezone.now,
-                                   blank=True)
+    sort_at = models.DateTimeField(blank=True)
 
     @property
     def priority_label(self):
@@ -775,7 +788,10 @@ class Event(RevisionMixin, TimestampedModel):
         except AttributeError:
             prev_state = None
 
-        if (len(update_fields) == 1 and 'state' in update_fields and
+        # If I'm adding a record and it's sort_at has already been set.
+        if self._state.adding and self.sort_at is not None:
+            pass
+        elif (len(update_fields) == 1 and 'state' in update_fields and
                 self.state == self.SC_ACTIVE and prev_state == self.SC_NEW):
             pass
         else:
@@ -798,6 +814,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     def clean(self):
         super().clean()
+
         """validate reported_by based on provenance"""
         if self.provenance == self.PC_STAFF:
             if self.reported_by and not isinstance(self.reported_by, (get_user_model(), Subject)):
@@ -936,6 +953,13 @@ class EventDetailsManager(models.Manager):
     def create_event_details(self, **kwargs):
         return self.create(**kwargs)
 
+    def create(self, update_parent_event=True, **kwargs):
+        obj = self.model(**kwargs)
+        self._for_write = True
+        obj.save(force_insert=True, using=self.db,
+                 update_parent_event=update_parent_event)
+        return obj
+
 
 class EventDetails(RevisionMixin, TimestampedModel):
     objects = EventDetailsManager()
@@ -946,9 +970,10 @@ class EventDetails(RevisionMixin, TimestampedModel):
     data = JSONField()
     revision = Revision()
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, update_parent_event=True, **kwargs):
         result = super().save(*args, **kwargs)
-        self.event.dependent_table_updated()
+        if update_parent_event:
+            self.event.dependent_table_updated()
         return result
 
 

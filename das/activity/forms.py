@@ -4,9 +4,14 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 
 from django import forms
 from django.forms.widgets import Widget
+from django.utils.translation import ugettext_lazy as _
 
 import logging
 logger = logging.getLogger(__name__)
+
+from core.forms_utils import JSONFieldFormMixin
+
+from activity.models import EventProvider
 
 
 class SchemaWidget(forms.Textarea):
@@ -76,3 +81,25 @@ class EventTypeForm(forms.ModelForm):
     icon = forms.CharField(required=False,
                            label='Icon Override',
                            widget=IconKeyInput(image_list_fn=get_event_icon_select_list))
+
+
+from django.forms import TextInput
+
+
+class EventProviderForm(JSONFieldFormMixin, forms.ModelForm):
+
+    provider_api = forms.URLField(label='Provider API', required=True, widget=TextInput(attrs={'size': '100'}),
+                                  help_text=_('A URL or web service endpoint for the external data source.'))
+    provider_username = forms.CharField(label='Provider API Username', required=False,
+                                        help_text=_('If the external data source requires a username, enter it here.'))
+    provider_password = forms.CharField(label='Provider API Password', required=False,
+                                        help_text=_('If the external data source requires a password, enter it here.'))
+    provider_token = forms.CharField(label='Provider Authorization Token', widget=TextInput(attrs={'size': '100'}),
+                                     required=False,
+                                     help_text=_('If you were given an authorization token for the external data source, enter it here.'))
+
+    class Meta:
+        model = EventProvider
+        json_fields = ('provider_api', 'provider_username',
+                       'provider_password', 'provider_token')
+        fields = ('additional',) + json_fields
