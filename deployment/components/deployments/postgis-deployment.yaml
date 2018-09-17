@@ -41,7 +41,7 @@ spec:
       name: pgdata
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "<<persistentvolume-storage-class>>"
+      storageClassName: "azure"
       resources:
         requests:
           storage: 50Gi
