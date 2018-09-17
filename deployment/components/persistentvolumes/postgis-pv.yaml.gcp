@@ -12,8 +12,7 @@ spec:
   accessModes:
     - "ReadWriteOnce"
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: azure
-  azureDisk:
-    kind: Managed
-    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-postgres-0"
-    diskName: "<<disk-namespace>>-postgres-0"
+  storageClassName: ssd
+  gcePersistentDisk:
+    fsType: "ext4"
+    pdName: "<<disk-namespace>>-postgres-0"

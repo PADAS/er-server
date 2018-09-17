@@ -16,6 +16,7 @@ vcloud-service-url: "http://vcloud.vulcancloud.io:5000/"
 elastic-url: "elastic.vulcancloud.io"
 logstash-url: "nginx-udp.vulcancloud.io:5045"
 deploy-params-environment: develop
+baseimages-version-prefix: ""
 
 #Azure
 azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa

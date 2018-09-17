@@ -23,9 +23,6 @@ spec:
     metadata:
       labels:
         component: elasticsearch
-      annotations:
-        prometheus.io/scrape: 'true'
-        prometheus.io/port:   '9100'
     spec:
       containers:
       - image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.1.2
@@ -43,24 +40,12 @@ spec:
         resources:
           requests:
             cpu: "50m"
-      - image: prom/node-exporter:<<node-exporter-version>>
-        name: disk-exporter
-        resources:
-          requests:
-            cpu: "15m"
-          limits:
-            cpu: "500m"
-        volumeMounts:
-        - mountPath: /usr/share/elasticsearch/data
-          name: elasticsearch-data
-        ports:
-        - containerPort: 9100
   volumeClaimTemplates:
   - metadata:
       name: elasticsearch-data
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "azure"
+      storageClassName: ssd
       resources:
         requests:
           storage: 50Gi

@@ -20,9 +20,9 @@ spec:
         component: grafana
     spec:
       imagePullSecrets:
-        - name: gcr-secret
+        - name: infra-secret
       containers:
-      - image: gcr.io/padas-app/utility/grafana:<<grafana-version>>
+      - image: gcr.io/ss-infrastructure/baseimages/monitoring/grafana:<<monitoring-version>>
         name: grafana
         resources:
           requests:

@@ -22,62 +22,71 @@ spec:
     metadata:
       labels:
         component: alertmanager
-      annotations:
-        prometheus.io/scrape: 'true'
-        prometheus.io/port:   '9100'
     spec:
       imagePullSecrets:
-        - name: gcr-secret
+        - name: infra-secret
       containers:
-      - image: gcr.io/padas-app/utility/prometheus-alertmanager:<<alertmanager-version>>
+      - image: gcr.io/ss-infrastructure/baseimages/monitoring/prometheus-alertmanager:<<monitoring-version>>
         name: alertmanager
         resources:
           requests:
-            cpu: "25m"
+            cpu: "10m"
+            memory: 50Mi
           limits:
-            cpu: "500m"
+            cpu: "10m"
+            memory: 50Mi
+        readinessProbe:
+          httpGet:
+            path: /#/status
+            port: 9093
+          initialDelaySeconds: 10
+          timeoutSeconds: 30
         volumeMounts:
         - mountPath: /alertmanager
           name: alertmanager-data
+        - mountPath: /alert.config
+          name: alert-config
         env:
         - name: ALERTMANAGER_PUBLIC_IP
-          valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: ALERT_MANAGER_STATIC_IP
-        - name: ALERTS_SLACK_CHANNEL
-          valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: ALERTS_SLACK_CHANNEL
-        - name: ALERTS_SLACK_URL
-          valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: ALERTS_SLACK_URL
+          value: <<nginx-utility-service-ip>>
         - name: SEND_ALERTS
-          valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: SEND_ALERTS
-      - image: prom/node-exporter:<<node-exporter-version>>
-        name: disk-exporter
-        resources:
-          requests:
-            cpu: "10m"
-          limits:
-            cpu: "500m"
+          value: <<send-alerts>>
+        - name: ALERTS_SLACK_CHANNEL
+          value: <<alerts-slack-channel>>
+        - name: ALERTS_SLACK_URL
+          value: <<alerts-slack-url>>
+
+      - name: prometheus-alertmanager-configmap-reload
+        image: "jimmidyson/configmap-reload:v0.2.2"
+        imagePullPolicy: "IfNotPresent"
+        args:
+          - --volume-dir=/alert.config
+          - --webhook-url=http://localhost:9093/-/reload
         volumeMounts:
-        - mountPath: /alertmanager
-          name: alertmanager-data
-        ports:
-        - containerPort: 9100
+          - name: alert-config
+            mountPath: /alert.config
+            readOnly: true
+        resources:
+          limits:
+            cpu: 10m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
+      volumes:
+      - name: alert-config
+        configMap:
+          name: alertmanager-configmap
+        items:
+        - key: config.yaml
+          path: config.yaml
+
   volumeClaimTemplates:
   - metadata:
       name: alertmanager-data
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "azure"
+      storageClassName: ssd
       resources:
         requests:
           storage: 20Gi

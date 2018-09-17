@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24.4" height="14" viewBox="0 0 24.4 14">
+  <title>video_camera</title>
+  <g id="Layer_2" data-name="Layer 2">
+    <g id="Layer_1-2" data-name="Layer 1">
+      <g>
+        <path d="M14.9,14H2a2,2,0,0,1-2-2V2A2,2,0,0,1,2,0H14.9a2,2,0,0,1,2,2V12A2,2,0,0,1,14.9,14Z" fill="#1a2026"/>
+        <path d="M18.3,4v6l5.6,3.2c.3.2.5,0,.5-.3V1.1c0-.3-.2-.4-.5-.3Z" fill="#1a2026"/>
+      </g>
+    </g>
+  </g>
+</svg>
