@@ -2,6 +2,26 @@
 
 ## 1.X of DAS
 
+### Release 1.36.1 2018-09-17
+* Fix: Can't clear out entry in report box that has a drop-down for data entry. There is now a blank entry that can be selected to clear out that field.
+* Fix: Using Clear All in the Map Layers tab did not clear Analyzers under Features.
+* Fix: Map view is white, no map rendered after logging in user. The workaround was to refresh the browser, F5.
+* Fix: Turning off Show Inactive Radios did not hide the inactive radios.
+* Fix: Report Location editing dialog displayed "Invalid location value." for an empty location.
+* Feature: KML API supports the use of filter parameters. Loading your DAS KML feed in Google Earth by choosing to Export Master KML and open the downloaded .kml file in Google Earth. Navigate to a specific track for instance an elephant or ranger radio track. Select and open the properties window. Edit the URL in the link to include a custom date range. For instance include the following start and stop query parameters to retrieve and display the track from 2017.
+~~~~
+start=2017-01-01
+end=2018-01-01
+
+https://<das-site>.pamdas.org/api/v1.0/subject/<subject-id>/kml?auth=<auth-key>&start=2017-01-01&end=2018-01-01
+
+~~~~  
+* Feature: SMART Connect integration. Ability to import a SMART Connect based Query as a custom DAS input report type. This allows a site to view their observations collected with SMART alongside real-time incidents and movements.   
+* Feature: New report icons: animalfence_rep, crossing_rep, hornbillsighting_rep, rhinonatural_rep, rhinopoached_rep, sighting_rep.
+* Feature: Map icons: camera_trap.svg, video_camera.svg
+* Fix Admin: In various places in the Django Admin, no longer require one field json object when adding/updating a record. For example the presentation or attributes fields of Spatial data.
+* Fix Admin: Not able to add new names to the Conservancy choice table. The option to edit this table did not exist. 
+
 ### Release 1.35.1 2018-09-03
 Feature: Updated Radio informational popover includes Mic key and GPS status. When selecting a radio on the map to view its status, include information on the last reported Mic key activity.
 
