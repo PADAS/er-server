@@ -4,10 +4,12 @@ import dateutil.parser
 import pytz
 from io import BytesIO
 import re
+import json
 import csv
 
 from django.conf import settings
 from django.urls import reverse
+from django.core.serializers.json import DjangoJSONEncoder
 
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -770,6 +772,13 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         # Generate CSV attachment and send it with response
         current_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = current_tz.localize(datetime.datetime.utcnow())
+
+        if self.request.GET.get('format', '').lower() == 'json':
+            return HttpResponse(
+                json.dumps({'data': csv_data}, cls=DjangoJSONEncoder),
+                content_type='application/json', status=status.HTTP_200_OK
+            )
+
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment;' \
                                           'filename=Tracking Data {}.csv'.\
@@ -862,17 +871,23 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         # Create the HttpResponse object with the appropriate CSV header.
         current_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = current_tz.localize(datetime.datetime.utcnow())
+        tracking_metadata, headers = self.get_source_details()
+
+        if self.request.GET.get('format', '').lower() == 'json':
+            return HttpResponse(
+                json.dumps({'metadata': tracking_metadata},
+                           cls=DjangoJSONEncoder),
+                content_type='application/json', status=status.HTTP_200_OK
+            )
+
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename=' \
             '"Tracking Meta Data Export {}.csv"'.format(
             timestamp.strftime('%Y-%m-%d'))
 
-        tracking_metadata, headers = self.get_source_details()
         writer = csv.DictWriter(response, headers)
         writer.writeheader()
-        for row in tracking_metadata:
-            writer.writerow(row)
-
+        writer.writerows(tracking_metadata)
         return response
 
     def get_queryset(self):
