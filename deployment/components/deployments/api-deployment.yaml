@@ -15,7 +15,8 @@ spec:
         name: das-api
         resources:
           requests:
-            cpu: "75m"
+            cpu: "200m"
+            memory: "500Mi"
         ports:
           - containerPort: 8000
         env:

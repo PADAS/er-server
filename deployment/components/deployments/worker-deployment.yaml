@@ -15,7 +15,7 @@ spec:
         name: das-worker
         resources:
           requests:
-            cpu: "100m"
+            cpu: "200m"
         env:
         - name: API_HOST
           valueFrom:
