@@ -17,6 +17,7 @@ class VectronicsPlugin(TrackingPlugin):
     DEFAULT_URL = "https://wombat.vectronic-wildlife.com:9443/"
     DEFAULT_SOURCE_TYPE = "collar/"
     DEFAULT_DATA_SOURCE = "gps"
+    DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
     DEFAULT_START_OFFSET = timedelta(days=14)
 
     @staticmethod
@@ -46,7 +47,6 @@ class VectronicsPlugin(TrackingPlugin):
         url = (self.DEFAULT_URL + self.DEFAULT_SOURCE_TYPE + str(collar_id) +
                '/' + self.DEFAULT_DATA_SOURCE + '?collarkey={0}'.format(
                     collar_key) + '&after={0}'.format(latest_timestamp))
-
         try:
             response = requests.get(url)
             if response.status_code != 200:

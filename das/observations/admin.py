@@ -530,7 +530,8 @@ class SourceAdmin(admin.ModelAdmin):
     form = observations.forms.SourceForm
     fieldsets = (
         (None, {
-            'fields': ('manufacturer_id', 'source_type', 'model_name', 'provider',)
+            'fields': ('manufacturer_id', 'source_type', 'model_name',
+                       'provider', 'collar_key')
         }
         ),
         ('Source Attributes', {
