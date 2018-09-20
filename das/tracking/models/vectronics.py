@@ -18,7 +18,7 @@ class VectronicsPlugin(TrackingPlugin):
     DEFAULT_SOURCE_TYPE = "collar/"
     DEFAULT_DATA_SOURCE = "gps"
     DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
-    DEFAULT_START_OFFSET = timedelta(days=14)
+    DEFAULT_START_OFFSET = timedelta(days=140)
 
     @staticmethod
     def parse_date(date_string):
@@ -64,7 +64,7 @@ class VectronicsPlugin(TrackingPlugin):
 
         return None
 
-    def fetch(self, source, cursor_data):
+    def fetch(self, source, cursor_data, dry_run=False):
         self.logger = logging.getLogger(self.__class__.__name__)
 
         # create cursor_data
@@ -83,7 +83,9 @@ class VectronicsPlugin(TrackingPlugin):
                                                    source.additional.get(
                                                        'collar_key', ''),
                                                    after_date)
-            if observations:
+            if dry_run:
+                yield observations
+            if not dry_run and observations:
                 for observation in observations:
                     fix_time = self.parse_date(observation.get(
                         'acquisitionTime'))
