@@ -60,24 +60,42 @@ In the URL of the api, is referenced a provider_key. This is authored in the "So
 .. http:post:: /sensors/dasradioagent/(string:provider_key)/status
 
    Similar to the gps-radio API, this interface supports the unique attributes of the TRBOnet radio software.
-   This includes GPS recording status and general radio status.
+   This includes GPS recording and general radio status.
 
    This api supports the gps-radio json parameters plus:
 
    :reqjson string message_key: if heartbeat, this is a heartbeat message describing the sensor handlers operational status default is observation. For instance is the TRBOnet server running. [observation, heartbeat]
 
-   The following are fields found in the "additional" obj field:
+   The following are fields found in the "additional" obj field for an 'observation' message:
 
-   :reqjson string event_action: default is unknown. [unknown,
-   :reqjson string radio_state: default is na. [na, online-gps, online, alarm]
-   :reqjson string last_voice_call_start_at: iso date of last mic key
+   :reqjson string event_action: default is unknown. [unknown, device_location_changed, device_state_changed]
+   :reqjson string radio_state: default is na. [na, online-gps, online, alarm]. This translates to the following radio icon colors displayed in DAS: na:Gray, online-gps:Green, online:Blue, alarm:Red.
    :reqjson string radio_state_at: iso date of radio state change time
+   :reqjson string last_voice_call_start_at: iso date of last mic key, the last time the user initiated a voice call.
    :reqjson string location_requested_at: iso date of...
-   :reqjson string subject_name: updated subject name for tied to this source
+
+   If the message_key is a heartbeat, ignore any of the previous fields found in the posted payload. Instead, this is the format to post:
+
+    'message_key': 'heartbeat',
+
+    'heartbeat': {
+        'title': 'System Activity',
+        'interval': <number of seconds between internal system checks, for example an internal status check occurs every 30 seconds>,
+        'latest_at': <iso date of now>
+    },
+    'datasource': {
+        'title': 'Radio Activity',
+        'connected': [true,false], <here we are communicating that the software system is connected to the radio system>
+        'connection_changed_at': <iso date of last connection change>,
+        'latest_at': <iso date of latest radio update>
+    }
+
+
 
    :reqheader Authorization: Bearer <auth token>
    :reqheader Accept: application/json
    :statuscode 201: image successfully posted
+
 
 .. http:post:: /sensors/gsat/(string:provider_key)/status
 
