@@ -55,7 +55,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
     adjusted_beacon_freq = forms.CharField(
         required=False, label='Adjusted Beacon Frequency')
     collar_key = forms.CharField(widget=forms.Textarea,
-                                 required=False, label='Card Key')
+                                 required=False, label='Collar Key')
 
     class Meta:
         model = Source
