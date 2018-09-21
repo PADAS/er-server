@@ -14,13 +14,14 @@ Including another URLconf
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
 from django.conf.urls import include, url
+from django.urls import path
 from django.contrib import admin
 import django.contrib.staticfiles.views
 from django.conf import settings
 import oauth2_provider.views as oauth2_views
 from rest_framework.documentation import include_docs_urls
+
 from das_server import views
-import das_server.metrics
 from das_server.admin import dasadmin_site
 
 urlpatterns = [
@@ -55,5 +56,14 @@ if settings.DEV:
             kwargs={'path': 'index.html'}),
         url(r'^(?P<path>.*)$', django.contrib.staticfiles.views.serve),
     ]
+
+    try:
+        import debug_toolbar
+        urlpatterns = [
+            path('__debug__/', include(debug_toolbar.urls)),
+        ] + urlpatterns
+    except ImportError:
+        pass
+
 else:
     urlpatterns += [url(r'^$', views.index), ]
