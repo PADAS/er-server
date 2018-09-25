@@ -5,7 +5,8 @@ from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.contrib import admin
 from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.contrib.auth.forms import PasswordResetForm, UserCreationForm
+from django.contrib.auth.forms import PasswordResetForm, UserCreationForm,\
+    UserChangeForm
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin as DjangoGroupAdmin
 from django.template import loader
 from django.utils.html import format_html
@@ -13,12 +14,15 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils.crypto import get_random_string
 from django.contrib.sites.shortcuts import get_current_site
 from django import forms
+from django.contrib.admin.widgets import AdminDateWidget
 from utils.html import make_html_list
 import django.contrib.auth.models
 
+
+from core.forms_utils import JSONFieldFormMixin
 from accounts.models import User, PermissionSet
 from observations import kmlutils
-
+from choices.models import Choice
 
 class PermissionSetAdminForm(forms.ModelForm):
     filter_horizontal = ('permissions', 'children')
@@ -82,11 +86,43 @@ class PermissionSetAdmin(DjangoGroupAdmin):
     all_users.allow_tags = True
 
 
-class CustomUserCreationForm(UserCreationForm):
+class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
     first_name = forms.CharField(required=True)
     last_name = forms.CharField(required=True)
     email = forms.EmailField(required=True)
     phone = forms.CharField(required=True)
+
+    # Additional JSON Fields
+    notes = forms.CharField(required=False, label='Notes')
+    expiry = forms.DateTimeField(required=False, label='Expiry',
+                                 widget=AdminDateWidget())
+    mou_date_signed = forms.DateTimeField(
+        required=False, label='MoU Date Signed', widget=AdminDateWidget())
+    mou_type = forms.CharField(required=False, label='MoU Type')
+    tech = forms.TypedMultipleChoiceField(widget=forms.CheckboxSelectMultiple,
+                                          required=False)
+    organization = forms.TypedMultipleChoiceField(
+        required=False, widget=forms.CheckboxSelectMultiple)
+
+    @staticmethod
+    def fetch_tech_choices():
+        # Fetch all Tech choices from choices.Choice Model. For Ex: iOS, GE etc
+        tech_choices = {}
+        for tech in Choice.objects.filter(
+                model='accounts.user.User', field='tech').order_by('ordernum'):
+            tech_choices[tech.value] = tech.display
+        return tuple([(key, value) for key, value in tech_choices.items()])
+
+    @staticmethod
+    def fetch_organization_choices():
+        # Fetch all Organization choices from choices.Choice Model.
+        organization_choices = {}
+        for organization in Choice.objects.filter(
+                model='accounts.user.User', field='organization') \
+                .order_by('ordernum'):
+            organization_choices[organization.value] = organization.display
+        return tuple(
+            [(key, value) for key, value in organization_choices.items()])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -94,12 +130,18 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields['password2'].required = False
         self.fields['password1'].widget.attrs['autocomplete'] = 'off'
         self.fields['password2'].widget.attrs['autocomplete'] = 'off'
+        self.fields['tech'].choices = self.fetch_tech_choices()
+        self.fields['organization'].choices = self.fetch_organization_choices()
 
     class Meta:
         model = User
+        json_fields = ('notes', 'expiry', 'mou_date_signed', 'mou_type',
+                       'organization', 'tech')
         fields = ('first_name', 'last_name', 'email', 'phone',
                   'is_email_alert', 'is_sms_alert',
-                  'username')
+                  'username') + json_fields
+
+    json_field = 'additional'
 
     def clean_password2(self):
         password1 = self.cleaned_data.get("password1")
@@ -107,6 +149,11 @@ class CustomUserCreationForm(UserCreationForm):
         if password1 or password2:
             password2 = super().clean_password2()
         return password2
+
+
+class UserAdditionalForm(CustomUserCreationForm, UserChangeForm):
+    def __init__(self, *args,  **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class KmkMasterLinkForm(forms.Form):
@@ -150,8 +197,14 @@ class UserAdmin(DjangoUserAdmin):
             'fields': ('first_name', 'last_name',
                        'email', 'phone',
                        'is_email_alert', 'is_sms_alert',
-                       'username', 'additional', 'password',
-                       )}
+                       'username', 'password')
+        }),
+        ('Additiona JSON Fields', {
+            'fields': ('notes', 'expiry', 'mou_date_signed', 'mou_type',
+                       'organization', 'tech')
+        }),
+        ('Additional Data', {
+            'fields': ['additional']}
          ),
         (_('Permissions'), {
             'fields': ('permission_sets', 'is_active', 'is_nologin', 'is_staff',
@@ -165,16 +218,23 @@ class UserAdmin(DjangoUserAdmin):
     list_filter = ('is_staff', 'is_email_alert',
                    'is_sms_alert', 'permission_sets')
     filter_horizontal = ('permission_sets',)
-
+    form = UserAdditionalForm
     add_form = CustomUserCreationForm
     add_fieldsets = (
         (None, {
             'fields': ('first_name', 'last_name',
                        'email', 'phone',
                        'is_email_alert', 'is_sms_alert',
-                       'username', 'additional',
-                       )}
-         ),
+                       'username'
+                       )
+        }),
+        ('Additional JSON Fields', {
+            'fields': ('notes', 'expiry', 'mou_date_signed', 'mou_type',
+                       'organization', 'tech')
+        }),
+        ('Additional JSON Data', {
+            'fields': ['additional']
+        }),
         (_('Password'), {
             'description': (_('Optionally enter user\'s password,'
                               ' otherwise a password reset email is sent to the user')),
