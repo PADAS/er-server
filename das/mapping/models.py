@@ -623,9 +623,7 @@ class SpatialFile(TimestampedModel):
                 if not import_file:
                     import_file = self.fetch_shape_file_path(
                         uploaded_file_path[:-4])
-
-            # Import features from geojson file.
-            elif uploaded_file_path.lower().endswith('json'):
+            else:
                 import_file = uploaded_file_path
 
             if import_file:
