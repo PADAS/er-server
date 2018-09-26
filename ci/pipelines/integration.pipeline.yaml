@@ -226,11 +226,13 @@ jobs:
   plan:
   - get: git-server-base
     trigger: true
+  - get: semver
+    passed: [bump-version]
   - put: image-server-base
     params: {
       build: git-server-base,
       dockerfile: git-server-base/docker/base/Dockerfile,
-      tag:  git-server-base/sha,
+      tag:  semver/version,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
@@ -256,11 +258,13 @@ jobs:
       }
     - get: git-server
       trigger: true
+    - get: semver
+      passed: [bump-version]
   - put: image-server-app
     params: {
       build: git-server,
       dockerfile: git-server/docker/App/Dockerfile,
-      tag:  git-server/sha,
+      tag:  semver/version,
       build_args_file: git-server-base/build_args,
       tag_as_latest: ((tag-as-latest))
     }
@@ -281,6 +285,8 @@ jobs:
     - get: git-server
       trigger: true
       passed: [docker-build-server-app]
+    - get: semver
+      passed: [bump-version]
     - get: image-server-app
       trigger: true
       passed: [docker-build-server-app]
@@ -289,19 +295,19 @@ jobs:
       }
   - aggregate:
     - put: image-server-api
-      params: { build: git-server/docker/API, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/API, tag: semver/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-beat
-      params: { build: git-server/docker/Beat, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/Beat, tag: semver/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-mql
-      params: { build: git-server/docker/MQL, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/MQL, tag: semver/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-rt-api
-      params: { build: git-server/docker/RT_API, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/RT_API, tag: semver/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-worker
-      params: { build: git-server/docker/Worker, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/Worker, tag: semver/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     on_failure:
       do:
@@ -316,15 +322,17 @@ jobs:
   plan:
   - get: git-utility
     trigger: true
+  - get: semver
+    passed: [bump-version]
   - aggregate: 
     - put: image-postgis
-      params: { build: git-utility/docker/PostGIS, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-utility/docker/PostGIS, tag: semver/version, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-nginx
-      params: { build: git-utility/docker/Nginx, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-utility/docker/Nginx, tag: semver/version, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-nginx-utility
-      params: { build: git-utility/docker/Nginx_Utility, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-utility/docker/Nginx_Utility, tag: semver/version, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
 
 
@@ -335,11 +343,13 @@ jobs:
   - aggregate:
     - get: git-web
       trigger: true
+    - get: semver
+      passed: [bump-version]
   - put: image-web-develop
     params: {
       build: git-web,
       dockerfile: git-web/docker/Dockerfile-develop,
-      tag:  git-web/sha,
+      tag:  semver/version,
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
@@ -396,11 +406,13 @@ jobs:
       params: {
         skip_download: true
       }
+    - get: semver
+      passed: [bump-version]
   - put: image-web-app
     params: {
       build: git-web,
       dockerfile: git-web/docker/Dockerfile-app,
-      tag:  git-web/sha,
+      tag:  semver/version,
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
@@ -418,10 +430,12 @@ jobs:
   plan:
   - get: git-smartconnect-provider
     trigger: true
+  - get: semver
+    passed: [bump-version]
   - put: image-smartconnect-provider
     params: {
       build: git-smartconnect-provider,
-      tag: git-smartconnect-provider/sha,
+      tag: semver/version,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
