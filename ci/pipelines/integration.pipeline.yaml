@@ -13,6 +13,7 @@ resources:
     branch: master
     file: ((version-prefix)).version
     private_key: ((das-versions-github))
+    initial_version: ((initial-version))
 
 - name: git-server-base
   type: versioned-git-resource

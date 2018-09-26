@@ -23,7 +23,9 @@ fi
 
 touch $PIPELINE_PARAMS_FILE
 echo "cluster-name: $PIPELINE_NAME" >> $PIPELINE_PARAMS_FILE
-echo "version-suffix: $PIPELINE_NAME" >> $PIPELINE_PARAMS_FILE
+
+read -p "Please enter a semantic version prefix, eg/ 'dev', 'rc', 'feature-x' (blank defaults to 'default'): " VERSION_PREFIX
+echo "version-prefix: ${VERSION_PREFIX:-default}" >> $PIPELINE_PARAMS_FILE
 
 function prompt_for_branch()
 {
