@@ -5,6 +5,15 @@ resources:
 #
 ################################################################################        
 # git resources
+- name: semver
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.versions.git
+    branch: master
+    file: ((version-prefix)).version
+    private_key: ((das-versions-github))
+
 - name: git-server-base
   type: versioned-git-resource
   source:
@@ -199,7 +208,19 @@ resource_types:
 # Jobs to run
 #
 ################################################################################
-jobs:  
+jobs:
+- name: bump-version
+  plan:
+    - get: git-server
+      trigger: true
+    - get: git-web
+      trigger: true
+    - get: git-smartconnect-provider
+      trigger: true
+    - put: semver
+      params:
+        pre: ((version-prefix))
+
 - name: docker-build-server-base
   plan:
   - get: git-server-base
