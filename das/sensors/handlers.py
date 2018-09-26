@@ -47,7 +47,7 @@ class GenericSensorHandler():
 
         params = SensorPostParameters(data=request.data)
         if not params.is_valid():
-            return Response(data={'status' : 105, 'message' : params.errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
 
         params = params.validated_data
         manufacturer_id = params['manufacturer_id']
