@@ -119,7 +119,7 @@ resources:
     repository: gcr.io/padas-app/beat
 
 - name: image-server-api
-  type: docker-image
+  type: debuggable-docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -190,6 +190,15 @@ resources:
 #
 ################################################################################
 resource_types:
+- name: debuggable-docker-image
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((ss-infrastructure-container-registry-pull))
+    repository: gcr.io/ss-infrastructure/concourse/debuggable-docker-image-resource
+  privileged: true
+
 - name: versioned-git-resource
   type: docker-image
   source:
