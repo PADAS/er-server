@@ -5,13 +5,13 @@ resources:
 #
 ################################################################################        
 # git resources
-- name: semver
+- name: server-version
   type: semver
   source:
     driver: git
     uri: git@github.com:PADAS/das.versions.git
     branch: master
-    file: ((version-prefix)).version
+    file: ((version-prefix)).server.version
     private_key: ((das-versions-github))
     initial_version: ((initial-version))
 
@@ -25,6 +25,13 @@ resources:
       - docker/base/*
     private_key: ((das-github))
 
+- name: git-server
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    private_key: ((das-github))
+
 - name: git-utility
   type: versioned-git-resource
   source:
@@ -34,13 +41,6 @@ resources:
       - docker/PostGIS/*
       - docker/Nginx/*
       - docker/Nginx_Utility/*
-    private_key: ((das-github))
-
-- name: git-server
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das.git
-    branch: ((server-branch-name))
     private_key: ((das-github))
 
 - name: git-deployment
@@ -59,12 +59,32 @@ resources:
     branch: ((web-branch-name))
     private_key: ((das-web-github))
 
+- name: web-version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.versions.git
+    branch: master
+    file: ((version-prefix)).web.version
+    private_key: ((das-versions-github))
+    initial_version: ((initial-version))
+
 - name: git-smartconnect-provider
   type: versioned-git-resource
   source:
     uri: git@github.com:PADAS/das-smartconnect-provider.git
     branch: ((smartconnect-provider-branch-name))
     private_key: ((das-smartconnect-provider-github))
+
+- name: smartconnect-version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.versions.git
+    branch: master
+    file: ((version-prefix)).smartconnect.version
+    private_key: ((das-versions-github))
+    initial_version: ((initial-version))
 
 #base docker resources
 - name: image-server-base
@@ -204,35 +224,22 @@ resource_types:
     repository: cfcommunity/slack-notification-resource
     tag: v1.2.0
 
+
 ################################################################################
 # 
 # Jobs to run
 #
 ################################################################################
 jobs:
-- name: bump-version
-  plan:
-    - get: git-server
-      trigger: true
-    - get: git-web
-      trigger: true
-    - get: git-smartconnect-provider
-      trigger: true
-    - put: semver
-      params:
-        pre: ((version-prefix))
-
 - name: docker-build-server-base
   plan:
   - get: git-server-base
     trigger: true
-  - get: semver
-    passed: [bump-version]
   - put: image-server-base
     params: {
       build: git-server-base,
       dockerfile: git-server-base/docker/base/Dockerfile,
-      tag:  semver/version,
+      tag: git-server-base/sha,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
@@ -258,13 +265,11 @@ jobs:
       }
     - get: git-server
       trigger: true
-    - get: semver
-      passed: [bump-version]
   - put: image-server-app
     params: {
       build: git-server,
       dockerfile: git-server/docker/App/Dockerfile,
-      tag:  semver/version,
+      tag:  git-server/sha,
       build_args_file: git-server-base/build_args,
       tag_as_latest: ((tag-as-latest))
     }
@@ -278,84 +283,67 @@ jobs:
             :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
-# API, Beat, MQL, RT_AIS_API, RT_API, Worker
 - name: docker-build-server
   plan:
   - aggregate:
     - get: git-server
       trigger: true
-      passed: [docker-build-server-app]
-    - get: semver
-      passed: [bump-version]
     - get: image-server-app
-      trigger: true
       passed: [docker-build-server-app]
-      params: {
-        skip_download: true
-      }
+      trigger: true
+      params: {skip_download: true}
+    - get: server-version
+      params:
+        pre: ((version-prefix))
   - aggregate:
     - put: image-server-api
-      params:
-        build: git-server/docker/API
-        tag: semver/version
-        build_args:
-                # base_tag: semver/version
-          hope: "maybe"
-        tag_as_latest: ((tag-as-latest))
+      params: {build: git-server/docker/API, tag: server-version/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) } 
       get_params: {skip_download: true}
     - put: image-server-beat
-      params: { build: git-server/docker/Beat, tag: semver/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/Beat, tag: server-version/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-mql
-      params: { build: git-server/docker/MQL, tag: semver/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/MQL, tag: server-version/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-rt-api
-      params: { build: git-server/docker/RT_API, tag: semver/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/RT_API, tag: server-version/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-worker
-      params: { build: git-server/docker/Worker, tag: semver/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/Worker, tag: server-version/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
-    on_failure:
-      do:
-      - put: slack-alert
-        params:
-          channel: ((slack-notification-channel))
-          text: |
-            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
-            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
-
-- name: docker-build-utility
-  plan:
-  - get: git-utility
-    trigger: true
-  - get: semver
-    passed: [bump-version]
-  - aggregate: 
     - put: image-postgis
-      params: { build: git-utility/docker/PostGIS, tag: semver/version, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/PostGIS, tag: server-version/version, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-nginx
-      params: { build: git-utility/docker/Nginx, tag: semver/version, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/Nginx, tag: server-version/version, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-nginx-utility
-      params: { build: git-utility/docker/Nginx_Utility, tag: semver/version, tag_as_latest: ((tag-as-latest)) }
+      params: { build: git-server/docker/Nginx_Utility, tag: server-version/version, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
+  - put: server-version
+    params:
+      file: server-version/version
+  on_failure:
+    do:
+    - put: slack-alert
+      params:
+        channel: ((slack-notification-channel))
+        text: |
+          :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+          $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 
 # Web Jobs
 - name: docker-build-web-develop
-  serial: true
   plan:
   - aggregate:
     - get: git-web
       trigger: true
-    - get: semver
-      passed: [bump-version]
   - put: image-web-develop
     params: {
       build: git-web,
       dockerfile: git-web/docker/Dockerfile-develop,
-      tag:  semver/version,
+      tag: git-web/sha,
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
@@ -409,19 +397,21 @@ jobs:
     - get: image-web-develop
       trigger: true
       passed: [test-web-unit]
-      params: {
-        skip_download: true
-      }
-    - get: semver
-      passed: [bump-version]
+      params: {skip_download: true}
+    - get: web-version
+      params:
+        pre: ((version-prefix))
   - put: image-web-app
     params: {
       build: git-web,
       dockerfile: git-web/docker/Dockerfile-app,
-      tag:  semver/version,
+      tag:  web-version/version,
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
+  - put: web-version
+    params:
+      file: web-version/version
     on_failure:
       do:
       - put: slack-alert
@@ -436,15 +426,19 @@ jobs:
   plan:
   - get: git-smartconnect-provider
     trigger: true
-  - get: semver
-    passed: [bump-version]
+  - get: smartconnect-version
+    params:
+      pre: ((version-prefix))
   - put: image-smartconnect-provider
     params: {
       build: git-smartconnect-provider,
-      tag: semver/version,
+      tag: smartconnect-version/version,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
+  - put: smartconnect-version
+    params:
+      file: smartconnect-version/version
     on_failure:
       do:
       - put: slack-alert
@@ -458,7 +452,6 @@ jobs:
   plan:
     - aggregate:
       - get: git-utility
-        passed: [docker-build-utility]
       - get: git-web
         passed: [docker-build-web-app]
       - get: git-server
@@ -488,11 +481,9 @@ jobs:
         trigger: true
         params: {skip_download: true}
       - get: image-nginx
-        passed: [docker-build-utility]
         trigger: true
         params: {skip_download: true}
       - get: image-postgis
-        passed: [docker-build-utility]
         trigger: true
         params: {skip_download: true}
       - get: image-web-app
