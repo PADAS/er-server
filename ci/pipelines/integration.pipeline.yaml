@@ -295,7 +295,12 @@ jobs:
       }
   - aggregate:
     - put: image-server-api
-      params: { build: git-server/docker/API, tag: semver/version, build_args: { base_tag: semver/version }, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/API
+        tag: semver/version
+        build_args:
+          base_tag: semver/version
+        tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
     - put: image-server-beat
       params: { build: git-server/docker/Beat, tag: semver/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
