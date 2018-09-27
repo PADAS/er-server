@@ -1,0 +1,9 @@
+cluster-name: azure-develop
+version-suffix: azure-develop
+server-branch-name: feature/DAS-2946
+iaas: azure
+iaas-zone: eastus
+iaas-workspace: DAS-Dev
+cluster-spec: deployment/cluster-specs/azure.yaml
+
+deploy-recipe: standard-dev.yaml
