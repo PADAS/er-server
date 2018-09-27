@@ -299,7 +299,8 @@ jobs:
         build: git-server/docker/API
         tag: semver/version
         build_args:
-          base_tag: semver/version
+                # base_tag: semver/version
+          hope: "maybe"
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-beat
