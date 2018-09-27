@@ -155,6 +155,8 @@ def queue_alert_for_all_users(event_id, revision_ids):
 def send_alert_to_specific_user(username, event_id, revision_ids=None):
     user = User.objects.get(username=username)
     event = Event.objects.get(pk=event_id)
+    print('user: ', user)
+    print('event: ', event)
 
     # Fake API requests to apply user's permissions
     request = DummyRequest('/event/', 'GET', user=user)
@@ -163,12 +165,17 @@ def send_alert_to_specific_user(username, event_id, revision_ids=None):
         return
 
     for subject in event.related_subjects.all():
+        print('subject: ', subject)
         request = DummyRequest('/subject/', 'GET', user=user)
         result = SubjectView.as_view()(request, id=str(subject.id))
+        print(result)
+        print(result.status_code)
+        print(result.data)
         if result.status_code != 200 or not result.data:
             return
 
     if user.is_email_alert:
+        print('sending email ...')
         mailer.send_event_mail(event, user, revision_ids)
 
     if user.is_sms_alert:

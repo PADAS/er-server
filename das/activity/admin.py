@@ -27,7 +27,7 @@ class EventAdmin(admin.OSMGeoAdmin):
 
     list_display = ('serial_number', 'created_at', 'event_type',
                     'title', 'location', 'attributes',)
-    readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
+    readonly_fields = ('serial_number', 'created_at', 'updated_at')
     search_fields = ('title', 'serial_number')
     list_filter = ('event_type',)
     inlines = [
@@ -37,7 +37,7 @@ class EventAdmin(admin.OSMGeoAdmin):
 
     fieldsets = (
         (None, {
-            'fields': ('serial_number', 'title', 'event_type', 'event_time', 'end_time',)
+            'fields': ('id', 'serial_number', 'title', 'event_type', 'event_time', 'end_time',)
         }),
         ('Advanced', {
             'classes': ('wide', 'collapse',),

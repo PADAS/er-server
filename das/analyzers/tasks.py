@@ -47,6 +47,7 @@ def handle_source(source_id):
 def analyze_subject(subject_id):
 
     logger.info('Analyze subject for id=%s', subject_id)
+    print('='*50, 'START analyze_subject celery task')
     try:
         subject = Subject.objects.get(id=subject_id)
     except Subject.DoesNotExist:
@@ -55,6 +56,7 @@ def analyze_subject(subject_id):
 
     logger.info('Running analyzers for subject: %s', subject)
     for analyzer in get_subject_analyzers(subject):
+        print('analyzer: {}'.format(analyzer))
 
         try:
             analyzer_results = analyzer.analyze()
@@ -67,6 +69,7 @@ def analyze_subject(subject_id):
         except Exception:
             logger.exception(
                 'Programming error in analyzer. analyzer=%s', analyzer)
+    print('='*50, 'END analyze_subject celery task')
 
 
 @celery.app.task()

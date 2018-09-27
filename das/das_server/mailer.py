@@ -13,6 +13,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer
 from activity.models import Event
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 import utils.schema_utils as schema_utils
+from observations.models import Observation
 
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,30 @@ def get_key_title(key, schema):
             return definition_dictionary['title']
 
     return None
+
+
+def latest_location_link(subject):
+    """
+    Generate & return maps deep link based on on latest latitude/longitude
+    :param subject: Subject instance
+    :return: Maps deep link based on latest latitude/longitude
+    """
+    try:
+        observation = Observation.objects.filter(
+            source__subjectsource__subject=subject).order_by(
+            '-recorded_at')[0]
+        print(observation.location)
+        print(observation.location.x)
+        print(observation.location.y)
+        print('http://maps.google.com/maps?q=loc:' + str(
+            observation.location.x) + ',' + str(
+            observation.location.y) + ' (Latest subject location)')
+        return 'http://maps.google.com/maps?q=loc:' + str(
+            observation.location.y) + ',' + str(
+            observation.location.x) + ' (Latest subject location)'
+    except Exception as e:
+        logger.info(e)
+        return ''
 
 
 def build_deep_link_for_subject(event, subject, default_event_code='panic'):
@@ -251,15 +276,21 @@ def extract_event_data(event, user, revisions):
 
     if event.event_type.value in getattr(settings, 'DEEP_LINK_EVENT_TYPES', []):
         deep_links = []
+        latest_location_links = []
         for subject in event.related_subjects.all():
             deep_links.append('  - Subject Link: ' +
                               build_deep_link_for_subject(event, subject))
+            latest_location_links.append('  - Subject Latest Link: ' +
+                                         latest_location_link(subject))
         event_data['deep_links'] = deep_links
+        event_data['latest_location_links'] = latest_location_links
     return event_data
 
 
 def send_event_mail(event, user, revisions):
     data = extract_event_data(event, user, revisions)
+    print('event data: ')
+    print(data)
 
     subject = _('DAS {color} Alert: {id} {title}').format(
         color=data['color'],
@@ -267,6 +298,8 @@ def send_event_mail(event, user, revisions):
         title=data['title'])
 
     body = render_to_string(_('incident_email.txt'), data).strip()
+    print('*'*50)
+    print(body)
     logger.info('emailing {} from {}'.format(user.email, settings.FROM_EMAIL))
 
     user.email_user(subject, body, settings.FROM_EMAIL)

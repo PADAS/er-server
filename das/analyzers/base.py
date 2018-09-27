@@ -40,6 +40,7 @@ class SubjectAnalyzer:
         return last_result
 
     def analyze(self, observations=None, trajectory_filter=None):
+        print('='*50, 'START analyze base')
 
         # Get default observations list if one isn't provided
         observations = observations or self.default_observations()
@@ -56,6 +57,7 @@ class SubjectAnalyzer:
         analyze_results = []
 
         for this_result in results:
+            print('analyze_result: {}'.format(this_result))
 
             # Get the last analyzer result
             last_result = self.get_last_result()
@@ -68,6 +70,7 @@ class SubjectAnalyzer:
 
             analyze_results.append((this_result, this_event))
 
+        print('='*50, 'END analyze base')
         return analyze_results
 
     class Meta:
