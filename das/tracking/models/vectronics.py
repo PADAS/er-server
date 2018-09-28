@@ -19,6 +19,8 @@ class VectronicsPlugin(TrackingPlugin):
     DEFAULT_DATA_SOURCE = "gps"
     DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
     DEFAULT_START_OFFSET = timedelta(days=140)
+    # Timeout in seconds
+    DEFAULT_TIMEOUT = 30
 
     @staticmethod
     def parse_date(date_string):
@@ -48,7 +50,7 @@ class VectronicsPlugin(TrackingPlugin):
                '/' + self.DEFAULT_DATA_SOURCE + '?collarkey={0}'.format(
                     collar_key) + '&after={0}'.format(latest_timestamp))
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=self.DEFAULT_TIMEOUT)
             if response.status_code != 200:
                 raise DasPluginFetchError("Non 200 response.")
             return json.loads(response.text)
