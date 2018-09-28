@@ -308,9 +308,10 @@ jobs:
     - put: image-server-api
       params:
         build: git-server/docker/API
-        tag: semver/version
+        tag: server-version/version
         build_args:
-          base_tag: semver/version
+          from_file:
+            base_tag: server-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-beat
