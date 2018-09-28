@@ -88,7 +88,7 @@ resources:
 
 #base docker resources
 - name: image-server-base
-  type: docker-image
+  type: debuggable-docker-image
   source:
     tag: $(cat<git-server-base/sha)
     email: ((gcr-io-email))
@@ -97,7 +97,7 @@ resources:
     repository: gcr.io/padas-app/base
 
 - name: image-server-app
-  type: docker-image
+  type: debuggable-docker-image
   source:
     tag: $(cat<git-server/sha)
     email: ((gcr-io-email))
@@ -107,7 +107,7 @@ resources:
 
 # AIS_Gap, AIS_Track, API, Beat, MQL, RT_AIS_API, RT_API, Worker
 - name: image-server-worker
-  type: docker-image
+  type: debuggable-docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -115,7 +115,7 @@ resources:
     repository: gcr.io/padas-app/worker
 
 - name: image-server-rt-api
-  type: docker-image
+  type: debuggable-docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -123,7 +123,7 @@ resources:
     repository: gcr.io/padas-app/rt_api
 
 - name: image-server-mql
-  type: docker-image
+  type: debuggable-docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -131,7 +131,7 @@ resources:
     repository: gcr.io/padas-app/mql
 
 - name: image-server-beat
-  type: docker-image
+  type: debuggable-docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -149,7 +149,7 @@ resources:
 
 # docker resource images not dependent on base / app
 - name: image-postgis
-  type: docker-image
+  type: debuggable-docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -157,7 +157,7 @@ resources:
     repository: gcr.io/padas-app/postgis
 
 - name: image-nginx
-  type: docker-image
+  type: debuggable-docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -165,7 +165,7 @@ resources:
     repository: gcr.io/padas-app/nginx
 
 - name: image-nginx-utility
-  type: docker-image
+  type: debuggable-docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -174,7 +174,7 @@ resources:
 
 # Web docker resources
 - name: image-web-develop
-  type: docker-image
+  type: debuggable-docker-image
   source:
     tag: $(cat<git-web/sha)
     email: ((gcr-io-email))
@@ -183,7 +183,7 @@ resources:
     repository: gcr.io/padas-app/web/develop
 
 - name: image-web-app
-  type: docker-image
+  type: debuggable-docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -191,7 +191,7 @@ resources:
     repository: gcr.io/padas-app/web/app
 
 - name: image-smartconnect-provider
-  type: docker-image
+  type: debuggable-docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
