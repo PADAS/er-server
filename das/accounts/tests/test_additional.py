@@ -1,12 +1,13 @@
+from datetime import datetime
+
 import pytz
 from django.test import TestCase
+
 from accounts.admin import CustomUserCreationForm
 from accounts.models import User
-from datetime import datetime
 
 
 class AdditionalTestCase(TestCase):
-
     fixtures = ['accounts_choices.json']
 
     def test_additional_data_fields(self):

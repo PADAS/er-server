@@ -14,7 +14,7 @@
     "fields": {
       "model": "accounts.user.User",
       "field": "tech",
-       "value": "GE",
+      "value": "GE",
       "display": "GE",
       "ordernum": 20
     },
