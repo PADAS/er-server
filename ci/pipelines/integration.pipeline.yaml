@@ -285,7 +285,9 @@ jobs:
       tag: server-version/version
       build_args:
         from_file:
+          # must be duplicated due to nature of Docker build args before versus after "FROM"
           base_tag: server-version/version
+          version: server-version/version
       tag_as_latest: ((tag-as-latest))
     get_params: {skip_download: true}
     on_failure:
@@ -314,7 +316,9 @@ jobs:
         tag: server-version/version
         build_args:
           from_file:
+            # must be duplicated due to nature of Docker build args before versus after "FROM"
             base_tag: server-version/version
+            version: server-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-beat
