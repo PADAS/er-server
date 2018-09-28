@@ -278,8 +278,6 @@ jobs:
     - get: git-server
       trigger: true
     - get: server-version
-      params:
-        pre: ((version-prefix))
   - put: image-server-app
     params:
       build: git-server
@@ -309,8 +307,6 @@ jobs:
       trigger: true
       params: {skip_download: true}
     - get: server-version
-      params:
-        pre: ((version-prefix))
   - aggregate:
     - put: image-server-api
       params:
