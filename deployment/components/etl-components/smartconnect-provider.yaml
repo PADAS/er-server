@@ -13,6 +13,10 @@ spec:
           containers:
           - name: smartconnect-provider-etl
             image: gcr.io/padas-app/etl/smartconnect-provider:<<smartconnect-provider-version>>
+            resources:
+              requests:
+                cpu: "50m"
+                memory: "250Mi"
             env:
             - name: DAS_ENDPOINT
               valueFrom:

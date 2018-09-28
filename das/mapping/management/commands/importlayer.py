@@ -156,7 +156,11 @@ class Command(BaseCommand):
                     value = value.isoformat()
                 fields[name] = value
 
-            feature_model = self.get_feature_class(feature.geom_type.name)
+            try:
+                feature_model = self.get_feature_class(feature.geom_type.name)
+            except KeyError as ke:
+                feature_model = self.get_feature_class(str(feature.geom))
+
             model_fieldname = 'feature_geometry'
             model_field_type = feature_model._meta.get_field(model_fieldname)
             feature_geometry = self.geometry_mapper.get_db_geom(

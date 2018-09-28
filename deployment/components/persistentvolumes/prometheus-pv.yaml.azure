@@ -17,3 +17,4 @@ spec:
     kind: Managed
     diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-prometheus-0"
     diskName: "<<cluster-name>>-prometheus-0"
+

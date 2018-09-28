@@ -26,9 +26,9 @@ spec:
         name: grafana
         resources:
           requests:
-            cpu: "25m"
+            cpu: "20m"
           limits:
-            cpu: "1"
+            cpu: "100m"
         env:
         - name: PROMETHEUS_URL
           valueFrom:

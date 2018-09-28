@@ -37,7 +37,7 @@ spec:
           requests:
             cpu: "25m"
           limits:
-            cpu: "500m"
+            cpu: "50m"
         ports:
         - containerPort: 9100
           hostPort: 9100

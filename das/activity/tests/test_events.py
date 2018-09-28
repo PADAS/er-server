@@ -1271,7 +1271,8 @@ class TestEventView(BaseAPITest):
             value='sample-event-category', display='Some display',)
 
         event_type = EventType.objects.create(value='some-generic-event-type',
-                                              display='Some event-type', category=event_category)
+                                              display='Some event-type', category=event_category,
+                                              default_priority=0, default_state='resolved')
 
         # Manual step here: Associate the new generic event type to the
         # EventSource
@@ -1281,6 +1282,8 @@ class TestEventView(BaseAPITest):
         external_event_id = 'asdfioaasfseiuro11414sfa'
         # Create an event with an "External Event ID"
         event_title = 'Some arbirtrary event title.'
+        event_timestamp = datetime(2018, 9, 8, 12, 5, 4, tzinfo=pytz.utc)
+        sort_at = datetime(2018, 9, 8, 12, 5, 4, tzinfo=pytz.utc)
         event_data = {
             "event_details": {
                 "attributes": [
@@ -1294,7 +1297,8 @@ class TestEventView(BaseAPITest):
             "external_event_id": external_event_id,
             "eventsource": eventsource_id,
             "location": {"latitude": 39.4, "longitude": -117.5},
-            "time": datetime.now(tz=pytz.utc).isoformat(),
+            "time": event_timestamp.isoformat(),
+            "sort_at": sort_at.isoformat(),
         }
 
         request = self.factory.post(f'{self.api_base}/events', event_data)
@@ -1307,6 +1311,10 @@ class TestEventView(BaseAPITest):
             eventsource_id=eventsource_id, external_event_id=external_event_id)
 
         self.assertEqual(eselist.count(), 1)
+
+        event = eselist[0].event
+
+        self.assertEqual(sort_at, event.sort_at)
 
         self.assertEqual(
             eselist[0].eventsource.external_event_type, external_event_type)

@@ -16,6 +16,8 @@ spec:
         resources:
           requests:
             cpu: "25m"
+          limits:
+            cpu: "50m"
         env:
         - name: API_HOST
           valueFrom:

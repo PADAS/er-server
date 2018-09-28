@@ -163,6 +163,9 @@ class SubjectsView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = models.Subject.objects.all()
+        # need a stable sort for pagination. this needs to match the distinct
+        # parameter set in by_user_subjects
+        queryset = queryset.order_by('id')
         queryset = queryset.by_is_active()
         bbox = self.request.query_params.get('bbox', None)
         if bbox:

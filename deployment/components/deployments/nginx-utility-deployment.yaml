@@ -42,6 +42,7 @@ spec:
         resources:
           requests:
             cpu: "15m"
+            memory: "100Mi"
         env:
         - name: SSL_SECRET
           value: "<<nginx-utility-ssl-key>>"
