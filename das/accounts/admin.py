@@ -99,10 +99,10 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
     mou_date_signed = forms.DateTimeField(
         required=False, label='MoU Date Signed', widget=AdminDateWidget())
     mou_type = forms.CharField(required=False, label='MoU Type')
-    tech = forms.TypedMultipleChoiceField(widget=forms.CheckboxSelectMultiple,
-                                          required=False)
-    organization = forms.TypedMultipleChoiceField(
-        required=False, widget=forms.CheckboxSelectMultiple)
+    tech = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
+        verbose_name='Tech Choices', is_stacked=False), required=False)
+    organization = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
+        verbose_name='Organization Choices', is_stacked=False), required=False)
 
     @staticmethod
     def fetch_tech_choices():

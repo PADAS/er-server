@@ -65,7 +65,12 @@ class JSONFieldFormMixin(object):
         for field in self.Meta.json_fields:
             json_data[field] = self.cleaned_data[field]
             if isinstance(self.cleaned_data[field], datetime):
-                json_data[field] = self.cleaned_data[field].isoformat()
+                # If timezone is there, Replace with UTC or else put it there
+                if self.cleaned_data[field].tzinfo:
+                    utc_date = self.cleaned_data[field].replace(tzinfo=pytz.utc)
+                else:
+                    utc_date = pytz.utc.localize(self.cleaned_data[field])
+                json_data[field] = utc_date.isoformat()
         setattr(self.instance, self.json_field, json_data)
         return super(JSONFieldFormMixin, self).save(*args, **kwargs)
 
