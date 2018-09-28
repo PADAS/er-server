@@ -248,7 +248,7 @@ jobs:
     params: {
       build: git-server-base,
       dockerfile: git-server-base/docker/base/Dockerfile,
-      tag: git-server-base/sha,
+      tag: server-version.server.version,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
@@ -275,13 +275,14 @@ jobs:
     - get: git-server
       trigger: true
   - put: image-server-app
-    params: {
+    params:
       build: git-server,
       dockerfile: git-server/docker/App/Dockerfile,
-      tag:  git-server/sha,
-      build_args_file: git-server-base/build_args,
+      tag: server-version/version
+      build_args:
+        from_file:
+          base_tag: server-version/version
       tag_as_latest: ((tag-as-latest))
-    }
     get_params: {skip_download: true}
     on_failure:
       do:
@@ -315,25 +316,67 @@ jobs:
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-beat
-      params: { build: git-server/docker/Beat, tag: server-version/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/Beat
+        tag: server-version/version
+        build_args:
+          from_file:
+            base_tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-mql
-      params: { build: git-server/docker/MQL, tag: server-version/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/MQL
+        tag: server-version/version
+        build_args:
+          from_file:
+            base_tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-rt-api
-      params: { build: git-server/docker/RT_API, tag: server-version/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/RT_API
+        tag: server-version/version
+        build_args:
+          from_file:
+            base_tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-worker
-      params: { build: git-server/docker/Worker, tag: server-version/version, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/Worker
+        tag: server-version/version
+        build_args:
+          from_file:
+            base_tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-postgis
-      params: { build: git-server/docker/PostGIS, tag: server-version/version, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/PostGIS
+        tag: server-version/version
+        build_args:
+          from_file:
+            base_tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-nginx
-      params: { build: git-server/docker/Nginx, tag: server-version/version, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/Nginx
+        tag: server-version/version
+        build_args:
+          from_file:
+            base_tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-nginx-utility
-      params: { build: git-server/docker/Nginx_Utility, tag: server-version/version, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/Nginx_Utility
+        tag: server-version/version
+        build_args:
+          from_file:
+            base_tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
   - put: server-version
     params:
@@ -358,7 +401,7 @@ jobs:
     params: {
       build: git-web,
       dockerfile: git-web/docker/Dockerfile-develop,
-      tag: git-web/sha,
+      tag: web-version.web.version,
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
