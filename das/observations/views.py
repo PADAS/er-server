@@ -82,7 +82,9 @@ class SubjectGroupsView(generics.ListAPIView):
                                               models.SubjectGroup),)
 
     def get_queryset(self):
-        queryset = models.SubjectGroup.objects.filter(_parents=None)
+        queryset = models.SubjectGroup.objects.filter(
+            _parents=None, is_visible=parse_bool(
+                self.request.GET.get('isvisible', True)))
         queryset = queryset.order_by('name')
         return queryset
 
