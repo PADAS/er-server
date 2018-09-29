@@ -54,10 +54,12 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
     data_owners = forms.CharField(required=False, label='Data Owners')
     adjusted_beacon_freq = forms.CharField(
         required=False, label='Adjusted Beacon Frequency')
+    collar_key = forms.CharField(widget=forms.Textarea,
+                                 required=False, label='Collar Key')
 
     class Meta:
         model = Source
-        json_fields = ('collar_status', 'collar_model',
+        json_fields = ('collar_key', 'collar_status', 'collar_model',
                        'has_acc_data', 'data_owners', 'adjusted_beacon_freq')
         fields = ('id', 'manufacturer_id', 'provider', 'source_type',
                   'model_name', 'additional') + json_fields
