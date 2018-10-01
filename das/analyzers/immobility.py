@@ -76,8 +76,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
         # Check to see if we have data that spans the threshold time otherwise
         # impossible to calculate
-        # if timedelta(seconds=traj.relocs.timespan_seconds) < timedelta(seconds=self.config.threshold_time):
-        #     raise InsufficientDataAnalyzerException
+        if timedelta(seconds=traj.relocs.timespan_seconds) < timedelta(seconds=self.config.threshold_time):
+            raise InsufficientDataAnalyzerException
 
         # Get the relocation fixes in descending order
         fixes = traj.relocs.get_fixes('DESC')
@@ -114,9 +114,8 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
 
 
-            # if (cluster_pvalue >= self.config.threshold_probability) and \
-            #         (cluster_timespan_seconds > self.config.threshold_time):
-            if True:
+            if (cluster_pvalue >= self.config.threshold_probability) and \
+                    (cluster_timespan_seconds > self.config.threshold_time):
                 # TODO: gte comparison  on the timespan but switched to achieve parity with STE system
                 # Modify analyzer result
                 result.level = CRITICAL
