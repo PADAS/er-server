@@ -30,17 +30,8 @@ resources:
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
-    private_key: ((das-github))
-
-- name: git-utility
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das.git
-    branch: ((server-branch-name))
-    paths: 
-      - docker/PostGIS/*
-      - docker/Nginx/*
-      - docker/Nginx_Utility/*
+    ignore_paths:
+      - deployment/*
     private_key: ((das-github))
 
 - name: git-deployment
@@ -517,7 +508,9 @@ jobs:
 - name: deploy-to-k8s
   plan:
     - aggregate:
-      - get: git-utility
+      - get: server-version
+      - get: web-version
+      - get: smartconnect-version
       - get: git-web
         passed: [docker-build-web-app]
       - get: git-server
@@ -640,6 +633,7 @@ jobs:
           - name: server-version
           - name: web-version
           - name: smartconnect-version
+          - name: git-deployment
           params: {
             PROJECT: padas-app,
             USERNAME: ((creator)),
