@@ -486,6 +486,8 @@ jobs:
       passed: [test-web-unit]
       params: {skip_download: true}
     - get: web-version
+      params:
+        pre: ((version-prefix))
   - put: image-web-app
     params: {
       build: git-web,
