@@ -113,7 +113,6 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
             cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
 
-
             if (cluster_pvalue >= self.config.threshold_probability) and \
                     (cluster_timespan_seconds > self.config.threshold_time):
                 # TODO: gte comparison  on the timespan but switched to achieve parity with STE system
