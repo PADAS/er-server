@@ -10,6 +10,12 @@ from accounts.models import User
 class AdditionalTestCase(TestCase):
     fixtures = ['accounts_choices.json']
 
+    def convert_datestring_to_datetime(self, date_string):
+        datetime_object = datetime.strptime(date_string, '%m/%d/%Y')
+        from das_server.local_settings_template import TIME_ZONE
+        datetime_object = datetime_object.astimezone(pytz.timezone(TIME_ZONE))
+        return datetime_object
+
     def test_additional_data_fields(self):
         username = 'User'
         password = User.objects.make_random_password()
@@ -37,11 +43,12 @@ class AdditionalTestCase(TestCase):
         user = User.objects.get(username='User')
 
         # Update date fields from additional_data in iso format
-        expiry = datetime.strptime(additional_data['expiry'], '%m/%d/%Y')
-        mou_date_signed = datetime.strptime(additional_data['mou_date_signed'],
-                                            '%m/%d/%Y')
-        additional_data['expiry'] = pytz.utc.localize(expiry).isoformat()
-        additional_data['mou_date_signed'] = pytz.utc.localize(
-            mou_date_signed).isoformat()
+        expiry = self.convert_datestring_to_datetime(additional_data['expiry'])
+        mou_date_signed = self.convert_datestring_to_datetime(
+            additional_data['mou_date_signed'])
+        additional_data['expiry'] = expiry.astimezone(
+            pytz.timezone("UTC")).isoformat()
+        additional_data['mou_date_signed'] = mou_date_signed.astimezone(
+            pytz.timezone("UTC")).isoformat()
         self.assertTrue(all(item in user.additional.items()
                             for item in additional_data.items()))
