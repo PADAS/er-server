@@ -637,11 +637,9 @@ jobs:
               tag: ((vp-tools-container-version)),
             }
           inputs:
-          - name: git-utility
-          - name: git-web
-          - name: git-server
-          - name: git-deployment
-          - name: git-smartconnect-provider
+          - name: server-version
+          - name: web-version
+          - name: smartconnect-version
           params: {
             PROJECT: padas-app,
             USERNAME: ((creator)),
