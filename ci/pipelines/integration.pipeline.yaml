@@ -9,9 +9,29 @@ resources:
   type: semver
   source:
     driver: git
-    uri: git@github.com:PADAS/das.versions.git
+    uri: git@github.com:PADAS/das.git
     branch: master
-    file: ((version-prefix)).server.version
+    file: versions/((version-prefix)).version
+    private_key: ((das-versions-github))
+    initial_version: ((initial-server-version))
+
+- name: server-base-version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.git
+    branch: master
+    file: versions/((version-prefix)).base.version
+    private_key: ((das-versions-github))
+    initial_version: ((initial-server-version))
+
+- name: server-app-version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.git
+    branch: master
+    file: versions/((version-prefix)).app.version
     private_key: ((das-versions-github))
     initial_version: ((initial-server-version))
 
@@ -23,6 +43,8 @@ resources:
     paths: 
       - dependencies/* 
       - docker/base/*
+    ignore_paths:
+      - versions/*
     private_key: ((das-github))
 
 - name: git-server
@@ -32,6 +54,7 @@ resources:
     branch: ((server-branch-name))
     ignore_paths:
       - deployment/*
+      - versions/*
     private_key: ((das-github))
 
 - name: git-deployment
@@ -41,6 +64,8 @@ resources:
     branch: ((server-branch-name))
     paths: 
       - deployment/*
+    ignore_paths:
+      - versions/*
     private_key: ((das-github))
 
 - name: git-web
@@ -48,15 +73,17 @@ resources:
   source:
     uri: git@github.com:PADAS/das-web.git
     branch: ((web-branch-name))
+    ignore_paths:
+      - versions/*
     private_key: ((das-web-github))
 
 - name: web-version
   type: semver
   source:
     driver: git
-    uri: git@github.com:PADAS/das.versions.git
+    uri: git@github.com:PADAS/das-web.git
     branch: master
-    file: ((version-prefix)).web.version
+    file: versions/((version-prefix)).version
     private_key: ((das-versions-github))
     initial_version: ((initial-web-version))
 
@@ -65,15 +92,17 @@ resources:
   source:
     uri: git@github.com:PADAS/das-smartconnect-provider.git
     branch: ((smartconnect-provider-branch-name))
+    ignore_paths:
+      - versions/*
     private_key: ((das-smartconnect-provider-github))
 
 - name: smartconnect-version
   type: semver
   source:
     driver: git
-    uri: git@github.com:PADAS/das.versions.git
+    uri: git@github.com:PADAS/das-smartconnect-provider.git
     branch: master
-    file: ((version-prefix)).smartconnect.version
+    file: versions/((version-prefix)).version
     private_key: ((das-versions-github))
     initial_version: ((initial-smartconnect-version))
 
@@ -235,17 +264,20 @@ jobs:
   plan:
   - get: git-server-base
     trigger: true
-  - get: server-version
+  - get: server-base-version
     params:
       pre: ((version-prefix))
   - put: image-server-base
     params: {
       build: git-server-base,
       dockerfile: git-server-base/docker/base/Dockerfile,
-      tag: server-version/version,
+      tag: server-base-version/version,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
+  - put: server-base-version
+    params:
+      file: server-base-version/version
     on_failure:
       do:
       - put: slack-alert
@@ -268,7 +300,10 @@ jobs:
       }
     - get: git-server
       trigger: true
-    - get: server-version
+    - get: server-base-version
+    - get: server-app-version
+      params:
+        pre: ((version-prefix))
   - put: image-server-app
     params:
       build: git-server
@@ -276,11 +311,13 @@ jobs:
       tag: server-version/version
       build_args:
         from_file:
-          # must be duplicated due to nature of Docker build args before versus after "FROM"
-          base_tag: server-version/version
-          version: server-version/version
+          base_tag: server-base-version/version
+          version: server-app-version/version
       tag_as_latest: ((tag-as-latest))
     get_params: {skip_download: true}
+  - put: server-app-version
+    params:
+      file: server-app-version/version
     on_failure:
       do:
       - put: slack-alert
@@ -299,7 +336,10 @@ jobs:
       passed: [docker-build-server-app]
       trigger: true
       params: {skip_download: true}
+    - get: server-app-version
     - get: server-version
+      params:
+        pre: ((version-prefix))
   - aggregate:
     - put: image-server-api
       params:
@@ -307,8 +347,7 @@ jobs:
         tag: server-version/version
         build_args:
           from_file:
-            # must be duplicated due to nature of Docker build args before versus after "FROM"
-            base_tag: server-version/version
+            app_tag: server-app-version/version
             version: server-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
@@ -318,7 +357,7 @@ jobs:
         tag: server-version/version
         build_args:
           from_file:
-            base_tag: server-version/version
+            app_tag: server-app-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-mql
@@ -327,7 +366,7 @@ jobs:
         tag: server-version/version
         build_args:
           from_file:
-            base_tag: server-version/version
+            app_tag: server-app-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-rt-api
@@ -336,7 +375,7 @@ jobs:
         tag: server-version/version
         build_args:
           from_file:
-            base_tag: server-version/version
+            app_tag: server-app-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-worker
@@ -345,34 +384,25 @@ jobs:
         tag: server-version/version
         build_args:
           from_file:
-            base_tag: server-version/version
+            app_tag: server-app-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-postgis
       params:
         build: git-server/docker/PostGIS
         tag: server-version/version
-        build_args:
-          from_file:
-            base_tag: server-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-nginx
       params:
         build: git-server/docker/Nginx
         tag: server-version/version
-        build_args:
-          from_file:
-            base_tag: server-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-nginx-utility
       params:
         build: git-server/docker/Nginx_Utility
         tag: server-version/version
-        build_args:
-          from_file:
-            base_tag: server-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
   - put: server-version
