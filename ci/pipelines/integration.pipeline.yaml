@@ -1,9 +1,9 @@
 resources:
 ################################################################################
-# 
+#
 # Resources to fetch
 #
-################################################################################        
+################################################################################
 # git resources
 - name: server-version
   type: semver
@@ -40,8 +40,8 @@ resources:
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
-    paths: 
-      - dependencies/* 
+    paths:
+      - dependencies/*
       - docker/base/*
     ignore_paths:
       - versions/*
@@ -62,7 +62,7 @@ resources:
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
-    paths: 
+    paths:
       - deployment/*
     ignore_paths:
       - versions/*
@@ -225,7 +225,7 @@ resources:
 
 
 ################################################################################
-# 
+#
 # Custom Resource Types
 #
 ################################################################################
@@ -255,7 +255,7 @@ resource_types:
 
 
 ################################################################################
-# 
+#
 # Jobs to run
 #
 ################################################################################
@@ -722,3 +722,4 @@ jobs:
             text: |
               :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
               $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
