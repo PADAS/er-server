@@ -54,6 +54,7 @@ function prompt_for_branch()
 
 prompt_for_branch das server-branch-name
 prompt_for_branch das-web web-branch-name
+prompt_for_branch das-smartconnect-provider smartconnect-provider-branch-name
 
 read -p "Please enter the IAAS (blank defaults to gcp): " IAAS_PROVIDER
 IAAS_PROVIDER=${IAAS_PROVIDER:-"gcp"}
