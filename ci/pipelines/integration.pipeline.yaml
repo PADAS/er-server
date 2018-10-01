@@ -12,7 +12,7 @@ resources:
     uri: git@github.com:PADAS/das.git
     branch: master
     file: versions/((version-prefix)).version
-    private_key: ((das-versions-github))
+    private_key: ((das-github))
     initial_version: ((initial-server-version))
 
 - name: server-base-version
@@ -22,7 +22,7 @@ resources:
     uri: git@github.com:PADAS/das.git
     branch: master
     file: versions/((version-prefix)).base.version
-    private_key: ((das-versions-github))
+    private_key: ((das-github))
     initial_version: ((initial-server-version))
 
 - name: server-app-version
@@ -32,7 +32,7 @@ resources:
     uri: git@github.com:PADAS/das.git
     branch: master
     file: versions/((version-prefix)).app.version
-    private_key: ((das-versions-github))
+    private_key: ((das-github))
     initial_version: ((initial-server-version))
 
 - name: git-server-base
@@ -84,7 +84,7 @@ resources:
     uri: git@github.com:PADAS/das-web.git
     branch: master
     file: versions/((version-prefix)).version
-    private_key: ((das-versions-github))
+    private_key: ((das-web-github))
     initial_version: ((initial-web-version))
 
 - name: git-smartconnect-provider
@@ -103,7 +103,7 @@ resources:
     uri: git@github.com:PADAS/das-smartconnect-provider.git
     branch: master
     file: versions/((version-prefix)).version
-    private_key: ((das-versions-github))
+    private_key: ((das-smartconnect-provider-github))
     initial_version: ((initial-smartconnect-version))
 
 #base docker resources
