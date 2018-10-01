@@ -475,8 +475,8 @@ jobs:
             USERNAME: ((creator)),
             ELASTIC_URL: ((elastic-url)),
             BUILD_PIPELINE_NAME: ((pipeline-name)),
-            WORKSPACE: ((iaas-workspace))
-            ZONE: ((iaas-zone))
+            WORKSPACE: ((iaas-workspace)),
+            ZONE: ((iaas-zone)),
             AZURE_TENANT_ID: ((azure-tenant-id)),
             AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
             AZURE_CLIENT_ID: ((azure-client-id)),
@@ -611,65 +611,71 @@ jobs:
   serial: true
   plan:
   - do:
-    - aggregate:
-      - get: image-vulcan-platform-tools
-        trigger: false
-      - get: git-infrastructure-deployment
-        trigger: false
-    - do:
-      - task: delete_cluster
-        image: image-vulcan-platform-tools
-        config:
-          platform: linux
-          params: {
-            PROJECT: ss-infrastructure,
-            CLUSTER_NAME: ((cluster-name)),
-            IAAS: ((iaas)),
-            ZONE: ((iaas-zone)),
-            WORKSPACE: ((iaas-workspace)),
-            SERVICE_ACCOUNT_KEY: ((ss-infrastructure-boshprovisioner)),
-            USERNAME: ((creator)),
-            VAULT_TOKEN: ((vault-automation-token)),
-            VAULT_ADDR: ((vault-address)),
-            ELASTIC_URL: ((elastic-url)),
-            VCLOUD_SERVICE_URL: ((vcloud-service-url)),
-            LOGSTASH_URL: ((logstash-url))
+    - task: delete_cluster
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
           }
-          run:
-            path: /bin/bash
-            args:
-            - -exc
-            - |
-              echo "Deleting Cluster. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
-              vcloud clusters delete -i $IAAS --project $PROJECT -w $WORKSPACE -n=$CLUSTER_NAME -z=$ZONE -f
-      - task: delete_disks
-        image: image-vulcan-platform-tools
-        config:
-          platform: linux
-          inputs:
-          - name: git-infrastructure-deployment
-          params: {
-            PROJECT: ss-infrastructure,
-            CLUSTER_NAME: ((cluster-name)),
-            IAAS: ((iaas)),
-            ZONE: ((iaas-zone)),
-            WORKSPACE: ((iaas-workspace)),
-            SERVICE_ACCOUNT_KEY: ((ss-infrastructure-boshprovisioner)),
-            USERNAME: ((creator)),
-            VAULT_TOKEN: ((vault-automation-token)),
-            VAULT_ADDR: ((vault-address)),
-            ELASTIC_URL: ((elastic-url)),
-            VCLOUD_SERVICE_URL: ((vcloud-service-url)),
-            LOGSTASH_URL: ((logstash-url))
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: ss-infrastructure,
+          CLUSTER_NAME: ((cluster-name)),
+          IAAS: ((iaas)),
+          ZONE: ((iaas-zone)),
+          WORKSPACE: ((iaas-workspace)),
+          SERVICE_ACCOUNT_KEY: ((ss-infrastructure-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+          LOGSTASH_URL: ((logstash-url))
+        }
+        run:
+          path: /bin/bash
+          args:
+          - -exc
+          - |
+            echo "Deleting Cluster. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
+            vcloud clusters delete -i $IAAS --project $PROJECT -w $WORKSPACE -n=$CLUSTER_NAME -z=$ZONE -f
+    - task: delete_disks
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
           }
-          run:
-            path: /bin/bash
-            args:
-            - -exc
-            - |
-              echo "Deleting Disks. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
-              vcloud disks delete git-infrastructure-deployment/deployment/storage/default.disks.csv -i $IAAS --project $PROJECT -w $WORKSPACE -p=$CLUSTER_NAME -z=$ZONE -f
-              vcloud disks delete git-infrastructure-deployment/deployment/storage/default.disks.csv -i $IAAS --project $PROJECT -w $WORKSPACE -p=pd-$CLUSTER_NAME -z=$ZONE -f
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: ss-infrastructure,
+          CLUSTER_NAME: ((cluster-name)),
+          IAAS: ((iaas)),
+          ZONE: ((iaas-zone)),
+          WORKSPACE: ((iaas-workspace)),
+          SERVICE_ACCOUNT_KEY: ((ss-infrastructure-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+          LOGSTASH_URL: ((logstash-url))
+        }
+        run:
+          path: /bin/bash
+          args:
+          - -exc
+          - |
+            echo "Deleting Disks. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
+            vcloud disks delete git-deployment/deployment/storage/default.disks.csv -i $IAAS --project $PROJECT -w $WORKSPACE -p=$CLUSTER_NAME -z=$ZONE -f
+            vcloud disks delete git-deployment/deployment/storage/default.disks.csv -i $IAAS --project $PROJECT -w $WORKSPACE -p=pd-$CLUSTER_NAME -z=$ZONE -f
     on_failure:
       do:
       - put: slack-alert
