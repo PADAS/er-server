@@ -236,7 +236,7 @@ resource_types:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((ss-infrastructure-container-registry-pull))
-    repository: gcr.io/ss-infrastructure/concourse/debuggable-docker-image-resource
+    repository: gcr.io/ss-infrastructure/concourse/docker-image-with-file-build-args-resource
   privileged: true
 
 - name: versioned-git-resource
