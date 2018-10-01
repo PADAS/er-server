@@ -1,4 +1,4 @@
 name: ""
 machine_type: n1-standard-1
 node_count: 3
-kubernetes_version: "1.9.7-gke.5"
+kubernetes_version: "1.10.6-gke.2" 
