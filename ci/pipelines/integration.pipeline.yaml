@@ -10,7 +10,7 @@ resources:
   source:
     driver: git
     uri: git@github.com:PADAS/das.git
-    branch: master
+    branch: ((server-branch-name))
     file: versions/((version-prefix)).version
     private_key: ((das-github))
     initial_version: ((initial-server-version))
@@ -20,7 +20,7 @@ resources:
   source:
     driver: git
     uri: git@github.com:PADAS/das.git
-    branch: master
+    branch: ((server-branch-name))
     file: versions/((version-prefix)).base.version
     private_key: ((das-github))
     initial_version: ((initial-server-version))
@@ -30,7 +30,7 @@ resources:
   source:
     driver: git
     uri: git@github.com:PADAS/das.git
-    branch: master
+    branch: ((server-branch-name))
     file: versions/((version-prefix)).app.version
     private_key: ((das-github))
     initial_version: ((initial-server-version))
@@ -82,7 +82,7 @@ resources:
   source:
     driver: git
     uri: git@github.com:PADAS/das-web.git
-    branch: master
+    branch: ((web-branch-name))
     file: versions/((version-prefix)).version
     private_key: ((das-web-github))
     initial_version: ((initial-web-version))
@@ -101,7 +101,7 @@ resources:
   source:
     driver: git
     uri: git@github.com:PADAS/das-smartconnect-provider.git
-    branch: master
+    branch: ((smartconnect-provider-branch-name))
     file: versions/((version-prefix)).version
     private_key: ((das-smartconnect-provider-github))
     initial_version: ((initial-smartconnect-version))
@@ -486,8 +486,6 @@ jobs:
       passed: [test-web-unit]
       params: {skip_download: true}
     - get: web-version
-      params:
-        pre: ((version-prefix))
   - put: image-web-app
     params: {
       build: git-web,
@@ -507,7 +505,6 @@ jobs:
           text: |
             :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
-
 
 - name: docker-build-smartconnect-provider
   plan:
