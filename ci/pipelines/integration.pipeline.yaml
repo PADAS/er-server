@@ -308,7 +308,7 @@ jobs:
     params:
       build: git-server
       dockerfile: git-server/docker/App/Dockerfile
-      tag: server-version/version
+      tag: server-app-version/version
       build_args:
         from_file:
           base_tag: server-base-version/version
