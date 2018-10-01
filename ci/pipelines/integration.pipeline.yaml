@@ -13,7 +13,7 @@ resources:
     branch: master
     file: ((version-prefix)).server.version
     private_key: ((das-versions-github))
-    initial_version: ((initial-version))
+    initial_version: ((initial-server-version))
 
 - name: git-server-base
   type: versioned-git-resource
@@ -67,7 +67,7 @@ resources:
     branch: master
     file: ((version-prefix)).web.version
     private_key: ((das-versions-github))
-    initial_version: ((initial-version))
+    initial_version: ((initial-web-version))
 
 - name: git-smartconnect-provider
   type: versioned-git-resource
@@ -84,7 +84,7 @@ resources:
     branch: master
     file: ((version-prefix)).smartconnect.version
     private_key: ((das-versions-github))
-    initial_version: ((initial-version))
+    initial_version: ((initial-smartconnect-version))
 
 #base docker resources
 - name: image-server-base

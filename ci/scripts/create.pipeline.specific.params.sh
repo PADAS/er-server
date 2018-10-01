@@ -27,6 +27,19 @@ echo "cluster-name: $PIPELINE_NAME" >> $PIPELINE_PARAMS_FILE
 read -p "Please enter a semantic version prefix, eg/ 'dev', 'rc', 'feature-x' (blank defaults to 'default'): " VERSION_PREFIX
 echo "version-prefix: ${VERSION_PREFIX:-default}" >> $PIPELINE_PARAMS_FILE
 
+function prompt_for_initial_version()
+{
+    local COMPONENT_NAME=$1
+    local CONCOURSE_VARIABLE=$2
+
+    read -p "Please enter an initial semantic version (major.minor.patch) for the $COMPONENT_NAME component (blank defaults to 0.0.0): " COMPONENT_VERSION
+    echo "$CONCOURSE_VARIABLE: ${COMPONENT_VERSION:-0.0.0}" >> $PIPELINE_PARAMS_FILE
+}
+
+prompt_for_initial_version server initial-server-version
+prompt_for_initial_version web initial-web-version
+prompt_for_initial_version smartconnect initial-smartconnect-version
+
 function prompt_for_branch()
 {
     local REPO_NAME=$1

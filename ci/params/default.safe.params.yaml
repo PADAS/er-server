@@ -29,7 +29,9 @@ web-branch-name: develop
 tag-as-latest: false
 smartconnect-provider-branch-name: develop
 version-prefix: "not-set"
-initial-version: "0.0.0"
+initial-server-version: "0.0.0"
+initial-web-version: "0.0.0"
+initial-smartconnect-version: "0.0.0"
 
 #Application
 email-host: ""
