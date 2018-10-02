@@ -530,7 +530,8 @@ class SourceAdmin(admin.ModelAdmin):
     form = observations.forms.SourceForm
     fieldsets = (
         (None, {
-            'fields': ('manufacturer_id', 'source_type', 'model_name', 'provider',)
+            'fields': ('manufacturer_id', 'source_type', 'model_name',
+                       'provider', 'collar_key')
         }
         ),
         ('Source Attributes', {
@@ -672,7 +673,8 @@ class SubjectGroupChangeForm(forms.ModelForm):
 
     class Meta:
         model = models.SubjectGroup
-        fields = ('name', 'id', 'subjects', 'children', 'permission_sets')
+        fields = ('name', 'id', 'is_visible', 'subjects', 'children',
+                  'permission_sets')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -686,7 +688,7 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
     search_fields = ('name',)
     ordering = ('name',)
     fieldsets = (
-        (None, {'fields': ('name', 'id')}),
+        (None, {'fields': ('name', 'id', 'is_visible')}),
         (_('Members'), {'fields': ('subjects', 'children',)}),
         (_('Permissions'), {'fields': ('permission_sets',)}),
 
