@@ -434,6 +434,9 @@ jobs:
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
+  - put: web-version
+    params:
+      file: web-version/version
     on_failure:
       do:
       - put: slack-alert
@@ -486,8 +489,6 @@ jobs:
       passed: [test-web-unit]
       params: {skip_download: true}
     - get: web-version
-      params:
-        pre: ((version-prefix))
   - put: image-web-app
     params: {
       build: git-web,
@@ -496,9 +497,6 @@ jobs:
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
-  - put: web-version
-    params:
-      file: web-version/version
     on_failure:
       do:
       - put: slack-alert
