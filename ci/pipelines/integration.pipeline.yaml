@@ -471,6 +471,10 @@ jobs:
           - name: git-deployment
           params: {
             PROJECT: padas-app,
+            CLUSTER_NAME: ((cluster-name)),
+            IAAS: ((iaas)),
+            ZONE: ((iaas-zone)),
+            WORKSPACE: ((iaas-workspace)),
             SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
             USERNAME: ((creator)),
             ELASTIC_URL: ((elastic-url)),
@@ -508,6 +512,10 @@ jobs:
           - name: git-deployment
           params: {
             PROJECT: padas-app,
+            CLUSTER_NAME: ((cluster-name)),
+            IAAS: ((iaas)),
+            ZONE: ((iaas-zone)),
+            WORKSPACE: ((iaas-workspace)),
             SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
             USERNAME: ((creator)),
             VAULT_TOKEN: ((vault-automation-token)),
@@ -576,6 +584,10 @@ jobs:
           - name: git-deployment
           params: {
             PROJECT: padas-app,
+            CLUSTER_NAME: ((cluster-name)),
+            IAAS: ((iaas)),
+            ZONE: ((iaas-zone)),
+            WORKSPACE: ((iaas-workspace)),
             SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
             USERNAME: ((creator)),
             VAULT_TOKEN: ((vault-automation-token)),
@@ -625,17 +637,21 @@ jobs:
         inputs:
         - name: git-deployment
         params: {
-          PROJECT: ss-infrastructure,
+          PROJECT: padas-app,
           CLUSTER_NAME: ((cluster-name)),
           IAAS: ((iaas)),
           ZONE: ((iaas-zone)),
           WORKSPACE: ((iaas-workspace)),
-          SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
           USERNAME: ((creator)),
           VAULT_TOKEN: ((vault-automation-token)),
           VAULT_ADDR: ((vault-address)),
           ELASTIC_URL: ((elastic-url)),
-          VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
           LOGSTASH_URL: ((logstash-url))
         }
         run:
@@ -657,17 +673,21 @@ jobs:
         inputs:
         - name: git-deployment
         params: {
-          PROJECT: ss-infrastructure,
+          PROJECT: padas-app,
           CLUSTER_NAME: ((cluster-name)),
           IAAS: ((iaas)),
           ZONE: ((iaas-zone)),
           WORKSPACE: ((iaas-workspace)),
-          SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
           USERNAME: ((creator)),
           VAULT_TOKEN: ((vault-automation-token)),
           VAULT_ADDR: ((vault-address)),
           ELASTIC_URL: ((elastic-url)),
-          VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
           LOGSTASH_URL: ((logstash-url))
         }
         run:
