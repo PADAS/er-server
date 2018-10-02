@@ -40,7 +40,6 @@ function set_initial_version_from_develop()
     local DEV_VERSION=$(cat "$TEMP_DIR"/dev.${COMPONENT_NAME}.version)
 
     echo "$CONCOURSE_VARIABLE: ${DEV_VERSION:-0.0.0}" >> $PIPELINE_PARAMS_FILE
-    cat "$PIPELINE_PARAMS_FILE"
 
     rm -r "$TEMP_DIR"
 }
