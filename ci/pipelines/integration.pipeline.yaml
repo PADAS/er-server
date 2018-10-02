@@ -610,6 +610,8 @@ jobs:
 - name: destroy_environment
   serial: true
   plan:
+  - aggregate:
+    - get: git-deployment
   - do:
     - task: delete_cluster
       config:
@@ -628,7 +630,7 @@ jobs:
           IAAS: ((iaas)),
           ZONE: ((iaas-zone)),
           WORKSPACE: ((iaas-workspace)),
-          SERVICE_ACCOUNT_KEY: ((ss-infrastructure-boshprovisioner)),
+          SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
           USERNAME: ((creator)),
           VAULT_TOKEN: ((vault-automation-token)),
           VAULT_ADDR: ((vault-address)),
@@ -660,7 +662,7 @@ jobs:
           IAAS: ((iaas)),
           ZONE: ((iaas-zone)),
           WORKSPACE: ((iaas-workspace)),
-          SERVICE_ACCOUNT_KEY: ((ss-infrastructure-boshprovisioner)),
+          SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
           USERNAME: ((creator)),
           VAULT_TOKEN: ((vault-automation-token)),
           VAULT_ADDR: ((vault-address)),
