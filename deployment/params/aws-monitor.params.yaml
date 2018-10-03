@@ -9,7 +9,6 @@ static-values:
   monitoring-version: latest
 environment:
   static-ip: STATIC_IP
-  nginx-utility-service-ip: 35.233.255.38
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
