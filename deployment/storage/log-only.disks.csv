@@ -1,0 +1,5 @@
+elasticsearch-data-0,100
+elasticsearch-data-1,100
+elasticsearch-data-2,100
+prometheus-0,30
+alertmanager-0,20

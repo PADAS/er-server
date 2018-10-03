@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash
+data:
+  pipelines.yml: |-
+    - pipeline.id: "k8s-pods"
+      path.config: "/usr/share/logstash/pipelines/k8s-pods-log-pipeline.yml"
+    - pipeline.id: "holodome-unit"
+      path.config: "/usr/share/logstash/pipelines/holodome-unit-log-pipeline.yml"
+  k8s-pods-log-pipeline.yml: |-
+    input {
+      beats {
+        port => 5044
+      }
+    }
+    output {
+      elasticsearch {
+        hosts => "elasticsearch:9200"
+        index => "k8s-pods-%{+YYYY.MM.dd}"
+        sniffing => false
+      }
+    }
+  holodome-unit-log-pipeline.yml: |-
+    input {
+      beats {
+        port => 5045
+        ssl => true
+        ssl_certificate_authorities => ["/usr/share/logstash/pipelines/ca.pem"]
+        ssl_certificate => "/usr/share/logstash/pipelines/ssl.pem"
+        ssl_key => "/usr/share/logstash/pipelines/ssl.key"
+        ssl_verify_mode => "force_peer"
+      }
+    }
+    filter {
+        if [fields][application] == "tech-pc" {
+          grok {
+            match => { "log" => "\A%{LOGLEVEL:log_level}\|%{TIMESTAMP_ISO8601:ts}\|%{GREEDYDATA:log}" }
+            overwrite => [ "log" ]
+          }
+          date {
+            match => [ "ts", "ISO8601", "yyyy-MM-dd HH:mm:ss,SSS" ]
+          }
+          mutate {
+            remove_field => [ "source", "docker" ]
+          }
+        }
+        else if [fields][application] == "mediaplayer" or [fields][application] == "mediaplayer-service"
+        {
+          grok {
+            match => { "message" => ["%{TIMESTAMP_ISO8601:timestamp_string}%{GREEDYDATA:tempMessage}"] }
+          }
+          date {
+            match => [ "timestamp_string", "yyyy-MM-dd HH:mm:ss,SSS" ]
+            target => "machine_time"
+            timezone => "US/Pacific"
+          }
+          mutate {
+              remove_field => [ "tempMessage" ]
+              remove_field => [ "timestamp_string" ]
+          }
+        }
+    }
+    output {
+      elasticsearch {
+        hosts => "elasticsearch:9200"
+        index => "holodome-unit-%{+YYYY.MM.dd}"
+        sniffing => false
+      }
+    }
+  ssl.pem: <<logstash-ssl-certificate>>
+  ssl.key: <<logstash-ssl-key>>
+  ca.pem: <<ca-certificate>>
