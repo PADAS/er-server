@@ -632,17 +632,24 @@ class SpatialFile(TimestampedModel):
                     self.feature_type.name, layer=self.layer_number,
                     name_field=self.name_field, id_field=self.id_field
                 )
+            else:
+                raise ValidationError(f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')
         except Exception as err:
             logger.error(err)
             raise ValidationError(err)
 
     @staticmethod
-    def cleanup_files(uploaded_file_path):
+    def cleanup_files(uploaded_file_directory, uploaded_file_path):
         """
         Remove files/directories from the temporary folder.
         """
         import shutil
-        shutil.rmtree(uploaded_file_path)
+        try:
+            if os.path.exists(uploaded_file_path):
+                os.remove(uploaded_file_path)
+            shutil.rmtree(uploaded_file_directory)
+        except PermissionError:
+            logger.exception(f'Cleaning up spatial files after import: {uploaded_file_directory}')
 
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
@@ -654,9 +661,7 @@ class SpatialFile(TimestampedModel):
         """
         self.save()
         uploaded_file_path = self.data.path
-        uploaded_file_directory = '/'.join(
-            uploaded_file_path.split('/')[:-1])
-        logger.info('User uploaded file path:   {}'.format(uploaded_file_path))
+        uploaded_file_directory = os.path.dirname(uploaded_file_path)
         try:
             self.import_spatial_file(uploaded_file_path,
                                      uploaded_file_directory)
@@ -667,7 +672,7 @@ class SpatialFile(TimestampedModel):
                 'Please verify the spatial file.'.format(err)
             )
         finally:
-            self.cleanup_files(uploaded_file_directory)
+            self.cleanup_files(uploaded_file_directory, uploaded_file_path)
             self.data.name = ''
 
     def __str__(self):
