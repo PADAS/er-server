@@ -76,6 +76,8 @@ class VectronicsPlugin(TrackingPlugin):
         try:
             after_date = (parse(self.cursor_data['latest_timestamp']) -
                           timedelta(hours=12))
+            if not after_date.tzinfo:
+                after_date = after_date.replace(tzinfo=pytz.UTC)
         except Exception as e:
             after_date = datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
 
