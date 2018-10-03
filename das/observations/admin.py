@@ -345,7 +345,8 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         ),
         ('Subject Attributes', {
             'classes': ('wide',),
-            'fields': (('rgb', 'sex', 'country', 'region',))
+            'fields': (('rgb', 'sex', 'birthdate', 'other_id',
+                        'region', 'country',))
         }
         ),
         ('Advanced Subject Attributes', {
