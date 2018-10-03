@@ -20,6 +20,7 @@ class VectronicsPluginTest(TestCase):
             "FB0C2A3069207F4BFBF6CFEBC152F072D27B3CE88F844ED0197A56AF5114D"\
             "E7B3BA544DB880850507FEB046684"
         additional_data = {"collar_key": collar_key}
+        cursor_data = {'latest_timestamp': '2018-01-01'}
 
         self.source_provider = SourceProvider.objects.create(
             provider_key='vectronics', display_name='Vectronics Provider')
@@ -34,11 +35,11 @@ class VectronicsPluginTest(TestCase):
             app_label='tracking', model='vectronicsplugin')
         self.source_plugin = SourcePlugin.objects.create(
             plugin_type=plugin_type, plugin_id=vectronic_plugin.id,
-            source=self.source)
+            source=self.source, cursor_data=cursor_data)
 
-        subject_type = SubjectType.objects.create(value='Elephant')
+        subject_type, created = SubjectType.objects.get_or_create(value='wildlife')
         subject_subtype, created = SubjectSubType.objects.get_or_create(
-            value='elephant', subject_type=subject_type)
+            value='elephant', defaults=dict(subject_type=subject_type))
         self.henry = Subject.objects.create(
             name='Henry', subject_subtype=subject_subtype)
         SubjectSource.objects.create(source=self.source, subject=self.henry)
