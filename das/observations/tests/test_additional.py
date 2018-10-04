@@ -1,25 +1,35 @@
 import uuid
 
+from django.test import TestCase
+
 from observations.models import Subject, SubjectType, SubjectSubType
 from observations.forms import SubjectFormWithAttributes
-from core.tests import BaseAPITest
+from choices.models import Choice
 
 
-class SubjectAdditionalTest(BaseAPITest):
+class SubjectAdditionalTest(TestCase):
 
     def setUp(self):
         wildlife_subject_type, created = SubjectType.objects.get_or_create(
             value='wildlife', display='wildlife'
         )
-        self.subject_subtype, created = SubjectSubType.objects.get_or_create(
+        subject_subtype, created = SubjectSubType.objects.get_or_create(
             value='cheetah', display='cheetah',
             subject_type=wildlife_subject_type
+        )
+        region, created = Choice.objects.get_or_create(
+            model='observations.region', field='region',
+            value='Lewa', display='Lewa'
+        )
+        country, created = Choice.objects.get_or_create(
+            model='observations.region', field='country',
+            value='DRC', display='DRC'
         )
 
     def test_subject_creation(self):
         additional_data = {
             'rgb': '203, 223, 54', 'sex': 'male',
-            'region': 'Lewa', 'country': 'DRC',
+            'region': ['Lewa'], 'country': ['DRC'],
             'birthdate': '27/07/2018', 'other_id': 'Cat526'
         }
         form_data = {
@@ -30,6 +40,13 @@ class SubjectAdditionalTest(BaseAPITest):
         form = SubjectFormWithAttributes(data=form_data)
         self.assertTrue(form.is_valid())
         form.save()
+
+        # Create tm_animal_id and pop birthdate & other_id from additional_data
+        additional_data['tm_animal_id'] = '{0}%{1}'.format(
+            additional_data['birthdate'], additional_data['other_id'])
+        additional_data.pop('birthdate')
+        additional_data.pop('other_id')
+
         subject, created = Subject.objects.get_or_create(name='Henry')
         self.assertTrue(all(item in subject.additional.items()
                             for item in additional_data.items()))
