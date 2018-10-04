@@ -102,10 +102,14 @@ class SubjectForm(forms.ModelForm):
 
 class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
     '''
-    This provides extra form fields for the attributes we expect to have stored in Subject.additional.
+    This provides extra form fields for the attributes we expect to have stored
+     in Subject.additional.
     '''
-    rgb = forms.CharField(required=False, widget=ColorPickerWidget(), label='Color',
-                          help_text=_('This is a color value in r,g,b format (ex. "100, 150, 102") for displaying the subject\'s tracks.'))
+    rgb = forms.CharField(required=False, widget=ColorPickerWidget(),
+                          label='Color',
+                          help_text=_('This is a color value in r,g,b format'
+                                      ' (ex. "100, 150, 102") for displaying '
+                                      'the subject\'s tracks.'))
     sex = forms.ChoiceField(required=False, choices=(
         ('male', _('Male')),
         ('female', _('Female'))
@@ -145,7 +149,6 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
             tm_animal_id = self.instance.additional['tm_animal_id']
             self.fields['birthdate'].initial, self.fields[
                 'other_id'].initial = tm_animal_id.split('%')
-            print(dir(self.fields['other_id']))
         self.fields['region'].choices = self.fetch_region_choices()
         self.fields['country'].choices = self.fetch_country_choices()
 

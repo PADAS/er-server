@@ -2,9 +2,9 @@ import uuid
 
 from django.test import TestCase
 
-from observations.models import Subject, SubjectType, SubjectSubType
-from observations.forms import SubjectFormWithAttributes
 from choices.models import Choice
+from observations.forms import SubjectFormWithAttributes
+from observations.models import Subject, SubjectType, SubjectSubType
 
 
 class SubjectAdditionalTest(TestCase):
