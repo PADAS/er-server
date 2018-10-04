@@ -493,7 +493,7 @@ jobs:
             - vcloud
             - disks
             - create
-            - git-deployment/deployment/storage/default.disks.csv
+            - git-deployment/((disks-spec))
             - --prefix=((cluster-name))
             - --zone=((iaas-zone))
             - --iaas=((iaas))
@@ -704,8 +704,8 @@ jobs:
           - -exc
           - |
             echo "Deleting Disks. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
-            vcloud disks delete git-deployment/deployment/storage/default.disks.csv -i $IAAS --project $PROJECT -w $WORKSPACE -p=$CLUSTER_NAME -z=$ZONE -f
-            vcloud disks delete git-deployment/deployment/storage/default.disks.csv -i $IAAS --project $PROJECT -w $WORKSPACE -p=pd-$CLUSTER_NAME -z=$ZONE -f
+            vcloud disks delete git-deployment/((disks-spec)) -i $IAAS --project $PROJECT -w $WORKSPACE -p=$CLUSTER_NAME -z=$ZONE -f
+            vcloud disks delete git-deployment/((disks-spec)) -i $IAAS --project $PROJECT -w $WORKSPACE -p=pd-$CLUSTER_NAME -z=$ZONE -f
     on_failure:
       do:
       - put: slack-alert

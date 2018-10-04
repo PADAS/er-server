@@ -3,3 +3,4 @@ paths:
 - statefulsets
 - deployments
 - services
+- infra/monitoring

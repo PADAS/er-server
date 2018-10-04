@@ -1,0 +1,6 @@
+project-id: padas-app
+cluster-name: log-only
+server-branch-name: develop
+static-ip: 
+deploy-params-environment: integration
+deploy-recipe: log-only.yaml

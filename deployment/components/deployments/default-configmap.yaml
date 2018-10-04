@@ -11,7 +11,7 @@ data:
   EMAIL_PASSWORD: <<email-password>>
   WEB_SERVICE_NAME: <<web-service-name>>
   BUNDLE_CRT: "<<bundle-crt>>"
-  PAMDAS_ORG_PRIVATE_KEY_PEM: "<<pamdas-org-private-key-pem>>"
+  PAMDAS_ORG_PRIVATE_KEY_PEM: "<<pamdas-org-ssl-key>>"
   ALERT_MANAGER_STATIC_IP: "<<nginx-utility-service-ip>>"
   PROMETHEUS_URL: http://prometheus:9090
   ALERTMANAGER_URL: http://alertmanager:9093

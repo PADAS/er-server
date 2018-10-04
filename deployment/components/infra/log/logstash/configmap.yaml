@@ -25,11 +25,6 @@ data:
     input {
       beats {
         port => 5045
-        ssl => true
-        ssl_certificate_authorities => ["/usr/share/logstash/pipelines/ca.pem"]
-        ssl_certificate => "/usr/share/logstash/pipelines/ssl.pem"
-        ssl_key => "/usr/share/logstash/pipelines/ssl.key"
-        ssl_verify_mode => "force_peer"
       }
     }
     filter {
@@ -68,6 +63,3 @@ data:
         sniffing => false
       }
     }
-  ssl.pem: <<logstash-ssl-certificate>>
-  ssl.key: <<logstash-ssl-key>>
-  ca.pem: <<ca-certificate>>

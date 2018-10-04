@@ -52,7 +52,7 @@ jobs:
             - vcloud
             - disks
             - create
-            - git-deployment/deployment/storage/default.disks.csv
+            - git-deployment/((disks-spec))
             - --prefix=((cluster-name))
             - --zone=((iaas-zone))
             - --iaas=((iaas))
