@@ -32,7 +32,7 @@ class TestSubjectSourceReport(TestCase):
 
     def setUp(self):
         super().setUp()
-        # call_command('loaddata', 'initial_eventdata')
+        call_command('loaddata', 'initial_groups')
 
         # Setup Users
 
