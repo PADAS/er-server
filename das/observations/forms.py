@@ -145,10 +145,15 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
 
     def __init__(self, *args, **kwargs):
         super(SubjectFormWithAttributes, self).__init__(*args, **kwargs)
+
+        # Split tm_animal_id from additional json field by separator as'%',
+        #  to put value in birthdate and other_id form fields
         if 'tm_animal_id' in self.instance.additional.keys():
             tm_animal_id = self.instance.additional['tm_animal_id']
             self.fields['birthdate'].initial, self.fields[
                 'other_id'].initial = tm_animal_id.split('%')
+
+        # Get country and region choices from static methods
         self.fields['region'].choices = self.fetch_region_choices()
         self.fields['country'].choices = self.fetch_country_choices()
 
@@ -158,6 +163,7 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
     json_field = 'additional'
 
     def save(self, *args, **kwargs):
+        # Concatenate birthdate and other_id field's value with separator as '%'
         if self.cleaned_data['birthdate'] or self.cleaned_data['other_id']:
             tm_animal_id = '{0}%{1}'.format(self.cleaned_data['birthdate'],
                                             self.cleaned_data['other_id'])
