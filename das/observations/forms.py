@@ -92,6 +92,7 @@ class SubjectForm(forms.ModelForm):
 
     class Meta:
         fields = '__all__'
+        model = Subject
 
     def _save_m2m(self):
         groups = self.cleaned_data['groups']
@@ -150,8 +151,6 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
 
     class Meta(SubjectForm.Meta):
         json_fields = ('rgb', 'sex', 'region', 'country')
-        fields = ('name', 'subject_subtype',
-                  'common_name', 'groups', json_fields)
 
     json_field = 'additional'
 
