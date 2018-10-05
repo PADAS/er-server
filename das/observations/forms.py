@@ -7,6 +7,7 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 
 from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
+from choices.models import Choice
 
 import logging
 logger = logging.getLogger(__name__)
@@ -91,6 +92,7 @@ class SubjectForm(forms.ModelForm):
 
     class Meta:
         fields = '__all__'
+        model = Subject
 
     def _save_m2m(self):
         groups = self.cleaned_data['groups']
@@ -100,25 +102,82 @@ class SubjectForm(forms.ModelForm):
 
 class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
     '''
-    This provides extra form fields for the attributes we expect to have stored in Subject.additional.
+    This provides extra form fields for the attributes we expect to have stored
+     in Subject.additional.
     '''
-    rgb = forms.CharField(required=False, widget=ColorPickerWidget(), label='Color',
-                          help_text=_('This is a color value in r,g,b format (ex. "100, 150, 102") for displaying the subject\'s tracks.'))
+    rgb = forms.CharField(required=False, widget=ColorPickerWidget(),
+                          label='Color',
+                          help_text=_('This is a color value in r,g,b format'
+                                      ' (ex. "100, 150, 102") for displaying '
+                                      'the subject\'s tracks.'))
     sex = forms.ChoiceField(required=False, choices=(
         ('male', _('Male')),
         ('female', _('Female'))
     ))
-    region = forms.CharField(
-        required=False, help_text='This is the region that will be shown in the DAS Mobile App.')
-    country = forms.CharField(
-        required=False, help_text='This is the country that will be shown in the DAS Mobile App.')
+    region = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
+        verbose_name='Region Choices', is_stacked=False), required=False,
+        help_text='This is the region that will be shown in the DAS Mobile'
+                  ' App.')
+    country = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
+        verbose_name='Country Choices', is_stacked=False), required=False,
+        help_text='This is the country that will be shown in the DAS Mobile '
+                  'App.')
+    birthdate = forms.CharField(required=False, label='Birth Date')
+    other_id = forms.CharField(required=False, label='Other id')
+
+    @staticmethod
+    def fetch_region_choices():
+        region_choices = {}
+        for region in Choice.objects.filter(
+                model='observations.region',
+                field='region').order_by('ordernum'):
+            region_choices[region.value] = region.display
+        return tuple([(key, value) for key, value in region_choices.items()])
+
+    @staticmethod
+    def fetch_country_choices():
+        country_choices = {}
+        for country in Choice.objects.filter(
+                model='observations.region',
+                field='country').order_by('ordernum'):
+            country_choices[country.value] = country.display
+        return tuple([(key, value) for key, value in country_choices.items()])
+
+    def __init__(self, *args, **kwargs):
+        super(SubjectFormWithAttributes, self).__init__(*args, **kwargs)
+
+        # Split tm_animal_id from additional json field by separator as'%',
+        #  to put value in birthdate and other_id form fields
+        if 'tm_animal_id' in self.instance.additional.keys():
+            tm_animal_id = self.instance.additional['tm_animal_id']
+            self.fields['birthdate'].initial, self.fields[
+                'other_id'].initial = tm_animal_id.split('%')
+
+        # Get country and region choices from static methods
+        self.fields['region'].choices = self.fetch_region_choices()
+        self.fields['country'].choices = self.fetch_country_choices()
 
     class Meta(SubjectForm.Meta):
         json_fields = ('rgb', 'sex', 'region', 'country')
-        fields = ('name', 'subject_subtype',
-                  'common_name', 'groups', json_fields)
 
     json_field = 'additional'
+
+    def save(self, *args, **kwargs):
+        # Concatenate birthdate and other_id field's value with separator as '%'
+        if self.cleaned_data['birthdate'] or self.cleaned_data['other_id']:
+            tm_animal_id = '{0}%{1}'.format(self.cleaned_data['birthdate'],
+                                            self.cleaned_data['other_id'])
+        else:
+            tm_animal_id = None
+        commit = kwargs.pop('commit', True)
+        instance = super(SubjectFormWithAttributes, self).save(*args,
+                                                               commit=False,
+                                                               **kwargs)
+        if tm_animal_id:
+            instance.additional['tm_animal_id'] = tm_animal_id
+        if commit:
+            instance.save()
+        return instance
 
 
 class SubjectChangeListForm(forms.ModelForm):
