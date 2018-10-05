@@ -5,15 +5,11 @@ metadata:
   labels:
     app: logstash
 spec:
+  type: NodePort
   selector:
     app: logstash
   ports:
-  - name: k8s-pods
+  - name: das
     port: 5044
     targetPort: 5044
     protocol: TCP
-  - name: holodome-units
-    port: 5045
-    targetPort: 5045
-    protocol: TCP
-

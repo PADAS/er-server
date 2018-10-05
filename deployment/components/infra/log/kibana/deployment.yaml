@@ -21,9 +21,9 @@ spec:
         - name: ELASTICSEARCH_URL
           value: http://elasticsearch:9200
         - name: INDEX_PATTERNS
-          value: "holodome-unit:holodome-unit*,k8s-pods:k8s-pods*"
+          value: "das:das*"
         - name: DEFAULT_INDEX_PATTERN
-          value: holodome-unit
+          value: das 
         resources:
           requests:
             cpu: 50m

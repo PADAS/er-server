@@ -7,7 +7,7 @@ metadata:
     app: elasticsearch
     role: client
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: elasticsearch-client
     role: client

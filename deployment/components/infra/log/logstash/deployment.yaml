@@ -12,7 +12,7 @@ spec:
       - image: docker.elastic.co/logstash/logstash:6.3.1
         name: logstash
         ports:
-        - name: k8s-pods
+        - name: das
           containerPort: 5044
           protocol: TCP
         volumeMounts:
