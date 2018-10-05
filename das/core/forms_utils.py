@@ -1,6 +1,7 @@
 from django.conf import settings
 from datetime import datetime, timedelta
 import pytz
+from dateutil.parser import parse
 
 from django.utils.safestring import mark_safe
 from django.forms.fields import MultiValueField, DateTimeField
@@ -54,12 +55,19 @@ class JSONFieldFormMixin(object):
             json_data = self.get_json()
             for field in self.Meta.json_fields:
                 if json_data.get(field):
-                    self.fields[field].initial = json_data.get(field)
+                    try:
+                        self.fields[field].initial = parse(json_data.get(field))
+                    except Exception as e:
+                        self.fields[field].initial = json_data.get(field)
 
     def save(self, *args, **kwargs):
         json_data = self.get_json()
         for field in self.Meta.json_fields:
             json_data[field] = self.cleaned_data[field]
+            if isinstance(self.cleaned_data[field], datetime):
+                utc_date = self.cleaned_data[field].astimezone(
+                    pytz.timezone('UTC'))
+                json_data[field] = utc_date.isoformat()
         setattr(self.instance, self.json_field, json_data)
         return super(JSONFieldFormMixin, self).save(*args, **kwargs)
 
