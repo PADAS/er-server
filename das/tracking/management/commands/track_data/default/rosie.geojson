@@ -3,7 +3,77 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {},
+      "properties": [
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "offline"
+        }
+      ],
       "geometry": {
         "type": "LineString",
         "coordinates": [
