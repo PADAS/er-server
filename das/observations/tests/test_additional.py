@@ -11,11 +11,11 @@ class SubjectAdditionalTest(TestCase):
 
     def setUp(self):
         wildlife_subject_type, created = SubjectType.objects.get_or_create(
-            value='wildlife', display='wildlife'
+            value='wildlife', defaults=dict(display='wildlife')
         )
         subject_subtype, created = SubjectSubType.objects.get_or_create(
-            value='cheetah', display='cheetah',
-            subject_type=wildlife_subject_type
+            value='cheetah', defaults=dict(display='cheetah',
+            subject_type=wildlife_subject_type)
         )
         region, created = Choice.objects.get_or_create(
             model='observations.region', field='region',
