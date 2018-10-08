@@ -536,7 +536,12 @@ class SourceAdmin(admin.ModelAdmin):
         ),
         ('Source Attributes', {
             'classes': ('wide',),
-            'fields': ('collar_status', 'collar_model', 'has_acc_data', 'data_owners', 'adjusted_beacon_freq')
+            'fields': ('collar_status', 'collar_model', 'has_acc_data',
+                       'collar_manufacturer', 'data_owners',
+                       'adjusted_beacon_freq', 'primary_frequency',
+                       'adjusted_frequency',
+                       'backup_frequency', 'predicted_expiry'
+                       )
         }
         ),
         ('Advanced Source Attributes', {
