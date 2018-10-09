@@ -1,4 +1,5 @@
 project-id: padas-app
+version-prefix: dev
 cluster-name: integration
 server-branch-name: develop
 web-branch-name: develop

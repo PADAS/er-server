@@ -106,8 +106,9 @@ def calculate_track_range(user, since, until, limit):
 
     if mou_expiry_date is not None:
         now = pytz.utc.localize(datetime.utcnow())
-        mou_expiry_date = pytz.utc.localize(
-            dateutil.parser.parse(mou_expiry_date))
+        mou_expiry_date = dateutil.parser.parse(mou_expiry_date)
+        if not mou_expiry_date.tzinfo:
+            mou_expiry_date = pytz.utc.localize(mou_expiry_date)
         mou_expiry_age = now - mou_expiry_date
 
         newest_age = max(mou_expiry_age.days, newest_age)

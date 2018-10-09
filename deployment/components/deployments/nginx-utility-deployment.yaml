@@ -37,7 +37,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/nginx-utility:<<git-utility-version>>
+      - image: gcr.io/padas-app/nginx-utility:<<server-version>>
         name: nginx-utility
         resources:
           requests:

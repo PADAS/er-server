@@ -173,6 +173,9 @@ class DemoDriver():
 
     def drive(self, delay=0, profile='default'):
 
+        state_choices = ['online-gps'] * 25 + ['online'] * \
+            8 + ['offline'] * 2 + ['alarm'] * 1
+
         begin_time = pytz.utc.localize(
             datetime.utcnow()) - timedelta(hours=HISTORY_HOURS)
         self.delete_driven_events(begin_time)
@@ -188,15 +191,16 @@ class DemoDriver():
             tracks = load_track_geojson(profile, self.manufacturer_id)
             points = tracks['features'][0]['geometry']['coordinates']
             states = tracks['features'][0]['properties']
-            if not states:
-                states = [{'state': 'online', 'gps_fix': True} for _ in points]
+            # if not states:
+            #    states = [{'radio_state': 'online', 'gps_fix': True} for _ in points]
 
             plist = [varypoint(p) for p in points]
             for i, point in enumerate(plist):
 
                 t = pytz.utc.localize(datetime.utcnow()) - td
 
-                additional = states[i]
+                additional = {'radio_state': random.choice(state_choices),
+                              'radio_state_at': datetime.now(tz=pytz.utc).isoformat()}
 
                 if random.random() >= 0.9:
                     last_voice_call_start_at = pytz.utc.localize(
@@ -209,15 +213,17 @@ class DemoDriver():
                     additional['requested_location_at'] = pytz.utc.localize(
                         datetime.utcnow()).isoformat()
 
-                _ = Observation.objects.create(
+                newobservation = Observation(
                     source_id=self.source.id,
                     location=Point(point),
                     recorded_at=t,
-                    additional=states[i]
+                    additional=additional
                 )
-                transaction.on_commit(
-                    lambda: notify_new_tracks(self.source.id))
-                transaction.commit()
+                newobservation.save()
+                notify_new_tracks(self.source.id)
+#                transaction.on_commit(
+#                    lambda: notify_new_tracks(self.source.id))
+#                transaction.commit()
                 yield
 
     @staticmethod

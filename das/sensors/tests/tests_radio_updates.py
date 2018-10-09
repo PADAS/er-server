@@ -1,13 +1,10 @@
 import logging
-import base64
 from datetime import datetime, timedelta
+
 import pytz
 from django.contrib.auth.models import Permission
-from django.test.testcases import TestCase
 import django.contrib.auth
 
-from utils import json
-from accounts.models import PermissionSet
 from core.tests import BaseAPITest
 from sensors.views import SensorObservation
 from observations.views import SubjectTracksView

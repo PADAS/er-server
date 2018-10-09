@@ -1,16 +1,20 @@
+import random
+from datetime import datetime, timedelta
 
 from django.test import TestCase
 from django.contrib.auth.models import Permission
-from accounts.models import PermissionSet, User
-from observations.models import *
-from activity.models import *
-from datetime import datetime, timedelta
+from django.core.management import call_command
+from django.contrib.gis.geos import Point
+from django.contrib.auth import get_user_model
 import pytz
-import random
 
+from accounts.models import PermissionSet
+from observations.models import Observation, Subject, SourceProvider, Source, SubjectGroup, SubjectSource
 from reports.subjectsourcereport import generate_subject_records, generate_user_reports
-
 from reports.distribution import SOURCE_REPORT_PERMISSION_CODENAME, get_users_for_permission
+
+
+User = get_user_model()
 
 
 def generate_random_positions(source, x=37.5, y=0.56, time_length=timedelta(days=1), start_time=None,
@@ -22,7 +26,7 @@ def generate_random_positions(source, x=37.5, y=0.56, time_length=timedelta(days
     end_time = start_time + time_length
 
     while recorded_at <= end_time:
-        yield observations.models.Observation(source=source, recorded_at=recorded_at, location=Point(x, y), additional={})
+        yield Observation(source=source, recorded_at=recorded_at, location=Point(x, y), additional={})
         x += (random.random() - 0.5) / 10000
         y += (random.random() - 0.5) / 10000
         recorded_at += interval
@@ -32,7 +36,7 @@ class TestSubjectSourceReport(TestCase):
 
     def setUp(self):
         super().setUp()
-        # call_command('loaddata', 'initial_eventdata')
+        call_command('loaddata', 'initial_groups')
 
         # Setup Users
 

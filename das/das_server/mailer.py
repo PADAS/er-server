@@ -70,6 +70,18 @@ def build_deep_link_for_subject(event, subject, default_event_code='panic'):
     steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}&id={subject_id}
 
     """
+    last_lat = None
+    last_lon = None
+    try:
+        from observations.models import Observation
+        observation = Observation.objects.filter(
+            source__subjectsource__subject=subject).order_by(
+            '-recorded_at')[0]
+        last_lat = str(observation.location.x)
+        last_lon = str(observation.location.y)
+    except Exception as e:
+        logger.info(e)
+
     link_data = {
         'event': event_type_code_map.get(event.event_type.value, default_event_code),
         'name': subject.name,
@@ -79,6 +91,8 @@ def build_deep_link_for_subject(event, subject, default_event_code='panic'):
         'lon': str(event.location.x),
         'lat': str(event.location.y),
     }
+    if last_lat and last_lon:
+        link_data.update({'last_lat': last_lat, 'last_lon': last_lon})
 
     qs = '&'.join('='.join((k, urllib.parse.quote(v)))
                   for k, v in link_data.items())

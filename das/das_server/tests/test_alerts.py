@@ -236,7 +236,8 @@ class TestEventView(TestCase):
         target_body = alert_targets.standalone_event_create.format(
             serial=new_event.serial_number,
             title=new_event.title or 'No Title',
-            time=self.time_to_string(new_event.time)).strip()
+            time=self.time_to_string(new_event.time),
+            icon_id=new_event.icon_id).strip()
         target_subject = alert_targets.target_subject.format(
             serial=new_event.serial_number,
             title=new_event.title)
@@ -264,7 +265,8 @@ class TestEventView(TestCase):
         target_body = alert_targets.standalone_event_update.format(
             serial=self.standalone_event.serial_number,
             title=self.standalone_event.title or 'No Title',
-            time=self.time_to_string(self.standalone_event.time)).strip()
+            time=self.time_to_string(self.standalone_event.time),
+            icon_id=self.standalone_event.icon_id).strip()
         target_subject = alert_targets.target_subject.format(
             serial=self.standalone_event.serial_number,
             title=self.standalone_event.title)
@@ -300,9 +302,11 @@ class TestEventView(TestCase):
             parent_serial=parent.serial_number,
             parent_title=parent.title or 'No Title',
             parent_time=self.time_to_string(parent.time),
+            parent_icon_id=parent.icon_id,
             child_serial=child.serial_number,
             child_title=child.title or 'No Title',
-            child_time=self.time_to_string(child.time)).strip()
+            child_time=self.time_to_string(child.time),
+            child_icon_id = child.icon_id).strip()
         target_subject = alert_targets.target_subject.format(
             serial=parent.serial_number,
             title=parent.title)
@@ -329,9 +333,11 @@ class TestEventView(TestCase):
             parent_serial=self.parent_one.serial_number,
             parent_title=self.parent_one.title or 'No Title',
             parent_time=self.time_to_string(self.parent_one.time),
+            parent_icon_id=self.parent_one.icon_id,
             child_serial=self.child_one.serial_number,
             child_title=self.child_one.title or 'No Title',
-            child_time=self.time_to_string(self.child_one.time)).strip()
+            child_time=self.time_to_string(self.child_one.time),
+            child_icon_id=self.child_one.icon_id).strip()
         target_subject = alert_targets.target_subject.format(
             serial=self.parent_one.serial_number,
             title=self.parent_one.title)
@@ -360,9 +366,11 @@ class TestEventView(TestCase):
             parent_serial=self.parent_two.serial_number,
             parent_title=self.parent_two.title or 'No Title',
             parent_time=self.time_to_string(self.parent_two.time),
+            parent_icon_id=self.parent_two.icon_id,
             child_serial=self.child_two.serial_number,
             child_title=self.child_two.title or 'No Title',
-            child_time=self.time_to_string(self.child_two.time)).strip()
+            child_time=self.time_to_string(self.child_two.time),
+            child_icon_id=self.child_two.icon_id).strip()
         target_subject = alert_targets.target_subject.format(
             serial=self.parent_two.serial_number,
             title=self.parent_two.title)
@@ -397,7 +405,10 @@ class TestEventView(TestCase):
         target_body = alert_targets.multi_update_event.format(
             serial=self.new_event.serial_number,
             title=self.new_event.title or 'No Title',
-            time=self.time_to_string(self.new_event.time)).strip()
+            time=self.time_to_string(self.new_event.time),
+            icon_id=self.new_event.icon_id).strip()
+
+
         target_subject = alert_targets.target_subject.format(
             serial=self.new_event.serial_number,
             title=self.new_event.title)
@@ -430,7 +441,8 @@ class TestEventView(TestCase):
         target_body = alert_targets.separate_update_event_one.format(
             serial=self.new_event.serial_number,
             title=self.new_event.title or 'No Title',
-            time=self.time_to_string(self.new_event.time)).strip()
+            time=self.time_to_string(self.new_event.time),
+            icon_id=self.new_event.icon_id).strip()
         target_subject = alert_targets.target_subject.format(
             serial=self.new_event.serial_number,
             title=self.new_event.title)
@@ -452,7 +464,8 @@ class TestEventView(TestCase):
         target_body = alert_targets.separate_update_event_two.format(
             serial=self.new_event.serial_number,
             title=self.new_event.title or 'No Title',
-            time=self.time_to_string(self.new_event.time)).strip()
+            time=self.time_to_string(self.new_event.time),
+            icon_id=self.new_event.icon_id).strip()
         target_subject = alert_targets.target_subject.format(
             serial=self.new_event.serial_number,
             title=self.new_event.title)
@@ -481,7 +494,8 @@ class TestEventView(TestCase):
             title=self.new_event.title or 'No Title',
             time_deeplink_format=self.time_to_deeplink_string(
                 self.new_event.time),
-            time=self.time_to_string(self.new_event.time)).strip()
+            time=self.time_to_string(self.new_event.time),
+            icon_id=self.new_event.icon_id).strip()
         target_subject = alert_targets.target_subject.format(
             serial=self.new_event.serial_number,
             title=self.new_event.title)
@@ -518,10 +532,12 @@ class TestEventView(TestCase):
             parent_serial=parent.serial_number,
             parent_title=parent.title or 'No Title',
             parent_time=self.time_to_string(parent.time),
+            parent_icon_id=parent.icon_id,
             child_serial=child.serial_number,
             child_title=child.title or 'No Title',
             time_deeplink_format=self.time_to_deeplink_string(child.time),
-            child_time=self.time_to_string(child.time)).strip()
+            child_time=self.time_to_string(child.time),
+            child_icon_id = child.icon_id).strip()
         target_subject = alert_targets.target_subject.format(
             serial=parent.serial_number,
             title=parent.title)
