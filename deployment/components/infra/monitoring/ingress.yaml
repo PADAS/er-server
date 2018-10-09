@@ -1,0 +1,22 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: monitoring-ingress
+spec:
+  tls:
+    secretName: das-ssl
+  rules:
+  - http:
+      paths:
+      - path: /grafana
+        backend:
+          serviceName: grafana
+          servicePort: 3000
+      - path: /prometheus
+        backend:
+          serviceName: prometheus
+          servicePort: 9090
+      - path: /alertmanager
+        backend:
+          serviceName: alertmanager
+          servicePort: 9093

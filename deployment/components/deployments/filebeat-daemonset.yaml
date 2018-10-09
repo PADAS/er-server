@@ -8,48 +8,33 @@ metadata:
     kubernetes.io/cluster-service: "true"
 data:
   filebeat.yml: |-
-    filebeat.config:
+    filebeat:
       prospectors:
-        # Mounted `filebeat-prospectors` configmap:
-        path: ${path.config}/prospectors.d/*.yml
-        # Reload prospectors configs as they change:
-        reload.enabled: false
-      modules:
+      - type: docker
+        containers.ids:
+        - "*"
+        processors:
+          - add_kubernetes_metadata:
+              in_cluster: true
+        multiline:
+          pattern: '^\s'
+          match: after
+      config.modules:
         path: ${path.config}/modules.d/*.yml
         # Reload module configs as they change:
         reload.enabled: false
 
-    processors:
-      - add_cloud_metadata:
-
-    cloud.id: ""
-    cloud.auth: ""
+    logging.level: error
 
     output.elasticsearch:
       hosts: ['elasticsearch:9200']
-      username: ""
-      password: ""
+      ssl.certificate_authorities: ["/etc/filebeat/ca.pem"]
+      ssl.certificate: "/etc/filebeat/ssl.pem"
+      ssl.key: "/etc/filebeat/ssl.key"
 
-    logging.level: error
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: filebeat-prospectors
-  labels:
-    k8s-app: filebeat
-    kubernetes.io/cluster-service: "true"
-data:
-  kubernetes.yml: |-
-    - type: docker
-      containers.ids:
-      - "*"
-      processors:
-        - add_kubernetes_metadata:
-            in_cluster: true
-      multiline:
-        pattern: '^\s'
-        match: after
+  ssl.pem: <<pamdas-org-ssl-cert>>
+  ssl.key: <<pamdas-org-ssl-key>>
+  ca.pem: <<pamdas-org-ssl-ca>>
 ---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
@@ -70,37 +55,20 @@ spec:
       - name: filebeat
         image: docker.elastic.co/beats/filebeat:6.2.3
         args: [
-          "-c", "/etc/filebeat.yml",
+          "-c", "/etc/filebeat/filebeat.yml",
           "-e",
         ]
-        env:
-        - name: ELASTICSEARCH_HOST
-          value: elasticsearch
-        - name: ELASTICSEARCH_PORT
-          value: "9200"
-        - name: ELASTICSEARCH_USERNAME
-          value:
-        - name: ELASTICSEARCH_PASSWORD
-          value:
-        - name: ELASTIC_CLOUD_ID
-          value:
-        - name: ELASTIC_CLOUD_AUTH
-          value:
         securityContext:
           runAsUser: 0
         resources:
           limits:
-            cpu: 10m
+            memory: 200Mi
           requests:
-            cpu: 5m
-            memory: 150Mi
+            cpu: 50m
+            memory: 100Mi
         volumeMounts:
         - name: config
-          mountPath: /etc/filebeat.yml
-          readOnly: true
-          subPath: filebeat.yml
-        - name: prospectors
-          mountPath: /usr/share/filebeat/prospectors.d
+          mountPath: /etc/filebeat
           readOnly: true
         - name: data
           mountPath: /usr/share/filebeat/data
@@ -115,9 +83,5 @@ spec:
       - name: varlibdockercontainers
         hostPath:
           path: /var/lib/docker/containers
-      - name: prospectors
-        configMap:
-          defaultMode: 0600
-          name: filebeat-prospectors
       - name: data
         emptyDir: {}

@@ -8,8 +8,13 @@ data:
       path.config: "/usr/share/logstash/pipelines/das-log-pipeline.yml"
   das-log-pipeline.yml: |-
     input {
-      beats {
+      http {
         port => 5044
+        ssl => true
+        ssl_certificate_authorities => ["/usr/share/logstash/pipelines/ca.pem"]
+        ssl_certificate => "/usr/share/logstash/pipelines/ssl.pem"
+        ssl_key => "/usr/share/logstash/pipelines/ssl.key"
+        ssl_verify_mode => "forced_peer"
       }
     }
     output {
@@ -19,3 +24,6 @@ data:
         sniffing => false
       }
     }
+  ssl.pem: <<pamdas-org-ssl-cert>>
+  ssl.key: <<pamdas-org-ssl-key>>
+  ca.pem: <<pamdas-org-ssl-ca>>
