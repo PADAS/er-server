@@ -46,10 +46,7 @@ spec:
           name: project-specific-rules
         env:
         - name: ALERTMANAGER_URL
-          valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: ALERTMANAGER_URL
+          value: http://alertmanager:9093
         - name: ENVIRONMENT_NAME
           value: <<cluster-name>>
 

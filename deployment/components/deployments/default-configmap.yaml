@@ -12,9 +12,3 @@ data:
   WEB_SERVICE_NAME: <<web-service-name>>
   BUNDLE_CRT: "<<bundle-crt>>"
   PAMDAS_ORG_PRIVATE_KEY_PEM: "<<pamdas-org-ssl-key>>"
-  ALERT_MANAGER_STATIC_IP: "<<nginx-utility-service-ip>>"
-  PROMETHEUS_URL: http://prometheus:9090
-  ALERTMANAGER_URL: http://alertmanager:9093
-  ALERTS_SLACK_CHANNEL: "<<alerts-slack-channel>>"
-  ALERTS_SLACK_URL: "<<alerts-slack-url>>"
-  SEND_ALERTS: "<<send-alerts>>"

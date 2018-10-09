@@ -20,7 +20,4 @@ spec:
             cpu: "100m"
         env:
         - name: PROMETHEUS_URL
-          valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: PROMETHEUS_URL
+          value: http://prometheus:9090
