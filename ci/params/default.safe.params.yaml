@@ -33,6 +33,7 @@ version-prefix: "not-set"
 initial-server-version: "0.0.0"
 initial-web-version: "0.0.0"
 initial-smartconnect-version: "0.0.0"
+deployment-plan: integration
 
 #Application
 email-host: ""

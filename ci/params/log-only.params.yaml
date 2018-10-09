@@ -1,6 +1,7 @@
 project-id: padas-app
 cluster-name: log-only
-server-branch-name: develop
+server-branch-name: log-only
 static-ip: 
+deployment-plan: integration
 deploy-params-environment: integration
 deploy-recipe: log-only.yaml

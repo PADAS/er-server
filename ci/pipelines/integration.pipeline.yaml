@@ -710,7 +710,7 @@ jobs:
 
               find . -name "*.yaml\.*" -type f -delete
 
-              vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((cluster-name)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
+              vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
       on_failure:
         do:
         - put: slack-alert
