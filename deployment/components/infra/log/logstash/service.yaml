@@ -9,7 +9,5 @@ spec:
   selector:
     app: logstash
   ports:
-  - name: das
-    port: 5044
+  - port: 5044
     targetPort: 5044
-    protocol: TCP
