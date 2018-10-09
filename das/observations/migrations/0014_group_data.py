@@ -3,13 +3,29 @@
 from __future__ import unicode_literals
 
 from django.db import migrations
-from django.core.management import call_command
+
 
 import utils.models
 
+
 def populate_default_groups(apps, schema_editor):
     utils.models.migrate_permissions(apps)
-    call_command('loaddata', 'initial_groups')
+    SubjectGroup = apps.get_model('observations', 'SubjectGroup')
+    SubjectGroup.objects.bulk_create([
+        SubjectGroup(id='b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057',
+                     name='Subjects',
+                     created_at='2016-07-07T1:00:00.000000+00:00',
+                     updated_at='2016-07-07T1:00:00.000000+00:00')
+    ])
+
+    SourceGroup = apps.get_model('observations', 'SourceGroup')
+    SourceGroup.objects.bulk_create([
+        SourceGroup(id='654e592c-fc5a-436d-98dd-fd1b36436a85',
+                    name='Sources',
+                    created_at='2016-07-07T1:00:00.000000+00:00',
+                    updated_at='2016-07-07T1:00:00.000000+00:00')
+    ])
+
 
 class Migration(migrations.Migration):
 

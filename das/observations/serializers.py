@@ -137,8 +137,9 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
             if mou_expiry_date is not None:
                 now = pytz.utc.localize(datetime.utcnow())
-                mou_expiry_date = pytz.utc.localize(
-                    parse_date(mou_expiry_date))
+                mou_expiry_date = parse_date(mou_expiry_date)
+                if not mou_expiry_date.tzinfo:
+                    mou_expiry_date = pytz.utc.localize(mou_expiry_date)
                 mou_expiry_age = now - mou_expiry_date
 
                 minimum_allowed_age = max(

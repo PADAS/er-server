@@ -1,5 +1,5 @@
 project-id: padas-app
-vp-tools-container-version: "1.0.109"
+vp-tools-container-version: "1.0.151"
 infrastructure-utilities-version-tag: "0.0.54"
 
 #Infrastructure
@@ -27,8 +27,11 @@ azure-client-id: 10d28313-7de9-4d1d-a1e3-cd366e8ae65a
 server-branch-name: develop
 web-branch-name: develop
 tag-as-latest: false
-version-suffix: "not-set"
 smartconnect-provider-branch-name: develop
+version-prefix: "not-set"
+initial-server-version: "0.0.0"
+initial-web-version: "0.0.0"
+initial-smartconnect-version: "0.0.0"
 
 #Application
 email-host: ""

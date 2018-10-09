@@ -94,7 +94,8 @@ class SourcePlugin(TimestampedModel):
         models.Q(app_label='tracking', model='inreachkmlplugin') | \
         models.Q(app_label='tracking', model='skygisticssatelliteplugin') | \
         models.Q(app_label='tracking', model='spidertracksplugin') | \
-        models.Q(app_label='tracking', model='awetelemetryplugin')
+        models.Q(app_label='tracking', model='awetelemetryplugin') | \
+        models.Q(app_label='tracking', model='vectronicsplugin')
 
     # Generic foreign key to plugin
     plugin_type = models.ForeignKey(

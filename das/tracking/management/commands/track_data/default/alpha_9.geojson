@@ -4,96 +4,73 @@
     {
       "properties": [
         {
-          "state": "online",
-          "gps_fix": false
+          "radio_state": "online"
         },
         {
-          "state": "offline",
-          "gps_fix": true
+          "radio_state": "online"
         },
         {
-          "state": "online",
-          "gps_fix": true
+          "radio_state": "online-gps"
         },
         {
-          "state": "online",
-          "gps_fix": false
+          "radio_state": "offline"
         },
         {
-          "state": "online",
-          "gps_fix": true
+          "radio_state": "online-gps"
         },
         {
-          "state": "online",
-          "gps_fix": true
+          "radio_state": "online-gps"
         },
         {
-          "state": "online",
-          "gps_fix": true
+          "radio_state": "online"
         },
         {
-          "state": "offline",
-          "gps_fix": true
+          "radio_state": "online"
         },
         {
-          "state": "online",
-          "gps_fix": true
+          "radio_state": "offline"
         },
         {
-          "state": "online",
-          "gps_fix": false
+          "radio_state": "online"
         },
         {
-          "state": "online",
-          "gps_fix": false
+          "radio_state": "online-gps"
         },
         {
-          "state": "offline",
-          "gps_fix": true
+          "radio_state": "offline"
         },
         {
-          "state": "online",
-          "gps_fix": true
+          "radio_state": "online"
         },
         {
-          "state": "online",
-          "gps_fix": true
+          "radio_state": "online-gps"
         },
         {
-          "state": "offline",
-          "gps_fix": false
+          "radio_state": "online-gps"
         },
         {
-          "state": "online",
-          "gps_fix": true
+          "radio_state": "online-gps"
         },
         {
-          "state": "offline",
-          "gps_fix": true
+          "radio_state": "online-gps"
         },
         {
-          "state": "online",
-          "gps_fix": false
+          "radio_state": "offline"
         },
         {
-          "state": "online",
-          "gps_fix": false
+          "radio_state": "offline"
         },
         {
-          "state": "online",
-          "gps_fix": false
+          "radio_state": "online"
         },
         {
-          "state": "online",
-          "gps_fix": true
+          "radio_state": "offline"
         },
         {
-          "state": "online",
-          "gps_fix": true
+          "radio_state": "offline"
         },
         {
-          "state": "offline",
-          "gps_fix": false
+          "radio_state": "offline"
         }
       ],
       "type": "Feature",

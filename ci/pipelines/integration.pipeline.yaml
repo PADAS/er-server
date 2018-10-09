@@ -1,29 +1,48 @@
 resources:
 ################################################################################
-# 
+#
 # Resources to fetch
 #
-################################################################################        
+################################################################################
 # git resources
+- name: server-version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.versions.git
+    branch: master
+    file: ((version-prefix)).server.version
+    private_key: ((das-versions-github))
+    initial_version: ((initial-server-version))
+
+- name: server-base-version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.versions.git
+    branch: master
+    file: ((version-prefix)).server.base.version
+    private_key: ((das-versions-github))
+    initial_version: ((initial-server-version))
+
+- name: server-app-version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.versions.git
+    branch: master
+    file: ((version-prefix)).server.app.version
+    private_key: ((das-versions-github))
+    initial_version: ((initial-server-version))
+
 - name: git-server-base
   type: versioned-git-resource
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
-    paths: 
-      - dependencies/* 
+    paths:
+      - dependencies/*
       - docker/base/*
-    private_key: ((das-github))
-
-- name: git-utility
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das.git
-    branch: ((server-branch-name))
-    paths: 
-      - docker/PostGIS/*
-      - docker/Nginx/*
-      - docker/Nginx_Utility/*
     private_key: ((das-github))
 
 - name: git-server
@@ -31,6 +50,8 @@ resources:
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
+    ignore_paths:
+      - deployment/*
     private_key: ((das-github))
 
 - name: git-deployment
@@ -38,7 +59,7 @@ resources:
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
-    paths: 
+    paths:
       - deployment/*
     private_key: ((das-github))
 
@@ -49,6 +70,16 @@ resources:
     branch: ((web-branch-name))
     private_key: ((das-web-github))
 
+- name: web-version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.versions.git
+    branch: master
+    file: ((version-prefix)).web.version
+    private_key: ((das-versions-github))
+    initial_version: ((initial-web-version))
+
 - name: git-smartconnect-provider
   type: versioned-git-resource
   source:
@@ -56,9 +87,19 @@ resources:
     branch: ((smartconnect-provider-branch-name))
     private_key: ((das-smartconnect-provider-github))
 
+- name: smartconnect-version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.versions.git
+    branch: master
+    file: ((version-prefix)).smartconnect.version
+    private_key: ((das-versions-github))
+    initial_version: ((initial-smartconnect-version))
+
 #base docker resources
 - name: image-server-base
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     tag: $(cat<git-server-base/sha)
     email: ((gcr-io-email))
@@ -67,7 +108,7 @@ resources:
     repository: gcr.io/padas-app/base
 
 - name: image-server-app
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     tag: $(cat<git-server/sha)
     email: ((gcr-io-email))
@@ -77,7 +118,7 @@ resources:
 
 # AIS_Gap, AIS_Track, API, Beat, MQL, RT_AIS_API, RT_API, Worker, Worker_RT, Worker_Analyzer
 - name: image-server-worker
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -101,7 +142,7 @@ resources:
     repository: gcr.io/padas-app/worker-analyzer
 
 - name: image-server-rt-api
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -109,7 +150,7 @@ resources:
     repository: gcr.io/padas-app/rt_api
 
 - name: image-server-mql
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -117,7 +158,7 @@ resources:
     repository: gcr.io/padas-app/mql
 
 - name: image-server-beat
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -125,7 +166,7 @@ resources:
     repository: gcr.io/padas-app/beat
 
 - name: image-server-api
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -135,7 +176,7 @@ resources:
 
 # docker resource images not dependent on base / app
 - name: image-postgis
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -143,7 +184,7 @@ resources:
     repository: gcr.io/padas-app/postgis
 
 - name: image-nginx
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -151,7 +192,7 @@ resources:
     repository: gcr.io/padas-app/nginx
 
 - name: image-nginx-utility
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -160,7 +201,7 @@ resources:
 
 # Web docker resources
 - name: image-web-develop
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     tag: $(cat<git-web/sha)
     email: ((gcr-io-email))
@@ -169,7 +210,7 @@ resources:
     repository: gcr.io/padas-app/web/develop
 
 - name: image-web-app
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -177,7 +218,7 @@ resources:
     repository: gcr.io/padas-app/web/app
 
 - name: image-smartconnect-provider
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -191,11 +232,20 @@ resources:
 
 
 ################################################################################
-# 
+#
 # Custom Resource Types
 #
 ################################################################################
 resource_types:
+- name: docker-image-with-file-build-args
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((ss-infrastructure-container-registry-pull))
+    repository: gcr.io/ss-infrastructure/concourse/docker-image-with-file-build-args-resource
+  privileged: true
+
 - name: versioned-git-resource
   type: docker-image
   source:
@@ -210,21 +260,25 @@ resource_types:
     repository: cfcommunity/slack-notification-resource
     tag: v1.2.0
 
+
 ################################################################################
-# 
+#
 # Jobs to run
 #
 ################################################################################
-jobs:  
+jobs:
 - name: docker-build-server-base
   plan:
   - get: git-server-base
     trigger: true
+  - put: server-base-version
+    params:
+      pre: ((version-prefix))
   - put: image-server-base
     params: {
       build: git-server-base,
       dockerfile: git-server-base/docker/base/Dockerfile,
-      tag:  git-server-base/sha,
+      tag: server-base-version/version,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
@@ -250,14 +304,20 @@ jobs:
       }
     - get: git-server
       trigger: true
+    - get: server-base-version
+    - put: server-app-version
+      params:
+        pre: ((version-prefix))
   - put: image-server-app
-    params: {
-      build: git-server,
-      dockerfile: git-server/docker/App/Dockerfile,
-      tag:  git-server/sha,
-      build_args_file: git-server-base/build_args,
+    params:
+      build: git-server
+      dockerfile: git-server/docker/App/Dockerfile
+      tag: server-app-version/version
+      build_args:
+        from_file:
+          base_tag: server-base-version/version
+          version: server-app-version/version
       tag_as_latest: ((tag-as-latest))
-    }
     get_params: {skip_download: true}
     on_failure:
       do:
@@ -268,34 +328,64 @@ jobs:
             :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
-# API, Beat, MQL, RT_AIS_API, RT_API, Worker
 - name: docker-build-server
   plan:
   - aggregate:
     - get: git-server
-      trigger: true
-      passed: [docker-build-server-app]
     - get: image-server-app
-      trigger: true
       passed: [docker-build-server-app]
-      params: {
-        skip_download: true
-      }
+      trigger: true
+      params: {skip_download: true}
+    - get: server-app-version
+    - put: server-version
+      params:
+        pre: ((version-prefix))
   - aggregate:
     - put: image-server-api
-      params: { build: git-server/docker/API, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/API
+        tag: server-version/version
+        build_args:
+          from_file:
+            app_tag: server-app-version/version
+            version: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-beat
-      params: { build: git-server/docker/Beat, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/Beat
+        tag: server-version/version
+        build_args:
+          from_file:
+            app_tag: server-app-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-mql
-      params: { build: git-server/docker/MQL, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/MQL
+        tag: server-version/version
+        build_args:
+          from_file:
+            app_tag: server-app-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-rt-api
-      params: { build: git-server/docker/RT_API, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/RT_API
+        tag: server-version/version
+        build_args:
+          from_file:
+            app_tag: server-app-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-worker
-      params: { build: git-server/docker/Worker, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/Worker
+        tag: server-version/version
+        build_args:
+          from_file:
+            app_tag: server-app-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-worker-rt
       params: { build: git-server/docker/Worker_RT, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
@@ -303,34 +393,53 @@ jobs:
     - put: image-server-worker-analyzer
       params: { build: git-server/docker/Worker_Analyzer, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
       get_params: {skip_download: true}
+
 - name: docker-build-utility
   plan:
   - get: git-utility
     trigger: true
   - aggregate: 
     - put: image-postgis
-      params: { build: git-utility/docker/PostGIS, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/PostGIS
+        tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-nginx
-      params: { build: git-utility/docker/Nginx, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/Nginx
+        tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-nginx-utility
-      params: { build: git-utility/docker/Nginx_Utility, tag: git-utility/sha, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/Nginx_Utility
+        tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
+  on_failure:
+    do:
+    - put: slack-alert
+      params:
+        channel: ((slack-notification-channel))
+        text: |
+          :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+          $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 
 # Web Jobs
 - name: docker-build-web-develop
-  serial: true
   plan:
-  - aggregate:
-    - get: git-web
-      trigger: true
+  - get: git-web
+    trigger: true
+  - put: web-version
+    params:
+      pre: ((version-prefix))
   - put: image-web-develop
     params: {
       build: git-web,
       dockerfile: git-web/docker/Dockerfile-develop,
-      tag:  git-web/sha,
+      tag: web-version/version,
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
@@ -384,14 +493,13 @@ jobs:
     - get: image-web-develop
       trigger: true
       passed: [test-web-unit]
-      params: {
-        skip_download: true
-      }
+      params: {skip_download: true}
+    - get: web-version
   - put: image-web-app
     params: {
       build: git-web,
       dockerfile: git-web/docker/Dockerfile-app,
-      tag:  git-web/sha,
+      tag:  web-version/version,
       tag_as_latest: ((tag-as-latest)),
     }
     get_params: {skip_download: true}
@@ -404,15 +512,17 @@ jobs:
             :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
-
 - name: docker-build-smartconnect-provider
   plan:
   - get: git-smartconnect-provider
     trigger: true
+  - put: smartconnect-version
+    params:
+      pre: ((version-prefix))
   - put: image-smartconnect-provider
     params: {
       build: git-smartconnect-provider,
-      tag: git-smartconnect-provider/sha,
+      tag: smartconnect-version/version,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
@@ -428,8 +538,9 @@ jobs:
 - name: deploy-to-k8s
   plan:
     - aggregate:
-      - get: git-utility
-        passed: [docker-build-utility]
+      - get: server-version
+      - get: web-version
+      - get: smartconnect-version
       - get: git-web
         passed: [docker-build-web-app]
       - get: git-server
@@ -467,11 +578,9 @@ jobs:
         trigger: true
         params: {skip_download: true}
       - get: image-nginx
-        passed: [docker-build-utility]
         trigger: true
         params: {skip_download: true}
       - get: image-postgis
-        passed: [docker-build-utility]
         trigger: true
         params: {skip_download: true}
       - get: image-web-app
@@ -492,10 +601,16 @@ jobs:
           - name: git-deployment
           params: {
             PROJECT: padas-app,
+            CLUSTER_NAME: ((cluster-name)),
+            IAAS: ((iaas)),
+            ZONE: ((iaas-zone)),
+            WORKSPACE: ((iaas-workspace)),
             SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
             USERNAME: ((creator)),
             ELASTIC_URL: ((elastic-url)),
             BUILD_PIPELINE_NAME: ((pipeline-name)),
+            WORKSPACE: ((iaas-workspace)),
+            ZONE: ((iaas-zone)),
             AZURE_TENANT_ID: ((azure-tenant-id)),
             AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
             AZURE_CLIENT_ID: ((azure-client-id)),
@@ -527,6 +642,10 @@ jobs:
           - name: git-deployment
           params: {
             PROJECT: padas-app,
+            CLUSTER_NAME: ((cluster-name)),
+            IAAS: ((iaas)),
+            ZONE: ((iaas-zone)),
+            WORKSPACE: ((iaas-workspace)),
             SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
             USERNAME: ((creator)),
             VAULT_TOKEN: ((vault-automation-token)),
@@ -559,11 +678,10 @@ jobs:
               tag: ((vp-tools-container-version)),
             }
           inputs:
-          - name: git-utility
-          - name: git-web
-          - name: git-server
+          - name: server-version
+          - name: web-version
+          - name: smartconnect-version
           - name: git-deployment
-          - name: git-smartconnect-provider
           params: {
             PROJECT: padas-app,
             USERNAME: ((creator)),
@@ -595,6 +713,10 @@ jobs:
           - name: git-deployment
           params: {
             PROJECT: padas-app,
+            CLUSTER_NAME: ((cluster-name)),
+            IAAS: ((iaas)),
+            ZONE: ((iaas-zone)),
+            WORKSPACE: ((iaas-workspace)),
             SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
             USERNAME: ((creator)),
             VAULT_TOKEN: ((vault-automation-token)),
@@ -625,3 +747,107 @@ jobs:
             text: |
               :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
               $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: destroy_environment
+  serial: true
+  plan:
+  - aggregate:
+    - get: git-deployment
+  - do:
+    - task: delete_cluster
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
+          }
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          CLUSTER_NAME: ((cluster-name)),
+          IAAS: ((iaas)),
+          ZONE: ((iaas-zone)),
+          WORKSPACE: ((iaas-workspace)),
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
+          LOGSTASH_URL: ((logstash-url))
+        }
+        run:
+          path: /bin/bash
+          args:
+          - -exc
+          - |
+            echo "Deleting Cluster. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
+            vcloud clusters delete -i $IAAS --project $PROJECT -w $WORKSPACE -n=$CLUSTER_NAME -z=$ZONE -f
+    - task: delete_disks
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
+          }
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          CLUSTER_NAME: ((cluster-name)),
+          IAAS: ((iaas)),
+          ZONE: ((iaas-zone)),
+          WORKSPACE: ((iaas-workspace)),
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
+          LOGSTASH_URL: ((logstash-url))
+        }
+        run:
+          path: /bin/bash
+          args:
+          - -exc
+          - |
+            echo "Deleting Disks. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
+            vcloud disks delete git-deployment/deployment/storage/default.disks.csv -i $IAAS --project $PROJECT -w $WORKSPACE -p=$CLUSTER_NAME -z=$ZONE -f
+            vcloud disks delete git-deployment/deployment/storage/default.disks.csv -i $IAAS --project $PROJECT -w $WORKSPACE -p=pd-$CLUSTER_NAME -z=$ZONE -f
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+      - try:
+          task: ifttt-alert
+          config:
+            platform: linux
+            image_resource:
+              type: docker-image
+              source: {repository: byrnedo/alpine-curl}
+            params: {
+              IFTTT_WEBHOOK_KEY: ((ifttt-webhook-key))
+            }
+            run:
+              path: /bin/sh
+              args:
+              - -exc
+              - |
+                curl -X POST https://maker.ifttt.com/trigger/shared_services_ci_failed/with/key/$IFTTT_WEBHOOK_KEY

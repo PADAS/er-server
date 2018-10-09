@@ -23,7 +23,30 @@ fi
 
 touch $PIPELINE_PARAMS_FILE
 echo "cluster-name: $PIPELINE_NAME" >> $PIPELINE_PARAMS_FILE
-echo "version-suffix: $PIPELINE_NAME" >> $PIPELINE_PARAMS_FILE
+
+read -p "Please enter a semantic version prefix, eg/ 'dev', 'rc', 'feature-x' (blank defaults to 'default'): " VERSION_PREFIX
+echo "version-prefix: ${VERSION_PREFIX:-default}" >> $PIPELINE_PARAMS_FILE
+
+function set_initial_version_from_develop()
+{
+    local COMPONENT_NAME=$1
+    local CONCOURSE_VARIABLE=$2
+    local URL="https://raw.githubusercontent.com/PADAS/das.versions/master/dev.${COMPONENT_NAME}.version"
+
+    local TEMP_DIR=$(mktemp --directory)
+
+    wget --quiet --directory-prefix "$TEMP_DIR" "$URL"
+
+    local DEV_VERSION=$(cat "$TEMP_DIR"/dev.${COMPONENT_NAME}.version)
+
+    echo "$CONCOURSE_VARIABLE: ${DEV_VERSION:-0.0.0}" >> $PIPELINE_PARAMS_FILE
+
+    rm -r "$TEMP_DIR"
+}
+
+set_initial_version_from_develop server initial-server-version
+set_initial_version_from_develop web initial-web-version
+set_initial_version_from_develop smartconnect initial-smartconnect-version
 
 function prompt_for_branch()
 {
@@ -39,6 +62,7 @@ function prompt_for_branch()
 
 prompt_for_branch das server-branch-name
 prompt_for_branch das-web web-branch-name
+prompt_for_branch das-smartconnect-provider smartconnect-provider-branch-name
 
 read -p "Please enter the IAAS (blank defaults to gcp): " IAAS_PROVIDER
 IAAS_PROVIDER=${IAAS_PROVIDER:-"gcp"}

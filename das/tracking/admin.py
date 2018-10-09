@@ -78,3 +78,8 @@ class AWETelemetryAdmin(admin.ModelAdmin):
 @admin.register(models.SirtrackPlugin)
 class SirtrackAdmin(admin.ModelAdmin):
     list_display = ('name', 'service_username', 'service_api',)
+
+
+@admin.register(models.VectronicsPlugin)
+class VectronicsAdmin(admin.ModelAdmin):
+    list_display = ('name',)

@@ -17,7 +17,7 @@ class TestSpatialFile(TestCase):
         dummy_feature_set = FeatureSet.objects.create(name='Water')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        with open('mapping/tests/NRT_Water_Points-2.geojson',
+        with open('./mapping/tests/NRT_Water_Points-2.geojson',
                   'rb') as geojson_file:
             spatial_file = SpatialFile(
                 name='GeoJson test', data=SimpleUploadedFile(
@@ -38,7 +38,7 @@ class TestSpatialFile(TestCase):
         dummy_feature_set = FeatureSet.objects.create(name='Boundaries')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        with open('mapping/tests/Grbnd_New.zip', 'rb') as shapefile:
+        with open('./mapping/tests/Grbnd_New.zip', 'rb') as shapefile:
             spatial_file = SpatialFile(
                 name='Shapefile test', data=SimpleUploadedFile(
                     'Grbnd_New.zip', shapefile.read()),
@@ -59,7 +59,7 @@ class TestSpatialFile(TestCase):
         dummy_feature_set = FeatureSet.objects.create(name='Boundaries')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        with open('mapping/tests/Grbnd_New.zip', 'rb') as shapefile:
+        with open('./mapping/tests/Grbnd_New.zip', 'rb') as shapefile:
             spatial_file = SpatialFile(
                 name='Shapefile test', data=SimpleUploadedFile(
                     'Grbnd_New.zip', shapefile.read()),

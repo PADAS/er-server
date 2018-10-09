@@ -93,6 +93,7 @@
     name: Elephants
     created_at: "2016-07-07T1:00:00.000000+00:00"
     updated_at: "2016-07-07T1:00:00.000000+00:00"
+    is_visible: true
     children: []
     permission_sets: [159aca3b-8d5b-49df-9669-d04c822ac74c,e13c354b-295c-4c43-80bf-b1ee10af6930,b86eb3f3-1292-4af5-a6b4-011513cdb08c]
 
@@ -102,6 +103,7 @@
     name: Rangers
     created_at: "2016-07-07T1:00:00.000000+00:00"
     updated_at: "2016-07-07T1:00:00.000000+00:00"
+    is_visible: true
     children: []
     permission_sets: [a3f39486-8efe-4183-abbf-695e1012379d]
 
@@ -111,6 +113,7 @@
     name: Subjects
     created_at: "2016-07-07T1:00:00.000000+00:00"
     updated_at: "2016-07-07T1:00:00.000000+00:00"
+    is_visible: true
     permission_sets: [b1481c72-0c7e-4dde-a8f7-39af72028d79,7220dfb8-312c-4897-bc6f-96ca2647f9f1]
     children: [5bf8761c-0c87-4756-8282-23fa11d72433, ddb99202-1373-4c6c-b15f-e71d21cb2b26]
 
