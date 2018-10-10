@@ -3,7 +3,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from django import forms
 from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 
 from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
@@ -23,8 +23,24 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         required=False, label='Data Starts Source')
     data_stops_source = forms.CharField(
         required=False, label='Data Stops Source')
-    data_stops_reason = forms.CharField(
-        required=False, label='Data Stops Reason')
+    data_stops_reason = forms.TypedMultipleChoiceField(
+        required=False, label='Data Stops Reason',
+        widget=FilteredSelectMultiple(verbose_name='Data Stops Reason',
+                                      is_stacked=False))
+
+    @staticmethod
+    def fetch_stop_reasons():
+        stop_reasons_choices = {}
+        for stop_reason in Choice.objects.filter(
+                model='observations.Source',
+                field='data stops reason').order_by('ordernum'):
+            stop_reasons_choices[stop_reason.value] = stop_reason.display
+        return tuple([(key, value)
+                      for key, value in stop_reasons_choices.items()])
+
+    def __init__(self, *args, **kwargs):
+        super(SubjectSourceForm, self).__init__(*args, **kwargs)
+        self.fields['data_stops_reason'].choices = self.fetch_stop_reasons()
 
     class Meta:
         model = SubjectSource
@@ -46,22 +62,53 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
 class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     '''
-    This provides extra form fields for the attributes we expect to have stored in Source.additional.
+    This provides extra form fields for the attributes we expect to have stored
+    in Source.additional.
     '''
     collar_status = forms.CharField(required=False, label='Collar Status')
     collar_model = forms.CharField(required=False, label='Collar Model')
+    collar_manufacturer = forms.CharField(required=False,
+                                          label='Collar Manufacturer')
     has_acc_data = forms.BooleanField(
         required=False, label='Has Accelerometer Data')
-    data_owners = forms.CharField(required=False, label='Data Owners')
+    data_owners = forms.TypedMultipleChoiceField(
+        required=False, label='Data Owners', widget=FilteredSelectMultiple(
+            verbose_name='Data Owners', is_stacked=False))
     adjusted_beacon_freq = forms.CharField(
         required=False, label='Adjusted Beacon Frequency')
+    primary_frequency = forms.CharField(required=False,
+                                        label='Primary Frequency')
+    backup_frequency = forms.CharField(required=False,
+                                       label='Backup Frequency')
+    adjusted_frequency = forms.CharField(required=False,
+                                         label='Adjusted Frequency')
+    predicted_expiry = forms.DateTimeField(required=False,
+                                           label='Predicted Expiry',
+                                           widget=AdminDateWidget())
     collar_key = forms.CharField(widget=forms.Textarea,
                                  required=False, label='Collar Key')
+
+
+    @staticmethod
+    def fetch_organizations():
+        org_choices = {}
+        for organization in Choice.objects.filter(
+                model='accounts.user.User',
+                field='organization').order_by('ordernum'):
+            org_choices[organization.value] = organization.display
+        return tuple([(key, value) for key, value in org_choices.items()])
+
+    def __init__(self, *args, **kwargs):
+        super(SourceForm, self).__init__(*args, **kwargs)
+        self.fields['data_owners'].choices = self.fetch_organizations()
 
     class Meta:
         model = Source
         json_fields = ('collar_key', 'collar_status', 'collar_model',
-                       'has_acc_data', 'data_owners', 'adjusted_beacon_freq')
+                       'collar_manufacturer', 'has_acc_data', 'data_owners',
+                       'adjusted_beacon_freq', 'primary_frequency',
+                       'adjusted_frequency',
+                       'backup_frequency', 'predicted_expiry')
         fields = ('id', 'manufacturer_id', 'provider', 'source_type',
                   'model_name', 'additional') + json_fields
 
