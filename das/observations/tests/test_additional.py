@@ -41,12 +41,6 @@ class SubjectAdditionalTest(TestCase):
         self.assertTrue(form.is_valid())
         form.save()
 
-        # # Create tm_animal_id and pop birthdate & other_id from additional_data
-        # additional_data['tm_animal_id'] = '{0}%{1}'.format(
-        #     additional_data['birthdate'], additional_data['other_id'])
-        # additional_data.pop('birthdate')
-        # additional_data.pop('other_id')
-
         subject, created = Subject.objects.get_or_create(name='Henry')
         self.assertTrue(all(item in subject.additional.items()
                             for item in additional_data.items()))
