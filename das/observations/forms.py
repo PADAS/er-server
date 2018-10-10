@@ -74,8 +74,6 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
     data_owners = forms.TypedMultipleChoiceField(
         required=False, label='Data Owners', widget=FilteredSelectMultiple(
             verbose_name='Data Owners', is_stacked=False))
-
-    # Get clarification on use of adjusted_beacon_freq & adjusted_frequency
     adjusted_beacon_freq = forms.CharField(
         required=False, label='Adjusted Beacon Frequency')
     primary_frequency = forms.CharField(required=False,
