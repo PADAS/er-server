@@ -105,7 +105,7 @@ class SavannahPlugin(TrackingPlugin):
                                         help_text='the ip-address or host-name for the Savannah Tracking service.')
 
 
-    def fetch(self, source, cursor_data=None):
+    def fetch(self, source, cursor_data=None, dry_run=False):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -132,19 +132,18 @@ class SavannahPlugin(TrackingPlugin):
                 self.logger.warning('Savannah plugin encountered a fix from the future: {0}'.format(fix))
                 continue
             lt = fix.recorded_at
-            yield self._transform((source, fix))
+            yield self._transform((source, fix), dry_run)
 
-        # Update cursor data.
-        self.cursor_data['latest_timestamp'] = lt.isoformat()
+        # Update cursor data if dry_run = False
+        if not dry_run:
+            self.cursor_data['latest_timestamp'] = lt.isoformat()
 
-
-    def _transform(self, item):
+    def _transform(self, item, dry_run):
         source, o = item
         side_data = dict((k, o.__getattribute__(k)) for k in ('speed', 'heading', 'temperature', 'height'))
+        if not dry_run:
+            return {'source': source, 'recorded_at': o.recorded_at,
+                    'latitude': o.latitude, 'longitude': o.longitude,
+                    'additional': side_data}
         return Obs(source=source, recorded_at=o.recorded_at, latitude=o.latitude, longitude=o.longitude,
                    additional=side_data)
-
-
-
-
-
