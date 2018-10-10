@@ -53,12 +53,14 @@ class JSONFieldFormMixin(object):
 
         if self.instance:
             json_data = self.get_json()
-            for field in self.Meta.json_fields:
-                if json_data.get(field):
-                    try:
-                        self.fields[field].initial = parse(json_data.get(field))
-                    except Exception as e:
-                        self.fields[field].initial = json_data.get(field)
+            if json_data:
+                for field in self.Meta.json_fields:
+                    if json_data.get(field):
+                        try:
+                            self.fields[field].initial = parse(
+                                json_data.get(field))
+                        except Exception as e:
+                            self.fields[field].initial = json_data.get(field)
 
     def save(self, *args, **kwargs):
         json_data = self.get_json()
