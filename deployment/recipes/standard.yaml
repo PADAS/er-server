@@ -1,6 +1,5 @@
 paths:
 - persistentvolumes
-- statefulsets
 - deployments
 - services
 - infra/monitoring

@@ -175,14 +175,6 @@ resources:
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/nginx
 
-- name: image-nginx-utility
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/nginx-utility
-
 # Web docker resources
 - name: image-web-develop
   type: docker-image-with-file-build-args
@@ -380,12 +372,6 @@ jobs:
     - put: image-nginx
       params:
         build: git-server/docker/Nginx
-        tag: server-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-nginx-utility
-      params:
-        build: git-server/docker/Nginx_Utility
         tag: server-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
