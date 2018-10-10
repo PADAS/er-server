@@ -141,7 +141,7 @@ class SavannahPlugin(TrackingPlugin):
     def _transform(self, item, dry_run):
         source, o = item
         side_data = dict((k, o.__getattribute__(k)) for k in ('speed', 'heading', 'temperature', 'height'))
-        if not dry_run:
+        if dry_run:
             return {'source': source, 'recorded_at': o.recorded_at,
                     'latitude': o.latitude, 'longitude': o.longitude,
                     'additional': side_data}
