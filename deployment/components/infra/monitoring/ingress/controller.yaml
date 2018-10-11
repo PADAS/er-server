@@ -79,6 +79,7 @@ spec:
             - --udp-services-configmap=$(POD_NAMESPACE)/monitoring-ingress-udp-services
             - --publish-service=$(POD_NAMESPACE)/monitoring-ingress
             - --annotations-prefix=nginx.ingress.kubernetes.io
+            - --ingress-class=nginx-monitoring-ingress
           securityContext:
             capabilities:
               drop:

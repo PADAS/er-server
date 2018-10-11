@@ -3,7 +3,7 @@ kind: Ingress
 metadata:
   name: monitoring-ingress
   annotations:
-    kubernetes.io/ingress.class: nginx
+    kubernetes.io/ingress.class: nginx-monitoring-ingress
 spec:
   tls:
   - secretName: das-ssl
