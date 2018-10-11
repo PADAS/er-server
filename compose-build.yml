@@ -29,6 +29,18 @@ services:
     depends_on:
       - app
 
+  worker-rt:
+    build:
+      context: ./docker/Worker_RT
+    depends_on:
+      - app
+
+  worker-analyzer:
+    build:
+      context: ./docker/Worker_Analyzer
+    depends_on:
+      - app
+
   beat:
     build:
       context: docker/Beat

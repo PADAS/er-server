@@ -3,5 +3,6 @@ kind: ConfigMap
 metadata:
   name: site-configmap
 data:
+  DB_HOST: das-postgres-us-azure.postgres.database.azure.com
   SMARTCONNECT_PROVIDER_DAS_TOKEN: "<<integration-smartconnect-provider-das-token>>"
   SMARTCONNECT_PROVIDER_DAS_API: "https://integration.pamdas.org/api/v1.0"
