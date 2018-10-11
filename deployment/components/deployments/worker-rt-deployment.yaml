@@ -11,7 +11,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/worker-rt:<<git-server-version>>
+      - image: gcr.io/padas-app/worker-rt:<<server-version>>
         name: das-worker-rt
         resources:
           requests:
