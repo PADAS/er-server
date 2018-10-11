@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: alertmanager
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
   - port: 9093
     targetPort: 9093

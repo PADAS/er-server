@@ -5,7 +5,7 @@ metadata:
   labels:
     app: logstash
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: logstash
   ports:
