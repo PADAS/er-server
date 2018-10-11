@@ -4,6 +4,11 @@ metadata:
   name: log-ingress
   annotations:
     kubernetes.io/ingress.class: nginx-log-ingress
+    kubernetes.io/ingress.allow-http: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "PUT, GET, POST, OPTIONS"
 spec:
   tls:
   - secretName: das-ssl
