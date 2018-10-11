@@ -1,0 +1,17 @@
+- model: accounts.user
+  pk: 08661a71-6ba4-4ba0-8c9d-95aa62c8e728
+  fields:
+    password: pbkdf2_sha256$100000$hlybaf8dbG2Y$9khjvieGlVnr8X5Ybe6bW1tEAM5I7Pn56pahEcwJQNI=
+    last_login: null
+    is_superuser: false
+    username: ios
+    first_name: iOS
+    last_name: User
+    email: ios.user@pamdas.org
+    phone: ''
+    is_email_alert: false
+    is_sms_alert: false
+    is_staff: true
+    is_active: true
+    additional: {"tech": ["iOS"]}
+    permission_sets: []
