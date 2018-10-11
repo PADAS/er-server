@@ -16,6 +16,8 @@ metadata:
     app.kubernetes.io/part-of: log-ingress
 data:
   5044: "logstash:5044"
+  9200: "elasticsearch:9200"
+  5601: "kibana:5601"
 
 ---
 kind: ConfigMap
