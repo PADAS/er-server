@@ -388,16 +388,26 @@ jobs:
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-worker-rt
-      params: { build: git-server/docker/Worker_RT, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/Worker_RT
+        tag: server-version/version
+        build_args:
+          from_file:
+            app_tag: server-app-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-server-worker-analyzer
-      params: { build: git-server/docker/Worker_Analyzer, tag: git-server/sha, build_args_file: git-server/build_args, tag_as_latest: ((tag-as-latest)) }
+      params:
+        build: git-server/docker/Worker_Analyzer
+        tag: server-version/version
+        build_args:
+          from_file:
+            app_tag: server-app-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
 
 - name: docker-build-utility
   plan:
-  - get: git-utility
-    trigger: true
   - aggregate: 
     - put: image-postgis
       params:
