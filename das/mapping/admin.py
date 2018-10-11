@@ -1,11 +1,12 @@
 from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
-import mapping.models as models
-from mapping.forms import MapCenterForm
-
 from django.contrib import admin as django_admin
-# Register your models here.
+from django.utils.translation import ugettext_lazy as _
+from django.utils.safestring import mark_safe
+from django.utils.html import escape
 
+import mapping.models as models
+from mapping.forms import MapCenterForm, TileLayerFormWithAttributes
 
 @admin.register(models.Map)
 class MapAdmin(admin.OSMGeoAdmin):
@@ -14,7 +15,38 @@ class MapAdmin(admin.OSMGeoAdmin):
 
 @admin.register(models.TileLayer)
 class TileLayerAdmin(admin.ModelAdmin):
-    pass
+    ordering = ('ordernum', 'name')
+    list_display = ('name', 'ordernum', 'get_attributes')
+    list_editable = ('ordernum',)
+    form = TileLayerFormWithAttributes
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': (('id', 'name',))
+        }
+        ),
+        ('Tile Layer Attributes (TileJSON)', {
+            'classes': ('wide',),
+            'fields': (('type', 'tiles', 'minzoom', 'maxzoom',
+                        'version',))
+        }
+         ),
+        ('Advanced Tile Layer Attributes', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('attributes', 'created_at', 'updated_at',)
+        })
+    )
+    readonly_fields = ('id', 'created_at', 'updated_at',)
+    list_per_page = 25
+
+    def get_attributes(self, instance):
+        context = dict((k, instance.attributes[k]) for k in (
+            'type', 'tiles', 'minzoom', 'maxzoom', 'version') if k in instance.attributes)
+
+        return mark_safe(''.join('<p><strong>{}</strong>: {}</p>'.format(escape(k), escape(v))
+                                 for k, v in context.items()))
+
+    get_attributes.short_description = _('Tile Layer Attributes (TileJSON)')
 
 
 @admin.register(models.FeatureSet)

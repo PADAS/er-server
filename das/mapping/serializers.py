@@ -24,29 +24,23 @@ class MBTilesSerializer(serializers.Serializer):
 class ExternalTileSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.TileLayer
-        fields = ('id', 'name', 'version')
+        fields = ('id', 'name', 'attributes')
 
     def to_representation(self, instance):
         rep = super(ExternalTileSerializer, self).to_representation(instance)
         request = self.context['request']
-        rep.update(instance.attributes)
+        #rep.update(instance.attributes)
         return rep
-
-
-TILELAYER_SERIALIZERS = {
-    'mbtiles': MBTilesSerializer,
-    'external': ExternalTileSerializer
-}
 
 
 class TileLayerSerializer(serializers.Serializer):
     def to_representation(self, instance):
         request = self.context['request']
 
-        rep = TILELAYER_SERIALIZERS[instance.tile_type](
+        rep = ExternalTileSerializer(
             instance, context={'request': request}
         )
-        return rep
+        return rep.data
 
 
 class MapSerializer(serializers.ModelSerializer):
