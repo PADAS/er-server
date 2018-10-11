@@ -33,7 +33,6 @@ metadata:
     app.kubernetes.io/name: monitoring-ingress
     app.kubernetes.io/part-of: monitoring-ingress
 spec:
-  externalTrafficPolicy: Local
   type: LoadBalancer
   selector:
     app.kubernetes.io/name: monitoring-ingress

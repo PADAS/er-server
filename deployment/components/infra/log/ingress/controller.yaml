@@ -35,7 +35,6 @@ metadata:
     app.kubernetes.io/name: log-ingress
     app.kubernetes.io/part-of: log-ingress
 spec:
-  externalTrafficPolicy: Local
   type: LoadBalancer
   selector:
     app.kubernetes.io/name: log-ingress
