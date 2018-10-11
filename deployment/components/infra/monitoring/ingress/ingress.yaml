@@ -3,12 +3,14 @@ kind: Ingress
 metadata:
   name: monitoring-ingress
   annotations:
+    kubernetes.io/ingress.class: "nginx-monitoring-ingress"
     nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: false
-    nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-methods: "PUT, GET, POST, OPTIONS"
+    ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/app-root: /
-    kubernetes.io/ingress.class: nginx-monitoring-ingress
+    ingress.kubernetes.io/app-root: /
 spec:
   tls:
   - secretName: das-ssl
