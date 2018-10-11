@@ -1,6 +1,6 @@
 cluster-name: azure-develop
-version-suffix: azure-develop
-server-branch-name: feature/DAS-2946
+version-suffix: dev
+server-branch-name: develop
 iaas: azure
 iaas-zone: eastus
 iaas-workspace: DAS-Dev
