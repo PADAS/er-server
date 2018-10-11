@@ -1,11 +1,24 @@
 import uuid
 from datetime import datetime, timedelta
-
+from django.conf import settings
 from django.test import TestCase
-
+from dateutil.parser import parse
+from pytz import timezone
 from choices.models import Choice
 from observations.forms import SourceForm, SubjectSourceForm
 from observations.models import SourceProvider, Source, Subject, SubjectSource
+
+
+def convert_date_string(date_str):
+    # Get timezone from settings and convert date_string into datetime object
+    # with settings's timezone
+    time_zone = timezone(settings.TIME_ZONE)
+    date_object = parse(date_str)
+    localize_date = time_zone.localize(date_object)
+
+    # Convert datetime's timezone with UTC
+    utc_date = localize_date.astimezone(timezone('UTC'))
+    return utc_date.isoformat()
 
 
 class SourceAdditionalTest(TestCase):
@@ -33,6 +46,8 @@ class SourceAdditionalTest(TestCase):
         form = SourceForm(data=form_data)
         self.assertTrue(form.is_valid())
         form.save()
+        additional_data['predicted_expiry'] = convert_date_string(
+            additional_data['predicted_expiry'])
         source, created = Source.objects.get_or_create(model_name='GPSFix')
         self.assertTrue(all(item in source.additional.items()
                             for item in additional_data.items()))
