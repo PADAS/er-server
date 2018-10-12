@@ -2,6 +2,8 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: rt-api
+  annotations:
+    prometheus.io/scrape: 'false'
 spec:
   template:
     metadata:
