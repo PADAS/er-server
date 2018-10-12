@@ -14,7 +14,7 @@ data:
         ssl_certificate_authorities => ["/usr/share/logstash/pipelines/ca.pem"]
         ssl_certificate => "/usr/share/logstash/pipelines/ssl.pem"
         ssl_key => "/usr/share/logstash/pipelines/ssl.key"
-        ssl_verify_mode => "forced_peer"
+        ssl_verify_mode => "force_peer"
       }
     }
     output {
