@@ -25,9 +25,6 @@ data:
 
     output.logstash:
       hosts: ['<<log_url>>']
-      ssl.certificate_authorities: ["/etc/filebeat/ca.pem"]
-      ssl.certificate: "/etc/filebeat/ssl.pem"
-      ssl.key: "/etc/filebeat/ssl.key"
 
   ssl.pem: <<pamdas-org-ssl-cert>>
   ssl.key: <<pamdas-org-ssl-key>>
