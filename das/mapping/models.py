@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 class Map(TimestampedModel):
     """
-    A Map defines the center location, zoom level and tile layers.
+    A Map defines the center location, zoom level
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
@@ -42,23 +42,14 @@ class Map(TimestampedModel):
         return self.name
 
 
-TILE_TYPES = (
-    ('mbtiles', 'Local MBTiles'),
-    ('external', 'External Tile Server'),
-)
-
-
 class TileLayer(TimestampedModel):
     """
-    External or MBTiles
+    External
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=80, unique=True)
     attributes = JSONField(default=dict, blank=True)
-    version = models.CharField(max_length=80, default='1.0.0')
-    tile_type = models.CharField(max_length=20,
-                                 choices=TILE_TYPES, default='mbtiles')
-    maps = models.ManyToManyField(Map)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
 
     def __str__(self):
         return self.name

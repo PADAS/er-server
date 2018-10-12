@@ -14,7 +14,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework_extensions.etag.decorators import etag
 
 from mapping.models import PolygonFeature, LineFeature, PointFeature, FeatureSet
-from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError, Map
+from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError, Map, TileLayer
 import mapping.serializers as serializers
 from mapping import app_settings
 
@@ -115,6 +115,13 @@ class MapListJsonView(generics.ListAPIView):
     """
     queryset = Map.objects.all()
     serializer_class = serializers.MapSerializer
+
+class LayerListJsonView(generics.ListAPIView):
+    """
+    List of available map layers.
+    """
+    queryset = TileLayer.objects.all()
+    serializer_class = serializers.TileLayerSerializer
 
 
 #
