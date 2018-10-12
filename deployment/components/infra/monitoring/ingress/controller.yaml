@@ -104,10 +104,8 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
           ports:
-            - name: http
-              containerPort: 80
-            - name: https
-              containerPort: 443
+            - name: metrics
+              containerPort: 10254
           livenessProbe:
             failureThreshold: 3
             httpGet:
