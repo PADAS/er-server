@@ -7,6 +7,9 @@ metadata:
     k8s-app: filebeat
     kubernetes.io/cluster-service: "true"
 data:
+  ssl.pem: <<pamdas-org-ssl-cert>>
+  ssl.key: <<pamdas-org-ssl-key>>
+  ca.pem: <<pamdas-org-ssl-ca>>
   filebeat.yml: |-
     filebeat:
       prospectors:
@@ -25,10 +28,10 @@ data:
 
     output.logstash:
       hosts: ['<<log_url>>']
+      ssl.certificate_authorities: ["/etc/filebeat/ca.pem"]
+      ssl.certificate: "/etc/filebeat/ssl.pem"
+      ssl.key: "/etc/filebeat/ssl.key"
 
-  ssl.pem: <<pamdas-org-ssl-cert>>
-  ssl.key: <<pamdas-org-ssl-key>>
-  ca.pem: <<pamdas-org-ssl-ca>>
 ---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
