@@ -15,9 +15,9 @@ metadata:
     app.kubernetes.io/name: monitoring-ingress
     app.kubernetes.io/part-of: monitoring-ingress
 data:
-  3000: "grafana:3000"
-  9090: "prometheus:9090"
-  9093: "alertmanager:9093"
+  3000: "default/grafana:3000"
+  9090: "default/prometheus:9090"
+  9093: "default/alertmanager:9093"
 
 ---
 kind: ConfigMap
@@ -42,12 +42,15 @@ spec:
     app.kubernetes.io/name: monitoring-ingress
     app.kubernetes.io/part-of: monitoring-ingress
   ports:
-    - name: http
-      port: 80
-      targetPort: http
-    - name: https
-      port: 443
-      targetPort: https
+    - name: grafana
+      port: 3000
+      targetPort: 3000
+    - name: prometheus
+      port: 9090
+      targetPort: 9090
+    - name: alertmanager
+      port: 9093
+      targetPort: 9093
 
 ---
 apiVersion: extensions/v1beta1

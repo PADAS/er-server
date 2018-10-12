@@ -15,9 +15,9 @@ metadata:
     app.kubernetes.io/name: log-ingress
     app.kubernetes.io/part-of: log-ingress
 data:
-  5044: "logstash:5044"
-  9200: "elasticsearch:9200"
-  5601: "kibana:5601"
+  5044: "default/logstash:5044"
+  9200: "default/elasticsearch:9200"
+  5601: "default/kibana:5601"
 
 ---
 kind: ConfigMap
@@ -42,12 +42,15 @@ spec:
     app.kubernetes.io/name: log-ingress
     app.kubernetes.io/part-of: log-ingress
   ports:
-    - name: http
-      port: 80
-      targetPort: http
-    - name: https
-      port: 443
-      targetPort: https
+    - name: kibana
+      port: 5601
+      targetPort: 5601
+    - name: logstash
+      port: 5044
+      targetPort: 5044
+    - name: elasticsearch
+      port: 9200
+      targetPort: 9200
 
 ---
 apiVersion: extensions/v1beta1
