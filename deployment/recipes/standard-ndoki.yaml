@@ -1,5 +1,4 @@
 paths:
-- secrets
 - persistentvolumes
 - deployments
 - services

@@ -1,4 +1,3 @@
 paths:
-- secrets
 - infra/log
 - infra/monitoring
