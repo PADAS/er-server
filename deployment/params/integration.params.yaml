@@ -7,7 +7,7 @@ static-values:
   send-alerts: "true"
   node-exporter-version: v0.16.0
   monitoring-version: latest
-  log_url: "35.233.148.63:5044"
+  log_url: "logs.pamdas.org:5044"
 environment:
   static-ip: STATIC_IP
 vault-lookups:
