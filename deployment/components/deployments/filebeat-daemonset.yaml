@@ -26,8 +26,8 @@ data:
 
     logging.level: error
 
-    output.elasticsearch:
-      hosts: ['elasticsearch:9200']
+    output.logstash:
+      hosts: ['logstash:9200']
       ssl.certificate_authorities: ["/etc/filebeat/ca.pem"]
       ssl.certificate: "/etc/filebeat/ssl.pem"
       ssl.key: "/etc/filebeat/ssl.key"

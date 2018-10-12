@@ -3,6 +3,6 @@ cluster-name: log-only
 server-branch-name: log-only
 static-ip: 
 deployment-plan: integration
-deploy-params-environment: integration
+deploy-params-environment: develop
 deploy-recipe: log-only.yaml
 disks-spec: deployment/storage/log-only.disks.csv
