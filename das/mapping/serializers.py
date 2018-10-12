@@ -29,7 +29,7 @@ class ExternalTileSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         rep = super(ExternalTileSerializer, self).to_representation(instance)
         request = self.context['request']
-        #rep.update(instance.attributes)
+        # rep.update(instance.attributes)
         return rep
 
 
@@ -53,17 +53,7 @@ class MapSerializer(serializers.ModelSerializer):
         rep.update(instance.attributes)
         rep['center'] = instance.center.tuple
         request = self.context['request']
-        tile_layers = TileLayerSerializer(
-            instance.tilelayer_set.all(), many=True, context={'request': request})
 
-        layers = []
-        for t in tile_layers.data:
-            try:
-                layers.append(t.data)
-            except:
-                logger.exception("Failed to serialize map")
-
-        rep['layers'] = layers
         return rep
 
 
