@@ -8,7 +8,7 @@ static-values:
   send-alerts: "false"
   node-exporter-version: v0.16.0
   monitoring-version: latest
-  log_url: "35.233.148.63:9200"
+  log_url: "35.233.148.63:5044"
 environment:
   static-ip: STATIC_IP
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
