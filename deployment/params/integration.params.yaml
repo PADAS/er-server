@@ -7,9 +7,9 @@ static-values:
   send-alerts: "true"
   node-exporter-version: v0.16.0
   monitoring-version: latest
+  log_url: "35.233.148.63:9200"
 environment:
   static-ip: STATIC_IP
-  log_url: "35.233.148.63:9200"
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
