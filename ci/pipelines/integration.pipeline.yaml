@@ -408,6 +408,12 @@ jobs:
 
 - name: docker-build-utility
   plan:
+  - aggregate:
+    - get: git-server
+    - get: image-server-api
+      passed: [docker-build-server]
+      trigger: true
+      params: {skip_download: true}
   - aggregate: 
     - put: image-postgis
       params:
