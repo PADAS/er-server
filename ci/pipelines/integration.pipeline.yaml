@@ -414,34 +414,23 @@ jobs:
       trigger: true
       params: {skip_download: true}
   - aggregate: 
+    - get: server-version
     - put: image-postgis
       params:
         build: git-server/docker/PostGIS
         tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-            version: server-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-nginx
       params:
         build: git-server/docker/Nginx
         tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-            version: server-version/version        
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-nginx-utility
       params:
         build: git-server/docker/Nginx_Utility
         tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-            version: server-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
   on_failure:
