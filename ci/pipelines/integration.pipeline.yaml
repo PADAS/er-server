@@ -409,29 +409,34 @@ jobs:
 - name: docker-build-utility
   plan:
   - aggregate:
+    - get: git-server
+      trigger: true
     - get: image-server-api
       passed: [docker-build-server]
       trigger: true
       params: {skip_download: true}
-  - aggregate: 
     - get: server-version
+  - aggregate: 
     - put: image-postgis
-      params:
-        build: git-server/docker/PostGIS
-        tag: server-version/version
-        tag_as_latest: ((tag-as-latest))
+      params: {
+        build: git-server/docker/PostGIS,
+        tag: server-version/version,
+        tag_as_latest: ((tag-as-latest)),
+      }
       get_params: {skip_download: true}
     - put: image-nginx
-      params:
-        build: git-server/docker/Nginx
-        tag: server-version/version
-        tag_as_latest: ((tag-as-latest))
+      params: {
+        build: git-server/docker/Nginx,
+        tag: server-version/version,
+        tag_as_latest: ((tag-as-latest)),
+      }
       get_params: {skip_download: true}
     - put: image-nginx-utility
-      params:
-        build: git-server/docker/Nginx_Utility
-        tag: server-version/version
-        tag_as_latest: ((tag-as-latest))
+      params: {
+        build: git-server/docker/Nginx_Utility,
+        tag: server-version/version,
+        tag_as_latest: ((tag-as-latest)),
+      }
       get_params: {skip_download: true}
   on_failure:
     do:
