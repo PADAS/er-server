@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: az-postgres
+  namespace: default
+spec:
+  type: ExternalName
+  externalName: das-postgres-us-azure.postgres.database.azure.com
+  ports:
+      - port: 5432
+
+
+

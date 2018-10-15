@@ -3,7 +3,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from django import forms
 from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 
 from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
@@ -23,8 +23,24 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         required=False, label='Data Starts Source')
     data_stops_source = forms.CharField(
         required=False, label='Data Stops Source')
-    data_stops_reason = forms.CharField(
-        required=False, label='Data Stops Reason')
+    data_stops_reason = forms.TypedMultipleChoiceField(
+        required=False, label='Data Stops Reason',
+        widget=FilteredSelectMultiple(verbose_name='Data Stops Reason',
+                                      is_stacked=False))
+
+    @staticmethod
+    def fetch_stop_reasons():
+        stop_reasons_choices = {}
+        for stop_reason in Choice.objects.filter(
+                model='observations.Source',
+                field='data stops reason').order_by('ordernum'):
+            stop_reasons_choices[stop_reason.value] = stop_reason.display
+        return tuple([(key, value)
+                      for key, value in stop_reasons_choices.items()])
+
+    def __init__(self, *args, **kwargs):
+        super(SubjectSourceForm, self).__init__(*args, **kwargs)
+        self.fields['data_stops_reason'].choices = self.fetch_stop_reasons()
 
     class Meta:
         model = SubjectSource
@@ -46,22 +62,53 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
 class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     '''
-    This provides extra form fields for the attributes we expect to have stored in Source.additional.
+    This provides extra form fields for the attributes we expect to have stored
+    in Source.additional.
     '''
     collar_status = forms.CharField(required=False, label='Collar Status')
     collar_model = forms.CharField(required=False, label='Collar Model')
+    collar_manufacturer = forms.CharField(required=False,
+                                          label='Collar Manufacturer')
     has_acc_data = forms.BooleanField(
         required=False, label='Has Accelerometer Data')
-    data_owners = forms.CharField(required=False, label='Data Owners')
+    data_owners = forms.TypedMultipleChoiceField(
+        required=False, label='Data Owners', widget=FilteredSelectMultiple(
+            verbose_name='Data Owners', is_stacked=False))
     adjusted_beacon_freq = forms.CharField(
         required=False, label='Adjusted Beacon Frequency')
+    primary_frequency = forms.CharField(required=False,
+                                        label='Primary Frequency')
+    backup_frequency = forms.CharField(required=False,
+                                       label='Backup Frequency')
+    adjusted_frequency = forms.CharField(required=False,
+                                         label='Adjusted Frequency')
+    predicted_expiry = forms.DateTimeField(required=False,
+                                           label='Predicted Expiry',
+                                           widget=AdminDateWidget())
     collar_key = forms.CharField(widget=forms.Textarea,
                                  required=False, label='Collar Key')
+
+
+    @staticmethod
+    def fetch_organizations():
+        org_choices = {}
+        for organization in Choice.objects.filter(
+                model='accounts.user.User',
+                field='organization').order_by('ordernum'):
+            org_choices[organization.value] = organization.display
+        return tuple([(key, value) for key, value in org_choices.items()])
+
+    def __init__(self, *args, **kwargs):
+        super(SourceForm, self).__init__(*args, **kwargs)
+        self.fields['data_owners'].choices = self.fetch_organizations()
 
     class Meta:
         model = Source
         json_fields = ('collar_key', 'collar_status', 'collar_model',
-                       'has_acc_data', 'data_owners', 'adjusted_beacon_freq')
+                       'collar_manufacturer', 'has_acc_data', 'data_owners',
+                       'adjusted_beacon_freq', 'primary_frequency',
+                       'adjusted_frequency',
+                       'backup_frequency', 'predicted_expiry')
         fields = ('id', 'manufacturer_id', 'provider', 'source_type',
                   'model_name', 'additional') + json_fields
 
@@ -122,8 +169,8 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
         verbose_name='Country Choices', is_stacked=False), required=False,
         help_text='This is the country that will be shown in the DAS Mobile '
                   'App.')
-    birthdate = forms.CharField(required=False, label='Birth Date')
-    other_id = forms.CharField(required=False, label='Other id')
+    tm_animal_id = forms.CharField(required=False, label='Animal ID')
+    # other_id = forms.CharField(required=False, label='Other id')
 
     @staticmethod
     def fetch_region_choices():
@@ -146,35 +193,22 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
     def __init__(self, *args, **kwargs):
         super(SubjectFormWithAttributes, self).__init__(*args, **kwargs)
 
-        # Split tm_animal_id from additional json field by separator as'%',
-        #  to put value in birthdate and other_id form fields
-        if 'tm_animal_id' in self.instance.additional.keys():
-            tm_animal_id = self.instance.additional['tm_animal_id']
-            self.fields['birthdate'].initial, self.fields[
-                'other_id'].initial = tm_animal_id.split('%')
-
         # Get country and region choices from static methods
         self.fields['region'].choices = self.fetch_region_choices()
         self.fields['country'].choices = self.fetch_country_choices()
 
     class Meta(SubjectForm.Meta):
-        json_fields = ('rgb', 'sex', 'region', 'country')
+        json_fields = ('rgb', 'sex', 'region', 'country', 'tm_animal_id')
 
     json_field = 'additional'
 
     def save(self, *args, **kwargs):
-        # Concatenate birthdate and other_id field's value with separator as '%'
-        if self.cleaned_data['birthdate'] or self.cleaned_data['other_id']:
-            tm_animal_id = '{0}%{1}'.format(self.cleaned_data['birthdate'],
-                                            self.cleaned_data['other_id'])
-        else:
-            tm_animal_id = None
+
         commit = kwargs.pop('commit', True)
         instance = super(SubjectFormWithAttributes, self).save(*args,
                                                                commit=False,
                                                                **kwargs)
-        if tm_animal_id:
-            instance.additional['tm_animal_id'] = tm_animal_id
+
         if commit:
             instance.save()
         return instance
