@@ -1,6 +1,6 @@
 cluster-name: dev-az
 version-suffix: dev-az
-server-branch-name: feature/DAS-2946
+server-branch-name: develop 
 web-branch-name: develop
 deployment-plan: integration
 
