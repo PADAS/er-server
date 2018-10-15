@@ -345,7 +345,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         ),
         ('Subject Attributes', {
             'classes': ('wide',),
-            'fields': (('rgb', 'sex', 'birthdate', 'other_id',
+            'fields': (('rgb', 'sex', 'tm_animal_id',
                         'region', 'country',))
         }
         ),
@@ -537,7 +537,12 @@ class SourceAdmin(admin.ModelAdmin):
         ),
         ('Source Attributes', {
             'classes': ('wide',),
-            'fields': ('collar_status', 'collar_model', 'has_acc_data', 'data_owners', 'adjusted_beacon_freq')
+            'fields': ('collar_status', 'collar_model', 'has_acc_data',
+                       'collar_manufacturer', 'data_owners',
+                       'adjusted_beacon_freq', 'primary_frequency',
+                       'adjusted_frequency',
+                       'backup_frequency', 'predicted_expiry'
+                       )
         }
         ),
         ('Advanced Source Attributes', {

@@ -1,0 +1,29 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: worker-rt
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: worker-rt
+    spec:
+      imagePullSecrets:
+        - name: gcr-secret
+      containers:
+      - image: gcr.io/padas-app/worker-rt:<<server-version>>
+        name: das-worker-rt
+        resources:
+          requests:
+            cpu: "100m"
+        env:
+        - name: API_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: API_HOST
+        - name: API_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: API_PORT

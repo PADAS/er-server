@@ -33,6 +33,20 @@ services:
       - ./docker/base/wait_for.sh:/startup/wait_for.sh
       - ./docker/Worker/start.sh:/var/www/app/start.sh
 
+  worker-rt:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+      - ./docker/Worker_RT/start.sh:/var/www/app/start.sh
+
+  worker-analyzer:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+      - ./docker/Worker_Analyzer/start.sh:/var/www/app/start.sh
+
   beat:
     volumes:
       - ./das:/var/www/app

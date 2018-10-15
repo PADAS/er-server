@@ -1,7 +1,0 @@
-project-id: padas-app
-cluster-name: web
-server-branch-name: develop
-web-branch-name: feature/2849-implementing-main-controller-bootstrapping-tests
-tag-as-latest: false
-static-ip: 35.227.183.136
-deploy-params-environment: integration

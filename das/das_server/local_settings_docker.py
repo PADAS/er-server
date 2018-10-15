@@ -48,3 +48,14 @@ NOTIFY_MEDIUM_PRIORITY_EVENT = 'medium_priority_alerts'
 NOTIFY_LOW_PRIORITY_EVENT = 'low_priority_alerts'
 
 EXPORT_KML_ENABLED = True
+
+# short term hack until we find a way to inject envs into the base image
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.contrib.gis.db.backends.postgis',
+#         'NAME': 'dev_us',
+#         'USER': 'postgres@das-postgres-us-azure',
+#         'HOST': 'das-postgres-us-azure.postgres.database.azure.com',
+#         'PASSWORD': '!GJt665$&T8!Pv',
+#     }
+# }
