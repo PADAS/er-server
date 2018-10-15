@@ -116,7 +116,7 @@ resources:
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/app
 
-# AIS_Gap, AIS_Track, API, Beat, MQL, RT_AIS_API, RT_API, Worker, Worker_RT, Worker_Analyzer
+# AIS_Gap, AIS_Track, API, Beat, MQL, RT_AIS_API, RT_API, Worker
 - name: image-server-worker
   type: docker-image-with-file-build-args
   source:
@@ -124,22 +124,6 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/worker
-
-- name: image-server-worker-rt
-  type: docker-image
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/worker-rt
-
-- name: image-server-worker-analyzer
-  type: docker-image
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/worker-analyzer
 
 - name: image-server-rt-api
   type: docker-image-with-file-build-args
@@ -190,14 +174,6 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/nginx
-
-- name: image-nginx-utility
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/nginx-utility
 
 # Web docker resources
 - name: image-web-develop
@@ -387,56 +363,17 @@ jobs:
             app_tag: server-app-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
-    - put: image-server-worker-rt
-      params:
-        build: git-server/docker/Worker_RT
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-worker-analyzer
-      params:
-        build: git-server/docker/Worker_Analyzer
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-
-- name: docker-build-utility
-  plan:
-  - aggregate:
-    - get: git-server
-      trigger: true
-    - get: image-server-api
-      passed: [docker-build-server]
-      trigger: true
-      params: {skip_download: true}
-    - get: server-version
-  - aggregate: 
     - put: image-postgis
-      params: {
-        build: git-server/docker/PostGIS,
-        tag: server-version/version,
-        tag_as_latest: ((tag-as-latest)),
-      }
+      params:
+        build: git-server/docker/PostGIS
+        tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-nginx
-      params: {
-        build: git-server/docker/Nginx,
-        tag: server-version/version,
-        tag_as_latest: ((tag-as-latest)),
-      }
-      get_params: {skip_download: true}
-    - put: image-nginx-utility
-      params: {
-        build: git-server/docker/Nginx_Utility,
-        tag: server-version/version,
-        tag_as_latest: ((tag-as-latest)),
-      }
+      params:
+        build: git-server/docker/Nginx
+        tag: server-version/version
+        tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
   on_failure:
     do:
@@ -590,14 +527,6 @@ jobs:
         passed: [docker-build-server]
         trigger: true
         params: {skip_download: true}
-      - get: image-server-worker-rt
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-worker-analyzer
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
       - get: image-nginx
         trigger: true
         params: {skip_download: true}
@@ -644,7 +573,7 @@ jobs:
             - vcloud
             - disks
             - create
-            - git-deployment/deployment/storage/default.disks.csv
+            - git-deployment/((disks-spec))
             - --prefix=((cluster-name))
             - --zone=((iaas-zone))
             - --iaas=((iaas))
@@ -757,9 +686,17 @@ jobs:
             - -exc
             - |
               echo "Finalizing the PV definitions to be used for this IAAS"
-              rename 's/\.yaml\.((iaas))$/\.yaml/' git-deployment/deployment/components/persistentvolumes/*.yaml.((iaas))
-              rm git-deployment/deployment/components/persistentvolumes/*.yaml\.*
-              vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((cluster-name)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
+              find . -depth -name "*.yaml.$IAAS" -exec sh -c '
+                from=yaml.$IAAS
+                to=yaml
+                shift 2
+                for pathname do
+                  mv "$pathname" "${pathname%.$from}.$to"
+                done' sh "yaml.$IAAS" "yaml" {} +
+
+              find . -name "*.yaml\.*" -type f -delete
+
+              vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
       on_failure:
         do:
         - put: slack-alert
@@ -846,8 +783,8 @@ jobs:
           - -exc
           - |
             echo "Deleting Disks. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
-            vcloud disks delete git-deployment/deployment/storage/default.disks.csv -i $IAAS --project $PROJECT -w $WORKSPACE -p=$CLUSTER_NAME -z=$ZONE -f
-            vcloud disks delete git-deployment/deployment/storage/default.disks.csv -i $IAAS --project $PROJECT -w $WORKSPACE -p=pd-$CLUSTER_NAME -z=$ZONE -f
+            vcloud disks delete git-deployment/((disks-spec)) -i $IAAS --project $PROJECT -w $WORKSPACE -p=$CLUSTER_NAME -z=$ZONE -f
+            vcloud disks delete git-deployment/((disks-spec)) -i $IAAS --project $PROJECT -w $WORKSPACE -p=pd-$CLUSTER_NAME -z=$ZONE -f
     on_failure:
       do:
       - put: slack-alert

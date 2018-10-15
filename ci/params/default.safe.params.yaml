@@ -11,6 +11,7 @@ cluster-name: ""
 static-ip: ""
 utility-static-ip: ""
 disk-namespace: ""
+disks-spec: deployment/storage/default.disks.csv
 vault-address: "https://vault.vulcancloud.io:8200"
 vcloud-service-url: "http://vcloud.vulcancloud.io:5000/"
 elastic-url: "elastic.vulcancloud.io"
@@ -32,6 +33,7 @@ version-prefix: "not-set"
 initial-server-version: "0.0.0"
 initial-web-version: "0.0.0"
 initial-smartconnect-version: "0.0.0"
+deployment-plan: integration
 
 #Application
 email-host: ""
