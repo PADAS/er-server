@@ -116,7 +116,7 @@ resources:
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/app
 
-# AIS_Gap, AIS_Track, API, Beat, MQL, RT_AIS_API, RT_API, Worker
+# AIS_Gap, AIS_Track, API, Beat, MQL, RT_AIS_API, RT_API, Worker, Worker_RT, Worker_Analyzer
 - name: image-server-worker
   type: docker-image-with-file-build-args
   source:
@@ -124,6 +124,21 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/worker
+
+- name: image-server-worker-rt	
+  type: docker-image	
+  source:	
+    email: ((gcr-io-email))	
+    username: ((gcr-io-username))	
+    password: ((padas-app-container-registry-push))	
+    repository: gcr.io/padas-app/worker-rt	
+ - name: image-server-worker-analyzer	
+  type: docker-image	
+  source:	
+    email: ((gcr-io-email))	
+    username: ((gcr-io-username))	
+    password: ((padas-app-container-registry-push))	
+    repository: gcr.io/padas-app/worker-analyzer
 
 - name: image-server-rt-api
   type: docker-image-with-file-build-args
@@ -363,6 +378,24 @@ jobs:
             app_tag: server-app-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
+    - put: image-server-worker-rt
+      params:
+        build: git-server/docker/Worker_RT
+        tag: git-server/sha
+        build_args:
+          from_file:
+            app_tag: server-app-version/version
+        tag_as_latest: ((tag-as-latest))
+      get_params: {skip_download: true}
+    - put: image-server-worker-analyzer
+      params:
+        build: git-server/docker/Worker_Analyzer
+        tag: git-server/sha
+        build_args:
+          from_file:
+            app_tag: server-app-version/version
+        tag_as_latest: ((tag-as-latest))
+      get_params: {skip_download: true}
     - put: image-postgis
       params:
         build: git-server/docker/PostGIS
@@ -524,6 +557,14 @@ jobs:
         trigger: true
         params: {skip_download: true}
       - get: image-server-worker
+        passed: [docker-build-server]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-server-worker-rt
+        passed: [docker-build-server]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-server-worker-analyzer
         passed: [docker-build-server]
         trigger: true
         params: {skip_download: true}
