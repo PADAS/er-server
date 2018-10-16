@@ -132,7 +132,7 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/worker-rt
- - name: image-server-worker-analyzer
+- name: image-server-worker-analyzer
   type: docker-image
   source:
     email: ((gcr-io-email))
