@@ -22,8 +22,4 @@ spec:
             configMapKeyRef:
               name: default-configmap
               key: API_HOST
-        - name: API_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: API_PORT
+
