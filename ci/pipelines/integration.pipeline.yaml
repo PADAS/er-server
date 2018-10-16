@@ -125,19 +125,19 @@ resources:
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/worker
 
-- name: image-server-worker-rt	
-  type: docker-image	
-  source:	
-    email: ((gcr-io-email))	
-    username: ((gcr-io-username))	
-    password: ((padas-app-container-registry-push))	
-    repository: gcr.io/padas-app/worker-rt	
- - name: image-server-worker-analyzer	
-  type: docker-image	
-  source:	
-    email: ((gcr-io-email))	
-    username: ((gcr-io-username))	
-    password: ((padas-app-container-registry-push))	
+- name: image-server-worker-rt
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/worker-rt
+ - name: image-server-worker-analyzer
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/worker-analyzer
 
 - name: image-server-rt-api
@@ -850,3 +850,4 @@ jobs:
               - -exc
               - |
                 curl -X POST https://maker.ifttt.com/trigger/shared_services_ci_failed/with/key/$IFTTT_WEBHOOK_KEY
+
