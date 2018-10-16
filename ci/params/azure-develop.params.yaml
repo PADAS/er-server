@@ -1,5 +1,5 @@
 cluster-name: azure-develop
-version-suffix: dev-az
+version-prefix: dev-az
 server-branch-name: develop
 iaas: azure
 iaas-zone: eastus
