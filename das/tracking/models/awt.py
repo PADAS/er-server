@@ -60,7 +60,7 @@ class AwtClient(object):
         try:
             response = requests.post(url=url, headers=headers, data=payload)
             if response.status_code == 200:
-                return self.decrypt_response({'a':1})
+                return self.decrypt_response({'a': 1})
                 # return json.loads(response.text.strip())
         except requests.ConnectionError as e:
             self.logger.exception('Failed connecting to Vectronics API.')
@@ -100,7 +100,6 @@ class AwtClient(object):
 
     def fetch_data(self, additional_data=None):
         self.check_and_update_token()
-
         # Set Api Type (Live, Replay or History)
         api_type = 'LIVE_API'
         if additional_data and 'api_type' in additional_data.keys():
@@ -110,7 +109,6 @@ class AwtClient(object):
             url = self.host + self.APIS.get(api_type.upper(), None)
         except Exception as e:
             raise e
-
         # ST is Key (used in awt api) for Session Token
         payload = {'ST': self.session_token}
         if additional_data and api_type.upper() in ['REPLAY_API',
@@ -145,7 +143,7 @@ class AwtClient(object):
         return self.handle_request(url, payload)
 
     def fetch_observations(self, additional_data):
-        timeout = 300    # In Seconds
+        timeout = 300  # In Seconds
         key = 'awtplugin-observations-{username}'.format(username=self.username)
         observations = cache.get(key)
         if observations:
@@ -194,14 +192,11 @@ class AwtPlugin(TrackingPlugin):
         return data
 
     def _transform_to_observation(self, source, track_data):
-
         # Convert track_data into Observation data format
-        keys = ['lat', 'lon']
         if track_data['lat'] and track_data['lon']:
             latitude = float(track_data.get('lat'))
             longitude = float(track_data.get('lon'))
             recorded_at = datetime.utcfromtimestamp(track_data.get('timestamp'))
-            metadata = {}
             track_data.pop('lat')
             track_data.pop('lon')
             track_data.pop('timestamp')
@@ -215,9 +210,10 @@ class AwtPlugin(TrackingPlugin):
     def _parse_additional_data(additional_data):
         fixed_keys = ['api_type', 'start_time', 'end_time', 'manufacture_id',
                       'unit']
-        if 'start_time' in additional_data.keys() and 'end_time' in additional_data.keys():
+        if 'start_time' in additional_data.keys() and \
+                'end_time' in additional_data.keys():
             if isinstance(additional_data['start_time'], datetime):
-                additional_data['start_time'] = additional_data['start_time']\
+                additional_data['start_time'] = additional_data['start_time'] \
                     .timestamp()
             else:
                 additional_data['start_time'] = parse(
@@ -228,13 +224,14 @@ class AwtPlugin(TrackingPlugin):
             else:
                 additional_data['end_time'] = parse(
                     additional_data['end_time']).timestamp()
-
-        # Raise Error if either start time or end time is missing
-        if 'T2' in additional_data.keys() or 'start_time' in additional_data.keys():
-            if 'start_time' in additional_data.keys():
-                raise Exception('End Date is missing.')
-            else:
-                raise Exception('Start Date is missing.')
+        else:
+            # Raise Error if either start time or end time is missing
+            if 'end_time' in additional_data.keys() or \
+                    'start_time' in additional_data.keys():
+                if 'start_time' in additional_data.keys():
+                    raise Exception('End Date is missing.')
+                else:
+                    raise Exception('Start Date is missing.')
 
         # Remove unnecessary keys if there are any
         keys_to_remove = set(additional_data.keys()) - set(fixed_keys)
