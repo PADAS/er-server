@@ -19,8 +19,12 @@ def __str2date(d, replace_tzinfo=pytz.utc):
 
 
 # Helpers for parsing lines from Savanna datasource.
-Fix = namedtuple('Fix', ['collar_id', 'longitude', 'latitude', 'recorded_at', 'speed', 'heading', 'temperature', 'height'])
-field_transform = (str, float, float, __str2date, float, float, str, int)
+Fix = namedtuple('Fix', ['collar_id', 'longitude', 'latitude', 'recorded_at',
+                         'speed', 'heading', 'temperature', 'height',
+                         'hdop', 'battery'])
+Fix.__new__.__defaults__ = (None, None)
+field_transform = (str, float, float, __str2date, float, float, str, int,
+                   float, float)
 
 
 class SavannaClient(object):
@@ -85,7 +89,7 @@ class SavannaClient(object):
         :return:
         '''
         dt = (c(i) for c, i in zip(field_transform, s.split(',')))
-        dt = Fix._make(dt)
+        dt = Fix(*dt)
         return dt
 
 
@@ -140,7 +144,8 @@ class SavannahPlugin(TrackingPlugin):
 
     def _transform(self, item, dry_run):
         source, o = item
-        side_data = dict((k, o.__getattribute__(k)) for k in ('speed', 'heading', 'temperature', 'height'))
+        side_data = dict((k, o.__getattribute__(k)) for k in (
+            'speed', 'heading', 'temperature', 'height', 'hdop', 'battery'))
         if dry_run:
             return {'source': source, 'recorded_at': o.recorded_at,
                     'latitude': o.latitude, 'longitude': o.longitude,
