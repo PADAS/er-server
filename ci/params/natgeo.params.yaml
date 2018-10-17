@@ -3,6 +3,4 @@ cluster-name: natgeo
 server-branch-name: develop
 web-branch-name: develop
 static-ip: 35.233.221.53
-deployment-plan: integration
-#deploy-params-environment: integration
 
