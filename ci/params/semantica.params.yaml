@@ -4,4 +4,4 @@ server-branch-name: develop
 web-branch-name: develop
 tag-as-latest: false
 static-ip: 104.198.9.136
-deployment-plan: integration
+

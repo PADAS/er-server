@@ -3,5 +3,4 @@ cluster-name: comms
 server-branch-name: develop
 web-branch-name: develop
 static-ip: 104.198.108.220
-deployment-plan: integration
 
