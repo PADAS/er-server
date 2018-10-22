@@ -296,6 +296,7 @@ jobs:
     - get: git-server
       trigger: true
     - get: server-base-version
+      passed: [docker-build-server-base]
     - put: server-app-version
       params:
         pre: ((version-prefix))
@@ -328,6 +329,7 @@ jobs:
       trigger: true
       params: {skip_download: true}
     - get: server-app-version
+      passed: [docker-build-server-app]
     - put: server-version
       params:
         pre: ((version-prefix))
@@ -486,6 +488,7 @@ jobs:
       passed: [test-web-unit]
       params: {skip_download: true}
     - get: web-version
+      passed: [docker-build-web-develop]
   - put: image-web-app
     params: {
       build: git-web,
@@ -530,8 +533,11 @@ jobs:
   plan:
     - aggregate:
       - get: server-version
+        passed: [docker-build-server]
       - get: web-version
+        passed: [docker-build-web-develop]
       - get: smartconnect-version
+        passed: [docker-build-smartconnect-provider]
       - get: git-web
         passed: [docker-build-web-app]
       - get: git-server
@@ -569,9 +575,11 @@ jobs:
         trigger: true
         params: {skip_download: true}
       - get: image-nginx
+        passed: [docker-build-server]
         trigger: true
         params: {skip_download: true}
       - get: image-postgis
+        passed: [docker-build-server]
         trigger: true
         params: {skip_download: true}
       - get: image-web-app
