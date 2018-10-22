@@ -11,7 +11,7 @@ from dateutil.parser import parse
 from django.contrib.gis.db import models
 from django.core.cache import cache
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
+from tracking.models.plugin_base import Obs, TrackingPlugin
 
 
 class AwtClient(object):
@@ -21,7 +21,6 @@ class AwtClient(object):
     def __init__(self, host=None, username=None, password=None,
                  subscription_token=None):
         self.logger = logging.getLogger(self.__class__.__name__)
-
         self.APIS = {"LIVE_API": "/Scripts/php/api/data.php",
                      "REPLAY_API": "/Scripts/php/api/replay.php",
                      "HISTORY_API": "/Scripts/php/api/history.php",
@@ -57,66 +56,58 @@ class AwtClient(object):
         try:
             data = data[:-ord(data[len(data) - 1:])].decode('utf-8')
             data = json.loads(json.loads(data))
+            return data
         except Exception as e:
             self.logger.error(e)
             raise e
-        return data
 
-    def handle_request(self, url, payload, key=None):
-        # In case of failure, store Response in cache to avoid repeated calls
-        expiry_time = 300  # In seconds
-
+    def handle_request(self, url, payload, key=None, expiry_period=None):
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        if not expiry_period:
+            expiry_period = 300  # In Seconds
+        data = {'Result': False}
+        description = ''
         try:
             response = requests.post(url=url, headers=headers, data=payload)
             if response.status_code == 200:
-                return json.loads(response.text.strip())
+                data = json.loads(response.text.strip())
             else:
-                if key:
-                    cache.set(key, 'Request status: {0},Traceback:{1}'.format(
-                        response.status_code, response.text), expiry_time)
+                description = 'Request status: {0}, Traceback: {1}'.format(
+                    response.status_code, response.text.strip())
         except requests.ConnectionError as e:
-            if key:
-                cache.set(key, 'Connection Error for {url}'.format(url=url),
-                          expiry_time)
-            self.logger.exception('Failed connecting to AwtPlugin API.')
-            raise e
+            description = 'Connection Error for {url}'.format(url=url)
+            data['e'] = e
         except requests.Timeout as e:
-            if key:
-                cache.set(key, 'Request Timeout for {url}'.format(url=url),
-                          expiry_time)
-            self.logger.exception('Time-out connecting to AwtPlugin API.')
-            raise e
+            description = 'Request Timeout for {url}'.format(url=url)
+            data['e'] = e
         except Exception as e:
+            description = str(e)
+            data['e'] = e
+        finally:
+            if not data['Result']:
+                data['error'] = description
             if key:
-                cache.set(key, str(e), expiry_time)
-            self.logger.exception(e)
-            raise e
+                cache.set(key, data, expiry_period)
+            if 'e' in data.keys():
+                self.logger.exception(data['e'])
+                raise data['e']
 
     def fetch_fresh_session_token(self):
         url = self.host + self.APIS['TOKEN_API']
         payload = {'USR': self.username, 'PW': self.password}
         key = 'awtplugin_session_token'
-        response = self.handle_request(url, payload, key)
 
         # Session Token expiry in Seconds(has to be renewed in at least 1 hour)
-        session_token_expiry_time = 3540  # 3540 seconds = 59 minutes
-        try:
-            if response.get('Token', None):
-                cache.set('awtplugin_session_token', response.get('Token'),
-                          session_token_expiry_time)
-            else:
-                raise DasPluginFetchError("Error while getting token, response "
-                                          "= {0}".format(response))
-        except Exception as e:
-            self.logger.error(e)
-            raise DasPluginFetchError("Error while getting token, response "
-                                      "= {0}".format(response))
+        session_token_expiry = 3540  # 3540 seconds = 59 minutes
+        self.handle_request(url, payload, key, session_token_expiry)
 
     def check_and_update_token(self):
-        awtplugin_session_token = cache.get('awtplugin_session_token')
-        if awtplugin_session_token:
-            self.session_token = awtplugin_session_token
+        awtplugin_data = cache.get('awtplugin_session_token')
+        if awtplugin_data:
+            if awtplugin_data['Result']:
+                self.session_token = awtplugin_data['Token']
+            else:
+                raise Exception(awtplugin_data)
         else:
             self.fetch_fresh_session_token()
             self.check_and_update_token()
@@ -133,6 +124,7 @@ class AwtClient(object):
             url = self.host + self.APIS.get(api_type.upper(), None)
         except Exception as e:
             raise e
+
         # ST is Key (used in awt api) for Session Token
         payload = {'ST': self.session_token}
         if additional_data and api_type.upper() in ['REPLAY_API',
@@ -142,8 +134,16 @@ class AwtClient(object):
                 extra_data[self.key_mapping[i]] = additional_data[i]
             payload = {**payload, **extra_data}
         key = 'awtplugin-observations-{username}'.format(username=self.username)
-        response = self.handle_request(url, payload, key)
-        return self.decrypt_response(response)
+        data_expiry = 300  # In Seconds
+        self.handle_request(url, payload, key, data_expiry)
+        response = cache.get(key)
+        if response:
+            if response['Result']:
+                return self.decrypt_response(response)
+            else:
+                raise Exception(response)
+        else:
+            raise Exception('Error in fetching observation Data')
 
     def fetch_units(self):
         self.check_and_update_token()
