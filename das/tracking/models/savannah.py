@@ -1,5 +1,6 @@
 import http.client
 from functools import namedtuple
+import time
 import copy
 
 import datetime
@@ -12,6 +13,8 @@ import logging
 from django.contrib.gis.db import models
 
 from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
+from analyzers.models import CRITICAL
+
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
@@ -79,6 +82,57 @@ class SavannaClient(object):
                                                                                                           res.status)
             self.logger.error(msg)
             raise DasPluginFetchError(msg)
+
+        # Get Savannah collar alarms.
+        self.logger.info('Getting Savannah collar alarms for collar_id: '
+                         '{}'.format(collar_id))
+        connection = http.client.HTTPConnection(self.host, timeout=15)
+        connection.request(
+            "GET", "/savannah/get_alerts.asp?uid={}&pwd={}&start_time={}&"
+                   "end_time={}&collar={}".format(
+                    self.username, self.password, start_time, str(time.time()),
+                    collar_id)
+        )
+        alerts_response = connection.getresponse()
+        if alerts_response.status == 200:
+            alerts = alerts_response.read()
+            alerts = alerts.decode('utf-8').strip()
+            for alert in alerts.split('\r\n'):
+                if alert:
+                    # Save alert as an Event report.
+                    alert = alert.split(',')
+                    alert_data = alert[:-1]
+                    alert_type = alert[-1]
+
+                    from observations.models import Subject
+                    subject = Subject.objects.get(
+                        subjectsource__source__manufacturer_id=collar_id)
+
+                    from analyzers.models.base import EVENT_PRIORITY_MAP
+                    title, event_type = None, None
+                    if alert_type == 'Immobility Alert':
+                        event_type = 'immobility'
+                        title = '{}  is immobile'.format(subject.name)
+                    elif alert_type == 'Movement':
+                        event_type = 'immobility_all_clear'
+
+                    if title and event_type:
+                        event_details = {'name': subject.name}
+                        event_data = {
+                            'title': title,
+                            'event_type': event_type,
+                            'event_details': event_details,
+                            'priority': EVENT_PRIORITY_MAP.get(CRITICAL),
+                            'location': {'latitude': alert[2],
+                                         'longitude': alert[1]},
+                            'time': parse_date(alert[3]).replace(
+                                tzinfo=pytz.utc)
+                        }
+                        from analyzers.utils import save_analyzer_event
+                        save_analyzer_event(event_data)
+
+                    # Save alerts as Observations.
+                    yield self.parse_line(','.join(alert_data))
 
     @classmethod
     def parse_line(cls, s):
