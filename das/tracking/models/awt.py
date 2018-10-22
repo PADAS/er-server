@@ -125,6 +125,10 @@ class AwtClient(object):
         except Exception as e:
             raise e
 
+        # Remove Manufacture id from payload in case of LIVE API
+        if api_type == 'LIVE_API':
+            additional_data.pop('manufacturer_id')
+
         # ST is Key (used in awt api) for Session Token
         payload = {'ST': self.session_token}
         if additional_data and api_type.upper() in ['REPLAY_API',
@@ -169,10 +173,8 @@ class AwtClient(object):
                     source_observation.append(observation)
             return source_observation
         else:
-            additional_data.pop('manufacturer_id')
             observations = self.fetch_data(additional_data)
             cache.set(key, observations, timeout)
-            additional_data['manufacturer_id'] = manufacturer_id
             self.fetch_observations(additional_data)
 
 
@@ -271,7 +273,6 @@ class AwtPlugin(TrackingPlugin):
                 params = self._parse_additional_data(additional_data)
 
             # Set tag value(manufacture id)
-            params['manufacturer_id'] = source.manufacturer_id
             observations = client.fetch_observations(params)
             dry_run = False
             if additional_data and 'dry_run' in additional_data.keys():

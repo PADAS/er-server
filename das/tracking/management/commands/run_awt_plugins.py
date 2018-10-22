@@ -3,7 +3,7 @@ import logging
 from dateutil.parser import parse
 from django.apps import apps
 from django.core.management.base import BaseCommand
-
+from datetime import datetime, timedelta
 from observations.models import Source
 from tracking.models.awt import AwtClient
 from tracking.tasks import run_source_plugin
@@ -64,39 +64,51 @@ class Command(BaseCommand):
                                    password=plugin.password, host=plugin.host)
             self.logger.info(awt_client.fetch_tags())
 
-    @staticmethod
-    def parse_date(input_date):
+    def validate_start_end_time(self, start, end=None):
+        # Check Start/end should be less than now
+        if start >= datetime.now():
+            raise ValueError('Start time should be less than or equal to '
+                             'current time')
+        if end:
+            if end >= datetime.now():
+                raise ValueError('End time should be less than or equal to '
+                                 'current time')
+            if end <= start:
+                raise ValueError("End time can't be less than or equal to start"
+                                 " time")
+
+    def observations(self, options):
+        if 'start_time' not in options.keys():
+                raise ValueError('start-time is required with end-time. '
+                                 'Use --start-time [start-time])')
         try:
-            parse(input_date)
+            options['start_time'] = parse(options['start_time'])
+            options['end_time'] = (parse(options['end_time'])
+                                   if 'end_time' in options.keys()
+                                   else datetime.now())
+            self.validate_start_end_time(options['start_time'],
+                                         options['end_time'])
         except Exception as e:
             raise e
 
-    def observations(self, options):
-        if 'end-time' in options.keys():
-            if 'start-time' not in options.keys():
-                raise ValueError('start-time is required with end-time. '
-                                 'Use --start-time [start-time])')
-            else:
-                self.parse_date(options['start-time'])
-                self.parse_date(options['end-time'])
-                options['start_time'] = options['start-time']
-                options['end_time'] = options['end-time']
-                options.pop('start-time')
-                options.pop('end-time')
-        elif 'start-time' in options.keys():
-            self.parse_date(options['start-time'])
-            options['start_time'] = options['start-time']
-            options.pop('start-time')
-
-        if 'manufacturer-id' not in options.keys():
+        # API type according to time difference between start_time & end_time
+        # if options['end_time'] - options['start_time'] <= timedelta(days=90):
+        #     options['api_type'] = 'REPLAY_API'
+        # else:
+        #     options['api_type'] = 'HISTORY_API'
+        # Above Logic not working, but mentioned in doc
+        # https://api.africawildlifetracking.com
+        options['api_type'] = 'REPLAY_API'
+        if 'manufacturer_id' not in options.keys():
             raise ValueError('manufacturer-id is required. '
                              'Use --manufacturer-id [manufacturer-id]')
         else:
-            manufacture_id = options['manufacturer-id']
-            source = Source.objects.filter(manufacturer_id=manufacture_id)
+            manufacture_id = options['manufacturer_id']
+            try:
+                source = Source.objects.get(manufacturer_id=manufacture_id)
+            except Exception as e:
+                raise e
             if source:
-                options['manufacturer_id'] = manufacture_id
-                options.pop('manufacturer-id')
                 options['dry_run'] = "true"
 
                 for plugin in self.plugin_class.objects.all():
