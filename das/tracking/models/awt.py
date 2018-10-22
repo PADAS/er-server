@@ -95,14 +95,14 @@ class AwtClient(object):
     def fetch_fresh_session_token(self):
         url = self.host + self.APIS['TOKEN_API']
         payload = {'USR': self.username, 'PW': self.password}
-        key = 'awtplugin_session_token'
+        key = 'awtplugin-session-token'
 
         # Session Token expiry in Seconds(has to be renewed in at least 1 hour)
         session_token_expiry = 3540  # 3540 seconds = 59 minutes
         self.handle_request(url, payload, key, session_token_expiry)
 
     def check_and_update_token(self):
-        awtplugin_data = cache.get('awtplugin_session_token')
+        awtplugin_data = cache.get('awtplugin-session-token')
         if awtplugin_data:
             if awtplugin_data['Result']:
                 self.session_token = awtplugin_data['Token']
