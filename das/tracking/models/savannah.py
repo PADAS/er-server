@@ -90,8 +90,10 @@ class SavannaClient(object):
         connection.request(
             "GET", "/savannah/get_alerts.asp?uid={}&pwd={}&start_time={}&"
                    "end_time={}&collar={}".format(
-                    self.username, self.password, start_time, str(time.time()),
-                    collar_id)
+                    # self.username, self.password, start_time, str(time.time()),
+                    # collar_id)
+                    self.username, self.password, '1483574400', '1483833600',
+                    'ST2010-1231')
         )
         alerts_response = connection.getresponse()
         if alerts_response.status == 200:
@@ -113,7 +115,7 @@ class SavannaClient(object):
                     if alert_type == 'Immobility Alert':
                         event_type = 'immobility'
                         title = '{}  is immobile'.format(subject.name)
-                    elif alert_type == 'Movement':
+                    elif alert_type == 'None':
                         event_type = 'immobility_all_clear'
 
                     if title and event_type:
