@@ -5,6 +5,7 @@ metadata:
 spec:
   template:
     metadata:
+      prometheus.io/scrape: false
       labels:
         app: logstash
     spec:
