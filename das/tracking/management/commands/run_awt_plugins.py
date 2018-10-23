@@ -1,9 +1,10 @@
 import logging
+from datetime import datetime
 
 from dateutil.parser import parse
 from django.apps import apps
 from django.core.management.base import BaseCommand
-from datetime import datetime, timedelta
+
 from observations.models import Source
 from tracking.models.awt import AwtClient
 from tracking.tasks import run_source_plugin
@@ -105,8 +106,8 @@ class Command(BaseCommand):
 
     def observations(self, options):
         if not options['start_time']:
-                raise ValueError('start-time is required with end-time. '
-                                 'Use --start-time [start-time])')
+            raise ValueError('start-time is required with end-time. '
+                             'Use --start-time [start-time])')
         try:
             options['start_time'] = parse(options['start_time'])
             options['end_time'] = (parse(options['end_time'])
@@ -116,13 +117,6 @@ class Command(BaseCommand):
         except Exception as e:
             raise e
 
-        # API type according to time difference between start_time & end_time
-        # if options['end_time'] - options['start_time'] <= timedelta(days=90):
-        #     options['api_type'] = 'REPLAY_API'
-        # else:
-        #     options['api_type'] = 'HISTORY_API'
-        # Above Logic not working, but mentioned in doc
-        # https://api.africawildlifetracking.com
         options['api_type'] = 'REPLAY_API'
         if options['unit_id']:
             options['unit'] = options['unit_id']
