@@ -101,7 +101,6 @@ resources:
 - name: image-server-base
   type: docker-image-with-file-build-args
   source:
-    tag: $(cat<git-server-base/sha)
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
@@ -110,7 +109,6 @@ resources:
 - name: image-server-app
   type: docker-image-with-file-build-args
   source:
-    tag: $(cat<git-server/sha)
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
@@ -383,7 +381,7 @@ jobs:
     - put: image-server-worker-rt
       params:
         build: git-server/docker/Worker_RT
-        tag: git-server/sha
+        tag: server-version/version
         build_args:
           from_file:
             app_tag: server-app-version/version
@@ -392,7 +390,7 @@ jobs:
     - put: image-server-worker-analyzer
       params:
         build: git-server/docker/Worker_Analyzer
-        tag: git-server/sha
+        tag: server-version/version
         build_args:
           from_file:
             app_tag: server-app-version/version
