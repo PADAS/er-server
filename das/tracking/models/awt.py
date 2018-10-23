@@ -86,8 +86,12 @@ class AwtClient(object):
         finally:
             if not data['Result']:
                 data['error'] = description
+
             if key:
                 cache.set(key, data, expiry_period)
+            else:
+                return data
+
             if 'e' in data.keys():
                 self.logger.exception(data['e'])
                 raise data['e']
@@ -116,18 +120,33 @@ class AwtClient(object):
         self.check_and_update_token()
 
         # Set Api Type (Live, Replay or History)
-        api_type = 'LIVE_API'
+        # api_type = 'LIVE_API'
+        api_type = 'REPLAY_API'
+
         if additional_data and 'api_type' in additional_data.keys():
             api_type = additional_data['api_type']
-            additional_data.pop('api_type')
         try:
             url = self.host + self.APIS.get(api_type.upper(), None)
         except Exception as e:
             raise e
 
-        # Remove Manufacture id from payload in case of LIVE API
-        if api_type == 'LIVE_API':
-            additional_data.pop('manufacturer_id')
+        if 'api_type' not in additional_data:
+            if api_type in ['REPLAY_API', 'HISTORY_API']:
+                if 'unit' not in additional_data.keys():
+                    response = self.fetch_units()
+                    if response['Result']:
+                        units = response['Unit_List']
+                        unit_id = units[0].get('id', None)
+                        additional_data['unit'] = unit_id
+                    else:
+                        raise Exception(response)
+        else:
+            additional_data.pop('api_type')
+
+        # If unit is there, remove Manufacturer_id to avoid further requests
+        if 'unit' in additional_data:
+            if 'manufacturer_id' in additional_data:
+                additional_data.pop('manufacturer_id')
 
         # ST is Key (used in awt api) for Session Token
         payload = {'ST': self.session_token}
@@ -161,21 +180,25 @@ class AwtClient(object):
         payload = {'ST': self.session_token}
         return self.handle_request(url, payload)
 
-    def fetch_observations(self, additional_data):
-        manufacturer_id = additional_data['manufacturer_id']
+    def fetch_observations(self, metadata):
+        manufacturer_id = metadata['manufacturer_id']
         timeout = 300  # In Seconds
         key = 'awtplugin-observations-{username}'.format(username=self.username)
         observations = cache.get(key)
         if observations:
-            source_observation = []
-            for observation in observations:
-                if str(observation['tag_id']) == str(manufacturer_id):
-                    source_observation.append(observation)
-            return source_observation
+            if isinstance(observations, list):
+                source_observations = []
+                for observation in observations:
+                    if str(observation['tag_id']) == str(manufacturer_id):
+                        source_observations.append(observation)
+                return source_observations
+            else:
+                raise Exception(observations)
         else:
+            additional_data = copy.copy(metadata)
             observations = self.fetch_data(additional_data)
             cache.set(key, observations, timeout)
-            self.fetch_observations(additional_data)
+            return self.fetch_observations(metadata)
 
 
 class AwtPlugin(TrackingPlugin):
@@ -216,23 +239,23 @@ class AwtPlugin(TrackingPlugin):
         # If latitude or longitude is not there in API Data, return None
         return None
 
-    def _parse_additional_data(self, additional_data):
+    def _parse_additional_data(self, metadata):
+        additional_data = copy.copy(metadata)
         fixed_keys = ['api_type', 'start_time', 'end_time', 'manufacturer_id',
                       'unit']
         if 'start_time' in additional_data.keys() and \
                 'end_time' in additional_data.keys():
             if isinstance(additional_data['start_time'], datetime):
-                additional_data['start_time'] = additional_data['start_time'] \
-                    .timestamp()
+                start_time = additional_data['start_time'].timestamp()
             else:
-                additional_data['start_time'] = parse(
-                    additional_data['start_time']).timestamp()
+                start_time = parse(additional_data['start_time']).timestamp()
+            additional_data['start_time'] = int(start_time)
+
             if isinstance(additional_data['end_time'], datetime):
-                additional_data['end_time'] = additional_data['end_time'] \
-                    .timestamp()
+                end_time = additional_data['end_time'].timestamp()
             else:
-                additional_data['end_time'] = parse(
-                    additional_data['end_time']).timestamp()
+                end_time = parse(additional_data['end_time']).timestamp()
+            additional_data['end_time'] = int(end_time)
         else:
             # Raise Error if either start time or end time is missing
             if 'end_time' in additional_data.keys() or \
@@ -243,7 +266,10 @@ class AwtPlugin(TrackingPlugin):
                     raise Exception('Start Date is missing.')
 
         # Remove unnecessary keys if there are any
-        keys_to_remove = set(additional_data.keys()) - set(fixed_keys)
+        keys_to_remove = list(set(additional_data.keys()) - set(fixed_keys))
+        for key in fixed_keys:
+            if key in additional_data.keys() and not additional_data[key]:
+                keys_to_remove.append(key)
         for key in keys_to_remove:
             additional_data.pop(key, None)
         return additional_data
@@ -262,25 +288,34 @@ class AwtPlugin(TrackingPlugin):
             start_date = datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
         end_date = datetime.now(tz=pytz.UTC)
 
-        # Things to do: When to use start_date and end_date?
+        # Set tag value(manufacture id) if not in additional_data
+        if additional_data:
+            if 'manufacturer_id' not in additional_data.keys():
+                additional_data['manufacturer_id'] = source.manufacturer_id
+        else:
+            additional_data = {'manufacturer_id': source.manufacturer_id}
+
+        # Set default api_type as LIVE API
+        if 'start_time' not in additional_data.keys():
+            additional_data['start_time'] = start_date
+        if 'end_time' not in additional_data.keys():
+            additional_data['end_time'] = end_date
 
         # create cursor_data
         self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
         latest_timestamp = None
         try:
-            params = {}
+            params = additional_data
             if additional_data:
                 params = self._parse_additional_data(additional_data)
-
-            # Set tag value(manufacture id)
-            observations = client.fetch_observations(params)
             dry_run = False
             if additional_data and 'dry_run' in additional_data.keys():
                 if additional_data['dry_run'].lower() == 'true':
                     dry_run = True
+            observations = client.fetch_observations(params)
             if dry_run:
-                self.looger.info(observations)
-            if not dry_run and observations:
+                self.logger.info(observations)
+            elif observations:
                 for observation in observations:
                     fix_time = datetime.fromtimestamp(
                         observation.get('timestamp'), tz=pytz.timezone('utc'))

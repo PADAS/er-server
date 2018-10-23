@@ -29,6 +29,8 @@ class Command(BaseCommand):
         parser.add_argument('--manufacturer-id',
                             help='Manufacture id(Tag ID), required with '
                                  '"observations" sub command')
+        parser.add_argument('--unit-id',
+                            help='Unit id for AwtPlugin')
 
         parser.add_argument('--dry-run',
                             help="stdout data(won't store in DB). Possible "
@@ -77,15 +79,38 @@ class Command(BaseCommand):
                 raise ValueError("End time can't be less than or equal to start"
                                  " time")
 
+    def fetch_observation(self, options):
+        manufacturer_id = options['manufacturer_id']
+        source = None
+        try:
+            source = Source.objects.get(manufacturer_id=manufacturer_id)
+        except Exception as e:
+            pass
+        if source:
+            options['dry_run'] = "true"
+
+            for plugin in self.plugin_class.objects.all():
+                source_plugins = plugin.source_plugins.filter(
+                    source=source, status='enabled')
+                if source_plugins:
+                    for source_plugin in source_plugins:
+                        for observations in source_plugin.plugin.fetch(
+                                source, source_plugin.cursor_data, options):
+                            self.logger.info(observations)
+        else:
+            self.logger.error('No source is linked with manufacture_id = '
+                              '{0}'.format(manufacturer_id))
+            raise Exception('No source is linked with manufacture_id = '
+                            '{0}'.format(manufacturer_id))
+
     def observations(self, options):
-        if 'start_time' not in options.keys():
+        if not options['start_time']:
                 raise ValueError('start-time is required with end-time. '
                                  'Use --start-time [start-time])')
         try:
             options['start_time'] = parse(options['start_time'])
             options['end_time'] = (parse(options['end_time'])
-                                   if 'end_time' in options.keys()
-                                   else datetime.now())
+                                   if options['end_time'] else datetime.now())
             self.validate_start_end_time(options['start_time'],
                                          options['end_time'])
         except Exception as e:
@@ -99,26 +124,29 @@ class Command(BaseCommand):
         # Above Logic not working, but mentioned in doc
         # https://api.africawildlifetracking.com
         options['api_type'] = 'REPLAY_API'
-        if 'manufacturer_id' not in options.keys():
-            raise ValueError('manufacturer-id is required. '
-                             'Use --manufacturer-id [manufacturer-id]')
-        else:
-            manufacture_id = options['manufacturer_id']
-            try:
-                source = Source.objects.get(manufacturer_id=manufacture_id)
-            except Exception as e:
-                raise e
-            if source:
-                options['dry_run'] = "true"
-
-                for plugin in self.plugin_class.objects.all():
-                    source_plugins = plugin.source_plugins.filter(
-                        source=source, status='enabled')
-                    if source_plugins:
-                        for source_plugin in source_plugins:
-                            for observations in source_plugin.plugin.fetch(
-                                    source, source_plugin.cursor_data, options):
-                                self.logger.info(observations)
+        if options['unit_id']:
+            options['unit'] = options['unit_id']
+            if options['manufacturer_id']:
+                self.fetch_observation(options)
             else:
-                raise Exception('No source is linked with manufacture_id = '
-                                '{0}'.format(manufacture_id))
+                for plugin in self.plugin_class.objects.filter(
+                        status='enabled'):
+                    awt_client = AwtClient(username=plugin.username,
+                                           password=plugin.password,
+                                           host=plugin.host)
+                    response = awt_client.fetch_tags()
+                    if response['Result']:
+                        tags = response['Tag_List']
+                        for tag in tags:
+                            tag_id = tag['id']
+                            options['manufacturer_id'] = tag_id
+                            self.fetch_observation(options)
+                    else:
+                        raise Exception(response)
+        else:
+            if options['manufacturer_id']:
+                self.fetch_observation(options)
+            else:
+                raise ValueError('Either manufacturer-id or unit-id is required'
+                                 '. Use --manufacturer-id [manufacturer-id]'
+                                 ' or --unit-id [unit-id].')
