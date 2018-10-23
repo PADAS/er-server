@@ -5,9 +5,10 @@ metadata:
 spec:
   template:
     metadata:
-      prometheus.io/scrape: false
       labels:
         app: logstash
+      annotations:
+        prometheus.io/scrape: 'false'
     spec:
       containers:
       - image: docker.elastic.co/logstash/logstash:6.3.1
