@@ -3,4 +3,4 @@ cluster-name: ppf
 server-branch-name: develop
 web-branch-name: master
 tag-as-latest: false
-das-static-ip: 35.185.250.102
+static-ip: 35.185.250.102

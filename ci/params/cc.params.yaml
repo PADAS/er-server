@@ -3,5 +3,5 @@ cluster-name: cc
 server-branch-name: develop
 web-branch-name: develop
 tag-as-latest: false
-das-static-ip: 35.233.210.105
+static-ip: 35.233.210.105
 

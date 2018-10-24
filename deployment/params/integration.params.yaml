@@ -7,7 +7,7 @@ static-values:
   monitoring-version: latest
   log_url: "logs.pamdas.org:5044"
 environment:
-  das-static-ip: DAS_STATIC_IP
+  static-ip: STATIC_IP
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password

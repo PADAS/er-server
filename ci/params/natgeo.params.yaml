@@ -2,5 +2,5 @@ project-id: padas-app
 cluster-name: natgeo
 server-branch-name: develop
 web-branch-name: develop
-das-static-ip: 35.233.221.53
+static-ip: 35.233.221.53
 

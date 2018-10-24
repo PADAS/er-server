@@ -3,5 +3,5 @@ cluster-name: semantica
 server-branch-name: develop
 web-branch-name: develop
 tag-as-latest: false
-das-static-ip: 104.198.9.136
+static-ip: 104.198.9.136
 

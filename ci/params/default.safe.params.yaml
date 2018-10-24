@@ -8,7 +8,7 @@ iaas-workspace: "padas-app"
 iaas-zone: "us-west1-a"
 cluster-spec: deployment/cluster-specs/gcp.yaml
 cluster-name: ""
-das-static-ip: ""
+static-ip: ""
 utility-static-ip: ""
 disk-namespace: ""
 disks-spec: deployment/storage/default.disks.csv
