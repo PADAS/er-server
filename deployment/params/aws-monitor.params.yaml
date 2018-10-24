@@ -6,7 +6,7 @@ static-values:
   node-exporter-version: v0.16.0
   monitoring-version: latest
 environment:
-  static-ip: STATIC_IP
+  das-static-ip: DAS_STATIC_IP
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
