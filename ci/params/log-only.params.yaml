@@ -1,7 +1,7 @@
 project-id: padas-app
 cluster-name: log-only
 server-branch-name: develop
-static-ip:
+das-static-ip:
 deploy-params-environment: log-only
 deploy-recipe: log-only.yaml
 disks-spec: deployment/storage/log-only.disks.csv
