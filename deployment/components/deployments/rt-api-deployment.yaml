@@ -2,13 +2,13 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: rt-api
-  annotations:
-    prometheus.io/scrape: 'false'
 spec:
   template:
     metadata:
       labels:
         das.component: rt-api
+      annotations:
+        prometheus.io/scrape: 'false'
     spec:
       imagePullSecrets:
         - name: gcr-secret
