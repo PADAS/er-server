@@ -3,5 +3,5 @@ cluster-name: permissions
 server-branch-name: feature/DAS-2373
 web-branch-name: develop
 tag-as-latest: false
-static-ip: 35.197.27.160
+das-static-ip: 35.197.27.160
 deploy-params-environment: integration

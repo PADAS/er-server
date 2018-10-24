@@ -38,6 +38,7 @@ metadata:
     app.kubernetes.io/part-of: log-ingress
 spec:
   type: LoadBalancer
+  loadBalancerIP: <<logging-static-ip>>
   selector:
     app.kubernetes.io/name: log-ingress
     app.kubernetes.io/part-of: log-ingress
