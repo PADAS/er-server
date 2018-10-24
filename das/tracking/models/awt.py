@@ -279,6 +279,8 @@ class AwtPlugin(TrackingPlugin):
         client = AwtClient(host=self.host, username=self.username,
                            password=self.password,
                            subscription_token=self.subscription_token)
+        # create cursor_data
+        self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
         try:
             start_date = (parse(self.cursor_data['latest_timestamp']) -
                           timedelta(hours=12))
@@ -301,8 +303,6 @@ class AwtPlugin(TrackingPlugin):
         if 'end_time' not in additional_data.keys():
             additional_data['end_time'] = end_date
 
-        # create cursor_data
-        self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
         latest_timestamp = None
         try:
             params = additional_data
