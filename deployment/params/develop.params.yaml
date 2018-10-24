@@ -1,5 +1,4 @@
 static-values:
-  email-host: ""
   email-username: ""
   web-service-name: "web"
   nginx-utility-service-ip: ""
