@@ -383,11 +383,7 @@ jobs:
     - put: image-server-worker-rt
       params:
         build: git-server/docker/Worker_RT
-<<<<<<< HEAD
         tag: server-version/version
-=======
-        tag: git-server/sha
->>>>>>> parent of 56ea49f6... disambiguate 'static-ip'
         build_args:
           from_file:
             app_tag: server-app-version/version
@@ -396,11 +392,7 @@ jobs:
     - put: image-server-worker-analyzer
       params:
         build: git-server/docker/Worker_Analyzer
-<<<<<<< HEAD
         tag: server-version/version
-=======
-        tag: git-server/sha
->>>>>>> parent of 56ea49f6... disambiguate 'static-ip'
         build_args:
           from_file:
             app_tag: server-app-version/version
