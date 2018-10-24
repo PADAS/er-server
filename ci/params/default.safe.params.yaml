@@ -35,7 +35,6 @@ initial-web-version: "0.0.0"
 initial-smartconnect-version: "0.0.0"
 
 #Application
-email-username: ""
 web-service-name: "web"
 
 #Test & Notification
