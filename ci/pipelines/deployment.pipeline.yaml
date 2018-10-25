@@ -1,151 +1,160 @@
-groups: []
 resources:
 - name: git-deployment
   type: versioned-git-resource
   source:
+    uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
     paths:
-    - deployment/*
+      - deployment/*
     private_key: ((das-github))
-    uri: git@github.com:PADAS/das.git
+
 - name: slack-alert
   type: slack-notification
   source:
     url: ((slack-webhook-url-concourse))
+
 resource_types:
 - name: versioned-git-resource
   type: docker-image
   source:
     email: ((gcr-io-email))
+    username: ((gcr-io-username))
     password: ((ss-infrastructure-container-registry-pull))
     repository: gcr.io/ss-infrastructure/concourse/versioned-git-resource
-    username: ((gcr-io-username))
+
 jobs:
 - name: deploy-to-k8s
   plan:
   - aggregate:
     - get: git-deployment
   - aggregate:
-    - task: ensure-disks-exist
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/ss-infrastructure-public/platform/tools
-            tag: ((vp-tools-container-version))
-        params:
-          AZURE_CLIENT_ID: ((azure-client-id))
-          AZURE_CLIENT_SECRET: ((azure-client-secret))
-          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id))
-          AZURE_TENANT_ID: ((azure-tenant-id))
-          BUILD_PIPELINE_NAME: ((pipeline-name))
-          CLUSTER_NAME: ((cluster-name))
-          ELASTIC_URL: ((elastic-url))
-          IAAS: ((iaas))
-          LOGSTASH_URL: ((logstash-url))
-          PROJECT: padas-app
-          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner))
-          USERNAME: ((creator))
-          WORKSPACE: ((iaas-workspace))
-          ZONE: ((iaas-zone))
-        run:
-          path: /bin/bash
-          args:
-          - vcloud
-          - disks
-          - create
-          - git-deployment/((disks-spec))
-          - --prefix=((cluster-name))
-          - --zone=((iaas-zone))
-          - --iaas=((iaas))
-          - --workspace=((iaas-workspace))
-          - --type=ssd
-        inputs:
-        - name: git-deployment
-    - task: ensure-cluster-exists
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/ss-infrastructure-public/platform/tools
-            tag: ((vp-tools-container-version))
-        params:
-          AZURE_CLIENT_ID: ((azure-client-id))
-          AZURE_CLIENT_SECRET: ((azure-client-secret))
-          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id))
-          AZURE_TENANT_ID: ((azure-tenant-id))
-          CLUSTER_NAME: ((cluster-name))
-          ELASTIC_URL: ((elastic-url))
-          IAAS: ((iaas))
-          LOGSTASH_URL: ((logstash-url))
-          PROJECT: padas-app
-          SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin))
-          USERNAME: ((creator))
-          VAULT_ADDR: ((vault-address))
-          VAULT_TOKEN: ((vault-automation-token))
-          WORKSPACE: ((iaas-workspace))
-          ZONE: ((iaas-zone))
-        run:
-          path: /bin/bash
-          args:
-          - vcloud
-          - clusters
-          - create
-          - git-deployment/((cluster-spec))
-          - --name=((cluster-name))
-          - --zone=((iaas-zone))
-          - --iaas=((iaas))
-          - --workspace=((iaas-workspace))
-        inputs:
-        - name: git-deployment
+      - task: ensure-disks-exist
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
+          inputs:
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            CLUSTER_NAME: ((cluster-name)),
+            IAAS: ((iaas)),
+            ZONE: ((iaas-zone)),
+            WORKSPACE: ((iaas-workspace)),
+            SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+            USERNAME: ((creator)),
+            ELASTIC_URL: ((elastic-url)),
+            BUILD_PIPELINE_NAME: ((pipeline-name)),
+            AZURE_TENANT_ID: ((azure-tenant-id)),
+            AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+            AZURE_CLIENT_ID: ((azure-client-id)),
+            AZURE_CLIENT_SECRET: ((azure-client-secret)),
+            LOGSTASH_URL: ((logstash-url))
+          }
+          run:
+            path: /bin/bash
+            args:
+            - vcloud
+            - disks
+            - create
+            - git-deployment/((disks-spec))
+            - --prefix=((cluster-name))
+            - --zone=((iaas-zone))
+            - --iaas=((iaas))
+            - --workspace=((iaas-workspace))
+            - --type=ssd
+      - task: ensure-cluster-exists
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
+          inputs:
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            CLUSTER_NAME: ((cluster-name)),
+            IAAS: ((iaas)),
+            ZONE: ((iaas-zone)),
+            WORKSPACE: ((iaas-workspace)),
+            SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url)),
+            AZURE_TENANT_ID: ((azure-tenant-id)),
+            AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+            AZURE_CLIENT_ID: ((azure-client-id)),
+            AZURE_CLIENT_SECRET: ((azure-client-secret)),
+            LOGSTASH_URL: ((logstash-url))
+          }
+          run:
+            path: /bin/bash
+            args:
+            - vcloud
+            - clusters
+            - create
+            - git-deployment/((cluster-spec))
+            - --name=((cluster-name))
+            - --zone=((iaas-zone))
+            - --iaas=((iaas))
+            - --workspace=((iaas-workspace))
   - do:
-    - task: deploy
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/ss-infrastructure-public/platform/tools
-            tag: ((vp-tools-container-version))
-        params:
-          AZURE_CLIENT_ID: ((azure-client-id))
-          AZURE_CLIENT_SECRET: ((azure-client-secret))
-          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id))
-          AZURE_TENANT_ID: ((azure-tenant-id))
-          CLUSTER_NAME: ((cluster-name))
-          DAS_STATIC_IP: ((das-static-ip))
-          ELASTIC_URL: ((elastic-url))
-          IAAS: ((iaas))
-          LOGSTASH_URL: ((logstash-url))
-          PROJECT: padas-app
-          SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin))
-          USERNAME: ((creator))
-          VAULT_ADDR: ((vault-address))
-          VAULT_TOKEN: ((vault-automation-token))
-          VCLOUD_SERVICE_URL: ((vcloud-service-url))
-          WORKSPACE: ((iaas-workspace))
-          ZONE: ((iaas-zone))
-        run:
-          path: /bin/bash
-          args:
-          - -exc
-          - |
-            echo "Finalizing the PV definitions to be used for this IAAS"
-            find . -depth -name "*.yaml.$IAAS" -exec sh -c '
-              from=yaml.$IAAS
-              to=yaml
-              shift 2
-              for pathname do
-                mv "$pathname" "${pathname%.$from}.$to"
-              done' sh "yaml.$IAAS" "yaml" {} +
+      - task: deploy
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
+          inputs:
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            CLUSTER_NAME: ((cluster-name)),
+            IAAS: ((iaas)),
+            ZONE: ((iaas-zone)),
+            WORKSPACE: ((iaas-workspace)),
+            SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url)),
+            VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+            STATIC_IP: ((static-ip)),
+            AZURE_TENANT_ID: ((azure-tenant-id)),
+            AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+            AZURE_CLIENT_ID: ((azure-client-id)),
+            AZURE_CLIENT_SECRET: ((azure-client-secret)),
+            LOGSTASH_URL: ((logstash-url))
+          }
+          run:
+            path: /bin/bash
+            args:
+            - -exc
+            - |
+              echo "Finalizing the PV definitions to be used for this IAAS"
+              find . -depth -name "*.yaml.$IAAS" -exec sh -c '
+                from=yaml.$IAAS
+                to=yaml
+                shift 2
+                for pathname do
+                  mv "$pathname" "${pathname%.$from}.$to"
+                done' sh "yaml.$IAAS" "yaml" {} +
 
-            find . -name "*.yaml\.*" -type f -delete
+              find . -name "*.yaml\.*" -type f -delete
 
-            vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
-        inputs:
-        - name: git-deployment
+              vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
+
 - name: destroy_environment
   serial: true
   plan:
@@ -157,26 +166,30 @@ jobs:
         platform: linux
         image_resource:
           type: docker-image
-          source:
-            repository: gcr.io/ss-infrastructure-public/platform/tools
-            tag: ((vp-tools-container-version))
-        params:
-          AZURE_CLIENT_ID: ((azure-client-id))
-          AZURE_CLIENT_SECRET: ((azure-client-secret))
-          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id))
-          AZURE_TENANT_ID: ((azure-tenant-id))
-          BUILD_PIPELINE_NAME: ((pipeline-name))
-          CLUSTER_NAME: ((cluster-name))
-          ELASTIC_URL: ((elastic-url))
-          IAAS: ((iaas))
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
+          }
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          CLUSTER_NAME: ((cluster-name)),
+          IAAS: ((iaas)),
+          ZONE: ((iaas-zone)),
+          WORKSPACE: ((iaas-workspace)),
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
           LOGSTASH_URL: ((logstash-url))
-          PROJECT: padas-app
-          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner))
-          USERNAME: ((creator))
-          VAULT_ADDR: ((vault-address))
-          VAULT_TOKEN: ((vault-automation-token))
-          WORKSPACE: ((iaas-workspace))
-          ZONE: ((iaas-zone))
+        }
         run:
           path: /bin/bash
           args:
@@ -184,33 +197,35 @@ jobs:
           - |
             echo "Deleting Cluster. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
             vcloud clusters delete -i $IAAS --project $PROJECT -w $WORKSPACE -n=$CLUSTER_NAME -z=$ZONE -f
-        inputs:
-        - name: git-deployment
     - task: delete_disks
       config:
         platform: linux
         image_resource:
           type: docker-image
-          source:
-            repository: gcr.io/ss-infrastructure-public/platform/tools
-            tag: ((vp-tools-container-version))
-        params:
-          AZURE_CLIENT_ID: ((azure-client-id))
-          AZURE_CLIENT_SECRET: ((azure-client-secret))
-          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id))
-          AZURE_TENANT_ID: ((azure-tenant-id))
-          BUILD_PIPELINE_NAME: ((pipeline-name))
-          CLUSTER_NAME: ((cluster-name))
-          ELASTIC_URL: ((elastic-url))
-          IAAS: ((iaas))
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
+          }
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          CLUSTER_NAME: ((cluster-name)),
+          IAAS: ((iaas)),
+          ZONE: ((iaas-zone)),
+          WORKSPACE: ((iaas-workspace)),
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
           LOGSTASH_URL: ((logstash-url))
-          PROJECT: padas-app
-          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner))
-          USERNAME: ((creator))
-          VAULT_ADDR: ((vault-address))
-          VAULT_TOKEN: ((vault-automation-token))
-          WORKSPACE: ((iaas-workspace))
-          ZONE: ((iaas-zone))
+        }
         run:
           path: /bin/bash
           args:
@@ -219,8 +234,6 @@ jobs:
             echo "Deleting Disks. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
             vcloud disks delete git-deployment/((disks-spec)) -i $IAAS --project $PROJECT -w $WORKSPACE -p=$CLUSTER_NAME -z=$ZONE -f
             vcloud disks delete git-deployment/((disks-spec)) -i $IAAS --project $PROJECT -w $WORKSPACE -p=pd-$CLUSTER_NAME -z=$ZONE -f
-        inputs:
-        - name: git-deployment
     on_failure:
       do:
       - put: slack-alert
@@ -235,10 +248,10 @@ jobs:
             platform: linux
             image_resource:
               type: docker-image
-              source:
-                repository: byrnedo/alpine-curl
-            params:
+              source: {repository: byrnedo/alpine-curl}
+            params: {
               IFTTT_WEBHOOK_KEY: ((ifttt-webhook-key))
+            }
             run:
               path: /bin/sh
               args:
