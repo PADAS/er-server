@@ -143,14 +143,7 @@ jobs:
             - -exc
             - |
               echo "Finalizing the PV definitions to be used for this IAAS"
-              find . -depth -name "*.yaml.$IAAS" -exec sh -c '
-                from=yaml.$IAAS
-                to=yaml
-                shift 2
-                for pathname do
-                  mv "$pathname" "${pathname%.$from}.$to"
-                done' sh "yaml.$IAAS" "yaml" {} +
-
+              find . -name "*.yaml.$IAAS" -exec bash -c 'mv "$1" "${1%.yaml.$IAAS}".yaml' - '{}' \;
               find . -name "*.yaml\.*" -type f -delete
 
               vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
