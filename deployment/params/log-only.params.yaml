@@ -1,6 +1,7 @@
 static-values:
   logging-static-ip: "35.230.7.17"
 vault-lookups:
+  alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   pamdas-org-ssl-key: padas-app/main/pamdas-org-ssl-key
   pamdas-org-ssl-cert: padas-app/main/pamdas-org-ssl-cert
   pamdas-org-ssl-ca: padas-app/main/pamdas-org-ssl-ca
