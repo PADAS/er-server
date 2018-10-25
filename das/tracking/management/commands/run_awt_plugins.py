@@ -47,8 +47,8 @@ class Command(BaseCommand):
                 raise ValueError('Possible value for dry-run(true/false)')
         getattr(self, sub_command)(options)
 
-    def plugins(self, options):
-        # Filter AwtPlugin using profile option if there or fetch all AwtPlugin
+    def fetch_plugins(self, options):
+        """Filter AwtPlugin using profile option or fetch all AwtPlugins"""
         if options['profile']:
             profile_name = options['profile'].strip()
             plugins = self.plugin_class.objects.filter(name=profile_name,
@@ -58,7 +58,8 @@ class Command(BaseCommand):
         return plugins
 
     def maintenance(self, options):
-        for plugin in self.plugins(options):
+        """Store latest observations in DB for sources(linked with AwtPlugin)"""
+        for plugin in self.fetch_plugins(options):
             if plugin.run_source_plugins:
                 for sp in plugin.source_plugins.filter(status='enabled'):
                     if sp.should_run():
@@ -67,13 +68,15 @@ class Command(BaseCommand):
                 plugin.execute()
 
     def list(self, options):
-        for plugin in self.plugins(options):
+        """Stdout list of units associated with AwtClient(AwtPlugin Client)"""
+        for plugin in self.fetch_plugins(options):
             awt_client = AwtClient(username=plugin.username,
                                    password=plugin.password, host=plugin.host)
             self.logger.info(awt_client.fetch_units())
 
     def taglist(self, options):
-        for plugin in self.plugins(options):
+        """Stdout list of tag ids associated with AwtClient(AwtPlugin Client)"""
+        for plugin in self.fetch_plugins(options):
             awt_client = AwtClient(username=plugin.username,
                                    password=plugin.password, host=plugin.host)
             self.logger.info(awt_client.fetch_tags())
@@ -92,6 +95,8 @@ class Command(BaseCommand):
                                  " time")
 
     def fetch_observation(self, options):
+        """get tag_id using options['manufacturer_id'] and show observations for
+        same tag_id"""
         manufacturer_id = options['manufacturer_id']
         options['dry_run'] = "true"
         try:
@@ -103,7 +108,7 @@ class Command(BaseCommand):
                             '{0}'.format(manufacturer_id))
 
         if source:
-            for plugin in self.plugins(options):
+            for plugin in self.fetch_plugins(options):
                 source_plugins = plugin.source_plugins.filter(
                     source=source, status='enabled')
                 if source_plugins:
@@ -126,28 +131,24 @@ class Command(BaseCommand):
             raise e
 
         options['api_type'] = 'REPLAY_API'
-        if options['unit_id']:
+        if options['manufacturer_id']:
+            self.fetch_observation(options)
+        elif options['unit_id']:
             options['unit'] = options['unit_id']
-            if options['manufacturer_id']:
-                self.fetch_observation(options)
-            else:
-                for plugin in self.plugins(options):
-                    awt_client = AwtClient(username=plugin.username,
-                                           password=plugin.password,
-                                           host=plugin.host)
-                    response = awt_client.fetch_tags()
-                    if response['Result']:
-                        tags = response['Tag_List']
-                        for tag in tags:
-                            tag_id = tag['id']
-                            options['manufacturer_id'] = tag_id
-                            self.fetch_observation(options)
-                    else:
-                        raise Exception(response)
+            for plugin in self.fetch_plugins(options):
+                awt_client = AwtClient(username=plugin.username,
+                                       password=plugin.password,
+                                       host=plugin.host)
+                response = awt_client.fetch_tags()
+                if response['Result']:
+                    tags = response['Tag_List']
+                    for tag in tags:
+                        tag_id = tag['id']
+                        options['manufacturer_id'] = tag_id
+                        self.fetch_observation(options)
+                else:
+                    raise Exception(response)
         else:
-            if options['manufacturer_id']:
-                self.fetch_observation(options)
-            else:
-                raise ValueError('Either manufacturer-id or unit-id is required'
-                                 '. Use --manufacturer-id [manufacturer-id]'
-                                 ' or --unit-id [unit-id].')
+            raise ValueError('Either manufacturer-id or unit-id is required'
+                             '. Use --manufacturer-id [manufacturer-id] '
+                             'or --unit-id [unit-id].')
