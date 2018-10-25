@@ -1,6 +1,8 @@
 static-values:
+  nginx-utility-service-ip: ""
   logging-static-ip: "35.230.7.17"
   alerts-slack-channel: "das-dev"
+  send-alerts: "true"
   monitoring-version: latest
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
