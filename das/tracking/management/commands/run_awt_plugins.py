@@ -32,6 +32,7 @@ class Command(BaseCommand):
                                  '"observations" sub command')
         parser.add_argument('--unit-id',
                             help='Unit id for AwtPlugin')
+        parser.add_argument('--profile', help='AwtPlugin Profile name')
 
         parser.add_argument('--dry-run',
                             help="stdout data(won't store in DB). Possible "
@@ -46,8 +47,18 @@ class Command(BaseCommand):
                 raise ValueError('Possible value for dry-run(true/false)')
         getattr(self, sub_command)(options)
 
+    def plugins(self, options):
+        # Filter AwtPlugin using profile option if there or fetch all AwtPlugin
+        if options['profile']:
+            profile_name = options['profile'].strip()
+            plugins = self.plugin_class.objects.filter(name=profile_name,
+                                                       status='enabled')
+        else:
+            plugins = self.plugin_class.objects.filter(status='enabled')
+        return plugins
+
     def maintenance(self, options):
-        for plugin in self.plugin_class.objects.all():
+        for plugin in self.plugins(options):
             if plugin.run_source_plugins:
                 for sp in plugin.source_plugins.filter(status='enabled'):
                     if sp.should_run():
@@ -56,13 +67,13 @@ class Command(BaseCommand):
                 plugin.execute()
 
     def list(self, options):
-        for plugin in self.plugin_class.objects.filter(status='enabled'):
+        for plugin in self.plugins(options):
             awt_client = AwtClient(username=plugin.username,
                                    password=plugin.password, host=plugin.host)
             self.logger.info(awt_client.fetch_units())
 
     def taglist(self, options):
-        for plugin in self.plugin_class.objects.filter(status='enabled'):
+        for plugin in self.plugins(options):
             awt_client = AwtClient(username=plugin.username,
                                    password=plugin.password, host=plugin.host)
             self.logger.info(awt_client.fetch_tags())
@@ -82,15 +93,17 @@ class Command(BaseCommand):
 
     def fetch_observation(self, options):
         manufacturer_id = options['manufacturer_id']
-        source = None
+        options['dry_run'] = "true"
         try:
             source = Source.objects.get(manufacturer_id=manufacturer_id)
         except Exception as e:
-            pass
-        if source:
-            options['dry_run'] = "true"
+            self.logger.error('No source is linked with manufacture_id = '
+                              '{0}'.format(manufacturer_id))
+            raise Exception('No source is linked with manufacture_id = '
+                            '{0}'.format(manufacturer_id))
 
-            for plugin in self.plugin_class.objects.all():
+        if source:
+            for plugin in self.plugins(options):
                 source_plugins = plugin.source_plugins.filter(
                     source=source, status='enabled')
                 if source_plugins:
@@ -98,11 +111,6 @@ class Command(BaseCommand):
                         for observations in source_plugin.plugin.fetch(
                                 source, source_plugin.cursor_data, options):
                             self.logger.info(observations)
-        else:
-            self.logger.error('No source is linked with manufacture_id = '
-                              '{0}'.format(manufacturer_id))
-            raise Exception('No source is linked with manufacture_id = '
-                            '{0}'.format(manufacturer_id))
 
     def observations(self, options):
         if not options['start_time']:
@@ -123,8 +131,7 @@ class Command(BaseCommand):
             if options['manufacturer_id']:
                 self.fetch_observation(options)
             else:
-                for plugin in self.plugin_class.objects.filter(
-                        status='enabled'):
+                for plugin in self.plugins(options):
                     awt_client = AwtClient(username=plugin.username,
                                            password=plugin.password,
                                            host=plugin.host)
