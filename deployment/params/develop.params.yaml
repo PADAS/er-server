@@ -1,6 +1,4 @@
 static-values:
-  email-host: ""
-  email-username: ""
   web-service-name: "web"
   nginx-utility-service-ip: ""
   iaas-workspace: "DAS-Dev"
@@ -10,7 +8,7 @@ static-values:
   monitoring-version: latest
   log_url: "logs.pamdas.org:5044"
 environment:
-  static-ip: STATIC_IP
+  das-static-ip: DAS_STATIC_IP
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager

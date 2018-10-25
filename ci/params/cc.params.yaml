@@ -3,7 +3,7 @@ cluster-name: cc
 server-branch-name: develop
 web-branch-name: develop
 tag-as-latest: false
-static-ip: 35.233.210.105
+das-static-ip: 35.233.210.105
 deploy-params-environment: integration
 deployment-plan: integration
 
