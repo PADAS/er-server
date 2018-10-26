@@ -5,6 +5,7 @@ static-values:
   send-alerts: "true"
   node-exporter-version: v0.16.0
   monitoring-version: latest
+  log_url: "logs.pamdas.org:5044"
 environment:
   das-static-ip: DAS_STATIC_IP
 vault-lookups:
