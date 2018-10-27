@@ -1,8 +1,14 @@
 FROM ubuntu:18.04
 MAINTAINER Chris Doehring, chrisdo@vulcan.com & Matt Korwel, mattko@vulcan.com  
 
-RUN apt-get update \
-    && apt-get install -y \
+RUN apt-get update
+
+RUN apt-get install -y wget
+
+RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+RUN /bin/sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ xenial-pgdg main" >> /etc/apt/sources.list.d/postgresql.list'
+
+RUN apt-get install -y \
     git \
     libpq-dev \
     python3-pip \
@@ -15,7 +21,8 @@ RUN apt-get update \
     && apt-get autoremove \
     && apt-get clean
 
-VOLUME /workspace
+RUN apt-get install postgresql-9.6-postgis-2.4
+
 WORKDIR /workspace
 
 ADD ./dependencies /workspace/dependencies
