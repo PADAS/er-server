@@ -3,6 +3,8 @@ import logging
 from itertools import chain
 import hashlib
 
+from django.db.models import F
+
 from django.core.serializers import serialize
 from django.urls import reverse
 from django.http import HttpResponse, Http404
@@ -25,14 +27,16 @@ class FeatureListJsonView(APIView):
     """
     A simple list of vector layers available to the clients
     """
+
     def get(self, request):
         # todo:  add api docs
         response_data = {'features': []}
-        features = list(chain(PolygonFeature.objects.all(), LineFeature.objects.all(), PointFeature.objects.all()))
+        features = list(chain(PolygonFeature.objects.all(),
+                              LineFeature.objects.all(), PointFeature.objects.all()))
         for feature in features:
             response_data['features'].append({
                 'name': feature.name,
-                'type': dict(name=feature.type.name,id=str(feature.type.id)),
+                'type': dict(name=feature.type.name, id=str(feature.type.id)),
                 'description': feature.description if feature.description else '',
                 'geojson_url': reverse('mapping:mapping-feature-geojson', args=[feature.id.hex]),
             })
@@ -78,9 +82,10 @@ class FeatureSetListJsonView(APIView):
 def calculate_featureset_etag(view_instance, view_method, request, args, kwargs):
     featureset = FeatureSet.objects.get(id=kwargs['id'])
     objects = chain(PolygonFeature.objects.filter(featureset=featureset),
-               LineFeature.objects.filter(featureset=featureset),
-               PointFeature.objects.filter(featureset=featureset))
-    etag = ','.join((str(f.updated_at) + str(f.type.updated_at) for f in objects))
+                    LineFeature.objects.filter(featureset=featureset),
+                    PointFeature.objects.filter(featureset=featureset))
+    etag = ','.join((str(f.updated_at) + str(f.type.updated_at)
+                     for f in objects))
     etag += str(featureset.updated_at)
     return hashlib.md5(etag.encode('utf-8')).hexdigest()
 
@@ -93,12 +98,20 @@ class FeatureSetGeoJsonView(APIView):
     def get(self, request, **kwargs):
         # todo:  better 404 handling, what to do with empty featureset
         featureset = FeatureSet.objects.get(id=kwargs['id'])
+
+        querysets = (PolygonFeature.objects.filter(featureset=featureset),
+                     LineFeature.objects.filter(featureset=featureset),
+                     PointFeature.objects.filter(featureset=featureset))
+        # So type-name can appear in geojson properties.
+        querysets = (q.prefetch_related('type').annotate(
+            type_name=F('type__name')) for q in querysets)
+
         feature = serialize('geojson',
-                            list(chain(PolygonFeature.objects.filter(featureset=featureset),
-                                       LineFeature.objects.filter(featureset=featureset),
-                                       PointFeature.objects.filter(featureset=featureset))),
+                            list(chain(*querysets)),
                             properties={'name': 'title',
-                                        'default_presentation': 'presentation'},
+                                        'default_presentation': 'presentation',
+                                        'type_name': 'type_name',
+                                        },
                             geometry_field='feature_geometry'
                             )
 
@@ -116,6 +129,7 @@ class MapListJsonView(generics.ListAPIView):
     queryset = Map.objects.all()
     serializer_class = serializers.MapSerializer
 
+
 class LayerListJsonView(generics.ListAPIView):
     """
     List of available map layers.
@@ -125,10 +139,10 @@ class LayerListJsonView(generics.ListAPIView):
 
 
 #
-#Don't secure the following until we can have Leaflet use auth tokens
-#with this api for tiles
+# Don't secure the following until we can have Leaflet use auth tokens
+# with this api for tiles
 #
-@api_view(['GET',])
+@api_view(['GET', ])
 @permission_classes([])
 def tile(request, name, z, x, y, catalog=None):
     """ Serve a single image tile """
@@ -147,7 +161,7 @@ def tile(request, name, z, x, y, catalog=None):
     raise Http404
 
 
-@api_view(['GET',])
+@api_view(['GET', ])
 @permission_classes([])
 def preview(request, name, catalog=None):
     try:
@@ -159,7 +173,7 @@ def preview(request, name, catalog=None):
     raise Http404
 
 
-@api_view(['GET',])
+@api_view(['GET', ])
 @permission_classes([])
 def grid(request, name, z, x, y, catalog=None):
     """ Serve a single UTF-Grid tile """
@@ -168,16 +182,17 @@ def grid(request, name, z, x, y, catalog=None):
         mbtiles = MBTiles(name, catalog)
         return HttpResponse(
             mbtiles.grid(z, x, y, callback),
-            content_type = 'application/javascript; charset=utf8'
+            content_type='application/javascript; charset=utf8'
         )
     except MBTilesNotFoundError as e:
         logger.warning(e)
     except MissingTileError:
-        logger.warning(_("Grid tile %s not available in %s") % ((z, x, y), name))
+        logger.warning(_("Grid tile %s not available in %s") %
+                       ((z, x, y), name))
     raise Http404
 
 
-@api_view(['GET',])
+@api_view(['GET', ])
 @permission_classes([])
 def tilejson(request, name, catalog=None):
     """ Serve the map configuration as TileJSON """
