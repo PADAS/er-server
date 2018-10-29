@@ -79,8 +79,8 @@ services:
       - www-static:/var/www/static
 
   worker-analyzer:
-    image: gcr.io/padas-app/worker-rt
-    container_name: das_worker_rt
+    image: gcr.io/padas-app/worker-analyzer
+    container_name: das_worker_analyzer
     env_file: .env
     links:
       - postgis
