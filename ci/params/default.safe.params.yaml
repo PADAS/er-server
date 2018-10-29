@@ -8,9 +8,10 @@ iaas-workspace: "padas-app"
 iaas-zone: "us-west1-a"
 cluster-spec: deployment/cluster-specs/gcp.yaml
 cluster-name: ""
-static-ip: ""
+das-static-ip: ""
 utility-static-ip: ""
 disk-namespace: ""
+disks-spec: deployment/storage/default.disks.csv
 vault-address: "https://vault.vulcancloud.io:8200"
 vcloud-service-url: "http://vcloud.vulcancloud.io:5000/"
 elastic-url: "elastic.vulcancloud.io"
@@ -34,8 +35,6 @@ initial-web-version: "0.0.0"
 initial-smartconnect-version: "0.0.0"
 
 #Application
-email-host: ""
-email-username: ""
 web-service-name: "web"
 
 #Test & Notification

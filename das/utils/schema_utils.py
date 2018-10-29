@@ -230,7 +230,7 @@ def detail_resolver(schema, key, value):
     # from a change in the event type without re-saving the details.
     schema_item = properties.get(key, None)
     if schema_item:
-        return extractor(schema_item, schema['definition'], value)
+        return extractor(schema_item, schema.get('definition', []), value)
     else:
         return None
 
@@ -338,7 +338,7 @@ def format_key_for_title(key):
 
 
 def find_display_value_for_key_in_definition(schema, key):
-    for item in schema['definition']:
+    for item in schema.get('definition', []):
         if not isinstance(item, dict):
             continue
         if 'key' in item and item['key'] == key and 'title' in item:

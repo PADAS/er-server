@@ -1,18 +1,19 @@
 static-values:
-  email-host: ""
-  email-username: ""
   web-service-name: "web"
   nginx-utility-service-ip: ""
   alerts-slack-channel: "das-dev"
   send-alerts: "true"
   node-exporter-version: v0.16.0
   monitoring-version: latest
+  log_url: "logs.pamdas.org:5044"
 environment:
-  static-ip: STATIC_IP
+  das-static-ip: DAS_STATIC_IP
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
   bundle-crt: padas-app/main/bundle-crt
-  pamdas-org-private-key-pem: padas-app/main/pamdas-org-private-key-pem
-  nginx-utility-ssl-key: padas-app/main/es-ssl-key
+  pamdas-org-ssl-key: padas-app/main/pamdas-org-ssl-key
+  pamdas-org-ssl-cert: padas-app/main/pamdas-org-ssl-cert
+  pamdas-org-ssl-ca: padas-app/main/pamdas-org-ssl-ca
   elastic-basic-auth-password: padas-app/main/es-basic-auth-password
+  elastic-basic-auth-username: padas-app/main/es-basic-auth-username

@@ -3,5 +3,7 @@ cluster-name: ppf
 server-branch-name: develop
 web-branch-name: master
 tag-as-latest: false
-static-ip: 35.185.250.102
+das-static-ip: 35.185.250.102
+deploy-params-environment: integration
 deployment-plan: integration
+

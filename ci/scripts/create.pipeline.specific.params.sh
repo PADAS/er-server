@@ -24,7 +24,9 @@ fi
 touch $PIPELINE_PARAMS_FILE
 echo "cluster-name: $PIPELINE_NAME" >> $PIPELINE_PARAMS_FILE
 
-read -p "Please enter a semantic version prefix, eg/ 'dev', 'rc', 'feature-x' (blank defaults to 'default'): " VERSION_PREFIX
+while [[ -z "$VERSION_PREFIX" ]]; do
+    read -p "Please enter a UNIQUE semantic version prefix (eg/ 'feature-x', 'bugfix-y', or your code branch name): " VERSION_PREFIX
+done
 echo "version-prefix: ${VERSION_PREFIX:-default}" >> $PIPELINE_PARAMS_FILE
 
 function set_initial_version_from_develop()

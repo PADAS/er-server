@@ -1,0 +1,8 @@
+project-id: padas-app
+cluster-name: log-only
+server-branch-name: develop
+deploy-params-environment: log-only
+deploy-recipe: log-only.yaml
+disks-spec: deployment/storage/log-only.disks.csv
+deployment-plan: integration # this is not used by the actual log-only deployment, but must exist to satisfy vCloud; be very careful if you are copy/pasting this file
+

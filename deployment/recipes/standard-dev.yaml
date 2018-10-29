@@ -1,0 +1,6 @@
+paths:
+- persistentvolumes
+- deployments
+- services
+- infra/monitoring
+- environments/dev-configmap.yaml

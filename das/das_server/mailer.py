@@ -63,25 +63,31 @@ def get_key_title(key, schema):
     return None
 
 
-def build_deep_link_for_subject(event, subject, default_event_code='panic'):
+def fetch_latest_location(subject):
+    """
+    Fetch Subject's latest location.
+    :return: Latest latitude, latest longitude, latest observation time.
+    """
+    try:
+        from observations.models import Observation
+        observation = Observation.objects.filter(
+            source__subjectsource__subject=subject).order_by(
+            '-recorded_at')[0]
+        return str(observation.location.y), str(observation.location.x), \
+            observation.recorded_at.strftime('%Y-%m-%d %H:%M:%S')
+    except Exception as e:
+        logger.info(e)
+        return '', '', ''
+
+
+def build_deep_link_for_subject(event, subject, default_event_code='panic',
+                                last_lat=None, last_lon=None):
     """
     Deep link must look like this:
 
     steta://?event={type}&name={name}&sys={source}&t={timestamp}&lat={lat}&lon={lon}&id={subject_id}
 
     """
-    last_lat = None
-    last_lon = None
-    try:
-        from observations.models import Observation
-        observation = Observation.objects.filter(
-            source__subjectsource__subject=subject).order_by(
-            '-recorded_at')[0]
-        last_lat = str(observation.location.x)
-        last_lon = str(observation.location.y)
-    except Exception as e:
-        logger.info(e)
-
     link_data = {
         'event': event_type_code_map.get(event.event_type.value, default_event_code),
         'name': subject.name,
@@ -266,8 +272,18 @@ def extract_event_data(event, user, revisions):
     if event.event_type.value in getattr(settings, 'DEEP_LINK_EVENT_TYPES', []):
         deep_links = []
         for subject in event.related_subjects.all():
-            deep_links.append('  - Subject Link: ' +
-                              build_deep_link_for_subject(event, subject))
+            last_lat, last_lon, last_fix_timestamp = fetch_latest_location(
+                subject)
+            event_data.get('fields', []).append(
+                '  - Subject last known location ({}): lon={}, lat={}'.format(
+                    last_fix_timestamp, last_lon, last_lat
+                ))
+            deep_links.append(
+                '  - Subject Link: ' + build_deep_link_for_subject(
+                    event, subject, last_lat=last_lat, last_lon=last_lon))
+            deep_links.append(
+                '  - Subject last known location link: '
+                'https://maps.google.com/?q={},{}'.format(last_lat, last_lon))
         event_data['deep_links'] = deep_links
     return event_data
 

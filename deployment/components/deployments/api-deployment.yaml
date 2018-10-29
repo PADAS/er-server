@@ -7,6 +7,8 @@ spec:
     metadata:
       labels:
         das.component: api
+      annotations:
+        prometheus.io/scrape: 'false'
     spec:
       imagePullSecrets:
         - name: gcr-secret

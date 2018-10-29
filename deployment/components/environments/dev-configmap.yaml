@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: site-configmap
+data:
+  AZURE_STORAGE: "true"
+  DB_HOST: das-postgres-us-azure.postgres.database.azure.com
+  DB_NAME: dev_us
+

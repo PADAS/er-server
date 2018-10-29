@@ -44,7 +44,7 @@ class InreachKMLClient(object):
 
     def get_data(self, imei=None, d1=None, d2=None):
         conn = http.client.HTTPSConnection(
-            "share.delorme.com", context=ssl._create_unverified_context())
+            "share.garmin.com", context=ssl._create_unverified_context())
         headers = {
             'authorization': self._authheader,
             'cache-control': "no-cache",

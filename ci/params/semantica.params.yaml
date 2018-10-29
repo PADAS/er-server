@@ -3,5 +3,7 @@ cluster-name: semantica
 server-branch-name: develop
 web-branch-name: develop
 tag-as-latest: false
-static-ip: 104.198.9.136
+das-static-ip: 104.198.9.136
+deploy-params-environment: integration
 deployment-plan: integration
+

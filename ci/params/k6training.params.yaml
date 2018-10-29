@@ -3,5 +3,7 @@ cluster-name: k6training
 server-branch-name: develop
 web-branch-name: develop
 tag-as-latest: false
-static-ip: 104.199.121.81
+das-static-ip: 104.199.121.81
+deploy-params-environment: integration
 deployment-plan: integration
+

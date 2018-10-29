@@ -65,6 +65,32 @@ services:
       - user-uploads:/user-uploads
       - www-static:/var/www/static
 
+  worker-rt:
+    image: gcr.io/padas-app/worker-rt
+    container_name: das_worker_rt
+    env_file: .env
+    links:
+      - postgis
+      - redis
+    depends_on:
+      - rt-api
+    volumes:
+      - user-uploads:/user-uploads
+      - www-static:/var/www/static
+
+  worker-analyzer:
+    image: gcr.io/padas-app/worker-rt
+    container_name: das_worker_rt
+    env_file: .env
+    links:
+      - postgis
+      - redis
+    depends_on:
+      - rt-api
+    volumes:
+      - user-uploads:/user-uploads
+      - www-static:/var/www/static
+
   beat:
     image: gcr.io/padas-app/beat
     container_name: das_beat

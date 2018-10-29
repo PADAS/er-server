@@ -355,9 +355,9 @@ class GsatHandler():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class VehicleTrackerHandler():
+class SkylineVehicleTrackerHandler():
 
-    SENSOR_TYPE = 'vehicle-tracker'
+    SENSOR_TYPE = 'vehicle-tracker-push'
     DEFAULT_SUBJECT_SUBTYPE = 'truck'
 
     @classmethod

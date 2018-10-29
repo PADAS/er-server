@@ -1,8 +1,10 @@
 from math import isclose
 from django import forms
-from mapping.models import Map
+from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from django.contrib.gis.geos import Point
 
+from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
+from mapping.models import Map, TileLayer
 
 class MapCenterForm(forms.ModelForm):
 
@@ -57,3 +59,41 @@ class MapCenterForm(forms.ModelForm):
     def samepoint(self, point_a, point_b):
         return isclose(point_a.x, point_b.x, rel_tol=1e-10) and \
             isclose(point_a.y, point_b.y, rel_tol=1e-10)
+
+
+class TileLayerForm(forms.ModelForm):
+    class Meta:
+        fields = '__all__'
+        model = TileLayer
+
+
+class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
+
+    type = forms.CharField(required=False, label='Type')
+    tiles = forms.CharField(required=False, label='Tile Servers', widget=forms.Textarea(attrs={'rows': 4, 'cols': 80}))
+    #tiles = forms.MultiValueField(required=False, label='Tile Servers')
+    minzoom = forms.IntegerField(required=False, label='MinZoom')
+    maxzoom = forms.IntegerField(required=False, label='MaxZoom')
+    version = forms.CharField(required=False, label='Version of Tile data')
+
+    class Meta(TileLayerForm.Meta):
+        json_fields = ('type', 'tiles', 'minzoom', 'maxzoom',
+                        'version',)
+
+    json_field = 'attributes'
+
+    def save(self, *args, **kwargs):
+        commit = kwargs.pop('commit', True)
+        instance = super().save(*args,
+                                   commit=False,
+                                   **kwargs)
+
+        #clear out null json fields
+        for field in self.Meta.json_fields:
+            attributes = getattr(instance, self.json_field)
+            if (attributes[field] is None or
+                    (isinstance(attributes[field], str) and attributes[field] == '')):
+                del attributes[field]
+        if commit:
+            instance.save()
+        return instance

@@ -1,0 +1,23 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: grafana
+spec:
+  template:
+    metadata:
+      labels:
+        component: grafana
+    spec:
+      imagePullSecrets:
+        - name: infra-secret
+      containers:
+      - image: gcr.io/ss-infrastructure/baseimages/monitoring/grafana:<<monitoring-version>>
+        name: grafana
+        resources:
+          requests:
+            cpu: "20m"
+          limits:
+            cpu: "100m"
+        env:
+        - name: PROMETHEUS_URL
+          value: http://prometheus:9090

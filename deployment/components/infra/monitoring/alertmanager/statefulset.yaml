@@ -1,0 +1,84 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: alertmanager
+spec:
+  serviceName: "alertmanager"
+  updateStrategy:
+    type: RollingUpdate
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        component: alertmanager
+    spec:
+      imagePullSecrets:
+        - name: infra-secret
+      containers:
+      - image: gcr.io/ss-infrastructure/baseimages/monitoring/prometheus-alertmanager:<<monitoring-version>>
+        name: alertmanager
+        resources:
+          requests:
+            cpu: "10m"
+            memory: 50Mi
+          limits:
+            cpu: "10m"
+            memory: 50Mi
+        readinessProbe:
+          httpGet:
+            path: /#/status
+            port: 9093
+          initialDelaySeconds: 10
+          timeoutSeconds: 30
+        volumeMounts:
+        - mountPath: /alertmanager
+          name: alertmanager-data
+        - mountPath: /alert.config
+          name: alert-config
+        env:
+        - name: ALERTMANAGER_PUBLIC_IP
+          value: <<nginx-utility-service-ip>>
+        - name: SEND_ALERTS
+          value: <<send-alerts>>
+        - name: ALERTS_SLACK_CHANNEL
+          value: <<alerts-slack-channel>>
+        - name: ALERTS_SLACK_URL
+          value: <<alerts-slack-url>>
+
+      - name: prometheus-alertmanager-configmap-reload
+        image: "jimmidyson/configmap-reload:v0.2.2"
+        imagePullPolicy: "IfNotPresent"
+        args:
+          - --volume-dir=/alert.config
+          - --webhook-url=http://localhost:9093/-/reload
+        volumeMounts:
+          - name: alert-config
+            mountPath: /alert.config
+            readOnly: true
+        resources:
+          limits:
+            cpu: 10m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
+      volumes:
+      - name: alert-config
+        configMap:
+          name: alertmanager-configmap
+        items:
+        - key: config.yaml
+          path: config.yaml
+
+  volumeClaimTemplates:
+  - metadata:
+      name: alertmanager-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: ssd
+      resources:
+        requests:
+          storage: 20Gi
+      selector:
+        matchLabels:
+          component: alertmanager

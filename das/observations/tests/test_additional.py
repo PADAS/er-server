@@ -15,7 +15,7 @@ class SubjectAdditionalTest(TestCase):
         )
         subject_subtype, created = SubjectSubType.objects.get_or_create(
             value='cheetah', defaults=dict(display='cheetah',
-            subject_type=wildlife_subject_type)
+                                           subject_type=wildlife_subject_type)
         )
         region, created = Choice.objects.get_or_create(
             model='observations.region', field='region',
@@ -30,7 +30,7 @@ class SubjectAdditionalTest(TestCase):
         additional_data = {
             'rgb': '203, 223, 54', 'sex': 'male',
             'region': ['Lewa'], 'country': ['DRC'],
-            'birthdate': '27/07/2018', 'other_id': 'Cat526'
+            'tm_animal_id': 'some-external-ID'
         }
         form_data = {
             'id': uuid.uuid4(),
@@ -40,12 +40,6 @@ class SubjectAdditionalTest(TestCase):
         form = SubjectFormWithAttributes(data=form_data)
         self.assertTrue(form.is_valid())
         form.save()
-
-        # Create tm_animal_id and pop birthdate & other_id from additional_data
-        additional_data['tm_animal_id'] = '{0}%{1}'.format(
-            additional_data['birthdate'], additional_data['other_id'])
-        additional_data.pop('birthdate')
-        additional_data.pop('other_id')
 
         subject, created = Subject.objects.get_or_create(name='Henry')
         self.assertTrue(all(item in subject.additional.items()

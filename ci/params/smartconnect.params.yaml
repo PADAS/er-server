@@ -1,8 +1,7 @@
 cluster-name: smartconnect
-version-suffix: smartconnect  
+version-suffix: smartconnect
 server-branch-name: develop
 web-branch-name: develop
-deployment-plan: integration
 smartconnect-provider-branch-name: develop
-
 deploy-recipe: standard-ndoki.yaml
+

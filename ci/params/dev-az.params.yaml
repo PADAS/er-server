@@ -1,0 +1,5 @@
+cluster-name: dev-az
+version-suffix: dev-az
+server-branch-name: develop
+web-branch-name: develop
+deploy-recipe: standard-dev.yaml
