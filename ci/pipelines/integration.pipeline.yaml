@@ -80,6 +80,27 @@ resources:
     private_key: ((das-versions-github))
     initial_version: ((initial-web-version))
 
+- name: git-skyline-provider
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-skyline-provider.git
+    branch: ((skyline-provider-branch-name))
+    private_key: ((das-skyline-provider-github))
+
+- name: git-tracktrace-provider
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-tracktrace-provider.git
+    branch: ((tracktrace-provider-branch-name))
+    private_key: ((das-tracktrace-provider-github))
+
+- name: git-quadratex-provider
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-quadratex-provider.git
+    branch: ((quadratex-provider-branch-name))
+    private_key: ((das-quadratex-provider-github))
+
 - name: git-smartconnect-provider
   type: versioned-git-resource
   source:
@@ -205,6 +226,31 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/app
+
+# etl providers
+- name: image-skyline-provider
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/etl/skyline-provider
+
+- name: image-tracktrace-provider
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/etl/tracktrace-provider
+
+- name: image-quadratex-provider
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/etl/quadratex-provider
 
 - name: image-smartconnect-provider
   type: docker-image-with-file-build-args
@@ -493,6 +539,67 @@ jobs:
       dockerfile: git-web/docker/Dockerfile-app,
       tag:  web-version/version,
       tag_as_latest: ((tag-as-latest)),
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+# ETL Jobs
+- name: docker-build-skyline-provider
+  plan:
+  - get: git-skyline-provider
+    trigger: true
+  - put: image-skyline-provider
+    params: {
+      build: git-skyline-provider,
+      tag: git-skyline-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-tracktrace-provider
+  plan:
+  - get: git-tracktrace-provider
+    trigger: true
+  - put: image-tracktrace-provider
+    params: {
+      build: git-tracktrace-provider,
+      tag: git-tracktrace-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-quadratex-provider
+  plan:
+  - get: git-quadratex-provider
+    trigger: true
+  - put: image-quadratex-provider
+    params: {
+      build: git-quadratex-provider,
+      tag: git-quadratex-provider/sha,
+      tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
     on_failure:

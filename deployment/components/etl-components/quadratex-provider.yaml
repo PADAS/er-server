@@ -1,0 +1,37 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: quadratex-provider-etl
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: quadratex-provider-etl  
+    spec:     
+      imagePullSecrets:
+      - name: gcr-secret
+      containers:
+      - name: quadratex-provider-etl
+        image: gcr.io/padas-app/etl/quadratex-provider:<<quadratex-provider-version>>
+        env:
+        - name: DAS_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: BANGWEULU_DAS_SENSOR_ENDPOINT
+        - name: DAS_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: BANGWEULU_QUADRATEX_DAS_TOKEN
+        - name: TT_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: BANGWEULU_QUADRATEX_API_TOKEN
+
+        args:
+        - --config
+        - config/config.yaml
+        - config/action.yaml
+      restartPolicy: Always

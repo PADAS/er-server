@@ -1,0 +1,37 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: tracktrace-provider-etl
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: tracktrace-provider-etl
+    spec:
+      imagePullSecrets:
+      - name: gcr-secret
+      containers:
+      - name: tracktrace-provider-etl
+        image: gcr.io/padas-app/etl/tracktrace-provider:<<tracktrace-provider-version>>
+        env:
+        - name: DAS_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: LEWA_DAS_SENSOR_ENDPOINT
+        - name: DAS_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: LEWA_TRACK_TRACE_DAS_TOKEN
+        - name: TT_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: LEWA_TRACK_TRACE_API_TOKEN
+
+        args:
+        - --config
+        - config/config.yaml
+        - config/action.yaml
+      restartPolicy: Always

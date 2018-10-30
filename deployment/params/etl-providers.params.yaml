@@ -1,0 +1,27 @@
+static-values:
+  email-host: ""
+  email-username: ""
+  web-service-name: "web"
+  nginx-utility-service-ip: ""
+  alerts-slack-channel: ""
+  send-alerts: "false"
+  node-exporter-version: v0.16.0
+environment:
+  static-ip: STATIC_IP
+vault-lookups:
+  alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
+  email-password: padas-app/main/email-password
+  bundle-crt: padas-app/main/bundle-crt
+  pamdas-org-private-key-pem: padas-app/main/pamdas-org-private-key-pem
+  skyline-provider-das-token: padas-app/sites/grumeti/skyline-provider-token
+  skyline-provider-cid: padas-app/sites/grumeti/skyline-provider-cid
+  skyline-provider-password: padas-app/sites/grumeti/skyline-provider-password
+  skyline-provider-user: padas-app/sites/grumeti/skyline-provider-user
+  tracktrace-provider-das-token: padas-app/sites/lewa/tracktrace-provider-das-token
+  tracktrace-provider-api-token: padas-app/sites/lewa/tracktrace-provider-api-token
+  quadratex-provider-das-token: padas-app/sites/bangweulu/quadratex-provider-das-token
+  quadratex-provider-api-token: padas-app/sites/bangweulu/quadratex-provider-api-token
+
+  ndoki-smartconnect-provider-das-token: padas-app/sites/ndoki/smartconnect-provider-das-token
+  nginx-utility-ssl-key: padas-app/main/es-ssl-key
+  elastic-basic-auth-password: padas-app/main/es-basic-auth-password

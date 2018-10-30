@@ -1,0 +1,4 @@
+paths:
+- etl-components/quadratex-provider
+- etl-components/skyline-provider
+- etl-components/tracktrace-provider

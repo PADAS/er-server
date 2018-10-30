@@ -1,0 +1,46 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: skyline-provider-etl
+spec:
+  schedule: "*/20 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          imagePullSecrets:
+          - name: gcr-secret
+          containers:
+          - name: skyline-provider-etl
+            image: gcr.io/padas-app/etl/skyline-provider:<<skyline-provider-version>>
+            env:
+            - name: DAS_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: default-configmap
+                  key: GRUMETI_DAS_SENSOR_ENDPOINT
+            - name: DAS_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  name: default-configmap
+                  key: SKYLINE_PROVIDER_DAS_TOKEN
+            - name: SKY_CID
+              valueFrom:
+                configMapKeyRef:
+                  name: default-configmap
+                  key: SKYLINE_PROVIDER_CID
+            - name: SKY_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: default-configmap
+                  key: SKYLINE_PROVIDER_USER
+            - name: SKY_PASSWD
+              valueFrom:
+                configMapKeyRef:
+                  name: default-configmap
+                  key: SKYLINE_PROVIDER_PASSWORD
+            args:
+            - --config
+            - config/config.yaml
+            - config/action.yaml
+          restartPolicy: Never
