@@ -558,7 +558,7 @@ jobs:
   - put: image-skyline-provider
     params: {
       build: git-skyline-provider,
-      tag: git-skyline-provider/sha,
+      tag: server-version/version,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
@@ -578,7 +578,7 @@ jobs:
   - put: image-tracktrace-provider
     params: {
       build: git-tracktrace-provider,
-      tag: git-tracktrace-provider/sha,
+      tag: server-version/version,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
@@ -598,7 +598,7 @@ jobs:
   - put: image-quadratex-provider
     params: {
       build: git-quadratex-provider,
-      tag: git-quadratex-provider/sha,
+      tag: server-version/version,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
