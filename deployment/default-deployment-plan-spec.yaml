@@ -2,6 +2,3 @@ artifacts:
   web-version: web-version/version
   server-version: server-version/version
   smartconnect-version: smartconnect-version/version
-  skyline-provider-version: git-skyline-provider/sha
-  tracktrace-provider-version: git-tracktrace-provider/sha
-  quadratex-provider-version: git-quadratex-provider/sha
