@@ -112,8 +112,9 @@ class SavannaClient(object):
                     title, event_type = None, None
                     if alert_type == 'Immobility Alert':
                         event_type = 'immobility'
-                        title = '{}  is immobile'.format(subject.name)
+                        title = '{} is immobile'.format(subject.name)
                     elif alert_type == 'None':
+                        title = '{} is moving'.format(subject.name)
                         event_type = 'immobility_all_clear'
 
                     if title and event_type:
