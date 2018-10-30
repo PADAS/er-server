@@ -12,7 +12,7 @@ spec:
           - name: gcr-secret
           containers:
           - name: skyline-provider-etl
-            image: gcr.io/padas-app/etl/skyline-provider:<<skyline-provider-version>>
+            image: gcr.io/padas-app/etl/skyline-provider:latest
             env:
             - name: DAS_ENDPOINT
               valueFrom:

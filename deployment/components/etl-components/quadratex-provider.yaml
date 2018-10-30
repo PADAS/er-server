@@ -12,7 +12,7 @@ spec:
       - name: gcr-secret
       containers:
       - name: quadratex-provider-etl
-        image: gcr.io/padas-app/etl/quadratex-provider:<<quadratex-provider-version>>
+        image: gcr.io/padas-app/etl/quadratex-provider:latest
         env:
         - name: DAS_ENDPOINT
           valueFrom:

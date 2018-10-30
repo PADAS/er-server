@@ -12,7 +12,7 @@ spec:
       - name: gcr-secret
       containers:
       - name: tracktrace-provider-etl
-        image: gcr.io/padas-app/etl/tracktrace-provider:<<tracktrace-provider-version>>
+        image: gcr.io/padas-app/etl/tracktrace-provider:latest
         env:
         - name: DAS_ENDPOINT
           valueFrom:
