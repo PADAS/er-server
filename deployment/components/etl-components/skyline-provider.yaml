@@ -17,27 +17,27 @@ spec:
             - name: DAS_ENDPOINT
               valueFrom:
                 configMapKeyRef:
-                  name: default-configmap
+                  name: etl-configmap
                   key: GRUMETI_DAS_SENSOR_ENDPOINT
             - name: DAS_TOKEN
               valueFrom:
                 configMapKeyRef:
-                  name: default-configmap
+                  name: etl-configmap
                   key: SKYLINE_PROVIDER_DAS_TOKEN
             - name: SKY_CID
               valueFrom:
                 configMapKeyRef:
-                  name: default-configmap
+                  name: etl-configmap
                   key: SKYLINE_PROVIDER_CID
             - name: SKY_USER
               valueFrom:
                 configMapKeyRef:
-                  name: default-configmap
+                  name: etl-configmap
                   key: SKYLINE_PROVIDER_USER
             - name: SKY_PASSWD
               valueFrom:
                 configMapKeyRef:
-                  name: default-configmap
+                  name: etl-configmap
                   key: SKYLINE_PROVIDER_PASSWORD
             args:
             - --config

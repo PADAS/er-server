@@ -17,17 +17,17 @@ spec:
         - name: DAS_ENDPOINT
           valueFrom:
             configMapKeyRef:
-              name: default-configmap
+              name: etl-configmap
               key: BANGWEULU_DAS_SENSOR_ENDPOINT
         - name: DAS_TOKEN
           valueFrom:
             configMapKeyRef:
-              name: default-configmap
+              name: etl-configmap
               key: BANGWEULU_QUADRATEX_DAS_TOKEN
         - name: TT_TOKEN
           valueFrom:
             configMapKeyRef:
-              name: default-configmap
+              name: etl-configmap
               key: BANGWEULU_QUADRATEX_API_TOKEN
 
         args:
