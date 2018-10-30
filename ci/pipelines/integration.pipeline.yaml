@@ -649,6 +649,12 @@ jobs:
         passed: [docker-build-server]
       - get: git-deployment
         trigger: true
+      - get: git-skyline-provider
+        passed: [docker-build-skyline-provider]
+      - get: git-tracktrace-provider
+        passed: [docker-build-tracktrace-provider]
+      - get: git-quadratex-provider
+        passed: [docker-build-quadratex-provider]        
       - get: git-smartconnect-provider
         passed: [docker-build-smartconnect-provider]
       - get: image-server-api
