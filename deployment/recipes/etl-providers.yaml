@@ -1,4 +1,4 @@
 paths:
-- etl-components/quadratex-provider
-- etl-components/skyline-provider
-- etl-components/tracktrace-provider
+- etl-components/quadratex-provider.yaml
+- etl-components/skyline-provider.yaml
+- etl-components/tracktrace-provider.yaml
