@@ -138,7 +138,7 @@ class SavannahPluginTest(TestCase):
         # one from immobility all clear event type)
         self.assertTrue(len(self.henry.observations()) == 3)
 
-        # Check  hdop & battery values (has been provided in one observation)
+        # Check hdop & battery values
         self.assertTrue(any(observation.__dict__['additional'].get('hdop', None)
                             for observation in self.henry.observations()))
         self.assertTrue(
