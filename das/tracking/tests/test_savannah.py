@@ -1,8 +1,9 @@
 import http.client
 import io
-import pytz
-from unittest import mock
 from datetime import datetime, timedelta
+from unittest import mock
+
+import pytz
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
