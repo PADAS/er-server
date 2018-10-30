@@ -19,6 +19,9 @@ vault-lookups:
   tracktrace-provider-api-token: padas-app/sites/lewa/tracktrace-provider-api-token
   quadratex-provider-das-token: padas-app/sites/bangweulu/quadratex-provider-das-token
   quadratex-provider-api-token: padas-app/sites/bangweulu/quadratex-provider-api-token
+  pamdas-org-ssl-key: padas-app/main/pamdas-org-ssl-key
+  pamdas-org-ssl-cert: padas-app/main/pamdas-org-ssl-cert
+  pamdas-org-ssl-ca: padas-app/main/pamdas-org-ssl-ca
 
   ndoki-smartconnect-provider-das-token: padas-app/sites/ndoki/smartconnect-provider-das-token
   nginx-utility-ssl-key: padas-app/main/es-ssl-key
