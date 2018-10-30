@@ -1,5 +1,5 @@
 paths:
-- environments/dev-configmap.yaml
+- deployments/default-configmap.yaml
 - etl-components/quadratex-provider.yaml
 - etl-components/skyline-provider.yaml
 - etl-components/tracktrace-provider.yaml
