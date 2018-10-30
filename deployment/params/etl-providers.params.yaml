@@ -6,8 +6,6 @@ static-values:
   alerts-slack-channel: ""
   send-alerts: "false"
   node-exporter-version: v0.16.0
-environment:
-  static-ip: STATIC_IP
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
