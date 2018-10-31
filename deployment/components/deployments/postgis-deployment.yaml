@@ -1,6 +1,7 @@
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
+  namespace: <<namespace>>
   name: postgis
 spec:
   serviceName: "postgis"
@@ -27,10 +28,10 @@ spec:
       name: pgdata
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: ssd 
+      storageClassName: ssd
       resources:
         requests:
           storage: 50Gi
       selector:
         matchLabels:
-          das.component: postgis
+          das.component: <<namespace>>-postgis

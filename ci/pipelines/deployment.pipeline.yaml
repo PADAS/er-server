@@ -24,6 +24,7 @@ resource_types:
 
 jobs:
 - name: deploy-to-k8s
+  max_in_flight: 1
   plan:
   - aggregate:
     - get: git-deployment
@@ -62,7 +63,7 @@ jobs:
             - disks
             - create
             - git-deployment/((disks-spec))
-            - --prefix=((cluster-name))
+            - --prefix=((cluster-name))-((namespace))
             - --zone=((iaas-zone))
             - --iaas=((iaas))
             - --workspace=((iaas-workspace))
@@ -135,7 +136,8 @@ jobs:
             AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
             AZURE_CLIENT_ID: ((azure-client-id)),
             AZURE_CLIENT_SECRET: ((azure-client-secret)),
-            LOGSTASH_URL: ((logstash-url))
+            LOGSTASH_URL: ((logstash-url)),
+            NAMESPACE: ((namespace))
           }
           run:
             path: /bin/bash
@@ -146,7 +148,7 @@ jobs:
               find . -name "*.yaml.$IAAS" -exec bash -c 'mv "$1" "${1%.yaml.$IAAS}".yaml' - '{}' \;
               find . -type f -name '*.yaml\.*' -exec rm {} +
 
-              vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
+              vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/default.params.yaml git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
 
 - name: destroy_environment
   serial: true
@@ -217,7 +219,8 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
           AZURE_CLIENT_ID: ((azure-client-id)),
           AZURE_CLIENT_SECRET: ((azure-client-secret)),
-          LOGSTASH_URL: ((logstash-url))
+          LOGSTASH_URL: ((logstash-url)),
+          NAMESPACE: ((namespace))
         }
         run:
           path: /bin/bash
@@ -225,8 +228,7 @@ jobs:
           - -exc
           - |
             echo "Deleting Disks. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
-            vcloud disks delete git-deployment/((disks-spec)) -i $IAAS --project $PROJECT -w $WORKSPACE -p=$CLUSTER_NAME -z=$ZONE -f
-            vcloud disks delete git-deployment/((disks-spec)) -i $IAAS --project $PROJECT -w $WORKSPACE -p=pd-$CLUSTER_NAME -z=$ZONE -f
+            vcloud disks delete git-deployment/((disks-spec)) -i $IAAS --project $PROJECT -w $WORKSPACE -p=$CLUSTER_NAME-$NAMESPACE -z=$ZONE -f
     on_failure:
       do:
       - put: slack-alert

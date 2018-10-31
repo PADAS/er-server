@@ -1,6 +1,7 @@
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
+  namespace: <<namespace>>
   name: prometheus
 spec:
   serviceName: "prometheus"
@@ -26,7 +27,7 @@ spec:
             memory: 1000Mi
           limits:
             cpu: "100m"
-            memory: 1000Mi
+            memory: 2000Mi
         readinessProbe:
           httpGet:
             path: /#/ready
@@ -49,7 +50,6 @@ spec:
           value: http://alertmanager:9093
         - name: ENVIRONMENT_NAME
           value: <<cluster-name>>
-
       - name: prometheus-server-configmap-reload
         image: "jimmidyson/configmap-reload:v0.2.2"
         imagePullPolicy: "IfNotPresent"
@@ -79,11 +79,11 @@ spec:
       name: prometheus-data
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: ssd 
+      storageClassName: ssd
       resources:
         requests:
           storage: 30Gi
       selector:
         matchLabels:
-          component: prometheus
+          component: <<namespace>>-prometheus
 

@@ -1,6 +1,7 @@
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
+  namespace: <<namespace>>
   name: alertmanager
 spec:
   serviceName: "alertmanager"
@@ -44,7 +45,6 @@ spec:
           value: <<alerts-slack-channel>>
         - name: ALERTS_SLACK_URL
           value: <<alerts-slack-url>>
-
       - name: prometheus-alertmanager-configmap-reload
         image: "jimmidyson/configmap-reload:v0.2.2"
         imagePullPolicy: "IfNotPresent"
@@ -69,7 +69,6 @@ spec:
         items:
         - key: config.yaml
           path: config.yaml
-
   volumeClaimTemplates:
   - metadata:
       name: alertmanager-data
@@ -81,4 +80,5 @@ spec:
           storage: 20Gi
       selector:
         matchLabels:
-          component: alertmanager
+          component: <<namespace>>-alertmanager
+

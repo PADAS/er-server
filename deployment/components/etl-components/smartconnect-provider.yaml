@@ -1,6 +1,7 @@
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
+  namespace: <<namespace>>
   name: smartconnect-provider-etl
 spec:
   schedule: "*/20 * * * *"

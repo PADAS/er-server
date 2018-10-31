@@ -3,9 +3,9 @@ kind: "PersistentVolume"
 metadata:
   annotations:
       volume.beta.kubernetes.io/mount-options: "discard"
-  name: postgis
+  name: <<namespace>>-postgis
   labels:
-    das.component: postgis
+    das.component: <<namespace>>-postgis
 spec:
   capacity:
     storage: "50Gi"
@@ -15,4 +15,5 @@ spec:
   storageClassName: ssd
   gcePersistentDisk:
     fsType: "ext4"
-    pdName: "<<disk-namespace>>-postgres-0"
+    pdName: "<<cluster-name>>-<<namespace>>-postgres-0"
+

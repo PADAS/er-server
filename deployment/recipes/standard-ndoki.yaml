@@ -1,7 +1,9 @@
 paths:
+- namespace
 - persistentvolumes
 - deployments
 - services
 - infra/monitoring
 - etl-components/smartconnect-provider.yaml
 - environments/ndoki-configmap.yaml
+

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: default
+  namespace: <<namespace>>
   name: elasticsearch-master
   labels:
     app: elasticsearch-master
@@ -18,7 +18,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: default
+  namespace: <<namespace>>
   name: elasticsearch-master
   labels:
     app: elasticsearch-master

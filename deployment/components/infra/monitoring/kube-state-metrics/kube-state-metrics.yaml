@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kube-state-metrics
-  namespace: default
+  namespace: <<namespace>>
   labels:
     k8s-app: kube-state-metrics
   annotations:
@@ -26,7 +26,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kube-state-metrics
-  namespace: default
+  namespace: <<namespace>>
 spec:
   selector:
     matchLabels:

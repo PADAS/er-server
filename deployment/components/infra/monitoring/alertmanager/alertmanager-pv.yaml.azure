@@ -3,9 +3,9 @@ kind: "PersistentVolume"
 metadata:
   annotations:
       volume.beta.kubernetes.io/mount-options: "discard"
-  name: alertmanager
+  name: <<namespace>>-alertmanager
   labels:
-    component: alertmanager
+    component: <<namespace>>-alertmanager
 spec:
   capacity:
     storage: "20Gi"
@@ -15,5 +15,6 @@ spec:
   storageClassName: ssd
   azureDisk:
     kind: Managed
-    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-alertmanager-0"
-    diskName: "<<cluster-name>>-alertmanager-0"
+    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<cluster-name>>-<<namespace>>-alertmanager-0"
+    diskName: "<<cluster-name>>-<<namespace>>-alertmanager-0"
+

@@ -3,9 +3,9 @@ kind: "PersistentVolume"
 metadata:
   annotations:
       volume.beta.kubernetes.io/mount-options: "discard"
-  name: postgis
+  name: <<namespace>>-postgis
   labels:
-    das.component: postgis
+    das.component: <<namespace>>-postgis
 spec:
   capacity:
     storage: "50Gi"
@@ -15,5 +15,6 @@ spec:
   storageClassName: ssd
   azureDisk:
     kind: Managed
-    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-postgres-0"
-    diskName: "<<disk-namespace>>-postgres-0"
+    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<cluster-name>>-<<namespace>>-postgres-0"
+    diskName: "<<cluster-name>>-<<namespace>>-postgres-0"
+
