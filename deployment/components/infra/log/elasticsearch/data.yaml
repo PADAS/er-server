@@ -75,8 +75,6 @@ spec:
         - name: "ES_JAVA_OPTS"
           value: "-Xms1500m -Xmx1500m"
         resources:
-          limits:
-            memory: 2Gi
           requests:
             memory: 2Gi
         ports:

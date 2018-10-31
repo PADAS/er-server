@@ -22,9 +22,6 @@ spec:
           requests:
             cpu: "10m"
             memory: 50Mi
-          limits:
-            cpu: "10m"
-            memory: 50Mi
         readinessProbe:
           httpGet:
             path: /#/status
@@ -56,9 +53,6 @@ spec:
             mountPath: /alert.config
             readOnly: true
         resources:
-          limits:
-            cpu: 10m
-            memory: 10Mi
           requests:
             cpu: 10m
             memory: 10Mi
