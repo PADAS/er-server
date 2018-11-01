@@ -79,7 +79,6 @@ spec:
         app.kubernetes.io/part-of: log-ingress
       annotations:
         prometheus.io/port: "10254"
-        prometheus.io/scrape: "true"
     spec:
       containers:
         - name: log-ingress-controller

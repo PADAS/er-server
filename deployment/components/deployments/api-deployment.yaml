@@ -8,8 +8,6 @@ spec:
     metadata:
       labels:
         das.component: api
-      annotations:
-        prometheus.io/scrape: 'false'
     spec:
       imagePullSecrets:
         - name: gcr-secret
@@ -38,3 +36,4 @@ spec:
             configMapKeyRef:
               name: default-configmap
               key: EMAIL_PASSWORD
+

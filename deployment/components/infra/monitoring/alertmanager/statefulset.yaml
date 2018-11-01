@@ -12,6 +12,8 @@ spec:
     metadata:
       labels:
         component: alertmanager
+      annotations:
+        prometheus.io/port: "9093"
     spec:
       imagePullSecrets:
         - name: infra-secret
