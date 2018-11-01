@@ -4,6 +4,7 @@ static-values:
   alerts-slack-channel: "das-dev"
   send-alerts: "true"
   monitoring-version: latest
+  log_url: "logs.pamdas.org:5044"
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   pamdas-org-ssl-key: padas-app/main/pamdas-org-ssl-key
