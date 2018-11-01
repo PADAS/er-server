@@ -5,6 +5,8 @@ from itertools import islice, chain
 from types import GeneratorType
 import simplejson
 from simplejson.scanner import JSONDecodeError
+from django.conf import settings
+from django.utils import six
 
 import json
 import dateutil.parser as dp
@@ -36,6 +38,9 @@ except ImportError:
     d_proxy_imported = False
 
 from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
+from rest_framework.exceptions import ParseError
+from rest_framework.parsers import BaseParser
+from rest_framework.utils import encoders
 
 
 class JsonEncodedString(object):
@@ -96,6 +101,27 @@ class ExtendedJSONRenderer(JSONRenderer):
                     'status': {'code': response.status_code,
                                'message': response.status_text}}
         return super(ExtendedJSONRenderer, self).render(data, *args, **kwargs)
+
+
+class JSONTextParser(BaseParser):
+    """
+    Parses JSON-serialized data sent with a text/json content type.
+    """
+    media_type = 'text/json'
+    renderer_class = JSONRenderer
+
+    def parse(self, stream, media_type=None, parser_context=None):
+        """
+        Parses the incoming bytestream as JSON and returns the resulting data.
+        """
+        parser_context = parser_context or {}
+        encoding = parser_context.get('encoding', settings.DEFAULT_CHARSET)
+
+        try:
+            data = stream.read().decode(encoding)
+            return json.loads(data)
+        except ValueError as exc:
+            raise ParseError('JSON parse error - %s' % six.text_type(exc))
 
 
 class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):

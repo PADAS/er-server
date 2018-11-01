@@ -363,6 +363,8 @@ class SkylineVehicleTrackerHandler():
     @classmethod
     def post(cls, request, sensor_type, provider_key):
 
+        logger.info("Recieved new push message %s", request.data,
+                    extra={'msg.data': request.data})
         params = SkylineObservations(data=request.data)
 
         # short term don't throw away bad data, until
@@ -375,7 +377,7 @@ class SkylineVehicleTrackerHandler():
         # TODO bulk_create
         # obs_to_insert = []
 
-        for observation in params.data['Messages']:  
+        for observation in params.data['Messages']:
 
             das_obs = adapter.create_das_object(observation)
 
