@@ -138,8 +138,7 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
         json_fields = ('notes', 'expiry', 'mou_date_signed', 'mou_type',
                        'organization', 'tech')
         fields = ('first_name', 'last_name', 'email', 'phone',
-                  'is_email_alert', 'is_sms_alert',
-                  'username') + json_fields
+                  'is_email_alert', 'is_sms_alert', 'username') + json_fields
 
     json_field = 'additional'
 
@@ -151,9 +150,57 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
         return password2
 
 
-class UserAdditionalForm(CustomUserCreationForm, UserChangeForm):
-    def __init__(self, *args,  **kwargs):
+class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
+    first_name = forms.CharField(required=True)
+    last_name = forms.CharField(required=True)
+    email = forms.EmailField(required=True)
+    phone = forms.CharField(required=True)
+
+    # Additional JSON Fields
+    notes = forms.CharField(required=False, label='Notes')
+    expiry = forms.DateTimeField(required=False, label='Expiry',
+                                 widget=AdminDateWidget())
+    mou_date_signed = forms.DateTimeField(
+        required=False, label='MoU Date Signed', widget=AdminDateWidget())
+    mou_type = forms.CharField(required=False, label='MoU Type')
+    tech = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
+        verbose_name='Tech Choices', is_stacked=False), required=False)
+    organization = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
+        verbose_name='Organization Choices', is_stacked=False), required=False)
+
+    @staticmethod
+    def fetch_tech_choices():
+        # Fetch all Tech choices from choices.Choice Model. For Ex: iOS, GE etc
+        tech_choices = {}
+        for tech in Choice.objects.filter(
+                model='accounts.user.User', field='tech').order_by('ordernum'):
+            tech_choices[tech.value] = tech.display
+        return tuple([(key, value) for key, value in tech_choices.items()])
+
+    @staticmethod
+    def fetch_organization_choices():
+        # Fetch all Organization choices from choices.Choice Model.
+        organization_choices = {}
+        for organization in Choice.objects.filter(
+                model='accounts.user.User', field='organization') \
+                .order_by('ordernum'):
+            organization_choices[organization.value] = organization.display
+        return tuple(
+            [(key, value) for key, value in organization_choices.items()])
+
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['tech'].choices = self.fetch_tech_choices()
+        self.fields['organization'].choices = self.fetch_organization_choices()
+
+    class Meta:
+        model = User
+        json_fields = ('notes', 'expiry', 'mou_date_signed', 'mou_type',
+                       'organization', 'tech')
+        fields = ('first_name', 'last_name', 'email', 'phone',
+                  'is_email_alert', 'is_sms_alert', 'username') + json_fields
+
+    json_field = 'additional'
 
 
 class KmkMasterLinkForm(forms.Form):
@@ -237,9 +284,12 @@ class UserAdmin(DjangoUserAdmin):
         }),
         (_('Password'), {
             'description': (_('Optionally enter user\'s password,'
-                              ' otherwise a password reset email is sent to the user')),
+                              ' otherwise a password reset email is sent to the'
+                              ' user')),
             'fields': ('password1', 'password2',)}),
-        (_('Permissions'), {'fields': ('permission_sets',)}),
+        (_('Permissions'), {'fields': ('permission_sets', 'is_active',
+                                       'is_nologin', 'is_staff',
+                                       'is_superuser')}),
         (_('User Profiles'), {'fields': ('act_as_profiles',)}),
     )
 
