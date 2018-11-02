@@ -83,3 +83,8 @@ class SirtrackAdmin(admin.ModelAdmin):
 @admin.register(models.VectronicsPlugin)
 class VectronicsAdmin(admin.ModelAdmin):
     list_display = ('name',)
+
+
+@admin.register(models.AwtPlugin)
+class AwtAdmin(admin.ModelAdmin):
+    list_display = ('name', 'username', 'host')
