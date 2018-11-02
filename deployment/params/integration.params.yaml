@@ -1,8 +1,6 @@
 static-values:
   web-service-name: "web"
   nginx-utility-service-ip: ""
-  alerts-slack-channel: "das-dev"
-  send-alerts: "true"
   node-exporter-version: v0.16.0
   monitoring-version: latest
   log_url: "logs.pamdas.org:5044"

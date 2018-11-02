@@ -1,14 +1,13 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
+  namespace: <<namespace>>
   name: logstash
 spec:
   template:
     metadata:
       labels:
         app: logstash
-      annotations:
-        prometheus.io/scrape: 'false'
     spec:
       containers:
       - image: docker.elastic.co/logstash/logstash:6.3.1
@@ -40,3 +39,4 @@ spec:
           items:
           - key: pipelines.yml
             path: pipelines.yml
+

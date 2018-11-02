@@ -3,9 +3,9 @@ kind: "PersistentVolume"
 metadata:
   annotations:
       volume.beta.kubernetes.io/mount-options: "discard"
-  name: prometheus
+  name: <<namespace>>-prometheus
   labels:
-    component: prometheus
+    component: <<namespace>>-prometheus
 spec:
   capacity:
     storage: "30Gi"
@@ -15,6 +15,6 @@ spec:
   storageClassName: ssd
   azureDisk:
     kind: Managed
-    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-prometheus-0"
-    diskName: "<<cluster-name>>-prometheus-0"
+    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<cluster-name>>-<<namespace>>-prometheus-0"
+    diskName: "<<cluster-name>>-<<namespace>>-prometheus-0"
 

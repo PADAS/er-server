@@ -1,6 +1,7 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
+  namespace: <<namespace>>
   name: web
 spec:
   template:

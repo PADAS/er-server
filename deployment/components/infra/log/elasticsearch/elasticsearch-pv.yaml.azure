@@ -3,9 +3,9 @@ kind: "PersistentVolume"
 metadata:
   annotations:
       volume.beta.kubernetes.io/mount-options: "discard"
-  name: elasticsearch-data-0
+  name: <<namespace>>-elasticsearch-data-0
   labels:
-    component: elasticsearch-data-0
+    component: <<namespace>>-elasticsearch-data-0
 spec:
   capacity:
     storage: "100Gi"
@@ -15,17 +15,17 @@ spec:
   storageClassName: ssd
   azureDisk:
     kind: Managed
-    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-elastic-search-data-0"
-    diskName: "<<cluster-name>>-elastic-search-data-0"
+    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<cluster-name>>-<<namespace>>-elasticsearch-data-0"
+    diskName: "<<cluster-name>>-<<namespace>>-elasticsearch-data-0"
 ---
 apiVersion: "v1"
 kind: "PersistentVolume"
 metadata:
   annotations:
       volume.beta.kubernetes.io/mount-options: "discard"
-  name: elasticsearch-data-1
+  name: <<namespace>>-elasticsearch-data-1
   labels:
-    component: elasticsearch-data-1
+    component: <<namespace>>-elasticsearch-data-1
 spec:
   capacity:
     storage: "100Gi"
@@ -35,17 +35,17 @@ spec:
   storageClassName: "ssd"
   azureDisk:
     kind: Managed
-    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-elastic-search-data-1"
-    diskName: "<<cluster-name>>-elastic-search-data-1"
+    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<cluster-name>>-<<namespace>>-elasticsearch-data-1"
+    diskName: "<<cluster-name>>-<<namespace>>-elasticsearch-data-1"
 ---
 apiVersion: "v1"
 kind: "PersistentVolume"
 metadata:
   annotations:
       volume.beta.kubernetes.io/mount-options: "discard"
-  name: elasticsearch-data-2
+  name: <<namespace>>-elasticsearch-data-2
   labels:
-    component: elasticsearch-data-2
+    component: <<namespace>>-elasticsearch-data-2
 spec:
   capacity:
     storage: "100Gi"
@@ -55,5 +55,6 @@ spec:
   storageClassName: "ssd"
   azureDisk:
     kind: Managed
-    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<disk-namespace>>-elastic-search-data-2"
-    diskName: "<<cluster-name>>-elastic-search-data-2"
+    diskURI: "/subscriptions/<<azure-subscription-id>>/resourceGroups/<<iaas-workspace>>/providers/Microsoft.Compute/disks/<<cluster-name>>-<<namespace>>-elasticsearch-data-2"
+    diskName: "<<cluster-name>>-<<namespace>>-elasticsearch-data-2"
+

@@ -2,7 +2,6 @@ static-values:
   web-service-name: "web"
   nginx-utility-service-ip: ""
   iaas-workspace: "DAS-Dev"
-  alerts-slack-channel: ""
   send-alerts: "false"
   node-exporter-version: v0.16.0
   monitoring-version: latest

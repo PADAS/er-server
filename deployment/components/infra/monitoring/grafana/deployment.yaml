@@ -1,6 +1,7 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
+  namespace: <<namespace>>
   name: grafana
 spec:
   template:
@@ -16,8 +17,6 @@ spec:
         resources:
           requests:
             cpu: "20m"
-          limits:
-            cpu: "100m"
         env:
         - name: PROMETHEUS_URL
           value: http://prometheus:9090

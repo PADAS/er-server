@@ -3,6 +3,8 @@ import logging
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import generics, status
 from rest_framework.response import Response
+from rest_framework.parsers import JSONParser
+from utils.json import JSONTextParser
 
 from utils.drf import AllowAnyGet
 from sensors.handlers import GsatHandler, GenericSensorHandler,\
@@ -15,6 +17,7 @@ class SensorObservation(generics.GenericAPIView):
 
     permission_classes = (AllowAnyGet,)
     serializer_class = ObservationSerializer
+    parser_classes = (JSONParser,JSONTextParser)
 
     def get(self, request, *args, sensor_type=None, provider_key=None, **kwargs):
 

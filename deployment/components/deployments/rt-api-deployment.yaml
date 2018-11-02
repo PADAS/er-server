@@ -1,14 +1,13 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
+  namespace: <<namespace>>
   name: rt-api
 spec:
   template:
     metadata:
       labels:
         das.component: rt-api
-      annotations:
-        prometheus.io/scrape: 'false'
     spec:
       imagePullSecrets:
         - name: gcr-secret
@@ -32,3 +31,4 @@ spec:
             configMapKeyRef:
               name: default-configmap
               key: API_PORT
+

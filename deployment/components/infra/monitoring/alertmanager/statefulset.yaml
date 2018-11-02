@@ -1,6 +1,7 @@
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
+  namespace: <<namespace>>
   name: alertmanager
 spec:
   serviceName: "alertmanager"
@@ -11,6 +12,8 @@ spec:
     metadata:
       labels:
         component: alertmanager
+      annotations:
+        prometheus.io/port: "9093"
     spec:
       imagePullSecrets:
         - name: infra-secret
@@ -19,9 +22,6 @@ spec:
         name: alertmanager
         resources:
           requests:
-            cpu: "10m"
-            memory: 50Mi
-          limits:
             cpu: "10m"
             memory: 50Mi
         readinessProbe:
@@ -44,7 +44,6 @@ spec:
           value: <<alerts-slack-channel>>
         - name: ALERTS_SLACK_URL
           value: <<alerts-slack-url>>
-
       - name: prometheus-alertmanager-configmap-reload
         image: "jimmidyson/configmap-reload:v0.2.2"
         imagePullPolicy: "IfNotPresent"
@@ -56,9 +55,6 @@ spec:
             mountPath: /alert.config
             readOnly: true
         resources:
-          limits:
-            cpu: 10m
-            memory: 10Mi
           requests:
             cpu: 10m
             memory: 10Mi
@@ -69,7 +65,6 @@ spec:
         items:
         - key: config.yaml
           path: config.yaml
-
   volumeClaimTemplates:
   - metadata:
       name: alertmanager-data
@@ -81,4 +76,5 @@ spec:
           storage: 20Gi
       selector:
         matchLabels:
-          component: alertmanager
+          component: <<namespace>>-alertmanager
+

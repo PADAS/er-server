@@ -4,6 +4,6 @@ server-branch-name: develop
 web-branch-name: develop
 tag-as-latest: false
 das-static-ip: 104.199.121.81
-deploy-params-environment: integration
+deploy-params-environment: production
 deployment-plan: integration
 

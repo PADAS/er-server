@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: default
+  namespace: <<namespace>>
   name: elasticsearch-data
   labels:
     app: elasticsearch-data
@@ -18,7 +18,7 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  namespace: default
+  namespace: <<namespace>>
   name: elasticsearch-data
   labels:
     app: elasticsearch-data
@@ -75,8 +75,6 @@ spec:
         - name: "ES_JAVA_OPTS"
           value: "-Xms1500m -Xmx1500m"
         resources:
-          limits:
-            memory: 2Gi
           requests:
             memory: 2Gi
         ports:
@@ -85,10 +83,10 @@ spec:
           protocol: TCP
         volumeMounts:
         - mountPath: /usr/share/elasticsearch/data
-          name: elasticsearch-data
+          name: <<namespace>>-elasticsearch-data
   volumeClaimTemplates:
   - metadata:
-      name: elasticsearch-data
+      name: <<namespace>>-elasticsearch-data
     spec:
       accessModes: [ "ReadWriteOnce" ]
       storageClassName: "ssd"

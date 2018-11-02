@@ -21,13 +21,13 @@ if [ "$PIPELINE_TYPE" == "deployment" ]; then
     exit 1
 fi
 
-touch $PIPELINE_PARAMS_FILE
-echo "cluster-name: $PIPELINE_NAME" >> $PIPELINE_PARAMS_FILE
+touch "$PIPELINE_PARAMS_FILE"
+echo "cluster-name: $PIPELINE_NAME" >> "$PIPELINE_PARAMS_FILE"
 
 while [[ -z "$VERSION_PREFIX" ]]; do
-    read -p "Please enter a UNIQUE semantic version prefix (eg/ 'feature-x', 'bugfix-y', or your code branch name): " VERSION_PREFIX
+    read -r -p "Please enter a UNIQUE semantic version prefix (eg/ 'feature-x', 'bugfix-y', or your code branch name): " VERSION_PREFIX
 done
-echo "version-prefix: ${VERSION_PREFIX:-default}" >> $PIPELINE_PARAMS_FILE
+echo "version-prefix: ${VERSION_PREFIX:-default}" >> "$PIPELINE_PARAMS_FILE"
 
 function set_initial_version_from_develop()
 {
@@ -35,13 +35,15 @@ function set_initial_version_from_develop()
     local CONCOURSE_VARIABLE=$2
     local URL="https://raw.githubusercontent.com/PADAS/das.versions/master/dev.${COMPONENT_NAME}.version"
 
-    local TEMP_DIR=$(mktemp --directory)
+    local TEMP_DIR
+    TEMP_DIR=$(mktemp --directory)
 
     wget --quiet --directory-prefix "$TEMP_DIR" "$URL"
 
-    local DEV_VERSION=$(cat "$TEMP_DIR"/dev.${COMPONENT_NAME}.version)
+    local DEV_VERSION
+    DEV_VERSION=$(cat "$TEMP_DIR/dev.${COMPONENT_NAME}.version")
 
-    echo "$CONCOURSE_VARIABLE: ${DEV_VERSION:-0.0.0}" >> $PIPELINE_PARAMS_FILE
+    echo "$CONCOURSE_VARIABLE: ${DEV_VERSION:-0.0.0}" >> "$PIPELINE_PARAMS_FILE"
 
     rm -r "$TEMP_DIR"
 }
@@ -55,10 +57,10 @@ function prompt_for_branch()
     local REPO_NAME=$1
     local CONCOURSE_VARIABLE=$2
 
-    read -p "Please enter a branch name for $REPO_NAME (blank defaults to develop): " BRANCH_NAME
+    read -r -p "Please enter a branch name for $REPO_NAME (blank defaults to develop): " BRANCH_NAME
 
     if [ "$BRANCH_NAME" != "" ]; then
-        echo "$CONCOURSE_VARIABLE: $BRANCH_NAME" >> $PIPELINE_PARAMS_FILE
+        echo "$CONCOURSE_VARIABLE: $BRANCH_NAME" >> "$PIPELINE_PARAMS_FILE"
     fi
 }
 
@@ -66,20 +68,31 @@ prompt_for_branch das server-branch-name
 prompt_for_branch das-web web-branch-name
 prompt_for_branch das-smartconnect-provider smartconnect-provider-branch-name
 
-read -p "Please enter the IAAS (blank defaults to gcp): " IAAS_PROVIDER
+function write_nondefault_namespace_to_params_file {
+    read -r -p "Please enter the namespace to which this pipeline shall deploy its components (blank defaults to 'default') : " NAMESPACE
+    if [ "$NAMESPACE" != "" ]; then
+        echo "namespace: $NAMESPACE" >> "$PIPELINE_PARAMS_FILE"
+    fi
+}
+
+write_nondefault_namespace_to_params_file
+
+read -r -p "Please enter the IAAS (blank defaults to gcp): " IAAS_PROVIDER
+
 IAAS_PROVIDER=${IAAS_PROVIDER:-"gcp"}
-echo "iaas: $IAAS_PROVIDER" >> $PIPELINE_PARAMS_FILE
+echo "iaas: $IAAS_PROVIDER" >> "$PIPELINE_PARAMS_FILE"
 if [ "$IAAS_PROVIDER" == "gcp" ]; then
-    echo "iaas-zone: us-west1-a" >> $PIPELINE_PARAMS_FILE
-    echo "iaas-workspace: padas-app" >> $PIPELINE_PARAMS_FILE
-    echo "cluster-spec: deployment/cluster-specs/gcp.yaml" >> $PIPELINE_PARAMS_FILE
+    echo "iaas-zone: us-west1-a" >> "$PIPELINE_PARAMS_FILE"
+    echo "iaas-workspace: padas-app" >> "$PIPELINE_PARAMS_FILE"
+    echo "cluster-spec: deployment/cluster-specs/gcp.yaml" >> "$PIPELINE_PARAMS_FILE"
 elif [ "$IAAS_PROVIDER" == "azure" ]; then
-    echo "iaas-zone: eastus" >> $PIPELINE_PARAMS_FILE
-    echo "iaas-workspace: DAS-Dev" >> $PIPELINE_PARAMS_FILE
-    echo "cluster-spec: deployment/cluster-specs/azure.yaml" >> $PIPELINE_PARAMS_FILE
+    echo "iaas-zone: eastus" >> "$PIPELINE_PARAMS_FILE"
+    echo "iaas-workspace: DAS-Dev" >> "$PIPELINE_PARAMS_FILE"
+    echo "cluster-spec: deployment/cluster-specs/azure.yaml" >> "$PIPELINE_PARAMS_FILE"
 else
     echo "Supported IAAS are: azure, gcp but you selected $IAAS_PROVIDER"
     echo "bailing out"
-    rm $PIPELINE_PARAMS_FILE
+    rm "$PIPELINE_PARAMS_FILE"
     exit 1
 fi
+

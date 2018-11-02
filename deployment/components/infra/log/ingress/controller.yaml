@@ -1,6 +1,7 @@
 kind: ConfigMap
 apiVersion: v1
 metadata:
+  namespace: <<namespace>>
   name: log-ingress-configuration
   labels:
     app.kubernetes.io/name: log-ingress
@@ -10,6 +11,7 @@ metadata:
 kind: ConfigMap
 apiVersion: v1
 metadata:
+  namespace: <<namespace>>
   name: log-ingress-tcp-services
   labels:
     app.kubernetes.io/name: log-ingress
@@ -23,6 +25,7 @@ data:
 kind: ConfigMap
 apiVersion: v1
 metadata:
+  namespace: <<namespace>>
   name: log-ingress-udp-services
   labels:
     app.kubernetes.io/name: log-ingress
@@ -32,6 +35,7 @@ metadata:
 kind: Service
 apiVersion: v1
 metadata:
+  namespace: <<namespace>>
   name: log-ingress
   labels:
     app.kubernetes.io/name: log-ingress
@@ -57,6 +61,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
+  namespace: <<namespace>>
   name: log-ingress-controller
   labels:
     app.kubernetes.io/name: log-ingress
@@ -74,7 +79,6 @@ spec:
         app.kubernetes.io/part-of: log-ingress
       annotations:
         prometheus.io/port: "10254"
-        prometheus.io/scrape: "true"
     spec:
       containers:
         - name: log-ingress-controller

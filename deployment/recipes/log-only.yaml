@@ -1,3 +1,5 @@
 paths:
+- namespace
 - infra/log
 - infra/monitoring
+

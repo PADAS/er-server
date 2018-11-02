@@ -2,7 +2,7 @@ apiVersion: servicecatalog.k8s.io/v1beta1
 kind: ServiceInstance
 metadata:
   name: postgres-instance
-  namespace: default
+  namespace: <<namespace>>
 spec:
   clusterServiceClassExternalName: azure-postgresql-9-6
   clusterServicePlanExternalName: basic
