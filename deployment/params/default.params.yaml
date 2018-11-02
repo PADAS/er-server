@@ -1,3 +1,5 @@
+static-values:
+  alerts-slack-channel: "das-k8-alerts-dev"
+  send-alerts: "true"
 environment:
   namespace: NAMESPACE
-

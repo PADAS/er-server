@@ -39,9 +39,7 @@ web-service-name: "web"
 
 #Test & Notification
 postman-environment:
-slack-notification-channel: ""
-alerts-slack-channel: ""
-send-alerts: false
+slack-notification-channel: "das-k8-alerts-dev"
 
 #
 deploy-recipe: standard.yaml

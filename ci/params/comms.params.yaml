@@ -3,6 +3,6 @@ cluster-name: comms
 server-branch-name: develop
 web-branch-name: develop
 das-static-ip: 104.198.108.220
-deploy-params-environment: integration
+deploy-params-environment: production
 deployment-plan: integration
 

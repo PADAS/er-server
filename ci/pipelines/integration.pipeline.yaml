@@ -835,20 +835,3 @@ jobs:
           text: |
             :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
-      - try:
-          task: ifttt-alert
-          config:
-            platform: linux
-            image_resource:
-              type: docker-image
-              source: {repository: byrnedo/alpine-curl}
-            params: {
-              IFTTT_WEBHOOK_KEY: ((ifttt-webhook-key))
-            }
-            run:
-              path: /bin/sh
-              args:
-              - -exc
-              - |
-                curl -X POST https://maker.ifttt.com/trigger/shared_services_ci_failed/with/key/$IFTTT_WEBHOOK_KEY
-
