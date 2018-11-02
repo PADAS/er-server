@@ -758,13 +758,13 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             if observations:
                 for observation in observations.all():
                     subject_source = models.SubjectSource.objects.filter(
-                        assigned_range__contains=observation.recorded_at,
+                        source=observation.source,
                         subject=subject)[0]
                     data = {'lat': observation.location.x,
                             'lon': observation.location.y,
                             'height': observation.location.z,
                             'chronofile': subject_source.additional.get(
-                                'chronofile', ''),
+                                'chronofile', '') if subject_source.additional else '',
                             'recordserial': observation.id,
                             'fixtime': observation.recorded_at.strftime(
                                 '%m/%d%Y %H:%M:%S'),

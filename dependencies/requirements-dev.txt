@@ -99,6 +99,7 @@ py==1.5.3                 # via pytest
 pyasn1-modules==0.0.9
 pyasn1==0.2.3
 pycparser==2.17
+pycryptodome==3.7.0
 pyjwt==1.5.2
 pymet==0.1.17
 pyopenssl==17.0.0
