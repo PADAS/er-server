@@ -1,6 +1,6 @@
 project-id: padas-app
 cluster-name: etl-providers
-server-branch-name: feature/DAS-3074
+server-branch-name: develop
 skyline-provider-branch-name: develop
 quadratex-provider-branch-name: develop
 tracktrace-provider-branch-name: develop
