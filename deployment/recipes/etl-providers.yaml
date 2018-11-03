@@ -1,0 +1,7 @@
+paths:
+- deployments/filebeat-daemonset.yaml
+- deployments/default-configmap.yaml
+- environments/etl-configmap.yaml
+- etl-components/quadratex-provider.yaml
+- etl-components/skyline-provider.yaml
+- etl-components/tracktrace-provider.yaml

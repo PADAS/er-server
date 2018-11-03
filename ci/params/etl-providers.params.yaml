@@ -1,0 +1,10 @@
+project-id: padas-app
+cluster-name: etl-providers
+server-branch-name: feature/DAS-3074
+skyline-provider-branch-name: develop
+quadratex-provider-branch-name: develop
+tracktrace-provider-branch-name: develop
+deploy-params-environment: etl-providers
+deploy-recipe: etl-providers.yaml
+tag-as-latest: false
+deployment-plan: integration

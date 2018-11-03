@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etl-configmap
+data:
+  DAS_SENSOR_ENDPOINT: "https://dev.pamdas.org/api/v1.0"
+  GRUMETI_DAS_SENSOR_ENDPOINT: "https://grumeti.pamdas.org/api/v1.0"
+  LEWA_DAS_SENSOR_ENDPOINT: "https://lewa.pamdas.org/api/v1.0"
+  BANGWEULU_DAS_SENSOR_ENDPOINT: "https://bangweulu.apn.pamdas.org/api/v1.0"
+  NLUWANGWA_DAS_SENSOR_ENDPOINT: "https://northluangwa.fzs.pamdas.org/api/v1.0"
+  SKYLINE_PROVIDER_DAS_TOKEN: "<<skyline-provider-das-token>>"
+  SKYLINE_PROVIDER_CID: "<<skyline-provider-cid>>"
+  SKYLINE_PROVIDER_USER: "<<skyline-provider-user>>"
+  SKYLINE_PROVIDER_PASSWORD: "<<skyline-provider-password>>"
+  LEWA_TRACK_TRACE_DAS_TOKEN: "<<tracktrace-provider-das-token>>"
+  LEWA_TRACK_TRACE_API_TOKEN: "<<tracktrace-provider-api-token>>"
+  BANGWEULU_QUADRATEX_DAS_TOKEN: "<<quadratex-provider-das-token>>"
+  BANGWEULU_QUADRATEX_API_TOKEN: "<<quadratex-provider-api-token>>"
+  NLUWANGWA_QUIKTRAK_TOKEN: "<<quadratex-provider-das-token>>"
+  NLUWANGWA_QUIKTRAK_API_TOKEN: "<<quadratex-provider-api-token>>"
