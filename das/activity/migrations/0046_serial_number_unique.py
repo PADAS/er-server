@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
                       START 1
                       CACHE 1;
                     ALTER TABLE public.activity_event_serial_number_seq
-                      OWNER TO postgres;''',
+                      OWNER TO current_user;''',
             reverse_sql='''drop sequence activity_event_serial_number_seq ;'''
         ),
         migrations.RunSQL(
