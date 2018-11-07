@@ -24,7 +24,7 @@ def generate_subject_records(report_hours=24):
                   'manufacturer_id': ss.source.manufacturer_id,
                   'name': ss.subject.name,
                   'frequency': ss.source.additional.get('frequency', ''),
-                  'data_starts': ss.assigned_range.lower,
+                  'data_starts': ss.safe_assigned_range.lower,
                   'species': ss.subject.subject_subtype.display,
                   'region': ss.subject.additional.get('region', 'Unassigned'),
                   }

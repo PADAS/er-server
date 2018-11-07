@@ -424,6 +424,14 @@ class SubjectSourceManager(models.Manager):
             return subject_sources[0]
 
 
+from typing import NamedTuple
+
+
+class AssignedRangeBounds(NamedTuple):
+    lower: datetime
+    upper: datetime
+
+
 class SubjectSource(models.Model):
     """A Subject is associated with a Source device for a specific time period
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
@@ -447,6 +455,16 @@ class SubjectSource(models.Model):
     class Meta:
         verbose_name = _('Subject Source Assignment')
         verbose_name_plural = _('Subject Source Assignments')
+
+    @property
+    def safe_assigned_range(self):
+        # The app should never assign 'empty' to assigned_range, but add these guards in case
+        # data enters the database through other means.
+        if self.assigned_range.isempty:
+            return AssignedRangeBounds(lower=pytz.utc.localize(datetime.min),
+                                       upper=pytz.utc.localize(datetime.max))
+        return AssignedRangeBounds(lower=self.assigned_range.lower,
+                                   upper=self.assigned_range.upper)
 
 
 class SubjectTypeManager(models.Manager):
