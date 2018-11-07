@@ -8,9 +8,9 @@ fi
 
 SSL_PATH=/etc/ssl
 
-#if [ -v BUNDLE_CRT ]; then
-#    echo $BUNDLE_CRT > $SSL_PATH/bundle.crt
-#    echo $PAMDAS_ORG_PRIVATE_KEY_PEM > $SSL_PATH/pamdas.org-private-key.pem
-#fi
+if [ ! -z "$BUNDLE_CRT" ]; then
+    echo "$BUNDLE_CRT" > $SSL_PATH/bundle.crt
+    echo "$PAMDAS_ORG_PRIVATE_KEY_PEM" > $SSL_PATH/pamdas.org-private-key.pem
+fi
 
 /usr/sbin/nginx -c /etc/nginx/nginx.conf -g "daemon off;"
