@@ -1,7 +1,9 @@
 project-id: padas-app
-cluster-name: natgeo
+cluster-name: orcas
 server-branch-name: develop
 web-branch-name: develop
-das-static-ip: 35.233.221.53
+tag-as-latest: false
+das-static-ip: 35.230.89.10
 deploy-params-environment: production
 deployment-plan: integration
+
