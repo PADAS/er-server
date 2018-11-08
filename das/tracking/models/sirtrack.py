@@ -24,10 +24,9 @@ from observations.models import Source
 
 logger = logging.getLogger(__name__)
 
-
 # SirTrack server may be a little slow, so using a long timeout for first byte.
-DEFAULT_REQUEST_TIMEOUT = (1, 10)  # seconds for (connect, read)
-CSV_REQUEST_TIMEOUT = (1, 10)  # seconds
+DEFAULT_REQUEST_TIMEOUT = (3, 30)  # seconds for (connect, read)
+CSV_REQUEST_TIMEOUT = (3, 30)  # seconds
 
 
 class SirTrackClient(object):
@@ -60,22 +59,31 @@ class SirTrackClient(object):
 
         cookie_val = '{}={}'.format(
             'vosao_session', cookies.get('vosao_session'))
-        projects = requests.get('https://data.sirtrack.com/restlet/projects?_={}'.format(int(time.time() * 1000)),
-                                headers=dict(cookie=cookie_val), timeout=DEFAULT_REQUEST_TIMEOUT)
-        return json.loads(projects.text)
+        result = requests.get('https://data.sirtrack.com/restlet/projects?_={}'.format(int(time.time() * 1000)),
+                              headers=dict(cookie=cookie_val), timeout=DEFAULT_REQUEST_TIMEOUT)
+        if result.status_code == 200:
+            self.logger.info(
+                'Downloaded Sirtrack Project Data: %s', result.text)
+            return json.loads(result.text)
+
+        self.logger.error(
+            'Unable to download Sirtrack Project. result=%s', result)
 
     def get_csv_links(self, projects_data):
         # Fetch the top-level KML document from Sirtrack and use its NetworkLinks to download
         # CSV files of track data.
 
         if not projects_data:
+            self.logger.warning('Sirtrack project data is empty.')
             return
 
         for pd in projects_data:
             kml_url = 'https://data.sirtrack.com/restlet/geo/{id}/{name}.kmz'.format(
                 **pd)
+            self.logger.info('Download Sirtrack data: %s', kml_url)
             kmldata = self.get_kml(kml_url, params=dict(key=pd['geoJsonKey']))
 
+            self.logger.info('Downloaded Sirtrack data: %s', kmldata)
             if not kmldata:
                 self.logger.error('Failed to download KML at %s', kml_url)
 
@@ -84,7 +92,22 @@ class SirTrackClient(object):
 
             for f in k.features():
                 if hasattr(f, 'link'):
-                    yield f.link.replace('.kmz', '.csv').replace(' ', '+')
+                    csv_link = f.link.replace('.kmz', '.csv').replace(' ', '+')
+                    self.logger.debug('Found Sirtrack link: %s', csv_link)
+                    yield csv_link
+
+    def get_csv_dataset(self, link):
+        '''
+        Yield lines from the link if it is CSV content.
+        '''
+        response = requests.get(link, timeout=CSV_REQUEST_TIMEOUT, stream=True)
+        if response.headers['Content-Type'] == 'text/csv':
+
+            for line in response.iter_lines():
+                record = line.decode('utf-8')
+                if not record:
+                    continue
+                yield record
 
     def parse_csv_link(self, link):
         '''
@@ -96,26 +119,21 @@ class SirTrackClient(object):
         response = None
         try:
 
-            response = requests.get(
-                link, timeout=CSV_REQUEST_TIMEOUT, stream=True)
+            self.logger.info('Parsing CSV link: %s', link)
 
-            if response.headers['Content-Type'] == 'text/csv':
+            keys = None
+            for line in self.get_csv_dataset(link):
+                if not keys:
+                    keys = line.strip().split(',')
+                    # Scrub the keys a little.
+                    keys = [re.sub('[^a-zA-Z0-9]', '_', k).strip('_').lower()
+                            for k in keys]
+                    continue
 
-                keys = None
-                for line in response.iter_lines():
-                    line = line.decode('utf-8')
-                    if not line:
-                        continue
-                    if not keys:
-                        keys = line.strip().split(',')
-                        # Scrub the keys a little.
-                        keys = [re.sub('[^a-zA-Z0-9]', '_', k).strip('_').lower()
-                                for k in keys]
-                        continue
+                item = dict(zip(keys, line.strip().split(',')))
 
-                    item = dict(zip(keys, line.strip().split(',')))
-                    if item['longitude'] and item['latitude']:
-                        yield item
+                if item['longitude'] and item['latitude']:
+                    yield item
 
         except (requests.ConnectionError, requests.ReadTimeout) as e:
             self.logger.warning(
@@ -265,9 +283,14 @@ class SirtrackPlugin(TrackingPlugin):
 
     def _transform(self, fix, source):
 
-        recorded_at = _resolve_recorded_at(fix)
-        latitude = float(fix['latitude'])
-        longitude = float(fix['longitude'])
+        try:
+            recorded_at = _resolve_recorded_at(fix)
+            latitude = float(fix['latitude'])
+            longitude = float(fix['longitude'])
+        except:
+            self.logger.warning(
+                'Failed to transform fix, so ignoring it: %s', fix)
+            return None
 
         side_data = dict((k, fix.get(k))
                          for k in fix.keys() - set(('latitude', 'longitude',)))
