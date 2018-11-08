@@ -614,8 +614,8 @@ class SubjectSourceAdmin(admin.ModelAdmin):
 
     def _assigned_range(self, o):
 
-        d1, d2 = o.assigned_range.lower, o.assigned_range.upper
-        if d1.year >= 9999:
+        d1, d2 = o.safe_assigned_range.lower, o.safe_assigned_range.upper
+        if d1.year <= 1000:
             d1 = '-'
         if d2.year >= 9999:
             d2 = '-'

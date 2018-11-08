@@ -57,8 +57,8 @@ def update_assignment(assignment, start_date=None, end_date=None, force=False):
     force = True will set the end_date for assignment regardless of what it is current set to.
     '''
     # Construct a datetimetzrange from the given dates.
-    start_date = start_date or assignment.assigned_range.lower
-    end_date = end_date or assignment.assigned_range.upper
+    start_date = start_date or assignment.safe_assigned_range.lower
+    end_date = end_date or assignment.safe_assigned_range.upper
     new_assignment_range = psycopg2.extras.DateTimeTZRange(
         lower=start_date, upper=end_date)
 
