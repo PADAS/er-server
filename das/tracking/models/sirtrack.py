@@ -145,6 +145,12 @@ class SirTrackClient(object):
 
         keys = None
         for line in self.get_csv_dataset(link):
+
+            # guard for blank lines.
+            if not line:
+                continue
+
+            # Assume first non-blank line is header.
             if not keys:
                 keys = line.strip().split(',')
                 # Scrub the keys a little.
