@@ -39,35 +39,42 @@ class SirTrackClient(object):
         self.service_api = service_api
 
     def login(self):
-        service_root = 'https://data.sirtrack.com/json-rpc/'
+        service_root = f'{self.service_api}/json-rpc/'
         login_data = {'id': 2,
                       'method': 'loginFrontService.login',
                       'params': [self.username, self.password]
                       }
 
-        result = requests.post(service_root, data=json.dumps(
-            login_data), timeout=DEFAULT_REQUEST_TIMEOUT)
-
-        if result.status_code == 200:
-            cookies = parse_cookie(result.headers['Set-Cookie'])
-            return cookies
+        try:
+            result = requests.post(
+                service_root, json=login_data, timeout=DEFAULT_REQUEST_TIMEOUT)
+        except (requests.ConnectionError, requests.ReadTimeout):
+            self.logger.exception(
+                'Failed to log in to SirTrack API. Service username=%s', self.username)
         else:
-            self.logger.error('Unable to log in to Sirtrack. result.code: %s, result.data: %s',
-                              result.status_code, result.data)
+            if result.status_code == 200:
+                cookies = parse_cookie(result.headers['Set-Cookie'])
+                return cookies
+            else:
+                self.logger.error('Unable to log in to Sirtrack. result.code: %s, result.data: %s',
+                                  result.status_code, result.data)
 
     def get_projects(self, cookies):
 
-        cookie_val = '{}={}'.format(
-            'vosao_session', cookies.get('vosao_session'))
-        result = requests.get('https://data.sirtrack.com/restlet/projects?_={}'.format(int(time.time() * 1000)),
-                              headers=dict(cookie=cookie_val), timeout=DEFAULT_REQUEST_TIMEOUT)
-        if result.status_code == 200:
-            self.logger.info(
-                'Downloaded Sirtrack Project Data: %s', result.text)
-            return json.loads(result.text)
+        vosao_session_value = cookies.get('vosao_session')
+        cookie_val = '='.join(('vosao_session', vosao_session_value))
 
-        self.logger.error(
-            'Unable to download Sirtrack Project. result=%s', result)
+        try:
+            call_timestamp = int(time.time() * 1000)
+            result = requests.get(f'{self.service_api}/restlet/projects?_={call_timestamp}',
+                                  headers=dict(cookie=cookie_val), timeout=DEFAULT_REQUEST_TIMEOUT)
+        except Exception as exc:
+            self.logger.exception('Unable to download Sirtrack Project.')
+        else:
+            if result.status_code == 200:
+                return json.loads(result.text)
+
+        return None
 
     def get_csv_links(self, projects_data):
         # Fetch the top-level KML document from Sirtrack and use its NetworkLinks to download
@@ -78,8 +85,9 @@ class SirTrackClient(object):
             return
 
         for pd in projects_data:
-            kml_url = 'https://data.sirtrack.com/restlet/geo/{id}/{name}.kmz'.format(
-                **pd)
+            kml_url = '{service_api}/restlet/geo/{id}/{name}.kmz'.format(
+                service_api=self.service_api, **pd)
+
             self.logger.info('Download Sirtrack data: %s', kml_url)
             kmldata = self.get_kml(kml_url, params=dict(key=pd['geoJsonKey']))
 
@@ -99,41 +107,21 @@ class SirTrackClient(object):
     def get_csv_dataset(self, link):
         '''
         Yield lines from the link if it is CSV content.
-        '''
-        response = requests.get(link, timeout=CSV_REQUEST_TIMEOUT, stream=True)
-        if response.headers['Content-Type'] == 'text/csv':
 
-            for line in response.iter_lines():
-                record = line.decode('utf-8')
-                if not record:
-                    continue
-                yield record
-
-    def parse_csv_link(self, link):
-        '''
-        Read chunked response as a CSV file and yield a dictionary for each row.
-        :param link: A link to a CSV file.
-        :return: generate records as dict() objects, using CSV headers as keys.
+        Handle decoding the data, timeouts and stream lifecycle.
         '''
 
         response = None
         try:
+            response = requests.get(
+                link, timeout=CSV_REQUEST_TIMEOUT, stream=True)
+            if response.headers['Content-Type'] == 'text/csv':
 
-            self.logger.info('Parsing CSV link: %s', link)
-
-            keys = None
-            for line in self.get_csv_dataset(link):
-                if not keys:
-                    keys = line.strip().split(',')
-                    # Scrub the keys a little.
-                    keys = [re.sub('[^a-zA-Z0-9]', '_', k).strip('_').lower()
-                            for k in keys]
-                    continue
-
-                item = dict(zip(keys, line.strip().split(',')))
-
-                if item['longitude'] and item['latitude']:
-                    yield item
+                for line in response.iter_lines():
+                    record = line.decode('utf-8')
+                    if not record:
+                        continue
+                    yield record
 
         except (requests.ConnectionError, requests.ReadTimeout) as e:
             self.logger.warning(
@@ -146,10 +134,41 @@ class SirTrackClient(object):
             if hasattr(response, 'close'):
                 response.close()
 
+    def parse_csv_link(self, link):
+        '''
+        Read chunked response as a CSV file and yield a dictionary for each row.
+        :param link: A link to a CSV file.
+        :return: generate records as dicts, using CSV headers as keys.
+        '''
+
+        self.logger.info('Parsing CSV link: %s', link)
+
+        keys = None
+        for line in self.get_csv_dataset(link):
+            if not keys:
+                keys = line.strip().split(',')
+                # Scrub the keys a little.
+                keys = [re.sub('[^a-zA-Z0-9]', '_', k).strip('_').lower()
+                        for k in keys]
+                continue
+
+            item = dict(zip(keys, line.strip().split(',')))
+
+            if item['longitude'] and item['latitude']:
+                yield item
+
     def fetch_observations(self):
 
         login_cookies = self.login()
+
+        if not login_cookies:
+            self.logger.warning('Failed to login to Sirtrack API.')
+
         projects_data = self.get_projects(login_cookies)
+
+        if not projects_data:
+            self.logger.warning('Project data is empty.')
+            return
 
         for csv_link in self.get_csv_links(projects_data):
             yield from self.parse_csv_link(csv_link)
@@ -191,11 +210,13 @@ class SirtrackPlugin(TrackingPlugin):
     service_password = models.CharField(max_length=50,
                                         help_text='The password for querying the SirTrack service.')
     service_api = models.CharField(max_length=50,
-                                   help_text='The API endpoint for SirTrack data.')
+                                   help_text='The API endpoint for SirTrack data.',
+                                   default='https://data.sirtrack.com')
 
     DEFAULT_SUBJECT_SUBTYPE = 'cheetah'
     DEFAULT_SOURCE_TYPE = 'tracking-device'
     DEFAULT_MODEL_NAME = 'Lotek'
+    READ_OVERLAP = timedelta(hours=24)
 
     @property
     def run_source_plugins(self):
@@ -241,11 +262,12 @@ class SirtrackPlugin(TrackingPlugin):
                           [sp.source for sp in self.source_plugins.all()])
 
         lt = None
+        read_start_limit = st - self.READ_OVERLAP
         for fix in client.fetch_observations():
             try:
 
                 fix_time = _resolve_recorded_at(fix)
-                if fix_time < st:
+                if fix_time < read_start_limit:
                     continue
 
                 if self._pass_filter(fix):
