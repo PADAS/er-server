@@ -462,9 +462,14 @@ class SubjectSource(models.Model):
         # data enters the database through other means.
         if self.assigned_range.isempty:
             return AssignedRangeBounds(lower=pytz.utc.localize(datetime.min),
-                                       upper=pytz.utc.localize(datetime.max))
+                                       upper=pytz.utc.localize(datetime.min))
         return AssignedRangeBounds(lower=self.assigned_range.lower,
                                    upper=self.assigned_range.upper)
+
+    @safe_assigned_range.setter
+    def safe_assigned_range(self, value):
+        raise NotImplementedError(
+            'Please use .assigned_range directly to set its value.')
 
 
 class SubjectTypeManager(models.Manager):
