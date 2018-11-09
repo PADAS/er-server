@@ -91,7 +91,6 @@ class SirTrackClient(object):
             self.logger.info('Download Sirtrack data: %s', kml_url)
             kmldata = self.get_kml(kml_url, params=dict(key=pd['geoJsonKey']))
 
-            self.logger.info('Downloaded Sirtrack data: %s', kmldata)
             if not kmldata:
                 self.logger.error('Failed to download KML at %s', kml_url)
 
