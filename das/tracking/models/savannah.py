@@ -17,7 +17,7 @@ from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
 from analyzers.models import CRITICAL
 from analyzers.models.base import EVENT_PRIORITY_MAP
 
-from observations.models import Subject
+from observations.models import Subject, Observation
 
 
 def __str2date(d, replace_tzinfo=pytz.utc):
@@ -26,12 +26,15 @@ def __str2date(d, replace_tzinfo=pytz.utc):
 
 
 # Helpers for parsing lines from Savanna datasource.
-Fix = namedtuple('Fix', ['collar_id', 'longitude', 'latitude', 'recorded_at',
-                         'speed', 'heading', 'temperature', 'height',
-                         'hdop', 'battery'])
+fields = ['collar_id', 'longitude', 'latitude', 'recorded_at',
+          'speed', 'heading', 'temperature', 'height',
+          'hdop', 'battery']
+
+# Add device_alert & is_alert to differentiate between observation's api source
+Fix = namedtuple('Fix', fields+['device_alert', 'is_alert'])
 Fix.__new__.__defaults__ = (None, None)
 field_transform = (str, float, float, __str2date, float, float, str, int,
-                   float, float)
+                   float, float, str, bool)
 
 # Map Savannah alert keys to DAS Event Type.
 ALERT_EVENT_TYPE_MAP = {
@@ -122,55 +125,24 @@ class SavannaClient(object):
         if alerts_response.status == 200:
             alerts = alerts_response.read()
             alerts = alerts.decode('utf-8').strip()
+            # Split response and set device_alert type according to event_type
             for alert in alerts.split('\r\n'):
-                if alert:
-                    # Save alert as an Event report.
-                    alert = alert.split(',')
-                    alert_data = alert[:-1]
-                    alert_type = alert[-1]
+                alert = alert.split(',')
+                alert_data = alert[:-1]
+                alert_type = alert[-1]
+                event_type_info = ALERT_EVENT_TYPE_MAP.get(
+                    alert_type, None)
+                device_alert = event_type_info['event_type']
 
-                    reported_event_time = parse_date(
-                        alert[3]).replace(tzinfo=pytz.utc)
+                # Check if alert api is returning hdop, battery or not
+                # If not, assign value as zero
+                while len(fields)-len(alert_data) > 0:
+                    alert_data.append('')
 
-                    # csd: handle finding the right subject (per assignment).
-                    try:
-                        subject = Subject.objects.get(
-                            subjectsource__source__manufacturer_id=collar_id,
-                            subjectsource__assigned_range__contains=reported_event_time,
-                        )
-                    except Subject.DoesNotExist:
-                        subject_name = None
-                        related_subjects = None
-                    else:
-                        subject_name = subject.name
-                        related_subjects = [{'id': subject.id}, ]
-
-                    event_type_info = ALERT_EVENT_TYPE_MAP.get(
-                        alert_type, None)
-
-                    if event_type_info:
-                        event_type = event_type_info['event_type']
-                        title = event_type_info['title_template'].format(
-                            subject_name)
-
-                        event_details = {'name': subject.name}
-                        event_data = {
-                            'title': title,
-                            'event_type': event_type,
-                            'event_details': event_details,
-                            'priority': EVENT_PRIORITY_MAP.get(CRITICAL),
-                            'location': {'latitude': alert[2],
-                                         'longitude': alert[1]},
-                            'time': reported_event_time,
-                        }
-                        if related_subjects:
-                            event_data['related_subjects']: [{'id': subject.id, }, ]
-
-                        from analyzers.utils import save_analyzer_event
-                        save_analyzer_event(event_data)
-
-                    # Save alerts as Observations.
-                    yield self.parse_line(','.join(alert_data))
+                # Atlast push device_alert and is_alert
+                alert_data.append(device_alert)
+                alert_data.append('true')
+                yield self.parse_line(','.join(alert_data))
 
     @classmethod
     def parse_line(cls, s):
@@ -180,7 +152,8 @@ class SavannaClient(object):
         :param s:
         :return:
         '''
-        dt = (c(i) for c, i in zip(field_transform, s.split(',')))
+        dt = (c(i) if i != '' else None
+              for c, i in zip(field_transform, s.split(',')))
         dt = Fix(*dt)
         return dt
 
@@ -227,6 +200,20 @@ class SavannahPlugin(TrackingPlugin):
                 self.logger.warning(
                     'Savannah plugin encountered a fix from the future: {0}'.format(fix))
                 continue
+
+            # If observation has been received from alert api than is_alert=True
+            if fix.is_alert:
+                # Filter observation based on timestamp, source.
+                # If observation exist, update observation's additional field
+                # else yield Obs
+                obs = Observation.objects.filter(
+                    source=source, recorded_at=fix.recorded_at).first()
+                if obs:
+                    additional = obs.additional
+                    additional['device_alert'] = fix.device_alert
+                    obs.additional = additional
+                    obs.save()
+                    continue
             lt = fix.recorded_at
             yield self._transform((source, fix), dry_run)
 
@@ -238,6 +225,11 @@ class SavannahPlugin(TrackingPlugin):
         source, o = item
         side_data = dict((k, o.__getattribute__(k)) for k in (
             'speed', 'heading', 'temperature', 'height', 'hdop', 'battery'))
+
+        # Check If observation has been received from alert api
+        # than set device_alert key and it's value in additional field
+        if o.is_alert:
+            side_data['device_alert'] = o.device_alert
         if dry_run:
             return {'source': source, 'recorded_at': o.recorded_at,
                     'latitude': o.latitude, 'longitude': o.longitude,

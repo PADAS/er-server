@@ -8,7 +8,7 @@ from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 
-from activity.models import EventCategory, EventType, Event
+from activity.models import EventCategory, EventType
 from observations.models import Source, SourceProvider, Subject, SubjectType, \
     SubjectSubType, SubjectSource
 from tracking.models import SavannahPlugin, SourcePlugin
@@ -58,7 +58,9 @@ def mocked_requests_get(*args, **kwargs):
                 body = 'HTTP/1.1 200 Ok\r\n\r\nST2010-1231,' \
                        '37.51645,0.70056,12/19/2016 2:10:12 AM,0.02,233,,988,' \
                        'Immobility Alert\r\nST2010-1231,37.3583,0.63072,' \
-                       '1/6/2017 11:38:25 PM,0.04,266,,983,None'
+                       '1/6/2017 11:38:25 PM,0.04,266,,983,None\r\n' \
+                       'ST2010-3031,36.78418,-1.24359,7/5/2018 3:38:03 PM,0,' \
+                       '0,21.2,0,17,55,Immobility Alert'
             sock = FakeSocket(body)
             resp = http.client.HTTPResponse(sock)
             resp.status = 200
@@ -75,7 +77,7 @@ class SavannahPluginTest(TestCase):
         latest_timestamp = latest_timestamp.isoformat()
         cursor_data = {'latest_timestamp': latest_timestamp}
 
-        # Create source and svavannah plugin object
+        # Create source and savannah plugin object
         # Link source and savannah plugin object using SourcePlugin
         self.source_provider = SourceProvider.objects.create(
             provider_key='savannah', display_name='Savannah')
@@ -102,18 +104,6 @@ class SavannahPluginTest(TestCase):
             name='Henry', subject_subtype=subject_subtype)
         SubjectSource.objects.create(source=self.source, subject=self.henry)
 
-        # create Event types(immobility & immobility all clear)
-        event_category, created = EventCategory.objects.get_or_create(value='analyzer_event',
-                                                                      defaults=dict(
-                                                                          display='Analyzer Event')
-                                                                      )
-        self.immobility_event_type, created = EventType.objects.get_or_create(
-            value="immobility", defaults=dict(display="Immobility", category=event_category))
-        self.immobility_all_clear_event_type, created = EventType.objects.get_or_create(
-            value="immobility_all_clear", defaults=dict(display="Immobility All Clear",
-                                                        category=event_category)
-        )
-
     @mock.patch('http.client.HTTPConnection', side_effect=mocked_requests_get)
     def test_savannah(self, *args, **kwargs):
         plugin_class = apps.get_model('tracking', 'SavannahPlugin')
@@ -127,28 +117,6 @@ class SavannahPluginTest(TestCase):
             else:
                 plugin.execute()
 
-        # Check Event object with immobility event type has been created or not
-        self.assertTrue(Event.objects.filter(
-            event_type=self.immobility_event_type).count() == 1)
-
-        # Check Event object with immobility all clear event type
-        # has been created or not
-        self.assertTrue(Event.objects.filter(
-            event_type=self.immobility_all_clear_event_type).count() == 1)
-
-        event = Event.objects.filter(
-            event_type=self.immobility_event_type).first()
-
-        self.assertIsNotNone(
-            event, 'Expect to find an immobility event, but none exist.')
-        related_subjects = event.eventrelatedsubject_set.all()
-
-        self.assertTrue(self.henry.id in (
-            x.subject.id for x in related_subjects))
-
-        # Observations of subject > 0 (one from normal fetch observation api,
-        # one from immobility event type
-        # one from immobility all clear event type)
         self.assertTrue(len(self.henry.observations()) == 3)
 
         # Check hdop & battery values
@@ -157,3 +125,12 @@ class SavannahPluginTest(TestCase):
         self.assertTrue(
             any(observation.__dict__['additional'].get('battery', None)
                 for observation in self.henry.observations()))
+
+        # Check alert types immobility, immobility_all_clear in observations
+        self.assertTrue(any(observation.__dict__['additional'].get(
+            'device_alert', None) == 'immobility'
+                            for observation in self.henry.observations()))
+
+        self.assertTrue(any(observation.__dict__['additional'].get(
+            'device_alert', None) == 'immobility_all_clear'
+                            for observation in self.henry.observations()))
