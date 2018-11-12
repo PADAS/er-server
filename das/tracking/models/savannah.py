@@ -11,9 +11,13 @@ import pytz
 
 import logging
 from django.contrib.gis.db import models
+from django.utils.translation import ugettext_lazy as _
 
 from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
 from analyzers.models import CRITICAL
+from analyzers.models.base import EVENT_PRIORITY_MAP
+
+from observations.models import Subject
 
 
 def __str2date(d, replace_tzinfo=pytz.utc):
@@ -29,9 +33,21 @@ Fix.__new__.__defaults__ = (None, None)
 field_transform = (str, float, float, __str2date, float, float, str, int,
                    float, float)
 
+# Map Savannah alert keys to DAS Event Type.
+ALERT_EVENT_TYPE_MAP = {
+    'Immobility Alert': {
+        'event_type': 'immobility',
+        'title_template': _('{} is immobile')
+    },
+    'None': {
+        'event_type': 'immobility_all_clear',
+        'title_template': _('{} is moving')
+    }
+
+}
+
 
 class SavannaClient(object):
-
 
     def __init__(self, host=None, username=None, password=None):
 
@@ -50,7 +66,8 @@ class SavannaClient(object):
         :return: generator, yielding individual records.
         '''
 
-        self.logger.info('Fetching from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
+        self.logger.info(
+            'Fetching from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
         conn = http.client.HTTPConnection(self.host, timeout=15)
 
         payload = dict(uid=self.username, pwd=self.password,
@@ -59,29 +76,35 @@ class SavannaClient(object):
         payload = ['='.join((k, v)) for k, v in payload.items()]
         payload = '&'.join(payload)
 
-        headers = { 'accept': "*/*",
-                    'content-type': 'application/x-www-form-urlencoded'
-                    }
+        headers = {'accept': "*/*",
+                   'content-type': 'application/x-www-form-urlencoded'
+                   }
 
         conn.request("POST", "/savannah/get_data.asp", payload, headers)
 
         res = conn.getresponse()
         saveline = None
         if res.status == http.client.OK:
-            self.logger.info('Fetch OK from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
+            self.logger.info(
+                'Fetch OK from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
 
             for line in res:
                 try:
-                    if line != saveline: # We occassionally see duplicate records in results.
+                    if line != saveline:  # We occassionally see duplicate records in results.
                         yield self.parse_line(line.decode('utf-8').strip())
                 except Exception as e:
-                    self.logger.exception('Failed to parse line for collar_id: %s, line: [%s]', collar_id, line)
+                    self.logger.exception(
+                        'Failed to parse line for collar_id: %s, line: [%s]', collar_id, line)
                 saveline = line
         else:
             msg = 'Failed to get data from Savannah Tracking API for collar_id: %s. Result status: %d' % (collar_id,
                                                                                                           res.status)
             self.logger.error(msg)
             raise DasPluginFetchError(msg)
+
+        yield from self.fetch_alerts(collar_id, start_time=start_time, end_time=end_time)
+
+    def fetch_alerts(self, collar_id, start_time, end_time=None):
 
         # Get Savannah collar alarms.
         self.logger.info('Getting Savannah collar alarms for collar_id: '
@@ -90,9 +113,11 @@ class SavannaClient(object):
         connection.request(
             "GET", "/savannah/get_alerts.asp?uid={}&pwd={}&start_time={}&"
                    "end_time={}&collar={}".format(
-                    self.username, self.password, start_time, str(time.time()),
-                    collar_id)
+                       self.username, self.password, start_time, str(
+                           time.time()),
+                       collar_id)
         )
+
         alerts_response = connection.getresponse()
         if alerts_response.status == 200:
             alerts = alerts_response.read()
@@ -104,20 +129,30 @@ class SavannaClient(object):
                     alert_data = alert[:-1]
                     alert_type = alert[-1]
 
-                    from observations.models import Subject
-                    subject = Subject.objects.get(
-                        subjectsource__source__manufacturer_id=collar_id)
+                    reported_event_time = parse_date(
+                        alert[3]).replace(tzinfo=pytz.utc)
 
-                    from analyzers.models.base import EVENT_PRIORITY_MAP
-                    title, event_type = None, None
-                    if alert_type == 'Immobility Alert':
-                        event_type = 'immobility'
-                        title = '{} is immobile'.format(subject.name)
-                    elif alert_type == 'None':
-                        title = '{} is moving'.format(subject.name)
-                        event_type = 'immobility_all_clear'
+                    # csd: handle finding the right subject (per assignment).
+                    try:
+                        subject = Subject.objects.get(
+                            subjectsource__source__manufacturer_id=collar_id,
+                            subjectsource__assigned_range__contains=reported_event_time,
+                        )
+                    except Subject.DoesNotExist:
+                        subject_name = None
+                        related_subjects = None
+                    else:
+                        subject_name = subject.name
+                        related_subjects = [{'id': subject.id}, ]
 
-                    if title and event_type:
+                    event_type_info = ALERT_EVENT_TYPE_MAP.get(
+                        alert_type, None)
+
+                    if event_type_info:
+                        event_type = event_type_info['event_type']
+                        title = event_type_info['title_template'].format(
+                            subject_name)
+
                         event_details = {'name': subject.name}
                         event_data = {
                             'title': title,
@@ -126,9 +161,11 @@ class SavannaClient(object):
                             'priority': EVENT_PRIORITY_MAP.get(CRITICAL),
                             'location': {'latitude': alert[2],
                                          'longitude': alert[1]},
-                            'time': parse_date(alert[3]).replace(
-                                tzinfo=pytz.utc)
+                            'time': reported_event_time,
                         }
+                        if related_subjects:
+                            event_data['related_subjects']: [{'id': subject.id, }, ]
+
                         from analyzers.utils import save_analyzer_event
                         save_analyzer_event(event_data)
 
@@ -148,7 +185,6 @@ class SavannaClient(object):
         return dt
 
 
-
 class SavannahPlugin(TrackingPlugin):
     '''
     Fetch data from Savannah Tracking API.
@@ -157,12 +193,11 @@ class SavannahPlugin(TrackingPlugin):
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=30)
 
     service_username = models.CharField(max_length=50,
-                                       help_text='The username for querying the Savannah Tracking service.')
+                                        help_text='The username for querying the Savannah Tracking service.')
     service_password = models.CharField(max_length=50,
                                         help_text='The password for querying the Savannah Tracking service.')
     service_api_host = models.CharField(max_length=50,
                                         help_text='the ip-address or host-name for the Savannah Tracking service.')
-
 
     def fetch(self, source, cursor_data=None, dry_run=False):
 
@@ -183,12 +218,14 @@ class SavannahPlugin(TrackingPlugin):
         lt = st
         st = int(st.timestamp()) + 1
 
-        self.logger.debug('Fetching data for collar_id %s', source.manufacturer_id)
+        self.logger.debug('Fetching data for collar_id %s',
+                          source.manufacturer_id)
 
         now = pytz.utc.localize(datetime.datetime.utcnow())
         for fix in client.fetch_observations(source.manufacturer_id, start_time=st):
             if fix.recorded_at > now:
-                self.logger.warning('Savannah plugin encountered a fix from the future: {0}'.format(fix))
+                self.logger.warning(
+                    'Savannah plugin encountered a fix from the future: {0}'.format(fix))
                 continue
             lt = fix.recorded_at
             yield self._transform((source, fix), dry_run)

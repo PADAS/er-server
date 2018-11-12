@@ -76,7 +76,7 @@ class SavannahPluginTest(TestCase):
         cursor_data = {'latest_timestamp': latest_timestamp}
 
         # Create source and svavannah plugin object
-        # Link source and svannah plugin object using SourcePlugin
+        # Link source and savannah plugin object using SourcePlugin
         self.source_provider = SourceProvider.objects.create(
             provider_key='savannah', display_name='Savannah')
         self.source = Source.objects.create(
@@ -103,13 +103,16 @@ class SavannahPluginTest(TestCase):
         SubjectSource.objects.create(source=self.source, subject=self.henry)
 
         # create Event types(immobility & immobility all clear)
-        event_category = EventCategory.objects.create(value='analyzer_event',
-                                                      display='Analyzer Event')
-        self.immobility_event_type = EventType.objects.create(
-            value="immobility", display="Immobility", category=event_category)
-        self.immobility_all_clear_event_type = EventType.objects.create(
-            value="immobility_all_clear", display="Immobility All Clear",
-            category=event_category)
+        event_category, created = EventCategory.objects.get_or_create(value='analyzer_event',
+                                                                      defaults=dict(
+                                                                          display='Analyzer Event')
+                                                                      )
+        self.immobility_event_type, created = EventType.objects.get_or_create(
+            value="immobility", defaults=dict(display="Immobility", category=event_category))
+        self.immobility_all_clear_event_type, created = EventType.objects.get_or_create(
+            value="immobility_all_clear", defaults=dict(display="Immobility All Clear",
+                                                        category=event_category)
+        )
 
     @mock.patch('http.client.HTTPConnection', side_effect=mocked_requests_get)
     def test_savannah(self, *args, **kwargs):
@@ -132,6 +135,16 @@ class SavannahPluginTest(TestCase):
         # has been created or not
         self.assertTrue(Event.objects.filter(
             event_type=self.immobility_all_clear_event_type).count() == 1)
+
+        event = Event.objects.filter(
+            event_type=self.immobility_event_type).first()
+
+        self.assertIsNotNone(
+            event, 'Expect to find an immobility event, but none exist.')
+        related_subjects = event.eventrelatedsubject_set.all()
+
+        self.assertTrue(self.henry.id in (
+            x.subject.id for x in related_subjects))
 
         # Observations of subject > 0 (one from normal fetch observation api,
         # one from immobility event type
