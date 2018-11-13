@@ -107,12 +107,14 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
                                      blank=True)
     objects = SourceGroupManager()
 
-    def get_all_sources(self, user=None, active=None):
+    def get_all_sources(self, user=None, active=None, include_from_subgroups=True):
         """Including descendant group sources"""
-        subgroups = self.get_descendants()
         sources = set(iter(self.sources.all()))
-        for group in subgroups:
-            sources.update(iter(group.sources.all()))
+
+        if include_from_subgroups:
+            subgroups = self.get_descendants()
+            for group in subgroups:
+                sources.update(iter(group.sources.all()))
         return list(sources)
 
     def natural_key(self):
@@ -595,18 +597,23 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     )
     objects = SubjectGroupManager()
 
-    def get_all_subjects(self, user=None, active=None):
-        """Including descendant group subjects"""
-        sg_all = set(self.get_descendants())
-        sg_all.add(self)
+    def get_all_subjects(self, user=None, active=None, include_from_subgroups=True):
 
         queryset = Subject.objects.all()
         if active is not None:
             queryset = queryset.by_is_active(active=active)
         queryset = queryset.prefetch_related(
             models.Prefetch('subjectstatus_set'))
-        queryset = queryset.filter(groups__in=sg_all)
-        return queryset
+
+        if include_from_subgroups:
+            """Including descendant group subjects"""
+            sg_all = set([self, ])
+            sg_all.update(set(self.get_descendants()))
+            queryset = queryset.filter(groups__in=sg_all)
+        else:
+            queryset = queryset.filter(groups=self)
+
+        return queryset.distinct()
 
     def natural_key(self):
         return (self.name,)
