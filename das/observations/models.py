@@ -667,7 +667,10 @@ class SubjectQuerySet(models.QuerySet):
             'source')
         subject_sources = SubjectSource.objects.filter(source__in=sources)
         subjects = subject_sources.values('subject')
-        return self.filter(pk__in=subjects)
+
+        other_subjects = SubjectStatus.objects.filter(location__within=geom, delay_hours=0, subject__is_active=True)\
+            .exclude(subject__id__in=subjects).values('subject')
+        return self.filter(Q(pk__in=subjects) | Q(pk__in=other_subjects))
 
     def get_staff(self):
         return self.filter(subject_subtype__subject_type__value='person')
