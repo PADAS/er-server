@@ -32,6 +32,9 @@ class VersionSerializer(rest_framework.serializers.Serializer):
         read_only=True)
     eus_settings = rest_framework.serializers.DictField(read_only=True)
 
+    show_stationary_subjects_on_map = rest_framework.serializers.BooleanField(
+        read_only=True)
+
     services = rest_framework.serializers.ListField(read_only=True)
 
 
