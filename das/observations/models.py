@@ -656,21 +656,37 @@ class SubjectQuerySet(models.QuerySet):
 
         return self.filter(groups__in=effective_subject_group_set).distinct('id')
 
-    def by_bbox(self, bbox, last_days=None):
+    def by_bbox(self, bbox, last_days=None, include_stationary_subjects=False):
+        '''
+        Filter by bbox, last_days.
+        Conditionally include subjects that have latest positions within the bbox but outside the time frame
+        indicated by last_days.
+
+        :param bbox:
+        :param last_days:
+        :param include_stationary_subjects:
+        :return: queryset of Subjects.
+        '''
         geom = Polygon.from_bbox(bbox)
         sources = Observation.objects.filter(location__within=geom)
         if last_days:
             lt = datetime.now(tz=pytz.UTC)
             gt = lt - last_days
             sources = sources.filter(recorded_at__range=(gt, lt))
-        sources = sources.values('source').annotate(models.Count('source')).values(
-            'source')
+
+        sources = sources.values('source').annotate(
+            models.Count('source')).values('source')
+
         subject_sources = SubjectSource.objects.filter(source__in=sources)
         subjects = subject_sources.values('subject')
 
-        other_subjects = SubjectStatus.objects.filter(location__within=geom, delay_hours=0, subject__is_active=True)\
-            .exclude(subject__id__in=subjects).values('subject')
-        return self.filter(Q(pk__in=subjects) | Q(pk__in=other_subjects))
+        if include_stationary_subjects:
+            logger.info('Also including stationary subjects in bbox query.')
+            other_subjects = SubjectStatus.objects.filter(location__within=geom, delay_hours=0, subject__is_active=True)\
+                .exclude(subject__id__in=subjects).values('subject')
+            return self.filter(Q(pk__in=subjects) | Q(pk__in=other_subjects))
+        else:
+            return self.filter(pk__in=subjects)
 
     def get_staff(self):
         return self.filter(subject_subtype__subject_type__value='person')

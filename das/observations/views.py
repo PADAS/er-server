@@ -46,6 +46,9 @@ except AttributeError:
 LAST_DAYS = datetime.timedelta(days=days)
 ONE_YEAR = datetime.timedelta(days=365)
 
+INCLUDE_STATIONARY_SUBJECTS_ON_MAP = getattr(
+    settings, 'SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
+
 
 def default_since():
     """default value for since
@@ -178,7 +181,9 @@ class SubjectsView(generics.ListCreateAPIView):
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
-            queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS)
+            queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS,
+                                        include_stationary_subjects=INCLUDE_STATIONARY_SUBJECTS_ON_MAP)
+
         subject_group = self.request.query_params.get('subject_group', None)
         if subject_group:
             groups = models.SubjectGroup.objects.get_nested_groups(
