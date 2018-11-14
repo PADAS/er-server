@@ -54,6 +54,7 @@ class StatusView(generics.RetrieveAPIView):
         resp['export_kml_enabled'] = settings.EXPORT_KML_ENABLED
         resp['show_track_days'] = settings.SHOW_TRACK_DAYS
         resp['event_search_enabled'] = True
+        resp['show_stationary_subjects_on_map'] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
 
         if self.get_support_settings():
             resp['eus_settings'] = self.get_support_settings()
