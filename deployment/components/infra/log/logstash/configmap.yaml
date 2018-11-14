@@ -18,6 +18,16 @@ data:
         ssl_verify_mode => "force_peer"
       }
     }
+    filter {
+      mutate {
+        remove_field => [ "[host]" ]
+      }
+      mutate {
+        add_field => {
+          "host" => "%{[beat][hostname]}"
+        }
+      }
+    }
     output {
       elasticsearch {
         hosts => "elasticsearch:9200"
