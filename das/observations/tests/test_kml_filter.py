@@ -10,7 +10,7 @@ from pytz import utc, timezone
 import observations.views as views
 from accounts.models import User, PermissionSet
 from core.tests import BaseAPITest
-from observations.models import SubjectGroup, Subject
+from observations.models import SubjectGroup, Subject, Observation, Source
 from observations.serializers import ObservationSerializer
 
 API_BASE = '/api/v1.0'
@@ -41,6 +41,19 @@ class KmlSubjectViewTest(BaseAPITest):
         self.user.permission_sets.add(PermissionSet.objects.get(
             name='View Tracks Last 7 Days')
         )
+
+        for i in range(10, 1, -1):
+            recorded_at = utc.localize(datetime.now()) - timedelta(hours=i)
+            fields = {
+              "location": "SRID=4326;POINT(37.7991526330116 -12.28439367309)",
+              "created_at": recorded_at,
+              "source": Source.objects.get(id="dcf1590e-9b1c-4c4b-91b7-388ef4155064"),
+              "additional": {},
+              "recorded_at": recorded_at,
+              "exclusion_flags": 0
+            }
+            Observation.objects.create(**fields)
+
 
     @staticmethod
     def get_observations_timestamp(response):

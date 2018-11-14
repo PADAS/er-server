@@ -827,8 +827,12 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
 
                 if subject.source:
                     # Collect Source details.
+
+                    # TODO: Validate this assumption that the "first" record is
+                    # the right one.
                     subject_source = models.SubjectSource.objects.\
                         get_subject_source(subject, subject.source.id).first()
+
                     source_details.update({
                         'chronofile': subject_source.additional.get(
                             'chronofile', ''),
@@ -839,8 +843,8 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                             'frequency', ''),
                         'animal_id': subject.source.additional.get(
                             'tm_animal_id', ''),
-                        'data_starts': subject_source.assigned_range.lower,
-                        'data_stops': subject_source.assigned_range.upper,
+                        'data_starts': subject_source.safe_assigned_range.lower,
+                        'data_stops': subject_source.safe_assigned_range.upper,
                         'comments': subject_source.additional.get(
                             'comments', ''),
                         'predicted_expiry':
