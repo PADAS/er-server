@@ -2,7 +2,7 @@ static-values:
   web-service-name: "web"
   nginx-utility-service-ip: ""
   node-exporter-version: v0.16.0
-  monitoring-version: latest
+  monitoring-version: "0.0.15"
   log_url: "logs.pamdas.org:5044"
 environment:
   das-static-ip: DAS_STATIC_IP
@@ -15,3 +15,4 @@ vault-lookups:
   pamdas-org-ssl-ca: padas-app/main/pamdas-org-ssl-ca
   elastic-basic-auth-password: padas-app/main/es-basic-auth-password
   elastic-basic-auth-username: padas-app/main/es-basic-auth-username
+

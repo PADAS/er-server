@@ -4,7 +4,7 @@ static-values:
   iaas-workspace: "DAS-Dev"
   send-alerts: "false"
   node-exporter-version: v0.16.0
-  monitoring-version: latest
+  monitoring-version: "0.0.15"
   log_url: "logs.pamdas.org:5044"
 environment:
   das-static-ip: DAS_STATIC_IP
@@ -18,3 +18,4 @@ vault-lookups:
   pamdas-org-ssl-ca: padas-app/main/pamdas-org-ssl-ca
   ndoki-smartconnect-provider-das-token: padas-app/sites/ndoki/smartconnect-provider-das-token
   dev-smartconnect-provider-das-token: padas-app/sites/dev/smartconnect-provider-das-token
+
