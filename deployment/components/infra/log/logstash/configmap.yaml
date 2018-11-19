@@ -27,6 +27,9 @@ data:
           "host" => "%{[beat][hostname]}"
         }
       }
+      de_dot {
+        fields => ["[kubernetes][labels]"]
+      }
     }
     output {
       elasticsearch {
