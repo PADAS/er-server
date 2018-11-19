@@ -22,7 +22,6 @@ from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from django.http import Http404, HttpResponse
 from rest_framework import status, views
-from rest_framework.decorators import api_view
 
 import utils
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination
