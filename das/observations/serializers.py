@@ -9,7 +9,6 @@ from django.conf import settings
 import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
-from operator import itemgetter
 
 from core.serializers import ContentTypeField
 from observations import models
