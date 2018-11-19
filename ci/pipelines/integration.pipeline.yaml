@@ -845,7 +845,7 @@ jobs:
           run:
             path: /bin/bash
             args:
-            - -exc
+            - -ec
             - |
               echo "Finalizing the PV definitions to be used for this IAAS"
               find . -name "*.yaml.$IAAS" -exec bash -c 'mv "$1" "${1%.yaml.$IAAS}".yaml' - '{}' \;
@@ -861,13 +861,12 @@ jobs:
               :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
               $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
-- name: destroy_environment
+- name: destroy-cluster
   serial: true
   plan:
-  - aggregate:
-    - get: git-deployment
+  - get: git-deployment
   - do:
-    - task: delete_cluster
+    - task: delete-cluster
       config:
         platform: linux
         image_resource:
@@ -880,10 +879,6 @@ jobs:
         - name: git-deployment
         params: {
           PROJECT: padas-app,
-          CLUSTER_NAME: ((cluster-name)),
-          IAAS: ((iaas)),
-          ZONE: ((iaas-zone)),
-          WORKSPACE: ((iaas-workspace)),
           SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
           USERNAME: ((creator)),
           VAULT_TOKEN: ((vault-automation-token)),
@@ -899,11 +894,18 @@ jobs:
         run:
           path: /bin/bash
           args:
-          - -exc
+          - -ec
           - |
-            echo "Deleting Cluster. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
-            vcloud clusters delete -i $IAAS --project $PROJECT -w $WORKSPACE -n=$CLUSTER_NAME -z=$ZONE -f
-    - task: delete_disks
+            echo "Deleting cluster. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name))"
+            vcloud clusters delete -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -n ((cluster-name)) -z ((iaas-zone)) -f
+
+- name: destroy-namespace
+  serial: true
+  plan:
+  - aggregate:
+    - get: git-deployment
+  - do:
+    - task: delete-namespace
       config:
         platform: linux
         image_resource:
@@ -916,10 +918,6 @@ jobs:
         - name: git-deployment
         params: {
           PROJECT: padas-app,
-          CLUSTER_NAME: ((cluster-name)),
-          IAAS: ((iaas)),
-          ZONE: ((iaas-zone)),
-          WORKSPACE: ((iaas-workspace)),
           SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
           USERNAME: ((creator)),
           VAULT_TOKEN: ((vault-automation-token)),
@@ -930,21 +928,50 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
           AZURE_CLIENT_ID: ((azure-client-id)),
           AZURE_CLIENT_SECRET: ((azure-client-secret)),
-          LOGSTASH_URL: ((logstash-url)),
-          NAMESPACE: ((namespace))
+          LOGSTASH_URL: ((logstash-url))
         }
         run:
           path: /bin/bash
           args:
-          - -exc
+          - -ec
           - |
-            echo "Deleting Disks. Project [$PROJECT], Workspace [$WORKSPACE], Zone [$ZONE], K8s Cluster [$CLUSTER_NAME]"
-            vcloud disks delete git-deployment/((disks-spec)) -i $IAAS --project $PROJECT -w $WORKSPACE -p=$CLUSTER_NAME-$NAMESPACE -z=$ZONE -f
-    on_failure:
-      do:
-      - put: slack-alert
-        params:
-          channel: ((slack-notification-channel))
-          text: |
-            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
-            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+            echo "Deleting namespace. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)), Namespace ((namespace))"
+            vcloud clusters delete-namespace -i ((iaas)) -w ((iaas-workspace)) -n ((cluster-name)) -z ((iaas-zone)) --namespace ((namespace))
+
+- name: destroy-disks
+  serial: true
+  plan:
+  - aggregate:
+    - get: git-deployment
+    - task: delete-disks
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
+          }
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
+          LOGSTASH_URL: ((logstash-url))
+        }
+        run:
+          path: /bin/bash
+          args:
+          - -ec
+          - |
+            echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)), Namespace ((namespace))"
+            vcloud disks delete git-deployment/((disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((namespace)) -z=((iaas-zone)) -f
