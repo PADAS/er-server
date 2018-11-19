@@ -22,7 +22,8 @@ if [ "$PIPELINE_TYPE" == "deployment" ]; then
 fi
 
 touch "$PIPELINE_PARAMS_FILE"
-echo "cluster-name: $PIPELINE_NAME" >> "$PIPELINE_PARAMS_FILE"
+read -r -p "Please enter the target cluster name (blank defaults to $PIPELINE_NAME): " CLUSTER_NAME
+echo "cluster-name: ${CLUSTER_NAME:-$PIPELINE_NAME}" >> "$PIPELINE_PARAMS_FILE"
 
 while [[ -z "$VERSION_PREFIX" ]]; do
     read -r -p "Please enter a UNIQUE semantic version prefix (eg/ 'feature-x', 'bugfix-y', or your code branch name): " VERSION_PREFIX
