@@ -22,6 +22,7 @@ from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from django.http import Http404, HttpResponse
 from rest_framework import status, views
+from rest_framework.decorators import api_view
 
 import utils
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination
@@ -59,7 +60,6 @@ def dateparse(date_str, default_tz=pytz.utc):
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tz)
     return dt
-
 
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
@@ -129,7 +129,11 @@ class SourceGroupsView(generics.ListAPIView):
                                               models.SourceGroup),)
 
     def get_queryset(self):
-        queryset = models.SourceGroup.objects.filter(_parents=None)
+        if 'sourcegroup' in self.request.query_params.keys():
+            name = self.request.query_params.get('sourcegroup')
+            queryset = models.SourceGroup.objects.filter(name=name)
+        else:
+            queryset = models.SourceGroup.objects.filter(_parents=None)
         return queryset
 
 

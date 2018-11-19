@@ -9,6 +9,7 @@ from django.conf import settings
 import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
+from operator import itemgetter
 
 from core.serializers import ContentTypeField
 from observations import models
@@ -51,7 +52,7 @@ class GroupSerializer(rest_framework.serializers.ModelSerializer):
         queryset = getattr(instance, 'get_all_{0}'.format(contained_field))(
             user=user, active=True)
 
-        queryset = queryset.order_by('name')
+        # queryset = queryset.order_by('name')
 
         rep = super().to_representation(instance)
         data = [data_serializer.to_representation(s)
