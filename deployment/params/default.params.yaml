@@ -3,3 +3,4 @@ static-values:
   send-alerts: "true"
 environment:
   namespace: NAMESPACE
+  infra-namespace: INFRA_NAMESPACE

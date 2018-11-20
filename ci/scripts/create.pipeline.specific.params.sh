@@ -69,14 +69,16 @@ prompt_for_branch das server-branch-name
 prompt_for_branch das-web web-branch-name
 prompt_for_branch das-smartconnect-provider smartconnect-provider-branch-name
 
-function write_nondefault_namespace_to_params_file {
-    read -r -p "Please enter the namespace to which this pipeline shall deploy its components (blank defaults to 'default') : " NAMESPACE
-    if [ "$NAMESPACE" != "" ]; then
-        echo "namespace: $NAMESPACE" >> "$PIPELINE_PARAMS_FILE"
+function write_override_to_params_file {
+    local PROMPT=$1
+    local VARIABLE_NAME=$2
+    read -r -p "$PROMPT" RESPONSE
+    if [ "$RESPONSE" != "" ]; then
+        echo "$VARIABLE_NAME: $RESPONSE" >> "$PIPELINE_PARAMS_FILE"
     fi
 }
 
-write_nondefault_namespace_to_params_file
+write_override_to_params_file "Please enter the namespace to which this pipeline shall deploy its components (blank defaults to 'default') : " "namespace"
 
 read -r -p "Please enter the IAAS (blank defaults to gcp): " IAAS_PROVIDER
 
