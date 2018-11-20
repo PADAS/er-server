@@ -7,6 +7,7 @@ static-values:
   send-alerts: "false"
   node-exporter-version: v0.16.0
   log_url: "logs.pamdas.org:5044"
+  monitoring-version: "0.0.15"
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password

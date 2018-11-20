@@ -8,6 +8,7 @@ from django.utils.html import escape
 import mapping.models as models
 from mapping.forms import MapCenterForm, TileLayerFormWithAttributes
 
+
 @admin.register(models.Map)
 class MapAdmin(admin.OSMGeoAdmin):
     form = MapCenterForm
@@ -25,12 +26,11 @@ class TileLayerAdmin(admin.ModelAdmin):
             'fields': (('id', 'name',))
         }
         ),
-        ('Tile Layer Attributes (TileJSON)', {
+        ('Tile Layer Attributes', {
             'classes': ('wide',),
-            'fields': (('type', 'tiles', 'minzoom', 'maxzoom',
-                        'version',))
+            'fields': (('type', 'title', 'url', 'configuration'))
         }
-         ),
+        ),
         ('Advanced Tile Layer Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('attributes', 'created_at', 'updated_at',)
@@ -41,7 +41,7 @@ class TileLayerAdmin(admin.ModelAdmin):
 
     def get_attributes(self, instance):
         context = dict((k, instance.attributes[k]) for k in (
-            'type', 'tiles', 'minzoom', 'maxzoom', 'version') if k in instance.attributes)
+            'type', 'title', 'url', 'configuration') if k in instance.attributes)
 
         return mark_safe(''.join('<p><strong>{}</strong>: {}</p>'.format(escape(k), escape(v))
                                  for k, v in context.items()))

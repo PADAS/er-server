@@ -3,9 +3,9 @@ kind: "PersistentVolume"
 metadata:
   annotations:
       volume.beta.kubernetes.io/mount-options: "discard"
-  name: <<namespace>>-alertmanager
+  name: <<infra-namespace>>-alertmanager
   labels:
-    component: <<namespace>>-alertmanager
+    component: <<infra-namespace>>-alertmanager
 spec:
   capacity:
     storage: "20Gi"
@@ -15,5 +15,5 @@ spec:
   storageClassName: ssd
   gcePersistentDisk:
     fsType: "ext4"
-    pdName: "<<cluster-name>>-<<namespace>>-alertmanager-0"
+    pdName: "<<cluster-name>>-<<infra-namespace>>-alertmanager-0"
 

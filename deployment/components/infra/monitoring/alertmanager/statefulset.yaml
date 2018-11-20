@@ -1,7 +1,7 @@
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
-  namespace: <<namespace>>
+  namespace: <<infra-namespace>>
   name: alertmanager
 spec:
   serviceName: "alertmanager"
@@ -76,5 +76,5 @@ spec:
           storage: 20Gi
       selector:
         matchLabels:
-          component: <<namespace>>-alertmanager
+          component: <<infra-namespace>>-alertmanager
 
