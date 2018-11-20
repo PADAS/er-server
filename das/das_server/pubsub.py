@@ -19,7 +19,7 @@ from kombu.utils import nested
 
 logger = logging.getLogger(__name__)
 
-PUBLISH_TIMEOUT = 5 # seconds
+PUBLISH_TIMEOUT = 5  # seconds
 DAS_PUBSUB_CHANNEL_NAME = 'das'
 das_exchange = Exchange(DAS_PUBSUB_CHANNEL_NAME, type='topic', durable=True)
 _pool = None
@@ -107,6 +107,7 @@ def installed_apps_subscriptions(submodule='pubsub_registry',
         if re.match(ignore_re, app_config.name):
             continue
 
+        logger.info('CSD Debuggging.')
         logger.debug('registering tasks for app {}'.format(app_config.name))
         module_name = "{}.{}".format(app_config.name, submodule)
 

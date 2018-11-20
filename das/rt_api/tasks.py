@@ -16,7 +16,7 @@ from django.db import close_old_connections
 from observations import servicesutils
 
 from observations.models import SubjectSource
-from observations.views import SubjectTracksView
+from observations.views import SubjectTracksView, SubjectStatusView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
 from rt_api import client
@@ -148,6 +148,76 @@ def broadcast_service_status():
     _broadcast_service_status.apply_async()
 
 
+def _subjectstatus_update_handler(subject_id):
+    try:
+        logger.debug(
+            'Processing subjectstatus update for subject_id=%s', subject_id)
+
+        # Curry this getter to re-use the view in the for-loop below.
+        get_subjectstatus_payload = partial(
+            get_subjectstatus_view, SubjectStatusView.as_view())
+
+        all_connections = client.get_all_connections()
+
+        user_sids_map = {}
+        for sid, session_data in all_connections.items():
+            try:
+                session_data = json.loads(session_data.decode('utf-8'))
+                sid = sid.decode('UTF-8')
+                username = session_data['username']
+                user_sids_map.setdefault(username, set()).add(sid)
+            except (UnicodeDecodeError, KeyError) as e:
+                logger.warning('Failed to parse session_data=%s', session_data)
+
+        logger.debug('user_sids_map: %s', user_sids_map)
+
+        for username, user_sids in user_sids_map.items():
+            try:
+                try:
+                    logger.debug('Lookup username=%s', username)
+                    user = User.objects.get(username=username)
+                except User.DoesNotExist:
+                    logger.warning(
+                        'Lookup by username. username=%s does not exist.', username)
+                    client.remove_clients(user_sids)
+                    continue
+
+                else:
+                    logger.debug('Found user: %s', user)
+
+                # If subject-status payload is not None, then emit it.
+                payload = get_subjectstatus_payload(user, subject_id)
+
+                if payload:
+
+                    emit_data = {
+                        'type': 'subjectstatus_update',
+                        'sid': '<<sid>>',
+                        'object_id': subject_id,
+                        'data': payload
+                    }
+                    emit_data = json.dumps(emit_data, default=dumps_helper)
+
+                    for sid in user_sids:
+
+                        message = emit_data.replace('<<sid>>', sid)
+
+                        logger.info('Emitting: %s', message)
+                        pubsub.publish(
+                            message, routing_key='das.realtime.emit')
+                else:
+                    logger.warning(
+                        'SubjectStatus payload is empty for user=%s, subject_id=%s', user, subject_id)
+
+            except:
+                logger.exception(
+                    'Error creating subject-status payload. username=%s', username)
+            finally:
+                close_old_connections()
+    finally:
+        close_old_connections()
+
+
 def _observation_handler(subject_id):
     try:
         logger.debug(
@@ -234,6 +304,22 @@ def get_subject_view_details(view, user, subject_id):
     return payload
 
 
+def get_subjectstatus_view(view, user, subject_id):
+    # Create a dummy request with the user's info so we get the permission
+    # enforcement for free
+    request = DummyRequest(
+        '/subject/{0}/status'.format(subject_id), 'GET', user=user)
+
+    result = view(request, subject_id=subject_id,)
+
+    # If there's nothing to send, no need to send it
+    logger.debug('SubjectStatusView result: %s', result)
+    if result.status_code != 200 or not result.data or 'features' not in result.data:
+        return
+
+    return result.data  # ['features'][0]
+
+
 @celery.app.task()
 def handle_new_event(event_id):
     logger.info('Celery worker handling new event_id: %s',
@@ -269,6 +355,13 @@ def handle_new_subject_observation(subject_id):
     logger.info(
         'Celery worker handling new observation. subject_id=%s', subject_id, extra={'rt.event': 'new_subject_obs'})
     _observation_handler(subject_id)
+
+
+@celery.app.task(base=QueueOnce, once={'graceful': True, })
+def handle_subjectstatus_update(subject_id):
+    logger.info(
+        'Celery worker handling subjectstatus update. subject_id=%s', subject_id, extra={'rt.event': 'subjectstatus_update'})
+    _subjectstatus_update_handler(subject_id)
 
 
 @celery.app.task()

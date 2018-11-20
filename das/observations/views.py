@@ -338,6 +338,24 @@ class TrackLimitSerializer(rest_framework.serializers.Serializer):
         default=None, required=False)
 
 
+class SubjectStatusView(generics.RetrieveAPIView):
+
+    lookup_url_kwarg = 'subject_id'
+    lookup_field = 'subject_id'
+    serializer_class = serializers.SubjectStatusSerializer
+
+    def get_queryset(self):
+
+        ss = models.SubjectStatus.objects.select_related(
+            'subject').filter(delay_hours=0)
+
+        return ss
+
+    def check_object_permissions(self, request, obj):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, obj.subject):
+            raise PermissionDenied
+
+
 class SubjectTracksView(generics.RetrieveAPIView):
     """
     Optional qparam of:
@@ -368,7 +386,6 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        # tracks_limit = self.request.query_params.get('limit', None)
 
         tracks_limits = TrackLimitSerializer(data=self.request.query_params)
         tracks_limits.is_valid(raise_exception=True)

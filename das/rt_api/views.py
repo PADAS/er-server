@@ -79,7 +79,9 @@ def create_realtime_handler(sios):
     class RealtimeServices:
 
         supported_message_types = ['new_event', 'update_event', 'delete_event',
-                                   'count_event', 'subject_position_update', 'service_status']
+                                   'count_event', 'subject_position_update', 'service_status',
+                                   'subjectstatus_update',
+                                   ]
 
         @sios.on('connect', namespace='/')
         def on_connect(sid, socket, *args):
@@ -221,14 +223,18 @@ def create_realtime_handler(sios):
                           room=str(sid),
                           namespace='/das')
 
+        def echo_callback(*args, **kwargs):
+            logger.info('Echo Callback: args=%s, kwargs=%s', args, kwargs)
+
         @sios.on('echo', namespace='/das')
         def on_echo(sid, *args):
-            sios.emit('echo_resp',
-                      {'type': 'echo_resp',
+            message = {'type': 'echo_resp',
                        'resp_id': 5,
-                       'message': args[0]['data']},
-                      room=str(sid),
-                      namespace='/das')
+                       'message': args[0]['data']
+                       }
+
+            sios.emit('echo_resp', message, room=str(sid),
+                      namespace='/das', callback=RealtimeServices.echo_callback)
 
         @staticmethod
         def emit(message_type, data, user=None):
@@ -284,7 +290,7 @@ def create_realtime_handler(sios):
                             extra=extra)
 
             client.remove_clients(
-                                  *[client.sid for client in remove_these_clients])
+                *[client.sid for client in remove_these_clients])
 
     return RealtimeServices
 
