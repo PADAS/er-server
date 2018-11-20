@@ -1,6 +1,10 @@
 static-values:
   alerts-slack-channel: "das-k8-alerts-dev"
   send-alerts: "true"
+  cpu-request-quota: "5"
+  default-cpu-request: "50m"
+  memory-request-quota: "20Gi"
+  default-memory-request: "1Mi"
 environment:
   namespace: NAMESPACE
   infra-namespace: INFRA_NAMESPACE
