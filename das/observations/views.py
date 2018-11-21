@@ -134,7 +134,7 @@ class SourceGroupsView(generics.ListAPIView):
         return queryset
 
 
-class SourceGroupDetailsView(generics.ListAPIView):
+class SourceGroupView(generics.ListAPIView):
     """
     Return all sources of given source Group (sourcegroup/sources/<name/id>/)
     """

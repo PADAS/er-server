@@ -68,7 +68,7 @@ urlpatterns = [
     url(r'^trackingmetadata/export/?$',
         views.TrackingMetaDataExportView.as_view()),
     url(r'^sourcegroup/sources/(?P<slug>[a-zA-Z0-9\w\W\s\S-]+)//?$',
-        views.SourceGroupDetailsView.as_view()),
+        views.SourceGroupView.as_view()),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
