@@ -1194,8 +1194,6 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
                           radio_state_at=radio_state_at,
                           reported_subject_name=reported_subject_name)
 
-    notify_new_tracks(source.id)
-
     logger.debug(
         'Looking for subjects for notify_subjectstatus_update. source_id=%s', source.id)
 

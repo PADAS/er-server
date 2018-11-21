@@ -59,3 +59,5 @@ EXPORT_KML_ENABLED = True
 #         'PASSWORD': '!GJt665$&T8!Pv',
 #     }
 # }
+
+SHOW_STATIONARY_SUBJECTS_ON_MAP = True

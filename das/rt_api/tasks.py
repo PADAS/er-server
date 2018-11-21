@@ -44,31 +44,44 @@ def dumps_helper(obj):
     raise TypeError("Type not serializable: " + type(obj).__name__)
 
 
+def get_username_sids_map():
+    all_connections = client.get_all_connections()
+
+    user_sids_map = {}
+    for sid, session_data in all_connections.items():
+        try:
+            session_data = json.loads(session_data.decode('utf-8'))
+            sid = sid.decode('UTF-8')
+            username = session_data['username']
+            user_sids_map.setdefault(username, set()).add(sid)
+        except (UnicodeDecodeError, KeyError) as e:
+            logger.warning('Failed to parse session_data=%s', session_data)
+
+    return user_sids_map
+
+
 def _event_handler(event_id, type):
     try:
         logger.debug('Processing type=%s on event=%s', type, event_id)
         event_view = EventView()
 
-        all_connections = client.get_all_connections()
+        user_sids_map = get_username_sids_map()
+        logger.debug('user_sids_map: %s', user_sids_map)
 
-        logger.debug('handling event for all_connections=%s', all_connections)
-        for sid, session_data in all_connections.items():
+        for username, user_sids in user_sids_map.items():
+
             try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                logger.warning('event_handler found no username=%s.', username)
+                client.remove_clients(user_sids)
+                continue
 
-                session_data = json.loads(session_data.decode('utf-8'))
-                sid = sid.decode('UTF-8')
-                username = session_data['username']
+            logger.debug('Handling event for user: %s', username)
 
-                logger.debug(
-                    'Creating event payload for user=%s, sid=%s', username, sid)
-
-                try:
-                    user = User.objects.get(username=username)
-                except User.DoesNotExist:
-                    logger.warning(
-                        'Lookup by username=%s found no user.', username)
-                    client.remove_client(sid)
-                    continue
+            # TODO: update this logic to be a little more frugal with the per
+            # user/event-filter query.
+            for sid in user_sids:
 
                 request = DummyRequest(
                     user=user, http_method='GET', query_parameters={})
@@ -107,10 +120,6 @@ def _event_handler(event_id, type):
                             'Publish das.realtime.emit.  data=%s', emit_data)
                         pubsub.publish(json.dumps(
                             emit_data, default=dumps_helper), 'das.realtime.emit')
-
-            except Exception:
-                logger.exception(
-                    'Error creating custom payload for event: %s', event_id)
 
     finally:
         close_old_connections()
@@ -157,18 +166,7 @@ def _subjectstatus_update_handler(subject_id):
         get_subjectstatus_payload = partial(
             get_subjectstatus_view, SubjectStatusView.as_view())
 
-        all_connections = client.get_all_connections()
-
-        user_sids_map = {}
-        for sid, session_data in all_connections.items():
-            try:
-                session_data = json.loads(session_data.decode('utf-8'))
-                sid = sid.decode('UTF-8')
-                username = session_data['username']
-                user_sids_map.setdefault(username, set()).add(sid)
-            except (UnicodeDecodeError, KeyError) as e:
-                logger.warning('Failed to parse session_data=%s', session_data)
-
+        user_sids_map = get_username_sids_map()
         logger.debug('user_sids_map: %s', user_sids_map)
 
         for username, user_sids in user_sids_map.items():
@@ -178,7 +176,7 @@ def _subjectstatus_update_handler(subject_id):
                     user = User.objects.get(username=username)
                 except User.DoesNotExist:
                     logger.warning(
-                        'Lookup by username. username=%s does not exist.', username)
+                        'subjectstatus_handler found no username=%s.', username)
                     client.remove_clients(user_sids)
                     continue
 
@@ -227,29 +225,24 @@ def _observation_handler(subject_id):
         get_subject_payload = partial(
             get_subject_view_details, SubjectTracksView.as_view())
 
-        all_connections = client.get_all_connections()
+        user_sids_map = get_username_sids_map()
+        logger.debug('user_sids_map: %s', user_sids_map)
 
-        for sid, session_data in all_connections.items():
+        for username, user_sids in user_sids_map.items():
+
             try:
-                session_data = json.loads(session_data.decode('utf-8'))
-                sid = sid.decode('UTF-8')
-                username = session_data['username']
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                logger.warning(
+                    'observation_handler found no username=%s.', username)
+                client.remove_clients(user_sids)
+                continue
 
-                logger.debug(
-                    'Create observation payload. username=%s, sid=%s', username, sid)
+            # If subject-view payload is not None, then emit it.
+            payload = get_subject_payload(user, subject_id)
+            if payload:
 
-                try:
-                    logger.debug('Lookup username=%s', username)
-                    user = User.objects.get(username=username)
-                except User.DoesNotExist:
-                    logger.warning(
-                        'Lookup by username. username=%s does not exist.', username)
-                    client.remove_client(sid)
-                    continue
-
-                # If subject-view payload is not None, then emit it.
-                payload = get_subject_payload(user, subject_id)
-                if payload:
+                for sid in user_sids:
                     emit_data = {
                         'type': 'subject_position_update',
                         'sid': sid,
@@ -260,11 +253,6 @@ def _observation_handler(subject_id):
                     pubsub.publish(json.dumps(
                         emit_data, default=dumps_helper), 'das.realtime.emit')
 
-            except:
-                logger.exception(
-                    'Error creating observation payload. session_data=%s', session_data)
-            finally:
-                close_old_connections()
     finally:
         close_old_connections()
 
