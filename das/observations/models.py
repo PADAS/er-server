@@ -107,12 +107,14 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
                                      blank=True)
     objects = SourceGroupManager()
 
-    def get_all_sources(self, user=None, active=None):
+    def get_all_sources(self, user=None, active=None, include_from_subgroups=True):
         """Including descendant group sources"""
-        subgroups = self.get_descendants()
         sources = set(iter(self.sources.all()))
-        for group in subgroups:
-            sources.update(iter(group.sources.all()))
+
+        if include_from_subgroups:
+            subgroups = self.get_descendants()
+            for group in subgroups:
+                sources.update(iter(group.sources.all()))
         return list(sources)
 
     def natural_key(self):
@@ -595,18 +597,23 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     )
     objects = SubjectGroupManager()
 
-    def get_all_subjects(self, user=None, active=None):
-        """Including descendant group subjects"""
-        sg_all = set(self.get_descendants())
-        sg_all.add(self)
+    def get_all_subjects(self, user=None, active=None, include_from_subgroups=True):
 
         queryset = Subject.objects.all()
         if active is not None:
             queryset = queryset.by_is_active(active=active)
         queryset = queryset.prefetch_related(
             models.Prefetch('subjectstatus_set'))
-        queryset = queryset.filter(groups__in=sg_all)
-        return queryset
+
+        if include_from_subgroups:
+            """Including descendant group subjects"""
+            sg_all = set([self, ])
+            sg_all.update(set(self.get_descendants()))
+            queryset = queryset.filter(groups__in=sg_all)
+        else:
+            queryset = queryset.filter(groups=self)
+
+        return queryset.distinct()
 
     def natural_key(self):
         return (self.name,)
@@ -649,18 +656,36 @@ class SubjectQuerySet(models.QuerySet):
 
         return self.filter(groups__in=effective_subject_group_set).distinct('id')
 
-    def by_bbox(self, bbox, last_days=None):
+    def by_bbox(self, bbox, last_days=None, include_stationary_subjects=False):
+        '''
+        Filter by bbox, last_days.
+        Conditionally include subjects that have latest positions within the bbox but outside the time frame
+        indicated by last_days.
+
+        :param bbox:
+        :param last_days:
+        :param include_stationary_subjects:
+        :return: queryset of Subjects.
+        '''
         geom = Polygon.from_bbox(bbox)
         sources = Observation.objects.filter(location__within=geom)
         if last_days:
             lt = datetime.now(tz=pytz.UTC)
             gt = lt - last_days
             sources = sources.filter(recorded_at__range=(gt, lt))
-        sources = sources.values('source').annotate(models.Count('source')).values(
-            'source')
+
+        sources = sources.values('source').annotate(
+            models.Count('source')).values('source')
+
         subject_sources = SubjectSource.objects.filter(source__in=sources)
         subjects = subject_sources.values('subject')
-        return self.filter(pk__in=subjects)
+
+        if include_stationary_subjects:
+            other_subjects = SubjectStatus.objects.filter(location__within=geom, delay_hours=0, subject__is_active=True)\
+                .exclude(subject__id__in=subjects).values('subject')
+            return self.filter(Q(pk__in=subjects) | Q(pk__in=other_subjects))
+        else:
+            return self.filter(pk__in=subjects)
 
     def get_staff(self):
         return self.filter(subject_subtype__subject_type__value='person')

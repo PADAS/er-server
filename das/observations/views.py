@@ -16,8 +16,9 @@ from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
 from django.db.models import Prefetch
+import rest_framework
 from rest_framework import generics, mixins, status
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from django.http import Http404, HttpResponse
@@ -45,6 +46,9 @@ except AttributeError:
 
 LAST_DAYS = datetime.timedelta(days=days)
 ONE_YEAR = datetime.timedelta(days=365)
+
+INCLUDE_STATIONARY_SUBJECTS_ON_MAP = getattr(
+    settings, 'SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
 
 
 def default_since():
@@ -181,7 +185,9 @@ class SubjectsView(generics.ListCreateAPIView):
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
-            queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS)
+            queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS,
+                                        include_stationary_subjects=INCLUDE_STATIONARY_SUBJECTS_ON_MAP)
+
         subject_group = self.request.query_params.get('subject_group', None)
         if subject_group:
             groups = models.SubjectGroup.objects.get_nested_groups(
@@ -330,6 +336,11 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
         return context
 
 
+class TrackLimitSerializer(rest_framework.serializers.Serializer):
+    limit = rest_framework.serializers.IntegerField(
+        default=None, required=False)
+
+
 class SubjectTracksView(generics.RetrieveAPIView):
     """
     Optional qparam of:
@@ -360,7 +371,12 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['tracks_limit'] = self.request.query_params.get('limit', None)
+        # tracks_limit = self.request.query_params.get('limit', None)
+
+        tracks_limits = TrackLimitSerializer(data=self.request.query_params)
+        tracks_limits.is_valid(raise_exception=True)
+        context['tracks_limit'] = tracks_limits.validated_data['limit']
+
         context['tracks_since'] = self.request.query_params.get('since', None)
         context['tracks_until'] = self.request.query_params.get('until', None)
 

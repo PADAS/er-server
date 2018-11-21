@@ -1,5 +1,6 @@
 paths:
-- deployments/filebeat-daemonset.yaml
+- namespace
+- infra/monitoring
 - deployments/default-configmap.yaml
 - environments/etl-configmap.yaml
 - etl-components/quadratex-provider.yaml

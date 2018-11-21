@@ -1,7 +1,7 @@
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  namespace: <<namespace>>
+  namespace: <<infra-namespace>>
   name: monitoring-ingress-configuration
   labels:
     app.kubernetes.io/name: monitoring-ingress
@@ -11,21 +11,21 @@ metadata:
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  namespace: <<namespace>>
+  namespace: <<infra-namespace>>
   name: monitoring-ingress-tcp-services
   labels:
     app.kubernetes.io/name: monitoring-ingress
     app.kubernetes.io/part-of: monitoring-ingress
 data:
-  3000: "default/grafana:3000"
-  9090: "default/prometheus:9090"
-  9093: "default/alertmanager:9093"
+  3000: "<<infra-namespace>>/grafana:3000"
+  9090: "<<infra-namespace>>/prometheus:9090"
+  9093: "<<infra-namespace>>/alertmanager:9093"
 
 ---
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  namespace: <<namespace>>
+  namespace: <<infra-namespace>>
   name: monitoring-ingress-udp-services
   labels:
     app.kubernetes.io/name: monitoring-ingress
@@ -35,7 +35,7 @@ metadata:
 kind: Service
 apiVersion: v1
 metadata:
-  namespace: <<namespace>>
+  namespace: <<infra-namespace>>
   name: monitoring-ingress
   labels:
     app.kubernetes.io/name: monitoring-ingress
@@ -60,7 +60,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  namespace: <<namespace>>
+  namespace: <<infra-namespace>>
   name: monitoring-ingress-controller
   labels:
     app.kubernetes.io/name: monitoring-ingress
