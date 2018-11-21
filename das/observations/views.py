@@ -10,7 +10,6 @@ import csv
 from django.conf import settings
 from django.urls import reverse
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import Q
 
 from django.template.loader import render_to_string
 from django.utils import timezone
