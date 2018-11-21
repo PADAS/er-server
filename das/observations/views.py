@@ -10,6 +10,7 @@ import csv
 from django.conf import settings
 from django.urls import reverse
 from django.core.serializers.json import DjangoJSONEncoder
+from django.db.models import Q
 
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -128,12 +129,25 @@ class SourceGroupsView(generics.ListAPIView):
                                               models.SourceGroup),)
 
     def get_queryset(self):
-        if 'sourcegroup' in self.request.query_params.keys():
-            name = self.request.query_params.get('sourcegroup')
-            queryset = models.SourceGroup.objects.filter(name=name)
-        else:
-            queryset = models.SourceGroup.objects.filter(_parents=None)
+        queryset = models.SourceGroup.objects.filter(_parents=None)
+        # Sorting SourceGroups based on name (use '-name' for descending order)
+        queryset = queryset.order_by('name')
         return queryset
+
+
+class SourceGroupDetailsView(generics.ListAPIView):
+    """
+    Return all sources of given source Group (sourcegroup/sources/<name/id>/)
+    """
+    serializer_class = serializers.SourceSerializer
+    lookup_field = 'slug'  # slug can have value of source group's name or id
+
+    def get_queryset(self):
+        source_group = models.SourceGroup.objects.filter(
+            Q(name=self.kwargs['slug']) | Q(id=self.kwargs['slug'])).first()
+        if source_group:
+            return source_group.get_all_sources()
+        return None
 
 
 class RegionSubjectsView(generics.ListAPIView):
