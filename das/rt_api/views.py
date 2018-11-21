@@ -1,5 +1,9 @@
 import logging
 
+import time
+from datetime import datetime, timedelta
+import pytz
+
 import eventlet
 from django.shortcuts import render
 from django.views.generic import View
@@ -73,6 +77,12 @@ def validate_event_filter(ef):
         raise ValueError(
             'Event filter is invalid. value=%s', str(ef))
     return ef
+
+
+def receipt_callback(trace_id, *args, **kwargs):
+    logger.info('Callback with args=%s, kwargs=%s', args, kwargs)
+
+    client.pop_trace(trace_id)
 
 
 def create_realtime_handler(sios):
@@ -241,11 +251,17 @@ def create_realtime_handler(sios):
                     user, extra=extra)
                 return
             try:
+
+                # Add trace ID to message. It will be sent back in callback.
+                data['trace_id'] = f'{user}-{time.time()}'
+                client.push_trace(data['trace_id'], data)
+
                 if user is None:
-                    sios.emit(message_type, data, namespace='/das')
+                    sios.emit(message_type, data, namespace='/das',
+                              callback=receipt_callback)
                 else:
                     sios.emit(message_type, data, room=str(
-                        user), namespace='/das')
+                        user), namespace='/das', callback=receipt_callback)
 
             except Exception as ex:
                 if user:
@@ -284,7 +300,7 @@ def create_realtime_handler(sios):
                             extra=extra)
 
             client.remove_clients(
-                                  *[client.sid for client in remove_these_clients])
+                *[client.sid for client in remove_these_clients])
 
     return RealtimeServices
 

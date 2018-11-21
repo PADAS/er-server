@@ -184,5 +184,16 @@ def shutdown_cleanup():
     remove_rt_service(CLIENT_LIST_KEY)
 
 
+trace_ttl = 86400
+
+
+def push_trace(trace_id, data):
+    redis_client.setex(trace_id, data, trace_ttl)
+
+
+def pop_trace(trace_id):
+    redis_client.delete(trace_id)
+
+
 # shutdown hook to clean up service keys on service exit
 atexit.register(shutdown_cleanup)
