@@ -143,8 +143,10 @@ class SourceGroupDetailsView(generics.ListAPIView):
     lookup_field = 'slug'  # slug can have value of source group's name or id
 
     def get_queryset(self):
-        source_group = models.SourceGroup.objects.filter(
-            Q(name=self.kwargs['slug']) | Q(id=self.kwargs['slug'])).first()
+        slug = self.kwargs['slug']
+        source_group = models.SourceGroup.objects.filter(name=slug).first()
+        if not source_group:
+            source_group = models.SourceGroup.objects.filter(id=slug).first()
         if source_group:
             return source_group.get_all_sources()
         return None
