@@ -28,7 +28,7 @@ class TileLayerAdmin(admin.ModelAdmin):
         ),
         ('Tile Layer Attributes', {
             'classes': ('wide',),
-            'fields': (('type', 'title', 'url', 'configuration'))
+            'fields': (('type', 'title', 'url', 'icon_url', 'configuration'))
         }
         ),
         ('Advanced Tile Layer Attributes', {
