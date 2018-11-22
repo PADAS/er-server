@@ -1,5 +1,5 @@
-ARG app_tag=latest
-FROM gcr.io/padas-app/app:${app_tag}
+ARG base_tag=latest
+FROM gcr.io/padas-app/base:${base_tag}
 
 ARG version=""
 
