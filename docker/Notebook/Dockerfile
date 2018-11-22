@@ -1,5 +1,5 @@
-ARG base_tag=latest
-FROM gcr.io/padas-app/app:${base_tag}
+ARG app_tag=latest
+FROM gcr.io/padas-app/app:${app_tag}
 
 RUN pip3 install django-extensions
 RUN pip3 install jupyter
