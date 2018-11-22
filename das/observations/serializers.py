@@ -52,7 +52,9 @@ class GroupSerializer(rest_framework.serializers.ModelSerializer):
             user=user, active=True, include_from_subgroups=False)
 
         # queryset = queryset.order_by('name')
-
+        # queryset variable contains list of sources linked with source group.
+        # name is not a field of source object but model_name is.
+        queryset = sorted(queryset, key=lambda k: k.model_name, reverse=False)
         rep = super().to_representation(instance)
         data = [data_serializer.to_representation(s)
                 for s in queryset]
