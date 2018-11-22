@@ -184,7 +184,7 @@ def shutdown_cleanup():
     remove_rt_service(CLIENT_LIST_KEY)
 
 
-trace_ttl = 86400
+trace_ttl = 300
 
 
 def push_trace(trace_id, data):

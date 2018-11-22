@@ -253,8 +253,10 @@ def create_realtime_handler(sios):
             try:
 
                 # Add trace ID to message. It will be sent back in callback.
-                data['trace_id'] = f'{user}-{time.time()}'
-                client.push_trace(data['trace_id'], data)
+                if isinstance(data, dict):
+                    data['trace_id'] = f'trace-{user}-{time.time()}'
+                    logger.info('TRACE', extra=dict(trace_id=data['trace_id']))
+                    client.push_trace(data['trace_id'], data)
 
                 if user is None:
                     sios.emit(message_type, data, namespace='/das',
@@ -275,9 +277,9 @@ def create_realtime_handler(sios):
                              type=message_data['type'])
                 logger.info('Sending realtime messsage to %s', message_data['sid'],
                             extra=extra)
-                RealtimeServices.emit(message_data['type'],
-                                      message_data['data'],
-                                      message_data['sid'])
+                RealtimeServices.emit(message_type=message_data['type'],
+                                      data=message_data['data'],
+                                      user=message_data['sid'])
             else:
                 logger.error('Realtime server received invalid message type: %s',
                              message_data['type'])
