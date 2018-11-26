@@ -75,6 +75,7 @@ class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
         required=True, label='Map Layer service Type')
     title = forms.CharField(required=False, label='Title')
     url = forms.CharField(required=False, label='URL')
+    icon_url = forms.CharField(required=False, label='Icon URL')
     configuration = JSONField(required=False, label='Service Configuration',
                               widget=forms.Textarea(
                                   attrs={'rows': 4, 'cols': 80}))
@@ -94,7 +95,7 @@ class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
                       for key, value in service_type_choices.items()])
 
     class Meta(TileLayerForm.Meta):
-        json_fields = ('type', 'title', 'url', 'configuration')
+        json_fields = ('type', 'title', 'url', 'icon_url', 'configuration')
 
     json_field = 'attributes'
 

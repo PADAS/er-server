@@ -69,7 +69,7 @@ In the URL of the api, is referenced a provider_key. This is authored in the "So
    The following are fields found in the "additional" obj field for an 'observation' message:
 
    :reqjson string event_action: default is unknown. [unknown, device_location_changed, device_state_changed]
-   :reqjson string radio_state: default is na. [na, online-gps, online, alarm]. This translates to the following radio icon colors displayed in DAS: na:Gray, online-gps:Green, online:Blue, alarm:Red.
+   :reqjson string radio_state: default is offline. [offline, online-gps, online, alarm]. This translates to the following radio icon colors displayed in DAS: offline:Gray, online-gps:Green, online:Blue, alarm:Red.
    :reqjson string radio_state_at: iso date of radio state change time
    :reqjson string last_voice_call_start_at: iso date of last mic key, the last time the user initiated a voice call.
    :reqjson string location_requested_at: iso date of...
