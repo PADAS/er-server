@@ -894,6 +894,7 @@ jobs:
 
 - name: destroy-cluster
   serial: true
+  disable_manual_trigger: true
   plan:
   - get: git-deployment
   - do:
@@ -932,6 +933,7 @@ jobs:
 
 - name: destroy-namespace
   serial: true
+  disable_manual_trigger: true
   plan:
   - aggregate:
     - get: git-deployment
@@ -971,6 +973,7 @@ jobs:
 
 - name: destroy-disks
   serial: true
+  disable_manual_trigger: true
   plan:
   - aggregate:
     - get: git-deployment
