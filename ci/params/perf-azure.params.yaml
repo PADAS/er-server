@@ -1,0 +1,9 @@
+cluster-name: azure-develop
+version-prefix: dev-az
+server-branch-name: DAS-3060-merge
+iaas: azure
+iaas-zone: eastus
+iaas-workspace: DAS-Dev
+cluster-spec: deployment/cluster-specs/azure.yaml
+
+deploy-recipe: standard-dev.yaml
