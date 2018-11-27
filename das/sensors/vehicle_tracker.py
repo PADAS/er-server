@@ -41,6 +41,21 @@ class SkylineObservations(serializers.Serializer):
     Messages = SkylineObservation(many=True)
 
 
+class FollowltObservation(serializers.Serializer):
+    lat = serializers.FloatField()
+    lng = serializers.FloatField()
+    date = serializers.CharField()
+    collarId = serializers.CharField()
+    ttf = serializers.CharField(default=None)
+    sats = serializers.CharField(default=None)
+    positionId = serializers.CharField(default=None)
+    serialId = serializers.CharField(default=None)
+    alt = serializers.CharField(default=None)
+    hdop = serializers.CharField(default=None)
+    temp = serializers.CharField(default=None)
+    name = serializers.CharField(default=None)
+
+
 class DasObservation(NamedTuple):
     """
     Data object that represents the payload that is posted to the DAS sensor API
