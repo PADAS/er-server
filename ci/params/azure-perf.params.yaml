@@ -1,6 +1,7 @@
-cluster-name: azure-develop
-version-prefix: dev-az
-server-branch-name: DAS-3060-merge
+cluster-name: azure-perf
+version-prefix: dev
+server-branch-name: develop
+web-branch-name: develop
 iaas: azure
 iaas-zone: eastus
 iaas-workspace: DAS-Dev
