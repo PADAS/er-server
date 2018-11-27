@@ -80,8 +80,6 @@ def validate_event_filter(ef):
 
 
 def receipt_callback(trace_id, *args, **kwargs):
-    logger.info('Callback with args=%s, kwargs=%s', args, kwargs)
-
     client.pop_trace(trace_id)
 
 
@@ -255,7 +253,6 @@ def create_realtime_handler(sios):
                 # Add trace ID to message. It will be sent back in callback.
                 if isinstance(data, dict):
                     data['trace_id'] = f'trace-{user}-{time.time()}'
-                    logger.info('TRACE', extra=dict(trace_id=data['trace_id']))
                     client.push_trace(data['trace_id'], data)
 
                 if user is None:

@@ -180,18 +180,31 @@ def remove_all_rt_services():
         remove_rt_service(rt_svc)
 
 
+def trace_expiration_handler(msg):
+    logger.info('TRACE Expiration', extra=msg)
+
+
+logger.info('Starting trace consumer.')
+trace_pubsub = redis_client.pubsub()
+trace_pubsub.psubscribe(**{'__keyspace@2__:trace*': trace_expiration_handler})
+trace_consumer = trace_pubsub.run_in_thread(sleep_time=0.001)
+
+
 def shutdown_cleanup():
     remove_rt_service(CLIENT_LIST_KEY)
+    trace_consumer.stop()
 
 
-trace_ttl = 300
+trace_ttl = 60
 
 
 def push_trace(trace_id, data):
+    logger.info('TRACE', extra={'action': 'push', 'trace_id': trace_id})
     redis_client.setex(trace_id, data, trace_ttl)
 
 
 def pop_trace(trace_id):
+    logger.info('TRACE', extra={'action': 'pop', 'trace_id': trace_id})
     redis_client.delete(trace_id)
 
 
