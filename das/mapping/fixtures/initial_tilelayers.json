@@ -1,0 +1,96 @@
+[
+	{
+		"model": "mapping.tilelayer",
+		"pk": "5b480df1-dea2-4536-9a3f-03ce5b825abe",
+		"fields": {
+			"created_at": "2018-11-13T00:11:04.022Z",
+			"updated_at": "2018-11-19T20:04:11.924Z",
+			"name": "DAS Terrain Map",
+			"attributes": {
+				"url": "mapbox://styles/vjoelm/ciobuir0n0061bdnj1c54oakh",
+				"type": "mapbox_style",
+				"title": "DAS Terrain Map",
+				"configuration": {
+					"minZoom": 3,
+					"accessToken": "pk.eyJ1IjoidmpvZWxtIiwiYSI6ImNpZ3RzNXdmeDA4cm90N2tuZzhsd3duZm0ifQ.YcHUz9BmCk2oVOsL48VgVQ"
+				}
+			},
+			"ordernum": null
+		}
+	},
+	{
+		"model": "mapping.tilelayer",
+		"pk": "8b297282-164d-4604-a144-ceedefef605a",
+		"fields": {
+			"created_at": "2015-11-04T13:54:08.929Z",
+			"updated_at": "2018-11-19T20:38:33.217Z",
+			"name": "Mapbox Satellite Map",
+			"attributes": {
+				"url": "mapbox.satellite",
+				"type": "mapbox_tiles",
+				"title": "Mapbox Satellite",
+				"configuration": {
+					"accessToken": "pk.eyJ1IjoidmpvZWxtIiwiYSI6ImNpZ3RzNXdmeDA4cm90N2tuZzhsd3duZm0ifQ.YcHUz9BmCk2oVOsL48VgVQ"
+				}
+			},
+			"ordernum": null
+		}
+	},
+	{
+		"model": "mapping.tilelayer",
+		"pk": "d57ea783-dbf6-4e2f-aa35-89d24b9ed30a",
+		"fields": {
+			"created_at": "2018-11-19T21:04:11.113Z",
+			"updated_at": "2018-11-19T21:04:11.113Z",
+			"name": "Google Satellite",
+			"attributes": {
+				"type": "google_map",
+				"title": "Google Satellite",
+				"configuration": {
+					"accessToken": "AIzaSyArYgAAi9immeQFbEO2_6dRgc7hCSLaOIo"
+				}
+			},
+			"ordernum": null
+		}
+	},
+	{
+		"model": "mapping.tilelayer",
+		"pk": "d958fc5e-c451-438b-a3e2-5bab6dc2a2f2",
+		"fields": {
+			"created_at": "2015-11-04T13:49:40.648Z",
+			"updated_at": "2018-11-20T20:39:36.083Z",
+			"name": "ESRI Satellite",
+			"attributes": {
+				"url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+				"type": "tile_server",
+				"title": "ESRI Satellite",
+				"icon_url": "https://d1iq7pbacwn5rb.cloudfront.net/opendata-ui/assets/assets/images/esri-logo-color-6c1dbc86c0f28b9278d38cdf5c768e72.png",
+				"configuration": {
+					"maxZoom": 19,
+					"maxNativeZoom": 17
+				}
+			},
+			"ordernum": null
+		}
+	},
+	{
+		"model": "mapping.tilelayer",
+		"pk": "f3a14b19-456a-42d0-afa6-c9b89343eb2d",
+		"fields": {
+			"created_at": "2018-11-20T20:44:52.920Z",
+			"updated_at": "2018-11-20T20:44:52.920Z",
+			"name": "ESRI Topographic",
+			"attributes": {
+				"url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+				"type": "tile_server",
+				"title": "ESRI Topographic",
+				"icon_url": "https://d1iq7pbacwn5rb.cloudfront.net/opendata-ui/assets/assets/images/esri-logo-color-6c1dbc86c0f28b9278d38cdf5c768e72.png",
+				"configuration": {
+					"maxZoom": 19,
+					"maxNativeZoom": 17
+				}
+			},
+			"ordernum": null
+		}
+	}
+]
