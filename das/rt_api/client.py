@@ -145,7 +145,9 @@ def remove_clients(*sids):
 
     sids = set((str(sid) for sid in sids))
     logger.info('Removing clients for sids: %s', sids)
-    redis_client.hdel(CLIENT_LIST_KEY, *sids)
+    count = redis_client.hdel(CLIENT_LIST_KEY, *sids)
+    logger.info(f'Removed {count} clients (of {len(sids)} listed) from {CLIENT_LIST_KEY}')
+
     try:
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
@@ -184,15 +186,27 @@ def trace_expiration_handler(msg):
     logger.info('TRACE Expiration', extra=msg)
 
 
-logger.info('Starting trace consumer.')
-trace_pubsub = redis_client.pubsub()
-trace_pubsub.psubscribe(**{'__keyspace@2__:trace*': trace_expiration_handler})
-trace_consumer = trace_pubsub.run_in_thread(sleep_time=0.001)
+def stop_trace_consumer():
+    logger.warning('Trace consumer has not been started.')
+
+
+def start_trace_consumer():
+
+    logger.info('Starting trace consumer.')
+    trace_pubsub = redis_client.pubsub()
+    trace_pubsub.psubscribe(
+        **{'__keyspace@2__:trace*': trace_expiration_handler})
+    trace_consumer = trace_pubsub.run_in_thread(sleep_time=0.001)
+
+    global stop_trace_consumer
+
+    def stop_trace_consumer(): return (logger.info(
+        'Stopping trace consumer.'), trace_consumer.stop())
 
 
 def shutdown_cleanup():
+    logger.info('Shutdown cleanup for realtime client list.')
     remove_rt_service(CLIENT_LIST_KEY)
-    trace_consumer.stop()
 
 
 trace_ttl = 60
