@@ -11,15 +11,17 @@ logger = logging.getLogger(__name__)
 User = django.contrib.auth.get_user_model()
 
 
-class RadioObservationTest(BaseAPITest):
+class FollowltObservationTest(BaseAPITest):
+    # Set sensor_key of FollowltHandler and sourceprovider key
     user_const = dict(last_name='Lastname',
                       first_name='Firstname', is_superuser=False)
     sensor_type = 'animal-collar-push'
     provider_key = 'grumeti-followlt'
 
     def setUp(self):
+        # Create a user, subject linked with source via subjectsource,
+        # and source linked with source provider
         super().setUp()
-
         self.testuser = User.objects.create_user('das_trbonet',
                                                  'das@tempuri.org',
                                                  'somesecret',
@@ -37,12 +39,12 @@ class RadioObservationTest(BaseAPITest):
             assigned_range=DEFAULT_ASSIGNED_RANGE)
 
     def test_post_new_radio_update(self):
-
-        data = [{"lat": 32.01, "lng": 40.05, "date": "12-09-2018", "ttf": "485",
+        # Post sample data in api, and check subject's observations
+        data = [{"lat": 32.01, "lng": 40.05, "date": "13-09-2018", "ttf": "485",
                  "sats": "2", "collarId": "followlt-1234",
                  "positionId": "789adc", "serialId": "12345", "alt": "58",
                  "hdop": "0.23", "temp": "32.9", "name": "Test"},
-                {"lat": 32.02, "lng": 40.06, "date": "13-09-2018", "ttf": "386",
+                {"lat": 32.02, "lng": 40.06, "date": "14-09-2018", "ttf": "386",
                  "sats": "1", "collarId": "followlt-1234",
                  "positionId": "684adc", "serialId": "12345", "alt": "58",
                  "hdop": "0.23", "temp": "32.9", "name": "Test"}]
