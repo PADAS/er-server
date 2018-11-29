@@ -105,7 +105,7 @@ class GenericSensorHandler():
 
 class FollowltTrackerHandler:
 
-    SENSOR_TYPE = 'animal-tracker'
+    SENSOR_TYPE = 'animal-collar-push'
 
     @staticmethod
     def convert_to_das_format(data):
@@ -163,8 +163,9 @@ class FollowltTrackerHandler:
             except Exception as e:
                 logger.error(str(e))
                 errors.append(str(e))
-        if errors:
-            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+        for error in errors:
+            if error:
+                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
         return Response({}, status=status.HTTP_201_CREATED)
 
 
