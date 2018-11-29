@@ -50,6 +50,12 @@ ONE_YEAR = datetime.timedelta(days=365)
 INCLUDE_STATIONARY_SUBJECTS_ON_MAP = getattr(
     settings, 'SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
 
+current_tz_name = timezone.get_current_timezone_name()
+current_tz = pytz.timezone(current_tz_name)
+current_date = datetime.datetime.utcnow().astimezone(current_tz)
+tz_difference = current_date.utcoffset().total_seconds() / 60 / 60
+tz_offset = 'GMT' + ('+' if tz_difference >= 0 else '') + str(int(tz_difference)) + \
+            ':' + str(int((tz_difference - int(tz_difference)) * 60))
 
 def default_since():
     """default value for since
@@ -781,35 +787,37 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             raise PermissionDenied
 
         # Get SubjectSource and Observations with in time range for subjects
-        csv_data = []
-        fieldnames = ['chronofile', 'recordserial', 'fixtime', 'dloadtime',
+        fixtime = 'fixtime ({})'.format(tz_offset)
+        dloadtime = 'dloadtime ({})'.format(tz_offset)
+        fieldnames = ['chronofile', 'recordserial', fixtime, dloadtime,
                       'lon', 'lat', 'height', 'temp']
+        csv_data = []
         subjects = self.get_queryset()
         for subject in subjects:
             observations = models.Observation.objects.filter(
                 source__subjectsource__subject=subject,
                 exclusion_flags=filter_flag, recorded_at__range=[lower, upper])
             if observations:
+                fixtime = fixtime.format(tz_offset)
+                dloadtime = dloadtime.format(tz_offset)
                 for observation in observations.all():
                     subject_source = models.SubjectSource.objects.filter(
                         source=observation.source,
                         subject=subject)[0]
+                    recorded_at = observation.recorded_at.astimezone(current_tz)
+                    created_at = observation.created_at.astimezone(current_tz)
                     data = {'lat': observation.location.x,
                             'lon': observation.location.y,
                             'height': observation.location.z,
                             'chronofile': subject_source.additional.get(
                                 'chronofile', '') if subject_source.additional else '',
                             'recordserial': observation.id,
-                            'fixtime': observation.recorded_at.strftime(
-                                '%m/%d%Y %H:%M:%S'),
-                            'dloadtime': observation.created_at.strftime(
-                                '%m/%d%Y %H:%M:%S'),
+                            fixtime: recorded_at.strftime('%m/%d%Y %H:%M:%S'),
+                            dloadtime: created_at.strftime('%m/%d%Y %H:%M:%S'),
                             'temp': observation.additional.get('temp', '')
                             }
                     csv_data.append(data)
-
         # Generate CSV attachment and send it with response
-        current_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = current_tz.localize(datetime.datetime.utcnow())
 
         if self.request.GET.get('format', '').lower() == 'json':
@@ -839,9 +847,12 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         :return: List of dictionaries containing required details.
         """
         tracking_metadata = []
+        data_starts = 'data_starts ({})'.format(tz_offset)
+        data_stops = 'data_stops ({})'.format(tz_offset)
         headers = ['chronofile', 'collar_type', 'collar_id', 'active',
-                   'frequency', 'animal_id', 'name', 'species', 'data_starts',
-                   'data_stops', 'date_off_or_removed', 'comments',
+                   'frequency', 'animal_id', 'name', 'species',
+                   data_starts, data_stops,
+                   'date_off_or_removed', 'comments',
                    'predicted_expiry', 'rgb', 'sex', 'gmt', 'data_status',
                    'data_starts_source', 'data_stops_source',
                    'data_stops_reason', 'collar_status', 'collar_model',
@@ -866,7 +877,10 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                     # the right one.
                     subject_source = models.SubjectSource.objects.\
                         get_subject_source(subject, subject.source.id).first()
-
+                    lower = subject_source.safe_assigned_range.lower.\
+                        astimezone(current_tz)
+                    upper = subject_source.safe_assigned_range.upper. \
+                        astimezone(current_tz)
                     source_details.update({
                         'chronofile': subject_source.additional.get(
                             'chronofile', ''),
@@ -877,8 +891,8 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                             'frequency', ''),
                         'animal_id': subject.source.additional.get(
                             'tm_animal_id', ''),
-                        'data_starts': subject_source.safe_assigned_range.lower,
-                        'data_stops': subject_source.safe_assigned_range.upper,
+                        data_starts: lower,
+                        data_stops: upper,
                         'comments': subject_source.additional.get(
                             'comments', ''),
                         'predicted_expiry':
