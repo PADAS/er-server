@@ -49,7 +49,7 @@ class GroupSerializer(rest_framework.serializers.ModelSerializer):
         contained_field = self.contained_field
 
         queryset = getattr(instance, 'get_all_{0}'.format(contained_field))(
-            user=user, active=True)
+            user=user, active=True, include_from_subgroups=False)
 
         # queryset = queryset.order_by('name')
         # queryset variable contains list of sources linked with source group.

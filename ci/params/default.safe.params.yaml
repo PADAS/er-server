@@ -1,5 +1,5 @@
 project-id: padas-app
-vp-tools-container-version: "1.0.177"
+vp-tools-container-version: "1.0.215"
 infrastructure-utilities-version-tag: "0.0.54"
 
 #Infrastructure
@@ -11,6 +11,7 @@ cluster-name: ""
 das-static-ip: ""
 utility-static-ip: ""
 disks-spec: deployment/storage/default.disks.csv
+infra-disks-spec: deployment/storage/infra.disks.csv
 vault-address: "https://vault.vulcancloud.io:8200"
 vcloud-service-url: "http://vcloud.vulcancloud.io:5000/"
 elastic-url: "elastic.vulcancloud.io"
@@ -18,6 +19,7 @@ logstash-url: "nginx-udp.vulcancloud.io:5045"
 deploy-params-environment: develop
 baseimages-version-prefix: ""
 namespace: "default"
+infra-namespace: "infra"
 
 #Azure
 azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa

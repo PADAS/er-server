@@ -5,6 +5,8 @@ static-values:
   node-exporter-version: v0.16.0
   log_url: "logs.pamdas.org:5044"
   alerts-slack-channel: "das-k8-alerts-prod"
+  cpu-request-quota: "11"
+  memory-request-quota: "55Gi"
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   pamdas-org-ssl-key: padas-app/main/pamdas-org-ssl-key

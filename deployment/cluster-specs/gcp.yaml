@@ -1,4 +1,7 @@
 name: ""
 machine_type: n1-standard-2
 node_count: 3
-kubernetes_version: "1.10.6-gke.9"
+kubernetes_version: "1.10.6"
+auto_scale:
+  min_node_count: 2
+  max_node_count: 4

@@ -18,10 +18,28 @@ data:
         ssl_verify_mode => "force_peer"
       }
     }
+    filter {
+      if "" in [kubernetes][namespace] {
+        mutate {
+          copy => {"[kubernetes][namespace]" => "[@metadata][es_index]"}
+        }
+      } else {
+        mutate {
+          copy => {"[beat][name]" => "[@metadata][es_index]"}
+        }
+      }
+      mutate {
+        remove_field => [ "[host]" ]
+        add_field => { "host" => "%{[beat][hostname]}"}
+      }
+      de_dot {
+        fields => ["[kubernetes][labels]"]
+      }
+    }
     output {
       elasticsearch {
         hosts => "elasticsearch:9200"
-        index => "das-%{+YYYY.MM.dd}"
+        index => "das-%{[@metadata][es_index]}-%{+YYYY.MM.dd}"
         sniffing => false
       }
     }
