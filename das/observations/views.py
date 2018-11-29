@@ -64,7 +64,6 @@ def dateparse(date_str, default_tz=pytz.utc):
         dt = dt.replace(tzinfo=default_tz)
     return dt
 
-
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
     queryset = models.Region.objects.all()
@@ -134,7 +133,26 @@ class SourceGroupsView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = models.SourceGroup.objects.filter(_parents=None)
+        # Sorting SourceGroups based on name (use '-name' for descending order)
+        queryset = queryset.order_by('name')
         return queryset
+
+
+class SourceGroupView(generics.ListAPIView):
+    """
+    Return all sources of given source Group (sourcegroup/sources/<name/id>/)
+    """
+    serializer_class = serializers.SourceSerializer
+    lookup_field = 'slug'  # slug can have value of source group's name or id
+
+    def get_queryset(self):
+        slug = self.kwargs['slug']
+        source_group = models.SourceGroup.objects.filter(name=slug).first()
+        if not source_group:
+            source_group = models.SourceGroup.objects.filter(id=slug).first()
+        if source_group:
+            return source_group.get_all_sources()
+        return None
 
 
 class RegionSubjectsView(generics.ListAPIView):
