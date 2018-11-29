@@ -1,5 +1,6 @@
 static-values:
   alerts-slack-channel: "das-k8-alerts-dev"
+  logging-static-ip: ""
   send-alerts: "true"
   cpu-request-quota: "5"
   default-cpu-request: "50m"

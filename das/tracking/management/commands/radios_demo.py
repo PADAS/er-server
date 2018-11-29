@@ -18,7 +18,7 @@ import random
 import time
 
 from accounts.models import PermissionSet, User
-from activity.models import Event, Community, EventType
+from activity.models import Event, Community, EventType, EventRelatedSubject
 
 from mapping.models import FeatureType, PolygonFeature, LineFeature, PointFeature, FeatureSet
 from observations.models import Subject, SubjectGroup, SubjectSource, Source, Observation
@@ -236,6 +236,7 @@ class DemoDriver():
             yield last_time
 
     def delete_subject(self):
+        EventRelatedSubject.objects.filter(subject_id=self.subject_id).delete()
         Subject.objects.filter(id=self.subject_id).delete()
 
     def delete_source(self):

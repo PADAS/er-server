@@ -178,6 +178,7 @@ jobs:
               vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/default.params.yaml git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
 
 - name: destroy-cluster
+  disable_manual_trigger: true
   plan:
   - get: git-deployment
   - do:
@@ -215,6 +216,7 @@ jobs:
             vcloud clusters delete -i ((iaas)) -w ((iaas-workspace)) -z ((iaas-zone)) -n ((cluster-name)) -f
 
 - name: destroy-namespace
+  disable_manual_trigger: true
   serial: true
   plan:
   - aggregate:
@@ -254,6 +256,7 @@ jobs:
             vcloud clusters delete-namespace -i ((iaas)) -w ((iaas-workspace)) -z ((iaas-zone)) -n ((cluster-name)) --namespace ((namespace))
 
 - name: destroy-disks
+  disable_manual_trigger: true
   serial: true
   plan:
   - aggregate:
