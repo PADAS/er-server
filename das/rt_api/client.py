@@ -80,14 +80,10 @@ def get_all_connections():
 
 
 def get_client_list():
-    for data in redis_client.hgetall(CLIENT_LIST_KEY).items():
-        sid = data[0].decode('utf-8')
-        c = _restore_client_data(data[1].decode('utf-8'))
-        if c:
-            client_data = c
+    for sid, client_data in redis_client.hgetall(CLIENT_LIST_KEY).items():
+        client_data = _restore_client_data(client_data.decode('utf-8'))
+        if client_data:
             yield client_data
-        else:
-            remove_client(sid)
 
 
 def add_client(sid, data):

@@ -101,6 +101,34 @@ def confirm_authorzation(sid, sios):
             'New socket connection is authenticated. sid=%s', sid, extra=extra)
 
 
+CLIENT_CLEANUP_INTERVAL = 30  # seconds
+
+
+def cleanup_disconnected_clients(sios):
+
+    logger.info('Cleanup disconnected sockets.')
+    if not sios.environ:
+        return
+
+    environ = [sid for sid in sios.environ]
+    client_list = set(client.get_client_list())
+
+    remove_these_clients = set(
+        [c for c in client_list if c.sid not in environ])
+
+    if len(remove_these_clients) > 0:
+
+        for c in remove_these_clients:
+            logger.info('Cleaning up disconnected socket.', extra={
+                        'sid': c.sid, 'username': c.username})
+
+        client.remove_clients(
+            *[x.sid for x in remove_these_clients])
+
+    eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,
+                         cleanup_disconnected_clients, sios)
+
+
 def create_realtime_handler(sios):
     class RealtimeServices:
 
@@ -112,7 +140,10 @@ def create_realtime_handler(sios):
             # Drop the user if they don't authenticate immediately
             socket['authed'] = False
 
-            logger.info('on_connect sid=%s, socket=%s', sid, socket)
+            logger.info('on_connect', extra={'sid': str(sid)})
+            logger.debug('on_connect', extra={
+                         'sid': str(sid), 'socket': repr(socket)})
+
             # Make sure the connection authenticates immediately
             eventlet.spawn(confirm_authorzation, sid, sios)
 
@@ -252,10 +283,10 @@ def create_realtime_handler(sios):
             # user is the SID if set
             if user and user not in sios.environ:
                 client.remove_client(user)
-                extra = dict(sid=user)
+                # extra = dict(sid=user)
                 logger.warning(
-                    'Tried to send a message to a disconnected client. user=%s',
-                    user, extra=extra)
+                    'Tried to send a message to a disconnected client.',
+                    user, extra={'sid': user})
                 return
             try:
 
@@ -290,25 +321,9 @@ def create_realtime_handler(sios):
                 logger.error('Realtime server received invalid message type: %s',
                              message_data['type'])
 
-        @staticmethod
-        def cleanup_disconnected_clients():
-            """
-            XXX the assumption here is that this method is only called
-            internally by socket.io, so no need to be multi service aware
-            """
-            if not sios.environ:
-                return
-
-            environ = [sid for sid in sios.environ]
-            remove_these_clients = set(
-                (c for c in client.get_client_list() if c.sid not in environ))
-            for c in remove_these_clients:
-                extra = dict(sid=c.sid, username=c.username)
-                logger.info('Cleaning up disconnected user: %s', c.username,
-                            extra=extra)
-
-            client.remove_clients(
-                *[client.sid for client in remove_these_clients])
+    # Start up recursive calls to clean up disconnected clients.
+    eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,
+                         cleanup_disconnected_clients, sios)
 
     return RealtimeServices
 
