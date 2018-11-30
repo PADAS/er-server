@@ -1,11 +1,16 @@
+import datetime
 import logging
-from django.contrib.auth.models import Permission
+import uuid
+
 import django.contrib.auth
+from django.utils import timezone
+from oauth2_provider.models import AccessToken
+from rest_framework.test import force_authenticate
 
 from core.tests import BaseAPITest
-from sensors.views import SensorObservation
 from observations.models import Subject, Source, SourceProvider, SubjectSource, \
     DEFAULT_ASSIGNED_RANGE
+from sensors.views import SensorObservation
 
 logger = logging.getLogger(__name__)
 User = django.contrib.auth.get_user_model()
@@ -51,9 +56,19 @@ class FollowltObservationTest(BaseAPITest):
 
         path = '/'.join((self.api_base, 'sensors',
                          self.sensor_type, self.provider_key, 'status'))
-        request = self.factory.post(path, data=data)
 
-        self.force_authenticate(request, self.testuser)
+        # This is what BaseAPITest class's force_authenticate do
+        tok = AccessToken.objects.create(
+            user=self.testuser, token=str(uuid.uuid4()),
+            application=self.application, scope='read write',
+            expires=timezone.now() + datetime.timedelta(days=1)
+        )
+        # appending token in url
+        path = path + '?auth={}'.format(tok.token)
+        request = self.factory.post(path, data=data)
+        request.user = self.testuser
+        force_authenticate(request, user=request.user, token=tok)
+
         response = SensorObservation.as_view()(request,
                                                sensor_type=self.sensor_type,
                                                provider_key=self.provider_key)
