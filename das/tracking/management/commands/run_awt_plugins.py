@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 
+import pytz
 from dateutil.parser import parse
 from django.apps import apps
 from django.core.management.base import BaseCommand
@@ -83,11 +84,11 @@ class Command(BaseCommand):
 
     def validate_start_end_time(self, start, end=None):
         # Check Start/end should be less than now
-        if start >= datetime.now():
+        if start >= datetime.now(tz=pytz.UTC):
             raise ValueError('Start time should be less than or equal to '
                              'current time')
         if end:
-            if end >= datetime.now():
+            if end > datetime.now(tz=pytz.UTC):
                 raise ValueError('End time should be less than or equal to '
                                  'current time')
             if end <= start:
@@ -122,15 +123,15 @@ class Command(BaseCommand):
             raise ValueError('start-time is required with end-time. '
                              'Use --start-time [start-time])')
         try:
-            options['start_time'] = parse(options['start_time'])
-            options['end_time'] = (parse(options['end_time'])
-                                   if options['end_time'] else datetime.now())
+            options['start_time'] = parse(
+                options['start_time']).replace(tzinfo=pytz.UTC)
+            options['end_time'] = (parse(options['end_time']).replace(tzinfo=pytz.UTC)
+                                   if options['end_time'] else datetime.now(tz=pytz.UTC))
             self.validate_start_end_time(options['start_time'],
                                          options['end_time'])
         except Exception as e:
             raise e
 
-        options['api_type'] = 'REPLAY_API'
         if options['manufacturer_id']:
             self.fetch_observation(options)
         elif options['unit_id']:
