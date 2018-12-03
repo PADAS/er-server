@@ -289,8 +289,7 @@ def create_realtime_handler(sios):
                 client.remove_client(user)
                 # extra = dict(sid=user)
                 logger.warning(
-                    'Tried to send a message to a disconnected client.',
-                    user, extra={'sid': user})
+                    'Tried to send a message to a disconnected client.', extra={'sid': user})
                 return
             try:
 
