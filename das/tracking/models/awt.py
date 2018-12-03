@@ -1,4 +1,5 @@
 import sys
+import random
 import base64
 import copy
 import json
@@ -24,6 +25,10 @@ class AWTPluginBannedException(Exception):
     pass
 
 
+class AWTPluginInvalidSessionTokenException(Exception):
+    pass
+
+
 class AwtClient(object):
     """
     AWT has a Fair Use policy that allows:
@@ -40,8 +45,8 @@ class AwtClient(object):
     key_mapping = {'start_time': 'T1', 'end_time': 'T2',
                    'tag_id': 'T', 'unit': 'U'}
     default_cache_expiry = 300  # 5 minutes
-    use_policy_backoff = 61  # one minute
-    use_policy_major_backoff = 3601  # one hour
+    use_policy_backoff = 70  # one minute + 10 seconds
+    use_policy_major_backoff = 3720  # one hour + 2 minutes
     # live api returns last 24 hours of data
     live_api_coverage = timedelta(hours=24)
     replay_api_coverage = timedelta(days=90)  # replay only goes back 90 days
@@ -117,6 +122,7 @@ class AwtClient(object):
                     self.logger.warning(
                         f'AWT Use Policy enforcement for {api_type}, sleeping {sleep_seconds} secs')
                     sleep(sleep_seconds)
+                    sleep(random.uniform(1, 10))
             else:
                 return
 
@@ -137,11 +143,11 @@ class AwtClient(object):
         if not expiry_period:
             expiry_period = self.default_cache_expiry
 
-        self.check_use_policy(api_type)
-
         response = cache.get(key) if key else None
         if response:
             return response
+
+        self.check_use_policy(api_type)
 
         try:
             self.set_use_policy_api(api_type)
@@ -167,13 +173,22 @@ class AwtClient(object):
         if data and data.get('Result') == False:
             reason = data.get('Reason')
             message = f'AWT API returned False, {reason}'
-            if reason and reason.lower().count('ban'):
-                self.set_use_policy_api(api_type, major_backoff=True)
+            if reason:
+                if reason.lower().count('ban'):
+                    self.set_use_policy_api(api_type, major_backoff=True)
+                    raise AWTPluginBannedException(message)
+                elif reason.lower().startswith('invalid session token'):
+                    self.clear_session_token()
+                    raise AWTPluginInvalidSessionTokenException
             raise AWTPluginException(message)
 
         if key:
             cache.set(key, data, expiry_period)
         return data
+
+    def clear_session_token(self):
+        self.session_token = None
+        cache.delete(self.make_session_token_key())
 
     def fetch_fresh_session_token(self):
         api_type = 'TOKEN_API'
@@ -352,10 +367,9 @@ class AwtPlugin(TrackingPlugin):
 
         # Set tag value(manufacture id) if not in additional_data
         if additional_data:
-            if 'tag_id' not in additional_data.keys():
-                additional_data['tag_id'] = source.manufacturer_id
+            additional_data['tag_id'] = int(source.manufacturer_id)
         else:
-            additional_data = {'tag_id': source.manufacturer_id}
+            additional_data = {'tag_id': int(source.manufacturer_id)}
 
         # Set default api_type as LIVE API
         if 'start_time' not in additional_data.keys():
