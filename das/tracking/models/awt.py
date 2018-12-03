@@ -1,7 +1,10 @@
+import sys
+import random
 import base64
 import copy
 import json
 import logging
+from time import sleep
 from datetime import datetime, timedelta
 
 import pytz
@@ -14,20 +17,55 @@ from django.core.cache import cache
 from tracking.models.plugin_base import Obs, TrackingPlugin
 
 
+class AWTPluginException(Exception):
+    pass
+
+
+class AWTPluginBannedException(Exception):
+    pass
+
+
+class AWTPluginInvalidSessionTokenException(Exception):
+    pass
+
+
 class AwtClient(object):
+    """
+    AWT has a Fair Use policy that allows:
+    Only one call of an API type per minute. If this is violated, a banned
+    notice is returned at which time one hour must pass before trying again.
+    For instance after making a Replay API call with one tag, the client must
+    wait one minute for making another Replay API call.
+
+    To work with these constraints, this client caches as much information
+    as possible. The client also remembers the last time an API type is called
+    and sleeps until the policy allows.
+    """
+
     key_mapping = {'start_time': 'T1', 'end_time': 'T2',
-                   'manufacturer_id': 'T', 'unit': 'U'}
+                   'tag_id': 'T', 'unit': 'U'}
+    default_cache_expiry = 300  # 5 minutes
+    use_policy_backoff = 70  # one minute + 10 seconds
+    use_policy_major_backoff = 3720  # one hour + 2 minutes
+    # live api returns last 24 hours of data
+    live_api_coverage = timedelta(hours=24)
+    replay_api_coverage = timedelta(days=90)  # replay only goes back 90 days
+    fetch_unit_data_expiry = 60  # one minute
+    LIVE_API = 'LIVE_API'
+    REPLAY_API = 'REPLAY_API'
+    HISTORY_API = 'HISTORY_API'
+    TOKEN_API = 'TOKEN_API'
+    APIS = {LIVE_API: "/Scripts/php/api/data.php",
+            REPLAY_API: "/Scripts/php/api/replay.php",
+            HISTORY_API: "/Scripts/php/api/history.php",
+            TOKEN_API: "/Scripts/php/api/token.php",
+            "TAG_API": "/Scripts/php/api/taglist.php",
+            "UNIT_API": "/Scripts/php/api/unitlist.php"
+            }
 
     def __init__(self, host=None, username=None, password=None,
                  subscription_token=None):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.APIS = {"LIVE_API": "/Scripts/php/api/data.php",
-                     "REPLAY_API": "/Scripts/php/api/replay.php",
-                     "HISTORY_API": "/Scripts/php/api/history.php",
-                     "TOKEN_API": "/Scripts/php/api/token.php",
-                     "TAG_API": "/Scripts/php/api/taglist.php",
-                     "UNIT_API": "/Scripts/php/api/unitlist.php"
-                     }
         self.host = host
         self.username = username
         self.password = password
@@ -53,60 +91,118 @@ class AwtClient(object):
         subscription_token = bytes.fromhex(self.subscription_token)
         cipher = AES.new(subscription_token, AES.MODE_CBC, iv)
         data = cipher.decrypt(cipher_text)
-        try:
-            data = data[:-ord(data[len(data) - 1:])].decode('utf-8')
-            data = json.loads(json.loads(data))
-            return data
-        except Exception as e:
-            self.logger.error(e)
-            raise e
 
-    def handle_request(self, url, payload, key=None, expiry_period=None):
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        if not expiry_period:
-            expiry_period = 300  # In Seconds
-        data = {'Result': False}
-        description = ''
-        try:
-            response = requests.post(url=url, headers=headers, data=payload)
-            if response.status_code == 200:
-                data = json.loads(response.text.strip())
+        data = data[:-ord(data[len(data) - 1:])].decode('utf-8')
+        data = json.loads(json.loads(data))
+        return data
+
+    def make_units_token_key(self):
+        return f'awtplugin-{self.username}-units'
+
+    def make_session_token_key(self):
+        return f'awtplugin-{self.username}-session_token'
+
+    def make_use_policy_key(self, api_type):
+        return f'awtplugin-{self.username}-use_policy-{api_type}'
+
+    def make_major_backoff_key(self):
+        return f'awtplugin-{self.username}-soft-ban'
+
+    def check_use_policy(self, api_type):
+        while True:
+            if cache.get(self.make_major_backoff_key()):
+                raise AWTPluginBannedException('Banned in check_use_policy')
+
+            ttl = cache.get(self.make_use_policy_key(api_type))
+            if ttl:
+                ttl = parse(ttl)
+                sleep_seconds = ttl - datetime.now(tz=pytz.UTC)
+                sleep_seconds = sleep_seconds.total_seconds()
+                if sleep_seconds:
+                    self.logger.warning(
+                        f'AWT Use Policy enforcement for {api_type}, sleeping {sleep_seconds} secs')
+                    sleep(sleep_seconds)
+                    sleep(random.uniform(1, 10))
             else:
-                description = 'Request status: {0}, Traceback: {1}'.format(
-                    response.status_code, response.text.strip())
+                return
+
+    def set_use_policy_api(self, api_type, major_backoff=False):
+        backoff_seconds = self.use_policy_backoff if not major_backoff else self.use_policy_major_backoff
+        ttl = datetime.now(tz=pytz.UTC) + timedelta(seconds=backoff_seconds)
+        cache.set(self.make_use_policy_key(api_type),
+                  ttl.isoformat(),
+                  backoff_seconds)
+        if major_backoff:
+            cache.set(self.make_major_backoff_key(),
+                      ttl.isoformat(),
+                      backoff_seconds)
+
+    def handle_request(self, api_type, url, payload, key=None, expiry_period=None):
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+
+        if not expiry_period:
+            expiry_period = self.default_cache_expiry
+
+        response = cache.get(key) if key else None
+        if response:
+            return response
+
+        self.check_use_policy(api_type)
+
+        try:
+            self.set_use_policy_api(api_type)
+            self.logger.info(
+                f'AWTPlugin API call {url} account {self.username}')
+            response = requests.post(url=url, headers=headers, data=payload)
         except requests.ConnectionError as e:
             description = 'Connection Error for {url}'.format(url=url)
-            data['e'] = e
+            self.logger.warning(description)
+            raise
         except requests.Timeout as e:
             description = 'Request Timeout for {url}'.format(url=url)
-            data['e'] = e
-        except Exception as e:
-            description = str(e)
-            data['e'] = e
-        finally:
-            if not data['Result']:
-                data['error'] = description
+            self.logger.warning(description)
+            raise
 
-            if key:
-                cache.set(key, data, expiry_period)
-            else:
-                return data
+        self.set_use_policy_api(api_type)
+        if response.status_code != 200:
+            description = 'Request status: {0}, Traceback: {1}'.format(
+                response.status_code, response.text.strip())
+            raise AWTPluginException(description)
 
-            if 'e' in data.keys():
-                self.logger.exception(data['e'])
-                raise data['e']
+        data = json.loads(response.text.strip())
+        if data and data.get('Result') == False:
+            reason = data.get('Reason')
+            message = f'AWT API returned False, {reason}'
+            if reason:
+                if reason.lower().count('ban'):
+                    self.set_use_policy_api(api_type, major_backoff=True)
+                    raise AWTPluginBannedException(message)
+                elif reason.lower().startswith('invalid session token'):
+                    self.clear_session_token()
+                    raise AWTPluginInvalidSessionTokenException
+            raise AWTPluginException(message)
+
+        if key:
+            cache.set(key, data, expiry_period)
+        return data
+
+    def clear_session_token(self):
+        self.session_token = None
+        cache.delete(self.make_session_token_key())
 
     def fetch_fresh_session_token(self):
-        url = self.host + self.APIS['TOKEN_API']
+        api_type = 'TOKEN_API'
+        url = self.host + self.APIS[api_type]
         payload = {'USR': self.username, 'PW': self.password}
-        key = 'awtplugin-session-token'
+        key = self.make_session_token_key()
+        cache.delete(self.make_session_token_key())
 
         # Session Token expiry in Seconds(has to be renewed in at least 1 hour)
         session_token_expiry = 3540  # 3540 seconds = 59 minutes
-        self.handle_request(url, payload, key, session_token_expiry)
+        return self.handle_request(api_type, url, payload, key, session_token_expiry)
 
     def check_and_update_token(self):
-        awtplugin_data = cache.get('awtplugin-session-token')
+        awtplugin_data = cache.get(self.make_session_token_key())
         if awtplugin_data:
             if awtplugin_data['Result']:
                 self.session_token = awtplugin_data['Token']
@@ -116,89 +212,68 @@ class AwtClient(object):
             self.fetch_fresh_session_token()
             self.check_and_update_token()
 
-    def fetch_data(self, additional_data=None):
+    def api_type_for_dates(self, params):
+        api_type = self.LIVE_API
+        key = f'awtplugin-{self.username}-{api_type}'
+        if 'start_time' in params:
+            start_time = datetime.fromtimestamp(
+                params['start_time'], tz=pytz.UTC)
+            now = datetime.now(tz=pytz.UTC)
+            if now - start_time > self.live_api_coverage:
+                # disable caching for replay and history
+                key = None
+                api_type = self.REPLAY_API
+                if now - start_time > self.replay_api_coverage:
+                    api_type = self.HISTORY_API
+        return api_type, key
+
+    def fetch_data(self, params=None):
+        """
+        :param params:
+        :return:
+        """
         self.check_and_update_token()
+        api_type, cache_key = self.api_type_for_dates(params)
 
-        # Set Api Type (Live, Replay or History)
-        # api_type = 'LIVE_API'
-        api_type = 'REPLAY_API'
+        response = cache.get(cache_key) if cache_key else None
 
-        if additional_data and 'api_type' in additional_data.keys():
-            api_type = additional_data['api_type']
-        try:
-            url = self.host + self.APIS.get(api_type.upper(), None)
-        except Exception as e:
-            raise e
-
-        if 'api_type' not in additional_data:
-            if api_type in ['REPLAY_API', 'HISTORY_API']:
-                if 'unit' not in additional_data.keys():
-                    response = self.fetch_units()
-                    if response['Result']:
-                        units = response['Unit_List']
-                        unit_id = units[0].get('id', None)
-                        additional_data['unit'] = unit_id
-                    else:
-                        raise Exception(response)
-        else:
-            additional_data.pop('api_type')
-
-        # If unit is there, remove Manufacturer_id to avoid further requests
-        if 'unit' in additional_data:
-            if 'manufacturer_id' in additional_data:
-                additional_data.pop('manufacturer_id')
-
-        # ST is Key (used in awt api) for Session Token
-        payload = {'ST': self.session_token}
-        if additional_data and api_type.upper() in ['REPLAY_API',
-                                                    'HISTORY_API']:
-            extra_data = {}
-            for i in additional_data.keys():
-                extra_data[self.key_mapping[i]] = additional_data[i]
-            payload = {**payload, **extra_data}
-        key = 'awtplugin-observations-{username}'.format(username=self.username)
-        data_expiry = 300  # In Seconds
-        self.handle_request(url, payload, key, data_expiry)
-        response = cache.get(key)
+        if not response:
+            url = self.host + self.APIS[api_type.upper()]
+            # ST is Key (used in awt api) for Session Token
+            payload = {'ST': self.session_token}
+            if api_type != self.LIVE_API:
+                for key, name in self.key_mapping.items():
+                    if key in params:
+                        payload[name] = params[key]
+            response = self.handle_request(api_type, url, payload,
+                                           key=cache_key,
+                                           expiry_period=self.fetch_unit_data_expiry)
         if response:
             if response['Result']:
                 return self.decrypt_response(response)
-            else:
-                raise Exception(response)
-        else:
-            raise Exception('Error in fetching observation Data')
+            raise AWTPluginException(response)
+        raise AWTPluginException('Error in fetching observation Data')
 
     def fetch_units(self):
+        api_type = 'UNIT_API'
         self.check_and_update_token()
-        url = self.host + self.APIS.get('UNIT_API', None)
+        key = self.make_units_token_key()
+        url = self.host + self.APIS.get(api_type, None)
         payload = {'ST': self.session_token}
-        return self.handle_request(url, payload)
+        return self.handle_request(api_type, url, payload, key=key,
+                                   expiry_period=self.default_cache_expiry)
 
     def fetch_tags(self):
+        api_type = 'TAG_API'
         self.check_and_update_token()
-        url = self.host + self.APIS.get('TAG_API', None)
+        url = self.host + self.APIS.get(api_type, None)
         payload = {'ST': self.session_token}
-        return self.handle_request(url, payload)
+        return self.handle_request(api_type, url, payload)
 
-    def fetch_observations(self, metadata):
-        manufacturer_id = metadata['manufacturer_id']
-        timeout = 300  # In Seconds
-        key = 'awtplugin-observations-{username}'.format(username=self.username)
-        observations = cache.get(key)
-        if observations:
-            if isinstance(observations, list):
-                source_observations = []
-                for observation in observations:
-                    if str(observation['tag_id']) == str(manufacturer_id):
-                        source_observations.append(observation)
-                return source_observations
-            else:
-                raise Exception(observations)
-        else:
-            additional_data = copy.copy(metadata)
-            observations = self.fetch_data(additional_data)
-            cache.set(key, observations, timeout)
-            return self.fetch_observations(metadata)
+    def fetch_observations(self, params):
+        tag_id = params['tag_id']
+        results = self.fetch_data(params)
+        return [observation for observation in results if observation['tag_id'] == tag_id]
 
 
 class AwtPlugin(TrackingPlugin):
@@ -241,7 +316,7 @@ class AwtPlugin(TrackingPlugin):
 
     def _parse_additional_data(self, metadata):
         additional_data = copy.copy(metadata)
-        fixed_keys = ['api_type', 'start_time', 'end_time', 'manufacturer_id',
+        fixed_keys = ['api_type', 'start_time', 'end_time', 'tag_id',
                       'unit']
         if 'start_time' in additional_data.keys() and \
                 'end_time' in additional_data.keys():
@@ -292,10 +367,9 @@ class AwtPlugin(TrackingPlugin):
 
         # Set tag value(manufacture id) if not in additional_data
         if additional_data:
-            if 'manufacturer_id' not in additional_data.keys():
-                additional_data['manufacturer_id'] = source.manufacturer_id
+            additional_data['tag_id'] = int(source.manufacturer_id)
         else:
-            additional_data = {'manufacturer_id': source.manufacturer_id}
+            additional_data = {'tag_id': int(source.manufacturer_id)}
 
         # Set default api_type as LIVE API
         if 'start_time' not in additional_data.keys():

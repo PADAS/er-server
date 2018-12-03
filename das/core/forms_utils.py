@@ -53,7 +53,8 @@ class JSONFieldFormMixin(object):
 
         if self.instance:
             json_data = self.get_json()
-            if json_data:
+            # Check json_field's value type to avoid parsing error
+            if json_data and isinstance(json_data, dict):
                 for field in self.Meta.json_fields:
                     if json_data.get(field):
                         try:
@@ -64,6 +65,9 @@ class JSONFieldFormMixin(object):
 
     def save(self, *args, **kwargs):
         json_data = self.get_json()
+        # If json_field's value type is not dict, than assign empty dictionary
+        if not isinstance(json_data, dict):
+            json_data = {}
         for field in self.Meta.json_fields:
             json_data[field] = self.cleaned_data[field]
             if isinstance(self.cleaned_data[field], datetime):

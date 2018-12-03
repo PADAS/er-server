@@ -11,10 +11,11 @@ PROJECT=padas-app
 CONCOURSE_URL=https://ci.pamdas.org
 ELASTIC_URL=elastic.vulcancloud.io
 LOGSTASH_URL=nginx-udp.vulcancloud.io:5045
-TOOLS_VERSION=1.0.187
+TOOLS_VERSION=1.0.215
 VCLOUD_SERVICE_URL=http://vcloud.vulcancloud.io:5000/
 CONCOURSE_TEAM=main
 AZURE_SUBSCRIPTION=DAS
+IAAS=gcp
 
 ### DO NOT EDIT BELOW THIS LINE
 ### Below this line is generic copy pasted from the master in infrastructure
@@ -70,10 +71,9 @@ docker run -it --rm \
     "$(forward_port_if_set "$K8S_PROXY_PORT")" \
     -e USERNAME="$(whoami)" \
     -e TOOLS_CONTAINER_VERSION=$TOOLS_VERSION \
-    -e IAAS=azure \
+    -e IAAS=$IAAS \
     -e AZURE_SUBSCRIPTION=$AZURE_SUBSCRIPTION \
     -v "$MANAGE_PROJECT_DIR/ci:/vulcan-platform-tools/ci" \
     -v "$MANAGE_PROJECT_DIR/deployment:/vulcan-platform-tools/deployment" \
     -v "$(pwd):/vulcan-platform-tools/workdir" \
     $IMAGE_NAME
-

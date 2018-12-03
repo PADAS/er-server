@@ -145,14 +145,15 @@ resources:
     repository: gcr.io/padas-app/worker
 
 - name: image-server-worker-rt
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/worker-rt
+
 - name: image-server-worker-analyzer
-  type: docker-image
+  type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
@@ -893,6 +894,7 @@ jobs:
 
 - name: destroy-cluster
   serial: true
+  disable_manual_trigger: true
   plan:
   - get: git-deployment
   - do:
@@ -931,6 +933,7 @@ jobs:
 
 - name: destroy-namespace
   serial: true
+  disable_manual_trigger: true
   plan:
   - aggregate:
     - get: git-deployment
@@ -970,6 +973,7 @@ jobs:
 
 - name: destroy-disks
   serial: true
+  disable_manual_trigger: true
   plan:
   - aggregate:
     - get: git-deployment
