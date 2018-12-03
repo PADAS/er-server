@@ -21,6 +21,10 @@ class AWTPluginException(Exception):
     pass
 
 
+class AWTPluginFUPBackoffException(Exception):
+    pass
+
+
 class AWTPluginBannedException(Exception):
     pass
 
@@ -46,6 +50,7 @@ class AwtClient(object):
                    'tag_id': 'T', 'unit': 'U'}
     default_cache_expiry = 300  # 5 minutes
     use_policy_backoff = 70  # one minute + 10 seconds
+    use_policy_backoff_threshold = 2
     use_policy_major_backoff = 3720  # one hour + 2 minutes
     # live api returns last 24 hours of data
     live_api_coverage = timedelta(hours=24)
@@ -108,8 +113,16 @@ class AwtClient(object):
     def make_major_backoff_key(self):
         return f'awtplugin-{self.username}-soft-ban'
 
-    def check_use_policy(self, api_type):
+    def check_use_policy(self, api_type, cache_key=None):
+        backoff_count = 0
         while True:
+            response = cache.get(cache_key) if cache_key else None
+            if response:
+                return response
+
+            if backoff_count >= self.use_policy_backoff_threshold:
+                raise AWTPluginFUPBackoffException()
+
             if cache.get(self.make_major_backoff_key()):
                 raise AWTPluginBannedException('Banned in check_use_policy')
 
@@ -125,6 +138,7 @@ class AwtClient(object):
                     sleep(random.uniform(1, 10))
             else:
                 return
+            backoff_count += 1
 
     def set_use_policy_api(self, api_type, major_backoff=False):
         backoff_seconds = self.use_policy_backoff if not major_backoff else self.use_policy_major_backoff
@@ -143,11 +157,9 @@ class AwtClient(object):
         if not expiry_period:
             expiry_period = self.default_cache_expiry
 
-        response = cache.get(key) if key else None
+        response = self.check_use_policy(api_type, key)
         if response:
             return response
-
-        self.check_use_policy(api_type)
 
         try:
             self.set_use_policy_api(api_type)
