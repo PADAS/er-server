@@ -551,7 +551,9 @@ class KmlSubjectsView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer, )
 
     def get_queryset(self):
-        queryset = models.Subject.objects.all().by_is_active()
+        queryset = models.Subject.objects.all()
+        # To include inactive subjects in KmlSubject report
+        # queryset = queryset.by_is_active()
         queryset = queryset.by_user_subjects(self.request.user)
         return queryset
 
@@ -742,7 +744,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise PermissionDenied
         queryset = models.Subject.objects.all()
-        queryset = queryset.by_is_active()
+        # To include inactive subjects in trackingdata report
+        # queryset = queryset.by_is_active()
         queryset = queryset.by_user_subjects(self.request.user)
         return queryset
 
@@ -918,6 +921,7 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
     def get_queryset(self):
         # Get user accessible active subjects.
         queryset = models.Subject.objects.all()
-        queryset = queryset.by_is_active()
+        # To include inactive subjects in trackingmetadata report
+        # queryset = queryset.by_is_active()
         queryset = queryset.by_user_subjects(self.request.user)
         return queryset
