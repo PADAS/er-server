@@ -11,6 +11,15 @@ from analyzers.finder import get_subject_analyzers
 logger = logging.getLogger(__name__)
 
 
+def get_active_subject(subject_id):
+    try:
+        if Subject.objects.get(id=subject_id, is_active=True):
+            return True
+    except Subject.DoesNotExist as e:
+        logger.error('No active Subject found with id=%s', subject_id)
+        return False
+
+
 @celery.app.task(base=QueueOnce, once={'graceful': True, 'timeout': 3 * 60})
 def handle_subject(subject_id):
     """
@@ -40,33 +49,35 @@ def handle_source(source_id):
 
         # Execute in one minute, which will allow squashing a succession of observations for a single subject.
         # See 'handle_subject' and it's use of QueueOnce to do the squashing.
-        handle_subject.apply_async(args=(subject_id,), countdown=60)
+        if get_active_subject(subject_id):
+            handle_subject.apply_async(args=(subject_id,), countdown=60)
 
 
 @celery.app.task(base=QueueOnce)
 def analyze_subject(subject_id):
-
+    subject = None
     logger.info('Analyze subject for id=%s', subject_id)
     try:
-        subject = Subject.objects.get(id=subject_id)
+        subject = Subject.objects.get(id=subject_id, is_active=True)
     except Subject.DoesNotExist:
         logger.warning(
-            'No Subject found by ID in analyze_subject. id=%s', subject_id)
+            'No active Subject found by ID in analyze_subject. id=%s', subject_id)
 
-    logger.info('Running analyzers for subject: %s', subject)
-    for analyzer in get_subject_analyzers(subject):
+    if subject:
+        logger.info('Running analyzers for subject: %s', subject)
+        for analyzer in get_subject_analyzers(subject):
 
-        try:
-            analyzer_results = analyzer.analyze()
-            for result in analyzer_results:
-                logger.debug('Analyzer Result: %s', result[0])
+            try:
+                analyzer_results = analyzer.analyze()
+                for result in analyzer_results:
+                    logger.debug('Analyzer Result: %s', result[0])
 
-        except InsufficientDataAnalyzerException:
-            logger.warning(
-                'insufficient observations exist to support analyzer {}'.format(analyzer))
-        except Exception:
-            logger.exception(
-                'Programming error in analyzer. analyzer=%s', analyzer)
+            except InsufficientDataAnalyzerException:
+                logger.warning(
+                    'insufficient observations exist to support analyzer {}'.format(analyzer))
+            except Exception:
+                logger.exception(
+                    'Programming error in analyzer. analyzer=%s', analyzer)
 
 
 @celery.app.task()
@@ -103,4 +114,5 @@ def handle_observation(observation_id):
 
         # Execute in one minute, which will allow squashing a succession of observations for a single subject.
         # See 'handle_subject' and it's use of QueueOnce to do the squashing.
-        handle_subject.apply_async(args=(subject_id,), countdown=60)
+        if get_active_subject(subject_id):
+            handle_subject.apply_async(args=(subject_id,), countdown=60)

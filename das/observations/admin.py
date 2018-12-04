@@ -668,7 +668,7 @@ class RegionAdmin(admin.ModelAdmin):
 
 class SubjectGroupChangeForm(forms.ModelForm):
     filter_horizontal = ('children', 'permission_sets', 'subjects')
-    subjects = forms.ModelMultipleChoiceField(
+    active_subjects = forms.ModelMultipleChoiceField(
         queryset=models.Subject.objects.by_is_active(True),
         required=False,
         widget=FilteredSelectMultiple(
@@ -676,16 +676,46 @@ class SubjectGroupChangeForm(forms.ModelForm):
             is_stacked=False
         )
     )
+    inactive_subjects = forms.ModelMultipleChoiceField(
+        queryset=models.Subject.objects.by_is_active(False),
+        required=False,
+        widget=FilteredSelectMultiple(
+            verbose_name=_('Inactive Subjects'),
+            is_stacked=False
+        )
+    )
 
     class Meta:
         model = models.SubjectGroup
-        fields = ('name', 'id', 'is_visible', 'subjects', 'children',
+        fields = ('name', 'id', 'is_visible', 'active_subjects', 'children',
+                  'inactive_subjects',
                   'permission_sets')
 
     def __init__(self, *args, **kwargs):
+        if 'instance' in kwargs.keys() and kwargs['instance']:
+            instance = kwargs['instance']
+            subjects = instance.subjects.all()
+            initial = kwargs.setdefault('initial', {})
+            initial['active_subjects'] = [subject.id
+                                          if subject.is_active else None
+                                          for subject in subjects]
+            initial['inactive_subjects'] = [subject.id
+                                            if not subject.is_active else None
+                                            for subject in subjects]
         super().__init__(*args, **kwargs)
-        self.fields['children'].queryset = models.SubjectGroup.objects.exclude(
+        self.fields[
+            'children'].queryset = models.SubjectGroup.objects.exclude(
             id__exact=self.instance.id)
+
+    def save(self, commit=True):
+        instance = forms.ModelForm.save(self, False)
+        instance.save()
+        self.save_m2m()
+        for subject in self.cleaned_data['active_subjects']:
+            instance.subjects.add(subject)
+        for subject in self.cleaned_data['inactive_subjects']:
+            instance.subjects.add(subject)
+        return instance
 
 
 @admin.register(models.SubjectGroup)
@@ -695,7 +725,16 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
     ordering = ('name',)
     fieldsets = (
         (None, {'fields': ('name', 'id', 'is_visible')}),
-        (_('Members'), {'fields': ('subjects', 'children',)}),
+        ('Subjects', {
+            'fields': ('active_subjects',)
+        }),
+        ('Inactive Subjects', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('inactive_subjects',)
+        }),
+        ('Groups', {
+            'fields': ('children',)
+        }),
         (_('Permissions'), {'fields': ('permission_sets',)}),
 
     )
