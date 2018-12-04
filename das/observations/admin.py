@@ -711,6 +711,7 @@ class SubjectGroupChangeForm(forms.ModelForm):
         instance = forms.ModelForm.save(self, False)
         instance.save()
         self.save_m2m()
+        instance.subjects.clear()
         for subject in self.cleaned_data['active_subjects']:
             instance.subjects.add(subject)
         for subject in self.cleaned_data['inactive_subjects']:
