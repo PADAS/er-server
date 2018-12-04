@@ -58,6 +58,9 @@ DEFAULT_LOGGING = {
             'handlers': ['console'],
             'level': 'INFO',
         },
+        'PIL.Image': {
+            'level': 'INFO',
+        },
     }
 }
 

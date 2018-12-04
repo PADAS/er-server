@@ -80,14 +80,10 @@ def get_all_connections():
 
 
 def get_client_list():
-    for data in redis_client.hgetall(CLIENT_LIST_KEY).items():
-        sid = data[0].decode('utf-8')
-        c = _restore_client_data(data[1].decode('utf-8'))
-        if c:
-            client_data = c
+    for sid, client_data in redis_client.hgetall(CLIENT_LIST_KEY).items():
+        client_data = _restore_client_data(client_data.decode('utf-8'))
+        if client_data:
             yield client_data
-        else:
-            remove_client(sid)
 
 
 def add_client(sid, data):
@@ -145,7 +141,9 @@ def remove_clients(*sids):
 
     sids = set((str(sid) for sid in sids))
     logger.info('Removing clients for sids: %s', sids)
-    redis_client.hdel(CLIENT_LIST_KEY, *sids)
+    count = redis_client.hdel(CLIENT_LIST_KEY, *sids)
+    logger.info(f'Removed {count} clients (of {len(sids)} listed) from {CLIENT_LIST_KEY}')
+
     try:
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
@@ -180,8 +178,44 @@ def remove_all_rt_services():
         remove_rt_service(rt_svc)
 
 
+def trace_expiration_handler(msg):
+    logger.info('TRACE Expiration', extra=msg)
+
+
+def stop_trace_consumer():
+    logger.warning('Trace consumer has not been started.')
+
+
+def start_trace_consumer():
+
+    logger.info('Starting trace consumer.')
+    trace_pubsub = redis_client.pubsub()
+    trace_pubsub.psubscribe(
+        **{'__keyspace@2__:trace*': trace_expiration_handler})
+    trace_consumer = trace_pubsub.run_in_thread(sleep_time=0.001)
+
+    global stop_trace_consumer
+
+    def stop_trace_consumer(): return (logger.info(
+        'Stopping trace consumer.'), trace_consumer.stop())
+
+
 def shutdown_cleanup():
+    logger.info('Shutdown cleanup for realtime client list.')
     remove_rt_service(CLIENT_LIST_KEY)
+
+
+trace_ttl = 60
+
+
+def push_trace(trace_id, data):
+    logger.info('TRACE', extra={'action': 'push', 'trace_id': trace_id})
+    redis_client.setex(trace_id, data, trace_ttl)
+
+
+def pop_trace(trace_id):
+    logger.info('TRACE', extra={'action': 'pop', 'trace_id': trace_id})
+    redis_client.delete(trace_id)
 
 
 # shutdown hook to clean up service keys on service exit

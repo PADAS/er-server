@@ -63,6 +63,7 @@ class Command(RunCommand):
         close_old_connections()
 
         client.init_redis_storage()
+        client.start_trace_consumer()
 
         try:
             sio = create_rt_socketio()
@@ -121,3 +122,5 @@ class Command(RunCommand):
             if shutdown_message:
                 self.stdout.write(shutdown_message)
             sys.exit(0)
+        finally:
+            client.stop_trace_consumer()
