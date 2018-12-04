@@ -425,55 +425,10 @@ class TractVehicleHandler():
     @classmethod
     def post(cls, request, sensor_type, provider_key):
 
-        logger.info("Recieved new push message %s", request.data,
-                    extra={'msg.data': request.data})
-        params = SkylineObservations(data=request.data)
+        logger.info("Recieved new push message %s", request.data)
+        # remove me before production
+        logger.info("Metadata %s", request.META)
 
-        # short term don't throw away bad data, until
-        # we understand what skyline is sending us
-        if not params.is_valid():
-            status_fail = {'status' : 105, 'message' : params.errors}
-            return Response(data=status_fail, status=status.HTTP_400_BAD_REQUEST)
-
-        adapter = SkylineAdapter()
-        # TODO bulk_create
-        # obs_to_insert = []
-
-        for observation in params.data['Messages']:
-
-            das_obs = adapter.create_das_object(observation)
-
-            src = Source.objects.ensure_source(
-                das_obs.source_type,
-                provider=provider_key,
-                manufacturer_id=das_obs.manufacturer_id,
-                model_name=das_obs.model_name,
-                subject={
-                    'subject_subtype_id': das_obs.subject_subtype,
-                    'name': das_obs.subject_name
-                }
-            )
-            # skip if we already have this observation.
-            if Observation.objects.filter(source=src, recorded_at=das_obs.recorded_at).exists():
-                logger.info("Processed duplicate observation %s",
-                            das_obs.subject_subtype, extra={'obs.dup': provider_key})
-                continue
-
-            observation = {
-                'location': das_obs.location,
-                'recorded_at': das_obs.recorded_at,
-                'source': str(src.id),
-                'additional': das_obs.additional,
-            }
-
-            serializer = ObservationSerializer(data=observation)
-            if serializer.is_valid():
-                serializer.save()
-                logger.info("Added new observation %s", observation,
-                            extra={'obs.new': provider_key})
-                notify_new_tracks(src.id)
-            else:
-                logger.info("An error occured whle serializing the observation: %s", serializer.errors)
         status_ok = {'status' : 0, 'message' : 'success'}
-        return Response(data=status_ok, status=status.HTTP_200_OK)
 
+        return Response(data=status_ok, status=status.HTTP_200_OK)

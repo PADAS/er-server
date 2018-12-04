@@ -124,7 +124,7 @@ class SkylineAdapter:
         """
         das_obs = DasObservation(
             location={'latitude': skyline_obs['Lat'], 'longitude': skyline_obs['Lon']},
-            recorded_at=self.convert_asset_date(skyline_obs['GPSTime']),
+            recorded_at=convert_asset_date(skyline_obs['GPSTime']),
             manufacturer_id=skyline_obs['Vehicle']['Id'],
             subject_name=skyline_obs['Vehicle']['Reg'],
             subject_type=DAS_SUBJECT,
