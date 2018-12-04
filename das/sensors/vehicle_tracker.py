@@ -22,6 +22,32 @@ VEHICLE_DICT = {
     'Van': 'van'
 }
 
+def convert_asset_date(date_str, date_format = '%Y-%m-%d %H:%M:%S'):
+    """
+    Skyline AssetData format - dd/MM/yyyy HH:mm:ss
+    Observation format - YYYY-MM-DDThh:mm:ss
+    """
+    obs_fmt = datetime.strptime(date_str, date_format)
+    utc_date = pytz.utc.localize(obs_fmt)
+    iso_date = utc_date.isoformat()
+    return iso_date
+
+
+class TractObservation(serializers.Serializer):
+    GpsUTC = serializers.CharField()
+    Lat = serializers.FloatField()
+    Long = serializers.FloatField()
+    Alt = serializers.IntegerField()
+    Spd = serializers.IntegerField()
+    Head = serializers.IntegerField()
+
+
+class TractVehicleData(serializers.Serializer):
+    Reg = serializers.CharField()
+    Type = serializers.CharField()
+    Records = TractObservation(many=True)
+
+
 class SkylineVehicleData(serializers.Serializer):
     Id = serializers.IntegerField()
     Reg = serializers.CharField()
@@ -74,6 +100,26 @@ class DasObservation(NamedTuple):
         return self._asdict()
 
 
+class TractAdapter:
+
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    def create_das_object(self, mfg_id, subject_name, tract_record):
+        das_obs = DasObservation(
+            location={'latitude': tract_record['Lat'], 'longitude': tract_record['Long']},
+            recorded_at=convert_asset_date(tract_record['GpsUTC']),
+            manufacturer_id=mfg_id,
+            subject_name=subject_name,
+            subject_type=DAS_SUBJECT,
+            model_name=DAS_MODEL_NAME,
+            subject_subtype=DAS_DEF_VEHICLE_TYPE,
+            source_type=DAS_SOURCE_TYPE,
+            additional={}
+        )
+        return das_obs
+
+
 class SkylineAdapter:
     """
     Encapsulate data extraction and transform functions.
@@ -81,16 +127,6 @@ class SkylineAdapter:
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
-
-    def convert_asset_date(self, date_str):
-        """
-        Skyline AssetData format - dd/MM/yyyy HH:mm:ss
-        Observation format - YYYY-MM-DDThh:mm:ss
-        """
-        obs_fmt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
-        utc_date = pytz.utc.localize(obs_fmt)
-        iso_date = utc_date.isoformat()
-        return iso_date
 
     def create_das_object(self, skyline_obs):
         """
@@ -103,7 +139,7 @@ class SkylineAdapter:
         """
         das_obs = DasObservation(
             location={'latitude': skyline_obs['Lat'], 'longitude': skyline_obs['Lon']},
-            recorded_at=self.convert_asset_date(skyline_obs['GPSTime']),
+            recorded_at=convert_asset_date(skyline_obs['GPSTime']),
             manufacturer_id=skyline_obs['Vehicle']['Id'],
             subject_name=skyline_obs['Vehicle']['Reg'],
             subject_type=DAS_SUBJECT,

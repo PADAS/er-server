@@ -14,7 +14,7 @@ from observations import servicesutils
 from observations.models import update_subject_status_from_post
 from tracking.pubsub_registry import notify_new_tracks
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter,\
-    FollowltObservation
+    FollowltObservation, TractAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -423,7 +423,6 @@ class GsatHandler():
 
 
 class SkylineVehicleTrackerHandler():
-
     SENSOR_TYPE = 'vehicle-tracker-push'
     DEFAULT_SUBJECT_SUBTYPE = 'truck'
 
@@ -480,4 +479,20 @@ class SkylineVehicleTrackerHandler():
             else:
                 logger.info("An error occured whle serializing the observation: %s", serializer.errors)
         status_ok = {'status' : 0, 'message' : 'success'}
+        return Response(data=status_ok, status=status.HTTP_200_OK)
+
+
+class TractVehicleHandler():
+    SENSOR_TYPE = 'vehicle-observation-push'
+    DEFAULT_SUBJECT_SUBTYPE = 'truck'
+
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+
+        logger.info("Recieved new push message %s", request.data)
+        # remove me before production
+        logger.info("Metadata %s", request.META)
+
+        status_ok = {'status' : 0, 'message' : 'success'}
+
         return Response(data=status_ok, status=status.HTTP_200_OK)
