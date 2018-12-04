@@ -483,7 +483,7 @@ class SkylineVehicleTrackerHandler():
 
 
 class TractVehicleHandler():
-    SENSOR_TYPE = 'vehicle-observation-push'
+    SENSOR_TYPE = 'vehicle-observation'
     DEFAULT_SUBJECT_SUBTYPE = 'truck'
 
     @classmethod
