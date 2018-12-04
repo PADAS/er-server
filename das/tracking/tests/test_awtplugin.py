@@ -2,6 +2,7 @@ import ast
 import os
 import pytz
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
@@ -26,10 +27,10 @@ class AwtPluginTest(TestCase):
         latest_timestamp = '2018-07-25T12:00:09+00:00'
         cursor_data = {'latest_timestamp': latest_timestamp}
         awt_plugin = AwtPlugin.objects.get(username='random')
-        awt_client = AwtClient(username=awt_plugin.username,
-                               password=awt_plugin.password,
-                               host=awt_plugin.host,
-                               subscription_token=awt_plugin.subscription_token)
+        self.awt_client = AwtClient(username=awt_plugin.username,
+                                    password=awt_plugin.password,
+                                    host=awt_plugin.host,
+                                    subscription_token=awt_plugin.subscription_token)
         self.plugin_type = ContentType.objects.get(app_label='tracking',
                                                    model='awtplugin')
         self.source = Source.objects.get(manufacturer_id="2543")
@@ -39,20 +40,22 @@ class AwtPluginTest(TestCase):
         self.henry = Subject.objects.get(name='Henry')
 
         # Store data in cache
-        key = 'awtplugin-observations-{username}'.format(
-            username=awt_plugin.username)
         data = open(TESTDATA_FILENAME).read()
         self.data = ast.literal_eval(data)
-        cache.set(key, awt_client.decrypt_response(self.data))
 
     def test_name(self):
-        plugin_class = apps.get_model('tracking', 'AwtPlugin')
-        for plugin in plugin_class.objects.all():
-            if plugin.run_source_plugins:
-                for sp in plugin.source_plugins.filter(status='enabled'):
-                    if sp.should_run():
-                        run_source_plugin(sp.id)
-            else:
-                plugin.execute()
+        with patch(
+                'tracking.models.awt.AwtClient.fetch_data') as mock_fetch_data:
+            mock_fetch_data.return_value = self.awt_client.decrypt_response(
+                self.data)
+            plugin_class = apps.get_model('tracking', 'AwtPlugin')
+            for plugin in plugin_class.objects.all():
+                if plugin.run_source_plugins:
+                    for sp in plugin.source_plugins.filter(status='enabled'):
+                        if sp.should_run():
+                            run_source_plugin(sp.id)
+                else:
+                    plugin.execute()
+
         source_plugin = SourcePlugin.objects.get(source=self.source)
         self.assertTrue(len(self.henry.observations()) > 0)
