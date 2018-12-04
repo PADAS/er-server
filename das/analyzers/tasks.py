@@ -47,7 +47,6 @@ def handle_source(source_id):
 def analyze_subject(subject_id):
 
     logger.info('Analyze subject for id=%s', subject_id)
-    print('in analyze_subject')
     try:
         subject = Subject.objects.get(id=subject_id)
     except Subject.DoesNotExist:
@@ -56,7 +55,6 @@ def analyze_subject(subject_id):
 
     logger.info('Running analyzers for subject: %s', subject)
     for analyzer in get_subject_analyzers(subject):
-        print(analyzer)
 
         try:
             analyzer_results = analyzer.analyze()
@@ -75,7 +73,6 @@ def analyze_subject(subject_id):
 def annotate_observations_for_subject(subject_id):
 
     logger.debug('Annotating observations for subject: %s', str(subject_id))
-    print('in annotator')
 
     try:
         sub = Subject.objects.get(id=subject_id)
