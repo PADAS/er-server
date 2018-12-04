@@ -8,11 +8,7 @@ from utils.json import JSONTextParser
 
 from utils.drf import AllowAnyGet
 from sensors.handlers import GsatHandler, GenericSensorHandler,\
-<<<<<<< HEAD
-    DasRadioAgentHandler, SkylineVehicleTrackerHandler, TractVehicleHandler
-=======
-    DasRadioAgentHandler, SkylineVehicleTrackerHandler, FollowltTrackerHandler
->>>>>>> e278b0cb1931b227d523e9b3947bbf3ef46e793d
+    DasRadioAgentHandler, SkylineVehicleTrackerHandler, FollowltTrackerHandler,  TractVehicleHandler
 from sensors.camera_trap import CameraTrapSensorHandler
 from observations.serializers import ObservationSerializer
 
