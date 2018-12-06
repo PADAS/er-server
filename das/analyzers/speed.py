@@ -24,10 +24,11 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
 
     @classmethod
     def get_subject_analyzers(cls, subject=None):
-        subject_groups = subject.get_ancestor_subject_groups()
-        for ac in LowSpeedPercentileAnalyzerConfig.objects.filter(
-                subject_group__in=subject_groups, is_active=True):
-            yield cls(subject=subject, config=ac)
+        if subject:
+            subject_groups = subject.get_ancestor_subject_groups()
+            for ac in LowSpeedPercentileAnalyzerConfig.objects.filter(
+                    subject_group__in=subject_groups, is_active=True):
+                yield cls(subject=subject, config=ac)
 
     def default_observations(self):
         """
@@ -177,10 +178,11 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
 
     @classmethod
     def get_subject_analyzers(cls, subject=None):
-        subject_groups = subject.get_ancestor_subject_groups()
-        for ac in LowSpeedWilcoxAnalyzerConfig.objects.filter(
-                subject_group__in=subject_groups, is_active=True):
-            yield cls(subject=subject, config=ac)
+        if subject:
+            subject_groups = subject.get_ancestor_subject_groups()
+            for ac in LowSpeedWilcoxAnalyzerConfig.objects.filter(
+                    subject_group__in=subject_groups, is_active=True):
+                yield cls(subject=subject, config=ac)
 
     def _normal_movement_distro(self, trajectory_filter=None, end=None, last_hours=30 * 24):
 

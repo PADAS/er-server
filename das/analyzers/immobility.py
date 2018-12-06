@@ -38,10 +38,11 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
     @classmethod
     def get_subject_analyzers(cls, subject=None):
-        subject_groups = subject.get_ancestor_subject_groups()
-        for ac in ImmobilityAnalyzerConfig.objects.filter(
-                subject_group__in=subject_groups, is_active=True):
-            yield cls(subject=subject, config=ac)
+        if subject:
+            subject_groups = subject.get_ancestor_subject_groups()
+            for ac in ImmobilityAnalyzerConfig.objects.filter(
+                    subject_group__in=subject_groups, is_active=True):
+                yield cls(subject=subject, config=ac)
 
     def default_observations(self):
         """

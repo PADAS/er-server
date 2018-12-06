@@ -940,7 +940,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         subject_groups = set()
         for subject_group in self.groups.all():
             subject_groups.add(subject_group)
-            subject_groups.union(set(subject_group.get_ancestors()))
+            subject_groups = subject_groups.union(
+                set(subject_group.get_ancestors()))
         return subject_groups
 
     def __str__(self):
