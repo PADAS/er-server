@@ -687,13 +687,13 @@ class SubjectGroupChangeForm(forms.ModelForm):
 
     class Meta:
         model = models.SubjectGroup
-        fields = ('name', 'id', 'is_visible', 'active_subjects', 'children',
-                  'inactive_subjects',
-                  'permission_sets')
+        fields = ('name', 'id', 'is_visible',
+                  'active_subjects', 'inactive_subjects',
+                  'children', 'permission_sets')
 
     def __init__(self, *args, **kwargs):
-        if 'instance' in kwargs.keys() and kwargs['instance']:
-            instance = kwargs['instance']
+        if kwargs.get('instance', None):
+            instance = kwargs.get('instance')
             subjects = instance.subjects.all()
             initial = kwargs.setdefault('initial', {})
             initial['active_subjects'] = [subject.id

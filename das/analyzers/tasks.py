@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_active_subject(subject_id):
+    # Check existence of active subject object with provided subject_id
     try:
         if Subject.objects.get(id=subject_id, is_active=True):
             return True
