@@ -11,11 +11,12 @@ class SubjectAnalyzer:
 
     def __init__(self, subject=None, config=None):
         self.config = config
-        if subject.get('is_active', None):
-            self.subject = subject
-        else:
-            raise Exception('Error while initializing analyzer due to inactive'
-                            ' subject = {}'.format(subject.get('name')))
+        # If subject is not None and if it is inactive subject(is_active=False)
+        # Throw ValueError
+        if subject and not subject.is_active:
+            raise ValueError('Error while initializing analyzer,'
+                             ' {} subject is not active'.format(subject.name))
+        self.subject = subject
 
     def analyze_trajectory(self, traj=None):
         raise NotImplementedError()
