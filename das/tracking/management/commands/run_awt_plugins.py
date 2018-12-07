@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime
 
 import pytz
@@ -6,16 +7,30 @@ from dateutil.parser import parse
 from django.apps import apps
 from django.core.management.base import BaseCommand
 
-from observations.models import Source
+from observations.models import Source, SourceProvider
+from tracking.models.plugin_base import SourcePlugin
 from tracking.models.awt import AwtClient
 from tracking.tasks import run_source_plugin
+
+
+AWT_ID_CONVERSION_RE = re.compile(r'0([0-9]{7})[SKY,VTI][0-9A-Z]{4}')
+
+
+def convert_skyq_tag_to_awtplugin_tag(skyq_tag_id):
+    if not skyq_tag_id:
+        return
+    skyq_tag_id = skyq_tag_id.strip()
+    matches = AWT_ID_CONVERSION_RE.match(skyq_tag_id)
+    if matches:
+        return matches.groups(0)[0]
 
 
 class Command(BaseCommand):
     logger = logging.getLogger(__name__)
     help = 'Run AwtPlugin maintenance.'
 
-    SUB_COMMANDS = ('maintenance', 'observations', 'list', 'taglist')
+    SUB_COMMANDS = ('maintenance', 'observations',
+                    'list', 'taglist', 'upgrade')
     plugin_class = apps.get_model('tracking', 'AwtPlugin')
 
     def add_arguments(self, parser):
@@ -35,7 +50,7 @@ class Command(BaseCommand):
                             help='Unit id for AwtPlugin')
         parser.add_argument('--profile', help='AwtPlugin Profile name')
 
-        parser.add_argument('--dry-run',
+        parser.add_argument('--dry-run', action='store_true',
                             help="stdout data(won't store in DB). Possible "
                                  "values [true/false]")
 
@@ -43,9 +58,6 @@ class Command(BaseCommand):
         sub_command = options['sub-command']
         if sub_command not in self.SUB_COMMANDS:
             raise NameError('Command: {0} not supported'.format(sub_command))
-        if 'dry-run' in options.keys():
-            if options['dry-run'].lower() not in ['true', 'false']:
-                raise ValueError('Possible value for dry-run(true/false)')
         getattr(self, sub_command)(options)
 
     def fetch_plugins(self, options):
@@ -73,6 +85,7 @@ class Command(BaseCommand):
         for plugin in self.fetch_plugins(options):
             awt_client = AwtClient(username=plugin.username,
                                    password=plugin.password, host=plugin.host)
+            self.logger.info(f'Unit list for account {plugin.username}')
             self.logger.info(awt_client.fetch_units())
 
     def taglist(self, options):
@@ -80,6 +93,7 @@ class Command(BaseCommand):
         for plugin in self.fetch_plugins(options):
             awt_client = AwtClient(username=plugin.username,
                                    password=plugin.password, host=plugin.host)
+            self.logger.info(f'Tags for account {plugin.username}')
             self.logger.info(awt_client.fetch_tags())
 
     def validate_start_end_time(self, start, end=None):
@@ -153,3 +167,49 @@ class Command(BaseCommand):
             raise ValueError('Either manufacturer-id or unit-id is required'
                              '. Use --manufacturer-id [manufacturer-id] '
                              'or --unit-id [unit-id].')
+
+    def upgrade(self, options):
+        # upgrade from skygistics to Awt API
+        for plugin in self.fetch_plugins(options):
+            awt_client = AwtClient(username=plugin.username,
+                                   password=plugin.password, host=plugin.host)
+
+            self.logger.info(
+                f'Upgrading existing Skygistics sources to use plugin {plugin.name}')
+            response = awt_client.fetch_tags()
+            tags = response.get('Tag_List', [])
+            if not tags:
+                self.logger.warning(f'No tags found for plugin {plugin.name}')
+                continue
+
+            tags = [t['id'] for t in tags]
+
+            # iterate through existing sources that match
+            for source in Source.objects.filter(source_type='tracking-device'):
+                mapped_manufacturer_id = convert_skyq_tag_to_awtplugin_tag(
+                    source.manufacturer_id)
+                if not mapped_manufacturer_id:
+                    continue
+
+                provider_key = plugin.name
+                source_provider, created = SourceProvider.objects.get_or_create(
+                    provider_key=provider_key)
+
+                try:
+                    source_plugin = next(
+                        SourcePlugin.objects.filter(source=source))
+                except StopIteration:
+                    continue
+
+                self.logger.info(
+                    f'Found source {source.manufacturer_id} with {source_plugin.plugin.name} upgrading to {mapped_manufacturer_id} plugin {plugin.name}')
+                if options['dry_run']:
+                    self.logger.info('Dry run, looking for the next one')
+                    continue
+
+                source.manufacturer_id = mapped_manufacturer_id
+                source.provider = source_provider
+                source.save()
+
+                source_plugin.plugin = plugin
+                source_plugin.save()

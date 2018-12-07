@@ -121,10 +121,12 @@ class AwtClient(object):
                 return response
 
             if backoff_count >= self.use_policy_backoff_threshold:
-                raise AWTPluginFUPBackoffException()
+                raise AWTPluginFUPBackoffException(
+                    f'Account {self.username} exceeded backoff threshold for api {api_type}')
 
             if cache.get(self.make_major_backoff_key()):
-                raise AWTPluginBannedException('Banned in check_use_policy')
+                raise AWTPluginBannedException(
+                    f'Banned in check_use_policy for account {self.username}')
 
             ttl = cache.get(self.make_use_policy_key(api_type))
             if ttl:
@@ -133,7 +135,7 @@ class AwtClient(object):
                 sleep_seconds = sleep_seconds.total_seconds()
                 if sleep_seconds:
                     self.logger.warning(
-                        f'AWT Use Policy enforcement for {api_type}, sleeping {sleep_seconds} secs')
+                        f'AWT Use Policy enforcement for {api_type} account {self.username}, sleeping {sleep_seconds} secs')
                     sleep(sleep_seconds)
                     sleep(random.uniform(1, 10))
             else:
@@ -184,14 +186,14 @@ class AwtClient(object):
         data = json.loads(response.text.strip())
         if data and data.get('Result') == False:
             reason = data.get('Reason')
-            message = f'AWT API returned False, {reason}'
+            message = f'AWT API returned False, {reason} for account {self.username}'
             if reason:
                 if reason.lower().count('ban'):
                     self.set_use_policy_api(api_type, major_backoff=True)
                     raise AWTPluginBannedException(message)
                 elif reason.lower().startswith('invalid session token'):
                     self.clear_session_token()
-                    raise AWTPluginInvalidSessionTokenException
+                    raise AWTPluginInvalidSessionTokenException(message)
             raise AWTPluginException(message)
 
         if key:
