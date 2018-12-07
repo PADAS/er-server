@@ -1,4 +1,5 @@
 import random
+import pytz
 from datetime import datetime
 from urllib.parse import urlencode
 
@@ -13,6 +14,15 @@ from observations.serializers import ObservationSerializer
 from observations.views import TrackingMetaDataExportView, TrackingDataCsvView
 
 API_BASE = '/api/v1.0'
+
+current_tz_name = timezone.get_current_timezone_name()
+current_tz = pytz.timezone(current_tz_name)
+current_date = datetime.utcnow().astimezone(current_tz)
+tz_difference = current_date.utcoffset().total_seconds() / 60 / 60
+tz_offset = 'GMT' + ('+' if tz_difference >= 0 else '') + str(
+    int(tz_difference)) + ':' + str(
+    int((tz_difference - int(tz_difference)) * 60)
+)
 
 
 class TrackingMetaDataExportViewTest(BaseAPITest):
@@ -160,8 +170,9 @@ class TrackingDataCsvViewTest(BaseAPITest):
         csv_data = [row.split(',') for row in csv_file_data[1:-1]]
         observations = [dict(zip(header, data)) for data in csv_data]
 
-        fixtime_key = 'fixtime'
-        dloadtime_key = 'dloadtime'
+        # Add GMT timezone format in fixtime_key & dloadtime_key
+        fixtime_key = 'fixtime ({})'.format(tz_offset)
+        dloadtime_key = 'dloadtime ({})'.format(tz_offset)
         for observation in observations:
             fixtime_key = next(key for key in observation.keys()
                                if key.startswith('fixtime'))

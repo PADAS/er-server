@@ -106,29 +106,31 @@ CLIENT_CLEANUP_INTERVAL = 30  # seconds
 
 def cleanup_disconnected_clients(sios):
 
-    logger.info('Clean up disconnected sockets.')
-    if not sios.environ:
-        return
+    try:
+        if sios.environ:
+            logger.info('Clean up disconnected sockets.')
 
-    environ = [sid for sid in sios.environ]
-    client_list = set(client.get_client_list())
+            environ = [sid for sid in sios.environ]
+            client_list = set(client.get_client_list())
 
-    remove_these_clients = set(
-        [c for c in client_list if c.sid not in environ])
+            remove_these_clients = set(
+                [c for c in client_list if c.sid not in environ])
 
-    if len(remove_these_clients) > 0:
+            if len(remove_these_clients) > 0:
 
-        for c in remove_these_clients:
-            logger.info('Cleaning up disconnected socket.', extra={
-                        'sid': c.sid, 'username': c.username})
+                for c in remove_these_clients:
+                    logger.info('Cleaning up disconnected socket.', extra={
+                                'sid': c.sid, 'username': c.username})
 
-        client.remove_clients(
-            *[x.sid for x in remove_these_clients])
-    else:
-        logger.debug('No sockets to clean up.')
+                client.remove_clients(
+                    *[x.sid for x in remove_these_clients])
+            else:
+                logger.debug('No sockets to clean up.')
 
-    eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,
-                         cleanup_disconnected_clients, sios)
+    finally:
+
+        eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,
+                             cleanup_disconnected_clients, sios)
 
 
 def create_realtime_handler(sios):

@@ -13,6 +13,8 @@ DAS_DEF_VEHICLE_TYPE = 'security_vehicle'
 DAS_MODEL_NAME = 'vehicle-tracker'
 DAS_SOURCE_TYPE = 'tracking-device'
 
+logger = logging.getLogger(__name__)
+
 # map skyline vehicle types
 VEHICLE_DICT = {
     'Truck': DAS_DEF_VEHICLE_TYPE,
@@ -21,6 +23,54 @@ VEHICLE_DICT = {
     'Pick-Up': 'pickup',
     'Van': 'van'
 }
+
+def convert_asset_date(date_str, date_format = '%Y-%m-%d %H:%M:%S'):
+    """
+    Skyline AssetData format - dd/MM/yyyy HH:mm:ss
+    Observation format - YYYY-MM-DDThh:mm:ss
+    """
+    obs_fmt = datetime.strptime(date_str, date_format)
+    utc_date = pytz.utc.localize(obs_fmt)
+    iso_date = utc_date.isoformat()
+    return iso_date
+
+
+class TractObservation(serializers.Serializer):
+    GpsUTC = serializers.CharField()
+    Lat = serializers.FloatField()
+    Long = serializers.FloatField()
+    Alt = serializers.IntegerField()
+    Spd = serializers.IntegerField()
+    Head = serializers.IntegerField()
+    
+class TractVehicleData(serializers.Serializer):
+    Reg = serializers.IntegerField()
+    MfgId = serializers.IntegerField()
+    Records = TractObservation(many=True)
+
+    @classmethod
+    def parse_observations(cls, j_data):
+        trimmed_data = {}
+        # the only data we are loking for is when the Field type is 0,
+        # which holds the geodata for the observation
+        if 'Records' in j_data:
+            obs_list = []
+            for record in j_data['Records']:
+                for field in record['Fields']:
+                    if 'FType' in field and field['FType'] == 0:
+                        obs = {}
+                        obs['GpsUTC'] = field['GpsUTC']
+                        obs['Lat'] = field['Lat']
+                        obs['Long'] = field['Long']
+                        obs['Alt'] = field['Alt']
+                        obs['Spd'] = field['Spd']
+                        obs['Head'] = field['Head']
+                        obs_list.append(obs)
+            trimmed_data['Reg'] = int(j_data['SerNo'])
+            trimmed_data['MfgId'] = int(j_data['IMEI'])
+            trimmed_data['Records'] = obs_list
+        return TractVehicleData(data=trimmed_data)
+
 
 class SkylineVehicleData(serializers.Serializer):
     Id = serializers.IntegerField()
@@ -74,23 +124,29 @@ class DasObservation(NamedTuple):
         return self._asdict()
 
 
+class TractAdapter:
+
+    def create_das_object(self, mfg_id, subject_name, tract_record):
+        das_obs = DasObservation(
+            location={'latitude': tract_record['Lat'], 'longitude': tract_record['Long']},
+            recorded_at=convert_asset_date(tract_record['GpsUTC']),
+            manufacturer_id=mfg_id,
+            subject_name=subject_name,
+            subject_type=DAS_SUBJECT,
+            model_name=DAS_MODEL_NAME,
+            subject_subtype=DAS_DEF_VEHICLE_TYPE,
+            source_type=DAS_SOURCE_TYPE,
+            additional={}
+        )
+        logger.info("Creeated DAS observation %s",
+                        das_obs, extra={'das.obs': das_obs})
+        return das_obs
+
+
 class SkylineAdapter:
     """
     Encapsulate data extraction and transform functions.
     """
-
-    def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
-
-    def convert_asset_date(self, date_str):
-        """
-        Skyline AssetData format - dd/MM/yyyy HH:mm:ss
-        Observation format - YYYY-MM-DDThh:mm:ss
-        """
-        obs_fmt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
-        utc_date = pytz.utc.localize(obs_fmt)
-        iso_date = utc_date.isoformat()
-        return iso_date
 
     def create_das_object(self, skyline_obs):
         """
@@ -103,7 +159,7 @@ class SkylineAdapter:
         """
         das_obs = DasObservation(
             location={'latitude': skyline_obs['Lat'], 'longitude': skyline_obs['Lon']},
-            recorded_at=self.convert_asset_date(skyline_obs['GPSTime']),
+            recorded_at=convert_asset_date(skyline_obs['GPSTime']),
             manufacturer_id=skyline_obs['Vehicle']['Id'],
             subject_name=skyline_obs['Vehicle']['Reg'],
             subject_type=DAS_SUBJECT,
@@ -112,4 +168,6 @@ class SkylineAdapter:
             source_type=DAS_SOURCE_TYPE,
             additional={}
         )
+        logger.info("Creeated DAS observation %s",
+                        das_obs, extra={'das.obs': das_obs})
         return das_obs

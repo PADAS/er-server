@@ -14,7 +14,7 @@ from observations import servicesutils
 from observations.models import update_subject_status_from_post
 from tracking.pubsub_registry import notify_new_tracks
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter,\
-    FollowltObservation
+    FollowltObservation, TractAdapter, TractVehicleData
 
 logger = logging.getLogger(__name__)
 
@@ -423,7 +423,6 @@ class GsatHandler():
 
 
 class SkylineVehicleTrackerHandler():
-
     SENSOR_TYPE = 'vehicle-tracker-push'
     DEFAULT_SUBJECT_SUBTYPE = 'truck'
 
@@ -480,4 +479,64 @@ class SkylineVehicleTrackerHandler():
             else:
                 logger.info("An error occured whle serializing the observation: %s", serializer.errors)
         status_ok = {'status' : 0, 'message' : 'success'}
+        return Response(data=status_ok, status=status.HTTP_200_OK)
+
+
+class TractVehicleHandler():
+
+    SENSOR_TYPE = 'vehicle-observation'
+    DEFAULT_SUBJECT_SUBTYPE = 'truck'
+
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+
+        logger.info("Recieved new push message %s", request.data)
+        params = TractVehicleData.parse_observations(request.data)
+
+        if not params.is_valid():
+            status_fail = {'status' : 404, 'message' : params.errors}
+            return Response(data=status_fail, status=status.HTTP_200_OK)
+
+        else:
+            adapter = TractAdapter()
+            mfg_id = params['MfgId']
+            reg = params['Reg']
+
+            for observation in params.data['Records']:
+                das_obs = adapter.create_das_object(mfg_id, reg, observation)
+                src = Source.objects.ensure_source(
+                    das_obs.source_type,
+                    provider=provider_key,
+                    manufacturer_id=das_obs.manufacturer_id,
+                    model_name=das_obs.model_name,
+                    subject={
+                        'subject_subtype_id': das_obs.subject_subtype,
+                        'name': das_obs.subject_name
+                    }
+                )
+                # skip if we already have this observation.
+                if Observation.objects.filter(source=src, recorded_at=das_obs.recorded_at).exists():
+                    logger.info("Processed duplicate observation %s",
+                                das_obs.subject_subtype, extra={'obs.dup': provider_key})
+                    continue
+
+                observation = {
+                    'location': das_obs.location,
+                    'recorded_at': das_obs.recorded_at,
+                    'source': str(src.id),
+                    'additional': das_obs.additional,
+                }
+
+                serializer = ObservationSerializer(data=observation)
+                if serializer.is_valid():
+                    serializer.save()
+                    logger.info("Added new observation %s", observation,
+                                extra={'obs.new': provider_key})
+                    notify_new_tracks(src.id)
+                else:
+                    logger.info("An error occured whle serializing the observation: %s", serializer.errors)
+
+        
+        status_ok = {'status' : 200, 'message' : 'success'}
+
         return Response(data=status_ok, status=status.HTTP_200_OK)
