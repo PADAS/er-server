@@ -57,6 +57,7 @@ tz_difference = current_date.utcoffset().total_seconds() / 60 / 60
 tz_offset = 'GMT' + ('+' if tz_difference >= 0 else '') + str(int(tz_difference)) + \
             ':' + str(int((tz_difference - int(tz_difference)) * 60))
 
+
 def default_since():
     """default value for since
     last days is the default
@@ -69,6 +70,7 @@ def dateparse(date_str, default_tz=pytz.utc):
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tz)
     return dt
+
 
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
@@ -804,7 +806,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                     subject_source = models.SubjectSource.objects.filter(
                         source=observation.source,
                         subject=subject)[0]
-                    recorded_at = observation.recorded_at.astimezone(current_tz)
+                    recorded_at = observation.recorded_at.astimezone(
+                        current_tz)
                     created_at = observation.created_at.astimezone(current_tz)
                     data = {'lat': observation.location.x,
                             'lon': observation.location.y,
@@ -826,10 +829,11 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 content_type='application/json', status=status.HTTP_200_OK
             )
 
+        download_filename = f'Tracking Data {timestamp.strftime("%Y-%m-%d")}.csv'
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment;' \
-                                          'filename=Tracking Data {}.csv'.\
-            format(timestamp.strftime('%Y-%m-%d'))
+        response['Content-Disposition'] = f'attachment;filename={download_filename}'
+        response['x-das-download-filename'] = download_filename
+
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         if csv_data:
@@ -937,10 +941,10 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                 content_type='application/json', status=status.HTTP_200_OK
             )
 
+        download_filename = f'Tracking Meta Data Export {timestamp.strftime("%Y-%m-%d")}.csv'
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=' \
-            '"Tracking Meta Data Export {}.csv"'.format(
-            timestamp.strftime('%Y-%m-%d'))
+        response['Content-Disposition'] = f'attachment; filename={download_filename}'
+        response['x-das-download-filename'] = download_filename
 
         writer = csv.DictWriter(response, headers)
         writer.writeheader()
