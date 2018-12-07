@@ -186,6 +186,7 @@ def _subjectstatus_update_handler(subject_id):
                 # If subject-status payload is not None, then emit it.
                 payload = get_subjectstatus_payload(user, subject_id)
 
+                logger.debug('SubjectStatus payload: %s', payload)
                 if payload:
 
                     emit_data = {
@@ -295,8 +296,7 @@ def get_subject_view_details(view, user, subject_id):
 def get_subjectstatus_view(view, user, subject_id):
     # Create a dummy request with the user's info so we get the permission
     # enforcement for free
-    request = DummyRequest(
-        '/subject/{0}/status'.format(subject_id), 'GET', user=user)
+    request = DummyRequest(uri=f'/subject/{str(subject_id)}/status', http_method='GET', user=user)
 
     result = view(request, subject_id=subject_id,)
 
