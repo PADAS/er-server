@@ -55,7 +55,8 @@ class AwtClient(object):
     # live api returns last 24 hours of data
     live_api_coverage = timedelta(hours=24)
     replay_api_coverage = timedelta(days=90)  # replay only goes back 90 days
-    fetch_unit_data_expiry = 60  # one minute
+    unit_tag_cache_expiry = 3600  # one hour
+    fetch_unit_data_expiry = 240  # four minutes
     LIVE_API = 'LIVE_API'
     REPLAY_API = 'REPLAY_API'
     HISTORY_API = 'HISTORY_API'
@@ -275,14 +276,15 @@ class AwtClient(object):
         url = self.host + self.APIS.get(api_type, None)
         payload = {'ST': self.session_token}
         return self.handle_request(api_type, url, payload, key=key,
-                                   expiry_period=self.default_cache_expiry)
+                                   expiry_period=self.unit_tag_cache_expiry)
 
     def fetch_tags(self):
         api_type = 'TAG_API'
         self.check_and_update_token()
         url = self.host + self.APIS.get(api_type, None)
         payload = {'ST': self.session_token}
-        return self.handle_request(api_type, url, payload)
+        return self.handle_request(api_type, url, payload,
+                                   expiry_period=self.unit_tag_cache_expiry)
 
     def fetch_observations(self, params):
         tag_id = params['tag_id']
@@ -396,10 +398,8 @@ class AwtPlugin(TrackingPlugin):
             params = additional_data
             if additional_data:
                 params = self._parse_additional_data(additional_data)
-            dry_run = False
-            if additional_data and 'dry_run' in additional_data.keys():
-                if additional_data['dry_run'].lower() == 'true':
-                    dry_run = True
+            dry_run = additional_data.get('dry_run', False)
+
             observations = client.fetch_observations(params)
             if dry_run:
                 self.logger.info(observations)
