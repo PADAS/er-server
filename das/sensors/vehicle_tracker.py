@@ -67,6 +67,21 @@ class SkylineObservations(serializers.Serializer):
     Messages = SkylineObservation(many=True)
 
 
+class FollowltObservation(serializers.Serializer):
+    lat = serializers.FloatField()
+    lng = serializers.FloatField()
+    date = serializers.CharField()
+    collarId = serializers.CharField()
+    ttf = serializers.CharField(default=None)
+    sats = serializers.CharField(default=None)
+    positionId = serializers.CharField(default=None)
+    serialId = serializers.CharField(default=None)
+    alt = serializers.CharField(default=None)
+    hdop = serializers.CharField(default=None)
+    temp = serializers.CharField(default=None)
+    name = serializers.CharField(default=None)
+
+
 class DasObservation(NamedTuple):
     """
     Data object that represents the payload that is posted to the DAS sensor API
@@ -124,7 +139,7 @@ class SkylineAdapter:
         """
         das_obs = DasObservation(
             location={'latitude': skyline_obs['Lat'], 'longitude': skyline_obs['Lon']},
-            recorded_at=self.convert_asset_date(skyline_obs['GPSTime']),
+            recorded_at=convert_asset_date(skyline_obs['GPSTime']),
             manufacturer_id=skyline_obs['Vehicle']['Id'],
             subject_name=skyline_obs['Vehicle']['Reg'],
             subject_type=DAS_SUBJECT,

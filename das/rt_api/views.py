@@ -1,5 +1,9 @@
 import logging
 
+import time
+from datetime import datetime, timedelta
+import pytz
+
 import eventlet
 from django.shortcuts import render
 from django.views.generic import View
@@ -75,6 +79,60 @@ def validate_event_filter(ef):
     return ef
 
 
+def receipt_callback(trace_id, *args, **kwargs):
+    client.pop_trace(trace_id)
+
+
+AUTH_CHECK_SLEEP_TIME = getattr(settings, 'REALTIME_AUTH_TIMEOUT_SECONDS', 1.0)
+
+
+def confirm_authorzation(sid, sios):
+
+    extra = dict(sid=sid)
+    logger.debug('Confirming auth for new socket connection (waiting %s seconds).',
+                 AUTH_CHECK_SLEEP_TIME, extra=extra)
+    eventlet.sleep(AUTH_CHECK_SLEEP_TIME)
+    if not client.is_client(sid):
+        logger.debug(
+            "Disconnecting unauthenticated socket connection %s", sid, extra=extra)
+        sios.disconnect(sid)
+    else:
+        logger.debug(
+            'New socket connection is authenticated. sid=%s', sid, extra=extra)
+
+
+CLIENT_CLEANUP_INTERVAL = 30  # seconds
+
+
+def cleanup_disconnected_clients(sios):
+
+    try:
+        if sios.environ:
+            logger.info('Clean up disconnected sockets.')
+
+            environ = [sid for sid in sios.environ]
+            client_list = set(client.get_client_list())
+
+            remove_these_clients = set(
+                [c for c in client_list if c.sid not in environ])
+
+            if len(remove_these_clients) > 0:
+
+                for c in remove_these_clients:
+                    logger.info('Cleaning up disconnected socket.', extra={
+                                'sid': c.sid, 'username': c.username})
+
+                client.remove_clients(
+                    *[x.sid for x in remove_these_clients])
+            else:
+                logger.debug('No sockets to clean up.')
+
+    finally:
+
+        eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,
+                             cleanup_disconnected_clients, sios)
+
+
 def create_realtime_handler(sios):
     class RealtimeServices:
 
@@ -86,18 +144,12 @@ def create_realtime_handler(sios):
             # Drop the user if they don't authenticate immediately
             socket['authed'] = False
 
-            def confirm_authed(sid, socket):
-                logger.debug('confirming auth for sid=%s', sid)
-                if not client.is_client(sid):
-                    extra = dict(sid=sid)
-                    logger.info(
-                        "Disconnecting unauthenticated socket connection %s",
-                        sid, extra=extra)
-                    sios.disconnect(sid)
+            logger.info('on_connect', extra={'sid': str(sid)})
+            logger.debug('on_connect', extra={
+                         'sid': str(sid), 'socket': repr(socket)})
 
             # Make sure the connection authenticates immediately
-            eventlet.spawn_after(settings.REALTIME_AUTH_TIMEOUT_SECONDS,
-                                 confirm_authed, sid, socket)
+            eventlet.spawn(confirm_authorzation, sid, sios)
 
         @sios.on('disconnect')
         def on_disconnect(sid, *args):
@@ -235,17 +287,23 @@ def create_realtime_handler(sios):
             # user is the SID if set
             if user and user not in sios.environ:
                 client.remove_client(user)
-                extra = dict(sid=user)
+                # extra = dict(sid=user)
                 logger.warning(
-                    'Tried to send a message to a disconnected client. user=%s',
-                    user, extra=extra)
+                    'Tried to send a message to a disconnected client.', extra={'sid': user})
                 return
             try:
+
+                # Add trace ID to message. It will be sent back in callback.
+                if isinstance(data, dict):
+                    data['trace_id'] = f'trace-{user}-{time.time()}'
+                    client.push_trace(data['trace_id'], data)
+
                 if user is None:
-                    sios.emit(message_type, data, namespace='/das')
+                    sios.emit(message_type, data, namespace='/das',
+                              callback=receipt_callback)
                 else:
                     sios.emit(message_type, data, room=str(
-                        user), namespace='/das')
+                        user), namespace='/das', callback=receipt_callback)
 
             except Exception as ex:
                 if user:
@@ -259,32 +317,16 @@ def create_realtime_handler(sios):
                              type=message_data['type'])
                 logger.info('Sending realtime messsage to %s', message_data['sid'],
                             extra=extra)
-                RealtimeServices.emit(message_data['type'],
-                                      message_data['data'],
-                                      message_data['sid'])
+                RealtimeServices.emit(message_type=message_data['type'],
+                                      data=message_data['data'],
+                                      user=message_data['sid'])
             else:
                 logger.error('Realtime server received invalid message type: %s',
                              message_data['type'])
 
-        @staticmethod
-        def cleanup_disconnected_clients():
-            """
-            XXX the assumption here is that this method is only called
-            internally by socket.io, so no need to be multi service aware
-            """
-            if not sios.environ:
-                return
-
-            environ = [sid for sid in sios.environ]
-            remove_these_clients = set(
-                (c for c in client.get_client_list() if c.sid not in environ))
-            for c in remove_these_clients:
-                extra = dict(sid=c.sid, username=c.username)
-                logger.info('Cleaning up disconnected user: %s', c.username,
-                            extra=extra)
-
-            client.remove_clients(
-                                  *[client.sid for client in remove_these_clients])
+    # Start up recursive calls to clean up disconnected clients.
+    eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,
+                         cleanup_disconnected_clients, sios)
 
     return RealtimeServices
 

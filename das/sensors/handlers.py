@@ -13,7 +13,8 @@ from observations.serializers import ObservationSerializer
 from observations import servicesutils
 from observations.models import update_subject_status_from_post
 from tracking.pubsub_registry import notify_new_tracks
-from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter
+from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter,\
+    FollowltObservation, TractAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,72 @@ class GenericSensorHandler():
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FollowltTrackerHandler:
+
+    SENSOR_TYPE = 'animal-collar-push'
+
+    @staticmethod
+    def convert_to_das_format(data):
+        location = {'latitude': data.get('lat'), 'longitude': data.get('lng')}
+        try:
+            recorded_at = parse_date(data.get('date'))
+        except Exception as e:
+            logger.error(e)
+            raise e
+        additional = dict()
+        for key in data.keys():
+            if key not in ['lat', 'lng', 'date'] and \
+                    data.get(key, None):
+                additional[key] = data.get(key, None)
+        return dict(location=location, recorded_at=recorded_at,
+                    additional=additional)
+
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+        logger.info("Recieved new push message from {}: {}".format(sensor_type,
+                    request.data))
+        sensor_observations = request.data
+        # Check if received data is in list format or not
+        if isinstance(sensor_observations, dict):
+            sensor_observations = [sensor_observations]
+        errors = []
+        for sensor_observation in sensor_observations:
+            # Serialize sensor api data (one at a time), So that if there are
+            # some errors, let's not discard whole payload and throw error
+            params = FollowltObservation(data=sensor_observation)
+            if not params.is_valid():
+                errors.append(params.errors)
+                continue
+            try:
+                data = cls.convert_to_das_format(params.data)
+                src = Source.objects.ensure_source(
+                    provider=provider_key,
+                    manufacturer_id=params.data.get('collarId'))
+                # Short-circuit if we already have this observation.
+                if Observation.objects.filter(
+                        source=src, recorded_at=data['recorded_at']).exists():
+                    logger.info("Processed duplicate "
+                                "observation: {}".format(data))
+                    errors.append({})
+                    continue
+                data['source'] = str(src.id)
+                serializer = ObservationSerializer(data=data)
+                if serializer.is_valid():
+                    serializer.save()
+                    logger.info("Added new observation %s", data)
+                    notify_new_tracks(src.id)
+                    errors.append({})
+                else:
+                    errors.append(serializer.errors())
+            except Exception as e:
+                logger.error(str(e))
+                errors.append(str(e))
+        for error in errors:
+            if error:
+                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({}, status=status.HTTP_201_CREATED)
 
 
 class LocationDictSerializer(serializers.Serializer):
@@ -356,7 +423,6 @@ class GsatHandler():
 
 
 class SkylineVehicleTrackerHandler():
-
     SENSOR_TYPE = 'vehicle-tracker-push'
     DEFAULT_SUBJECT_SUBTYPE = 'truck'
 
@@ -416,64 +482,17 @@ class SkylineVehicleTrackerHandler():
         return Response(data=status_ok, status=status.HTTP_200_OK)
 
 
-
 class TractVehicleHandler():
-
-    SENSOR_TYPE = 'vehicle-observation-push'
+    SENSOR_TYPE = 'vehicle-observation'
     DEFAULT_SUBJECT_SUBTYPE = 'truck'
 
     @classmethod
     def post(cls, request, sensor_type, provider_key):
 
-        logger.info("Recieved new push message %s", request.data,
-                    extra={'msg.data': request.data})
-        params = SkylineObservations(data=request.data)
+        logger.info("Recieved new push message %s", request.data)
+        # remove me before production
+        logger.info("Metadata %s", request.META)
 
-        # short term don't throw away bad data, until
-        # we understand what skyline is sending us
-        if not params.is_valid():
-            status_fail = {'status' : 105, 'message' : params.errors}
-            return Response(data=status_fail, status=status.HTTP_400_BAD_REQUEST)
-
-        adapter = SkylineAdapter()
-        # TODO bulk_create
-        # obs_to_insert = []
-
-        for observation in params.data['Messages']:
-
-            das_obs = adapter.create_das_object(observation)
-
-            src = Source.objects.ensure_source(
-                das_obs.source_type,
-                provider=provider_key,
-                manufacturer_id=das_obs.manufacturer_id,
-                model_name=das_obs.model_name,
-                subject={
-                    'subject_subtype_id': das_obs.subject_subtype,
-                    'name': das_obs.subject_name
-                }
-            )
-            # skip if we already have this observation.
-            if Observation.objects.filter(source=src, recorded_at=das_obs.recorded_at).exists():
-                logger.info("Processed duplicate observation %s",
-                            das_obs.subject_subtype, extra={'obs.dup': provider_key})
-                continue
-
-            observation = {
-                'location': das_obs.location,
-                'recorded_at': das_obs.recorded_at,
-                'source': str(src.id),
-                'additional': das_obs.additional,
-            }
-
-            serializer = ObservationSerializer(data=observation)
-            if serializer.is_valid():
-                serializer.save()
-                logger.info("Added new observation %s", observation,
-                            extra={'obs.new': provider_key})
-                notify_new_tracks(src.id)
-            else:
-                logger.info("An error occured whle serializing the observation: %s", serializer.errors)
         status_ok = {'status' : 0, 'message' : 'success'}
-        return Response(data=status_ok, status=status.HTTP_200_OK)
 
+        return Response(data=status_ok, status=status.HTTP_200_OK)

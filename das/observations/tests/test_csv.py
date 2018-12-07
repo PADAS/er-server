@@ -1,9 +1,11 @@
 import random
+import pytz
 from datetime import datetime
 from urllib.parse import urlencode
 
 from dateutil import tz
 from pytz import utc
+from django.utils import timezone
 
 from accounts.models import User, PermissionSet
 from core.tests import BaseAPITest
@@ -12,6 +14,15 @@ from observations.serializers import ObservationSerializer
 from observations.views import TrackingMetaDataExportView, TrackingDataCsvView
 
 API_BASE = '/api/v1.0'
+
+current_tz_name = timezone.get_current_timezone_name()
+current_tz = pytz.timezone(current_tz_name)
+current_date = datetime.utcnow().astimezone(current_tz)
+tz_difference = current_date.utcoffset().total_seconds() / 60 / 60
+tz_offset = 'GMT' + ('+' if tz_difference >= 0 else '') + str(
+    int(tz_difference)) + ':' + str(
+    int((tz_difference - int(tz_difference)) * 60)
+)
 
 
 class TrackingMetaDataExportViewTest(BaseAPITest):
@@ -103,7 +114,8 @@ class TrackingDataCsvViewTest(BaseAPITest):
         # Remove header and empty line from csv_data to get actual values
         csv_data = csv_data[1:-1]
         self.assertEqual(
-            Observation.objects.filter(exclusion_flags=0).count(), len(csv_data)
+            Observation.objects.filter(
+                exclusion_flags=0).count(), len(csv_data)
         )
 
     def test_csv_observation_data_with_exclusion_flag(self):
@@ -119,7 +131,8 @@ class TrackingDataCsvViewTest(BaseAPITest):
         # Remove header and empty line from csv_data to get actual values
         csv_data = csv_data[1:-1]
         self.assertEqual(
-            Observation.objects.filter(exclusion_flags=1).count(), len(csv_data)
+            Observation.objects.filter(
+                exclusion_flags=1).count(), len(csv_data)
         )
 
     def test_normal_user_access_subject_observation_data(self):
@@ -136,6 +149,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
             'additional': {},
             'exclusion_flags': 0
         }
+
         serializer = ObservationSerializer(data=sample_observation_data)
         self.assertTrue(serializer.is_valid(), msg='Observation is not valid.')
         if serializer.is_valid():
@@ -156,15 +170,26 @@ class TrackingDataCsvViewTest(BaseAPITest):
         csv_data = [row.split(',') for row in csv_file_data[1:-1]]
         observations = [dict(zip(header, data)) for data in csv_data]
 
+        # Add GMT timezone format in fixtime_key & dloadtime_key
+        fixtime_key = 'fixtime ({})'.format(tz_offset)
+        dloadtime_key = 'dloadtime ({})'.format(tz_offset)
+        for observation in observations:
+            fixtime_key = next(key for key in observation.keys()
+                               if key.startswith('fixtime'))
+            dloadtime_key = next(key for key in observation.keys() if
+                                 key.startswith('dloadtime'))
+            break
+
         # Get list of fixtime(recorded_at from observations.Observation model)
-        recorded_at_timestamps = [observation['fixtime']
+        recorded_at_timestamps = [observation[fixtime_key]
                                   for observation in observations]
         recorded_time = sample_observation.recorded_at.astimezone(
-            tz.gettz('UTC')).strftime('%m/%d%Y %H:%M:%S')
+            tz.gettz(timezone.get_current_timezone_name())).strftime('%m/%d%Y %H:%M:%S')
         self.assertIn(recorded_time, recorded_at_timestamps)
 
     def test_different_chronofile_values_for_same_subject(self):
-        # check if we are getting different chronofile values for single subject
+        # check if we are getting different chronofile values for single
+        # subject
         self.subject_group.permission_sets.add(PermissionSet.objects.get(
             name='View Tracks All Time')
         )
