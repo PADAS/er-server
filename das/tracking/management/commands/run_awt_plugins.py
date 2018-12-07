@@ -191,6 +191,9 @@ class Command(BaseCommand):
                 if not mapped_manufacturer_id:
                     continue
 
+                if int(mapped_manufacturer_id) not in tags:
+                    continue
+
                 provider_key = plugin.name
                 source_provider, created = SourceProvider.objects.get_or_create(
                     provider_key=provider_key)
