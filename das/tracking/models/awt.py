@@ -55,7 +55,8 @@ class AwtClient(object):
     # live api returns last 24 hours of data
     live_api_coverage = timedelta(hours=24)
     replay_api_coverage = timedelta(days=90)  # replay only goes back 90 days
-    fetch_unit_data_expiry = 60  # one minute
+    unit_tag_cache_expiry = 3600  # one hour
+    fetch_unit_data_expiry = 240  # four minutes
     LIVE_API = 'LIVE_API'
     REPLAY_API = 'REPLAY_API'
     HISTORY_API = 'HISTORY_API'
@@ -121,10 +122,12 @@ class AwtClient(object):
                 return response
 
             if backoff_count >= self.use_policy_backoff_threshold:
-                raise AWTPluginFUPBackoffException()
+                raise AWTPluginFUPBackoffException(
+                    f'Account {self.username} exceeded backoff threshold for api {api_type}')
 
             if cache.get(self.make_major_backoff_key()):
-                raise AWTPluginBannedException('Banned in check_use_policy')
+                raise AWTPluginBannedException(
+                    f'Banned in check_use_policy for account {self.username}')
 
             ttl = cache.get(self.make_use_policy_key(api_type))
             if ttl:
@@ -133,7 +136,7 @@ class AwtClient(object):
                 sleep_seconds = sleep_seconds.total_seconds()
                 if sleep_seconds:
                     self.logger.warning(
-                        f'AWT Use Policy enforcement for {api_type}, sleeping {sleep_seconds} secs')
+                        f'AWT Use Policy enforcement for {api_type} account {self.username}, sleeping {sleep_seconds} secs')
                     sleep(sleep_seconds)
                     sleep(random.uniform(1, 10))
             else:
@@ -184,14 +187,14 @@ class AwtClient(object):
         data = json.loads(response.text.strip())
         if data and data.get('Result') == False:
             reason = data.get('Reason')
-            message = f'AWT API returned False, {reason}'
+            message = f'AWT API returned False, {reason} for account {self.username}'
             if reason:
                 if reason.lower().count('ban'):
                     self.set_use_policy_api(api_type, major_backoff=True)
                     raise AWTPluginBannedException(message)
                 elif reason.lower().startswith('invalid session token'):
                     self.clear_session_token()
-                    raise AWTPluginInvalidSessionTokenException
+                    raise AWTPluginInvalidSessionTokenException(message)
             raise AWTPluginException(message)
 
         if key:
@@ -273,14 +276,15 @@ class AwtClient(object):
         url = self.host + self.APIS.get(api_type, None)
         payload = {'ST': self.session_token}
         return self.handle_request(api_type, url, payload, key=key,
-                                   expiry_period=self.default_cache_expiry)
+                                   expiry_period=self.unit_tag_cache_expiry)
 
     def fetch_tags(self):
         api_type = 'TAG_API'
         self.check_and_update_token()
         url = self.host + self.APIS.get(api_type, None)
         payload = {'ST': self.session_token}
-        return self.handle_request(api_type, url, payload)
+        return self.handle_request(api_type, url, payload,
+                                   expiry_period=self.unit_tag_cache_expiry)
 
     def fetch_observations(self, params):
         tag_id = params['tag_id']
@@ -394,10 +398,8 @@ class AwtPlugin(TrackingPlugin):
             params = additional_data
             if additional_data:
                 params = self._parse_additional_data(additional_data)
-            dry_run = False
-            if additional_data and 'dry_run' in additional_data.keys():
-                if additional_data['dry_run'].lower() == 'true':
-                    dry_run = True
+            dry_run = additional_data.get('dry_run', False)
+
             observations = client.fetch_observations(params)
             if dry_run:
                 self.logger.info(observations)
