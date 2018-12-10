@@ -87,10 +87,10 @@ class PermissionSetAdmin(DjangoGroupAdmin):
 
 
 class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
-    first_name = forms.CharField(required=True)
-    last_name = forms.CharField(required=True)
-    email = forms.EmailField(required=True)
-    phone = forms.CharField(required=True)
+    first_name = forms.CharField(required=False)
+    last_name = forms.CharField(required=False)
+    email = forms.EmailField(required=False)
+    phone = forms.CharField(required=False)
 
     # Additional JSON Fields
     notes = forms.CharField(required=False, label='Notes')
@@ -149,12 +149,19 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
             password2 = super().clean_password2()
         return password2
 
+    def clean_email(self):
+        # Set email value as None rather than blank string.
+        # In comparison Blank string is considered as Unique.
+        email = self.cleaned_data.get("email")
+        if email.strip() == '':
+            return None
+
 
 class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
-    first_name = forms.CharField(required=True)
-    last_name = forms.CharField(required=True)
-    email = forms.EmailField(required=True)
-    phone = forms.CharField(required=True)
+    first_name = forms.CharField(required=False)
+    last_name = forms.CharField(required=False)
+    email = forms.EmailField(required=False)
+    phone = forms.CharField(required=False)
 
     # Additional JSON Fields
     notes = forms.CharField(required=False, label='Notes')
@@ -201,6 +208,13 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
                   'is_email_alert', 'is_sms_alert', 'username') + json_fields
 
     json_field = 'additional'
+
+    def clean_email(self):
+        # Set email value as None rather than blank string.
+        # In comparison Blank string is considered as Unique.
+        email = self.cleaned_data.get("email")
+        if email.strip() == '':
+            return None
 
 
 class KmkMasterLinkForm(forms.Form):
