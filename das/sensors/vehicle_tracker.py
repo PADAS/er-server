@@ -43,6 +43,7 @@ class TractObservation(serializers.Serializer):
     Spd = serializers.IntegerField()
     Head = serializers.IntegerField()
     
+
 class TractVehicleData(serializers.Serializer):
     Reg = serializers.IntegerField()
     MfgId = serializers.IntegerField()
@@ -66,8 +67,10 @@ class TractVehicleData(serializers.Serializer):
                         obs['Spd'] = field['Spd']
                         obs['Head'] = field['Head']
                         obs_list.append(obs)
-            trimmed_data['Reg'] = int(j_data['SerNo'])
-            trimmed_data['MfgId'] = int(j_data['IMEI'])
+            # Note: reg and mfgid wind up being boundfields
+            # after drf serialization. Not sure why
+            trimmed_data['Reg'] = j_data['SerNo']
+            trimmed_data['MfgId'] = j_data['IMEI']
             trimmed_data['Records'] = obs_list
         return TractVehicleData(data=trimmed_data)
 
