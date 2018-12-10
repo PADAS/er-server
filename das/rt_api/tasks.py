@@ -302,10 +302,10 @@ def get_subjectstatus_view(view, user, subject_id):
 
     # If there's nothing to send, no need to send it
     logger.debug('SubjectStatusView result: %s', result)
-    if result.status_code != 200 or not result.data or 'features' not in result.data:
+    if result.status_code != 200 or not result.data:
         return
 
-    return result.data  # ['features'][0]
+    return result.data
 
 
 @celery.app.task()
