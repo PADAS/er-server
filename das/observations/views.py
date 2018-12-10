@@ -57,6 +57,7 @@ tz_difference = current_date.utcoffset().total_seconds() / 60 / 60
 tz_offset = 'GMT' + ('+' if tz_difference >= 0 else '') + str(int(tz_difference)) + \
             ':' + str(int((tz_difference - int(tz_difference)) * 60))
 
+
 def default_since():
     """default value for since
     last days is the default
@@ -69,6 +70,7 @@ def dateparse(date_str, default_tz=pytz.utc):
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tz)
     return dt
+
 
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
@@ -208,6 +210,10 @@ class SubjectsView(generics.ListCreateAPIView):
                 raise ValueError("invalid bbox param")
             queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS,
                                         include_stationary_subjects=INCLUDE_STATIONARY_SUBJECTS_ON_MAP)
+
+        if self.request.query_params.get('name', None):
+            queryset = queryset.by_name_search(
+                self.request.query_params.get('name'))
 
         subject_group = self.request.query_params.get('subject_group', None)
         if subject_group:
@@ -821,7 +827,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                     subject_source = models.SubjectSource.objects.filter(
                         source=observation.source,
                         subject=subject)[0]
-                    recorded_at = observation.recorded_at.astimezone(current_tz)
+                    recorded_at = observation.recorded_at.astimezone(
+                        current_tz)
                     created_at = observation.created_at.astimezone(current_tz)
                     data = {'lat': observation.location.x,
                             'lon': observation.location.y,

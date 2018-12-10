@@ -313,11 +313,7 @@ class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
         feature = make_subjectstatus_feature(self.context['request'],
                                              coordinates,
                                              subject_status)
-
-        rep = utils.json.empty_geojson_featurecollection()
-        rep['features'].append(feature)
-
-        return rep
+        return feature
 
 
 class TrackSerializer(rest_framework.serializers.Serializer):

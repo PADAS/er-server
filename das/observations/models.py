@@ -699,6 +699,9 @@ class SubjectQuerySet(models.QuerySet):
     def by_is_active(self, active=True):
         return self.filter(is_active=active)
 
+    def by_name_search(self, value):
+        return self.filter(name__icontains=value)
+
 
 class SubjectManager(models.Manager):
     def create_subject(self, **kwargs):
