@@ -850,10 +850,11 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 content_type='application/json', status=status.HTTP_200_OK
             )
 
+        download_filename = f'Tracking Data {timestamp.strftime("%Y-%m-%d")}.csv'
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment;' \
-                                          'filename=Tracking Data {}.csv'.\
-            format(timestamp.strftime('%Y-%m-%d'))
+        response['Content-Disposition'] = f'attachment;filename={download_filename}'
+        response['x-das-download-filename'] = download_filename
+
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         if csv_data:
@@ -961,10 +962,10 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                 content_type='application/json', status=status.HTTP_200_OK
             )
 
+        download_filename = f'Tracking Meta Data Export {timestamp.strftime("%Y-%m-%d")}.csv'
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=' \
-            '"Tracking Meta Data Export {}.csv"'.format(
-            timestamp.strftime('%Y-%m-%d'))
+        response['Content-Disposition'] = f'attachment; filename={download_filename}'
+        response['x-das-download-filename'] = download_filename
 
         writer = csv.DictWriter(response, headers)
         writer.writeheader()
