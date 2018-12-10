@@ -190,7 +190,7 @@ def _subjectstatus_update_handler(subject_id):
                 if payload:
 
                     emit_data = {
-                        'type': 'subjectstatus_update',
+                        'type': 'subject_status',
                         'sid': '<<sid>>',
                         'object_id': subject_id,
                         'data': payload

@@ -138,7 +138,7 @@ def create_realtime_handler(sios):
 
         supported_message_types = ['new_event', 'update_event', 'delete_event',
                                    'count_event', 'subject_position_update', 'service_status',
-                                   'subjectstatus_update',
+                                   'subject_status',
                                    ]
 
         @sios.on('connect', namespace='/')
