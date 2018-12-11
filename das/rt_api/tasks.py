@@ -3,6 +3,7 @@ import json
 import logging
 import redis
 from functools import partial
+import pytz
 
 from celery_once import QueueOnce
 
@@ -201,12 +202,12 @@ def _subjectstatus_update_handler(subject_id):
 
                         message = emit_data.replace('<<sid>>', sid)
 
-                        logger.info('Emitting: %s', message)
+                        logger.debug('Emitting: %s', message)
                         pubsub.publish(
                             message, routing_key='das.realtime.emit')
                 else:
                     logger.warning(
-                        'SubjectStatus payload is empty for user=%s, subject_id=%s', user, subject_id)
+                        'SubjectStatus payload is empty.', extra=dict(username=username, subject_id=subject_id))
 
             except:
                 logger.exception(
@@ -218,79 +219,9 @@ def _subjectstatus_update_handler(subject_id):
 
 
 def _observation_handler(subject_id):
-    try:
-        logger.debug(
-            'Processing new observation for subject_id=%s', subject_id)
-
-        # Curry this getter to re-use the view in the for-loop below.
-        get_subject_payload = partial(
-            get_subject_view_details, SubjectTracksView.as_view())
-
-        user_sids_map = get_username_sids_map()
-        logger.debug('user_sids_map: %s', user_sids_map)
-
-        for username, user_sids in user_sids_map.items():
-
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                logger.warning(
-                    'observation_handler found no username=%s.', username)
-                client.remove_clients(user_sids)
-                continue
-
-            # If subject-view payload is not None, then emit it.
-            payload = get_subject_payload(user, subject_id)
-            if payload:
-
-                for sid in user_sids:
-                    emit_data = {
-                        'type': 'subject_position_update',
-                        'sid': sid,
-                        'object_id': subject_id,
-                        'data': payload
-                    }
-                    logger.info(emit_data)
-                    pubsub.publish(json.dumps(
-                        emit_data, default=dumps_helper), 'das.realtime.emit')
-
-    finally:
-        close_old_connections()
-
-
-def get_subject_view_details(view, user, subject_id):
-    # Create a dummy request with the user's info so we get the permission
-    # enforcement for free
-    request = DummyRequest('/subject/{0}/'.format(subject_id), 'GET',
-                           query_parameters={'limit': 2}, user=user)
-
-    result = view(request, subject_id=subject_id,)
-
-    # If there's nothing to send, no need to send it
-    if result.status_code != 200 or not result.data or 'features' not in result.data or len(
-            result.data['features']) == 0:
-        return
-
-    geojson_data = result.data['features'][0]
-
-    # If there are no coordinates the user is allowed to see, no reason to
-    # send a notification
-    if len(geojson_data['geometry']['coordinates']) == 0:
-        return
-
-    payload = {'geo_json': geojson_data}
-    properties = geojson_data['properties']
-
-    # also need to send subject status if it exists
-    if 'subject_state' in properties:
-        payload['state'] = properties['subject_state']
-
-    # Include radio details:
-    for k in ('last_voice_call_start_at', 'requested_location_at'):
-        if k in properties:
-            payload[k] = properties[k]
-
-    return payload
+    # subject_position_update is no longer used. So delegate to subjectstatus
+    # handler.
+    _subjectstatus_update_handler(subject_id)
 
 
 def get_subjectstatus_view(view, user, subject_id):
@@ -330,25 +261,17 @@ def handle_delete_event(event_id):
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
-def handle_new_source_observation(source_id):
-    logger.info(
-        'Celery worker handling new observation. source_id=%s', source_id, extra={'rt.event': 'new_source_obs'})
-    subject_source = SubjectSource.objects.filter(source=source_id)\
-        .order_by('assigned_range').reverse().first()
-    _observation_handler(subject_source.subject_id)
-
-
-@celery.app.task(base=QueueOnce, once={'graceful': True, })
 def handle_new_subject_observation(subject_id):
     logger.info(
-        'Celery worker handling new observation. subject_id=%s', subject_id, extra={'rt.event': 'new_subject_obs'})
+        'Celery worker handling new observation.', extra={'subject_id': subject_id,  'rt.event': 'new_subject_obs'})
     _observation_handler(subject_id)
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
 def handle_subjectstatus_update(subject_id):
     logger.info(
-        'Celery worker handling subjectstatus update. subject_id=%s', subject_id, extra={'rt.event': 'subjectstatus_update'})
+        'Celery worker handling subjectstatus update.', extra={'subject_id': subject_id,
+                                                               'rt.event': 'subjectstatus_update'})
     _subjectstatus_update_handler(subject_id)
 
 

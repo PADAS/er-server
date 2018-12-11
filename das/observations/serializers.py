@@ -388,12 +388,12 @@ def make_subjectstatus_feature(request, location: Point, subjectstatus):
         },
         'type': 'Feature',
         'properties': {
-            'subject_id': subjectstatus.subject_id,
-            'subject_name': subjectstatus.subject.name,
-            'subject_type': subjectstatus.subject.subject_subtype.subject_type.value,
-            'subject_subtype': subjectstatus.subject.subject_subtype.value,
+            'id': subjectstatus.subject_id,
+            'name': subjectstatus.subject.name,
+            'type': subjectstatus.subject.subject_subtype.subject_type.value,
+            'subtype': subjectstatus.subject.subject_subtype.value,
             'image': image_url,
-            'subject_state': subjectstatus.radio_state,
+            'state': subjectstatus.radio_state,
             'coordinateProperties': {
                 'time': subjectstatus.recorded_at
             }
