@@ -54,18 +54,19 @@ class AdditionalTestCase(TestCase):
                             for item in additional_data.items()))
 
     def test_email_firstname_lastname_phone_as_null_or_blank(self):
-        username = 'User'
-        password = User.objects.make_random_password()
-        additional_data = {}
-        form_data = {
-            'username': username,
-            'password1': password,
-            'password2': password
-        }
-        form_data = {**form_data, **additional_data}
-        form = CustomUserCreationForm(data=form_data)
-        self.assertTrue(form.is_valid())
-        form.save()
-        user = User.objects.get(username='User')
-        self.assertTrue(user.email is None and user.first_name is '' and
-                        user.last_name is '' and user.phone is '')
+
+        for username in ('username1', 'username2'):
+            password = User.objects.make_random_password()
+            additional_data = {}
+            form_data = {
+                'username': username,
+                'password1': password,
+                'password2': password
+            }
+            form_data = {**form_data, **additional_data}
+            form = CustomUserCreationForm(data=form_data)
+            self.assertTrue(form.is_valid())
+            form.save()
+            user = User.objects.get(username=username)
+            self.assertTrue(user.email is None and user.first_name is '' and
+                            user.last_name is '' and user.phone is '')
