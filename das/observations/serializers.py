@@ -388,6 +388,7 @@ def make_subjectstatus_feature(request, location: Point, subjectstatus):
         },
         'type': 'Feature',
         'properties': {
+            'subject_id': subjectstatus.subject_id,
             'subject_name': subjectstatus.subject.name,
             'subject_type': subjectstatus.subject.subject_subtype.subject_type.value,
             'subject_subtype': subjectstatus.subject.subject_subtype.value,
