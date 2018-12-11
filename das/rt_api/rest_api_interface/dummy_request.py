@@ -12,7 +12,7 @@ class DummyRequest(HttpRequest):
         #Request.__init__(self, uri, http_method, body, headers, encoding)
 
         # Convert to unicode using encoding if given, else assume unicode
-        encode = lambda x: to_unicode(x, encoding) if encoding else x
+        def encode(x): return to_unicode(x, encoding) if encoding else x
 
         self.uri = encode(uri)
         self.http_method = encode(http_method)
@@ -23,10 +23,10 @@ class DummyRequest(HttpRequest):
         self.method = self.http_method
         self.META = headers
         self.POST = body
-        self.GET = body
         self.encoding = encoding
         self._request = self
         self.query_params = query_parameters or {}
+        self.GET = self.query_params
         self.successful_authenticator = 'dummy_authentication'
         self.user = user
         self._force_auth_user = user
