@@ -216,6 +216,14 @@ class SubjectsView(generics.ListCreateAPIView):
             groups = models.SubjectGroup.objects.get_nested_groups(
                 subject_group)
             queryset = queryset.by_groups(groups)
+
+        # Filter by provided subject_ids.
+        subject_ids = [subject_id for subject_id in
+                       self.request.query_params.get('id', '').split(',') if
+                       subject_id]
+        if subject_ids:
+            queryset = queryset.by_id(subject_ids)
+
         queryset = queryset.by_user_subjects(self.request.user)
         queryset = queryset.prefetch_related(
             Prefetch('subjectstatus_set')).prefetch_related('subject_subtype')

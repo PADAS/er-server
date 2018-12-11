@@ -699,6 +699,11 @@ class SubjectQuerySet(models.QuerySet):
     def by_is_active(self, active=True):
         return self.filter(is_active=active)
 
+    def by_id(self, subject_ids):
+        if isinstance(subject_ids, str):
+            subject_ids = subject_ids.split(',')
+        return self.filter(id__in=subject_ids)
+
 
 class SubjectManager(models.Manager):
     def create_subject(self, **kwargs):
