@@ -4,7 +4,6 @@ import redis
 import datetime
 import pytz
 import socket
-import atexit
 
 from django.contrib.gis.geos import Polygon, MultiPolygon
 from observations.models import SocketClient
@@ -216,7 +215,3 @@ def push_trace(trace_id, data):
 def pop_trace(trace_id):
     logger.info('TRACE', extra={'action': 'pop', 'trace_id': trace_id})
     redis_client.delete(trace_id)
-
-
-# shutdown hook to clean up service keys on service exit
-atexit.register(shutdown_cleanup)
