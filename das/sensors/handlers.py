@@ -499,8 +499,9 @@ class TractVehicleHandler():
 
         else:
             adapter = TractAdapter()
-            mfg_id = params['MfgId']
-            reg = params['Reg']
+            # need to 'unbind' these values
+            mfg_id = params['MfgId'].value
+            reg = params['Reg'].value
 
             for observation in params.data['Records']:
                 das_obs = adapter.create_das_object(mfg_id, reg, observation)
