@@ -1,0 +1,16 @@
+static-values:
+  db-host-name: das-postgres-us.postgres.database.azure.com"
+  db-name: dev-az"
+  db-user: dev-az-admin"
+  db-password: DASAdmin!"
+  blob-storage-url: ""
+  blob-storage-key: ""
+  blob-root-path: ""
+  use-azure-storage: "true"
+environment:
+  namespace: NAMESPACE
+  infra-namespace: INFRA_NAMESPACE
+  das-static-ip: DAS_STATIC_IP
+  azure-subscription-id: AZURE_SUBSCRIPTION_ID
+vault-lookups:
+  # put db-password here
