@@ -47,7 +47,7 @@ def start(realtime_server):
                                  args=(subject_id,))
 
     def subjectstatus_update_handler(data, message):
-        logger.info('heard das.subjectstatus.update %s', data)
+        logger.debug('das.subjectstatus.update %s', data)
         if 'subject_id' in data:
             celery.app.send_task('rt_api.tasks.handle_subjectstatus_update',
                                  args=(data['subject_id'],))
