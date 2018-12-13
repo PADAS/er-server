@@ -107,7 +107,6 @@ def installed_apps_subscriptions(submodule='pubsub_registry',
         if re.match(ignore_re, app_config.name):
             continue
 
-        logger.info('CSD Debuggging.')
         logger.debug('registering tasks for app {}'.format(app_config.name))
         module_name = "{}.{}".format(app_config.name, submodule)
 
