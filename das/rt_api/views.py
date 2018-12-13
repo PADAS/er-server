@@ -137,9 +137,9 @@ def create_realtime_handler(sios):
     class RealtimeServices:
 
         supported_message_types = ['new_event', 'update_event', 'delete_event',
-                                   'count_event', 'subject_position_update', 'service_status',
-                                   'subject_status',
-                                   ]
+                                   'count_event', 'service_status', 'subject_status', ]
+
+        do_not_trace_these_types = ['service_status', ]
 
         @sios.on('connect', namespace='/')
         def on_connect(sid, socket, *args):
@@ -296,7 +296,8 @@ def create_realtime_handler(sios):
             try:
 
                 # Add trace ID to message. It will be sent back in callback.
-                if isinstance(data, dict):
+                if message_type not in RealtimeServices.do_not_trace_these_types \
+                        and isinstance(data, dict):
                     data['trace_id'] = f'trace-{user}-{time.time()}'
                     client.push_trace(data['trace_id'], data)
 

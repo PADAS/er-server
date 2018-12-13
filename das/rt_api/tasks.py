@@ -141,7 +141,9 @@ def _broadcast_service_status(service_status_data=None):
             emit_data = {
                 'type': 'service_status',
                 'sid': sid,
-                'data': service_status_data,
+                'data': {
+                    'services': service_status_data
+                }
             }
 
             logger.info('Emitting %s to sid %s', emit_data, sid)
