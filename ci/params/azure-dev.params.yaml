@@ -1,10 +1,10 @@
 cluster-name: azure-dev
 version-prefix: dev
-server-branch-name: DAS-3060
+server-branch-name: DAS-3360
 web-branch-name: develop
 namespace: azure-dev
 iaas: azure
 iaas-zone: eastus
 iaas-workspace: DAS-Dev
 cluster-spec: deployment/cluster-specs/azure.yaml
-deploy-params-environment: ldev
+deploy-params-environment: azure-dev
