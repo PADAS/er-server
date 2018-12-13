@@ -105,6 +105,9 @@ class AwtClient(object):
     def make_units_token_key(self):
         return f'awtplugin-{self.username}-units'
 
+    def make_tags_token_key(self):
+        return f'awtplugin-{self.username}-tags'
+
     def make_session_token_key(self):
         return f'awtplugin-{self.username}-session_token'
 
@@ -281,9 +284,10 @@ class AwtClient(object):
     def fetch_tags(self):
         api_type = 'TAG_API'
         self.check_and_update_token()
+        key = self.make_tags_token_key()
         url = self.host + self.APIS.get(api_type, None)
         payload = {'ST': self.session_token}
-        return self.handle_request(api_type, url, payload,
+        return self.handle_request(api_type, url, payload, key=key,
                                    expiry_period=self.unit_tag_cache_expiry)
 
     def fetch_observations(self, params):
