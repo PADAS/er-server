@@ -286,7 +286,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         tz_offset = 'GMT' + ('+' if tz_difference >= 0 else '') + str(
             int(tz_difference)) + ':' + str(
             int((tz_difference - int(tz_difference)) * 60))
-        reported_at = 'Reported At({})'.format(tz_offset)
+        reported_at = 'Reported At ({})'.format(tz_offset)
         for event in self.get_queryset():
             if event.event_type_id != current_event_type_data['id']:
                 event_type = EventType.objects.get(id=event.event_type_id)
