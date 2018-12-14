@@ -3,9 +3,9 @@ static-values:
   db-name: "dev-az"
   db-user: "dev-az-admin"
   db-password: "DASAdmin!"
-  blob-storage-url: ""
-  blob-storage-key: ""
-  blob-root-path: ""
+  blob-storage-url: "blob-url"
+  blob-storage-key: "storage-key"
+  blob-root-path: "root-path"
   use-azure-storage: "true"
 environment:
   namespace: NAMESPACE
