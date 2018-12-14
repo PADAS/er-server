@@ -3,6 +3,7 @@ import json
 import logging
 import redis
 from functools import partial
+import pytz
 
 from celery_once import QueueOnce
 
@@ -16,7 +17,7 @@ from django.db import close_old_connections
 from observations import servicesutils
 
 from observations.models import SubjectSource
-from observations.views import SubjectTracksView
+from observations.views import SubjectTracksView, SubjectStatusView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
 from rt_api import client
@@ -44,31 +45,44 @@ def dumps_helper(obj):
     raise TypeError("Type not serializable: " + type(obj).__name__)
 
 
+def get_username_sids_map():
+    all_connections = client.get_all_connections()
+
+    user_sids_map = {}
+    for sid, session_data in all_connections.items():
+        try:
+            session_data = json.loads(session_data.decode('utf-8'))
+            sid = sid.decode('UTF-8')
+            username = session_data['username']
+            user_sids_map.setdefault(username, set()).add(sid)
+        except (UnicodeDecodeError, KeyError) as e:
+            logger.warning('Failed to parse session_data=%s', session_data)
+
+    return user_sids_map
+
+
 def _event_handler(event_id, type):
     try:
         logger.debug('Processing type=%s on event=%s', type, event_id)
         event_view = EventView()
 
-        all_connections = client.get_all_connections()
+        user_sids_map = get_username_sids_map()
+        logger.debug('user_sids_map: %s', user_sids_map)
 
-        logger.debug('handling event for all_connections=%s', all_connections)
-        for sid, session_data in all_connections.items():
+        for username, user_sids in user_sids_map.items():
+
             try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                logger.warning('event_handler found no username=%s.', username)
+                client.remove_clients(user_sids)
+                continue
 
-                session_data = json.loads(session_data.decode('utf-8'))
-                sid = sid.decode('UTF-8')
-                username = session_data['username']
+            logger.debug('Handling event for user: %s', username)
 
-                logger.debug(
-                    'Creating event payload for user=%s, sid=%s', username, sid)
-
-                try:
-                    user = User.objects.get(username=username)
-                except User.DoesNotExist:
-                    logger.warning(
-                        'Lookup by username=%s found no user.', username)
-                    client.remove_client(sid)
-                    continue
+            # TODO: update this logic to be a little more frugal with the per
+            # user/event-filter query.
+            for sid in user_sids:
 
                 request = DummyRequest(
                     user=user, http_method='GET', query_parameters={})
@@ -108,10 +122,6 @@ def _event_handler(event_id, type):
                         pubsub.publish(json.dumps(
                             emit_data, default=dumps_helper), 'das.realtime.emit')
 
-            except Exception:
-                logger.exception(
-                    'Error creating custom payload for event: %s', event_id)
-
     finally:
         close_old_connections()
 
@@ -131,7 +141,9 @@ def _broadcast_service_status(service_status_data=None):
             emit_data = {
                 'type': 'service_status',
                 'sid': sid,
-                'data': service_status_data,
+                'data': {
+                    'services': service_status_data
+                }
             }
 
             logger.info('Emitting %s to sid %s', emit_data, sid)
@@ -148,90 +160,85 @@ def broadcast_service_status():
     _broadcast_service_status.apply_async()
 
 
-def _observation_handler(subject_id):
+def _subjectstatus_update_handler(subject_id):
     try:
         logger.debug(
-            'Processing new observation for subject_id=%s', subject_id)
+            'Processing subjectstatus update for subject_id=%s', subject_id)
 
         # Curry this getter to re-use the view in the for-loop below.
-        get_subject_payload = partial(
-            get_subject_view_details, SubjectTracksView.as_view())
+        get_subjectstatus_payload = partial(
+            get_subjectstatus_view, SubjectStatusView.as_view())
 
-        all_connections = client.get_all_connections()
+        user_sids_map = get_username_sids_map()
+        logger.debug('user_sids_map: %s', user_sids_map)
 
-        for sid, session_data in all_connections.items():
+        for username, user_sids in user_sids_map.items():
             try:
-                session_data = json.loads(session_data.decode('utf-8'))
-                sid = sid.decode('UTF-8')
-                username = session_data['username']
-
-                logger.debug(
-                    'Create observation payload. username=%s, sid=%s', username, sid)
-
                 try:
                     logger.debug('Lookup username=%s', username)
                     user = User.objects.get(username=username)
                 except User.DoesNotExist:
                     logger.warning(
-                        'Lookup by username. username=%s does not exist.', username)
-                    client.remove_client(sid)
+                        'subjectstatus_handler found no username=%s.', username)
+                    client.remove_clients(user_sids)
                     continue
 
-                # If subject-view payload is not None, then emit it.
-                payload = get_subject_payload(user, subject_id)
+                else:
+                    logger.debug('Found user: %s', user)
+
+                # If subject-status payload is not None, then emit it.
+                payload = get_subjectstatus_payload(user, subject_id)
+
+                logger.debug('SubjectStatus payload: %s', payload)
                 if payload:
+
                     emit_data = {
-                        'type': 'subject_position_update',
-                        'sid': sid,
+                        'type': 'subject_status',
+                        'sid': '<<sid>>',
                         'object_id': subject_id,
                         'data': payload
                     }
-                    logger.info(emit_data)
-                    pubsub.publish(json.dumps(
-                        emit_data, default=dumps_helper), 'das.realtime.emit')
+                    emit_data = json.dumps(emit_data, default=dumps_helper)
+
+                    for sid in user_sids:
+
+                        message = emit_data.replace('<<sid>>', sid)
+
+                        logger.debug('Emitting: %s', message)
+                        pubsub.publish(
+                            message, routing_key='das.realtime.emit')
+                else:
+                    logger.warning(
+                        'SubjectStatus payload is empty.', extra=dict(username=username, subject_id=subject_id))
 
             except:
                 logger.exception(
-                    'Error creating observation payload. session_data=%s', session_data)
+                    'Error creating subject-status payload. username=%s', username)
             finally:
                 close_old_connections()
     finally:
         close_old_connections()
 
 
-def get_subject_view_details(view, user, subject_id):
+def _observation_handler(subject_id):
+    # subject_position_update is no longer used. So delegate to subjectstatus
+    # handler.
+    _subjectstatus_update_handler(subject_id)
+
+
+def get_subjectstatus_view(view, user, subject_id):
     # Create a dummy request with the user's info so we get the permission
     # enforcement for free
-    request = DummyRequest('/subject/{0}/'.format(subject_id), 'GET',
-                           query_parameters={'limit': 2}, user=user)
+    request = DummyRequest(uri=f'/subject/{str(subject_id)}/status', http_method='GET', user=user)
 
     result = view(request, subject_id=subject_id,)
 
     # If there's nothing to send, no need to send it
-    if result.status_code != 200 or not result.data or 'features' not in result.data or len(
-            result.data['features']) == 0:
+    logger.debug('SubjectStatusView result: %s', result)
+    if result.status_code != 200 or not result.data:
         return
 
-    geojson_data = result.data['features'][0]
-
-    # If there are no coordinates the user is allowed to see, no reason to
-    # send a notification
-    if len(geojson_data['geometry']['coordinates']) == 0:
-        return
-
-    payload = {'geo_json': geojson_data}
-    properties = geojson_data['properties']
-
-    # also need to send subject status if it exists
-    if 'subject_state' in properties:
-        payload['state'] = properties['subject_state']
-
-    # Include radio details:
-    for k in ('last_voice_call_start_at', 'requested_location_at'):
-        if k in properties:
-            payload[k] = properties[k]
-
-    return payload
+    return result.data
 
 
 @celery.app.task()
@@ -256,19 +263,18 @@ def handle_delete_event(event_id):
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
-def handle_new_source_observation(source_id):
+def handle_new_subject_observation(subject_id):
     logger.info(
-        'Celery worker handling new observation. source_id=%s', source_id, extra={'rt.event': 'new_source_obs'})
-    subject_source = SubjectSource.objects.filter(source=source_id)\
-        .order_by('assigned_range').reverse().first()
-    _observation_handler(subject_source.subject_id)
+        'Celery worker handling new observation.', extra={'subject_id': subject_id,  'rt.event': 'new_subject_obs'})
+    _observation_handler(subject_id)
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
-def handle_new_subject_observation(subject_id):
+def handle_subjectstatus_update(subject_id):
     logger.info(
-        'Celery worker handling new observation. subject_id=%s', subject_id, extra={'rt.event': 'new_subject_obs'})
-    _observation_handler(subject_id)
+        'Celery worker handling subjectstatus update.', extra={'subject_id': subject_id,
+                                                               'rt.event': 'subjectstatus_update'})
+    _subjectstatus_update_handler(subject_id)
 
 
 @celery.app.task()

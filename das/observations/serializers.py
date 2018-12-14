@@ -301,6 +301,21 @@ class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
         return rep
 
 
+class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
+    def to_representation(self, subject_status):
+
+        image_url = subject_status.subject.image_url
+        user = self.context['request'].user
+
+        coordinates = Point(x=subject_status.location.x,
+                            y=subject_status.location.y, srid=4326)
+
+        feature = make_subjectstatus_feature(self.context['request'],
+                                             coordinates,
+                                             subject_status)
+        return feature
+
+
 class TrackSerializer(rest_framework.serializers.Serializer):
 
     def to_representation(self, instance):
@@ -360,6 +375,38 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
 
 SUBJECT_STATUS_RETURN_FIELDS = (
     'last_voice_call_start_at', 'location_requested_at', 'radio_state_at') + ('radio_state',)
+
+
+def make_subjectstatus_feature(request, location: Point, subjectstatus):
+
+    image_url = add_base_url(request, subjectstatus.subject.image_url)
+
+    feature = {
+        'geometry': {
+            'type': 'Point',
+            'coordinates': location.tuple
+        },
+        'type': 'Feature',
+        'properties': {
+            'id': subjectstatus.subject_id,
+            'name': subjectstatus.subject.name,
+            'type': subjectstatus.subject.subject_subtype.subject_type.value,
+            'subtype': subjectstatus.subject.subject_subtype.value,
+            'image': image_url,
+            'state': subjectstatus.radio_state,
+            'coordinateProperties': {
+                'time': subjectstatus.recorded_at
+            }
+        }
+
+    }
+
+    for k in ('last_voice_call_start_at', 'location_requested_at', 'radio_state_at'):
+        val = getattr(subjectstatus, k, None)
+        if val:
+            feature['properties'][k] = val
+
+    return feature
 
 
 def make_feature(request, coordinates, subject, coordinate_times=None, time=None, image_url=None):
