@@ -1,7 +1,7 @@
 cluster-name: azure-dev
 version-prefix: dev
 server-branch-name: DAS-3360
-web-branch-name: develop
+web-branch-name: DAS-3360
 namespace: azure-dev
 iaas: azure
 iaas-zone: eastus
