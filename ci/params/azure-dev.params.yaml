@@ -7,4 +7,5 @@ iaas: azure
 iaas-zone: eastus
 iaas-workspace: DAS-Dev
 cluster-spec: deployment/cluster-specs/azure.yaml
+deploy-recipe: standard-az.yaml
 deploy-params-environment: azure-dev

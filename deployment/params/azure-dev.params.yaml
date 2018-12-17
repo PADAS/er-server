@@ -12,5 +12,3 @@ environment:
   infra-namespace: INFRA_NAMESPACE
   das-static-ip: DAS_STATIC_IP
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
-vault-lookups:
-  # todo put storage-passwords here
