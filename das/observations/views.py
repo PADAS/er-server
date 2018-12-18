@@ -218,9 +218,7 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_groups(groups)
 
         # Filter by provided subject_ids.
-        subject_ids = [subject_id for subject_id in
-                       self.request.query_params.get('id', '').split(',') if
-                       subject_id]
+        subject_ids = self.request.query_params.get('id', '')
         if subject_ids:
             queryset = queryset.by_id(subject_ids)
 

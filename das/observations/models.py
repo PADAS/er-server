@@ -46,6 +46,7 @@ from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
 from observations.utils import calculate_track_range
+from observations.mixins import FilterMixin
 
 
 logger = logging.getLogger(__name__)
@@ -630,7 +631,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
         return self.name
 
 
-class SubjectQuerySet(models.QuerySet):
+class SubjectQuerySet(models.QuerySet, FilterMixin):
     def by_region(self, region, **kwargs):
         subjects = self.filter(additional__region=region.region)
         subjects.filter(additional__country=region.country, **kwargs)
@@ -698,11 +699,6 @@ class SubjectQuerySet(models.QuerySet):
 
     def by_is_active(self, active=True):
         return self.filter(is_active=active)
-
-    def by_id(self, subject_ids):
-        if isinstance(subject_ids, str):
-            subject_ids = subject_ids.split(',')
-        return self.filter(id__in=subject_ids)
 
 
 class SubjectManager(models.Manager):
