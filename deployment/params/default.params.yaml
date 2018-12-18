@@ -3,12 +3,14 @@ static-values:
   nginx-utility-service-ip: ""
   alerts-slack-channel: "das-k8-alerts-dev"
   logging-static-ip: ""
-  send-alerts: "true"
+  send-alerts: "false"
   cpu-request-quota: "5"
   default-cpu-request: "50m"
   memory-request-quota: "20Gi"
   default-memory-request: "1Mi"
-  monitoring-version: "latest"
+  node-exporter-version: v0.16.0
+  monitoring-version: "0.0.15"
+  log_url: "logs.pamdas.org:5044"
 environment:
   namespace: NAMESPACE
   infra-namespace: INFRA_NAMESPACE
