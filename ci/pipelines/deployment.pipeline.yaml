@@ -165,6 +165,7 @@ jobs:
             LOGSTASH_URL: ((logstash-url)),
             NAMESPACE: ((namespace)),
             INFRA_NAMESPACE: ((infra-namespace))
+            IAAS_WORKSPACE: ((iaas-workspace))
           }
           run:
             path: /bin/bash

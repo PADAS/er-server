@@ -871,7 +871,8 @@ jobs:
             AZURE_CLIENT_SECRET: ((azure-client-secret)),
             LOGSTASH_URL: ((logstash-url)),
             NAMESPACE: ((namespace)),
-            INFRA_NAMESPACE: ((infra-namespace))
+            INFRA_NAMESPACE: ((infra-namespace)),
+            IAAS_WORKSPACE: ((iaas-workspace))
           }
           run:
             path: /bin/bash
