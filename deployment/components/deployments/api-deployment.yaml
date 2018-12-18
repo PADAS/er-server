@@ -24,27 +24,27 @@ spec:
         - name: DB_HOST
           valueFrom:
             configMapKeyRef:
-              name: default-configmap
+              name: datastore-configmap
               key: DB_HOST
         - name: DB_PORT
           valueFrom:
             configMapKeyRef:
-              name: default-configmap
+              name: datastore-configmap
               key: DB_PORT
         - name: DB_NAME
           valueFrom:
             configMapKeyRef:
-              name: default-configmap
+              name: datastore-configmap
               key: DB_NAME
         - name: DB_USER
           valueFrom:
             configMapKeyRef:
-              name: default-configmap
+              name: datastore-configmap
               key: DB_USER
         - name: DB_PASSWORD
           valueFrom:
             configMapKeyRef:
-              name: default-configmap
+              name: datastore-configmap
               key: DB_PASSWORD
         - name: EMAIL_PASSWORD
           valueFrom:
