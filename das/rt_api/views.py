@@ -295,6 +295,10 @@ def create_realtime_handler(sios):
                 return
             try:
 
+                # Add a message index. The client can use this to identify gaps
+                # in mes
+                data['mid'] = client.message_index(user)
+
                 # Add trace ID to message. It will be sent back in callback.
                 if message_type not in RealtimeServices.do_not_trace_these_types \
                         and isinstance(data, dict):
