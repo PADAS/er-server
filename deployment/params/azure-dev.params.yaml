@@ -7,7 +7,6 @@ static-values:
   blob-storage-key: "storage-key"
   blob-root-path: "root-path"
   use-azure-storage: "true"
-  iaas-workspace: "DAS-Dev"
 environment:
   namespace: NAMESPACE
   infra-namespace: INFRA_NAMESPACE
