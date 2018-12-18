@@ -1,4 +1,5 @@
 static-values:
+  web-service-name: "web"
   alerts-slack-channel: "das-k8-alerts-dev"
   logging-static-ip: ""
   send-alerts: "true"
