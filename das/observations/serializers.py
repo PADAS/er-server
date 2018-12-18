@@ -444,8 +444,12 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         break
 
     # see https://github.com/mapbox/geojson-coordinate-properties
-    if coordinate_times:
-        properties['coordinateProperties'] = {'times': coordinate_times}
-    if time:
-        properties['DateTime'] = time
+
+    if is_point:
+        properties['coordinateProperties'] = {'time': time}
+        properties['DateTime'] = time # Left in for backward compatibility.
+    else:
+        properties['coordinateProperties'] = {'times': coordinate_times or []}
+
     return feature
+
