@@ -275,6 +275,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
     def get_event_export_list(self):
         event_export_data = []
+        combined_headers = []
+        custom_fields = 0
 
         renderer = schema_utils.get_schema_renderer_method()
 
@@ -303,20 +305,34 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                                 'CUSTOM FIELDS BEGIN HERE'],
                     'events': []
                 }
+                if not combined_headers:
+                    combined_headers.extend([
+                        'Report Type', 'Report Type Internal Value', 'Report Id', 'Title',
+                        'Priority', 'Priority Internal Value', 'Status', 'Reported By',
+                        'Reported By Internal Value', reported_at, 'Latitude', 'Longitude', 
+                        'Number of Notes', 'Notes', 'Number of Related Subjects', 
+                        'Collection Report Id', 'CUSTOM FIELDS BEGIN HERE'
+                        ])
 
                 try:
                     current_schema = renderer(event.event_type.schema)
                     current_schema_order = schema_utils.definition_key_order_as_dict(
                         renderer(event.event_type.schema))
+                    for index in range(custom_fields):
+                        current_schema_order.update({index: index})
+                        current_schema_order.move_to_end(index, last=False)
 
                     for key, order in current_schema_order.items():
-                        display_value = schema_utils.get_display_value_header_for_key(
-                            current_schema, key)
-                        current_event_type_data['headers'].append(
-                            self.escape_string(key))
-                        current_event_type_data['headers'].append(
-                            self.escape_string(display_value))
+                        if not isinstance(key, int):
+                            display_value = schema_utils.get_display_value_header_for_key(
+                                current_schema, key)
+                            current_event_type_data['headers'].append(
+                                self.escape_string(key))
+                            current_event_type_data['headers'].append(
+                                self.escape_string(display_value))
 
+                            custom_fields += 1
+                            combined_headers.append(self.escape_string(display_value))
                 except json.JSONDecodeError:
                     # Event type does not have schema, which is weird but not
                     # _technically_ invalid
@@ -332,11 +348,14 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
-                item_display_name = schema_utils.get_display_value_header_for_key(
-                    current_schema, key)
-                schema_data[key] = self.escape_string(details.get(key, ''))
-                schema_data[item_display_name] = self.escape_string(
-                    details.get(item_display_name, ''))
+                if isinstance(key, int):
+                    schema_data[key] = ''
+                else:
+                    item_display_name = schema_utils.get_display_value_header_for_key(
+                        current_schema, key)
+                    # schema_data[key] = self.escape_string(details.get(key, ''))
+                    schema_data[item_display_name] = self.escape_string(
+                        details.get(item_display_name, ''))
 
             parent_event = Event.objects.filter(
                 out_relationship__to_event=event,
@@ -385,7 +404,10 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             current_event_type_data['events'].append(event_data)
 
-        return event_export_data
+        return {
+            'event_export_data': event_export_data,
+            'combined_headers': [header.replace(' ', '_') for header in combined_headers]
+            }
 
     def escape_string(self, string):
         if not isinstance(string, str):
