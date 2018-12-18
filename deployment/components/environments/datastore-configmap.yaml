@@ -8,7 +8,6 @@ data:
   DB_NAME: "<<db-name>>"
   DB_USER: "<<db-user>>"
   DB_PASSWORD: "<<db-password>>"
-  DB_CREDENTIAL: "<<db-credential>>"
   BLOB_STORAGE_URL: "<<blob-storage-url>>"
   BLOB_STORAGE_KEY: "<<blob-storage-key>>"
   BLOB_ROOT_PATH: "<<blob-storage-key>>"
