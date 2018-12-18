@@ -4,5 +4,5 @@ metadata:
   namespace: <<namespace>>
   name: site-configmap
 data:
-  AZURE_STORAGE: "true"
+  AZURE_STORAGE: "false"
 
