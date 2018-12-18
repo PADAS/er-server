@@ -304,6 +304,7 @@ resource_types:
 ################################################################################
 jobs:
 - name: docker-build-server-base
+  max_in_flight: 1
   plan:
   - get: git-server-base
     trigger: true
@@ -328,6 +329,7 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-server-app
+  max_in_flight: 1
   plan:
   - aggregate:
     - get: git-server-base
@@ -366,6 +368,7 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-server
+  max_in_flight: 1
   plan:
   - aggregate:
     - get: git-server
@@ -467,6 +470,7 @@ jobs:
 
 # Web Jobs
 - name: docker-build-web-develop
+  max_in_flight: 1
   plan:
   - get: git-web
     trigger: true
@@ -522,6 +526,7 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-web-app
+  max_in_flight: 1
   serial: true
   plan:
   - aggregate:
@@ -553,6 +558,7 @@ jobs:
 
 # ETL Jobs
 - name: docker-build-skyline-provider
+  max_in_flight: 1
   plan:
   - get: git-skyline-provider
     trigger: true
@@ -573,6 +579,7 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-tracktrace-provider
+  max_in_flight: 1
   plan:
   - get: git-tracktrace-provider
     trigger: true
@@ -613,6 +620,7 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-smartconnect-provider
+  max_in_flight: 1
   plan:
   - get: git-smartconnect-provider
     trigger: true
