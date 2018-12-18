@@ -7,6 +7,7 @@ static-values:
   default-cpu-request: "50m"
   memory-request-quota: "20Gi"
   default-memory-request: "1Mi"
+  monitoring-version: "latest"
 environment:
   namespace: NAMESPACE
   infra-namespace: INFRA_NAMESPACE
