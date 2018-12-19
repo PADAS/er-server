@@ -22,7 +22,7 @@ import itertools
 # from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
-from django.db.models import Case, CharField, Value, When, F, Q, Max, When
+from django.db.models import Case, CharField, Value, When, F, Q, Max, When, OuterRef, Subquery
 from django.db import transaction
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
@@ -656,6 +656,22 @@ class SubjectQuerySet(models.QuerySet):
 
         return self.filter(groups__in=effective_subject_group_set).distinct('id')
 
+    def with_subjectstatus_values(self, delay_hours=0):
+
+        subjectstatus = SubjectStatus.objects.filter(
+            subject_id=(OuterRef('id')), delay_hours=delay_hours)
+        return self.annotate(
+            subst_recorded_at=Subquery(
+                subjectstatus.values('recorded_at')[:1]),
+            subst_last_voice_call_start_at=Subquery(
+                subjectstatus.values('last_voice_call_start_at')[:1]),
+            subst_radio_state_at=Subquery(
+                subjectstatus.values('radio_state_at')[:1]),
+            subst_radio_state=Subquery(
+                subjectstatus.values('radio_state')[:1]),
+            subst_location=Subquery(subjectstatus.values('location')[:1]),
+        )
+
     def by_bbox(self, bbox, last_days=None, include_stationary_subjects=False):
         '''
         Filter by bbox, last_days.
@@ -1275,18 +1291,17 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
     def groups(self):
         return self.subject.groups
 
-#
-# class SubjectStatusLatestManager(models.Manager):
-#     def get_queryset(self):
-#         return super().get_queryset().filter(delay_hours=0)
-#
-#
-# class SubjectStatusLatest(SubjectStatus):
-#     objects = SubjectStatusLatestManager()
-#
-#     class Meta:
-#         proxy = True
-#
+
+class SubjectStatusLatestManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(delay_hours=0)
+
+
+class SubjectStatusLatest(SubjectStatus):
+    objects = SubjectStatusLatestManager()
+
+    class Meta:
+        proxy = True
 
 
 class RegionManager(models.Manager):

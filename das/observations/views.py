@@ -176,6 +176,9 @@ class RegionSubjectsView(generics.ListAPIView):
         return subjects
 
 
+from observations.utils import get_minimum_allowed_age, get_maximum_allowed_age
+
+
 class SubjectsView(generics.ListCreateAPIView):
     """
     Returns all subjects in the system.
@@ -221,8 +224,12 @@ class SubjectsView(generics.ListCreateAPIView):
                 subject_group)
             queryset = queryset.by_groups(groups)
         queryset = queryset.by_user_subjects(self.request.user)
-        queryset = queryset.prefetch_related(
-            Prefetch('subjectstatus_set')).prefetch_related('subject_subtype')
+        min_age_hours = get_minimum_allowed_age(self.request.user) * 24
+
+        queryset = queryset.select_related(
+            'subject_subtype', 'subject_subtype__subject_type')
+        queryset = queryset.with_subjectstatus_values()
+
         return queryset
 
     def get_serializer_context(self):
