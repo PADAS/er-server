@@ -6,6 +6,7 @@ call your project be overriding the settings file
 """
 
 from .settings import *
+import os
 
 MEDIA_ROOT = '/user-uploads'
 MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
@@ -49,15 +50,17 @@ NOTIFY_LOW_PRIORITY_EVENT = 'low_priority_alerts'
 
 EXPORT_KML_ENABLED = True
 
-# short term hack until we find a way to inject envs into the base image
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-#         'NAME': 'dev_us',
-#         'USER': 'postgres@das-postgres-us-azure',
-#         'HOST': 'das-postgres-us-azure.postgres.database.azure.com',
-#         'PASSWORD': '!GJt665$&T8!Pv',
-#     }
-# }
+USE_AZURE_STORAGE = os.getenv('AZURE_STORAGE', 'false')
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': os.getenv('DB_NAME', 'das'),
+        'USER': os.getenv('DB_USER','das'),
+        'HOST': os.getenv('DB_HOST', 'postgis'),
+        'PORT': os.getenv('DB_PORT', '5432'),
+        'PASSWORD': os.getenv('DB_PASSWORD','password'),
+    },
+}
 
 SHOW_STATIONARY_SUBJECTS_ON_MAP = True
