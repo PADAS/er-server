@@ -52,6 +52,13 @@ EXPORT_KML_ENABLED = True
 
 USE_AZURE_STORAGE = os.getenv('AZURE_STORAGE', 'false')
 
+if USE_AZURE_STORAGE == 'true':
+    # Azure storage - see https://django-storages.readthedocs.io/en/latest/backends/azure.html
+    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+    STATICFILES_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+    # todo - add the blob storage keys here
+
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',

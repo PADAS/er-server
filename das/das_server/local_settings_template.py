@@ -94,12 +94,3 @@ AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 FROM_EMAIL = 'notifications@pamdas.org'
 DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
 
-USE_AZURE_STORAGE = os.getenv('AZURE_STORAGE', 'false')
-
-if USE_AZURE_STORAGE == 'true':
-    # Azure storage - see https://django-storages.readthedocs.io/en/latest/backends/azure.html
-    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
-    STATICFILES_STORAGE = 'storages.backends.azure_storage.AzureStorage'
-    AZURE_ACCOUNT_NAME = 'dasassetsus'
-    AZURE_ACCOUNT_KEY = 'MuyPpyKAYF9G9QSq2BOpBU6YwZ8kWJfPzCk1vel+qqV3Ptjg/AnFl6CtKDXlLRaTYh5e4G6WtZ9niVPTVPFGqw=='
-    AZURE_CONTAINER = 'dev-us'
