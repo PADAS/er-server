@@ -5,7 +5,7 @@ metadata:
   namespace: <<namespace>>
 spec:
   type: ExternalName
-  externalName: das-postgres-us-azure.postgres.database.azure.com
+  externalName: <<db-host-name>>
   ports:
       - port: 5432
 
