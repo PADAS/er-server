@@ -1,6 +1,6 @@
 static-values:
   db-host-name: "das-postgres-us-azure.postgres.database.azure.com"
-  db-name: "dev-us"
+  db-name: "dev_us"
   db-user: "postgres@das-postgres-us-azure"
   db-password: "!GJt665$&T8!Pv"
   blob-storage-url: "blob-url"
