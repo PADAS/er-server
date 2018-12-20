@@ -1,8 +1,8 @@
 static-values:
-  db-host-name: "das-postgres-us-azure.postgres.database.azure.com"
+  db-host-name: "das-postgres-us.postgres.database.azure.com"
   db-name: "dev_us"
-  db-user: "postgres@das-postgres-us-azure"
-  db-password: "!GJt665$&T8!Pv"
+  db-user: "dev_us@das-postgres-us"
+  db-password: "08#08UqjY%SBmfUJ"
   storage-account-name: "dasassetsus"
   storage-container: "dev-us"
   storage-account-key: "MuyPpyKAYF9G9QSq2BOpBU6YwZ8kWJfPzCk1vel+qqV3Ptjg/AnFl6CtKDXlLRaTYh5e4G6WtZ9niVPTVPFGqw=="
