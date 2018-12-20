@@ -9,8 +9,9 @@ data:
   DB_NAME: "<<db-name>>"
   DB_USER: "<<db-user>>"
   DB_PASSWORD: "<<db-password>>"
-  BLOB_STORAGE_URL: "<<blob-storage-url>>"
-  BLOB_STORAGE_KEY: "<<blob-storage-key>>"
-  BLOB_ROOT_PATH: "<<blob-storage-key>>"
+  STORAGE_ACCOUNT: "<<storage-account-name>>"
+  STORAGE_CONTAINER: "<<storage-container>>"
+  STORAGE_KEY: "<<storage-account-key>>"
+  STORAGE_BASE_PATH: "<<storage-base-path>>"
   USE_AZURE_STORAGE: "<<use-azure-storage>>"
 

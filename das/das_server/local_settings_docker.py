@@ -56,6 +56,9 @@ if USE_AZURE_STORAGE == 'true':
     # Azure storage - see https://django-storages.readthedocs.io/en/latest/backends/azure.html
     DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
     STATICFILES_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+    AZURE_ACCOUNT_NAME = os.getenv('STORAGE_ACCOUNT', '')
+    AZURE_ACCOUNT_KEY = os.getenv('STORAGE_KEY', '')
+    AZURE_CONTAINER = os.getenv('STORAGE_CONTAINER', '')
     # todo - add the blob storage keys here
 
 

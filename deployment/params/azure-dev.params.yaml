@@ -3,9 +3,10 @@ static-values:
   db-name: "dev_us"
   db-user: "postgres@das-postgres-us-azure"
   db-password: "!GJt665$&T8!Pv"
-  blob-storage-url: "blob-url"
-  blob-storage-key: "storage-key"
-  blob-root-path: "root-path"
+  storage-account-name: "dasassetsus"
+  storage-container: "dev-us"
+  storage-account-key: "MuyPpyKAYF9G9QSq2BOpBU6YwZ8kWJfPzCk1vel+qqV3Ptjg/AnFl6CtKDXlLRaTYh5e4G6WtZ9niVPTVPFGqw=="
+  storage-base-path: "root-path"
   use-azure-storage: "true"
 environment:
   namespace: NAMESPACE
