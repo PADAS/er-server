@@ -76,11 +76,6 @@ STATUS_COLORS = {'online-gps': 'green',
                  'na': 'black'}
 
 
-def get_radio_color(subject_status):
-    color = STATUS_COLORS.get(subject_status.radio_state, 'black')
-    return color
-
-
 def random_rgb():
     return ','.join([str(random.randint(0, 255)) for i in range(3)])
 
@@ -934,17 +929,15 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             yield '-'.join((key, 'black', sex.lower()))
             yield '-'.join((key, sex.lower()))
 
-        state = getattr(self, 'subst_radio_state', None)
-
-        # status = self.subjectstatus_set.filter(delay_hours=0)
-        # if status:
-        #     color = get_radio_color(status[0])
-        if state:
+        try:
+            state = getattr(self, 'subst_radio_state', None) or \
+                self.subjectstatus_set.get(delay_hours=0).radio_state
+        except (SubjectStatus.DoesNotExist, AttributeError):
+            yield key
+            yield '-'.join((key, 'black'))
+        else:
             color = STATUS_COLORS.get(state, 'black')
             yield '-'.join((key, color))
-
-        yield key
-        yield '-'.join((key, 'black'))
 
     def get_users_to_notify(self):
         """
