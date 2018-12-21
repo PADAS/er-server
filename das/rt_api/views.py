@@ -101,6 +101,14 @@ def confirm_authorzation(sid, sios):
             'New socket connection is authenticated. sid=%s', sid, extra=extra)
 
 
+def connect_ack(sid, sios):
+
+    logger.debug('Acknowledge connection for sid: %s', sid)
+    eventlet.sleep(1.0)
+    sios.emit('connect_ack', {
+              'type': 'connect_ack', 'message': 'Connect acknowledgment.'}, room=str(sid), namespace='/das')
+
+
 CLIENT_CLEANUP_INTERVAL = 30  # seconds
 
 
@@ -149,6 +157,9 @@ def create_realtime_handler(sios):
             logger.info('on_connect', extra={'sid': str(sid)})
             logger.debug('on_connect', extra={
                          'sid': str(sid), 'socket': repr(socket)})
+
+            # Send a connect acknowledgment (helpful for troubleshooting).
+            eventlet.spawn(connect_ack, sid, sios)
 
             # Make sure the connection authenticates immediately
             eventlet.spawn(confirm_authorzation, sid, sios)

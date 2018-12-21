@@ -22,7 +22,7 @@ import itertools
 # from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
-from django.db.models import Case, CharField, Value, When, F, Q, Max, When, OuterRef, Subquery
+from django.db.models import Case, CharField, Value, When, F, Q, Max, When, OuterRef, Subquery, FilteredRelation
 from django.db import transaction
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
@@ -45,7 +45,7 @@ from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
-from observations.utils import calculate_track_range
+from observations.utils import calculate_track_range, get_minimum_allowed_age
 
 
 logger = logging.getLogger(__name__)
@@ -599,11 +599,14 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
 
     def get_all_subjects(self, user=None, active=None, include_from_subgroups=True):
 
-        queryset = Subject.objects.all()
+        if user:
+            min_age_days = get_minimum_allowed_age(user) or 0
+
+        queryset = Subject.objects.all() \
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)\
+            .select_related('subject_subtype__subject_type')
         if active is not None:
             queryset = queryset.by_is_active(active=active)
-        queryset = queryset.prefetch_related(
-            models.Prefetch('subjectstatus_set'))
 
         if include_from_subgroups:
             """Including descendant group subjects"""
@@ -656,21 +659,28 @@ class SubjectQuerySet(models.QuerySet):
 
         return self.filter(groups__in=effective_subject_group_set).distinct('id')
 
-    def with_subjectstatus_values(self, delay_hours=0):
+    def annotate_with_subjectstatus(self, delay_hours=0):
 
-        subjectstatus = SubjectStatus.objects.filter(
-            subject_id=(OuterRef('id')), delay_hours=delay_hours)
-        return self.annotate(
-            subst_recorded_at=Subquery(
-                subjectstatus.values('recorded_at')[:1]),
-            subst_last_voice_call_start_at=Subquery(
-                subjectstatus.values('last_voice_call_start_at')[:1]),
-            subst_radio_state_at=Subquery(
-                subjectstatus.values('radio_state_at')[:1]),
-            subst_radio_state=Subquery(
-                subjectstatus.values('radio_state')[:1]),
-            subst_location=Subquery(subjectstatus.values('location')[:1]),
-        )
+        return self.annotate(s1=FilteredRelation('subjectstatus', condition=Q(subjectstatus__delay_hours=delay_hours))) \
+            .annotate(subst_recorded_at=F('s1__recorded_at')) \
+            .annotate(subst_last_voice_call_start_at=F('s1__last_voice_call_start_at')) \
+            .annotate(subst_radio_state=F('s1__radio_state')) \
+            .annotate(subst_radio_state_at=F('s1__radio_state_at')) \
+            .annotate(subst_location=F('s1__location'))
+
+        # subjectstatus = SubjectStatus.objects.filter(
+        #     subject_id=(OuterRef('id')), delay_hours=delay_hours)
+        # return self.annotate(
+        #     subst_recorded_at=Subquery(
+        #         subjectstatus.values('recorded_at')[:1]),
+        #     subst_last_voice_call_start_at=Subquery(
+        #         subjectstatus.values('last_voice_call_start_at')[:1]),
+        #     subst_radio_state_at=Subquery(
+        #         subjectstatus.values('radio_state_at')[:1]),
+        #     subst_radio_state=Subquery(
+        #         subjectstatus.values('radio_state')[:1]),
+        #     subst_location=Subquery(subjectstatus.values('location')[:1]),
+        # )
 
     def by_bbox(self, bbox, last_days=None, include_stationary_subjects=False):
         '''
@@ -841,10 +851,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         qs = list(qs)
         return [o['location'].coords for o in qs], [zeroout_microseconds(o['recorded_at']) for o in qs]
 
-    def get_subject_state(self):
-        for subject_status in self.subjectstatus_set.filter(delay_hours=0):
-            return subject_status.radio_state
-
     def observations(self, last_hours=None, until=None):
         """ returns all observations for this Subject, spanning
         Sources as necessary """
@@ -928,9 +934,13 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             yield '-'.join((key, 'black', sex.lower()))
             yield '-'.join((key, sex.lower()))
 
-        status = self.subjectstatus_set.filter(delay_hours=0)
-        if status:
-            color = get_radio_color(status[0])
+        state = getattr(self, 'subst_radio_state', None)
+
+        # status = self.subjectstatus_set.filter(delay_hours=0)
+        # if status:
+        #     color = get_radio_color(status[0])
+        if state:
+            color = STATUS_COLORS.get(state, 'black')
             yield '-'.join((key, color))
 
         yield key
@@ -1025,6 +1035,10 @@ class SubjectStatusManager(models.Manager):
             return
 
         update_subject_status_from_observation(observation)
+
+    def update_current(self, subject):
+        for subjectsource in SubjectSource.objects.filter(subject=subject, assigned_range__contains=datetime.now(tz=pytz.utc)):
+            self.update_current_from_source(subjectsource.source)
 
     def update_delayed_status(self, subject):
         '''
