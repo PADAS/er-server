@@ -10,7 +10,7 @@ db_user = db['default']['USER'] if 'default' in db else 'postgres'
 # and because Azure requires the host name to be prepended, we need to
 # strip off anything with an '@' in it
 if '@' in db_user:
-    parts = db_user.split['@']
+    parts = db_user.split('@')
     db_user = parts[0]
 
 class Migration(migrations.Migration):
