@@ -156,19 +156,19 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
                 default_window_cutoff = pytz.utc.localize(
                     datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
-                rep['tracks_available'] = instance.subst_recorded_at > default_window_cutoff
+                rep['tracks_available'] = instance.status_recorded_at > default_window_cutoff
 
                 # TODO: These values might be more appropriate in the
                 # geeojson properties.
                 rep['last_position_status'] = {
-                    'last_voice_call_start_at': instance.subst_last_voice_call_start_at,
-                    'radio_state_at': instance.subst_radio_state_at,
-                    'radio_state': instance.subst_radio_state
+                    'last_voice_call_start_at': instance.status_last_voice_call_start_at,
+                    'radio_state_at': instance.status_radio_state_at,
+                    'radio_state': instance.status_radio_state
                 }
 
-                rep['last_position_date'] = instance.subst_recorded_at
+                rep['last_position_date'] = instance.status_recorded_at
                 rep['last_position'] = make_feature(
-                    self.context['request'], instance.subst_location, instance, time=instance.subst_recorded_at, image_url=rep['image_url'])
+                    self.context['request'], instance.status_location, instance, time=instance.status_recorded_at, image_url=rep['image_url'])
 
                 # rep['tracks_range'] = (start.recorded_at, end.recorded_at)
 
@@ -445,7 +445,7 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
     #     break
 
     for k in ('foobar', 'last_voice_call_start_at', 'location_requested_at', 'radio_state_at', 'radio_state',):
-        val = getattr(subject, f'subst_{k}', None)
+        val = getattr(subject, f'status_{k}', None)
         properties[k] = val
         # if val:
         #     properties[k] = val

@@ -657,24 +657,24 @@ class SubjectQuerySet(models.QuerySet):
     def annotate_with_subjectstatus(self, delay_hours=0):
 
         return self.annotate(s1=FilteredRelation('subjectstatus', condition=Q(subjectstatus__delay_hours=delay_hours))) \
-            .annotate(subst_recorded_at=F('s1__recorded_at')) \
-            .annotate(subst_last_voice_call_start_at=F('s1__last_voice_call_start_at')) \
-            .annotate(subst_radio_state=F('s1__radio_state')) \
-            .annotate(subst_radio_state_at=F('s1__radio_state_at')) \
-            .annotate(subst_location=F('s1__location'))
+            .annotate(status_recorded_at=F('s1__recorded_at')) \
+            .annotate(status_last_voice_call_start_at=F('s1__last_voice_call_start_at')) \
+            .annotate(status_radio_state=F('s1__radio_state')) \
+            .annotate(status_radio_state_at=F('s1__radio_state_at')) \
+            .annotate(status_location=F('s1__location'))
 
         # subjectstatus = SubjectStatus.objects.filter(
         #     subject_id=(OuterRef('id')), delay_hours=delay_hours)
         # return self.annotate(
-        #     subst_recorded_at=Subquery(
+        #     status_recorded_at=Subquery(
         #         subjectstatus.values('recorded_at')[:1]),
-        #     subst_last_voice_call_start_at=Subquery(
+        #     status_last_voice_call_start_at=Subquery(
         #         subjectstatus.values('last_voice_call_start_at')[:1]),
-        #     subst_radio_state_at=Subquery(
+        #     status_radio_state_at=Subquery(
         #         subjectstatus.values('radio_state_at')[:1]),
-        #     subst_radio_state=Subquery(
+        #     status_radio_state=Subquery(
         #         subjectstatus.values('radio_state')[:1]),
-        #     subst_location=Subquery(subjectstatus.values('location')[:1]),
+        #     status_location=Subquery(subjectstatus.values('location')[:1]),
         # )
 
     def by_bbox(self, bbox, last_days=None, include_stationary_subjects=False):
@@ -930,7 +930,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             yield '-'.join((key, sex.lower()))
 
         try:
-            state = getattr(self, 'subst_radio_state', None) or \
+            state = getattr(self, 'status_radio_state', None) or \
                 self.subjectstatus_set.get(delay_hours=0).radio_state
         except (SubjectStatus.DoesNotExist, AttributeError):
             yield key
