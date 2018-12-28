@@ -46,6 +46,11 @@ spec:
             configMapKeyRef:
               name: datastore-configmap
               key: DB_PASSWORD
+        - name: USE_AZURE_STORAGE
+          valueFrom:
+            configMapKeyRef:
+              name: datastore-configmap
+              key: USE_AZURE_STORAGE
         - name: EMAIL_PASSWORD
           valueFrom:
             configMapKeyRef:
