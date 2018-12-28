@@ -14,15 +14,14 @@ DB_OWNER="$1"
 DB_USER="$1_user"
 
 # create a 32 char random password without dashes
-# will use a RNG if present, otherwise its based off time 
+# will use a RNG if present, otherwise its based off time - uuids are good for
+# uniqueness, but are sometimes easily guessable, so buyer beware...
 RANDOM_UUID="uuidgen | tr -d '-'"
 DB_OWNER_PWD=`eval ${RANDOM_UUID}`
-RANDOM_UUID2="uuidgen | tr -d '-'"
-DB_USER_PWD=`eval ${RANDOM_UUID2}`
 
-# dump it to a json file
-DB_DATA="{\"$DB_OWNER\":\""$DB_OWNER_PWD"\", \"$DB_USER\":\""$DB_USER_PWD"\", \"db_name\":\""$DB_NAME"\"}" 
-echo -e $DB_DATA > 
+# dump credential data to a json filea before creation
+DB_DATA="{\"user\": \"$DB_OWNER\", \"password\": \""$DB_OWNER_PWD"\", \"db_name\":\""$DB_NAME"\"}" 
+echo -e $DB_DATA > $DB_NAME.json 
 
-psql -h $DB_HOST -U $DB_ADMIN -v ownerpw="'$ownerpw'" -v userpw="'$userpw'" -v db_name="$db_name" -f .\new_prod_db.sql --set ON_ERROR_STOP=on
+psql -h $DB_HOST -U $DB_ADMIN postgres -v db_owner="$DB_OWNER" -v db_passwd="$DB_OWNER_PWD"  -v db_name="$DB_NAME" -f ./new_prod_db_azure.sql --set ON_ERROR_STOP=on
 
