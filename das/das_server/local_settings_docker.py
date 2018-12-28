@@ -50,7 +50,7 @@ NOTIFY_LOW_PRIORITY_EVENT = 'low_priority_alerts'
 
 EXPORT_KML_ENABLED = True
 
-USE_AZURE_STORAGE = os.getenv('AZURE_STORAGE', 'false')
+USE_AZURE_STORAGE = os.getenv('USE_AZURE_STORAGE', 'false')
 
 if USE_AZURE_STORAGE == 'true':
     # Azure storage - see https://django-storages.readthedocs.io/en/latest/backends/azure.html
