@@ -11,7 +11,7 @@ data:
   DB_PASSWORD: "<<db-password>>"
   STORAGE_ACCOUNT: "<<storage-account-name>>"
   STORAGE_CONTAINER: "<<storage-container>>"
-  STORAGE_KEY: "<<storage-account-key>>"
+  STORAGE_ACCOUNT_KEY: "<<storage-account-key>>"
   STORAGE_BASE_PATH: "<<storage-base-path>>"
   USE_AZURE_STORAGE: "<<use-azure-storage>>"
 
