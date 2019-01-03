@@ -629,6 +629,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
 
 
 class SubjectQuerySet(models.QuerySet):
+
     def by_region(self, region, **kwargs):
         subjects = self.filter(additional__region=region.region)
         subjects.filter(additional__country=region.country, **kwargs)
@@ -676,6 +677,15 @@ class SubjectQuerySet(models.QuerySet):
         #         subjectstatus.values('radio_state')[:1]),
         #     status_location=Subquery(subjectstatus.values('location')[:1]),
         # )
+
+    def by_updated_since(self, updated_since):
+
+        updated_since_filter = Q(updated_at__gte=updated_since) \
+            | Q(status_recorded_at__gte=updated_since) \
+            | Q(status_last_voice_call_start_at__gte=updated_since)\
+            | Q(status_radio_state_at__gte=updated_since)
+
+        return self.filter(updated_since_filter)
 
     def by_bbox(self, bbox, last_days=None, include_stationary_subjects=False):
         '''
@@ -725,6 +735,7 @@ class SubjectQuerySet(models.QuerySet):
 
 
 class SubjectManager(models.Manager):
+
     def create_subject(self, **kwargs):
         # all subjects are added to the default subject group
         subject = super().create(**kwargs)

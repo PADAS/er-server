@@ -235,6 +235,15 @@ class SubjectsView(generics.ListCreateAPIView):
         queryset = queryset.annotate_with_subjectstatus(
             delay_hours=min_age_days * 24)
 
+        updated_since = self.request.query_params.get('updated_since', None)
+        if updated_since:
+            try:
+                updated_since = dateparse(updated_since)
+            except ValueError:
+                raise ValueError(f'Invalid value for updated_since: "{updated_since}"')
+            else:
+                queryset = queryset.by_updated_since(updated_since)
+
         return queryset
 
     def get_serializer_context(self):
