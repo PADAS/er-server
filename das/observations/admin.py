@@ -541,8 +541,7 @@ class SourceAdmin(admin.ModelAdmin):
                        'collar_manufacturer', 'data_owners',
                        'adjusted_beacon_freq', 'primary_frequency',
                        'adjusted_frequency',
-                       'backup_frequency', 'predicted_expiry',
-                       'feed_id', 'feed_passwd'
+                       'backup_frequency', 'predicted_expiry'
                        )
         }
         ),
