@@ -87,8 +87,6 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
                                            widget=AdminDateWidget())
     collar_key = forms.CharField(widget=forms.Textarea,
                                  required=False, label='Collar Key')
-    feed_id = forms.CharField(required=False, label='Feed Id')
-    feed_passwd = forms.CharField(required=False, label='Feed Password')
 
 
     @staticmethod
@@ -108,7 +106,6 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
         model = Source
         json_fields = ('collar_key', 'collar_status', 'collar_model',
                        'collar_manufacturer', 'has_acc_data', 'data_owners',
-                       'feed_id', 'feed_passwd',
                        'adjusted_beacon_freq', 'primary_frequency',
                        'adjusted_frequency',
                        'backup_frequency', 'predicted_expiry')
