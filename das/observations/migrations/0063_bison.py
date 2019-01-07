@@ -13,7 +13,10 @@ NEW_ANIMALS = [{'display': 'Bison', 'value': 'bison'},
 SUBJECT_TYPE_VALUE = 'wildlife'
 
 def load_bison_subtypes(apps, schema_editor):
-    subject_type = observations.models.SubjectType.objects.get(value=SUBJECT_TYPE_VALUE)
+    db_alias = schema_editor.connection.alias
+    SubjectType = apps.get_model('observations', 'SubjectType')
+    SubjectSubType = apps.get_model('observations', 'SubjectSubType')
+    subject_type = SubjectType.objects.using(db_alias).get(value=SUBJECT_TYPE_VALUE)
     for subtype in NEW_ANIMALS:
         defaults = {'display': subtype['display'],
                     'subject_type': subject_type}
