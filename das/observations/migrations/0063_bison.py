@@ -20,7 +20,7 @@ def load_bison_subtypes(apps, schema_editor):
     for subtype in NEW_ANIMALS:
         defaults = {'display': subtype['display'],
                     'subject_type': subject_type}
-        observations.models.SubjectSubType.objects.get_or_create(value=subtype['value'],
+        SubjectSubType.objects.using(db_alias).get_or_create(value=subtype['value'],
                                                          defaults=defaults)
 
 
