@@ -112,8 +112,8 @@ def calculate_track_range(user, since, until, limit):
         mou_expiry_age = now - mou_expiry_date
 
         newest_age = max(mou_expiry_age.days, newest_age)
-        if oldest_age < newest_age:
-            raise PermissionDenied()
+        # if oldest_age < newest_age:
+        #     raise PermissionDenied()
 
     begin = now - timedelta(days=oldest_age)
 
