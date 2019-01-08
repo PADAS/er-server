@@ -52,6 +52,7 @@ resources:
     branch: ((server-branch-name))
     ignore_paths:
       - deployment/*
+      - das/ste
     private_key: ((das-github))
 
 - name: git-deployment
