@@ -164,20 +164,18 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
         ('male', _('Male')),
         ('female', _('Female'))
     ))
-    region = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
-        verbose_name='Region Choices', is_stacked=False), required=False,
-        help_text='This is the region that will be shown in the DAS Mobile'
-                  ' App.')
-    country = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
-        verbose_name='Country Choices', is_stacked=False), required=False,
-        help_text='This is the country that will be shown in the DAS Mobile '
-                  'App.')
+    region = forms.ChoiceField(required=False,
+                               help_text='Region that will be shown in the DAS'
+                                         ' Mobile App.')
+    country = forms.ChoiceField(required=False,
+                                help_text='Country that will be shown in the '
+                                          'DAS Mobile App.')
     tm_animal_id = forms.CharField(required=False, label='Animal ID')
     # other_id = forms.CharField(required=False, label='Other id')
 
     @staticmethod
     def fetch_region_choices():
-        region_choices = {}
+        region_choices = {'': ''}
         for region in Choice.objects.filter(
                 model='observations.region',
                 field='region').order_by('ordernum'):
@@ -186,7 +184,7 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
 
     @staticmethod
     def fetch_country_choices():
-        country_choices = {}
+        country_choices = {'': ''}
         for country in Choice.objects.filter(
                 model='observations.region',
                 field='country').order_by('ordernum'):
