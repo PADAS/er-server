@@ -343,6 +343,8 @@ jobs:
       }
     - get: git-server
       trigger: true
+      params:
+        submodules: none
     - get: server-base-version
       passed: [docker-build-server-base]
     - put: server-app-version
@@ -373,6 +375,8 @@ jobs:
   plan:
   - aggregate:
     - get: git-server
+      params:
+        submodules: none
     - get: image-server-app
       passed: [docker-build-server-app]
       trigger: true
@@ -658,6 +662,8 @@ jobs:
         passed: [docker-build-web-app]
       - get: git-server
         passed: [docker-build-server]
+        params:
+          submodules: none
       - get: git-deployment
         trigger: true
       - get: git-skyline-provider
