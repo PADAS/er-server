@@ -57,6 +57,7 @@ tz_difference = current_date.utcoffset().total_seconds() / 60 / 60
 tz_offset = 'GMT' + ('+' if tz_difference >= 0 else '') + str(int(tz_difference)) + \
             ':' + str(int((tz_difference - int(tz_difference)) * 60))
 
+
 def default_since():
     """default value for since
     last days is the default
@@ -69,6 +70,7 @@ def dateparse(date_str, default_tz=pytz.utc):
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tz)
     return dt
+
 
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
@@ -208,6 +210,10 @@ class SubjectsView(generics.ListCreateAPIView):
                 raise ValueError("invalid bbox param")
             queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS,
                                         include_stationary_subjects=INCLUDE_STATIONARY_SUBJECTS_ON_MAP)
+
+        if self.request.query_params.get('name', None):
+            queryset = queryset.by_name_search(
+                self.request.query_params.get('name'))
 
         subject_group = self.request.query_params.get('subject_group', None)
         if subject_group:
@@ -362,6 +368,24 @@ class TrackLimitSerializer(rest_framework.serializers.Serializer):
         default=None, required=False)
 
 
+class SubjectStatusView(generics.RetrieveAPIView):
+
+    lookup_url_kwarg = 'subject_id'
+    lookup_field = 'subject_id'
+    serializer_class = serializers.SubjectStatusSerializer
+
+    def get_queryset(self):
+
+        ss = models.SubjectStatus.objects.select_related(
+            'subject').filter(delay_hours=0)
+
+        return ss
+
+    def check_object_permissions(self, request, obj):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, obj.subject):
+            raise PermissionDenied
+
+
 class SubjectTracksView(generics.RetrieveAPIView):
     """
     Optional qparam of:
@@ -392,7 +416,6 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        # tracks_limit = self.request.query_params.get('limit', None)
 
         tracks_limits = TrackLimitSerializer(data=self.request.query_params)
         tracks_limits.is_valid(raise_exception=True)
@@ -804,7 +827,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                     subject_source = models.SubjectSource.objects.filter(
                         source=observation.source,
                         subject=subject)[0]
-                    recorded_at = observation.recorded_at.astimezone(current_tz)
+                    recorded_at = observation.recorded_at.astimezone(
+                        current_tz)
                     created_at = observation.created_at.astimezone(current_tz)
                     data = {'lat': observation.location.x,
                             'lon': observation.location.y,
@@ -826,10 +850,11 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 content_type='application/json', status=status.HTTP_200_OK
             )
 
+        download_filename = f'Tracking Data {timestamp.strftime("%Y-%m-%d")}.csv'
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment;' \
-                                          'filename=Tracking Data {}.csv'.\
-            format(timestamp.strftime('%Y-%m-%d'))
+        response['Content-Disposition'] = f'attachment;filename={download_filename}'
+        response['x-das-download-filename'] = download_filename
+
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         if csv_data:
@@ -937,10 +962,10 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                 content_type='application/json', status=status.HTTP_200_OK
             )
 
+        download_filename = f'Tracking Meta Data Export {timestamp.strftime("%Y-%m-%d")}.csv'
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=' \
-            '"Tracking Meta Data Export {}.csv"'.format(
-            timestamp.strftime('%Y-%m-%d'))
+        response['Content-Disposition'] = f'attachment; filename={download_filename}'
+        response['x-das-download-filename'] = download_filename
 
         writer = csv.DictWriter(response, headers)
         writer.writeheader()

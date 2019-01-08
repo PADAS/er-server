@@ -19,7 +19,7 @@ from kombu.utils import nested
 
 logger = logging.getLogger(__name__)
 
-PUBLISH_TIMEOUT = 5 # seconds
+PUBLISH_TIMEOUT = 5  # seconds
 DAS_PUBSUB_CHANNEL_NAME = 'das'
 das_exchange = Exchange(DAS_PUBSUB_CHANNEL_NAME, type='topic', durable=True)
 _pool = None
