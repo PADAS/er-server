@@ -172,7 +172,7 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
 
     @staticmethod
     def fetch_region_choices():
-        region_choices = {}
+        region_choices = {'': ''}
         for region in Choice.objects.filter(
                 model='observations.region',
                 field='region').order_by('ordernum'):
@@ -181,7 +181,7 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
 
     @staticmethod
     def fetch_country_choices():
-        country_choices = {}
+        country_choices = {'': ''}
         for country in Choice.objects.filter(
                 model='observations.region',
                 field='country').order_by('ordernum'):
