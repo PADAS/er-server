@@ -29,7 +29,7 @@ class SubjectAdditionalTest(TestCase):
     def test_subject_creation(self):
         additional_data = {
             'rgb': '203, 223, 54', 'sex': 'male',
-            'region': ['Lewa'], 'country': ['DRC'],
+            'region': 'Lewa', 'country': 'DRC',
             'tm_animal_id': 'some-external-ID'
         }
         form_data = {

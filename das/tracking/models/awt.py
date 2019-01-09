@@ -21,15 +21,18 @@ class AWTPluginException(Exception):
     pass
 
 
-class AWTPluginFUPBackoffException(Exception):
+class AWTPluginFUPBackoffException(AWTPluginException):
     pass
 
 
-class AWTPluginBannedException(Exception):
+class AWTPluginBannedException(AWTPluginException):
     pass
 
 
-class AWTPluginInvalidSessionTokenException(Exception):
+class AWTPluginInvalidSessionTokenException(AWTPluginException):
+    pass
+
+class AWTPluginDecryptionException(AWTPluginException):
     pass
 
 
@@ -80,18 +83,19 @@ class AwtClient(object):
 
     def decrypt_response(self, response):
         # Get IV and Ciphertext from response
-        if response.get('IV', None):
-            iv = response.get('IV', None)
-            iv = bytes.fromhex(iv)
-        else:
-            self.logger.error('IV not in {response}'.format(response=response))
-            raise Exception('IV not in {response}'.format(response=response))
         if response.get('Ciphertext', None):
             cipher_text = response.get('Ciphertext', None)
             cipher_text = base64.b64decode(cipher_text)
         else:
-            raise Exception('Ciphertext not in {response}'.format(
-                response=response))
+            if 'Ciphertext' not in response:
+                raise AWTPluginDecryptionException(f'Ciphertext not in {response}')
+            return []
+
+        if response.get('IV', None):
+            iv = response.get('IV', None)
+            iv = bytes.fromhex(iv)
+        else:
+            raise AWTPluginDecryptionException(f'IV not in {response}')
 
         # Generate Cipher using subscription token, IV to decrypt response
         subscription_token = bytes.fromhex(self.subscription_token)
@@ -268,7 +272,11 @@ class AwtClient(object):
                                            expiry_period=self.fetch_unit_data_expiry)
         if response:
             if response['Result']:
-                return self.decrypt_response(response)
+                try:
+                    return self.decrypt_response(response)
+                except (AWTPluginDecryptionException,) as de:
+                    self.logger.error(f'AWT decryption failed: {de}, with payload: {payload}')
+                    raise
             raise AWTPluginException(response)
         raise AWTPluginException('Error in fetching observation Data')
 
