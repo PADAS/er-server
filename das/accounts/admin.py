@@ -155,6 +155,7 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
         email = self.cleaned_data.get("email")
         if email.strip() == '':
             return None
+        return email
 
 
 class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
@@ -215,6 +216,7 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
         email = self.cleaned_data.get("email")
         if email.strip() == '':
             return None
+        return email
 
 
 class KmkMasterLinkForm(forms.Form):
@@ -341,14 +343,17 @@ class UserAdmin(DjangoUserAdmin):
         if not self.has_change_permission(request):
             raise PermissionDenied
         user = get_object_or_404(self.model, pk=user_id)
-        self.send_reset_email(request, user)
+
+        if user.email:
+            self.send_reset_email(request, user)
         return HttpResponseRedirect('..')
 
     def get_kml_master_link(self, request, user_id):
         if not self.has_change_permission(request):
             raise PermissionDenied
         user = get_object_or_404(self.model, pk=user_id)
-        self.send_kml_email(request, user)
+        if user.email:
+            self.send_kml_email(request, user)
         return HttpResponseRedirect('..')
 
     def save_model(self, request, obj, form, change):
@@ -363,7 +368,7 @@ class UserAdmin(DjangoUserAdmin):
 
         super(UserAdmin, self).save_model(request, obj, form, change)
 
-        if should_reset_password:
+        if should_reset_password and obj.email:
             self.send_reset_email(request, obj)
 
     def send_reset_email(self, request, user):
