@@ -106,6 +106,8 @@ class GenericSensorHandler():
 class FollowltTrackerHandler:
 
     SENSOR_TYPE = 'animal-collar-push'
+    DEFAULT_SOURCE_TYPE = 'tracking-device'
+    MODEL_NAME = 'FollowIt'
 
     @staticmethod
     def convert_to_das_format(data):
@@ -141,9 +143,13 @@ class FollowltTrackerHandler:
                 continue
             try:
                 data = cls.convert_to_das_format(params.data)
-                src = Source.objects.ensure_source(
+                model_name = '{}:{}'.format(
+                    cls.MODEL_NAME, provider_key)
+                source_type = cls.DEFAULT_SOURCE_TYPE
+                src = Source.objects.ensure_source(source_type=source_type,
                     provider=provider_key,
-                    manufacturer_id=params.data.get('collarId'))
+                    manufacturer_id=params.data.get('collarId'),
+                    model_name=model_name)
                 # Short-circuit if we already have this observation.
                 if Observation.objects.filter(
                         source=src, recorded_at=data['recorded_at']).exists():
