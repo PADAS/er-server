@@ -74,3 +74,34 @@ class FollowltObservationTest(BaseAPITest):
                                                provider_key=self.provider_key)
         self.assertEqual(response.status_code, 201)
         self.assertTrue(len(self.henry.observations()) == 2)
+
+    def test_post_new_minimal_radio_update(self):
+        # Post sample data in api, and check subject's observations
+        # ttf, sats, alt, hdop, temp
+        data = [{"lat": 32.01, "lng": 40.05, "date": "13-09-2018", "collarId": "followlt-1234",
+                 },
+                {"lat": 32.02, "lng": 40.06, "date": "14-09-2018", "ttf": None,
+                 "sats": None, "collarId": "followlt-1234",
+                 "positionId": "684adc", "serialId": "12345", "alt": None,
+                 "hdop": None, "temp": None, "name": "Test"}]
+
+        path = '/'.join((self.api_base, 'sensors',
+                         self.sensor_type, self.provider_key, 'status'))
+
+        # This is what BaseAPITest class's force_authenticate do
+        tok = AccessToken.objects.create(
+            user=self.testuser, token=str(uuid.uuid4()),
+            application=self.application, scope='read write',
+            expires=timezone.now() + datetime.timedelta(days=1)
+        )
+        # appending token in url
+        path = path + '?auth={}'.format(tok.token)
+        request = self.factory.post(path, data=data)
+        request.user = self.testuser
+        force_authenticate(request, user=request.user, token=tok)
+
+        response = SensorObservation.as_view()(request,
+                                               sensor_type=self.sensor_type,
+                                               provider_key=self.provider_key)
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(len(self.henry.observations()) == 2)
