@@ -6,8 +6,8 @@ import django.contrib.auth
 from pytz import UTC
 
 from observations.serializers import ObservationSerializer
-from observations.views import SubjectTracksView
-from rt_api.tasks import get_subject_view_details
+from observations.views import SubjectStatusView
+from rt_api.tasks import get_subjectstatus_view
 
 User = django.contrib.auth.get_user_model()
 
@@ -54,8 +54,8 @@ class RTTasksTestCase(TestCase):
         if serializer.is_valid():
             observation_instance = serializer.save()
 
-        result = get_subject_view_details(
-            SubjectTracksView.as_view(), user, subject_id)
+        result = get_subjectstatus_view(
+            SubjectStatusView.as_view(), user, subject_id)
 
-        self.assertIn('last_voice_call_start_at',
-                      result['geo_json']['properties'])
+        self.assertIn('last_voice_call_start_at', result['properties'])
+        print(result)

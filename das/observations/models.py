@@ -37,7 +37,7 @@ from django.db.models.functions import Greatest
 from django.contrib.gis.db import models as dbmodels
 
 from django.contrib.gis.geos import Point
-from tracking.pubsub_registry import notify_new_tracks
+from tracking.pubsub_registry import notify_new_tracks, notify_subjectstatus_update
 
 from utils.json import zeroout_microseconds
 from das_server import settings
@@ -699,6 +699,9 @@ class SubjectQuerySet(models.QuerySet):
     def by_is_active(self, active=True):
         return self.filter(is_active=active)
 
+    def by_name_search(self, value):
+        return self.filter(name__icontains=value)
+
 
 class SubjectManager(models.Manager):
     def create_subject(self, **kwargs):
@@ -990,6 +993,14 @@ class SubjectStatusManager(models.Manager):
     # Delayed windows include all but 'current'.
     delayed_windows = list((item for item in VIEW_END_WINDOWS if item[1] > 0))
 
+    def get_latest(self, subject_id):
+        try:
+            obj = self.get(id=subject_id, delay_hours=0)
+            return obj
+        except SubjectStatus.DoesNotExist:
+            logger.warning(
+                'Cannot find SubjectStatus with subject_id: %s', subject_id)
+
     def update_current_from_source(self, source):
 
         observation = Observation.objects.get_last_source_observation(source)
@@ -1151,8 +1162,6 @@ def update_subject_status_from_observation(observation, delay_hours=0):
                           reported_subject_name=reported_subject_name,
                           delay_hours=delay_hours)
 
-    # notify_new_tracks(observation.source.id)
-
 
 def update_subject_status_from_post(source, recorded_at, location, additional):
     '''
@@ -1188,7 +1197,14 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
                           radio_state_at=radio_state_at,
                           reported_subject_name=reported_subject_name)
 
-    notify_new_tracks(source.id)
+    logger.debug(
+        'Looking for subjects for notify_subjectstatus_update. source_id=%s', source.id)
+
+    for subject in Subject.objects.filter(subjectsource__source=source,
+                                          subjectsource__assigned_range__contains=recorded_at):
+        logger.debug(
+            'Sending notify_subjectstatus_update. subject_id=%s', subject.id)
+        notify_subjectstatus_update(subject.id)
 
 
 class CommonNameManager(models.Manager):

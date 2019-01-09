@@ -330,24 +330,27 @@
                     socket.emit('authorization', {'type': 'authorization', 'id': 1, authorization: 'Bearer ' + $('#bearer_token').val()});
                 });
 
-                socket.on('echo_resp', function(msg){
+                socket.on('echo_resp', function(msg, callback){
                     $('#log').prepend('<br>echo response: ' + pp.json.prettypre(msg));
+                    callback('a', 1, 'b');
                 });
 
                 socket.on('bbox_resp', function(msg){
                     $('#log').prepend('<br>bbox reponse: ' + pp.json.prettypre(msg));
                 });
 
-                socket.on('event_filter_response', function(msg){
+                socket.on('event_filter_response', function(msg, callback){
                     $('#log').prepend('<br>event_filter_response: ' + pp.json.prettypre(msg));
+                    callback('got it.');
                 });
 
                 // socket.on('subject_position_update', function(msg) {
                 //     $('#log').prepend('<br>position update:  ' + pp.json.prettypre(msg));
                 // });
 
-                socket.on('new_event', function(msg) {
+                socket.on('new_event', function(msg, callback) {
                     $('#log').prepend('<br>new event:  ' + pp.json.prettypre(msg));
+                    callback('got it');
                 });
 
                 socket.on('update_event', function(msg) {
