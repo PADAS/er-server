@@ -1,5 +1,6 @@
 import logging
 import copy
+import csv
 
 from django.core.management.base import BaseCommand
 from django.core.exceptions import ObjectDoesNotExist
@@ -8,6 +9,7 @@ from django.db.models import Count
 from django.contrib.contenttypes.models import ContentType
 
 from activity.models import EventType, Event, EventDetails, EventCategory
+from observations.models import SubjectType, SubjectSubType
 import utils.schema_utils as schema_utils
 import choices.models as choices
 from utils import json
@@ -20,7 +22,7 @@ class Command(BaseCommand):
     help = 'Event Type managment commands'
     dry_run = False
 
-    SUB_COMMANDS = ('dumptypes', 'deleteunusedtypes', 'migratetypes')
+    SUB_COMMANDS = ('dumptypes', 'deleteunusedtypes', 'migratetypes', 'dumplocalize', 'loadlocalize')
     PREVIOUS_EVENT_FIELD = 'previous_value'
     PREVIOUS_PROPERTY_FIELD = 'previous_property_name'
     CURRENT_PROPERTY_NAME = 'property_name'
@@ -73,6 +75,65 @@ class Command(BaseCommand):
         with open(self.output, mode='w') as fh:
             fh.write(json.dumps(records, indent=4))
 
+    CSV_HEADER = [
+        'ReportCategory',
+        'ReportType',
+        'Model',
+        'Field',
+        'Value',
+        'Display',
+        'DisplayFR',
+    ]
+
+    def dumplocalize(self):
+        """Dump records to localize
+        Report Category
+        Report Type Title
+        Report Field Title
+        Report Field Choices
+        Subject Type
+        Subject SubType
+        """
+        if not self.output:
+            raise NameError('-o output option required')
+        dm = self.get_all_event_type_records()
+        with open(self.output, mode='w', newline='') as fh:
+            csv_writer = csv.DictWriter(fh, self.CSV_HEADER, )
+            csv_writer.writeheader()
+
+            for category in EventCategory.objects.all():
+                csv_writer.writerow(dict(ReportCategory=category.value,
+                                         Display=category.display))
+
+
+            for event_type in self.get_all_event_type_records():
+                event_type_value = event_type['value']
+                csv_writer.writerow(dict(ReportType=event_type_value,
+                                         Display=event_type['display']))
+
+                for field_name, field_props in event_type['rendered_schema']['schema']['properties'].items():
+                    csv_writer.writerow(dict(ReportType=event_type_value,
+                                             Field=field_name,
+                                             Display=field_props.get('title')))
+                    for value, display in field_props.get('enumNames', {}).items():
+                        csv_writer.writerow(dict(ReportType=event_type_value,
+                                                 Model='activity.event',
+                                                 Field=field_name,
+                                                 Value=value,
+                                                 Display=display))
+
+            for subject_type in SubjectType.objects.all():
+                csv_writer.writerow(dict(Model='observations_subjecttype',
+                                         Value=subject_type.value,
+                                         Display=subject_type.display))
+                for subtype in SubjectSubType.objects.all().filter(subject_type=subject_type):
+                    csv_writer.writerow(dict(Model='observations_subjectsubtype',
+                                             Value=subtype.value,
+                                             Display=subtype.display))
+
+    def loadlocalize(self):
+        pass
+
     def get_all_event_type_records(self):
         event_types = EventType.objects.all()
         records = []
@@ -93,7 +154,7 @@ class Command(BaseCommand):
             if not self.summary_only:
                 record.update(
                     {
-                        'rendered_schema': self.render_schema(event_type.schema),
+                        'rendered_schema': self.render_schema(event_type.schema, True),
                         'fields': self.get_event_type_fields(event_type.schema),
                         'tables': self.get_event_type_lookup(event_type.schema,
                                                              'table'),
@@ -175,12 +236,15 @@ class Command(BaseCommand):
                 logger.exception('Exception while migrating event details')
                 raise
 
-    def render_schema(self, schema):
+    def render_schema(self, schema, include_enums=False):
         if not schema:
             return
 
-        return schema_utils.render_schema_template(
-            schema, schema_utils.get_empty_params(schema))
+        if not include_enums:
+            return schema_utils.render_schema_template(
+                schema, schema_utils.get_empty_params(schema))
+        renderer = schema_utils.get_schema_renderer_method()
+        return renderer(schema)
 
     def get_event_type_count(self, event_type):
         for row in Event.objects.filter(event_type_id=event_type.id).values('event_type_id').annotate(ecount=Count('event_type_id')):
