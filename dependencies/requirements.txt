@@ -70,6 +70,7 @@ itypes==1.1.0             # via coreapi
 jdcal==1.3                # via openpyxl
 jinja2==2.10
 jmespath==0.9.3           # via boto3, botocore
+joblib==0.13.0            # via pymet
 kombu==4.1.0
 lxml==4.1.1
 markupsafe==1.0           # via jinja2
@@ -90,7 +91,7 @@ pyasn1==0.2.3             # via oauth2client, pyasn1-modules, rsa
 pycparser==2.17           # via cffi
 pycryptodome==3.7.0
 pyjwt==1.5.2              # via twilio
-pymet==0.1.17
+pymet==0.1.21
 pyopenssl==17.0.0         # via earthengine-api
 pyparsing==2.2.0          # via matplotlib, snuggs
 pyproj==1.9.5.1

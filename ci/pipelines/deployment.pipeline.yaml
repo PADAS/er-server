@@ -23,6 +23,8 @@ jobs:
   plan:
   - aggregate:
     - get: git-deployment
+      params:
+        submodules: none
   - aggregate:
       - task: ensure-disks-exist
         config:
@@ -182,6 +184,8 @@ jobs:
   disable_manual_trigger: true
   plan:
   - get: git-deployment
+    params:
+      submodules: none
   - do:
     - task: delete-cluster
       config:
@@ -222,6 +226,8 @@ jobs:
   plan:
   - aggregate:
     - get: git-deployment
+      params:
+        submodules: none
   - do:
     - task: delete-namespace
       config:
@@ -262,6 +268,8 @@ jobs:
   plan:
   - aggregate:
     - get: git-deployment
+      params:
+        submodules: none
   - do:
     - task: delete-disks
       config:
