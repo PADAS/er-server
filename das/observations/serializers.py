@@ -148,11 +148,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     minimum_allowed_age = None
 
             if minimum_allowed_age is not None and maximum_allowed_age is not None:
-                # start, end = instance.subjectstatus_set.get_range_endpoints(
-                #     maximum_allowed_age * 24, minimum_allowed_age * 24)
-
-                # end = instance.subjectstatus_set.first()
-                # if start is not None and end is not None:
 
                 default_window_cutoff = pytz.utc.localize(
                     datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
@@ -169,8 +164,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 rep['last_position_date'] = instance.status_recorded_at
                 rep['last_position'] = make_feature(
                     self.context['request'], instance.status_location, instance, time=instance.status_recorded_at, image_url=rep['image_url'])
-
-                # rep['tracks_range'] = (start.recorded_at, end.recorded_at)
 
         if 'request' in self.context:
             request = self.context['request']
@@ -434,24 +427,11 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         properties['stroke-width'] = 2
         properties['image'] = image_url
 
-    # for ss in subject.subjectstatus_set.filter(delay_hours=0).values(*SUBJECT_STATUS_RETURN_FIELDS):
-    #
-    #     properties['subject_state'] = ss.get('radio_state', 'na')
-    #
-    #     for k in ('last_voice_call_start_at', 'location_requested_at', 'radio_state_at'):
-    #         val = ss.get(k)
-    #         if val:
-    #             properties[k] = val
-    #     break
-
-    for k in ('foobar', 'last_voice_call_start_at', 'location_requested_at', 'radio_state_at', 'radio_state',):
+    for k in ('last_voice_call_start_at', 'location_requested_at', 'radio_state_at', 'radio_state',):
         val = getattr(subject, f'status_{k}', None)
         properties[k] = val
-        # if val:
-        #     properties[k] = val
 
     # see https://github.com/mapbox/geojson-coordinate-properties
-
     if is_point:
         properties['coordinateProperties'] = {'time': time}
         properties['DateTime'] = time  # Left in for backward compatibility.

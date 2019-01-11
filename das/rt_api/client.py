@@ -197,9 +197,7 @@ def start_trace_consumer():
     trace_consumer = trace_pubsub.run_in_thread(sleep_time=0.001)
 
     global stop_trace_consumer
-
-    def stop_trace_consumer(): return (logger.info(
-        'Stopping trace consumer.'), trace_consumer.stop())
+    stop_trace_consumer = lambda: (logger.info('Stopping trace consumer.'), trace_consumer.stop())
 
 
 def shutdown_cleanup():

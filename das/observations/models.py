@@ -664,19 +664,6 @@ class SubjectQuerySet(models.QuerySet):
             .annotate(status_radio_state_at=F('s1__radio_state_at')) \
             .annotate(status_location=F('s1__location'))
 
-        # subjectstatus = SubjectStatus.objects.filter(
-        #     subject_id=(OuterRef('id')), delay_hours=delay_hours)
-        # return self.annotate(
-        #     status_recorded_at=Subquery(
-        #         subjectstatus.values('recorded_at')[:1]),
-        #     status_last_voice_call_start_at=Subquery(
-        #         subjectstatus.values('last_voice_call_start_at')[:1]),
-        #     status_radio_state_at=Subquery(
-        #         subjectstatus.values('radio_state_at')[:1]),
-        #     status_radio_state=Subquery(
-        #         subjectstatus.values('radio_state')[:1]),
-        #     status_location=Subquery(subjectstatus.values('location')[:1]),
-        # )
 
     def by_updated_since(self, updated_since):
 
