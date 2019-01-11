@@ -554,7 +554,7 @@ class EventsView(generics.ListCreateAPIView):
                 updated_since = dateparser.parse(updated_since)
                 queryset = queryset.updated_since(updated_since)
             except ValueError:
-                raise ValueError(f"Invalid value for 'updated_since' = '{updated_since}")
+                raise ValueError(f"Invalid value for 'updated_since' = '{updated_since}'")
 
         event_categories = query_params.getlist('event_category', None)
         if event_categories is None or len(event_categories) == 0:
