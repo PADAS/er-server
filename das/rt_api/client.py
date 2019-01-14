@@ -143,6 +143,9 @@ def remove_clients(*sids):
     count = redis_client.hdel(CLIENT_LIST_KEY, *sids)
     logger.info(f'Removed {count} clients (of {len(sids)} listed) from {CLIENT_LIST_KEY}')
 
+    logger.info('Deleteing mid keys for sids %s.', sids)
+    redis_client.delete(*[f'mid-{sid}' for sid in sids])
+
     try:
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
@@ -201,6 +204,9 @@ def shutdown_cleanup():
     logger.info('Shutdown cleanup for realtime client list.')
     remove_rt_service(CLIENT_LIST_KEY)
 
+    logger.info('Deleting message ID counters.')
+    redis_client.delete(redis_client.keys('mid-*'))
+
 
 trace_ttl = 60
 
@@ -213,3 +219,7 @@ def push_trace(trace_id, data):
 def pop_trace(trace_id):
     logger.info('TRACE', extra={'action': 'pop', 'trace_id': trace_id})
     redis_client.delete(trace_id)
+
+
+def message_index(sid):
+    return redis_client.incr(f'mid-{sid}')

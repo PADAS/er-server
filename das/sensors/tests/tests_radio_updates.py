@@ -129,4 +129,4 @@ class RadioObservationTest(BaseAPITest):
         self.assertEqual(200, response.status_code)
 
         track_properties = response.data['features'][0]['properties']
-        self.assertEqual('online-gps', track_properties['subject_state'])
+        self.assertEqual('online-gps', track_properties['radio_state'])

@@ -144,6 +144,11 @@ class SavannaClient(object):
                 alert_type = alert[-1]
                 event_type_info = ALERT_EVENT_TYPE_MAP.get(
                     alert_type, None)
+
+                if not event_type_info:
+                    self.logger.info(f'Unsupported ST alert type {alert_type}')
+                    continue
+
                 device_alert = event_type_info['event_type']
 
                 # Check if alert api is returning hdop, battery or not

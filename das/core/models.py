@@ -21,17 +21,27 @@ class AuditableModel(TimestampedModel):
 
 
 class HierarchyManager(models.Manager):
-    def get_ancestors(self, child):
-        for parent in child.parents():
-            yield parent
-            for gparent in self.get_ancestors(parent):
-                yield gparent
+    def get_ancestors(self, child, ancestors=None):
+        ancestors = set() if not ancestors else ancestors
+        if child not in ancestors:
+            ancestors.add(child)
+            for parent in child.parents():
+                if parent not in ancestors:
+                    yield parent
+                    for gparent in self.get_ancestors(parent, ancestors):
+                        if gparent not in ancestors:
+                            yield gparent
 
-    def get_descendants(self, node):
-        for f in node.children.all():
-            yield f
-            for gchild in self.get_descendants(f):
-                yield gchild
+    def get_descendants(self, node, children=None):
+        children = set() if not children else children
+        if node not in children:
+            children.add(node)
+            for f in node.children.all():
+                if f not in children:
+                    yield f
+                    for gchild in self.get_descendants(f, children):
+                        if gchild not in children:
+                            yield gchild
 
 
 class HierarchQuerySet(models.QuerySet):
@@ -80,3 +90,4 @@ class HierarchyModel(models.Model):
 
     def get_ancestor_ids(self):
         return [a.id for a in self.get_ancestors()]
+
