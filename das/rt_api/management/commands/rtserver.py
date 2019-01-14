@@ -9,6 +9,7 @@ import os
 import socket
 import logging
 from datetime import datetime
+import atexit
 
 import eventlet
 from django.conf import settings
@@ -64,6 +65,9 @@ class Command(RunCommand):
 
         client.init_redis_storage()
         client.start_trace_consumer()
+
+        # shutdown hook to clean up service keys on service exit
+        atexit.register(client.shutdown_cleanup)
 
         try:
             sio = create_rt_socketio()

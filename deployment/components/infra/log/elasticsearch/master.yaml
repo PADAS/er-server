@@ -7,16 +7,16 @@ metadata:
     app: elasticsearch-master
     role: master
 spec:
+  ports:
+  - port: 9300
+    name: transport
+  clusterIP: None
   selector:
     app: elasticsearch-master
     role: master
-  ports:
-  - name: transport
-    port: 9300
-    protocol: TCP
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   namespace: <<namespace>>
   name: elasticsearch-master
@@ -24,6 +24,7 @@ metadata:
     app: elasticsearch-master
     role: master
 spec:
+  serviceName: elasticsearch-master
   replicas: 3
   selector:
     matchLabels:
@@ -46,11 +47,10 @@ spec:
       containers:
       - name: elasticsearch-master
         securityContext:
-          privileged: false
+          privileged: true
           capabilities:
             add:
               - IPC_LOCK
-              - SYS_RESOURCE
         image: quay.io/pires/docker-elasticsearch-kubernetes:6.3.2
         imagePullPolicy: "IfNotPresent"
         env:
@@ -67,7 +67,7 @@ spec:
         - name: "CLUSTER_NAME"
           value: "es-cluster"
         - name: "NUMBER_OF_MASTERS"
-          value: "3"
+          value: "2"
         - name: NODE_MASTER
           value: "true"
         - name: NODE_INGEST
@@ -86,9 +86,27 @@ spec:
           name: transport
           protocol: TCP
         volumeMounts:
-        - name: storage
-          mountPath: /data
-      volumes:
-          - emptyDir:
-              medium: ""
-            name: "storage"
+        - mountPath: /data
+          name: elasticsearch-master
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - elasticsearch-master
+            topologyKey: kubernetes.io/hostname
+  volumeClaimTemplates:
+  - metadata:
+      name: elasticsearch-master
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "ssd"
+      resources:
+        requests:
+          storage: 10Gi
+      selector:
+        matchLabels:
+          component: null

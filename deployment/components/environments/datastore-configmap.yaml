@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: <<namespace>>
+  name: datastore-configmap
+data:
+  DB_HOST: "<<db-host-name>>"
+  DB_NAME: "<<db-name>>"
+  DB_USER: "<<db-user>>"
+  DB_PASSWORD: "<<db-password>>"
+  DB_CREDENTIAL: "<<db-credential>>"
+  BLOB_STORAGE_URL: "<<blob-storage-url>>"
+  BLOB_STORAGE_KEY: "<<blob-storage-key>>"
+  BLOB_ROOT_PATH: "<<blob-storage-key>>"
+  USE_AZURE_STORAGE: "<<use-azure-storage>>"
+

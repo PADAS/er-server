@@ -32,9 +32,6 @@ data:
         remove_field => [ "[host]" ]
         add_field => { "host" => "%{[beat][hostname]}"}
       }
-      de_dot {
-        fields => ["[kubernetes][labels]"]
-      }
     }
     output {
       elasticsearch {

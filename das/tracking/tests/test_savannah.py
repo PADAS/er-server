@@ -2,6 +2,7 @@ import http.client
 import io
 from datetime import datetime, timedelta
 from unittest import mock
+from unittest.mock import patch
 
 import pytz
 from django.apps import apps
@@ -12,6 +13,7 @@ from activity.models import EventCategory, EventType
 from observations.models import Source, SourceProvider, Subject, SubjectType, \
     SubjectSubType, SubjectSource
 from tracking.models import SavannahPlugin, SourcePlugin
+from tracking.models.savannah import SavannaClient, STObservation, STAlert
 from tracking.tasks import run_source_plugin
 
 
@@ -60,7 +62,7 @@ def mocked_requests_get(*args, **kwargs):
                        'Immobility Alert\r\nST2010-1231,37.3583,0.63072,' \
                        '1/6/2017 11:38:25 PM,0.04,266,,983,None\r\n' \
                        'ST2010-3031,36.78418,-1.24359,7/5/2018 3:38:03 PM,0,' \
-                       '0,21.2,0,17,55,Immobility Alert'
+                       '0,21.2,0,Immobility Alert'
             sock = FakeSocket(body)
             resp = http.client.HTTPResponse(sock)
             resp.status = 200
@@ -129,8 +131,28 @@ class SavannahPluginTest(TestCase):
         # Check alert types immobility, immobility_all_clear in observations
         self.assertTrue(any(observation.__dict__['additional'].get(
             'device_alert', None) == 'immobility'
-                            for observation in self.henry.observations()))
+            for observation in self.henry.observations()))
 
         self.assertTrue(any(observation.__dict__['additional'].get(
             'device_alert', None) == 'immobility_all_clear'
-                            for observation in self.henry.observations()))
+            for observation in self.henry.observations()))
+
+    def test_observation_parse(self):
+        test_data = (b'ST2010-3034,31.38607,-24.73696,11/30/2018 9:00:36 PM,0,0,18.1,0\r\n',
+                     b'ST2010-3034,31.38607,-24.73696,11/30/2018 9:00:36 PM,0,0,18.1,0,44,55\r\n',
+                     )
+
+        for line in test_data:
+            fix = SavannaClient.parse_line(
+                STObservation, line.decode('utf-8').strip())
+            self.assertTrue(fix)
+
+    def test_alert_parse(self):
+        test_data = (b'ST2010-1231,37.51645,0.70056,12/19/2016 2:10:12 AM,0.02,233,,988,44,55,Immobility Alert,true\r\n',
+                     b'ST2010-1231,37.51645,0.70056,12/19/2016 2:10:12 AM,0.02,233,,988,,,Immobility Alert,true\r\n',
+                     )
+
+        for line in test_data:
+            fix = SavannaClient.parse_line(
+                STAlert, line.decode('utf-8').strip())
+            self.assertTrue(fix.is_alert)

@@ -4,7 +4,7 @@ import utils.json as json
 import logging
 
 from das_server import pubsub, celery
-from observations.models import Subject
+from observations.models import Subject, SubjectStatus
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,12 @@ def start(realtime_server):
             celery.app.send_task('rt_api.tasks.handle_new_subject_observation',
                                  args=(subject_id,))
 
+    def subjectstatus_update_handler(data, message):
+        logger.debug('das.subjectstatus.update %s', data)
+        if 'subject_id' in data:
+            celery.app.send_task('rt_api.tasks.handle_subjectstatus_update',
+                                 args=(data['subject_id'],))
+
     def emit_handler(data, message):
         message_data = json.loads(data)
         realtime_server.send_realtime_message(message_data)
@@ -57,6 +63,10 @@ def start(realtime_server):
             {
                 'routing_key': 'das.tracking.source.observations.new',
                 'callback': new_observation_handler},
+            {
+                'routing_key': 'das.subjectstatus.update',
+                'callback': subjectstatus_update_handler,
+            },
             {
                 'routing_key': 'das.event.new',
                 'callback': new_event_handler},
@@ -73,6 +83,8 @@ def start(realtime_server):
         for subscription in subscriptions:
             subscription['name'] = 'rt_api.{0}'.format(
                 subscription['callback'].__name__)
+
+            logger.info('Adding subbscription for "%s"', subscription['name'])
         pubsub.subscribe(subscriptions)
 
     eventlet.spawn_n(pubsub_listener)

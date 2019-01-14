@@ -1,40 +1,47 @@
+import logging
 import http.client
-from functools import namedtuple
+from typing import NamedTuple
 import time
 import copy
-
 import datetime
 from datetime import timedelta
 
+from django.contrib.gis.db import models
+from django.utils.translation import ugettext_lazy as _
 from dateutil.parser import parse as parse_date
 import pytz
 
-import logging
-from django.contrib.gis.db import models
-from django.utils.translation import ugettext_lazy as _
-
 from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
-from analyzers.models import CRITICAL
-from analyzers.models.base import EVENT_PRIORITY_MAP
-
-from observations.models import Subject, Observation
+from observations.models import Observation
 
 
-def __str2date(d, replace_tzinfo=pytz.utc):
-    '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
-    return parse_date(d).replace(tzinfo=replace_tzinfo)
+class STObservation(NamedTuple):
+    collar_id: str
+    longitude: float
+    latitude: float
+    recorded_at: datetime.datetime
+    speed: float
+    heading: float
+    temperature: str
+    height: int
+    hdop: float = None
+    battery: float = None
 
 
-# Helpers for parsing lines from Savanna datasource.
-fields = ['collar_id', 'longitude', 'latitude', 'recorded_at',
-          'speed', 'heading', 'temperature', 'height',
-          'hdop', 'battery']
+class STAlert(NamedTuple):
+    collar_id: str
+    longitude: float
+    latitude: float
+    recorded_at: datetime.datetime
+    speed: float
+    heading: float
+    temperature: str
+    height: int
+    hdop: float
+    battery: float
+    device_alert: str
+    is_alert: bool
 
-# Add device_alert & is_alert to differentiate between observation's api source
-Fix = namedtuple('Fix', fields+['device_alert', 'is_alert'])
-Fix.__new__.__defaults__ = (None, None)
-field_transform = (str, float, float, __str2date, float, float, str, int,
-                   float, float, str, bool)
 
 # Map Savannah alert keys to DAS Event Type.
 ALERT_EVENT_TYPE_MAP = {
@@ -59,6 +66,11 @@ class SavannaClient(object):
         self.username = username
         self.password = password
         self.host = host
+
+    @staticmethod
+    def str2date(d, replace_tzinfo=pytz.utc):
+        '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
+        return parse_date(d).replace(tzinfo=replace_tzinfo)
 
     def fetch_observations(self, collar_id, start_time, end_time=None):
         '''
@@ -94,7 +106,7 @@ class SavannaClient(object):
             for line in res:
                 try:
                     if line != saveline:  # We occassionally see duplicate records in results.
-                        yield self.parse_line(line.decode('utf-8').strip())
+                        yield self.parse_line(STObservation, line.decode('utf-8').strip())
                 except Exception as e:
                     self.logger.exception(
                         'Failed to parse line for collar_id: %s, line: [%s]', collar_id, line)
@@ -132,29 +144,34 @@ class SavannaClient(object):
                 alert_type = alert[-1]
                 event_type_info = ALERT_EVENT_TYPE_MAP.get(
                     alert_type, None)
+
+                if not event_type_info:
+                    self.logger.info(f'Unsupported ST alert type {alert_type}')
+                    continue
+
                 device_alert = event_type_info['event_type']
 
                 # Check if alert api is returning hdop, battery or not
                 # If not, assign value as zero
-                while len(fields)-len(alert_data) > 0:
+                while len(STObservation._fields) - len(alert_data) > 0:
                     alert_data.append('')
 
                 # Atlast push device_alert and is_alert
                 alert_data.append(device_alert)
                 alert_data.append('true')
-                yield self.parse_line(','.join(alert_data))
+                yield self.parse_line(STAlert, ','.join(alert_data))
 
     @classmethod
-    def parse_line(cls, s):
+    def parse_line(cls, observation_class, s):
         '''
         takes a record from savanna data source and creates a Fix from it, performing necessary data-type
         conversions along the way.
         :param s:
         :return:
         '''
-        dt = (c(i) if i != '' else None
-              for c, i in zip(field_transform, s.split(',')))
-        dt = Fix(*dt)
+        dt = ((cls.str2date(i) if c == datetime.datetime else c(i)) if i != '' else None
+              for c, i in zip(observation_class._field_types.values(), s.split(',')))
+        dt = observation_class(*dt)
         return dt
 
 
@@ -201,8 +218,9 @@ class SavannahPlugin(TrackingPlugin):
                     'Savannah plugin encountered a fix from the future: {0}'.format(fix))
                 continue
 
-            # If observation has been received from alert api than is_alert=True
-            if fix.is_alert:
+            # If observation has been received from alert api than
+            # is_alert=True
+            if isinstance(fix, STAlert) and fix.is_alert:
                 # Filter observation based on timestamp, source.
                 # If observation exist, update observation's additional field
                 # else yield Obs
@@ -228,7 +246,7 @@ class SavannahPlugin(TrackingPlugin):
 
         # Check If observation has been received from alert api
         # than set device_alert key and it's value in additional field
-        if o.is_alert:
+        if isinstance(o, STAlert) and o.is_alert:
             side_data['device_alert'] = o.device_alert
         if dry_run:
             return {'source': source, 'recorded_at': o.recorded_at,

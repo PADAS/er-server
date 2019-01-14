@@ -296,6 +296,9 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_is_collection(self, value):
         return self.filter_field('event_type__is_collection', value)
 
+    def updated_since(self, value):
+        return self.filter_field('updated_at__gte', value)
+
     def by_exclude_contained(self, value):
         if not value:
             return self

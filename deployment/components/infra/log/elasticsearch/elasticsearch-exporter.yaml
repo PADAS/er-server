@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch-exporter
+  namespace: <<namespace>>
+spec:
+  selector:
+    matchLabels:
+      component: elasticsearch-exporter
+  template:
+    metadata:
+      labels:
+        component: elasticsearch-exporter
+      annotations:
+        prometheus.io/port:   '9108'
+    spec:
+      imagePullSecrets:
+        - name: infra-secret
+      containers:
+      - image: justwatch/elasticsearch_exporter:1.0.2
+        name: elasticsearch-exporter
+        args:
+        - '-es.uri=http://elasticsearch:9200'
+        - '-es.all=true'
+        - '-es.timeout=30s'
+        resources:
+          requests:
+            cpu: "10m"
+        ports:
+        - containerPort: 9108
