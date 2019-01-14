@@ -83,13 +83,16 @@ spec:
           protocol: TCP
         volumeMounts:
         - mountPath: /usr/share/elasticsearch/data
-          name: <<namespace>>-elasticsearch-data
+          name: elasticsearch-data
   volumeClaimTemplates:
   - metadata:
-      name: <<namespace>>-elasticsearch-data
+      name: elasticsearch-data
     spec:
       accessModes: [ "ReadWriteOnce" ]
       storageClassName: "ssd"
       resources:
         requests:
           storage: 100Gi
+      selector:
+        matchLabels:
+          component: null

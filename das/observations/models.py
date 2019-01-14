@@ -22,7 +22,7 @@ import itertools
 # from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
-from django.db.models import Case, CharField, Value, When, F, Q, Max, When
+from django.db.models import Case, CharField, Value, When, F, Q, Max, When, OuterRef, Subquery, FilteredRelation
 from django.db import transaction
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
@@ -37,7 +37,7 @@ from django.db.models.functions import Greatest
 from django.contrib.gis.db import models as dbmodels
 
 from django.contrib.gis.geos import Point
-from tracking.pubsub_registry import notify_new_tracks
+from tracking.pubsub_registry import notify_new_tracks, notify_subjectstatus_update
 
 from utils.json import zeroout_microseconds
 from das_server import settings
@@ -45,7 +45,7 @@ from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
-from observations.utils import calculate_track_range
+from observations.utils import calculate_track_range, get_minimum_allowed_age
 
 
 logger = logging.getLogger(__name__)
@@ -74,11 +74,6 @@ STATUS_COLORS = {'online-gps': 'green',
                  'offline': 'gray',
                  'alarm': 'red',
                  'na': 'black'}
-
-
-def get_radio_color(subject_status):
-    color = STATUS_COLORS.get(subject_status.radio_state, 'black')
-    return color
 
 
 def random_rgb():
@@ -599,11 +594,14 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
 
     def get_all_subjects(self, user=None, active=None, include_from_subgroups=True):
 
-        queryset = Subject.objects.all()
+        if user:
+            min_age_days = get_minimum_allowed_age(user) or 0
+
+        queryset = Subject.objects.all() \
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)\
+            .select_related('subject_subtype__subject_type')
         if active is not None:
             queryset = queryset.by_is_active(active=active)
-        queryset = queryset.prefetch_related(
-            models.Prefetch('subjectstatus_set'))
 
         if include_from_subgroups:
             """Including descendant group subjects"""
@@ -631,6 +629,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
 
 
 class SubjectQuerySet(models.QuerySet):
+
     def by_region(self, region, **kwargs):
         subjects = self.filter(additional__region=region.region)
         subjects.filter(additional__country=region.country, **kwargs)
@@ -655,6 +654,25 @@ class SubjectQuerySet(models.QuerySet):
             effective_subject_group_set.update(sg.get_descendants())
 
         return self.filter(groups__in=effective_subject_group_set).distinct('id')
+
+    def annotate_with_subjectstatus(self, delay_hours=0):
+
+        return self.annotate(s1=FilteredRelation('subjectstatus', condition=Q(subjectstatus__delay_hours=delay_hours))) \
+            .annotate(status_recorded_at=F('s1__recorded_at')) \
+            .annotate(status_last_voice_call_start_at=F('s1__last_voice_call_start_at')) \
+            .annotate(status_radio_state=F('s1__radio_state')) \
+            .annotate(status_radio_state_at=F('s1__radio_state_at')) \
+            .annotate(status_location=F('s1__location'))
+
+
+    def by_updated_since(self, updated_since):
+
+        updated_since_filter = Q(updated_at__gte=updated_since) \
+            | Q(status_recorded_at__gte=updated_since) \
+            | Q(status_last_voice_call_start_at__gte=updated_since)\
+            | Q(status_radio_state_at__gte=updated_since)
+
+        return self.filter(updated_since_filter)
 
     def by_bbox(self, bbox, last_days=None, include_stationary_subjects=False):
         '''
@@ -699,8 +717,12 @@ class SubjectQuerySet(models.QuerySet):
     def by_is_active(self, active=True):
         return self.filter(is_active=active)
 
+    def by_name_search(self, value):
+        return self.filter(name__icontains=value)
+
 
 class SubjectManager(models.Manager):
+
     def create_subject(self, **kwargs):
         # all subjects are added to the default subject group
         subject = super().create(**kwargs)
@@ -822,10 +844,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         qs = list(qs)
         return [o['location'].coords for o in qs], [zeroout_microseconds(o['recorded_at']) for o in qs]
 
-    def get_subject_state(self):
-        for subject_status in self.subjectstatus_set.filter(delay_hours=0):
-            return subject_status.radio_state
-
     def observations(self, last_hours=None, until=None):
         """ returns all observations for this Subject, spanning
         Sources as necessary """
@@ -909,13 +927,15 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             yield '-'.join((key, 'black', sex.lower()))
             yield '-'.join((key, sex.lower()))
 
-        status = self.subjectstatus_set.filter(delay_hours=0)
-        if status:
-            color = get_radio_color(status[0])
+        try:
+            state = getattr(self, 'status_radio_state', None) or \
+                self.subjectstatus_set.get(delay_hours=0).radio_state
+        except (SubjectStatus.DoesNotExist, AttributeError):
+            yield key
+            yield '-'.join((key, 'black'))
+        else:
+            color = STATUS_COLORS.get(state, 'black')
             yield '-'.join((key, color))
-
-        yield key
-        yield '-'.join((key, 'black'))
 
     def get_users_to_notify(self):
         """
@@ -930,6 +950,19 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             for ps in PermissionSet.objects.filter(id__in=ps_ids):
                 users.update(ps.user_set.all())
             return users
+
+    def get_ancestor_subject_groups(self):
+        """
+        Return a set of all unique ancestor Subject Groups who have access to
+        the current subject based on hierarchy.
+        :return:
+        """
+        subject_groups = set()
+        for subject_group in self.groups.all():
+            subject_groups.add(subject_group)
+            subject_groups = subject_groups.union(
+                set(subject_group.get_ancestors()))
+        return subject_groups
 
     def __str__(self):
         return f'{self.name}'  # ({self.subject_subtype.display})'
@@ -990,6 +1023,14 @@ class SubjectStatusManager(models.Manager):
     # Delayed windows include all but 'current'.
     delayed_windows = list((item for item in VIEW_END_WINDOWS if item[1] > 0))
 
+    def get_latest(self, subject_id):
+        try:
+            obj = self.get(id=subject_id, delay_hours=0)
+            return obj
+        except SubjectStatus.DoesNotExist:
+            logger.warning(
+                'Cannot find SubjectStatus with subject_id: %s', subject_id)
+
     def update_current_from_source(self, source):
 
         observation = Observation.objects.get_last_source_observation(source)
@@ -998,6 +1039,10 @@ class SubjectStatusManager(models.Manager):
             return
 
         update_subject_status_from_observation(observation)
+
+    def update_current(self, subject):
+        for subjectsource in SubjectSource.objects.filter(subject=subject, assigned_range__contains=datetime.now(tz=pytz.utc)):
+            self.update_current_from_source(subjectsource.source)
 
     def update_delayed_status(self, subject):
         '''
@@ -1151,8 +1196,6 @@ def update_subject_status_from_observation(observation, delay_hours=0):
                           reported_subject_name=reported_subject_name,
                           delay_hours=delay_hours)
 
-    # notify_new_tracks(observation.source.id)
-
 
 def update_subject_status_from_post(source, recorded_at, location, additional):
     '''
@@ -1188,7 +1231,14 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
                           radio_state_at=radio_state_at,
                           reported_subject_name=reported_subject_name)
 
-    notify_new_tracks(source.id)
+    logger.debug(
+        'Looking for subjects for notify_subjectstatus_update. source_id=%s', source.id)
+
+    for subject in Subject.objects.filter(subjectsource__source=source,
+                                          subjectsource__assigned_range__contains=recorded_at):
+        logger.debug(
+            'Sending notify_subjectstatus_update. subject_id=%s', subject.id)
+        notify_subjectstatus_update(subject.id)
 
 
 class CommonNameManager(models.Manager):
@@ -1259,18 +1309,17 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
     def groups(self):
         return self.subject.groups
 
-#
-# class SubjectStatusLatestManager(models.Manager):
-#     def get_queryset(self):
-#         return super().get_queryset().filter(delay_hours=0)
-#
-#
-# class SubjectStatusLatest(SubjectStatus):
-#     objects = SubjectStatusLatestManager()
-#
-#     class Meta:
-#         proxy = True
-#
+
+class SubjectStatusLatestManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(delay_hours=0)
+
+
+class SubjectStatusLatest(SubjectStatus):
+    objects = SubjectStatusLatestManager()
+
+    class Meta:
+        proxy = True
 
 
 class RegionManager(models.Manager):

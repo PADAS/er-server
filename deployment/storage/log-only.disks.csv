@@ -1,3 +1,6 @@
 elasticsearch-data-0,100
 elasticsearch-data-1,100
 elasticsearch-data-2,100
+elasticsearch-master-0,10
+elasticsearch-master-1,10
+elasticsearch-master-2,10

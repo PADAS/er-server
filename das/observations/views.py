@@ -172,8 +172,12 @@ class RegionSubjectsView(generics.ListAPIView):
     def get_queryset(self):
         region = generics.get_object_or_404(models.Region.objects.all(),
                                             slug=self.kwargs['slug'])
-        subjects = models.Subject.objects.by_region(region)
+        subjects = models.Subject.objects.by_region(
+            region).annotate_with_subject_status()
         return subjects
+
+
+from observations.utils import get_minimum_allowed_age, get_maximum_allowed_age
 
 
 class SubjectsView(generics.ListCreateAPIView):
@@ -197,7 +201,9 @@ class SubjectsView(generics.ListCreateAPIView):
     TRACK_DATE_QPARAMS = ('tracks_since', 'tracks_until')
 
     def get_queryset(self):
-        queryset = models.Subject.objects.all()
+        min_age = get_minimum_allowed_age(self.request.user) or 0
+        queryset = models.Subject.objects \
+            .annotate_with_subjectstatus(delay_hours=min_age * 24)
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = queryset.order_by('id')
@@ -211,14 +217,33 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS,
                                         include_stationary_subjects=INCLUDE_STATIONARY_SUBJECTS_ON_MAP)
 
+        if self.request.query_params.get('name', None):
+            queryset = queryset.by_name_search(
+                self.request.query_params.get('name'))
+
         subject_group = self.request.query_params.get('subject_group', None)
         if subject_group:
             groups = models.SubjectGroup.objects.get_nested_groups(
                 subject_group)
             queryset = queryset.by_groups(groups)
         queryset = queryset.by_user_subjects(self.request.user)
-        queryset = queryset.prefetch_related(
-            Prefetch('subjectstatus_set')).prefetch_related('subject_subtype')
+
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+
+        queryset = queryset.select_related(
+            'subject_subtype', 'subject_subtype__subject_type')
+        queryset = queryset.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24)
+
+        updated_since = self.request.query_params.get('updated_since', None)
+        if updated_since:
+            try:
+                updated_since = dateparse(updated_since)
+            except ValueError:
+                raise ValueError(f'Invalid value for updated_since: "{updated_since}"')
+            else:
+                queryset = queryset.by_updated_since(updated_since)
+
         return queryset
 
     def get_serializer_context(self):
@@ -248,8 +273,10 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
         queryset = models.Subject.objects.all()
-        queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
+        queryset = queryset.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24)
         return queryset
 
 
@@ -258,7 +285,7 @@ class SubjectSourcesView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs['id'])
+            models.Subject.objects.all(), pk=self.kwargs['id'])  # <-- Maybe annotate with subject_status
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
         subject_sources = models.SubjectSource.objects.get_subject_sources(
@@ -287,7 +314,7 @@ class SourceSubjectsView(generics.ListCreateAPIView):
             models.Source.objects.all(), pk=self.kwargs['id'])
         # if not self.request.user.has_any_perms(models.Source.VIEW_SUBJECT_PERMS, source):
         #     raise PermissionDenied
-        return models.Subject.objects.filter(subjectsource__source=source)
+        return models.Subject.objects.filter(subjectsource__source=source).annotate_with_subjectstatus()
 
     def create(self, request, *args, **kwargs):
 
@@ -306,7 +333,7 @@ class SubjectSourceView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs['id'])
+            models.Subject.objects.all(), pk=self.kwargs['id'])  # .annotate_with_subjectstatus()
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
@@ -324,7 +351,7 @@ class SubjectSourceView(generics.RetrieveAPIView):
 class SubjectSourceTrackView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
-    queryset = models.Subject.objects.all()
+    queryset = models.Subject.objects.all()  # .annotate_with_subjectstatus()
     permission_classes = (StandardObjectPermissions,)
 
     def get_serializer_context(self):
@@ -364,6 +391,24 @@ class TrackLimitSerializer(rest_framework.serializers.Serializer):
         default=None, required=False)
 
 
+class SubjectStatusView(generics.RetrieveAPIView):
+
+    lookup_url_kwarg = 'subject_id'
+    lookup_field = 'subject_id'
+    serializer_class = serializers.SubjectStatusSerializer
+
+    def get_queryset(self):
+
+        ss = models.SubjectStatus.objects.select_related(
+            'subject').filter(delay_hours=0)
+
+        return ss
+
+    def check_object_permissions(self, request, obj):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, obj.subject):
+            raise PermissionDenied
+
+
 class SubjectTracksView(generics.RetrieveAPIView):
     """
     Optional qparam of:
@@ -375,8 +420,11 @@ class SubjectTracksView(generics.RetrieveAPIView):
     serializer_class = serializers.SubjectTrackSerializer
 
     def get_queryset(self):
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+
         queryset = models.Subject.objects.all()
-        queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
+        queryset = queryset.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24)
         return queryset
 
     def check_object_permissions(self, request, obj):
@@ -394,7 +442,6 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        # tracks_limit = self.request.query_params.get('limit', None)
 
         tracks_limits = TrackLimitSerializer(data=self.request.query_params)
         tracks_limits.is_valid(raise_exception=True)
@@ -577,8 +624,11 @@ class KmlSubjectsView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer, )
 
     def get_queryset(self):
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+
         queryset = models.Subject.objects.all().by_is_active()
-        queryset = queryset.by_user_subjects(self.request.user)
+        queryset = queryset.by_user_subjects(self.request.user) \
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
         return queryset
 
     def build_link_for_subject(self, subject):
@@ -656,7 +706,9 @@ class KmlSubjectView(generics.RetrieveAPIView):
                                                subject):
             raise PermissionDenied
 
-        queryset = models.Subject.objects.all()
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+        queryset = models.Subject.objects.all().annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24)
         return queryset
 
     def get_subject_color(self, subject):
@@ -734,8 +786,13 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return filter_parameters
 
     def get(self, request, *args, **kwargs):
+
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs['id'])
+            models.Subject.objects.all().annotate_with_subjectstatus(
+                delay_hours=min_age_days * 24),
+            pk=self.kwargs['id'])
         filter_parameters = self.parse_filter_parameters()
         self.check_object_permissions(self.request, subject)
 
