@@ -24,18 +24,13 @@ class SourcePluginAdmin(admin.ModelAdmin):
 #
 
 
-class FooMixin:
-    pass
-    # inlines = [SourcePluginGenericInline, ]
-
-
 @admin.register(models.SavannahPlugin)
-class SavannahPluginAdmin(FooMixin, admin.ModelAdmin):
+class SavannahPluginAdmin(admin.ModelAdmin):
     list_display = ('name', 'service_username', 'service_api_host',)
 
 
 @admin.register(models.InreachPlugin)
-class InreachPluginAdmin(FooMixin, admin.ModelAdmin):
+class InreachPluginAdmin(admin.ModelAdmin):
     list_display = ('name', 'service_username', 'service_api_host',)
 
 
@@ -55,14 +50,13 @@ class InreachKMLAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.SkygisticsSatellitePlugin)
-class SkygisticsSatelliteAdmin(FooMixin, admin.ModelAdmin):
+class SkygisticsSatelliteAdmin(admin.ModelAdmin):
     list_display = ('name', 'service_api_url', 'service_username',)
 
 
 @admin.register(models.FirmsPlugin)
-class FirmsPluginAdmin(FooMixin, admin.ModelAdmin):
-    list_display = ('name', 'service_username', 'firms_region_name',
-                    'spatial_feature_group')
+class FirmsPluginAdmin(admin.ModelAdmin):
+    list_display = ('name', 'app_key', 'spatial_feature_group')
 
 
 @admin.register(models.SpiderTracksPlugin)
