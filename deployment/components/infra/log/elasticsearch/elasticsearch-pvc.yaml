@@ -1,0 +1,95 @@
+kind: "PersistentVolumeClaim"
+apiVersion: "v1"
+metadata:
+  name: "elasticsearch-data-elasticsearch-data-0"
+  namespace: "<<namespace>>"
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "100Gi"
+  storageClassName: "ssd"
+  selector:
+    matchLabels:
+      component: "<<namespace>>-elasticsearch-data-0"
+---
+kind: "PersistentVolumeClaim"
+apiVersion: "v1"
+metadata:
+  name: "elasticsearch-data-elasticsearch-data-1"
+  namespace: "<<namespace>>"
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "100Gi"
+  storageClassName: "ssd"
+  selector:
+    matchLabels:
+      component: "<<namespace>>-elasticsearch-data-1"
+---
+kind: "PersistentVolumeClaim"
+apiVersion: "v1"
+metadata:
+  name: "elasticsearch-data-elasticsearch-data-2"
+  namespace: "<<namespace>>"
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "100Gi"
+  storageClassName: "ssd"
+  selector:
+    matchLabels:
+      component: "<<namespace>>-elasticsearch-data-2"
+---
+kind: "PersistentVolumeClaim"
+apiVersion: "v1"
+metadata:
+  name: "elasticsearch-master-elasticsearch-master-0"
+  namespace: "<<namespace>>"
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "10Gi"
+  storageClassName: "ssd"
+  selector:
+    matchLabels:
+      component: "<<namespace>>-elasticsearch-master-0"
+---
+kind: "PersistentVolumeClaim"
+apiVersion: "v1"
+metadata:
+  name: "elasticsearch-master-elasticsearch-master-1"
+  namespace: "<<namespace>>"
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "10Gi"
+  storageClassName: "ssd"
+  selector:
+    matchLabels:
+      component: "<<namespace>>-elasticsearch-master-1"
+---
+kind: "PersistentVolumeClaim"
+apiVersion: "v1"
+metadata:
+  name: "elasticsearch-master-elasticsearch-master-2"
+  namespace: "<<namespace>>"
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "10Gi"
+  storageClassName: "ssd"
+  selector:
+    matchLabels:
+      component: "<<namespace>>-elasticsearch-master-2"

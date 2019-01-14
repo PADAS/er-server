@@ -101,6 +101,14 @@ def confirm_authorzation(sid, sios):
             'New socket connection is authenticated. sid=%s', sid, extra=extra)
 
 
+def connect_ack(sid, sios):
+
+    logger.debug('Acknowledge connection for sid: %s', sid)
+    eventlet.sleep(1.0)
+    sios.emit('connect_ack', {
+              'type': 'connect_ack', 'message': 'Connect acknowledgment.'}, room=str(sid), namespace='/das')
+
+
 CLIENT_CLEANUP_INTERVAL = 30  # seconds
 
 
@@ -149,6 +157,9 @@ def create_realtime_handler(sios):
             logger.info('on_connect', extra={'sid': str(sid)})
             logger.debug('on_connect', extra={
                          'sid': str(sid), 'socket': repr(socket)})
+
+            # Send a connect acknowledgment (helpful for troubleshooting).
+            eventlet.spawn(connect_ack, sid, sios)
 
             # Make sure the connection authenticates immediately
             eventlet.spawn(confirm_authorzation, sid, sios)
@@ -294,6 +305,10 @@ def create_realtime_handler(sios):
                     'Tried to send a message to a disconnected client.', extra={'sid': user})
                 return
             try:
+
+                # Add a message index. The client can use this to identify gaps
+                # in mes
+                data['mid'] = client.message_index(user)
 
                 # Add trace ID to message. It will be sent back in callback.
                 if message_type not in RealtimeServices.do_not_trace_these_types \
