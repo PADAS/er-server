@@ -182,10 +182,10 @@ jobs:
 - name: destroy-cluster
   disable_manual_trigger: true
   plan:
-  - get: git-deployment
-    params:
-      submodules: none
   - do:
+    - get: git-deployment
+      params:
+        submodules: none
     - task: delete-cluster
       config:
         platform: linux
@@ -223,11 +223,10 @@ jobs:
   disable_manual_trigger: true
   serial: true
   plan:
-  - aggregate:
+  - do:
     - get: git-deployment
       params:
         submodules: none
-  - do:
     - task: delete-namespace
       config:
         platform: linux
@@ -265,11 +264,10 @@ jobs:
   disable_manual_trigger: true
   serial: true
   plan:
-  - aggregate:
+  - do:
     - get: git-deployment
       params:
         submodules: none
-  - do:
     - task: delete-disks
       config:
         platform: linux
@@ -306,11 +304,10 @@ jobs:
   disable_manual_trigger: true
   serial: true
   plan:
-  - aggregate:
+  - do:
     - get: git-deployment
       params:
         submodules: none
-  - do:
     - task: delete-infra-disks
       config:
         platform: linux
