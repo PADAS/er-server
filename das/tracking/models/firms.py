@@ -98,7 +98,7 @@ class FirmsClient:
                         last_dateindex = previous_filename.split('.', maxsplit=1)[0].split('_')[-1]
                         last_dateindex = int(last_dateindex)
                         return last_dateindex
-                except (KeyError, IndexError):
+                except (AttributeError, KeyError, IndexError):
                     # Swallow the exceptions. Let caller assume we weren't able to resolve the date.
                     logger.warning('Failed parsing headers for extracting data index for headers: %s', from_headers)
 
@@ -109,6 +109,10 @@ class FirmsClient:
         stored_dateindex = self.extract_date_index(stored_headers) if stored_headers else 0
 
         process_these = []
+
+        # Start fresh, on today's file.
+        if stored_dateindex is None or stored_dateindex < yesterdays_index or stored_dateindex > todays_index:
+            return [(todays_index, None), ]
 
         # Continuing on today's file
         if stored_dateindex == todays_index:
@@ -121,9 +125,6 @@ class FirmsClient:
                 (todays_index, None)
             ]
 
-        # Start fresh, on today's file.
-        if stored_dateindex < yesterdays_index:
-            return [(todays_index, None), ]
 
     def fetch_data(self, stored_headers=None):
         '''
