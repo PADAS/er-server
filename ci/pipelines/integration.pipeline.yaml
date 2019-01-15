@@ -919,10 +919,10 @@ jobs:
   serial: true
   disable_manual_trigger: true
   plan:
-  - get: git-deployment
-    params:
-      submodules: none
   - do:
+    - get: git-deployment
+      params:
+        submodules: none
     - task: delete-cluster
       config:
         platform: linux
@@ -960,11 +960,10 @@ jobs:
   serial: true
   disable_manual_trigger: true
   plan:
-  - aggregate:
+  - do:
     - get: git-deployment
       params:
         submodules: none
-  - do:
     - task: delete-namespace
       config:
         platform: linux
@@ -1002,7 +1001,7 @@ jobs:
   serial: true
   disable_manual_trigger: true
   plan:
-  - aggregate:
+  - do:
     - get: git-deployment
       params:
         submodules: none
@@ -1042,7 +1041,7 @@ jobs:
   serial: true
   disable_manual_trigger: true
   plan:
-  - aggregate:
+  - do:
     - get: git-deployment
       params:
         submodules: none
