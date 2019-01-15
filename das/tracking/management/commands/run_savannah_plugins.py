@@ -12,15 +12,13 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             '-d', '--dry-run',
-            action='store',
-            dest='flag',
-            default=False,
-            help='Print latest observations than use -s=True or --show=True',
+            action='store_true',
+            help='Print latest observations',
         )
 
     def handle(self, *args, **options):
         logger = logging.getLogger(__class__.__name__)
-        dry_run = True if str(options['flag']).lower() == 'true' else False
+        dry_run = options['dry_run']
 
         # Get SavannahPlugin Class and fetch observations
         plugin_class = apps.get_model('tracking', 'SavannahPlugin')

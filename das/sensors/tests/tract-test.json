@@ -1,0 +1,669 @@
+{
+	"SerNo": 100482,
+	"IMEI": "351579050616323",
+	"ICCID": "89610164556427000029",
+	"ProdId": 17,
+	"FW": "17.1.1.23",
+	"Records": [
+	  {
+		"SeqNo": 24985,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 03:45:13",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4181,
+			  "2": 30,
+			  "5": 4968,
+			  "3": 3265
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 24987,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 04:00:16",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4184,
+			  "2": 30,
+			  "5": 4933,
+			  "3": 3385
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 24989,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 04:15:20",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4156,
+			  "2": 30,
+			  "5": 4929,
+			  "3": 3457
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 24991,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 04:30:24",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4159,
+			  "2": 30,
+			  "5": 4929,
+			  "3": 3658
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 24993,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 04:45:28",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4154,
+			  "2": 30,
+			  "5": 4901,
+			  "3": 3651
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 24995,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 05:00:32",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4157,
+			  "2": 30,
+			  "5": 4904,
+			  "3": 3554
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 24997,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 05:15:36",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4162,
+			  "2": 30,
+			  "5": 4925,
+			  "3": 3653
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 24999,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 05:30:40",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4163,
+			  "2": 30,
+			  "5": 4924,
+			  "3": 3827
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 25001,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 05:45:44",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4153,
+			  "2": 30,
+			  "5": 4874,
+			  "3": 3841
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 25002,
+		"Reason": 28,
+		"DateUTC": "2018-12-02 05:56:22",
+		"Fields": []
+	  },
+	  {
+		"SeqNo": 25003,
+		"Reason": 28,
+		"DateUTC": "2018-12-02 05:56:27",
+		"Fields": []
+	  },
+	  {
+		"SeqNo": 25005,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 06:00:47",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4174,
+			  "2": 30,
+			  "5": 2346,
+			  "3": 3405
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 25007,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 06:15:50",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4171,
+			  "2": 30,
+			  "5": 2115,
+			  "3": 2813
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 25009,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 06:30:53",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4168,
+			  "2": 30,
+			  "5": 2490,
+			  "3": 2557
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 25011,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 06:45:56",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 26,
+			  "1": 4166,
+			  "2": 30,
+			  "5": 2185,
+			  "3": 2431
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 25013,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 07:00:59",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 28,
+			  "1": 4159,
+			  "2": 30,
+			  "5": 1992,
+			  "3": 2454
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 25015,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 07:16:02",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 28,
+			  "1": 4160,
+			  "2": 30,
+			  "5": 2472,
+			  "3": 2354
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 25017,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 07:31:05",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 28,
+			  "1": 4158,
+			  "2": 30,
+			  "5": 1880,
+			  "3": 2329
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 25019,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 07:46:08",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 28,
+			  "1": 4159,
+			  "2": 30,
+			  "5": 2309,
+			  "3": 2313
+			},
+			"FType": 6
+		  }
+		]
+	  },
+	  {
+		"SeqNo": 25021,
+		"Reason": 11,
+		"DateUTC": "2018-12-02 08:01:11",
+		"Fields": [
+		  {
+			"GpsUTC": "2018-12-01 21:29:32",
+			"Lat": -31.9654827,
+			"Long": 115.8242969,
+			"Alt": 45,
+			"Spd": 0,
+			"SpdAcc": 3,
+			"Head": 52,
+			"PDOP": 45,
+			"PosAcc": 8,
+			"GpsStat": 3,
+			"FType": 0
+		  },
+		  {
+			"DIn": 0,
+			"DOut": 0,
+			"DevStat": 2,
+			"FType": 2
+		  },
+		  {
+			"AnalogueData": {
+			  "4": 28,
+			  "1": 4158,
+			  "2": 30,
+			  "5": 814,
+			  "3": 2303
+			},
+			"FType": 6
+		  }
+		]
+	  }
+	]
+  }

@@ -9,6 +9,7 @@ import os
 import socket
 import logging
 from datetime import datetime
+import atexit
 
 import eventlet
 from django.conf import settings
@@ -63,6 +64,10 @@ class Command(RunCommand):
         close_old_connections()
 
         client.init_redis_storage()
+        client.start_trace_consumer()
+
+        # shutdown hook to clean up service keys on service exit
+        atexit.register(client.shutdown_cleanup)
 
         try:
             sio = create_rt_socketio()
@@ -121,3 +126,5 @@ class Command(RunCommand):
             if shutdown_message:
                 self.stdout.write(shutdown_message)
             sys.exit(0)
+        finally:
+            client.stop_trace_consumer()

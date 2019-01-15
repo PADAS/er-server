@@ -47,6 +47,10 @@ urlpatterns = [
         r'^subject/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/kml/?$',
         views.KmlSubjectView.as_view(), name='subject-kml-view'),
 
+    url(r'^subject/(?P<subject_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/status/?$',
+        views.SubjectStatusView.as_view(), name='subjectstatus-view'),
+
+
     url(r'^sources/?$', views.SourcesView.as_view()),
     url(r'^source/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.SourceView.as_view(), name='source-view'),
@@ -67,6 +71,8 @@ urlpatterns = [
     url(r'^trackingdata/export/$', views.TrackingDataCsvView.as_view()),
     url(r'^trackingmetadata/export/?$',
         views.TrackingMetaDataExportView.as_view()),
+    url(r'^sourcegroup/(?P<slug>[a-zA-Z0-9\w\W\s\S-]+)/?$',
+        views.SourceGroupView.as_view()),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

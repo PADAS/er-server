@@ -50,6 +50,13 @@ ONE_YEAR = datetime.timedelta(days=365)
 INCLUDE_STATIONARY_SUBJECTS_ON_MAP = getattr(
     settings, 'SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
 
+current_tz_name = timezone.get_current_timezone_name()
+current_tz = pytz.timezone(current_tz_name)
+current_date = datetime.datetime.utcnow().astimezone(current_tz)
+tz_difference = current_date.utcoffset().total_seconds() / 60 / 60
+tz_offset = 'GMT' + ('+' if tz_difference >= 0 else '') + str(int(tz_difference)) + \
+            ':' + str(int((tz_difference - int(tz_difference)) * 60))
+
 
 def default_since():
     """default value for since
@@ -134,7 +141,26 @@ class SourceGroupsView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = models.SourceGroup.objects.filter(_parents=None)
+        # Sorting SourceGroups based on name (use '-name' for descending order)
+        queryset = queryset.order_by('name')
         return queryset
+
+
+class SourceGroupView(generics.ListAPIView):
+    """
+    Return all sources of given source Group (sourcegroup/sources/<name/id>/)
+    """
+    serializer_class = serializers.SourceSerializer
+    lookup_field = 'slug'  # slug can have value of source group's name or id
+
+    def get_queryset(self):
+        slug = self.kwargs['slug']
+        source_group = models.SourceGroup.objects.filter(name=slug).first()
+        if not source_group:
+            source_group = models.SourceGroup.objects.filter(id=slug).first()
+        if source_group:
+            return source_group.get_all_sources()
+        return None
 
 
 class RegionSubjectsView(generics.ListAPIView):
@@ -146,8 +172,12 @@ class RegionSubjectsView(generics.ListAPIView):
     def get_queryset(self):
         region = generics.get_object_or_404(models.Region.objects.all(),
                                             slug=self.kwargs['slug'])
-        subjects = models.Subject.objects.by_region(region)
+        subjects = models.Subject.objects.by_region(
+            region).annotate_with_subject_status()
         return subjects
+
+
+from observations.utils import get_minimum_allowed_age, get_maximum_allowed_age
 
 
 class SubjectsView(generics.ListCreateAPIView):
@@ -171,7 +201,9 @@ class SubjectsView(generics.ListCreateAPIView):
     TRACK_DATE_QPARAMS = ('tracks_since', 'tracks_until')
 
     def get_queryset(self):
-        queryset = models.Subject.objects.all()
+        min_age = get_minimum_allowed_age(self.request.user) or 0
+        queryset = models.Subject.objects \
+            .annotate_with_subjectstatus(delay_hours=min_age * 24)
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = queryset.order_by('id')
@@ -185,14 +217,33 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS,
                                         include_stationary_subjects=INCLUDE_STATIONARY_SUBJECTS_ON_MAP)
 
+        if self.request.query_params.get('name', None):
+            queryset = queryset.by_name_search(
+                self.request.query_params.get('name'))
+
         subject_group = self.request.query_params.get('subject_group', None)
         if subject_group:
             groups = models.SubjectGroup.objects.get_nested_groups(
                 subject_group)
             queryset = queryset.by_groups(groups)
         queryset = queryset.by_user_subjects(self.request.user)
-        queryset = queryset.prefetch_related(
-            Prefetch('subjectstatus_set')).prefetch_related('subject_subtype')
+
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+
+        queryset = queryset.select_related(
+            'subject_subtype', 'subject_subtype__subject_type')
+        queryset = queryset.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24)
+
+        updated_since = self.request.query_params.get('updated_since', None)
+        if updated_since:
+            try:
+                updated_since = dateparse(updated_since)
+            except ValueError:
+                raise ValueError(f'Invalid value for updated_since: "{updated_since}"')
+            else:
+                queryset = queryset.by_updated_since(updated_since)
+
         return queryset
 
     def get_serializer_context(self):
@@ -222,8 +273,10 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
         queryset = models.Subject.objects.all()
-        queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
+        queryset = queryset.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24)
         return queryset
 
 
@@ -232,7 +285,7 @@ class SubjectSourcesView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs['id'])
+            models.Subject.objects.all(), pk=self.kwargs['id'])  # <-- Maybe annotate with subject_status
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
         subject_sources = models.SubjectSource.objects.get_subject_sources(
@@ -261,7 +314,7 @@ class SourceSubjectsView(generics.ListCreateAPIView):
             models.Source.objects.all(), pk=self.kwargs['id'])
         # if not self.request.user.has_any_perms(models.Source.VIEW_SUBJECT_PERMS, source):
         #     raise PermissionDenied
-        return models.Subject.objects.filter(subjectsource__source=source)
+        return models.Subject.objects.filter(subjectsource__source=source).annotate_with_subjectstatus()
 
     def create(self, request, *args, **kwargs):
 
@@ -280,7 +333,7 @@ class SubjectSourceView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs['id'])
+            models.Subject.objects.all(), pk=self.kwargs['id'])  # .annotate_with_subjectstatus()
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
@@ -298,7 +351,7 @@ class SubjectSourceView(generics.RetrieveAPIView):
 class SubjectSourceTrackView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
-    queryset = models.Subject.objects.all()
+    queryset = models.Subject.objects.all()  # .annotate_with_subjectstatus()
     permission_classes = (StandardObjectPermissions,)
 
     def get_serializer_context(self):
@@ -338,6 +391,24 @@ class TrackLimitSerializer(rest_framework.serializers.Serializer):
         default=None, required=False)
 
 
+class SubjectStatusView(generics.RetrieveAPIView):
+
+    lookup_url_kwarg = 'subject_id'
+    lookup_field = 'subject_id'
+    serializer_class = serializers.SubjectStatusSerializer
+
+    def get_queryset(self):
+
+        ss = models.SubjectStatus.objects.select_related(
+            'subject').filter(delay_hours=0)
+
+        return ss
+
+    def check_object_permissions(self, request, obj):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, obj.subject):
+            raise PermissionDenied
+
+
 class SubjectTracksView(generics.RetrieveAPIView):
     """
     Optional qparam of:
@@ -349,8 +420,11 @@ class SubjectTracksView(generics.RetrieveAPIView):
     serializer_class = serializers.SubjectTrackSerializer
 
     def get_queryset(self):
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+
         queryset = models.Subject.objects.all()
-        queryset = queryset.prefetch_related(Prefetch('subjectstatus_set'))
+        queryset = queryset.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24)
         return queryset
 
     def check_object_permissions(self, request, obj):
@@ -368,7 +442,6 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        # tracks_limit = self.request.query_params.get('limit', None)
 
         tracks_limits = TrackLimitSerializer(data=self.request.query_params)
         tracks_limits.is_valid(raise_exception=True)
@@ -551,10 +624,11 @@ class KmlSubjectsView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer, )
 
     def get_queryset(self):
-        queryset = models.Subject.objects.all()
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
         # To include inactive subjects in KmlSubject report
-        # queryset = queryset.by_is_active()
-        queryset = queryset.by_user_subjects(self.request.user)
+        queryset = models.Subject.objects.all() #.by_is_active()
+        queryset = queryset.by_user_subjects(self.request.user) \
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
         return queryset
 
     def build_link_for_subject(self, subject):
@@ -632,7 +706,9 @@ class KmlSubjectView(generics.RetrieveAPIView):
                                                subject):
             raise PermissionDenied
 
-        queryset = models.Subject.objects.all()
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+        queryset = models.Subject.objects.all().annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24)
         return queryset
 
     def get_subject_color(self, subject):
@@ -710,8 +786,13 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return filter_parameters
 
     def get(self, request, *args, **kwargs):
+
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs['id'])
+            models.Subject.objects.all().annotate_with_subjectstatus(
+                delay_hours=min_age_days * 24),
+            pk=self.kwargs['id'])
         filter_parameters = self.parse_filter_parameters()
         self.check_object_permissions(self.request, subject)
 
@@ -766,35 +847,38 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             raise PermissionDenied
 
         # Get SubjectSource and Observations with in time range for subjects
-        csv_data = []
-        fieldnames = ['chronofile', 'recordserial', 'fixtime', 'dloadtime',
+        fixtime = 'fixtime ({})'.format(tz_offset)
+        dloadtime = 'dloadtime ({})'.format(tz_offset)
+        fieldnames = ['chronofile', 'recordserial', fixtime, dloadtime,
                       'lon', 'lat', 'height', 'temp']
+        csv_data = []
         subjects = self.get_queryset()
         for subject in subjects:
             observations = models.Observation.objects.filter(
                 source__subjectsource__subject=subject,
                 exclusion_flags=filter_flag, recorded_at__range=[lower, upper])
             if observations:
+                fixtime = fixtime.format(tz_offset)
+                dloadtime = dloadtime.format(tz_offset)
                 for observation in observations.all():
                     subject_source = models.SubjectSource.objects.filter(
                         source=observation.source,
                         subject=subject)[0]
+                    recorded_at = observation.recorded_at.astimezone(
+                        current_tz)
+                    created_at = observation.created_at.astimezone(current_tz)
                     data = {'lat': observation.location.x,
                             'lon': observation.location.y,
                             'height': observation.location.z,
                             'chronofile': subject_source.additional.get(
                                 'chronofile', '') if subject_source.additional else '',
                             'recordserial': observation.id,
-                            'fixtime': observation.recorded_at.strftime(
-                                '%m/%d%Y %H:%M:%S'),
-                            'dloadtime': observation.created_at.strftime(
-                                '%m/%d%Y %H:%M:%S'),
+                            fixtime: recorded_at.strftime('%m/%d%Y %H:%M:%S'),
+                            dloadtime: created_at.strftime('%m/%d%Y %H:%M:%S'),
                             'temp': observation.additional.get('temp', '')
                             }
                     csv_data.append(data)
-
         # Generate CSV attachment and send it with response
-        current_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = current_tz.localize(datetime.datetime.utcnow())
 
         if self.request.GET.get('format', '').lower() == 'json':
@@ -803,10 +887,11 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 content_type='application/json', status=status.HTTP_200_OK
             )
 
+        download_filename = f'Tracking Data {timestamp.strftime("%Y-%m-%d")}.csv'
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment;' \
-                                          'filename=Tracking Data {}.csv'.\
-            format(timestamp.strftime('%Y-%m-%d'))
+        response['Content-Disposition'] = f'attachment;filename={download_filename}'
+        response['x-das-download-filename'] = download_filename
+
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         if csv_data:
@@ -824,9 +909,12 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         :return: List of dictionaries containing required details.
         """
         tracking_metadata = []
+        data_starts = 'data_starts ({})'.format(tz_offset)
+        data_stops = 'data_stops ({})'.format(tz_offset)
         headers = ['chronofile', 'collar_type', 'collar_id', 'active',
-                   'frequency', 'animal_id', 'name', 'species', 'data_starts',
-                   'data_stops', 'date_off_or_removed', 'comments',
+                   'frequency', 'animal_id', 'name', 'species',
+                   data_starts, data_stops,
+                   'date_off_or_removed', 'comments',
                    'predicted_expiry', 'rgb', 'sex', 'gmt', 'data_status',
                    'data_starts_source', 'data_stops_source',
                    'data_stops_reason', 'collar_status', 'collar_model',
@@ -851,7 +939,10 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                     # the right one.
                     subject_source = models.SubjectSource.objects.\
                         get_subject_source(subject, subject.source.id).first()
-
+                    lower = subject_source.safe_assigned_range.lower.\
+                        astimezone(current_tz)
+                    upper = subject_source.safe_assigned_range.upper. \
+                        astimezone(current_tz)
                     source_details.update({
                         'chronofile': subject_source.additional.get(
                             'chronofile', ''),
@@ -862,8 +953,8 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                             'frequency', ''),
                         'animal_id': subject.source.additional.get(
                             'tm_animal_id', ''),
-                        'data_starts': subject_source.safe_assigned_range.lower,
-                        'data_stops': subject_source.safe_assigned_range.upper,
+                        data_starts: lower,
+                        data_stops: upper,
                         'comments': subject_source.additional.get(
                             'comments', ''),
                         'predicted_expiry':
@@ -908,10 +999,10 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                 content_type='application/json', status=status.HTTP_200_OK
             )
 
+        download_filename = f'Tracking Meta Data Export {timestamp.strftime("%Y-%m-%d")}.csv'
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=' \
-            '"Tracking Meta Data Export {}.csv"'.format(
-            timestamp.strftime('%Y-%m-%d'))
+        response['Content-Disposition'] = f'attachment; filename={download_filename}'
+        response['x-das-download-filename'] = download_filename
 
         writer = csv.DictWriter(response, headers)
         writer.writeheader()
