@@ -309,6 +309,8 @@ jobs:
   plan:
   - get: git-server-base
     trigger: true
+    params:
+      submodules: none
   - put: server-base-version
     params:
       pre: ((version-prefix))
@@ -912,6 +914,8 @@ jobs:
   disable_manual_trigger: true
   plan:
   - get: git-deployment
+      params:
+        submodules: none
   - do:
     - task: delete-cluster
       config:
@@ -952,6 +956,8 @@ jobs:
   plan:
   - aggregate:
     - get: git-deployment
+      params:
+        submodules: none
   - do:
     - task: delete-namespace
       config:
@@ -992,6 +998,8 @@ jobs:
   plan:
   - aggregate:
     - get: git-deployment
+      params:
+        submodules: none
     - task: delete-disks
       config:
         platform: linux
