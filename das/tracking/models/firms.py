@@ -177,6 +177,7 @@ class FirmsClient:
         # 404 Not Found: Assume the file does not yet exist.
         # 416 (Range unsatisfiable): log error message
         if data.status_code in (304, 404, 416):
+            logger.info('No new FIRMS data available.', extra={'url': url, 'status_code': data.status_code})
             return list(), None
 
         if data.status_code in (200, 206):
@@ -189,6 +190,10 @@ class FirmsClient:
 
             # Return a generator and a header dict that the caller may choose to cache.
             return self.generate_records(data.text.split('\n')), storable_headers
+
+        logger.warning('Unexpected response from FIRMS web service..', extra={'url': url,
+                                                                              'status_code': data.status_code})
+        return [], None
 
     @staticmethod
     def generate_records(lines):
