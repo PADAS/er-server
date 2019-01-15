@@ -951,6 +951,19 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
                 users.update(ps.user_set.all())
             return users
 
+    def get_ancestor_subject_groups(self):
+        """
+        Return a set of all unique ancestor Subject Groups who have access to
+        the current subject based on hierarchy.
+        :return:
+        """
+        subject_groups = set()
+        for subject_group in self.groups.all():
+            subject_groups.add(subject_group)
+            subject_groups = subject_groups.union(
+                set(subject_group.get_ancestors()))
+        return subject_groups
+
     def __str__(self):
         return f'{self.name}'  # ({self.subject_subtype.display})'
 
