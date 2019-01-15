@@ -920,8 +920,8 @@ jobs:
   disable_manual_trigger: true
   plan:
   - get: git-deployment
-      params:
-        submodules: none
+    params:
+      submodules: none
   - do:
     - task: delete-cluster
       config:
