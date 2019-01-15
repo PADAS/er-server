@@ -308,6 +308,8 @@ jobs:
   max_in_flight: 1
   plan:
   - get: git-server-base
+    params:
+        submodules: none
     trigger: true
     params:
       submodules: none
@@ -336,6 +338,8 @@ jobs:
   plan:
   - aggregate:
     - get: git-server-base
+      params:
+        submodules: none
       passed: [docker-build-server-base]
     - get: image-server-base
       passed: [docker-build-server-base]
@@ -667,6 +671,8 @@ jobs:
         params:
           submodules: none
       - get: git-deployment
+        params:
+          submodules: none
         trigger: true
       - get: git-skyline-provider
         passed: [docker-build-skyline-provider]
