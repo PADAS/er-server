@@ -594,8 +594,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
 
     def get_all_subjects(self, user=None, active=None, include_from_subgroups=True):
 
-        if user:
-            min_age_days = get_minimum_allowed_age(user) or 0
+        min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
 
         queryset = Subject.objects.all() \
             .annotate_with_subjectstatus(delay_hours=min_age_days * 24)\
