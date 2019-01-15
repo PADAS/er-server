@@ -6,7 +6,8 @@ static-values:
   default-cpu-request: "50m"
   memory-request-quota: "20Gi"
   default-memory-request: "1Mi"
-  iaas-workspace: DAS-Dev
+  iaas-workspace: "DAS-Dev"
+  web-service-name: "web"
 vault-lookups:
   email-password: padas-app/main/email-password
 environment:
