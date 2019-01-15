@@ -141,7 +141,7 @@ class TractAdapter:
             source_type=DAS_SOURCE_TYPE,
             additional={}
         )
-        logger.info("Created DAS observation %s",
+        logger.info("Creeated DAS observation %s",
                         das_obs, extra={'das.obs': das_obs})
         return das_obs
 
