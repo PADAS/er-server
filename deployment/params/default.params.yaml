@@ -1,65 +1,11 @@
-project-id: padas-app
-vp-tools-container-version: "1.0.256"
-
-#Infrastructure
-iaas: gcp
-iaas-workspace: "padas-app"
-iaas-zone: "us-west1-a"
-cluster-spec: deployment/cluster-specs/gcp.yaml
-cluster-name: ""
-das-static-ip: ""
-utility-static-ip: ""
-disks-spec: deployment/storage/default.disks.csv
-infra-disks-spec: deployment/storage/infra.disks.csv
-vault-address: "https://vault.vulcancloud.io:8200"
-vcloud-service-url: "http://vcloud.vulcancloud.io:5000/"
-elastic-url: "elastic.vulcancloud.io"
-logstash-url: "nginx-udp.vulcancloud.io:5045"
-deploy-params-environment: develop
-baseimages-version-prefix: ""
-namespace: "default"
-infra-namespace: "infra"
-
-#Azure
-azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa
-azure-tenant-id: 0e10ccd8-5b77-476f-af4c-13ff073b52f6
-azure-client-id: 10d28313-7de9-4d1d-a1e3-cd366e8ae65a
-
-#Build
-server-branch-name: develop
-web-branch-name: develop
-tag-as-latest: false
-smartconnect-provider-branch-name: develop
-skyline-provider-branch-name: develop
-quadratex-provider-branch-name: develop
-tracktrace-provider-branch-name: develop
-version-prefix: "not-set"
-initial-server-version: "0.0.0"
-initial-web-version: "0.0.0"
-initial-smartconnect-version: "0.0.0"
-
-#Application
-web-service-name: "web"
-use-azure-storage: "false"
-
-#Test & Notification
-postman-environment:
-slack-notification-channel: "das-k8-alerts-dev"
-
-#
-deploy-recipe: standard.yaml
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+static-values:
+  alerts-slack-channel: "das-k8-alerts-dev"
+  logging-static-ip: ""
+  send-alerts: "true"
+  cpu-request-quota: "5"
+  default-cpu-request: "50m"
+  memory-request-quota: "20Gi"
+  default-memory-request: "1Mi"
+environment:
+  namespace: NAMESPACE
+  infra-namespace: INFRA_NAMESPACE
