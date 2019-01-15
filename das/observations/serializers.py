@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from collections import OrderedDict
+from typing import NamedTuple
 
 import pytz
 from dateutil.parser import parse as parse_date
@@ -151,19 +152,23 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
                 default_window_cutoff = pytz.utc.localize(
                     datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
-                rep['tracks_available'] = instance.status_recorded_at > default_window_cutoff
+
+                statusvalues = resolve_status_values(instance)
+                rep['tracks_available'] = statusvalues.recorded_at and statusvalues.recorded_at > default_window_cutoff
 
                 # TODO: These values might be more appropriate in the
                 # geeojson properties.
                 rep['last_position_status'] = {
-                    'last_voice_call_start_at': instance.status_last_voice_call_start_at,
-                    'radio_state_at': instance.status_radio_state_at,
-                    'radio_state': instance.status_radio_state
+                    'last_voice_call_start_at': statusvalues.last_voice_call_start_at,
+                    'radio_state_at': statusvalues.radio_state_at,
+                    'radio_state': statusvalues.radio_state
                 }
 
-                rep['last_position_date'] = instance.status_recorded_at
+                rep['last_position_date'] = statusvalues.recorded_at
                 rep['last_position'] = make_feature(
-                    self.context['request'], instance.status_location, instance, time=instance.status_recorded_at, image_url=rep['image_url'])
+                    self.context['request'], statusvalues.location, instance,
+                    time=statusvalues.recorded_at, image_url=rep['image_url']
+                )
 
         if 'request' in self.context:
             request = self.context['request']
@@ -182,6 +187,28 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             validated_data['owner'] = request.user
 
         return models.Subject.objects.create_subject(**validated_data)
+
+
+class SubjectStatusValues(NamedTuple):
+    recorded_at: datetime
+    location: Point
+    radio_state: str
+    radio_state_at: datetime
+    last_voice_call_start_at: datetime
+
+
+def resolve_status_values(subject):
+    '''
+    Parse subject-status values from
+    :param subject:
+    :return:
+    '''
+    if hasattr(subject, 'status_radio_state'):
+        return SubjectStatusValues(**dict((k, getattr(subject, f'status_{k}', None) ) for k in SubjectStatusValues._fields ))
+    try:
+        return subject.subjectstatus_set.get(delay_hours=0)
+    except models.SubjectStatus.DoesNotExist:
+        raise ValueError(f'SubjectStatus does not exist for subject ID: {subject.id}')
 
 
 class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
