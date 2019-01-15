@@ -4,6 +4,24 @@ import django.contrib.postgres.fields.jsonb
 from django.db import migrations, models
 
 
+def forward_f(apps, schema_editor):
+    FirmsPlugin = apps.get_model('tracking', 'FirmsPlugin')
+
+    db_alias = schema_editor.connection.alias
+
+    for plugin in FirmsPlugin.objects.using(db_alias).all():
+
+        if hasattr(plugin, 'service_username'):
+            plugin.additional.setdefault('earthdata_user', {})['username'] = plugin.service_username
+            save = True
+        if hasattr(plugin, 'service_password'):
+            plugin.additional.setdefault('earthdata_user', {})['password'] = plugin.service_password
+            save = True
+
+        if save:
+            plugin.status = 'disabled'
+            plugin.save()
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,6 +29,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+
+        migrations.RunPython(code=forward_f, reverse_code=migrations.RunPython.noop),
+
         migrations.RemoveField(
             model_name='firmsplugin',
             name='service_password',
