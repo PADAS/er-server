@@ -625,8 +625,8 @@ class KmlSubjectsView(generics.GenericAPIView):
 
     def get_queryset(self):
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
-
-        queryset = models.Subject.objects.all().by_is_active()
+        # To include inactive subjects in KmlSubject report
+        queryset = models.Subject.objects.all() #.by_is_active()
         queryset = queryset.by_user_subjects(self.request.user) \
             .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
         return queryset
@@ -825,7 +825,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise PermissionDenied
         queryset = models.Subject.objects.all()
-        queryset = queryset.by_is_active()
+        # To include inactive subjects in trackingdata report
+        # queryset = queryset.by_is_active()
         queryset = queryset.by_user_subjects(self.request.user)
         return queryset
 
@@ -1011,6 +1012,7 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
     def get_queryset(self):
         # Get user accessible active subjects.
         queryset = models.Subject.objects.all()
-        queryset = queryset.by_is_active()
+        # To include inactive subjects in trackingmetadata report
+        # queryset = queryset.by_is_active()
         queryset = queryset.by_user_subjects(self.request.user)
         return queryset

@@ -77,6 +77,29 @@ class TrackingMetaDataExportViewTest(BaseAPITest):
         metadata_subject_names = [metadata['name'] for metadata in metadatas]
         self.assertEqual(subject_names, metadata_subject_names)
 
+    def test_csv_metadata_with_inactive_subject(self):
+        inactive_subject_name = ''
+        for subject in self.subject_group.get_all_subjects(self.user):
+            subject.is_active = False
+            subject.save()
+            inactive_subject_name = subject.name
+            break
+        self.request = self.factory.get(API_BASE + '/trackingmetadata/export/')
+        self.force_authenticate(self.request, self.user)
+        response = TrackingMetaDataExportView.as_view()(self.request)
+        self.assertEqual(response.status_code, 200)
+        csv_file_data = response.content.decode("utf-8").split('\r\n')
+
+        # Header from first line of csv file data
+        header = csv_file_data[0].split(',')
+
+        # Remove header and empty line from csv_data to get actual values
+        csv_data = [row.split(',') for row in csv_file_data[1:-1]]
+        metadatas = [dict(zip(header, data)) for data in csv_data]
+        metadata_subject_names = [metadata['name'] for metadata in metadatas]
+        # Check inactive_subject_name in subject's name list from metadata
+        self.assertIn(inactive_subject_name, metadata_subject_names)
+
 
 class TrackingDataCsvViewTest(BaseAPITest):
     fixtures = [
@@ -106,7 +129,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
 
     # Basic CSV read, admin is able to access all data (exclusion flag = 0)
     def test_csv_observation_data(self):
-        self.request = self.factory.get(API_BASE + '/tracking_data/')
+        self.request = self.factory.get(API_BASE + '/trackingdata/export/')
         self.force_authenticate(self.request, self.superuser)
         response = TrackingDataCsvView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
@@ -120,9 +143,10 @@ class TrackingDataCsvViewTest(BaseAPITest):
 
     def test_csv_observation_data_with_exclusion_flag(self):
         observation_filter = {'filter': 1}
-        self.request = self.factory.get(API_BASE + '/tracking_data/?{0}'.format(
-            urlencode(observation_filter)
-        ))
+        self.request = self.factory.get(
+            API_BASE + '/trackingdata/export/?{0}'.format(
+                urlencode(observation_filter)
+            ))
         self.force_authenticate(self.request, self.superuser)
         response = TrackingDataCsvView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
@@ -196,7 +220,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         self.user.permission_sets.add(PermissionSet.objects.get(
             name='View Tracks All Time')
         )
-        self.request = self.factory.get(API_BASE + '/tracking_data/')
+        self.request = self.factory.get(API_BASE + '/trackingdata/export/')
         self.force_authenticate(self.request, self.user)
         response = TrackingDataCsvView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
@@ -216,3 +240,70 @@ class TrackingDataCsvViewTest(BaseAPITest):
         unique_chrono_files = list(set(chrono_files))
 
         self.assertTrue(len(unique_chrono_files) > 1)
+
+    def test_csv_observation_with_inactive_subject(self):
+        inactive_subject_observation_ids = []
+        csv_observation_ids = []
+        self.subject_group.permission_sets.add(PermissionSet.objects.get(
+            name='View Tracks All Time')
+        )
+        self.user.permission_sets.add(PermissionSet.objects.get(
+            name='View Tracks All Time')
+        )
+        # Make all subjects as inactive subject, get their observation's ids
+        for subject in self.subject_group.get_all_subjects(self.user):
+            subject.is_active = False
+            subject.save()
+            for obs in Observation.objects.get_subject_observations(subject):
+                inactive_subject_observation_ids.append(obs.id)
+        africa_subject_group = SubjectGroup.objects.get(
+            name='African elephant subjet group')
+        africa_subject_group.permission_sets.add(PermissionSet.objects.get(
+            name='View Tracks All Time')
+        )
+        for subject in africa_subject_group.get_all_subjects(self.user):
+            subject.is_active = False
+            subject.save()
+            for obs in Observation.objects.get_subject_observations(subject):
+                inactive_subject_observation_ids.append(obs.id)
+
+        request = self.factory.get(API_BASE + '/trackingdata/export/')
+        self.force_authenticate(request, self.user)
+        response = TrackingDataCsvView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        csv_file_data = response.content.decode("utf-8").split('\r\n')
+        # Header from first line of csv file data
+        header = csv_file_data[0].split(',')
+
+        # Remove header and empty line from csv_data to get actual values
+        csv_data = [row.split(',') for row in csv_file_data[1:-1]]
+        observations = [dict(zip(header, data)) for data in csv_data]
+
+        # Get list of observation ids
+        csv_observation_ids = [observation['recordserial']
+                               for observation in observations]
+
+        observation_filter = {'filter': 1}
+        request = self.factory.get(
+            API_BASE + '/trackingdata/export/?{0}'.format(
+                urlencode(observation_filter)
+            ))
+        self.force_authenticate(request, self.user)
+        response = TrackingDataCsvView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        csv_data = response.content.decode("utf-8").split('\r\n')
+
+        # Header from first line of csv file data
+        header = csv_data[0].split(',')
+
+        # Remove header and empty line from csv_data to get actual values
+        csv_data = [row.split(',') for row in csv_data[1:-1]]
+        observations = [dict(zip(header, data)) for data in csv_data]
+
+        # Get list of observation ids
+        csv_observation_ids.extend([observation['recordserial']
+                        for observation in observations])
+        unique_csv_observation_ids = list(set(csv_observation_ids))
+        self.assertTrue(any(str(obs_id) in unique_csv_observation_ids
+                            for obs_id in inactive_subject_observation_ids)
+                        )
