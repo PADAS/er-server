@@ -23,6 +23,7 @@ from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from django.http import Http404, HttpResponse
 from rest_framework import status, views
+from rest_framework.compat import coreapi, coreschema
 
 import utils
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination
@@ -180,17 +181,98 @@ class RegionSubjectsView(generics.ListAPIView):
 from observations.utils import get_minimum_allowed_age, get_maximum_allowed_age
 
 
+class SubjectsViewSchema(rest_framework.schemas.AutoSchema):
+
+    def get_manual_fields(self, path, method):
+
+        if method == 'GET':
+            extra_fields=[
+                coreapi.Field(
+                    name='tracks_since',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Tracks Since',
+                        description='Include tracks since this timestamp',
+
+                    )
+                ),
+                coreapi.Field(
+                    name='tracks_until',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Tracks Until',
+                        description='Include tracks up through this timestamp'
+                    )
+                ),
+                coreapi.Field(
+                    name='bbox',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Bounding Box',
+                        description='Include subjects having track data within this bounding box defined by '
+                                    'a 4-tuple of coordinates marking west, south, east, north.',
+
+                    ),
+                ),
+                coreapi.Field(
+                    name='subject_group',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Subject Group ID',
+                        description='Indicate a subject group for which Subjects should be listed.',
+                        format='UUID'
+
+                    )
+                ),
+                coreapi.Field(
+                    name='name',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Subject name',
+                        description='Find subjects with the given name.',
+                    )
+                ),
+                coreapi.Field(
+                    name='updated_since',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Updated Since',
+                        description='Return Subject that have been updated since the given timestamp.',
+                    )
+                ),
+                coreapi.Field(
+                    name='render_last_location',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Subject Group ID',
+                        description='Indicate whether to render each subject\'s last location.',
+                    )
+                ),
+                coreapi.Field(
+                    name='tracks',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Tracks',
+                        description='Indicate whether to render each subject\'s recent tracks.',
+                    )
+                ),
+            ]
+            return super().get_manual_fields(path, method) + extra_fields
+
+
 class SubjectsView(generics.ListCreateAPIView):
     """
-    Returns all subjects in the system.
-    Optional qparam of:
-    page_size enable paging of subjects, sets the page size of subjects returned
-    bbox, where bbox is the (west, south, east, north) lon,lat pairs.
-        example: bbox=14.24, .41, 15.45, 1.66
-    subject_group   id of subject group
-    tracks [true,false] return track with subject resource. Default false. Returns the site wide setting number of days
-    track_since starting date range for the requested track, default follow the tracks logic of returning x number of days. ISO date/time
-    track_until stop date range for the requested track, default is now. ISO date/time
+    get:
+    Returns a list of Subject in the system.
+
     """
     serializer_class = serializers.SubjectSerializer
     permission_classes = (StandardObjectPermissions,)
@@ -199,6 +281,8 @@ class SubjectsView(generics.ListCreateAPIView):
 
     TRACK_QPARAMS = ('tracks_limit',)
     TRACK_DATE_QPARAMS = ('tracks_since', 'tracks_until')
+
+    schema = SubjectsViewSchema()
 
     def get_queryset(self):
         min_age = get_minimum_allowed_age(self.request.user) or 0
@@ -260,6 +344,8 @@ class SubjectsView(generics.ListCreateAPIView):
                 context[t] = dateparse(request.query_params.get(
                     t, None)) if request.query_params.get(t, None) else None
         return context
+
+
 
 
 class SubjectView(generics.RetrieveUpdateDestroyAPIView):
