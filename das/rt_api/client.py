@@ -221,5 +221,5 @@ def pop_trace(trace_id):
     redis_client.delete(trace_id)
 
 
-def message_index(sid):
-    return redis_client.incr(f'mid-{sid}')
+def message_index(sid, message_type):
+    return redis_client.hincrby(f'mid-{sid}', message_type, 1)
