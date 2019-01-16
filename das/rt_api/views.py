@@ -296,36 +296,36 @@ def create_realtime_handler(sios):
                       namespace='/das')
 
         @staticmethod
-        def emit(message_type, data, user=None):
+        def emit(message_type, data, socketid=None):
             # user is the SID if set
-            if user and user not in sios.environ:
-                client.remove_client(user)
+            if socketid and socketid not in sios.environ:
+                client.remove_client(socketid)
                 # extra = dict(sid=user)
                 logger.warning(
-                    'Tried to send a message to a disconnected client.', extra={'sid': user})
+                    'Tried to send a message to a disconnected client.', extra={'sid': socketid})
                 return
             try:
 
                 # Add a message index. The client can use this to identify gaps
-                # in mes
-                data['mid'] = client.message_index(user)
+                # in message streams.
+                data['mid'] = client.message_index(socketid, message_type)
 
                 # Add trace ID to message. It will be sent back in callback.
                 if message_type not in RealtimeServices.do_not_trace_these_types \
                         and isinstance(data, dict):
-                    data['trace_id'] = f'trace-{user}-{time.time()}'
+                    data['trace_id'] = f'trace-{socketid}-{time.time()}'
                     client.push_trace(data['trace_id'], data)
 
-                if user is None:
+                if socketid is None:
                     sios.emit(message_type, data, namespace='/das',
                               callback=receipt_callback)
                 else:
                     sios.emit(message_type, data, room=str(
-                        user), namespace='/das', callback=receipt_callback)
+                        socketid), namespace='/das', callback=receipt_callback)
 
             except Exception as ex:
-                if user:
-                    client.remove_client(user)
+                if socketid:
+                    client.remove_client(socketid)
                 logger.exception("Error emitting event over socket")
 
         @staticmethod
@@ -337,7 +337,7 @@ def create_realtime_handler(sios):
                             extra=extra)
                 RealtimeServices.emit(message_type=message_data['type'],
                                       data=message_data['data'],
-                                      user=message_data['sid'])
+                                      socketid=message_data['sid'])
             else:
                 logger.error('Realtime server received invalid message type: %s',
                              message_data['type'])
