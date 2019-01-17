@@ -310,6 +310,12 @@ class SubjectsView(generics.ListCreateAPIView):
             groups = models.SubjectGroup.objects.get_nested_groups(
                 subject_group)
             queryset = queryset.by_groups(groups)
+
+        # Filter by provided subject_ids.
+        subject_ids = self.request.query_params.get('id', '')
+        if subject_ids:
+            queryset = queryset.by_id(subject_ids)
+
         queryset = queryset.by_user_subjects(self.request.user)
 
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
