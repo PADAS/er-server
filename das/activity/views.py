@@ -1,6 +1,7 @@
 import platform
 from collections import OrderedDict
 from datetime import timedelta, datetime
+import dateutil.parser as dateparser
 import copy
 import mimetypes
 import logging
@@ -286,7 +287,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         tz_offset = 'GMT' + ('+' if tz_difference >= 0 else '') + str(
             int(tz_difference)) + ':' + str(
             int((tz_difference - int(tz_difference)) * 60))
-        reported_at = 'Reported At({})'.format(tz_offset)
+        reported_at = 'Reported At ({})'.format(tz_offset)
         for event in self.get_queryset():
             if event.event_type_id != current_event_type_data['id']:
                 event_type = EventType.objects.get(id=event.event_type_id)
@@ -479,6 +480,7 @@ class EventsView(generics.ListCreateAPIView):
         request = context['request']
         context['include_updates'] = parse_bool(
             query_params.get('include_updates', True))
+
         context['include_details'] = parse_bool(
             query_params.get('include_details', True))
         context['include_files'] = parse_bool(
@@ -503,8 +505,6 @@ class EventsView(generics.ListCreateAPIView):
         return context
 
     def get_queryset(self):
-
-        # TODO: Update to allow passing last_days constraint.
 
         queryset = Event.objects.all_sort()
 
@@ -546,6 +546,15 @@ class EventsView(generics.ListCreateAPIView):
         if exclude_contained:
             queryset = queryset.by_exclude_contained(
                 parse_bool(exclude_contained))
+
+        updated_since = query_params.get('updated_since', None)
+
+        if updated_since:
+            try:
+                updated_since = dateparser.parse(updated_since)
+                queryset = queryset.updated_since(updated_since)
+            except ValueError:
+                raise ValueError(f"Invalid value for 'updated_since' = '{updated_since}'")
 
         event_categories = query_params.getlist('event_category', None)
         if event_categories is None or len(event_categories) == 0:

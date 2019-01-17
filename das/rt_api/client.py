@@ -4,7 +4,6 @@ import redis
 import datetime
 import pytz
 import socket
-import atexit
 
 from django.contrib.gis.geos import Polygon, MultiPolygon
 from observations.models import SocketClient
@@ -144,6 +143,9 @@ def remove_clients(*sids):
     count = redis_client.hdel(CLIENT_LIST_KEY, *sids)
     logger.info(f'Removed {count} clients (of {len(sids)} listed) from {CLIENT_LIST_KEY}')
 
+    logger.info('Deleteing mid keys for sids %s.', sids)
+    redis_client.delete(*[f'mid-{sid}' for sid in sids])
+
     try:
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
@@ -195,14 +197,15 @@ def start_trace_consumer():
     trace_consumer = trace_pubsub.run_in_thread(sleep_time=0.001)
 
     global stop_trace_consumer
-
-    def stop_trace_consumer(): return (logger.info(
-        'Stopping trace consumer.'), trace_consumer.stop())
+    stop_trace_consumer = lambda: (logger.info('Stopping trace consumer.'), trace_consumer.stop())
 
 
 def shutdown_cleanup():
     logger.info('Shutdown cleanup for realtime client list.')
     remove_rt_service(CLIENT_LIST_KEY)
+
+    logger.info('Deleting message ID counters.')
+    redis_client.delete(redis_client.keys('mid-*'))
 
 
 trace_ttl = 60
@@ -218,5 +221,5 @@ def pop_trace(trace_id):
     redis_client.delete(trace_id)
 
 
-# shutdown hook to clean up service keys on service exit
-atexit.register(shutdown_cleanup)
+def message_index(sid, message_type):
+    return redis_client.hincrby(f'mid-{sid}', message_type, 1)

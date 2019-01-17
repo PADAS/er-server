@@ -99,14 +99,14 @@ class FollowltObservation(serializers.Serializer):
     lng = serializers.FloatField()
     date = serializers.CharField()
     collarId = serializers.CharField()
-    ttf = serializers.CharField(default=None)
-    sats = serializers.CharField(default=None)
-    positionId = serializers.CharField(default=None)
-    serialId = serializers.CharField(default=None)
-    alt = serializers.CharField(default=None)
-    hdop = serializers.CharField(default=None)
-    temp = serializers.CharField(default=None)
-    name = serializers.CharField(default=None)
+    ttf = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    sats = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    positionId = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    serialId = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    alt = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    hdop = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    temp = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    name = serializers.CharField(allow_blank=True, allow_null=True, required=False)
 
 
 class DasObservation(NamedTuple):

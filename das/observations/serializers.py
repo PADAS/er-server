@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from collections import OrderedDict
+from typing import NamedTuple
 
 import pytz
 from dateutil.parser import parse as parse_date
@@ -135,14 +136,11 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             # Find the user's allowed viewable date range
             maximum_allowed_age = get_maximum_allowed_age(user)
             minimum_allowed_age = get_minimum_allowed_age(user)
-            mou_expiry_date = user.additional.get('expiry', None)
+            # additional.get('expiry', None)
+            mou_expiry_date = user.mou_expiry_date
 
             if mou_expiry_date is not None:
-                now = pytz.utc.localize(datetime.utcnow())
-                mou_expiry_date = parse_date(mou_expiry_date)
-                if not mou_expiry_date.tzinfo:
-                    mou_expiry_date = pytz.utc.localize(mou_expiry_date)
-                mou_expiry_age = now - mou_expiry_date
+                mou_expiry_age = datetime.now(tz=pytz.utc) - mou_expiry_date
 
                 minimum_allowed_age = max(
                     mou_expiry_age.days, minimum_allowed_age)
@@ -151,25 +149,26 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     minimum_allowed_age = None
 
             if minimum_allowed_age is not None and maximum_allowed_age is not None:
-                start, end = instance.subjectstatus_set.get_range_endpoints(
-                    maximum_allowed_age * 24, minimum_allowed_age * 24)
-                if start is not None and end is not None:
-                    default_window_cutoff = pytz.utc.localize(
-                        datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
-                    rep['tracks_available'] = end.recorded_at > default_window_cutoff
 
-                    # TODO: These values might be more appropriate in the
-                    # geeojson properties.
-                    rep['last_position_status'] = {
-                        'last_voice_call_start_at': end.last_voice_call_start_at,
-                        'radio_state_at': end.radio_state_at,
-                        'radio_state': end.radio_state
-                    }
+                default_window_cutoff = pytz.utc.localize(
+                    datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
 
-                    rep['last_position_date'] = end.recorded_at
-                    rep['last_position'] = make_feature(
-                        self.context['request'], end.location, instance, time=end.recorded_at, image_url=rep['image_url'])
-                    rep['tracks_range'] = (start.recorded_at, end.recorded_at)
+                statusvalues = resolve_status_values(instance)
+                rep['tracks_available'] = statusvalues.recorded_at and statusvalues.recorded_at > default_window_cutoff
+
+                # TODO: These values might be more appropriate in the
+                # geeojson properties.
+                rep['last_position_status'] = {
+                    'last_voice_call_start_at': statusvalues.last_voice_call_start_at,
+                    'radio_state_at': statusvalues.radio_state_at,
+                    'radio_state': statusvalues.radio_state
+                }
+
+                rep['last_position_date'] = statusvalues.recorded_at
+                rep['last_position'] = make_feature(
+                    self.context['request'], statusvalues.location, instance,
+                    time=statusvalues.recorded_at, image_url=rep['image_url']
+                )
 
         if 'request' in self.context:
             request = self.context['request']
@@ -188,6 +187,28 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             validated_data['owner'] = request.user
 
         return models.Subject.objects.create_subject(**validated_data)
+
+
+class SubjectStatusValues(NamedTuple):
+    recorded_at: datetime
+    location: Point
+    radio_state: str
+    radio_state_at: datetime
+    last_voice_call_start_at: datetime
+
+
+def resolve_status_values(subject):
+    '''
+    Parse subject-status values from
+    :param subject:
+    :return:
+    '''
+    if hasattr(subject, 'status_radio_state'):
+        return SubjectStatusValues(**dict((k, getattr(subject, f'status_{k}', None) ) for k in SubjectStatusValues._fields ))
+    try:
+        return subject.subjectstatus_set.get(delay_hours=0)
+    except models.SubjectStatus.DoesNotExist:
+        raise ValueError(f'SubjectStatus does not exist for subject ID: {subject.id}')
 
 
 class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
@@ -301,6 +322,21 @@ class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
         return rep
 
 
+class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
+    def to_representation(self, subject_status):
+
+        image_url = subject_status.subject.image_url
+        user = self.context['request'].user
+
+        coordinates = Point(x=subject_status.location.x,
+                            y=subject_status.location.y, srid=4326)
+
+        feature = make_subjectstatus_feature(self.context['request'],
+                                             coordinates,
+                                             subject_status)
+        return feature
+
+
 class TrackSerializer(rest_framework.serializers.Serializer):
 
     def to_representation(self, instance):
@@ -362,6 +398,38 @@ SUBJECT_STATUS_RETURN_FIELDS = (
     'last_voice_call_start_at', 'location_requested_at', 'radio_state_at') + ('radio_state',)
 
 
+def make_subjectstatus_feature(request, location: Point, subjectstatus):
+
+    image_url = add_base_url(request, subjectstatus.subject.image_url)
+
+    feature = {
+        'geometry': {
+            'type': 'Point',
+            'coordinates': location.tuple
+        },
+        'type': 'Feature',
+        'properties': {
+            'id': subjectstatus.subject_id,
+            'name': subjectstatus.subject.name,
+            'type': subjectstatus.subject.subject_subtype.subject_type.value,
+            'subtype': subjectstatus.subject.subject_subtype.value,
+            'image': image_url,
+            'state': subjectstatus.radio_state,
+            'coordinateProperties': {
+                'time': subjectstatus.recorded_at
+            }
+        }
+
+    }
+
+    for k in ('last_voice_call_start_at', 'location_requested_at', 'radio_state_at'):
+        val = getattr(subjectstatus, k, None)
+        if val:
+            feature['properties'][k] = val
+
+    return feature
+
+
 def make_feature(request, coordinates, subject, coordinate_times=None, time=None, image_url=None):
     is_point = isinstance(coordinates, Point)
     image_url = add_base_url(request, image_url or subject.image_url)
@@ -386,19 +454,15 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         properties['stroke-width'] = 2
         properties['image'] = image_url
 
-    for ss in subject.subjectstatus_set.filter(delay_hours=0).values(*SUBJECT_STATUS_RETURN_FIELDS):
-
-        properties['subject_state'] = ss.get('radio_state', 'na')
-
-        for k in ('last_voice_call_start_at', 'location_requested_at', 'radio_state_at'):
-            val = ss.get(k)
-            if val:
-                properties[k] = val
-        break
+    for k in ('last_voice_call_start_at', 'location_requested_at', 'radio_state_at', 'radio_state',):
+        val = getattr(subject, f'status_{k}', None)
+        properties[k] = val
 
     # see https://github.com/mapbox/geojson-coordinate-properties
-    if coordinate_times:
-        properties['coordinateProperties'] = {'times': coordinate_times}
-    if time:
-        properties['DateTime'] = time
+    if is_point:
+        properties['coordinateProperties'] = {'time': time}
+        properties['DateTime'] = time  # Left in for backward compatibility.
+    else:
+        properties['coordinateProperties'] = {'times': coordinate_times or []}
+
     return feature

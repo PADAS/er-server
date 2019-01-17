@@ -306,8 +306,9 @@ def get_daily_report_data(since, before, **kwargs):
         if event.event_type.value != 'fence_breakage':
             return
         ed = event.event_details.first()
-        if not ed or not ed.data or 'event_details' not in ed.data:
+        if not ed or not ed.data or not ed.data.get('event_details', None):
             return
+
         ed = ed.data['event_details']
 
         etime = event.event_time.astimezone(

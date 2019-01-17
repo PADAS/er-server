@@ -20,3 +20,10 @@ spec:
         env:
         - name: PROMETHEUS_URL
           value: http://prometheus:9090
+        volumeMounts:
+        - mountPath: /var/lib/grafana/dashboards/custom
+          name: custom-dashboards
+      volumes:
+      - name: custom-dashboards
+        configMap:
+          name: grafana-configmap

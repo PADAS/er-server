@@ -52,6 +52,7 @@ resources:
     branch: ((server-branch-name))
     ignore_paths:
       - deployment/*
+      - das/ste
     private_key: ((das-github))
 
 - name: git-deployment
@@ -304,9 +305,14 @@ resource_types:
 ################################################################################
 jobs:
 - name: docker-build-server-base
+  max_in_flight: 1
   plan:
   - get: git-server-base
+    params:
+        submodules: none
     trigger: true
+    params:
+      submodules: none
   - put: server-base-version
     params:
       pre: ((version-prefix))
@@ -328,9 +334,12 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-server-app
+  max_in_flight: 1
   plan:
   - aggregate:
     - get: git-server-base
+      params:
+        submodules: none
       passed: [docker-build-server-base]
     - get: image-server-base
       passed: [docker-build-server-base]
@@ -340,6 +349,8 @@ jobs:
       }
     - get: git-server
       trigger: true
+      params:
+        submodules: none
     - get: server-base-version
       passed: [docker-build-server-base]
     - put: server-app-version
@@ -366,9 +377,12 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-server
+  max_in_flight: 1
   plan:
   - aggregate:
     - get: git-server
+      params:
+        submodules: none
     - get: image-server-app
       passed: [docker-build-server-app]
       trigger: true
@@ -467,6 +481,7 @@ jobs:
 
 # Web Jobs
 - name: docker-build-web-develop
+  max_in_flight: 1
   plan:
   - get: git-web
     trigger: true
@@ -522,6 +537,7 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-web-app
+  max_in_flight: 1
   serial: true
   plan:
   - aggregate:
@@ -553,6 +569,7 @@ jobs:
 
 # ETL Jobs
 - name: docker-build-skyline-provider
+  max_in_flight: 1
   plan:
   - get: git-skyline-provider
     trigger: true
@@ -573,6 +590,7 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-tracktrace-provider
+  max_in_flight: 1
   plan:
   - get: git-tracktrace-provider
     trigger: true
@@ -613,6 +631,7 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-smartconnect-provider
+  max_in_flight: 1
   plan:
   - get: git-smartconnect-provider
     trigger: true
@@ -649,7 +668,11 @@ jobs:
         passed: [docker-build-web-app]
       - get: git-server
         passed: [docker-build-server]
+        params:
+          submodules: none
       - get: git-deployment
+        params:
+          submodules: none
         trigger: true
       - get: git-skyline-provider
         passed: [docker-build-skyline-provider]
@@ -896,8 +919,10 @@ jobs:
   serial: true
   disable_manual_trigger: true
   plan:
-  - get: git-deployment
   - do:
+    - get: git-deployment
+      params:
+        submodules: none
     - task: delete-cluster
       config:
         platform: linux
@@ -935,9 +960,10 @@ jobs:
   serial: true
   disable_manual_trigger: true
   plan:
-  - aggregate:
-    - get: git-deployment
   - do:
+    - get: git-deployment
+      params:
+        submodules: none
     - task: delete-namespace
       config:
         platform: linux
@@ -975,8 +1001,10 @@ jobs:
   serial: true
   disable_manual_trigger: true
   plan:
-  - aggregate:
+  - do:
     - get: git-deployment
+      params:
+        submodules: none
     - task: delete-disks
       config:
         platform: linux
@@ -1009,3 +1037,43 @@ jobs:
           - |
             echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)), Namespace ((namespace))"
             vcloud disks delete git-deployment/((disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((namespace)) -z=((iaas-zone)) -f
+- name: destroy-infra-disks
+  serial: true
+  disable_manual_trigger: true
+  plan:
+  - do:
+    - get: git-deployment
+      params:
+        submodules: none
+    - task: delete-disks
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
+          }
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
+          LOGSTASH_URL: ((logstash-url))
+        }
+        run:
+          path: /bin/bash
+          args:
+          - -ec
+          - |
+            echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)), Namespace ((namespace))"
+            vcloud disks delete git-deployment/((infra-disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((infra-namespace)) -z=((iaas-zone)) -f
