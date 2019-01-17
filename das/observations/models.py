@@ -630,7 +630,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
 
 class SubjectQuerySet(models.QuerySet, FilterMixin):
 
-  def by_region(self, region, **kwargs):
+    def by_region(self, region, **kwargs):
         subjects = self.filter(additional__region=region.region)
         subjects.filter(additional__country=region.country, **kwargs)
         return subjects
