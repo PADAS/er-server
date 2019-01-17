@@ -206,7 +206,7 @@ def resolve_status_values(subject):
     if hasattr(subject, 'status_radio_state'):
         return SubjectStatusValues(**dict((k, getattr(subject, f'status_{k}', None) ) for k in SubjectStatusValues._fields ))
     try:
-        return subject.subjectstatus_set.get(delay_hours=0)
+        return models.SubjectStatus.objects.get_current_status(subject)
     except models.SubjectStatus.DoesNotExist:
         raise ValueError(f'SubjectStatus does not exist for subject ID: {subject.id}')
 
