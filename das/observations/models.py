@@ -45,6 +45,7 @@ from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
+from observations.mixins import FilterMixin
 from observations.utils import calculate_track_range, get_minimum_allowed_age
 
 
@@ -627,7 +628,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
         return self.name
 
 
-class SubjectQuerySet(models.QuerySet):
+class SubjectQuerySet(models.QuerySet, FilterMixin):
 
     def by_region(self, region, **kwargs):
         subjects = self.filter(additional__region=region.region)
@@ -1354,32 +1355,6 @@ class SocketClient(TimestampedModel):
     bbox = models.MultiPolygonField(
         'Viewport bounding box.', null=True, blank=True)
     event_filter = JSONField('Event filter', default={})
-
-#
-# def get_radio_status():
-#
-#     return Observation.objects.raw(
-#         '''
-#         with t0 as (
-#    select obs.id "id",
-#            obs.location "location",
-#           obs.recorded_at "recorded_at",
-#           sub.name "subject_name",
-#           sub.id "subject_id",
-#           obs.additional->>'event_action' event_action,
-#           obs.additional->>'state' state,
-#           obs.additional->>'gps_fix' gps_fix,
-#           row_number() over (partition by sub.name order by obs.recorded_at desc) seq
-#        from observations_subject sub
-#             join observations_subjectsource ss on ss.subject_id = sub.id
-#             join observations_observation obs on obs.source_id = ss.source_id
-#                  and obs.recorded_at <@ ss.assigned_range
-#             join observations_source src on src.id = ss.source_id
-#        where obs.recorded_at > current_timestamp - interval '10 day'
-#           )
-# select id, subject_name, event_action, state, gps_fix, recorded_at, location from t0 where seq <= 1
-# '''
-#     )
 
 
 import observations.signals
