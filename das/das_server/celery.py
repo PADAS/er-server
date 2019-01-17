@@ -67,7 +67,7 @@ app.conf.beat_schedule = {
 
     'firms-plugins': {
         'task': 'tracking.tasks.schedule_firms_plugins',
-        'schedule': timedelta(minutes=30),
+        'schedule': timedelta(minutes=15),
         'options': {'expires': 15 * 60},
     },
 
