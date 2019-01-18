@@ -264,6 +264,15 @@ class SubjectsViewSchema(rest_framework.schemas.AutoSchema):
                         description='Indicate whether to render each subject\'s recent tracks.',
                     )
                 ),
+                coreapi.Field(
+                    name='id',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Subject ID(s)',
+                        description='A comma-delimited list of Subject IDs.',
+                    )
+                ),
             ]
             return super().get_manual_fields(path, method) + extra_fields
 
