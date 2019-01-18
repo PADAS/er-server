@@ -1,4 +1,4 @@
--- For us dev databases:
+-- For verifying connectivity to us dev databases:
 -- psql -h das-postgres-us-azure.postgres.database.azure.com -U postgres@das-postgres-us-azure -d postgres
 -- 
 
@@ -32,8 +32,8 @@ GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO public;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO public;
 
 -- Now install postgis and do the rest of the configuration
-CREATE EXTENSION postgis;
-CREATE EXTENSION postgis_topology;
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS postgis_topology;
 
 -- Update permissions on topology schema
 REVOKE ALL ON schema topology FROM public;
