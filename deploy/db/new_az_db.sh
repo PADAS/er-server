@@ -13,9 +13,8 @@ DB_NAME="$3"
 DB_OWNER="$3"
 
 # create a 32 char random password without dashes
-# will use a RNG if present, otherwise its based off time - uuids are good for
-# uniqueness, but are sometimes easily guessable, so buyer beware...
-RANDOM_UUID="uuidgen | tr -d '-'"
+# switched from uuidgen to openssl, to get upper and lower chars
+RANDOM_UUID="openssl rand -base64 18"
 DB_OWNER_PWD=`eval ${RANDOM_UUID}`
 
 # dump credential data to a json filea before creation
