@@ -7,15 +7,13 @@ static-values:
   db-host-name: "das-postgres-us.postgres.database.azure.com"
   db-name: "das_qa"
   db-user: "das_qa@das-postgres-us"
-  db-password: "F4D0689D001E48DDB0B96D0CA4E08669"
+  db-password: "aPgDr6PrNaqkmOSE6BA1jErN"
   storage-account-name: "dasassetsus"
   storage-container: "dev-qa"
   storage-account-key: "MuyPpyKAYF9G9QSq2BOpBU6YwZ8kWJfPzCk1vel+qqV3Ptjg/AnFl6CtKDXlLRaTYh5e4G6WtZ9niVPTVPFGqw=="
   storage-base-path: "root-path"
   use-azure-storage: "true"
 environment:
-  namespace: NAMESPACE
-  infra-namespace: INFRA_NAMESPACE
   das-static-ip: DAS_STATIC_IP
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
 vault-lookups:

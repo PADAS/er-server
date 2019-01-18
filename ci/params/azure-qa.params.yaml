@@ -9,4 +9,4 @@ iaas-workspace: DAS-Dev
 cluster-spec: deployment/cluster-specs/azure.yaml
 deployment-plan: integration
 deploy-recipe: standard-az.yaml
-deploy-params-environment: azure-dev
+deploy-params-environment: azure-qa

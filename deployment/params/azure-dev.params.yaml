@@ -14,8 +14,6 @@ static-values:
   storage-base-path: "root-path"
   use-azure-storage: "true"
 environment:
-  namespace: NAMESPACE
-  infra-namespace: INFRA_NAMESPACE
   das-static-ip: DAS_STATIC_IP
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
 vault-lookups:
