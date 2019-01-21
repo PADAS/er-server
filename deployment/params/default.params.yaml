@@ -8,6 +8,7 @@ static-values:
   default-memory-request: "1Mi"
   iaas-workspace: "DAS-Dev"
   web-service-name: "web"
+  db-host-name: "localhost"
 vault-lookups:
   email-password: padas-app/main/email-password
 environment:
