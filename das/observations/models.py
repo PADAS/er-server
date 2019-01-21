@@ -1023,14 +1023,14 @@ class SubjectStatusManager(models.Manager):
     # Delayed windows include all but 'current'.
     delayed_windows = list((item for item in VIEW_END_WINDOWS if item[1] > 0))
 
-    def get_latest(self, subject_id):
-        try:
-            obj = self.get(id=subject_id, delay_hours=0)
-            return obj
-        except SubjectStatus.DoesNotExist:
-            logger.warning(
-                'Cannot find SubjectStatus with subject_id: %s', subject_id)
-
+    # def get_latest(self, subject_id):
+    #     try:
+    #         obj = self.get(id=subject_id, delay_hours=0)
+    #         return obj
+    #     except SubjectStatus.DoesNotExist:
+    #         logger.warning(
+    #             'Cannot find SubjectStatus with subject_id: %s', subject_id)
+    #
     def update_current_from_source(self, source):
 
         observation = Observation.objects.get_last_source_observation(source)
@@ -1086,6 +1086,12 @@ class SubjectStatusManager(models.Manager):
                 subject=subject, delay_hours=delay_hours[1] * 24,
                 defaults=SubjectStatusManager.DEFAULT_STATUS_VALUES)
 
+    def get_current_status(self, subject):
+        value, created = SubjectStatus.objects.get_or_create(
+            subject=subject, delay_hours=0,
+            defaults=SubjectStatusManager.DEFAULT_STATUS_VALUES)
+        return value
+
     def maintain_subject_status(self, subject_id):
 
         try:
@@ -1096,6 +1102,7 @@ class SubjectStatusManager(models.Manager):
             logger.info(
                 'SubjectStatus maintenance for Subject: %s, id: %s', subject.name, subject_id)
             self.ensure_for_subject(subject)
+            self.update_current(subject)
             self.update_delayed_status(subject)
 
 

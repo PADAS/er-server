@@ -201,7 +201,7 @@ class DraObservationSerializer(serializers.Serializer):
     additional = RadioAdditionalSerializer()
 
 
-class DasRadioAgentHandler():
+class DasRadioAgentHandler:
     '''
     Deprecated. I need to move das-radio-agent to the generic handler above.
     '''
@@ -213,6 +213,10 @@ class DasRadioAgentHandler():
     def handle_heartbeat(cls, data, provider_key):
         servicesutils.store_service_status(
             provider_key=provider_key, data=data)
+
+        extradata = {'data': {'provider_key': provider_key, **data}}
+        logger.info('DRA heartbeat', extra=extradata)
+
         return Response(data, status=status.HTTP_200_OK)
 
     @classmethod
@@ -242,6 +246,10 @@ class DasRadioAgentHandler():
         if not postdata.is_valid():
             return Response(data=postdata.errors, status=status.HTTP_400_BAD_REQUEST)
         postdata = postdata.validated_data
+
+        logdata = {'provider_key': provider_key, **postdata}
+        logdata.pop('location', None)
+        logger.info('DRA observation', extra={'data': logdata})
 
         location = {
             'longitude': postdata['location']['lon'],

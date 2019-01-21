@@ -28,13 +28,11 @@ In the URL of the api, is referenced a provider_key. This is authored in the "So
 
     :param provider_key: this maps to the provider name
 
-
    :reqheader Authorization: Bearer <auth token>
    :reqheader Accept: application/json
 
    :reqjson string subject_name: the name that appears in DAS for this sensor. default is the manufacturer_id
-   :reqjson string subject_subtype: the default is 'ranger', subtypes are defined here /admin/observations/subjectsubtype/
-   :reqjson string subject_type: types are defined here /admin/observations/subjecttype/
+   :reqjson string subject_subtype: the default is 'ranger', subtypes are defined in your site's administrative pages at this path: /admin/observations/subjectsubtype/
    :reqjson string source_type: the default is the provider_key, possible values are [tracking-device, trap, seismic, firms, gps-radio]
    :reqjson string model_name: the default is to concatenate "sensor_type:provider_key"
    :reqjson string recorded_at: iso time at gps location
@@ -46,13 +44,12 @@ In the URL of the api, is referenced a provider_key. This is authored in the "So
    .. code-block:: json
 
         {
-            "location": {"lat": 0, "lon": 0},
-            "recorded_at": "018-08-29T16:18:44.056439",
+            "location": {"lat": 31, "lon": 2},
+            "recorded_at": "2019-01-04T16:18:44.056439",
             "manufacturer_id": "radio_sn_1",
             "subject_name": "Ranger Alpha",
-            "subject_type": "person",
             "subject_subtype": "ranger",
-            "model_name": "hytera",
+            "model_name": "Hytera PD782",
             "source_type": "",
             "additional": {"gps_error": ".05"}
         }
