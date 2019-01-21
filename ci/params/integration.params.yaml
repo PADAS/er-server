@@ -7,3 +7,4 @@ tag-as-latest: false
 das-static-ip: 35.197.23.193
 deploy-params-environment: integration
 deploy-recipe: standard-integration.yaml
+iaas-workspace: "padas-app"

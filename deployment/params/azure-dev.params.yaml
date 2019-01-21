@@ -4,8 +4,18 @@ static-values:
   node-exporter-version: v0.16.0
   monitoring-version: "0.0.15"
   log_url: "logs.pamdas.org:5044"
+  db-host-name: "das-postgres-us.postgres.database.azure.com"
+  db-name: "das_dev"
+  db-user: "das_dev@das-postgres-us"
+  db-password: "08#08UqjY%SBmfUJ"
+  storage-account-name: "dasassetsus"
+  storage-container: "dev-us"
+  storage-account-key: "MuyPpyKAYF9G9QSq2BOpBU6YwZ8kWJfPzCk1vel+qqV3Ptjg/AnFl6CtKDXlLRaTYh5e4G6WtZ9niVPTVPFGqw=="
+  storage-base-path: "root-path"
+  use-azure-storage: "true"
 environment:
   das-static-ip: DAS_STATIC_IP
+  azure-subscription-id: AZURE_SUBSCRIPTION_ID
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
@@ -13,6 +23,3 @@ vault-lookups:
   pamdas-org-ssl-key: padas-app/main/pamdas-org-ssl-key
   pamdas-org-ssl-cert: padas-app/main/pamdas-org-ssl-cert
   pamdas-org-ssl-ca: padas-app/main/pamdas-org-ssl-ca
-  elastic-basic-auth-password: padas-app/main/es-basic-auth-password
-  elastic-basic-auth-username: padas-app/main/es-basic-auth-username
-

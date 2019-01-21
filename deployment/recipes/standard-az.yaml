@@ -1,0 +1,7 @@
+paths:
+- namespace
+- persistentvolumes
+- deployments
+- services
+- infra/monitoring
+- environments/datastore-configmap.yaml

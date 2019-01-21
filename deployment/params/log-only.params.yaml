@@ -1,9 +1,5 @@
 static-values:
-  nginx-utility-service-ip: ""
   logging-static-ip: "35.230.7.17"
-  monitoring-version: "0.0.15"
-  node-exporter-version: v0.16.0
-  log_url: "logs.pamdas.org:5044"
   alerts-slack-channel: "das-k8-alerts-prod"
   cpu-request-quota: "11"
   memory-request-quota: "55Gi"
