@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 # This is a boiler-plate codename for the permission that will determine
 # who gets a Source Report.
 SOURCE_REPORT_PERMISSION_CODENAME = 'receive_source_report'
+OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME = 'receive_lag_notification'
 
 
 def send_report(subject='', to_email=None, text_content='', from_email=None, html_content=None):
@@ -58,4 +59,22 @@ def create_report_permissionset():
 
     permission_set, created = accounts.models.PermissionSet.objects.get_or_create(
         name='Receive Source Report')
+    permission_set.permissions.add(perm)
+
+def create_lag_notify_permissionset():
+    '''
+    This should run once (probably as part of a migration) to add the proper permission and permissionset that
+    will identify the users who receive reports.
+    :return:
+    '''
+    User = django.contrib.auth.get_user_model()
+    content_type = ContentType.objects.get_for_model(User)
+    perm, created = django.contrib.auth.models.Permission.objects.get_or_create(
+        codename=OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME,
+        content_type=content_type,
+        defaults=dict(name=_('Receive observation lag notification'), )
+    )
+
+    permission_set, created = accounts.models.PermissionSet.objects.get_or_create(
+        name='Receive observation lag notification')
     permission_set.permissions.add(perm)
