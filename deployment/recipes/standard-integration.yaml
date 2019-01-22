@@ -6,4 +6,5 @@ paths:
 - infra/monitoring
 - etl-components/smartconnect-provider.yaml
 - environments/integration-configmap.yaml
+- environments/datastore-configmap.yaml
 
