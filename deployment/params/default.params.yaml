@@ -1,16 +1,25 @@
 static-values:
+  web-service-name: "web"
+  nginx-utility-service-ip: ""
   alerts-slack-channel: "das-k8-alerts-dev"
   logging-static-ip: ""
-  send-alerts: "true"
+  send-alerts: "false"
   cpu-request-quota: "5"
   default-cpu-request: "50m"
   memory-request-quota: "20Gi"
   default-memory-request: "1Mi"
-  iaas-workspace: "DAS-Dev"
-  web-service-name: "web"
+  node-exporter-version: v0.16.0
+  monitoring-version: "0.0.15"
+  log_url: "logs.pamdas.org:5044"
   db-host-name: "localhost"
-vault-lookups:
-  email-password: padas-app/main/email-password
 environment:
   namespace: NAMESPACE
   infra-namespace: INFRA_NAMESPACE
+  iaas-workspace: IAAS_WORKSPACE
+vault-lookups:
+  alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
+  email-password: padas-app/main/email-password
+  bundle-crt: padas-app/main/bundle-crt
+  pamdas-org-ssl-key: padas-app/main/pamdas-org-ssl-key
+  pamdas-org-ssl-cert: padas-app/main/pamdas-org-ssl-cert
+  pamdas-org-ssl-ca: padas-app/main/pamdas-org-ssl-ca
