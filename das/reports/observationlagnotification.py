@@ -8,8 +8,9 @@ from django.utils.dateparse import parse_duration
 
 from reports.distribution import send_report, get_users_for_permission, OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME
 
-from observations.models import Observation
+from observations.models import Observation, SourceProvider
 from django.db.models import Avg, F, Count
+from django.conf import settings
 
 def get_lagging_providers():
     lagging_providers = []
@@ -25,6 +26,7 @@ def get_lagging_providers():
     for provider in providers:
         # build data object to pass to threshold check
         provider_lag_check_data = {
+            'provider_key': provider.get('provider_key'),
             'provider_name': provider.get('provider_display_name'),
             'avg_lag': provider.get('avg_lag'),
             'num_data_points': provider.get('data_points'),
@@ -32,7 +34,7 @@ def get_lagging_providers():
             'period_end': period_end,
         }
         # get config for this provider
-        provider_lag_config = get_provider_lag_alert_config(provider_lag_check_data.get('provider_name'))
+        provider_lag_config = get_provider_lag_alert_config(provider_lag_check_data.get('provider_key'))
         # now we have config lets check if it exceeded threshold
         if check_source_provider_lag_exceeded(provider_lag_check_data, provider_lag_config):
             lagging_providers.append((provider_lag_check_data, provider_lag_config))
@@ -41,29 +43,22 @@ def get_lagging_providers():
 
 
 # return the config for this provider's lag alert report
-def get_provider_lag_alert_config(provider_name):
+def get_provider_lag_alert_config(provider_key):
     # hard coded for now, but could come from file, etc.
+    provider = SourceProvider.objects.get(provider_key=provider_key)
+    threshold = provider.additional.get('lag_notification_threshold', '01:00:00') #default to an hour
     configured_lag_threshold = {
-        'default': {'lag_delay_threshold': '00:00:00.01'},
-        'site_name': 'this site',
-        'site_url': 'this site url'
+        'lag_notification_threshold': threshold,
+        'site_name': settings.UI_SITE_NAME,
+        'site_url': settings.UI_SITE_URL
     }
 
-    config = {}
-    if provider_name in configured_lag_threshold:
-        config = configured_lag_threshold.get(provider_name)
-    elif 'default' in configured_lag_threshold:
-        config = configured_lag_threshold.get('default')
-
-    # we have pulled to the root any config specific for this provider,
-    # now lets update to get any other root items needed later
-    config.update(configured_lag_threshold)
-    return config
+    return configured_lag_threshold
 
 
 # check and return bool if the lag time provided in data exceeds configured threshold
 def check_source_provider_lag_exceeded(provider_lag_check_data, provider_lag_config):
-    threshold = provider_lag_config.get('lag_delay_threshold', None)
+    threshold = provider_lag_config.get('lag_notification_threshold', None)
 
     if threshold is None:
         return False  # TODO we don't have a configuration for this source and no default specified
@@ -88,10 +83,10 @@ def send_lag_delay_alert(provider_lag_check_data, provider_lag_config, usernames
         return
 
     email_body, message_subject = generate_lag_notification_email(provider_lag_check_data, provider_lag_config)
-    for recipient in recipients:
-        logger.info('Sending Observation Lag Notification for {0}'.format(recipient.email))
-        send_report(subject=message_subject,
-                    to_email=recipient.email, text_content=email_body)
+    recipient_emails = [recipient.email for recipient in recipients]
+    logger.info('Sending Observation Lag Notification for {0}'.format(recipient_emails))
+    send_report(subject=message_subject,
+                to_email=recipient_emails, text_content=email_body)
 
 
 def generate_lag_notification_email(provider_lag_check_data, provider_lag_config):
@@ -110,7 +105,7 @@ Number of data points: {data_points}
 Average delay: {avg_lag}
     """.format(site_name=site_name,
                site_url=provider_lag_config.get('site_url'),
-               threshold=provider_lag_config.get('lag_delay_threshold'),
+               threshold=provider_lag_config.get('lag_notification_threshold'),
                provider_name=provider_lag_check_data.get('provider_name'),
                period_start=provider_lag_check_data.get('period_start'),
                period_end=provider_lag_check_data.get('period_end'),
