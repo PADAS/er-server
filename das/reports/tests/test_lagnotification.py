@@ -49,7 +49,6 @@ class TestSubjectSourceReport(TestCase):
         self.u3 = User.objects.create(username='user3', first_name='User 3', last_name='Report User', email='u3@tempuri.org',
                                       password='Sko2901!kd219')
 
-        create_lag_notify_permissionset()
 
         # Add the users to the report recipients permission set.
         pset = PermissionSet.objects.get(
