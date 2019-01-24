@@ -232,6 +232,8 @@ STATICFILES_DIRS = (
 )
 
 SITE_ID = 1
+UI_SITE_NAME = 'EarthRanger'
+UI_SITE_URL = 'http://www.earthranger.com'
 
 # socket.io uses the CORS_ORIGIN_WHITELIST as well
 # caveat is that socket.io matches against the whole ORIGIN ie:
