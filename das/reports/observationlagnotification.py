@@ -2,19 +2,17 @@ import logging
 import datetime
 import pytz
 
-logger = logging.getLogger(__name__)
-
 from django.utils.dateparse import parse_duration
-
 from reports.distribution import send_report, get_users_for_permission, OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME
-
 from observations.models import Observation, SourceProvider
 from django.db.models import Avg, F, Count
 from django.conf import settings
 
+logger = logging.getLogger(__name__)
+
 def get_lagging_providers():
     lagging_providers = []
-    configured_report_duration = "00:30:00"
+    configured_report_duration = "00:30:00" # TODO do we want to be able to configure this value?
     period_end = datetime.datetime.now(pytz.utc)
     period_start = period_end - parse_duration(configured_report_duration)
     # grouped by source provider lets find the average lag time in the last duration along with number of entries
@@ -23,6 +21,7 @@ def get_lagging_providers():
         .values(provider_key=F('source__provider__provider_key'),
                 provider_display_name=F('source__provider__display_name')) \
         .annotate(avg_lag=Avg(F('created_at') - F('recorded_at')), data_points=Count('created_at')).order_by()
+    # the blank order_by above clears the default order_by for Observation model which removes unwanted group by
     for provider in providers:
         # build data object to pass to threshold check
         provider_lag_check_data = {
@@ -46,7 +45,7 @@ def get_lagging_providers():
 def get_provider_lag_alert_config(provider_key):
     # hard coded for now, but could come from file, etc.
     provider = SourceProvider.objects.get(provider_key=provider_key)
-    threshold = provider.additional.get('lag_notification_threshold', '01:00:00') #default to an hour
+    threshold = provider.additional.get('lag_notification_threshold', '01:00:00')# default to an hour
     configured_lag_threshold = {
         'lag_notification_threshold': threshold,
         'site_name': settings.UI_SITE_NAME,
@@ -66,6 +65,9 @@ def check_source_provider_lag_exceeded(provider_lag_check_data, provider_lag_con
     # configured value is a string, lets parse to timedelta
     threshold = parse_duration(threshold)
     if provider_lag_check_data.get('avg_lag') > threshold:
+        logger.warn('Provider {0} has exceeded lag threshold of {1}, its avg lag in the last interval {2}'
+                    .format(provider_lag_check_data.get('provider_name'),
+                            threshold, provider_lag_check_data.get('avg_lag')))
         return True
     return False
 
