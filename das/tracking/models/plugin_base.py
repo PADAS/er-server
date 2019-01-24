@@ -184,6 +184,8 @@ class TrackingPlugin(TimestampedModel):
     class Meta:
         abstract = True
 
+    source_plugin_reverse_relation = None
+
     @property
     def run_source_plugins(self):
         return True

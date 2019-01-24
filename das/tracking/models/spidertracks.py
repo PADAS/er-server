@@ -133,9 +133,10 @@ class SpiderTracksPlugin(TrackingPlugin):
     service_api = models.CharField(max_length=100,
                                    help_text='The API endpoint for the SpiderTracks web-service.')
 
+    source_plugin_reverse_relation = 'spidertracksplugin'
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='spidertracksplugin', related_name='spidertracksplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
 
     @property

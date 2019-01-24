@@ -858,9 +858,10 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
                                        help_text='API endpoint for Skygistics service.',
                                        default='http://skyq1.skygistics.com')
 
+    source_plugin_reverse_relation = 'skygisticsplugin'
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='skygisticssatelliteplugin', related_name='skygisticssatellplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
 
     def fetch(self, source, cursor_data=None):

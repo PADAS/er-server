@@ -190,9 +190,10 @@ class SavannahPlugin(TrackingPlugin):
     service_api_host = models.CharField(max_length=50,
                                         help_text='the ip-address or host-name for the Savannah Tracking service.')
 
+    source_plugin_reverse_relation = 'savannahplugin'
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='savannahplugin', related_name='savannahplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
 
     def fetch(self, source, cursor_data=None, dry_run=False):

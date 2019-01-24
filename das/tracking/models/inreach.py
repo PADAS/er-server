@@ -119,9 +119,12 @@ class InreachPlugin(TrackingPlugin):
                                         help_text='The password for querying the InReach API service.')
     service_api_host = models.CharField(max_length=50,
                                         help_text='the ip-address or host-name for the InReach API service.')
+
+    source_plugin_reverse_relation = 'inreachplugin'
+
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='inreachplugin', related_name='inreachplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     DEFAULT_START_OFFSET = timedelta(days=31)
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=10)

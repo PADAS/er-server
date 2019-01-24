@@ -237,10 +237,10 @@ class FirmsPlugin(TrackingPlugin):
                                               on_delete=models.PROTECT,
                                               help_text='FIRMS data will be filtered by boundaries in this group.',
                                               null=True)
-
+    source_plugin_reverse_relation = 'firmsplugin'
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='firmsplugin', related_name='firmsplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     @property
     def run_source_plugins(self):

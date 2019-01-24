@@ -103,9 +103,11 @@ class AWETelemetryPlugin(TrackingPlugin):
                                    help_text='The API endpoint for the AWE Telemetry/AWT service.')
 
 
+    source_plugin_reverse_relation = 'awetelementryplugin'
+
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='awetelemetryplugin', related_name='awetelemetryplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     def fetch(self, source, cursor_data=None):
 

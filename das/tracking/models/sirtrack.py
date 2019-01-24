@@ -224,9 +224,10 @@ class SirtrackPlugin(TrackingPlugin):
     DEFAULT_MODEL_NAME = 'Lotek'
     READ_OVERLAP = timedelta(hours=24)
 
+    source_plugin_reverse_relation = 'sirtrackplugin'
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='sirtrackplugin', related_name='sirtrackplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
 
     @property

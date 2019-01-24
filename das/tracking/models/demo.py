@@ -96,9 +96,10 @@ class DemoSourcePlugin(TrackingPlugin):
     range_polygon = models.ForeignKey(mapping.models.PolygonFeature, null=True,
                                       on_delete=models.PROTECT)
 
+    source_plugin_reverse_relation = 'demosourceplugin'
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='demosourceplugin', related_name='demosourceplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     def should_run(self, source_plugin):
         return True

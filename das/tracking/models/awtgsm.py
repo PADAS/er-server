@@ -128,9 +128,10 @@ class AWTHttpPlugin(TrackingPlugin):
     DEFAULT_START_OFFSET = timedelta(days=7)
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=30)
 
+    source_plugin_reverse_relation = 'awthttpplugin'
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='awthttpplugin', related_name='awthttpplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     def fetch(self, source, cursor_data=None):
 

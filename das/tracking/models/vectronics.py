@@ -23,9 +23,11 @@ class VectronicsPlugin(TrackingPlugin):
     # Timeout in seconds
     DEFAULT_TIMEOUT = 30
 
+    source_plugin_reverse_relation = 'vectronicsplugin'
+
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='vectronicsplugin', related_name='vectronicsplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
 
     @staticmethod

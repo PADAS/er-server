@@ -15,9 +15,9 @@ def _get_plugin_class_search_fields():
     '''
     plugin_classes = inspect.getmembers(sys.modules['tracking.models'], inspect.isclass)
 
-    # Identify the actual plugin classes by those having a 'fetch' function.
-    search_names = [f'{n.lower()}__name' for n, c in plugin_classes if n.endswith('Plugin') and hasattr(c, 'fetch')]
-    print(f'Search names: {search_names}')
+    # Identify the actual plugin classes by having a valid 'source_plugin_reverse_relation' attribute.
+    search_names = [f'{c.source_plugin_reverse_relation}__name'
+                    for n, c in plugin_classes if getattr(c, 'source_plugin_reverse_relation', None)]
     return search_names
 
 

@@ -30,7 +30,7 @@ class SourcePluginForm(forms.ModelForm):
         type_id = ContentType.objects.get_for_model(obj.__class__).id
         obj_id = obj.id
         form_value = f'{type_id}:::{obj_id}'
-        display_text = f'{obj.name} ({obj._meta.label})'
+        display_text = f'{obj.name} ({obj._meta.verbose_name})'
         return (form_value, display_text)
 
     @staticmethod

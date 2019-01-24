@@ -325,9 +325,11 @@ class AwtPlugin(TrackingPlugin):
     subscription_token = models.CharField(max_length=200,
                                           help_text="Subscription Token ")
 
+    source_plugin_reverse_relation = 'awtplugin'
+
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='awtplugin', related_name='awtplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     def _transform_to_observation(self, source, track_data):
         # Convert track_data into Observation data format

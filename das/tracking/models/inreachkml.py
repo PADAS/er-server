@@ -151,9 +151,10 @@ class InreachKMLPlugin(TrackingPlugin):
     service_username = models.CharField(max_length=50,
                                         help_text='Username for InReach KML share.')
 
+    source_plugin_reverse_relation = 'inreachkmlplugin'
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='inreachkmlplugin', related_name='inreachkmlplugins')
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=10)
 
