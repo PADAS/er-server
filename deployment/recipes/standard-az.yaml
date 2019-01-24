@@ -4,4 +4,4 @@ paths:
 - deployments
 - services
 - infra/monitoring
-- environments/datastore-configmap.yaml
+- environments/azure-configmap.yaml
