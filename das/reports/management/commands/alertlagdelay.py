@@ -5,10 +5,10 @@ from reports.tasks import alert_lag_delay
 
 class Command(BaseCommand):
 
-    help = 'alert if average obvservation lag for  exceeds threshold'
+    help = 'Alert if a Source Provider\'s average obvservation lag exceeds a its configured threshold.'
 
     def handle(self, *args, **options):
         alert_lag_delay()
 
     def add_arguments(self, parser):
-       pass
+        pass
