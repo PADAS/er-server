@@ -8,9 +8,9 @@ data:
   SMARTCONNECT_PROVIDER_DAS_API: "https://integration.pamdas.org/api/v1.0"
   DB_HOST: postgis.<<namespace>>.svc.cluster.local
   DB_PORT: "5432"
-  DB_NAME: ""
-  DB_USER: ""
-  DB_PASSWORD: ""
+  DB_NAME: "das"
+  DB_USER: "das"
+  DB_PASSWORD: "password"
   STORAGE_ACCOUNT: ""
   STORAGE_CONTAINER: ""
   STORAGE_ACCOUNT_KEY: ""
