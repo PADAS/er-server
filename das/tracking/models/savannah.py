@@ -7,11 +7,12 @@ import datetime
 from datetime import timedelta
 
 from django.contrib.gis.db import models
+from django.contrib.contenttypes.fields import GenericRelation
 from django.utils.translation import ugettext_lazy as _
 from dateutil.parser import parse as parse_date
 import pytz
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
+from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError, SourcePlugin
 from observations.models import Observation
 
 
@@ -188,6 +189,11 @@ class SavannahPlugin(TrackingPlugin):
                                         help_text='The password for querying the Savannah Tracking service.')
     service_api_host = models.CharField(max_length=50,
                                         help_text='the ip-address or host-name for the Savannah Tracking service.')
+
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name='savannahplugin', related_name='savannahplugins')
+
 
     def fetch(self, source, cursor_data=None, dry_run=False):
 

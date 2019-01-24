@@ -3,6 +3,8 @@ import copy
 import http.client
 import urllib.parse
 from django.contrib.gis.db import models
+from django.contrib.contenttypes.fields import GenericRelation
+
 import datetime
 from datetime import timedelta
 
@@ -13,7 +15,7 @@ import base64
 import logging
 import requests
 
-from tracking.models.plugin_base import Obs, TrackingPlugin
+from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin
 
 
 def __str2date(d, replace_tzinfo=pytz.utc):
@@ -117,6 +119,9 @@ class InreachPlugin(TrackingPlugin):
                                         help_text='The password for querying the InReach API service.')
     service_api_host = models.CharField(max_length=50,
                                         help_text='the ip-address or host-name for the InReach API service.')
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name='inreachplugin', related_name='inreachplugins')
 
     DEFAULT_START_OFFSET = timedelta(days=31)
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=10)

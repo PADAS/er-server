@@ -8,8 +8,9 @@ import pytz
 import logging
 
 from django.contrib.gis.db import models
+from django.contrib.contenttypes.fields import GenericRelation
 
-from tracking.models.plugin_base import Obs, TrackingPlugin
+from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin
 
 def __str2date(d, replace_tzinfo=pytz.utc):
     '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
@@ -126,6 +127,10 @@ class AWTHttpPlugin(TrackingPlugin):
                                       default='http://www.yrless.co.za/STE/yrserv/datanew.phtml')
     DEFAULT_START_OFFSET = timedelta(days=7)
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=30)
+
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name='awthttpplugin', related_name='awthttpplugins')
 
     def fetch(self, source, cursor_data=None):
 

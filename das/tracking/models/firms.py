@@ -13,6 +13,7 @@ from django.utils import dateparse
 
 from django.contrib.gis.geos import Point
 from django.utils.translation import ugettext_lazy as _
+from django.contrib.contenttypes.fields import GenericRelation
 
 from activity.models import Event, EventType, EventDetails
 from mapping.models import SpatialFeatureGroupStatic
@@ -236,6 +237,10 @@ class FirmsPlugin(TrackingPlugin):
                                               on_delete=models.PROTECT,
                                               help_text='FIRMS data will be filtered by boundaries in this group.',
                                               null=True)
+
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name='firmsplugin', related_name='firmsplugins')
 
     @property
     def run_source_plugins(self):

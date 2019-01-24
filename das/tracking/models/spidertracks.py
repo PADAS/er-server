@@ -18,8 +18,9 @@ import pytz
 
 import logging
 from django.contrib.gis.db import models
+from django.contrib.contenttypes.fields import GenericRelation
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasDefaultTarget
+from tracking.models.plugin_base import Obs, TrackingPlugin, DasDefaultTarget, SourcePlugin
 from observations.models import Source, SubjectSource, Subject
 
 from tracking.pubsub_registry import notify_new_tracks
@@ -131,6 +132,11 @@ class SpiderTracksPlugin(TrackingPlugin):
                                         help_text='The password for querying the SpiderTracks service.')
     service_api = models.CharField(max_length=100,
                                    help_text='The API endpoint for the SpiderTracks web-service.')
+
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name='spidertracksplugin', related_name='spidertracksplugins')
+
 
     @property
     def run_source_plugins(self):
