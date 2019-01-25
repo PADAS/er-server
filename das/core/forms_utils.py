@@ -56,12 +56,17 @@ class JSONFieldFormMixin(object):
             # Check json_field's value type to avoid parsing error
             if json_data and isinstance(json_data, dict):
                 for field in self.Meta.json_fields:
+
                     if json_data.get(field):
                         try:
-                            self.fields[field].initial = parse(
-                                json_data.get(field))
-                        except Exception as e:
-                            self.fields[field].initial = json_data.get(field)
+                            if field in self.Meta.json_date_fields:
+                                initial_value = self.fields[field].initial = parse(json_data.get(field))
+                            else:
+                                initial_value = json_data.get(field)
+                        except Exception:
+                            initial_value = json_data.get(field)
+
+                        self.fields[field].initial = initial_value
 
     def save(self, *args, **kwargs):
         json_data = self.get_json()

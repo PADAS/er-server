@@ -31,7 +31,7 @@ from django.http import HttpResponse
 
 import observations.models as models
 import observations.forms
-from observations.forms import SubjectChangeListForm, SubjectSourceForm
+from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
 
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
 from utils.html import make_html_list
@@ -422,7 +422,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
             location=models.EMPTY_POINT).order_by('-recorded_at')
         return queryset.annotate(newest_observation_at=Subquery(newest.values('recorded_at')[:1]))
 
-    form = observations.forms.SubjectFormWithAttributes
+    form = observations.forms.SubjectForm
     save_on_top = True
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
@@ -874,7 +874,26 @@ class SourceProviderAdmin(admin.ModelAdmin):
     search_fields = ('provider_key', 'display_name',)
     ordering = ('provider_key',)
     list_display = ('provider_key', 'display_name',)
+    readonly_fields = ('id',)
+    form = SourceProviderForm
 
+    fieldsets = (
+        (None, {
+            'fields': (('provider_key', 'display_name',),)
+        }
+        ),
+        ('Provider configurations', {
+            'classes': ('wide',),
+            'fields': (('lag_notification_threshold',))
+        }
+        ),
+
+        ('Advanced configuration', {
+            'classes': ('wide', 'collapse',),
+            'fields': ('additional', 'id')
+        }
+        )
+    )
 
 # @admin.register(models.SubjectSummary)
 class SubjectSummaryAdmin(admin.ModelAdmin):
