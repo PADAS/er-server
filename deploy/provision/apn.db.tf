@@ -27,31 +27,15 @@ resource "azurerm_postgresql_server" "er-west-eur" {
   ssl_enforcement              = "Enabled"
 }
 
-resource "azurerm_postgresql_database" "er-west-eur" {
-  name                = "er-west-eur"
+resource "azurerm_postgresql_database" "bangweulu" {
+  name                = "bangweulu"
   resource_group_name = "${azurerm_resource_group.er-west-eur.name}"
   server_name         = "${azurerm_postgresql_server.er-west-eur.name}"
   charset             = "UTF8"
   collation           = "English_United States.1252"
 }
 
-resource "azurerm_postgresql_database" "qa" {
-  name                = "qa"
-  resource_group_name = "${azurerm_resource_group.er-west-eur.name}"
-  server_name         = "${azurerm_postgresql_server.er-west-eur.name}"
-  charset             = "UTF8"
-  collation           = "English_United States.1252"
-}
-
-resource "azurerm_postgresql_database" "stge" {
-  name                = "stage"
-  resource_group_name = "${azurerm_resource_group.er-west-eur.name}"
-  server_name         = "${azurerm_postgresql_server.er-west-eur.name}"
-  charset             = "UTF8"
-  collation           = "English_United States.1252"
-}
-
-resource "azurerm_postgresql_firewall_rule" "all_azure" {
+resource "azurerm_postgresql_firewall_rule" "all_azure_w_eur" {
   name                = "All_Azure"
   resource_group_name = "${azurerm_resource_group.er-west-eur.name}"
   server_name         = "${azurerm_postgresql_server.er-west-eur.name}"
@@ -59,7 +43,7 @@ resource "azurerm_postgresql_firewall_rule" "all_azure" {
   end_ip_address      = "0.0.0.0"
 }
 
-resource "azurerm_postgresql_firewall_rule" "corp_egress" {
+resource "azurerm_postgresql_firewall_rule" "corp_egress_w_eur" {
   name                = "Vulcan_Egress"
   resource_group_name = "${azurerm_resource_group.er-west-eur.name}"
   server_name         = "${azurerm_postgresql_server.er-west-eur.name}"
