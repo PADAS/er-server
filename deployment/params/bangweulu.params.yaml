@@ -13,6 +13,7 @@ static-values:
   storage-account-key: "CBhs0rQ1WXKfHKKYWUcRqk3NE8zMp3uCDYsZczsGVdivKzlH+i6RGLpBubaPIspC7m0F8aF9WrBcjw5pTj64Hg=="
   storage-base-path: "root-path"
   use-azure-storage: "true"
+  iaas-workspace: "DAS-Dev"
 environment:
   das-static-ip: DAS_STATIC_IP
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
