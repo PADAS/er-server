@@ -4,5 +4,5 @@ paths:
 - deployments
 - services
 - infra/monitoring
-- environments/integration-configmap.yaml
+- environments/gcp-configmap.yaml
 

@@ -8,4 +8,4 @@ iaas: gcp
 iaas-workspace: padas-app
 cluster-spec: deployment/cluster-specs/gcp.yaml
 deployment-plan: integration
-deploy-recipe: standard-integration.yaml
+deploy-recipe: standard.yaml
