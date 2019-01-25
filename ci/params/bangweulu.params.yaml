@@ -1,0 +1,12 @@
+cluster-name: apn
+version-prefix: dev
+server-branch-name: develop
+web-branch-name: develop
+namespace: bangweulu
+iaas: azure
+iaas-zone: westeurope
+iaas-workspace: DAS-Dev
+cluster-spec: deployment/cluster-specs/azure.yaml
+deployment-plan: integration
+deploy-recipe: standard-az.yaml
+deploy-params-environment: azure-dev
