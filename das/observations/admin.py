@@ -522,7 +522,7 @@ class CommonNameAdmin(admin.ModelAdmin):
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
     list_display = ['manufacturer_id', 'source_type',
-                    'model_name', 'get_attributes', 'plugin_names']
+                    'model_name', 'get_attributes', '_provider_display_name',]
     search_fields = ('id', 'manufacturer_id', 'model_name', 'additional',)
     list_filter = ('source_type', 'model_name')
     readonly_fields = ('id', 'created_at', 'updated_at',)
@@ -553,9 +553,6 @@ class SourceAdmin(admin.ModelAdmin):
         )
     )
 
-    def _plugin_names(self, o):
-        return o.source_plugin.plugin.name
-
     def get_attributes(self, instance):
         context = dict((k, instance.additional[k]) for k in (
             'frequency',) if k in instance.additional)
@@ -567,11 +564,11 @@ class SourceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super(SourceAdmin, self).get_queryset(request)
-        qs = qs.annotate(plugin_names=ArrayAgg('source_plugin__pin__name'))
+        qs = qs.select_related('provider',)
         return qs
 
-    def plugin_names(self, o):
-        return o.plugin_names
+    def _provider_display_name(self, o):
+        return o.provider.display_name
 
 
 class CurrentAssignmentFilter(admin.SimpleListFilter):
