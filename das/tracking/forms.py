@@ -20,7 +20,6 @@ class SourcePluginForm(forms.ModelForm):
     status = forms.ChoiceField(choices=(('enabled', 'Enabled'), ('disabled', 'Disabled'),))
 
     class Meta:
-        fields = '__all__'
         model = SourcePlugin
 
         fields = ('source', 'plugin_choice', 'cursor_data', 'status', )
