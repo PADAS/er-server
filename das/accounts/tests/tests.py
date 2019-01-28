@@ -1,4 +1,5 @@
 import copy
+import random
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -8,6 +9,9 @@ from accounts.models import PermissionSet, User
 import accounts.views as views
 from core.tests import BaseAPITest
 
+
+def random_string(length=10):
+    return ''.join([random.choice('abcdefghijklmnopqrstuvwxyz0123456789') for x in range(length)])
 
 class BaseTestCase(TestCase):
     def setUp(self):
@@ -53,6 +57,18 @@ class UserModelTest(TestCase):
         self.assertEqual(user.pk, user2.pk)
         user2 = User.objects.get(username='User')
         self.assertEqual(user.pk, user2.pk)
+
+    def test_delete_user(self):
+
+        username = random_string(length=15)
+        email = f'{random_string()}@{random_string()}.org'
+        password = f'{random_string(length=20)}9$'
+        newuser = User.objects.create(username=username, email=email, password=password, **self.user_const)
+
+        newuser = User.objects.get(id=newuser.id)
+
+        self.assertIsNotNone(newuser, 'expect a user object, but newuser is None')
+        User.objects.filter(id=newuser.id).delete()
 
 
 class TestAuthentication(BaseAPITest):
