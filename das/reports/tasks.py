@@ -1,5 +1,6 @@
 import logging
 from das_server import celery
+from reports.observationlagnotification import get_lagging_providers, send_lag_delay_alert
 
 logger = logging.getLogger(__name__)
 
@@ -7,7 +8,9 @@ from django.template.loader import render_to_string
 from django.utils.translation import ugettext_lazy as _
 
 from reports.subjectsourcereport import generate_user_reports
-from reports.distribution import send_report, get_users_for_permission, SOURCE_REPORT_PERMISSION_CODENAME
+from reports.distribution import send_report, get_users_for_permission, \
+    SOURCE_REPORT_PERMISSION_CODENAME
+
 
 
 @celery.app.task(bind=True)
@@ -39,3 +42,17 @@ def subjectsource_report(self, usernames=None):
                     to_email=user.email, text_content=_(
                         'DAS Source report (attached as HTML).'),
                     html_content=email_body)
+
+
+@celery.app.task(bind=True)
+def alert_lag_delay(self):
+    lagging_providers = get_lagging_providers()
+
+    for lagging_provider in lagging_providers:
+        send_lag_delay_alert(*lagging_provider)
+
+
+
+
+
+

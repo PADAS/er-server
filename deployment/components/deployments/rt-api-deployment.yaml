@@ -31,4 +31,29 @@ spec:
             configMapKeyRef:
               name: default-configmap
               key: API_PORT
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: site-configmap
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: site-configmap
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: site-configmap
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: site-configmap
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: site-configmap
+              key: DB_PASSWORD
 

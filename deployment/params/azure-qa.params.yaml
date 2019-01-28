@@ -1,0 +1,25 @@
+static-values:
+  web-service-name: "web"
+  nginx-utility-service-ip: ""
+  node-exporter-version: v0.16.0
+  monitoring-version: "0.0.15"
+  log_url: "logs.pamdas.org:5044"
+  db-host-name: "das-postgres-us.postgres.database.azure.com"
+  db-name: "das_qa"
+  db-user: "das_qa@das-postgres-us"
+  db-password: "aPgDr6PrNaqkmOSE6BA1jErN"
+  storage-account-name: "dasassetsus"
+  storage-container: "dev-qa"
+  storage-account-key: "MuyPpyKAYF9G9QSq2BOpBU6YwZ8kWJfPzCk1vel+qqV3Ptjg/AnFl6CtKDXlLRaTYh5e4G6WtZ9niVPTVPFGqw=="
+  storage-base-path: "root-path"
+  use-azure-storage: "true"
+environment:
+  das-static-ip: DAS_STATIC_IP
+  azure-subscription-id: AZURE_SUBSCRIPTION_ID
+vault-lookups:
+  alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
+  email-password: padas-app/main/email-password
+  bundle-crt: padas-app/main/bundle-crt
+  pamdas-org-ssl-key: padas-app/main/pamdas-org-ssl-key
+  pamdas-org-ssl-cert: padas-app/main/pamdas-org-ssl-cert
+  pamdas-org-ssl-ca: padas-app/main/pamdas-org-ssl-ca

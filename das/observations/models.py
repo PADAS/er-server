@@ -45,6 +45,7 @@ from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
 from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
+from observations.mixins import FilterMixin
 from observations.utils import calculate_track_range, get_minimum_allowed_age
 
 
@@ -594,8 +595,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
 
     def get_all_subjects(self, user=None, active=None, include_from_subgroups=True):
 
-        if user:
-            min_age_days = get_minimum_allowed_age(user) or 0
+        min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
 
         queryset = Subject.objects.all() \
             .annotate_with_subjectstatus(delay_hours=min_age_days * 24)\
@@ -628,7 +628,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
         return self.name
 
 
-class SubjectQuerySet(models.QuerySet):
+class SubjectQuerySet(models.QuerySet, FilterMixin):
 
     def by_region(self, region, **kwargs):
         subjects = self.filter(additional__region=region.region)
@@ -1023,14 +1023,14 @@ class SubjectStatusManager(models.Manager):
     # Delayed windows include all but 'current'.
     delayed_windows = list((item for item in VIEW_END_WINDOWS if item[1] > 0))
 
-    def get_latest(self, subject_id):
-        try:
-            obj = self.get(id=subject_id, delay_hours=0)
-            return obj
-        except SubjectStatus.DoesNotExist:
-            logger.warning(
-                'Cannot find SubjectStatus with subject_id: %s', subject_id)
-
+    # def get_latest(self, subject_id):
+    #     try:
+    #         obj = self.get(id=subject_id, delay_hours=0)
+    #         return obj
+    #     except SubjectStatus.DoesNotExist:
+    #         logger.warning(
+    #             'Cannot find SubjectStatus with subject_id: %s', subject_id)
+    #
     def update_current_from_source(self, source):
 
         observation = Observation.objects.get_last_source_observation(source)
@@ -1086,6 +1086,12 @@ class SubjectStatusManager(models.Manager):
                 subject=subject, delay_hours=delay_hours[1] * 24,
                 defaults=SubjectStatusManager.DEFAULT_STATUS_VALUES)
 
+    def get_current_status(self, subject):
+        value, created = SubjectStatus.objects.get_or_create(
+            subject=subject, delay_hours=0,
+            defaults=SubjectStatusManager.DEFAULT_STATUS_VALUES)
+        return value
+
     def maintain_subject_status(self, subject_id):
 
         try:
@@ -1096,6 +1102,7 @@ class SubjectStatusManager(models.Manager):
             logger.info(
                 'SubjectStatus maintenance for Subject: %s, id: %s', subject.name, subject_id)
             self.ensure_for_subject(subject)
+            self.update_current(subject)
             self.update_delayed_status(subject)
 
 
@@ -1355,32 +1362,6 @@ class SocketClient(TimestampedModel):
     bbox = models.MultiPolygonField(
         'Viewport bounding box.', null=True, blank=True)
     event_filter = JSONField('Event filter', default={})
-
-#
-# def get_radio_status():
-#
-#     return Observation.objects.raw(
-#         '''
-#         with t0 as (
-#    select obs.id "id",
-#            obs.location "location",
-#           obs.recorded_at "recorded_at",
-#           sub.name "subject_name",
-#           sub.id "subject_id",
-#           obs.additional->>'event_action' event_action,
-#           obs.additional->>'state' state,
-#           obs.additional->>'gps_fix' gps_fix,
-#           row_number() over (partition by sub.name order by obs.recorded_at desc) seq
-#        from observations_subject sub
-#             join observations_subjectsource ss on ss.subject_id = sub.id
-#             join observations_observation obs on obs.source_id = ss.source_id
-#                  and obs.recorded_at <@ ss.assigned_range
-#             join observations_source src on src.id = ss.source_id
-#        where obs.recorded_at > current_timestamp - interval '10 day'
-#           )
-# select id, subject_name, event_action, state, gps_fix, recorded_at, location from t0 where seq <= 1
-# '''
-#     )
 
 
 import observations.signals

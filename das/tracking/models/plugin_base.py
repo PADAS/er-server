@@ -147,7 +147,6 @@ class SourcePlugin(TimestampedModel):
     def should_run(self):
         # Defer decision to associated Plugin if possible.
         if hasattr(self.plugin, 'should_run'):
-            print('Delegating to plugin.should_run')
             return self.plugin.should_run(self)
         else:
             return True
@@ -176,7 +175,7 @@ class TrackingPlugin(TimestampedModel):
                             verbose_name='Unique name to identify the plugin.')
     status = models.CharField(
         max_length=15, default=STATUS_ENABLED, choices=STATUS_CHOICES)
-    additional = JSONField(null=True)
+    additional = JSONField(blank=True, default=dict)
 
     # A convenient relation to find the SourcePlugins that associate this
     # Plugin.
@@ -207,7 +206,6 @@ class TrackingPlugin(TimestampedModel):
             latest_timestamp = parse_date(
                 latest_timestamp) if latest_timestamp else pytz.utc.localize(datetime.min)
 
-            print('latest_timestamp: %s' % latest_timestamp)
             # If we haven't seen data from over 30 days, then use 24 hours as
             # polling interval.
             if now - latest_timestamp > timedelta(days=30):

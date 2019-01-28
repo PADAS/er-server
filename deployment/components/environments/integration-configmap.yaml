@@ -6,3 +6,13 @@ metadata:
 data:
   SMARTCONNECT_PROVIDER_DAS_TOKEN: "<<integration-smartconnect-provider-das-token>>"
   SMARTCONNECT_PROVIDER_DAS_API: "https://integration.pamdas.org/api/v1.0"
+  DB_HOST: postgis.<<namespace>>.svc.cluster.local
+  DB_PORT: "5432"
+  DB_NAME: "das"
+  DB_USER: "das"
+  DB_PASSWORD: "password"
+  STORAGE_ACCOUNT: ""
+  STORAGE_CONTAINER: ""
+  STORAGE_ACCOUNT_KEY: ""
+  STORAGE_BASE_PATH: ""
+  USE_AZURE_STORAGE: "false"

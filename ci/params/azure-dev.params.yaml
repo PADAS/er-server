@@ -1,10 +1,12 @@
 cluster-name: azure-dev
 version-prefix: dev
-initial-server-version: 1.58.1-dev.34
-initial-web-version: 1.58.1-dev.10
-initial-smartconnect-version: 0.1.0-dev.4
+server-branch-name: develop
+web-branch-name: develop
 namespace: azure-dev
 iaas: azure
 iaas-zone: eastus
 iaas-workspace: DAS-Dev
 cluster-spec: deployment/cluster-specs/azure.yaml
+deployment-plan: integration
+deploy-recipe: standard-az.yaml
+deploy-params-environment: azure-dev

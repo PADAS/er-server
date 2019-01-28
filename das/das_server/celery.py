@@ -67,7 +67,7 @@ app.conf.beat_schedule = {
 
     'firms-plugins': {
         'task': 'tracking.tasks.schedule_firms_plugins',
-        'schedule': timedelta(minutes=30),
+        'schedule': timedelta(minutes=15),
         'options': {'expires': 15 * 60},
     },
 
@@ -96,6 +96,11 @@ app.conf.beat_schedule = {
     'redis-status': {
         'task': 'rt_api.tasks.check_redis_queues',
         'schedule': timedelta(seconds=60),
+    },
+
+    'observation-lag-report':{
+        'task':  'reports.tasks.alert_lag_delay',
+        'schedule': timedelta(seconds=30),
     }
 
 }
