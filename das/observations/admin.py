@@ -31,7 +31,7 @@ from django.http import HttpResponse
 
 import observations.models as models
 import observations.forms
-from observations.forms import SubjectChangeListForm, SubjectSourceForm
+from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
 
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
 from utils.html import make_html_list
@@ -422,7 +422,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
             location=models.EMPTY_POINT).order_by('-recorded_at')
         return queryset.annotate(newest_observation_at=Subquery(newest.values('recorded_at')[:1]))
 
-    form = observations.forms.SubjectFormWithAttributes
+    form = observations.forms.SubjectForm
     save_on_top = True
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
@@ -522,7 +522,7 @@ class CommonNameAdmin(admin.ModelAdmin):
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
     list_display = ['manufacturer_id', 'source_type',
-                    'model_name', 'get_attributes', 'plugin_names']
+                    'model_name', 'get_attributes', '_provider_display_name',]
     search_fields = ('id', 'manufacturer_id', 'model_name', 'additional',)
     list_filter = ('source_type', 'model_name')
     readonly_fields = ('id', 'created_at', 'updated_at',)
@@ -553,9 +553,6 @@ class SourceAdmin(admin.ModelAdmin):
         )
     )
 
-    def _plugin_names(self, o):
-        return o.source_plugin.plugin.name
-
     def get_attributes(self, instance):
         context = dict((k, instance.additional[k]) for k in (
             'frequency',) if k in instance.additional)
@@ -567,11 +564,11 @@ class SourceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super(SourceAdmin, self).get_queryset(request)
-        qs = qs.annotate(plugin_names=ArrayAgg('source_plugin__pin__name'))
+        qs = qs.select_related('provider',)
         return qs
 
-    def plugin_names(self, o):
-        return o.plugin_names
+    def _provider_display_name(self, o):
+        return o.provider.display_name
 
 
 class CurrentAssignmentFilter(admin.SimpleListFilter):
@@ -874,7 +871,27 @@ class SourceProviderAdmin(admin.ModelAdmin):
     search_fields = ('provider_key', 'display_name',)
     ordering = ('provider_key',)
     list_display = ('provider_key', 'display_name',)
+    readonly_fields = ('id',)
+    form = SourceProviderForm
 
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('provider_key', 'display_name',)
+        }
+        ),
+        ('Provider configurations', {
+            'classes': ('wide',),
+            'fields': (('lag_notification_threshold',))
+        }
+        ),
+
+        ('Advanced configuration', {
+            'classes': ('wide', 'collapse',),
+            'fields': ('additional', 'id')
+        }
+        )
+    )
 
 # @admin.register(models.SubjectSummary)
 class SubjectSummaryAdmin(admin.ModelAdmin):

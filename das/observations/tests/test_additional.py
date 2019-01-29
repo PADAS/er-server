@@ -3,7 +3,7 @@ import uuid
 from django.test import TestCase
 
 from choices.models import Choice
-from observations.forms import SubjectFormWithAttributes
+from observations.forms import SubjectForm
 from observations.models import Subject, SubjectType, SubjectSubType
 
 
@@ -37,7 +37,7 @@ class SubjectAdditionalTest(TestCase):
             'name': 'Henry', 'subject_subtype': 'cheetah', 'is_active': 'on'
         }
         form_data = {**form_data, **additional_data}
-        form = SubjectFormWithAttributes(data=form_data)
+        form = SubjectForm(data=form_data)
         self.assertTrue(form.is_valid())
         form.save()
 

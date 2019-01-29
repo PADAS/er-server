@@ -1,11 +1,13 @@
+import re
 
 from django.utils.translation import ugettext_lazy as _
+from django.utils.dateparse import parse_duration
 
 from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 
-from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType
+from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice
 
@@ -121,7 +123,7 @@ class SubjectSubtypeChoiceField(forms.ModelChoiceField):
         return '{1} ({0})'.format(obj.subject_type.display, obj.display)
 
 
-class SubjectForm(forms.ModelForm):
+class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
 
     groups = forms.ModelMultipleChoiceField(
         queryset=SubjectGroup.objects.all(),
@@ -140,17 +142,6 @@ class SubjectForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.fields['groups'].initial = self.instance.groups.all()
 
-    class Meta:
-        fields = '__all__'
-        model = Subject
-
-    def _save_m2m(self):
-        groups = self.cleaned_data['groups']
-        self.instance.groups.set(groups)
-        return super()._save_m2m()
-
-
-class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
     '''
     This provides extra form fields for the attributes we expect to have stored
      in Subject.additional.
@@ -173,6 +164,16 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
     tm_animal_id = forms.CharField(required=False, label='Animal ID')
     # other_id = forms.CharField(required=False, label='Other id')
 
+    class Meta:
+        fields = '__all__'
+        model = Subject
+
+    def _save_m2m(self):
+        groups = self.cleaned_data['groups']
+        self.instance.groups.set(groups)
+        return super()._save_m2m()
+
+
     @staticmethod
     def fetch_region_choices():
         region_choices = {'': ''}
@@ -192,21 +193,22 @@ class SubjectFormWithAttributes(JSONFieldFormMixin, SubjectForm):
         return tuple([(key, value) for key, value in country_choices.items()])
 
     def __init__(self, *args, **kwargs):
-        super(SubjectFormWithAttributes, self).__init__(*args, **kwargs)
+        super(SubjectForm, self).__init__(*args, **kwargs)
 
         # Get country and region choices from static methods
         self.fields['region'].choices = self.fetch_region_choices()
         self.fields['country'].choices = self.fetch_country_choices()
 
-    class Meta(SubjectForm.Meta):
+    class Meta:
         json_fields = ('rgb', 'sex', 'region', 'country', 'tm_animal_id')
+
 
     json_field = 'additional'
 
     def save(self, *args, **kwargs):
 
         commit = kwargs.pop('commit', True)
-        instance = super(SubjectFormWithAttributes, self).save(*args,
+        instance = super(SubjectForm, self).save(*args,
                                                                commit=False,
                                                                **kwargs)
 
@@ -224,6 +226,39 @@ class SubjectChangeListForm(forms.ModelForm):
         model = Subject
         fields = ('name', 'is_active')
 
+
+lag_notification_threshold_help_text =  \
+_('Threshold in hours:minutes:seconds that indicates an abnormal delay in data for this Source Provider.')
+
+class  SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
+
+    lag_notification_threshold = forms.CharField(max_length=8, required=False,
+                                                 help_text=lag_notification_threshold_help_text)
+
+    class Meta:
+        model = SourceProvider
+        fields = ['provider_key', 'display_name', 'additional']
+        json_fields = ('lag_notification_threshold',)
+        json_date_fields = set()
+
+
+    # def clean_lag_notification_threshold(self):
+
+    def clean(self):
+
+        cleaned_data = super().clean()
+        value = cleaned_data.get('lag_notification_threshold')
+
+        if value and \
+                (not parse_duration(value) or
+                    not re.match(r'\d{1,2}:\d{2}:\d{2}', value)
+                ):
+            raise forms.ValidationError(
+                {'lag_notification_threshold': forms.ValidationError(
+                    _('Notification threshold must be of the form HH:MM:SS.'), code='invalid')}
+            )
+
+        return cleaned_data
 
 class SetRandomColorForm(ActionForm):
     pass
