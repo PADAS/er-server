@@ -966,10 +966,14 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                     recorded_at = observation['recorded_at'].astimezone(
                         current_tz)
                     created_at = observation['created_at'].astimezone(current_tz)
+
+                    chronofile = observation['subjectsource_additional'].get('chronofile', '') \
+                        if observation['subjectsource_additional'] else ''
+
                     data = {'lat': observation['location'].x,
                             'lon': observation['location'].y,
                             'height': observation['location'].z,
-                            'chronofile': observation['subjectsource_additional'].get('chronofile', ''),
+                            'chronofile': chronofile,
                             'recordserial': observation['id'],
                             fixtime: recorded_at.strftime('%m/%d%Y %H:%M:%S'),
                             dloadtime: created_at.strftime('%m/%d%Y %H:%M:%S'),
