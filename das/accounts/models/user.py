@@ -29,7 +29,7 @@ class UserQuerySet(models.QuerySet):
     """Don't allow users to be deleted, set them as inactive"""
 
     def delete(self):
-        self.update(active=False)
+        self.update(is_active=False)
 
     def by_is_active(self, active=True):
         return self.filter(is_active=active)

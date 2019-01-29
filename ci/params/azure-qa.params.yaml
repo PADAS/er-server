@@ -1,6 +1,6 @@
 cluster-name: azure-dev
 version-prefix: dev
-server-branch-name: DAS-3360
+server-branch-name: develop
 web-branch-name: develop
 namespace: azure-qa
 iaas: azure

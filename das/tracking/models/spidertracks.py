@@ -223,8 +223,10 @@ class SpiderTracksPlugin(TrackingPlugin):
         latitude = float(fix['Lat'][0]['text'])
         longitude = float(fix['Long'][0]['text'])
 
+        # Reasonable defaults
         registration = manufacturer_id
         track_id = ''
+
         for item in fix.get('telemetry', []):
             if item['attrib']['name'] == 'registration':
                 registration = item['attrib']['value']
@@ -235,5 +237,9 @@ class SpiderTracksPlugin(TrackingPlugin):
                          for k in ('speed', 'heading', 'altitude',))
         side_data['track_id'] = track_id
         side_data['registration'] = registration
+
+        # Set subject_name in additional to trigger updating Subject.name.
+        side_data['subject_name'] = registration
+
         return Obs(source=source, recorded_at=recorded_at, latitude=latitude, longitude=longitude,
                    additional=side_data)

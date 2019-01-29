@@ -4,8 +4,6 @@ metadata:
   namespace: <<namespace>>
   name: site-configmap
 data:
-  SMARTCONNECT_PROVIDER_DAS_TOKEN: "<<ndoki-smartconnect-provider-das-token>>"
-  SMARTCONNECT_PROVIDER_DAS_API: "https://ndoki.wcs.pamdas.org/api/v1.0"
   DB_HOST: postgis.<<namespace>>.svc.cluster.local
   DB_PORT: "5432"
   DB_NAME: "das"
@@ -16,3 +14,4 @@ data:
   STORAGE_ACCOUNT_KEY: ""
   STORAGE_BASE_PATH: ""
   USE_AZURE_STORAGE: "false"
+
