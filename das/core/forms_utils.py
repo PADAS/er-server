@@ -59,7 +59,7 @@ class JSONFieldFormMixin(object):
 
                     if json_data.get(field):
                         try:
-                            if field in self.Meta.json_date_fields:
+                            if field in getattr(self.Meta, 'json_date_fields', set()):
                                 initial_value = self.fields[field].initial = parse(json_data.get(field))
                             else:
                                 initial_value = json_data.get(field)
