@@ -14,10 +14,12 @@ from Crypto.Cipher import AES
 from dateutil.parser import parse
 from django.contrib.gis.db import models
 from django.core.cache import cache
+from django.contrib.contenttypes.fields import GenericRelation
 from django.conf import settings
 
-from tracking.models.plugin_base import Obs, TrackingPlugin
 import utils.redis as redis_utils
+
+from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin
 
 
 class AWTPluginException(Exception):
@@ -350,6 +352,12 @@ class AwtPlugin(TrackingPlugin):
                             help_text='API Host for AWT service.')
     subscription_token = models.CharField(max_length=200,
                                           help_text="Subscription Token ")
+
+    source_plugin_reverse_relation = 'awtplugin'
+
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     def _transform_to_observation(self, source, track_data):
         # Convert track_data into Observation data format

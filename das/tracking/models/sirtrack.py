@@ -15,8 +15,9 @@ import logging
 import fastkml
 
 from django.contrib.gis.db import models
+from django.contrib.contenttypes.fields import GenericRelation
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasDefaultTarget
+from tracking.models.plugin_base import Obs, TrackingPlugin, DasDefaultTarget, SourcePlugin
 from tracking.pubsub_registry import notify_new_tracks
 
 from tracking.models.utils import split_link, parse_cookie
@@ -222,6 +223,12 @@ class SirtrackPlugin(TrackingPlugin):
     DEFAULT_SOURCE_TYPE = 'tracking-device'
     DEFAULT_MODEL_NAME = 'Lotek'
     READ_OVERLAP = timedelta(hours=24)
+
+    source_plugin_reverse_relation = 'sirtrackplugin'
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name=source_plugin_reverse_relation, related_name='+')
+
 
     @property
     def run_source_plugins(self):

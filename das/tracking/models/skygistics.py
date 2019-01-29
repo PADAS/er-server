@@ -15,8 +15,9 @@ from django.utils import timezone
 from django.contrib.gis.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
+from django.contrib.contenttypes.fields import GenericRelation
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
+from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError, SourcePlugin
 from tracking.models import SourcePlugin
 from observations.models import Source, Subject, SubjectSource
 
@@ -856,6 +857,12 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
     service_api_url = models.CharField(max_length=50,
                                        help_text='API endpoint for Skygistics service.',
                                        default='http://skyq1.skygistics.com')
+
+    source_plugin_reverse_relation = 'skygisticsplugin'
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name=source_plugin_reverse_relation, related_name='+')
+
 
     def fetch(self, source, cursor_data=None):
 

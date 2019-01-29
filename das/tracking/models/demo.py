@@ -9,11 +9,12 @@ import pytz
 from django.contrib.gis.geos import Polygon, Point, MultiPolygon
 import logging
 from django.contrib.gis.db import models
+from django.contrib.contenttypes.fields import GenericRelation
 
 import geopy
 import geopy.distance
 
-from tracking.models.plugin_base import Obs, TrackingPlugin
+from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin
 
 import mapping.models
 
@@ -94,6 +95,11 @@ class DemoSourcePlugin(TrackingPlugin):
     '''
     range_polygon = models.ForeignKey(mapping.models.PolygonFeature, null=True,
                                       on_delete=models.PROTECT)
+
+    source_plugin_reverse_relation = 'demosourceplugin'
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     def should_run(self, source_plugin):
         return True
