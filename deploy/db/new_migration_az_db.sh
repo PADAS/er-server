@@ -19,7 +19,7 @@ DB_OWNER_PWD=`eval ${RANDOM_UUID}`
 
 # dump credential data to a json filea before creation
 DB_DATA="{\"user\": \"$DB_OWNER\", \"password\": \""$DB_OWNER_PWD"\", \"db_name\":\""$DB_NAME"\", \"db_host\":\""$DB_HOST"\"}" 
-echo -e $DB_DATA > $DB_NAME.json 
+echo -e $DB_DATA > $DB_NAME.migrate.json 
 
 psql -h $DB_HOST -U $DB_ADMIN postgres -v db_owner="$DB_OWNER" -v db_passwd="$DB_OWNER_PWD"  -v db_name="$DB_NAME" -f ./migrate_db_azure.sql --set ON_ERROR_STOP=on -W
 
