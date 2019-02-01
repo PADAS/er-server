@@ -11,6 +11,7 @@ from django.conf import settings
 from django.urls import reverse
 from django.core.serializers.json import DjangoJSONEncoder
 
+from django.utils.dateparse import parse_datetime
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
@@ -38,7 +39,6 @@ import observations.serializers as serializers
 from observations import kmlutils
 
 logger = logging.getLogger(__name__)
-
 
 try:
     days = int(settings.SHOW_TRACK_DAYS)
@@ -184,9 +184,8 @@ from observations.utils import get_minimum_allowed_age, get_maximum_allowed_age
 class SubjectsViewSchema(rest_framework.schemas.AutoSchema):
 
     def get_manual_fields(self, path, method):
-
         if method == 'GET':
-            extra_fields=[
+            extra_fields = [
                 coreapi.Field(
                     name='tracks_since',
                     required=False,
@@ -361,8 +360,6 @@ class SubjectsView(generics.ListCreateAPIView):
         return context
 
 
-
-
 class SubjectView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.SubjectSerializer
@@ -418,7 +415,6 @@ class SourceSubjectsView(generics.ListCreateAPIView):
         return models.Subject.objects.filter(subjectsource__source=source).annotate_with_subjectstatus()
 
     def create(self, request, *args, **kwargs):
-
         # /{id}/ contains subject_id.
         request.data['subject'] = self.kwargs['id']
         serializer = serializers.SubjectSourceSerializer(data=request.data)
@@ -493,13 +489,11 @@ class TrackLimitSerializer(rest_framework.serializers.Serializer):
 
 
 class SubjectStatusView(generics.RetrieveAPIView):
-
     lookup_url_kwarg = 'subject_id'
     lookup_field = 'subject_id'
     serializer_class = serializers.SubjectStatusSerializer
 
     def get_queryset(self):
-
         ss = models.SubjectStatus.objects.select_related(
             'subject').filter(delay_hours=0)
 
@@ -586,7 +580,7 @@ class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
         return generics.get_object_or_404(queryset, **filter)
 
 
-class SourcesView(generics.ListCreateAPIView,):
+class SourcesView(generics.ListCreateAPIView, ):
     serializer_class = serializers.SourceSerializer
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
@@ -611,7 +605,7 @@ class SourcesView(generics.ListCreateAPIView,):
         return context
 
 
-class SourceProvidersView(generics.ListCreateAPIView,):
+class SourceProvidersView(generics.ListCreateAPIView, ):
     serializer_class = serializers.SourceProviderSerializer
     permission_classes = (StandardObjectPermissions,)
     pagination_class = StandardResultsSetPagination
@@ -628,7 +622,6 @@ class SourceProvidersView(generics.ListCreateAPIView,):
 
 
 class SourceProvidersViewPartial(generics.UpdateAPIView):
-
     serializer_class = serializers.SourceProviderSerializer
     permission_classes = (StandardObjectPermissions,)
 
@@ -648,7 +641,6 @@ class SourceProvidersViewPartial(generics.UpdateAPIView):
 
 
 class SourceObservationsView(generics.ListAPIView):
-
     serializer_class = serializers.ObservationSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -682,7 +674,7 @@ class ObservationsView(generics.ListCreateAPIView):
         serializer = serializers.ObservationSerializer(
             many=isinstance(request.data, list), data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST,)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -692,8 +684,7 @@ class KmlRootView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def build_link_for_user(self):
-
-        token = kmlutils.get_kml_access_token(self.request.user,)
+        token = kmlutils.get_kml_access_token(self.request.user, )
         return utils.add_base_url(self.request,
                                   '?'.join((
                                       reverse('subjects-kml-view'),
@@ -702,17 +693,16 @@ class KmlRootView(generics.GenericAPIView):
                                   )
 
     def get(self, request, *args, **kwargs):
-
         # TODO: Have a configuration for naming the KML feed.
         filename = 'DAS-KML_{}_{}'.format(self.request.user.username,
                                           datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
         context = {'network_link':
-                   {'name': settings.KML_FEED_TITLE,
-                    'visibility': 0,
-                    'open': 1,
-                    'href': self.build_link_for_user()
-                    }
+                       {'name': settings.KML_FEED_TITLE,
+                        'visibility': 0,
+                        'open': 1,
+                        'href': self.build_link_for_user()
+                        }
                    }
 
         result = render_to_string('kml/user_root.xml', context)
@@ -722,12 +712,12 @@ class KmlRootView(generics.GenericAPIView):
 
 class KmlSubjectsView(generics.GenericAPIView):
     permission_classes = (StandardObjectPermissions,)
-    renderer_classes = (StaticHTMLRenderer, )
+    renderer_classes = (StaticHTMLRenderer,)
 
     def get_queryset(self):
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         # To include inactive subjects in KmlSubject report
-        queryset = models.Subject.objects.all() #.by_is_active()
+        queryset = models.Subject.objects.all()  # .by_is_active()
         queryset = queryset.by_user_subjects(self.request.user) \
             .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
         return queryset
@@ -797,7 +787,7 @@ def rgb_to_hex(red, green, blue):
 
 class KmlSubjectView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
-    renderer_classes = (StaticHTMLRenderer, )
+    renderer_classes = (StaticHTMLRenderer,)
     lookup_field = 'id'
 
     def get_queryset(self):
@@ -922,13 +912,16 @@ class KmlSubjectView(generics.RetrieveAPIView):
 class TrackingDataCsvView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
 
-    def get_queryset(self):
+    def get_queryset(self, chronofile=None):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise PermissionDenied
         queryset = models.Subject.objects.all()
         # To include inactive subjects in trackingdata report
         # queryset = queryset.by_is_active()
         queryset = queryset.by_user_subjects(self.request.user)
+        # queryset = queryset.filter(id='aeac8f78-00d9-4286-8e92-d5bb3b3c33e2')
+        if chronofile is not None:
+            queryset = queryset.filter(subjectsource__additional__chronofile=int(chronofile))
         return queryset
 
     def get(self, request, *args, **kwargs):
@@ -940,6 +933,20 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         except (ValueError, TypeError):
             filter_flag = 0
 
+        try:
+            request_date_after = parse_datetime(self.request.GET.get('after_date', None))
+        except:
+            request_date_after = None
+
+        try:
+            request_date_before = parse_datetime(self.request.GET.get('before_date', None))
+        except:
+            request_date_before = None
+
+        format = self.request.GET.get('format', '').lower()
+
+        request_subject_chronofile = self.request.GET.get('subject_chronofile', None)
+
         # Time range to query observation data according to user's permission
         max_days = 36500  # View All time days permission's number of days
         (lower, upper) = calculate_subject_view_window(
@@ -947,43 +954,54 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         if lower >= upper:
             raise PermissionDenied
 
+        upper = request_date_before if request_date_before is not None and request_date_before < upper else upper
+        lower = request_date_after if request_date_after is not None and request_date_after > lower else lower
+
         # Get SubjectSource and Observations with in time range for subjects
-        fixtime = 'fixtime ({})'.format(tz_offset)
-        dloadtime = 'dloadtime ({})'.format(tz_offset)
-        fieldnames = ['chronofile', 'recordserial', fixtime, dloadtime,
+        fixtime = 'fixtime ({})'.format(tz_offset) if format != 'json' else 'fixtime'
+        dloadtime = 'dloadtime ({})'.format(tz_offset) if format != 'json' else 'dloadtime'
+        fieldnames = ['chronofile', 'recordserial', 'collar_id', fixtime, dloadtime,
                       'lon', 'lat', 'height', 'temp']
         csv_data = []
-        subjects = self.get_queryset()
+        subjects = self.get_queryset(request_subject_chronofile)
         for subject in subjects:
             observations = models.Observation.objects.filter(source__subjectsource__subject=subject,
-                                       exclusion_flags=filter_flag, recorded_at__range=[lower, upper],
-                                       source__subjectsource__assigned_range__contains=F('recorded_at')) \
-                .annotate(subjectsource_additional=F('source__subjectsource__additional')).values()
+                                                             exclusion_flags=filter_flag,
+                                                             recorded_at__range=[lower, upper],
+                                                             source__subjectsource__assigned_range__contains=F(
+                                                                 'recorded_at')) \
+                .annotate(subjectsource_additional=F('source__subjectsource__additional'),
+                          collar_id=F('source__manufacturer_id')).values()
             if observations:
-                fixtime = fixtime.format(tz_offset)
-                dloadtime = dloadtime.format(tz_offset)
                 for observation in observations:
                     recorded_at = observation['recorded_at'].astimezone(
-                        current_tz)
-                    created_at = observation['created_at'].astimezone(current_tz)
+                        current_tz) if format != 'json' else observation['recorded_at']
+                    created_at = observation['created_at'].astimezone(
+                        current_tz) if format != 'json' else observation['created_at']
 
                     chronofile = observation['subjectsource_additional'].get('chronofile', '') \
                         if observation['subjectsource_additional'] else ''
+                    collar_id = observation['collar_id']
+                    if chronofile:
+                        pass
 
                     data = {'lat': observation['location'].x,
                             'lon': observation['location'].y,
                             'height': observation['location'].z,
                             'chronofile': chronofile,
+                            'collar_id': collar_id,
                             'recordserial': observation['id'],
-                            fixtime: recorded_at.strftime('%m/%d%Y %H:%M:%S'),
-                            dloadtime: created_at.strftime('%m/%d%Y %H:%M:%S'),
+                            fixtime: recorded_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
+                            else recorded_at.isoformat(),
+                            dloadtime: created_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
+                            else created_at.isoformat(),
                             'temp': observation['additional'].get('temp', '')
                             }
                     csv_data.append(data)
         # Generate CSV attachment and send it with response
         timestamp = current_tz.localize(datetime.datetime.utcnow())
 
-        if self.request.GET.get('format', '').lower() == 'json':
+        if format == 'json':
             return HttpResponse(
                 json.dumps({'data': csv_data}, cls=DjangoJSONEncoder),
                 content_type='application/json', status=status.HTTP_200_OK
@@ -1002,17 +1020,16 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
 
 
 class TrackingMetaDataExportView(generics.RetrieveAPIView):
-
     permission_classes = (StandardObjectPermissions,)
 
-    def get_source_details(self):
+    def get_source_details(self, format):
         """
         Gather required details for each Subject/Source combination.
         :return: List of dictionaries containing required details.
         """
         tracking_metadata = []
-        data_starts = 'data_starts ({})'.format(tz_offset)
-        data_stops = 'data_stops ({})'.format(tz_offset)
+        data_starts = 'data_starts ({})'.format(tz_offset) if format != 'json' else 'data_starts'
+        data_stops = 'data_stops ({})'.format(tz_offset) if format != 'json' else 'data_stops'
         headers = ['chronofile', 'collar_type', 'collar_id', 'active',
                    'frequency', 'animal_id', 'name', 'species',
                    data_starts, data_stops,
@@ -1039,12 +1056,13 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
 
                     # TODO: Validate this assumption that the "first" record is
                     # the right one.
-                    subject_source = models.SubjectSource.objects.\
+                    subject_source = models.SubjectSource.objects. \
                         get_subject_source(subject, subject.source.id).first()
-                    lower = subject_source.safe_assigned_range.lower.\
-                        astimezone(current_tz)
-                    upper = subject_source.safe_assigned_range.upper. \
-                        astimezone(current_tz)
+                    lower = subject_source.safe_assigned_range.lower
+                    upper = subject_source.safe_assigned_range.upper
+                    if format != 'json':
+                        lower = lower.astimezone(current_tz)
+                        upper = upper.astimezone(current_tz)
                     source_details.update({
                         'chronofile': subject_source.additional.get(
                             'chronofile', ''),
@@ -1055,8 +1073,8 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                             'frequency', ''),
                         'animal_id': subject.source.additional.get(
                             'tm_animal_id', ''),
-                        data_starts: lower,
-                        data_stops: upper,
+                        data_starts: lower.strftime('%m/%d/%Y %H:%M:%S') if format != 'json' else lower.isoformat(),
+                        data_stops: upper.strftime('%m/%d/%Y %H:%M:%S') if format != 'json' else upper.isoformat(),
                         'comments': subject_source.additional.get(
                             'comments', ''),
                         'predicted_expiry':
@@ -1092,9 +1110,10 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         # Create the HttpResponse object with the appropriate CSV header.
         current_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = current_tz.localize(datetime.datetime.utcnow())
-        tracking_metadata, headers = self.get_source_details()
+        format = self.request.GET.get('format', '').lower()
+        tracking_metadata, headers = self.get_source_details(format)
 
-        if self.request.GET.get('format', '').lower() == 'json':
+        if format == 'json':
             return HttpResponse(
                 json.dumps({'metadata': tracking_metadata},
                            cls=DjangoJSONEncoder),
