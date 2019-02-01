@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from dateutil import tz
 from pytz import utc
 from django.utils import timezone
+from django.db.models import F
 
 from accounts.models import User, PermissionSet
 from core.tests import BaseAPITest
@@ -137,7 +138,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         # Remove header and empty line from csv_data to get actual values
         csv_data = csv_data[1:-1]
         self.assertEqual(
-            Observation.objects.filter(
+            Observation.objects.filter(source__subjectsource__assigned_range__contains=F('recorded_at'),
                 exclusion_flags=0).count(), len(csv_data)
         )
 
@@ -155,7 +156,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         # Remove header and empty line from csv_data to get actual values
         csv_data = csv_data[1:-1]
         self.assertEqual(
-            Observation.objects.filter(
+            Observation.objects.filter(source__subjectsource__assigned_range__contains=F('recorded_at'),
                 exclusion_flags=1).count(), len(csv_data)
         )
 
