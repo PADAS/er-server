@@ -15,7 +15,6 @@ static-values:
   use-azure-storage: "true"
   iaas-workspace: "DAS-Dev"
 environment:
-  das-static-ip: 51.145.153.244
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
