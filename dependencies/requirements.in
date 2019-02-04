@@ -86,3 +86,4 @@ pymet==0.1.21
 humanize==0.5.1
 
 azure==4.0.0
+business-rules==1.0.1
