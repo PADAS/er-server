@@ -883,3 +883,25 @@ class EventAlertTargetsListView(generics.ListAPIView):
             return get_alert_users(priority)
 
         return accounts.models.User.objects.none()
+
+
+from activity.businessrules import generate_global_event_variables, render_global_eventvariables
+class EventAlertConditionsListView(generics.ListAPIView):
+
+    permission_classes = (EventCategoryPermissions,)
+    serializer_class = EventTypeSerializer
+
+    queryset = EventType.objects.all()
+
+    def get(self, *args, **kwargs):
+
+        # qs = self.get_filtered_queryset()
+
+        qs = self.get_queryset()
+
+        rules = render_global_eventvariables(qs)
+
+
+
+        return response.Response(rules, status=status.HTTP_200_OK)
+
