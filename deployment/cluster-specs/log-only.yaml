@@ -1,4 +1,4 @@
 name: ""
-machine_type: n1-highmem-2
+machine_type: n1-highmem-4
 node_count: 3
 kubernetes_version: "1.11"

@@ -73,10 +73,10 @@ spec:
         - name: HTTP_ENABLE
           value: "false"
         - name: "ES_JAVA_OPTS"
-          value: "-Xms1500m -Xmx1500m"
+          value: "-Xms3000m -Xmx3000m"
         resources:
           requests:
-            memory: 2Gi
+            memory: "4Gi"
         ports:
         - containerPort: 9300
           name: transport
