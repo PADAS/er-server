@@ -1,9 +1,15 @@
 from utils import schema_utils
 from business_rules import actions, engine, fields, operators, variables, export_rule_data
-from activity.models import EventType
+
 from typing import NamedTuple, Callable
 
 import logging
+
+from activity.models import EventType, Event
+
+priority_options = [dict(name=x, label=y) for x, y in Event.PRIORITY_CHOICES]
+
+state_options = [dict(name=x, label=y) for x, y in Event.STATE_CHOICES]
 
 logger = logging.getLogger(__name__)
 
@@ -12,11 +18,11 @@ class EventVariables(variables.BaseVariables):
     def __init__(self, event):
         self.event = event
 
-    @variables.numeric_rule_variable
+    @variables.select_multiple_rule_variable(label='Priority', options=priority_options)
     def priority(self):
         return self.event.priority
 
-    @variables.string_rule_variable
+    @variables.select_multiple_rule_variable(label='State', options=state_options)
     def state(self):
         return self.event.state
 
@@ -54,7 +60,8 @@ def create_new_func(key, return_type, label=None, optionslist=None):
         return self.event.details.get(key)
 
     if return_type == 'select':
-        return variables.select_rule_variable(label, options=optionslist)(f)
+        # Assume 'select_multiple'
+        return variables.select_multiple_rule_variable(label, options=optionslist)(f)
     if return_type == str:
         return variables.string_rule_variable(label)(f)
     elif return_type in (int, float):
@@ -93,29 +100,29 @@ def genoptions(schema_option):
     return []
 
 
-def generate_eventvariables_class(event_type):
-    '''
-    From an EvenType, generate an EventVariables class adhering to Venmo business rules interface.
-    :param event_type: A DAS EventType object that has a valid schema.
-    :return: A `Variables` type to be used with Venmo business-rules package.
-    '''
-
-
-    # Render the EventType's schema.
-    rendered_schema = schema_utils.get_rendered_schema(event_type.schema)
-
-    # Create an attributes list derived from schema and suitable for creating a Variables class.
-    attributeslist = [
-        (k, translate_schema_type_to_type(v), v.get('title', k), genoptions(v))
-        for k, v in rendered_schema['properties'].items()
-    ]
-    attrs = dict( (attr, create_new_func(attr, attrtype, label=label, optionslist=optionslist))
-                  for attr, attrtype, label, optionslist in attributeslist)
-
-    # Invent a class name based on the EventType's display value.
-    classname = event_type.display.replace(' ', '')
-
-    return type(classname, (EventVariables,), attrs)
+# def generate_eventvariables_class(event_type):
+#     '''
+#     From an EvenType, generate an EventVariables class adhering to Venmo business rules interface.
+#     :param event_type: A DAS EventType object that has a valid schema.
+#     :return: A `Variables` type to be used with Venmo business-rules package.
+#     '''
+#
+#
+#     # Render the EventType's schema.
+#     rendered_schema = schema_utils.get_rendered_schema(event_type.schema)
+#
+#     # Create an attributes list derived from schema and suitable for creating a Variables class.
+#     attributeslist = [
+#         (k, translate_schema_type_to_type(v), v.get('title', k), genoptions(v))
+#         for k, v in rendered_schema['properties'].items()
+#     ]
+#     attrs = dict( (attr, create_new_func(attr, attrtype, label=label, optionslist=optionslist))
+#                   for attr, attrtype, label, optionslist in attributeslist)
+#
+#     # Invent a class name based on the EventType's display value.
+#     classname = event_type.display.replace(' ', '')
+#
+#     return type(classname, (EventVariables,), attrs)
 
 
 def generate_global_event_variables(event_types):
@@ -125,6 +132,7 @@ def generate_global_event_variables(event_types):
     :return: A `Variables` type to be used with Venmo business-rules package.
     '''
 
+    applies_to_map = {}
     attributes_accumulator = {}
     # Render the EventType's schema.
     for event_type in event_types:
@@ -132,21 +140,37 @@ def generate_global_event_variables(event_types):
 
         # Create an attributes list derived from schema and suitable for creating a Variables class.
         for k, v in rendered_schema['properties'].items():
-            attributes_accumulator.setdefault(k, (k, translate_schema_type_to_type(v), v.get('title', k), genoptions(v)))
+
+            # Derive key from Event-Type and name.
+            key = f'{event_type.value}.{k}'
+
+            attributes_accumulator.setdefault(key, (key, translate_schema_type_to_type(v), v.get('title', k), genoptions(v)))
+            applies_to_map.setdefault(key, event_type.value)
 
     attrs = dict( (attr, create_new_func(attr, attrtype, label=label, optionslist=optionslist))
                   for attr, attrtype, label, optionslist in attributes_accumulator.values())
 
     # Invent a class name.
     classname = 'GlobalEventVariables'
-    return type(classname, (EventVariables,), attrs)
+    return type(classname, (EventVariables,), attrs), applies_to_map
 
 
 def render_global_eventvariables(event_types):
 
-    variables_class = generate_global_event_variables(event_types)
+    variables_class, applies_to_map = generate_global_event_variables(event_types)
 
-    return export_rule_data(variables_class, EventActions)
+    rules = export_rule_data(variables_class, EventActions)
+
+    # Annotate conditions with event-type information, and nudge operators into the place where the UI wants them.
+    for item in rules['variables']:
+        item['exclusive_to'] = applies_to_map.get(item['name'], None)
+
+        if item['field_type'] not in ('select', 'select_multiple'):
+            del item['options']
+
+        # This is an experiment, to add operators per condition.
+        # item['operators'] = rules['variable_type_operators'][item['field_type']]
+    return rules
 
 
 
