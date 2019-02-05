@@ -3,6 +3,10 @@ from business_rules import actions, engine, fields, operators, variables, export
 from activity.models import EventType
 from typing import NamedTuple, Callable
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class EventVariables(variables.BaseVariables):
 
     def __init__(self, event):
@@ -64,6 +68,10 @@ def translate_schema_type_to_type(option):
     if 'enumNames' in option:
         return 'select'
 
+    if 'type' not in option:
+        logger.warning('No \'type\' present in option, so using str. option=%s', option)
+        return str
+
     if option['type'] == 'string':
         return str
 
@@ -98,7 +106,7 @@ def generate_eventvariables_class(event_type):
 
     # Create an attributes list derived from schema and suitable for creating a Variables class.
     attributeslist = [
-        (k, translate_schema_type_to_type(v), v['title'], genoptions(v))
+        (k, translate_schema_type_to_type(v), v.get('title', k), genoptions(v))
         for k, v in rendered_schema['properties'].items()
     ]
     attrs = dict( (attr, create_new_func(attr, attrtype, label=label, optionslist=optionslist))
@@ -124,7 +132,7 @@ def generate_global_event_variables(event_types):
 
         # Create an attributes list derived from schema and suitable for creating a Variables class.
         for k, v in rendered_schema['properties'].items():
-            attributes_accumulator.setdefault(k, (k, translate_schema_type_to_type(v), v['title'], genoptions(v)))
+            attributes_accumulator.setdefault(k, (k, translate_schema_type_to_type(v), v.get('title', k), genoptions(v)))
 
     attrs = dict( (attr, create_new_func(attr, attrtype, label=label, optionslist=optionslist))
                   for attr, attrtype, label, optionslist in attributes_accumulator.values())
