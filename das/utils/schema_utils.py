@@ -172,6 +172,14 @@ def extract_from_list(values):
     names = []
     ids = []
     for value in values:
+        if value and not isinstance(value, dict):
+            logger.warning(f'extract_from_list value is not a dict: {value} from {values}')
+            return value, value
+
+        if 'name' not in value:
+            logger.warning(f'extract_from_list name not in value: {value} from {values}')
+            return '', ''
+
         names.append(value['name'])
         ids.append(value['value'])
 
@@ -204,8 +212,15 @@ def extractor(schema_item, definition, value):
         return (schema_item['title'], val, key)
     else:
         for definition_item in definition:
-            if isinstance(definition_item, dict) and definition_item['key'] == schema_item['key']:
-                return (definition_item['title'], val, key)
+            if isinstance(definition_item, dict):
+                if 'key' not in definition:
+                    logger.warning(f'key not found in definition {definition}')
+                    continue
+                if 'key' not in schema_item:
+                    logger.warning(f'key not found in schema_item {schema_item}')
+                    continue
+                if definition_item['key'] == schema_item['key']:
+                    return (definition_item['title'], val, key)
 
 
 def definition_key_order(schema):
