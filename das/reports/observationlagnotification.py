@@ -59,7 +59,7 @@ def get_provider_lag_alert_config(provider_key):
 def check_source_provider_lag_exceeded(provider_lag_check_data, provider_lag_config):
     threshold = provider_lag_config.get('lag_notification_threshold', None)
 
-    if threshold is None:
+    if any( [threshold is None, len(threshold) == 0]):
         return False  # TODO we don't have a configuration for this source and no default specified
 
     # configured value is a string, lets parse to timedelta

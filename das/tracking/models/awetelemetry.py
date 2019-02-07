@@ -5,6 +5,8 @@ import json
 from datetime import datetime, timedelta
 from observations.models import SubjectSource, Source, Observation
 from django.contrib.gis.geos import Point
+from django.contrib.contenttypes.fields import GenericRelation
+
 from tracking.models import SourcePlugin
 
 from observations.serializers import ObservationSerializer
@@ -16,7 +18,7 @@ import pytz
 import logging
 from django.contrib.gis.db import models
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
+from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError, SourcePlugin
 
 
 class AWETelemetryClient(object):
@@ -99,6 +101,13 @@ class AWETelemetryPlugin(TrackingPlugin):
                                         help_text='The password for querying the AWE Telemetry/AWT service.')
     service_url = models.CharField(max_length=50,
                                    help_text='The API endpoint for the AWE Telemetry/AWT service.')
+
+
+    source_plugin_reverse_relation = 'awetelementryplugin'
+
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     def fetch(self, source, cursor_data=None):
 

@@ -108,7 +108,7 @@ class SourcePlugin(TimestampedModel):
                                related_name='source_plugins',
                                related_query_name='source_plugin')
 
-    cursor_data = JSONField(null=True)
+    cursor_data = JSONField(blank=True, default=dict,)
     status = models.CharField(max_length=15, default=STATUS_ENABLED)
 
     # last_run: datetime.min implies it hasn't ever been executed.
@@ -177,18 +177,14 @@ class TrackingPlugin(TimestampedModel):
         max_length=15, default=STATUS_ENABLED, choices=STATUS_CHOICES)
     additional = JSONField(blank=True, default=dict)
 
-    # A convenient relation to find the SourcePlugins that associate this
-    # Plugin.
-    source_plugins = GenericRelation(
-        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name='pin', related_name='pins')
-
     provider = models.ForeignKey(
         SourceProvider, related_name='+', null=False, default=get_default_source_provider_id,
         on_delete=models.PROTECT)
 
     class Meta:
         abstract = True
+
+    source_plugin_reverse_relation = None
 
     @property
     def run_source_plugins(self):

@@ -11,8 +11,10 @@ import pytz
 import re
 from fastkml import kml
 from django.contrib.gis.db import models
+from django.contrib.contenttypes.fields import GenericRelation
 
-from tracking.models.plugin_base import Obs, TrackingPlugin
+
+from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +150,11 @@ class InreachKMLPlugin(TrackingPlugin):
                                         help_text='Password for InReach KML share.')
     service_username = models.CharField(max_length=50,
                                         help_text='Username for InReach KML share.')
+
+    source_plugin_reverse_relation = 'inreachkmlplugin'
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=10)
 

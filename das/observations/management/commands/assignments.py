@@ -90,32 +90,35 @@ def add_assignment(subject, source, start_date=None, end_date=None):
             subject=subject, source=source, assigned_range=assignment_range)
 
 
-def ensure_assignment(subject_name, manufacturer_id, model_name, source_type, source_provider_key,
+def get_subject(subject_name, subject_subtype):
+
+    try:
+        subject, created = Subject.objects.get_or_create(name=subject_name, subject_subtype_id=subject_subtype)
+        if created:
+            print(f'Subject named {subject_name} was not found, so I created it for you.')
+        return subject
+    except Subject.MultipleObjectsReturned:
+        print(f'I found multiple subjects named {subject_name} of subject_subtype {subject_subtype}')
+        raise
+
+
+def ensure_assignment(subject, manufacturer_id, model_name, source_type, source_provider_key,
                       start_date):
 
-    source_provider = SourceProvider.objects.get(
-        provider_key=source_provider_key)
+    source_provider, created = SourceProvider.objects.get_or_create(provider_key=source_provider_key)
+    if created:
+        print(f'SourceProvider with key {source_provider_key} was not found, so I created it.')
 
-    print(f'Ensuring assignment for name {subject_name} with source {manufacturer_id}')
+    print(f'Ensuring assignment for name {subject.name} with source {manufacturer_id}')
 
-    # Get subjects by name
-    subject = None
+    assignments = find_assignments(subject=subject, start_date=start_date)
+    print(f'Subject found assignments {assignments}') if assignments else print('No assignments yet.')
 
-    subs = Subject.objects.filter(name=subject_name)
-    if len(subs) > 1:
-        raise Exception(f'name {subject_name} is assigned to multiple subjects')
-    if subs:
-        subject = subs[0]
-        assignments = find_assignments(subject=subject, start_date=start_date)
-        print(f'Subject found assignments {assignments}') if assignments else print('No assignments yet.')
+    for assignment in assignments:
+        if assignment.source.manufacturer_id != manufacturer_id:
+            print(f'Ending assignment for subject {subject.name} to source {assignment.source.manufacturer_id}')
+            update_assignment(assignment, end_date=start_date)
 
-        for assignment in assignments:
-            if assignment.source.manufacturer_id != manufacturer_id:
-                print(f'Ending assignment for subject {subject_name} to source {assignment.source.manufacturer_id}')
-                update_assignment(assignment, end_date=start_date)
-
-    else:
-        print(f'name {subject_name} does not exist.')
 
     # Get sources by manufacturer_id
     srcs = Source.objects.filter(manufacturer_id=manufacturer_id)
@@ -127,7 +130,7 @@ def ensure_assignment(subject_name, manufacturer_id, model_name, source_type, so
         print(f'Source found assignements {assignments}') if assignments else print('No assignments yet.')
 
         for assignment in assignments:
-            if assignment.subject.name != subject_name:
+            if assignment.subject.name != subject.name:
                 print(f'Ending assignment for source {manufacturer_id} to subject {assignment.subject.name}')
                 update_assignment(assignment, end_date=start_date)
     else:
@@ -139,10 +142,10 @@ def ensure_assignment(subject_name, manufacturer_id, model_name, source_type, so
         existing_assignment = find_assignments(
             subject=subject, source=source, start_date=start_date)
         if not existing_assignment:
-            print(f'Adding assignment for {subject_name} to {manufacturer_id}')
+            print(f'Adding assignment for {subject.name} to {manufacturer_id}')
             add_assignment(subject, source, start_date=start_date)
         else:
-            print(f'Found existing assignment for {subject_name} to {manufacturer_id}')
+            print(f'Found existing assignment for {subject.name} to {manufacturer_id}')
 
 
 # source_type_list = (k for k,v in SOURCE_TYPES)
@@ -204,6 +207,15 @@ class Command(BaseCommand):
 
         )
 
+        parser.add_argument(
+            '--subject_subtype',
+            action='store',
+            dest='subject_subtype',
+            required=False,
+            default='unassigned',
+            help='Subject Subtype to use if a subject is to be created.',
+        )
+
     def handle(self, *args, **options):
 
         try:
@@ -219,10 +231,16 @@ class Command(BaseCommand):
             print(f'Model Name = {options["model_name"]}')
             print(f'Source Type = {options["source_type"]}')
             print(f'Provider Key = {options["provider_key"]}')
+            print(f'Subject Subtype = {options["subject_subtype"]}')
 
-            ensure_assignment(subject_name=options['subject_name'],
-                              manufacturer_id=options['manufacturer_id'],
-                              model_name=options['model_name'],
-                              source_type=options['source_type'],
-                              source_provider_key=options['provider_key'],
-                              start_date=start_date)
+            try:
+                subject = get_subject(subject_name=options['subject_name'], subject_subtype=options['subject_subtype'])
+            except Exception as e:
+                print(f'Subject name, type is unresolvable. ex={e}')
+            else:
+                ensure_assignment(subject=subject,
+                                  manufacturer_id=options['manufacturer_id'],
+                                  model_name=options['model_name'],
+                                  source_type=options['source_type'],
+                                  source_provider_key=options['provider_key'],
+                                  start_date=start_date)

@@ -7,7 +7,7 @@ DROP DATABASE IF EXISTS :db_name;
 DROP USER IF EXISTS :db_owner;
 
 -- Create the users and the database
-CREATE ROLE :db_owner WITH LOGIN NOSUPERUSER INHERIT CREATEDB CREATEROLE NOREPLICATION PASSWORD ':db_passwd';
+CREATE ROLE :db_owner WITH LOGIN NOSUPERUSER INHERIT CREATEDB CREATEROLE NOREPLICATION PASSWORD :db_passwd;
 -- Only azure_pg_admin can add extensions and manipulate schema
 GRANT azure_pg_admin TO :db_owner;
 GRANT :db_owner to postgres;

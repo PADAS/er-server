@@ -100,7 +100,7 @@ app.conf.beat_schedule = {
 
     'observation-lag-report':{
         'task':  'reports.tasks.alert_lag_delay',
-        'schedule': timedelta(seconds=30),
+        'schedule': timedelta(minutes=30),
     }
 
 }

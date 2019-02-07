@@ -15,7 +15,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
-from django.db.models import Prefetch
+from django.db.models import Prefetch, F, Q
 import rest_framework
 from rest_framework import generics, mixins, status
 from rest_framework.exceptions import PermissionDenied
@@ -955,28 +955,29 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         csv_data = []
         subjects = self.get_queryset()
         for subject in subjects:
-            observations = models.Observation.objects.filter(
-                source__subjectsource__subject=subject,
-                exclusion_flags=filter_flag, recorded_at__range=[lower, upper])
+            observations = models.Observation.objects.filter(source__subjectsource__subject=subject,
+                                       exclusion_flags=filter_flag, recorded_at__range=[lower, upper],
+                                       source__subjectsource__assigned_range__contains=F('recorded_at')) \
+                .annotate(subjectsource_additional=F('source__subjectsource__additional')).values()
             if observations:
                 fixtime = fixtime.format(tz_offset)
                 dloadtime = dloadtime.format(tz_offset)
-                for observation in observations.all():
-                    subject_source = models.SubjectSource.objects.filter(
-                        source=observation.source,
-                        subject=subject)[0]
-                    recorded_at = observation.recorded_at.astimezone(
+                for observation in observations:
+                    recorded_at = observation['recorded_at'].astimezone(
                         current_tz)
-                    created_at = observation.created_at.astimezone(current_tz)
-                    data = {'lat': observation.location.x,
-                            'lon': observation.location.y,
-                            'height': observation.location.z,
-                            'chronofile': subject_source.additional.get(
-                                'chronofile', '') if subject_source.additional else '',
-                            'recordserial': observation.id,
+                    created_at = observation['created_at'].astimezone(current_tz)
+
+                    chronofile = observation['subjectsource_additional'].get('chronofile', '') \
+                        if observation['subjectsource_additional'] else ''
+
+                    data = {'lat': observation['location'].x,
+                            'lon': observation['location'].y,
+                            'height': observation['location'].z,
+                            'chronofile': chronofile,
+                            'recordserial': observation['id'],
                             fixtime: recorded_at.strftime('%m/%d%Y %H:%M:%S'),
                             dloadtime: created_at.strftime('%m/%d%Y %H:%M:%S'),
-                            'temp': observation.additional.get('temp', '')
+                            'temp': observation['additional'].get('temp', '')
                             }
                     csv_data.append(data)
         # Generate CSV attachment and send it with response

@@ -18,8 +18,9 @@ import pytz
 
 import logging
 from django.contrib.gis.db import models
+from django.contrib.contenttypes.fields import GenericRelation
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasDefaultTarget
+from tracking.models.plugin_base import Obs, TrackingPlugin, DasDefaultTarget, SourcePlugin
 from observations.models import Source, SubjectSource, Subject
 
 from tracking.pubsub_registry import notify_new_tracks
@@ -132,6 +133,12 @@ class SpiderTracksPlugin(TrackingPlugin):
     service_api = models.CharField(max_length=100,
                                    help_text='The API endpoint for the SpiderTracks web-service.')
 
+    source_plugin_reverse_relation = 'spidertracksplugin'
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name=source_plugin_reverse_relation, related_name='+')
+
+
     @property
     def run_source_plugins(self):
         return False
@@ -216,8 +223,10 @@ class SpiderTracksPlugin(TrackingPlugin):
         latitude = float(fix['Lat'][0]['text'])
         longitude = float(fix['Long'][0]['text'])
 
+        # Reasonable defaults
         registration = manufacturer_id
         track_id = ''
+
         for item in fix.get('telemetry', []):
             if item['attrib']['name'] == 'registration':
                 registration = item['attrib']['value']
@@ -228,5 +237,9 @@ class SpiderTracksPlugin(TrackingPlugin):
                          for k in ('speed', 'heading', 'altitude',))
         side_data['track_id'] = track_id
         side_data['registration'] = registration
+
+        # Set subject_name in additional to trigger updating Subject.name.
+        side_data['subject_name'] = registration
+
         return Obs(source=source, recorded_at=recorded_at, latitude=latitude, longitude=longitude,
                    additional=side_data)

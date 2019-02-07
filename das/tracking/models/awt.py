@@ -7,14 +7,19 @@ import logging
 from time import sleep
 from datetime import datetime, timedelta
 
+import redis
 import pytz
 import requests
 from Crypto.Cipher import AES
 from dateutil.parser import parse
 from django.contrib.gis.db import models
 from django.core.cache import cache
+from django.contrib.contenttypes.fields import GenericRelation
+from django.conf import settings
 
-from tracking.models.plugin_base import Obs, TrackingPlugin
+import utils.redis as redis_utils
+
+from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin
 
 
 class AWTPluginException(Exception):
@@ -31,6 +36,7 @@ class AWTPluginBannedException(AWTPluginException):
 
 class AWTPluginInvalidSessionTokenException(AWTPluginException):
     pass
+
 
 class AWTPluginDecryptionException(AWTPluginException):
     pass
@@ -60,6 +66,7 @@ class AwtClient(object):
     replay_api_coverage = timedelta(days=90)  # replay only goes back 90 days
     unit_tag_cache_expiry = 3600  # one hour
     fetch_unit_data_expiry = 240  # four minutes
+    awt_api_lock_timeout = 300  # five minutes
     LIVE_API = 'LIVE_API'
     REPLAY_API = 'REPLAY_API'
     HISTORY_API = 'HISTORY_API'
@@ -80,6 +87,8 @@ class AwtClient(object):
         self.password = password
         self.subscription_token = subscription_token
         self.session_token = None
+        self.redis_client = redis.from_url(
+            settings.CELERY_BROKER_URL)
 
     def decrypt_response(self, response):
         # Get IV and Ciphertext from response
@@ -88,7 +97,8 @@ class AwtClient(object):
             cipher_text = base64.b64decode(cipher_text)
         else:
             if 'Ciphertext' not in response:
-                raise AWTPluginDecryptionException(f'Ciphertext not in {response}')
+                raise AWTPluginDecryptionException(
+                    f'Ciphertext not in {response}')
             return []
 
         if response.get('IV', None):
@@ -121,7 +131,10 @@ class AwtClient(object):
     def make_major_backoff_key(self):
         return f'awtplugin-{self.username}-soft-ban'
 
-    def check_use_policy(self, api_type, cache_key=None):
+    def make_api_lock_key(self):
+        return f'awtplugin-{self.username}-api-global-lock'
+
+    def check_use_policy(self, api_type, cache_key=None, blocking=True):
         backoff_count = 0
         while True:
             response = cache.get(cache_key) if cache_key else None
@@ -138,6 +151,10 @@ class AwtClient(object):
 
             ttl = cache.get(self.make_use_policy_key(api_type))
             if ttl:
+                if not blocking:
+                    raise AWTPluginFUPBackoffException(
+                        f'Account {self.username} exceeded backoff threshold for api {api_type}')
+
                 ttl = parse(ttl)
                 sleep_seconds = ttl - datetime.now(tz=pytz.UTC)
                 sleep_seconds = sleep_seconds.total_seconds()
@@ -171,42 +188,52 @@ class AwtClient(object):
         if response:
             return response
 
-        try:
+        with redis_utils.lock(self.redis_client, self.make_api_lock_key(), self.awt_api_lock_timeout, blocking=True) as l:
+            if not l:
+                raise AWTPluginFUPBackoffException(
+                    'Failed to get lock on the awt api')
+
+            response = self.check_use_policy(api_type, key, blocking=False)
+            if response:
+                return response
+
+            try:
+                self.set_use_policy_api(api_type)
+                self.logger.info(
+                    f'AWTPlugin API call {url} account {self.username}')
+                response = requests.post(
+                    url=url, headers=headers, data=payload)
+            except requests.ConnectionError as e:
+                description = 'Connection Error for {url}'.format(url=url)
+                self.logger.warning(description)
+                raise
+            except requests.Timeout as e:
+                description = 'Request Timeout for {url}'.format(url=url)
+                self.logger.warning(description)
+                raise
+
             self.set_use_policy_api(api_type)
-            self.logger.info(
-                f'AWTPlugin API call {url} account {self.username}')
-            response = requests.post(url=url, headers=headers, data=payload)
-        except requests.ConnectionError as e:
-            description = 'Connection Error for {url}'.format(url=url)
-            self.logger.warning(description)
-            raise
-        except requests.Timeout as e:
-            description = 'Request Timeout for {url}'.format(url=url)
-            self.logger.warning(description)
-            raise
+            if response.status_code != 200:
+                description = 'Request status: {0}, Traceback: {1}'.format(
+                    response.status_code, response.text.strip())
+                raise AWTPluginException(description)
 
-        self.set_use_policy_api(api_type)
-        if response.status_code != 200:
-            description = 'Request status: {0}, Traceback: {1}'.format(
-                response.status_code, response.text.strip())
-            raise AWTPluginException(description)
+            data = json.loads(response.text.strip())
+            if data and data.get('Result') == False:
+                reason = data.get('Reason')
+                message = f'AWT API returned False, {reason} for account {self.username}'
+                if reason:
+                    if reason.lower().count('ban'):
+                        self.set_use_policy_api(api_type, major_backoff=True)
+                        raise AWTPluginBannedException(message)
+                    elif reason.lower().startswith('invalid session token'):
+                        self.clear_session_token()
+                        raise AWTPluginInvalidSessionTokenException(message)
+                raise AWTPluginException(message)
 
-        data = json.loads(response.text.strip())
-        if data and data.get('Result') == False:
-            reason = data.get('Reason')
-            message = f'AWT API returned False, {reason} for account {self.username}'
-            if reason:
-                if reason.lower().count('ban'):
-                    self.set_use_policy_api(api_type, major_backoff=True)
-                    raise AWTPluginBannedException(message)
-                elif reason.lower().startswith('invalid session token'):
-                    self.clear_session_token()
-                    raise AWTPluginInvalidSessionTokenException(message)
-            raise AWTPluginException(message)
-
-        if key:
-            cache.set(key, data, expiry_period)
-        return data
+            if key:
+                cache.set(key, data, expiry_period)
+            return data
 
     def clear_session_token(self):
         self.session_token = None
@@ -229,7 +256,8 @@ class AwtClient(object):
             if awtplugin_data['Result']:
                 self.session_token = awtplugin_data['Token']
             else:
-                raise Exception(awtplugin_data)
+                raise AWTPluginInvalidSessionTokenException(
+                    f'Invalid token result: {awtplugin_data}')
         else:
             self.fetch_fresh_session_token()
             self.check_and_update_token()
@@ -275,7 +303,8 @@ class AwtClient(object):
                 try:
                     return self.decrypt_response(response)
                 except (AWTPluginDecryptionException,) as de:
-                    self.logger.error(f'AWT decryption failed: {de}, with payload: {payload}')
+                    self.logger.error(
+                        f'AWT decryption failed: {de}, with payload: {payload}')
                     raise
             raise AWTPluginException(response)
         raise AWTPluginException('Error in fetching observation Data')
@@ -323,6 +352,12 @@ class AwtPlugin(TrackingPlugin):
                             help_text='API Host for AWT service.')
     subscription_token = models.CharField(max_length=200,
                                           help_text="Subscription Token ")
+
+    source_plugin_reverse_relation = 'awtplugin'
+
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name=source_plugin_reverse_relation, related_name='+')
 
     def _transform_to_observation(self, source, track_data):
         # Convert track_data into Observation data format

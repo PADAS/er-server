@@ -24,11 +24,19 @@ resource "azurerm_postgresql_server" "er-west-eur" {
   administrator_login          = "postgres"
   administrator_login_password = "nt9Oggx7ztOd7fK9lx3vFLRT"
   version                      = "9.6"
-  ssl_enforcement              = "Enabled"
+  ssl_enforcement              = "Disabled"
 }
 
 resource "azurerm_postgresql_database" "bangweulu" {
   name                = "bangweulu"
+  resource_group_name = "${azurerm_resource_group.er-west-eur.name}"
+  server_name         = "${azurerm_postgresql_server.er-west-eur.name}"
+  charset             = "UTF8"
+  collation           = "English_United States.1252"
+}
+
+resource "azurerm_postgresql_database" "bangweulu_test" {
+  name                = "bangweulu_test"
   resource_group_name = "${azurerm_resource_group.er-west-eur.name}"
   server_name         = "${azurerm_postgresql_server.er-west-eur.name}"
   charset             = "UTF8"

@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 import pytz
 import requests
 from dateutil.parser import parse
+from django.contrib.contenttypes.fields import GenericRelation
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
+from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError, SourcePlugin
 
 
 class VectronicsPlugin(TrackingPlugin):
@@ -21,6 +22,13 @@ class VectronicsPlugin(TrackingPlugin):
     DEFAULT_START_OFFSET = timedelta(days=140)
     # Timeout in seconds
     DEFAULT_TIMEOUT = 30
+
+    source_plugin_reverse_relation = 'vectronicsplugin'
+
+    source_plugins = GenericRelation(
+        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
+        related_query_name=source_plugin_reverse_relation, related_name='+')
+
 
     @staticmethod
     def parse_date(date_string):

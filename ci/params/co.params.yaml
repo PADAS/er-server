@@ -1,21 +1,12 @@
 project-id: padas-app
 cluster-name: partners
 version-prefix: dev
-server-branch-name: DAS-3360
+server-branch-name: develop
 web-branch-name: develop
 namespace: co
 iaas: gcp
+das-static-ip: 35.233.255.248
 iaas-workspace: padas-app
 cluster-spec: deployment/cluster-specs/gcp.yaml
 deployment-plan: integration
 deploy-recipe: standard.yaml
-
-project-id: padas-app
-version-prefix: dev
-cluster-name: integration
-server-branch-name: develop
-web-branch-name: develop
-tag-as-latest: false
-das-static-ip: 35.197.23.193
-deploy-params-environment: integration
-deploy-recipe: standard-integration.yaml
