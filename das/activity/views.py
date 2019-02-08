@@ -288,6 +288,16 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             int(tz_difference)) + ':' + str(
             int((tz_difference - int(tz_difference)) * 60))
         reported_at = 'Reported At ({})'.format(tz_offset)
+        default_headers = [
+                        'Report Type', 'Report Type Internal Value', 'Report Id', 'Title',
+                        'Priority', 'Priority Internal Value', 'Status', 'Reported By',
+                        'Reported By Internal Value', reported_at, 'Latitude', 'Longitude', 
+                        'Number of Notes', 'Notes', 'Number of Related Subjects', 
+                        'Collection Report Id', 'CUSTOM FIELDS BEGIN HERE'
+                        ]
+        custom_headers = []
+        combined_headers = []
+
         for event in self.get_queryset():
             if event.event_type_id != current_event_type_data['id']:
                 event_type = EventType.objects.get(id=event.event_type_id)
@@ -296,13 +306,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     'id': event_type.id,
                     'display': event_type.display,
                     'value': event_type.value,
-                    'headers': ['Report Type', 'Report Type Internal Value',
-                                'Report Id', 'Title', 'Priority', 'Priority Internal Value', 'Status', 'Reported By',
-                                'Reported By Internal Value', reported_at,
-                                'Latitude', 'Longitude', 'Number of Notes', 'Notes',
-                                'Number of Related Subjects', 'Collection Report Id',
-                                'CUSTOM FIELDS BEGIN HERE'],
-                    'events': []
+                    'events': [],
+                    'headers': copy.deepcopy(default_headers)
                 }
 
                 try:
@@ -311,13 +316,16 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                         renderer(event.event_type.schema))
 
                     for key, order in current_schema_order.items():
-                        display_value = schema_utils.get_display_value_header_for_key(
-                            current_schema, key)
-                        current_event_type_data['headers'].append(
-                            self.escape_string(key))
-                        current_event_type_data['headers'].append(
-                            self.escape_string(display_value))
+                        if not isinstance(key, int):
+                            display_value = schema_utils.get_display_value_header_for_key(
+                                current_schema, key)
+                            current_event_type_data['headers'].append(
+                                self.escape_string(key))
+                            current_event_type_data['headers'].append(
+                                self.escape_string(display_value))
 
+                            if display_value not in custom_headers:
+                                custom_headers.append(display_value)
                 except json.JSONDecodeError:
                     # Event type does not have schema, which is weird but not
                     # _technically_ invalid
@@ -335,9 +343,10 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             for key, order in current_schema_order.items():
                 item_display_name = schema_utils.get_display_value_header_for_key(
                     current_schema, key)
-                schema_data[key] = self.escape_string(details.get(key, ''))
-                schema_data[item_display_name] = self.escape_string(
-                    details.get(item_display_name, ''))
+                # schema_data[key] = self.escape_string(details.get(key, ''))
+                # schema_data[item_display_name] = self.escape_string(
+                #     details.get(item_display_name, ''))
+                schema_data[item_display_name] = details.get(item_display_name, '')
 
             parent_event = Event.objects.filter(
                 out_relationship__to_event=event,
@@ -364,7 +373,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'num_attach': event.related_subjects.count(),
                 'parent_id': parent_event,
                 'status': 'Resolved' if event.state == Event.SC_RESOLVED else 'Active',
-                'details': schema_data.values()
+                'details': schema_data
             }
 
             # Reported by depends on what sort of entity reported the event
@@ -386,7 +395,14 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             current_event_type_data['events'].append(event_data)
 
-        return event_export_data
+        if not combined_headers:
+            combined_headers.extend(default_headers)
+            combined_headers.extend(custom_headers)
+        return {
+            'event_export_data': event_export_data,
+            'combined_headers': [header.replace(' ', '_') for header in combined_headers],
+            'custom_headers': custom_headers
+            }
 
     def escape_string(self, string):
         if not isinstance(string, str):
