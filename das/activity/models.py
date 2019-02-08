@@ -179,6 +179,12 @@ class EventTypeFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_is_collection(self, value):
         return self.filter_field('is_collection', value)
 
+    def by_event_type(self, event_types):
+        if isinstance(event_types, str):
+            values = [x.strip() for x in event_types.split(',')]
+        return self.filter(value__in=values)
+
+
 
 PRI_URGENT = 300
 PRI_IMPORTANT = 200
@@ -1202,3 +1208,66 @@ class EventsourceEvent(TimestampedModel):
         # if something is wrong:
         #     raise ValidationError(
         #         {'a-field': ValidationError(_('There is an error.'), code='invalid')})
+
+
+
+class NotificationMethod(TimestampedModel):
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='notification_methods', related_query_name='notification_method')
+
+    method = models.CharField(default='email', choices=(('email', _('Email')), ('sms', _('SMS')),))
+
+     # = JSONField(default=dict, blank=True)
+    schedule = JSONField(default=dict, blank=True)
+
+
+class AlertRuleManager(models.Manager):
+    pass
+
+
+class AlertRule(TimestampedModel):
+
+    objects = AlertRuleManager()
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='alert_rules', related_query_name='alert_rule')
+
+    definition = JSONField(default=dict, blank=True)
+    schedule = JSONField(default=dict, blank=True)
+
+    notification_methods = models.ManyToManyField(NotificationMethod, related_name='alert_rules',
+                                                  related_query_name='alert_rule',
+                                                  through='AlertRuleNotificationMethod')
+
+    is_active = models.BooleanField(default=True,)
+
+
+class AlertRuleNotificationMethodManager(models.Manager):
+    pass
+
+class AlertRuleNotificationMethod(models.Model):
+
+    objects = AlertRuleNotificationMethodManager()
+
+    alert_rule = models.ForeignKey(AlertRule, on_delete=models.CASCADE)
+    notification_method = models.ForeignKey(NotificationMethod, on_delete=models.PROTECT)
+
+    def __str__(self):
+        return ' <is related to> '.join((str(self.alert_rule), str(self.notification_method)))
+
+    name = 'Alert Rule Notification Method'
+    verbose_name = 'Indicates a NotificationMethod associated to the Alert Rule.'
+
+    class Meta:
+        unique_together = ('alert_rule', 'notification_method')
+
+
+
+

@@ -885,7 +885,7 @@ class EventAlertTargetsListView(generics.ListAPIView):
         return accounts.models.User.objects.none()
 
 
-from activity.businessrules import generate_global_event_variables, render_global_eventvariables
+from activity.businessrules import render_global_eventvariables
 class EventAlertConditionsListView(generics.ListAPIView):
 
     permission_classes = (EventCategoryPermissions,)
@@ -893,15 +893,26 @@ class EventAlertConditionsListView(generics.ListAPIView):
 
     queryset = EventType.objects.all()
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+
+        event_types = self.request.query_params.get('event_type', '')
+        if event_types:
+            qs = qs.by_event_type(event_types)
+        return qs
+
     def get(self, *args, **kwargs):
 
-        # qs = self.get_filtered_queryset()
-
-        qs = self.get_queryset()
-
-        rules = render_global_eventvariables(qs)
-
-
+        rules = render_global_eventvariables(self.get_queryset())
 
         return response.Response(rules, status=status.HTTP_200_OK)
+
+class EventAlertRulesListView(generics.ListCreateAPIView):
+
+    permission_classes = (IsOwner,)
+
+    serializer_class = EventAlertRuleSerializer
+
+    queryset = EventAlertRule.objects.all()
+
 

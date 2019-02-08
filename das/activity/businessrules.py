@@ -1,17 +1,40 @@
 from utils import schema_utils
+import json
 from business_rules import actions, engine, fields, operators, variables, export_rule_data
 
-from typing import NamedTuple, Callable
+from django.utils.dateparse import parse_duration
+
+from datetime import datetime, timedelta
+import pytz
+
+from typing import NamedTuple, Callable, Dict
 
 import logging
 
 from activity.models import EventType, Event
 
-priority_options = [dict(name=x, label=y) for x, y in Event.PRIORITY_CHOICES]
+# Use string value of priority as value (ex. '0') to satisfy rules engine.
+priority_options = [dict(name=str(x), label=y) for x, y in Event.PRIORITY_CHOICES]
 
 state_options = [dict(name=x, label=y) for x, y in Event.STATE_CHOICES]
 
+state_change_options = [
+    {
+        'name': 'new',
+        'label': 'New',
+    },
+    {
+        'name': 'updated',
+        'label': 'Updated',
+    },
+    {
+        'name': 'resolved',
+        'label': 'Resolved',
+    },
+]
+
 logger = logging.getLogger(__name__)
+
 
 class EventVariables(variables.BaseVariables):
 
@@ -20,13 +43,15 @@ class EventVariables(variables.BaseVariables):
 
     @variables.select_multiple_rule_variable(label='Priority', options=priority_options)
     def priority(self):
-        return self.event.priority
+        return [str(self.event.priority),]
 
     @variables.select_multiple_rule_variable(label='State', options=state_options)
     def state(self):
-        return self.event.state
+        return [self.event.state,]
 
-    # @variables.select_rule_variable(options=EventType.objects.all())
+    @variables.select_multiple_rule_variable(label='State Change', options=state_change_options)
+    def state_change(self):
+        return [getattr(self.event, 'state_change', None),]
 
 
 class EventActions(actions.BaseActions):
@@ -34,16 +59,69 @@ class EventActions(actions.BaseActions):
     def __init__(self, event):
         self.event = event
 
-    @actions.rule_action(params={"recipient": fields.FIELD_TEXT})
+    @actions.rule_action(params={"recipient": fields.FIELD_TEXT,})
     def send_alert(self, recipient):
         print(f'Sending alert for event {self.event} to recipient {recipient}.')
 
 
-class SchemaAttribute(NamedTuple):
-    key: str
-    func: Callable
-    title: str
-    options: list
+# class SchemaAttribute(NamedTuple):
+#     key: str
+#     func: Callable
+#     title: str
+#     options: list
+
+
+class Schedule:
+    '''
+    A Schedule is defined by a dictionary whereby each property is the name of a day of the week. Each value is a
+    list of tuples where each tuple indicates a range of time of the form ('hh:mm', 'hh:mm').
+    An example range is: ('08:30', '14:00') to represent a range from 8:30am to 2:00pm.
+
+    A complete example is:
+
+        {
+            "monday": [("08:00", "12:00"), ("13:00", "17:30")],
+            "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
+        }
+
+    Once initialized you can ask if a datetime is in the Schedule.
+    '''
+    days_of_week = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+    # reverse_dow: Dict[int, str] = dict((i, name) for i, name in enumerate(days_of_week, start=1))
+
+    def __init__(self, periods: Dict[str, list]):
+        self.periods = periods
+
+    def __contains__(self, value):
+
+        # Truncate the timestamp to our finest granularity.
+        value = value.replace(second=0, microsecond=0)
+
+        relevant_periods = self.periods.get(self.days_of_week[value.isoweekday()-1])
+        if relevant_periods:
+            return self.test_timestamp(value, relevant_periods)
+        return False
+
+    def __repr__(self):
+        return json.dumps(self.periods)
+
+    def test_timestamp(self, sample_ts, periods):
+
+        if not isinstance(sample_ts, datetime):
+            return ValueError(f'Type {type(sample_ts)} is not supported.')
+
+        # Calculate sample's total seconds for the day.
+        ts_seconds = (sample_ts - sample_ts.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds()
+
+        for x, y in self.generate_ranges(periods):
+            if x <= ts_seconds and ts_seconds <= y:  # inclusive
+                return True
+        return False
+
+    def generate_ranges(self, periods):
+        for period in periods:
+            start, end = (parse_duration(f'{x}:00') for x in period)
+            yield (start.seconds, end.seconds)
 
 
 def create_new_func(key, return_type, label=None, optionslist=None):
@@ -67,7 +145,7 @@ def create_new_func(key, return_type, label=None, optionslist=None):
     elif return_type in (int, float):
         return variables.numeric_rule_variable(label)(f)
     else:
-        raise NotImplementedError('I do not support that type yet.')
+        raise NotImplementedError(f'Return-type {return_type} is not yet supported.')
 
 
 def translate_schema_type_to_type(option):
@@ -100,31 +178,6 @@ def genoptions(schema_option):
     return []
 
 
-# def generate_eventvariables_class(event_type):
-#     '''
-#     From an EvenType, generate an EventVariables class adhering to Venmo business rules interface.
-#     :param event_type: A DAS EventType object that has a valid schema.
-#     :return: A `Variables` type to be used with Venmo business-rules package.
-#     '''
-#
-#
-#     # Render the EventType's schema.
-#     rendered_schema = schema_utils.get_rendered_schema(event_type.schema)
-#
-#     # Create an attributes list derived from schema and suitable for creating a Variables class.
-#     attributeslist = [
-#         (k, translate_schema_type_to_type(v), v.get('title', k), genoptions(v))
-#         for k, v in rendered_schema['properties'].items()
-#     ]
-#     attrs = dict( (attr, create_new_func(attr, attrtype, label=label, optionslist=optionslist))
-#                   for attr, attrtype, label, optionslist in attributeslist)
-#
-#     # Invent a class name based on the EventType's display value.
-#     classname = event_type.display.replace(' ', '')
-#
-#     return type(classname, (EventVariables,), attrs)
-
-
 def generate_global_event_variables(event_types):
     '''
     From a list of EventTypes, generate an EventVariables class adhering to Venmo business rules interface.
@@ -142,12 +195,12 @@ def generate_global_event_variables(event_types):
         for k, v in rendered_schema['properties'].items():
 
             # Derive key from Event-Type and name.
-            key = f'{event_type.value}.{k}'
+            key = f'{event_type.value}__{k}'
 
             attributes_accumulator.setdefault(key, (key, translate_schema_type_to_type(v), v.get('title', k), genoptions(v)))
             applies_to_map.setdefault(key, event_type.value)
 
-    attrs = dict( (attr, create_new_func(attr, attrtype, label=label, optionslist=optionslist))
+    attrs = dict((attr, create_new_func(attr, attrtype, label=label, optionslist=optionslist))
                   for attr, attrtype, label, optionslist in attributes_accumulator.values())
 
     # Invent a class name.
@@ -168,8 +221,6 @@ def render_global_eventvariables(event_types):
         if item['field_type'] not in ('select', 'select_multiple'):
             del item['options']
 
-        # This is an experiment, to add operators per condition.
-        # item['operators'] = rules['variable_type_operators'][item['field_type']]
     return rules
 
 
