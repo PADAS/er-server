@@ -55,6 +55,8 @@ class AwtClient(object):
 
     key_mapping = {'start_time': 'T1', 'end_time': 'T2',
                    'tag_id': 'T', 'unit': 'U'}
+    # Session Token expiry in Seconds(has to be renewed in at least 1 hour)
+    session_token_expiry = 3000  # 50 minutes
     default_cache_expiry = 300  # 5 minutes
     use_policy_backoff = 70  # one minute + 10 seconds
     use_policy_backoff_threshold = 2
@@ -244,9 +246,7 @@ class AwtClient(object):
         key = self.make_session_token_key()
         cache.delete(self.make_session_token_key())
 
-        # Session Token expiry in Seconds(has to be renewed in at least 1 hour)
-        session_token_expiry = 3540  # 3540 seconds = 59 minutes
-        return self.handle_request(api_type, url, payload, key, session_token_expiry)
+        return self.handle_request(api_type, url, payload, key, self.session_token_expiry)
 
     def check_and_update_token(self):
         awtplugin_data = cache.get(self.make_session_token_key())
