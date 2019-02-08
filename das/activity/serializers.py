@@ -1433,8 +1433,8 @@ class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
         return rep
 
 
-class EventAlertRuleSerializer(rest_framework.serializers.ModelSerializer):
+class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
-        model = activity.models.EventAlertRule
+        model = activity.models.AlertRule
         read_only_Fields = ('id',)

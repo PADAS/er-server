@@ -1219,10 +1219,10 @@ class NotificationMethod(TimestampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='notification_methods', related_query_name='notification_method')
 
-    method = models.CharField(default='email', choices=(('email', _('Email')), ('sms', _('SMS')),))
-
+    method = models.CharField(default='email', max_length=20, choices=(('email', _('Email')), ('sms', _('SMS')),))
+    value = models.CharField(default='', max_length=100, help_text=_('A phone number or email address.'))
      # = JSONField(default=dict, blank=True)
-    schedule = JSONField(default=dict, blank=True)
+    # schedule = JSONField(default=dict, blank=True)
 
 
 class AlertRuleManager(models.Manager):

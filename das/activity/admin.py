@@ -7,7 +7,7 @@ from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
 from core.admin import InlineExtraDynamicMixin
 
-from activity.forms import EventProviderForm
+from activity.forms import EventProviderForm, AlertRuleForm
 
 
 class EventRelationshipInline(admin.TabularInline):
@@ -233,3 +233,17 @@ class EventRelationshipAdmin(admin.ModelAdmin):
 
     list_display = ('from_event', 'type', 'to_event', 'ordernum')
     ordering = ('from_event', 'type', 'ordernum')
+
+
+@admin.register(models.AlertRule)
+class AlertRuleAdmin(admin.ModelAdmin):
+    readonly_fields = ('id',)
+
+    form = AlertRuleForm
+@admin.register(models.NotificationMethod)
+class NotificationMethodAdmin(admin.ModelAdmin):
+    readonly_fields = ('id',)
+
+@admin.register(models.AlertRuleNotificationMethod)
+class AlertRuleNotificationMethodAdmin(admin.ModelAdmin):
+    readonly_fields = ('id',)

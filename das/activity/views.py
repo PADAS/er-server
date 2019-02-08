@@ -23,12 +23,12 @@ import versatileimagefield.files
 
 from activity.models import Event, EventNote, EventClass,\
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community,\
-    EventFilter, EventSource, EventProvider
+    EventFilter, EventSource, EventProvider, AlertRule
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
     EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer, \
-    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer
+    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, AlertRuleSerializer
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
@@ -927,8 +927,8 @@ class EventAlertRulesListView(generics.ListCreateAPIView):
 
     permission_classes = (IsOwner,)
 
-    serializer_class = EventAlertRuleSerializer
+    serializer_class = AlertRuleSerializer
 
-    queryset = EventAlertRule.objects.all()
+    queryset = AlertRule.objects.all()
 
 

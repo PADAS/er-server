@@ -34,6 +34,8 @@ class BusinessRulesTestCase(TestCase):
 
         from business_rules import actions, engine, fields, operators, variables, export_rule_data
 
+        alert_actions = []
+
         class TestEventVariables(variables.BaseVariables):
 
             def __init__(self, event):
@@ -57,6 +59,16 @@ class BusinessRulesTestCase(TestCase):
             ])
             def foo(self):
                 return [self.event.foo, ]
+
+        class TestEventActions(actions.BaseActions):
+
+            def __init__(self, event):
+                self.event = event
+
+            @actions.rule_action(params={"recipient": fields.FIELD_TEXT, })
+            def send_alert(self, recipient):
+                print(f'Sending alert for event {self.event} to recipient {recipient}.')
+                alert_actions.append(self.event)
 
         exported_rule_data = export_rule_data(TestEventVariables, EventActions)
         # print(json.dumps(exported_rule_data, indent=2))
@@ -98,8 +110,10 @@ class BusinessRulesTestCase(TestCase):
         for event in (Event('new', 200, 'bar'), Event('active', 0)):#, Event('active', 0), Event('active', 200)):
             run_all(rule_list=sample_rules,
                     defined_variables=TestEventVariables(event),
-                    defined_actions=EventActions(event),
+                    defined_actions=TestEventActions(event),
                     stop_on_first_trigger=False)
+
+        self.assertEqual(len(alert_actions), 1)
 
     def test_create_eventtype_variables_class(self):
 
@@ -115,7 +129,7 @@ class BusinessRulesTestCase(TestCase):
                         {
                             "name": "priority",
                             "operator": "shares_at_least_one_element_with",
-                            "value": ['01', '100', '200',],
+                            "value": ['1', '100', '200',],
                         },
                         {
                             "name": "state",
