@@ -137,11 +137,6 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
     subject_subtype = SubjectSubtypeChoiceField(
         queryset=SubjectSubType.objects.all().order_by('display').select_related('subject_type',))
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.instance and self.instance.pk:
-            self.fields['groups'].initial = self.instance.groups.all()
-
     '''
     This provides extra form fields for the attributes we expect to have stored
      in Subject.additional.
@@ -172,12 +167,20 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
 
     json_field = 'additional'
 
+    def __init__(self, *args, **kwargs):
+        super(SubjectForm, self).__init__(*args, **kwargs)
+
+        if self.instance and self.instance.pk:
+            self.fields['groups'].initial = self.instance.groups.all()
+
+        # Get country and region choices from static methods
+        self.fields['region'].choices = self.fetch_region_choices()
+        self.fields['country'].choices = self.fetch_country_choices()
 
     def _save_m2m(self):
         groups = self.cleaned_data['groups']
         self.instance.groups.set(groups)
         return super()._save_m2m()
-
 
     @staticmethod
     def fetch_region_choices():
@@ -196,13 +199,6 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
                 field='country').order_by('ordernum'):
             country_choices[country.value] = country.display
         return tuple([(key, value) for key, value in country_choices.items()])
-
-    def __init__(self, *args, **kwargs):
-        super(SubjectForm, self).__init__(*args, **kwargs)
-
-        # Get country and region choices from static methods
-        self.fields['region'].choices = self.fetch_region_choices()
-        self.fields['country'].choices = self.fetch_country_choices()
 
     def save(self, *args, **kwargs):
 
