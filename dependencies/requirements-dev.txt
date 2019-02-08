@@ -40,6 +40,7 @@ django-mptt==0.9.0
 django-oauth-toolkit==1.0.0
 django-pgviews==0.5.3
 django-readonly-field==1.0.2
+django-redis==4.10.0
 django-rest-swagger==2.1.2
 django-sendsms==0.2.3
 django-ses==0.8.4
@@ -47,7 +48,7 @@ django-storages==1.6.5
 django-tagulous==0.12.0
 django-treebeard==4.2.0
 django-versatileimagefield==1.8.1
-django==2.0.2
+django==2.0.10
 djangorestframework==3.7.7
 docutils==0.13.1
 docxtpl==0.4.6
