@@ -148,6 +148,7 @@ class CameraTrapSensorHandler:
         file_name = file.name
         exif = load_exif(file.read())
         exif_dict = dict(iter_exif(exif))
+        location = None
 
         if params.validated_data['camera_name']:
             camera_name = params.validated_data['camera_name']

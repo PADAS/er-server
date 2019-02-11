@@ -128,7 +128,7 @@ class FollowltTrackerHandler:
     @classmethod
     def post(cls, request, sensor_type, provider_key):
         logger.info("Recieved new push message from {}: {}".format(sensor_type,
-                    request.data))
+                                                                   request.data))
         sensor_observations = request.data
         # Check if received data is in list format or not
         if isinstance(sensor_observations, dict):
@@ -146,10 +146,14 @@ class FollowltTrackerHandler:
                 model_name = '{}:{}'.format(
                     cls.MODEL_NAME, provider_key)
                 source_type = cls.DEFAULT_SOURCE_TYPE
+                manufacturer_id = params.data.get('collarId')
+                source_additional = dict(serialId=params.data.get('serialId'),
+                                         name=params.data.get('name'))
                 src = Source.objects.ensure_source(source_type=source_type,
-                    provider=provider_key,
-                    manufacturer_id=params.data.get('collarId'),
-                    model_name=model_name)
+                                                   provider=provider_key,
+                                                   manufacturer_id=manufacturer_id,
+                                                   model_name=model_name,
+                                                   additional=source_additional)
                 # Short-circuit if we already have this observation.
                 if Observation.objects.filter(
                         source=src, recorded_at=data['recorded_at']).exists():
@@ -450,7 +454,7 @@ class SkylineVehicleTrackerHandler():
         # short term don't throw away bad data, until
         # we understand what skyline is sending us
         if not params.is_valid():
-            status_fail = {'status' : 105, 'message' : params.errors}
+            status_fail = {'status': 105, 'message': params.errors}
             return Response(data=status_fail, status=status.HTTP_400_BAD_REQUEST)
 
         adapter = SkylineAdapter()
@@ -491,8 +495,9 @@ class SkylineVehicleTrackerHandler():
                             extra={'obs.new': provider_key})
                 notify_new_tracks(src.id)
             else:
-                logger.info("An error occured whle serializing the observation: %s", serializer.errors)
-        status_ok = {'status' : 0, 'message' : 'success'}
+                logger.info(
+                    "An error occured whle serializing the observation: %s", serializer.errors)
+        status_ok = {'status': 0, 'message': 'success'}
         return Response(data=status_ok, status=status.HTTP_200_OK)
 
 
@@ -508,7 +513,7 @@ class TractVehicleHandler():
         params = TractVehicleData.parse_observations(request.data)
 
         if not params.is_valid():
-            status_fail = {'status' : 404, 'message' : params.errors}
+            status_fail = {'status': 404, 'message': params.errors}
             return Response(data=status_fail, status=status.HTTP_200_OK)
 
         else:
@@ -549,9 +554,9 @@ class TractVehicleHandler():
                                 extra={'obs.new': provider_key})
                     notify_new_tracks(src.id)
                 else:
-                    logger.info("An error occured whle serializing the observation: %s", serializer.errors)
+                    logger.info(
+                        "An error occured whle serializing the observation: %s", serializer.errors)
 
-        
-        status_ok = {'status' : 200, 'message' : 'success'}
+        status_ok = {'status': 200, 'message': 'success'}
 
         return Response(data=status_ok, status=status.HTTP_200_OK)
