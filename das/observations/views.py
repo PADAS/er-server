@@ -16,7 +16,8 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
-from django.db.models import Prefetch, F, Q
+from django.db.models import Prefetch, F, Q, FilteredRelation, Value
+from django.db.models.functions import Coalesce
 import rest_framework
 from rest_framework import generics, mixins, status
 from rest_framework.exceptions import PermissionDenied
@@ -947,6 +948,10 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
 
         request_subject_chronofile = self.request.GET.get('subject_chronofile', None)
 
+        get_current = self.request.GET.get('current_status', 'false').lower() == 'true'
+
+        record_serial_base = int(self.request.GET.get('record_serial_base', -1))
+
         # Time range to query observation data according to user's permission
         max_days = 36500  # View All time days permission's number of days
         (lower, upper) = calculate_subject_view_window(
@@ -958,46 +963,42 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         lower = request_date_after if request_date_after is not None and request_date_after > lower else lower
 
         # Get SubjectSource and Observations with in time range for subjects
-        fixtime = 'fixtime ({})'.format(tz_offset) if format != 'json' else 'fixtime'
-        dloadtime = 'dloadtime ({})'.format(tz_offset) if format != 'json' else 'dloadtime'
-        fieldnames = ['chronofile', 'recordserial', 'collar_id', fixtime, dloadtime,
+        fixtime_label = 'fixtime ({})'.format(tz_offset) if format != 'json' else 'fixtime'
+        dloadtime_label = 'dloadtime ({})'.format(tz_offset) if format != 'json' else 'dloadtime'
+        fieldnames = ['chronofile', 'recordserial', 'collar_id', fixtime_label, dloadtime_label,
                       'lon', 'lat', 'height', 'temp']
         csv_data = []
         subjects = self.get_queryset(request_subject_chronofile)
+        cur_record_serial = record_serial_base
         for subject in subjects:
-            observations = models.Observation.objects.filter(source__subjectsource__subject=subject,
-                                                             exclusion_flags=filter_flag,
-                                                             recorded_at__range=[lower, upper],
-                                                             source__subjectsource__assigned_range__contains=F(
-                                                                 'recorded_at')) \
-                .annotate(subjectsource_additional=F('source__subjectsource__additional'),
-                          collar_id=F('source__manufacturer_id')).values()
-            if observations:
-                for observation in observations:
-                    recorded_at = observation['recorded_at'].astimezone(
-                        current_tz) if format != 'json' else observation['recorded_at']
-                    created_at = observation['created_at'].astimezone(
-                        current_tz) if format != 'json' else observation['created_at']
+            items = self.get_subject_trackdata_queryset(filter_flag, lower, subject, upper, get_current)
 
-                    chronofile = observation['subjectsource_additional'].get('chronofile', '') \
-                        if observation['subjectsource_additional'] else ''
-                    collar_id = observation['collar_id']
+            if items:
+                for item in items:
+                    cur_record_serial += 1
+                    recorded_at = item['recorded_at'].astimezone(
+                        current_tz) if format != 'json' else item['recorded_at']
+                    created_at = item['created_at'].astimezone(
+                        current_tz) if format != 'json' else item['created_at']
+                    chronofile = item['subjectsource_additional'].get('chronofile', '') \
+                        if item['subjectsource_additional'] else ''
+                    collar_id = item['collar_id']
                     if chronofile:
                         pass
-
-                    data = {'lat': observation['location'].x,
-                            'lon': observation['location'].y,
-                            'height': observation['location'].z,
+                    data = {'lat': item['location'].x,
+                            'lon': item['location'].y,
+                            'height': item['location'].z,
                             'chronofile': chronofile,
                             'collar_id': collar_id,
-                            'recordserial': observation['id'],
-                            fixtime: recorded_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
+                            'recordserial': cur_record_serial,
+                            fixtime_label: recorded_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
                             else recorded_at.isoformat(),
-                            dloadtime: created_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
+                            dloadtime_label: created_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
                             else created_at.isoformat(),
-                            'temp': observation['additional'].get('temp', '')
+                            'temp': item['additional'].get('temp', '')
                             }
                     csv_data.append(data)
+
         # Generate CSV attachment and send it with response
         timestamp = current_tz.localize(datetime.datetime.utcnow())
 
@@ -1017,6 +1018,25 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         if csv_data:
             writer.writerows(csv_data)
         return response
+
+    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, get_current):
+        if get_current is False:
+            qs = models.Observation.objects.filter(source__subjectsource__subject=subject,
+                                                             exclusion_flags=filter_flag,
+                                                             recorded_at__range=[lower, upper],
+                                                             source__subjectsource__assigned_range__contains=F(
+                                                                 'recorded_at')) \
+                .annotate(subjectsource_additional=F('source__subjectsource__additional'),
+                          collar_id=F('source__manufacturer_id')).values()
+        else:
+            min_age_days = get_minimum_allowed_age(self.request.user) or 0
+            qs = models.SubjectStatus.objects.filter(subject=subject,
+                                                           # subject__subjectsource__assigned_range__contains=F('recorded_at'),
+                                                           delay_hours=min_age_days * 24) \
+                .annotate(subjectsource_additional=F('subject__subjectsource__additional'),
+                          collar_id=F('subject__subjectsource__source__manufacturer_id')).values()
+
+        return qs
 
 
 class TrackingMetaDataExportView(generics.RetrieveAPIView):
@@ -1039,7 +1059,19 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                    'data_stops_reason', 'collar_status', 'collar_model',
                    'has_acc_data', 'data_owners', 'region', 'country']
 
-        for subject in self.get_queryset():
+        sources = self.get_queryset()
+        sources = sources.annotate(ss=FilteredRelation('subjectsource', condition=Q(subjectsource__assigned_range__contains=datetime.datetime.utcnow())))\
+                    .annotate(subjectsource_additional=F('ss__additional'))\
+                    .annotate(source_model_name=F('ss__source__model_name'))\
+                    .annotate(source_manufacturer_id=F('ss__source__manufacturer_id'))\
+                    .annotate(subjectsource_assigned_range=F('ss__assigned_range'))\
+                    .annotate(source_additional=F('ss__source__additional'))
+
+        for subject in sources:
+            subject.subjectsource_additional = {} if subject.subjectsource_additional is None \
+                else subject.subjectsource_additional
+            #subject.source_additional = {} if subject.source_additional is None \
+            #    else subject.source_additional
             source_details = {}
             try:
                 # Collect Subject details.
@@ -1051,53 +1083,57 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                     'region': subject.additional.get('region', ''),
                     'country': subject.additional.get('country', '')})
 
-                if subject.source:
+                if subject.source_additional is not None:
                     # Collect Source details.
 
                     # TODO: Validate this assumption that the "first" record is
                     # the right one.
-                    subject_source = models.SubjectSource.objects. \
-                        get_subject_source(subject, subject.source.id).first()
-                    lower = subject_source.safe_assigned_range.lower
-                    upper = subject_source.safe_assigned_range.upper
-                    if format != 'json':
-                        lower = lower.astimezone(current_tz)
-                        upper = upper.astimezone(current_tz)
+                    # subject_source = models.SubjectSource.objects. \
+                    #     get_subject_source(subject, subject.source.id).first()
+                    #subject_source.additional = {} if subject_source.additional is None else subject_source.additional
+                    lower = subject.subjectsource_assigned_range.lower
+                    upper = subject.subjectsource_assigned_range.upper
+                    try:
+                        if format != 'json':
+                            lower = lower.astimezone(current_tz) if lower != datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=pytz.utc) else lower
+                            upper = upper.astimezone(current_tz) if upper != datetime.datetime(datetime.MAXYEAR, 12, 31, tzinfo=pytz.utc)else upper
+                    except:
+                        pass
                     source_details.update({
-                        'chronofile': subject_source.additional.get(
-                            'chronofile', ''),
-                        'collar_type': subject.source.model_name,
-                        'collar_id': subject.source.manufacturer_id,
-                        'active': subject.source.additional.get('active', ''),
-                        'frequency': subject.source.additional.get(
+                        'chronofile': subject.subjectsource_additional.get(
+                            'chronofile', None),
+                        'collar_type': subject.source_model_name,
+                        'collar_id': subject.source_manufacturer_id,
+                        'active': subject.source_additional.get('active', ''),
+                        'frequency': subject.source_additional.get(
                             'frequency', ''),
-                        'animal_id': subject.source.additional.get(
+                        'animal_id': subject.source_additional.get(
                             'tm_animal_id', ''),
                         data_starts: lower.strftime('%m/%d/%Y %H:%M:%S') if format != 'json' else lower.isoformat(),
                         data_stops: upper.strftime('%m/%d/%Y %H:%M:%S') if format != 'json' else upper.isoformat(),
-                        'comments': subject_source.additional.get(
+                        'comments': subject.subjectsource_additional.get(
                             'comments', ''),
                         'predicted_expiry':
-                            subject.source.additional.get(
+                            subject.source_additional.get(
                                 'predicted_expiry', ''),
-                        'data_status': subject_source.additional.get(
+                        'data_status': subject.subjectsource_additional.get(
                             'data_status', ''),
                         'data_starts_source':
-                            subject_source.additional.get(
+                            subject.subjectsource_additional.get(
                                 'data_starts_source', ''),
                         'data_stops_source':
-                            subject_source.additional.get(
+                            subject.subjectsource_additional.get(
                                 'data_stops_source', ''),
                         'data_stops_reason':
-                            subject_source.additional.get(
+                            subject.subjectsource_additional.get(
                                 'data_stops_reason', ''),
                         'collar_status':
-                            subject.source.additional.get('collar_status', ''),
-                        'collar_model': subject.source.additional.get(
+                            subject.source_additional.get('collar_status', ''),
+                        'collar_model': subject.source_additional.get(
                             'collar_model', ''),
-                        'has_acc_data': subject.source.additional.get(
+                        'has_acc_data': subject.source_additional.get(
                             'has_acc_data', ''),
-                        'data_owners': subject.source.additional.get(
+                        'data_owners': subject.source_additional.get(
                             'data_owners', '')
                     })
             except Exception as error:
