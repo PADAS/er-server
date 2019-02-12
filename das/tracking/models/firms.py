@@ -196,6 +196,7 @@ class FirmsClient:
                                                                               'status_code': data.status_code})
         return [], None
 
+
     @staticmethod
     def generate_records(lines):
 
