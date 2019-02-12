@@ -880,8 +880,8 @@ class TestEventView(BaseAPITest):
             template_name='event_export_template.html')(request)
 
     def test_export_csv(self):
-        event = self.create_event(self.event_data_with_notes)
-        carcass_data = json.loads("""{"event_details":{"sectionArea":["bbbe77a9-f829-47dd-8a6f-bca76920f706","957a8bfa-ad0d-4b94-bc86-983cab105910"],"team":[],"conservancy":"346f5449-52b0-4b52-9d10-b44b8aa313a6","beginning_of_incident":"2017-10-13 12:00","end_of_incident":"2017-10-14 12:00","details":"interesting details","results_and_findings":"very interesting results and findings","species":"ad26adde-1261-4133-8d3f-a22d12ceae1f","sex":"Male","causeOfDeath":"ab468ffc-9745-4c71-a19d-c34b8c9c3b18"},"event_type":"carcass_rep","priority":200,"title":"Carcass","location":{"latitude":47.65636923655089,"longitude":-122.30770111083983}}""")
+        carcass_data = json.loads("""{"event_type":"carcass_rep","priority":200,"event_details":{"carcassrep_species":"elephant","carcassrep_sex":"male","carcassrep_ageofanimal":"adult","carcassrep_ageofcarcass":"fresh","carcassrep_trophystatus":"intact","carcassrep_causeofdeath":"naturaldisease"},"location":{"latitude":"0.28118","longitude":"37.38544"}}""")
+
         request = self.factory.post(self.api_base + '/events/', carcass_data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
@@ -898,6 +898,7 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue('Priority' in response.rendered_content)
         self.assertTrue('Notes' in response.rendered_content)
+        self.assertTrue('carcassrep_species' in response.rendered_content)
         self.assertTrue(self.notes_line2_prefix in response.rendered_content)
 
     def test_export_csv_with_filter(self):

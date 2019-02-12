@@ -324,8 +324,11 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                             current_event_type_data['headers'].append(
                                 self.escape_string(display_value))
 
+                            if key not in custom_headers:
+                                custom_headers.append(key)
                             if display_value not in custom_headers:
                                 custom_headers.append(display_value)
+
                 except json.JSONDecodeError:
                     # Event type does not have schema, which is weird but not
                     # _technically_ invalid
@@ -343,9 +346,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             for key, order in current_schema_order.items():
                 item_display_name = schema_utils.get_display_value_header_for_key(
                     current_schema, key)
-                # schema_data[key] = self.escape_string(details.get(key, ''))
-                # schema_data[item_display_name] = self.escape_string(
-                #     details.get(item_display_name, ''))
+                schema_data[key] = details.get(key, '')
                 schema_data[item_display_name] = details.get(item_display_name, '')
 
             parent_event = Event.objects.filter(
