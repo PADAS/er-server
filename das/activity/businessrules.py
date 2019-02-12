@@ -7,7 +7,7 @@ from django.utils.dateparse import parse_duration
 from datetime import datetime, timedelta
 import pytz
 
-from typing import NamedTuple, Callable, Dict
+from typing import NamedTuple, Callable, Dict, Any
 
 import logging
 
@@ -64,11 +64,11 @@ class EventActions(actions.BaseActions):
         print(f'Sending alert for event {self.event} to recipient {recipient}.')
 
 
-# class SchemaAttribute(NamedTuple):
-#     key: str
-#     func: Callable
-#     title: str
-#     options: list
+class SchemaAttribute(NamedTuple):
+    key: str
+    return_type: Any
+    title: str
+    options: list
 
 
 class Schedule:
@@ -134,12 +134,19 @@ def create_new_func(key, return_type, label=None, optionslist=None):
     :return: A getter function that's decorated with an appropriate business-rules @variables decorator.
     '''
     label = label or key.replace('_', ' ').title()
+
+    if return_type == 'select':
+
+        # For a multi-select option we return the Event's value as a member of a list.
+        def f(self):
+            return [self.event.details.get(key),]
+
+        # Assume 'select_multiple'
+        return variables.select_multiple_rule_variable(label, options=optionslist)(f)
+
     def f(self):
         return self.event.details.get(key)
 
-    if return_type == 'select':
-        # Assume 'select_multiple'
-        return variables.select_multiple_rule_variable(label, options=optionslist)(f)
     if return_type == str:
         return variables.string_rule_variable(label)(f)
     elif return_type in (int, float):
@@ -194,11 +201,12 @@ def generate_global_event_variables(event_types):
         # Create an attributes list derived from schema and suitable for creating a Variables class.
         for k, v in rendered_schema['properties'].items():
 
-            # Derive key from Event-Type and name.
-            key = f'{event_type.value}__{k}'
+            rule_return_type = translate_schema_type_to_type(v)
+            if k in attributes_accumulator:
+                print(f'Accumulator already has a {k} member. returning {rule_return_type}')
+            attributes_accumulator.setdefault(k, (k, rule_return_type, v.get('title', k), genoptions(v)))
 
-            attributes_accumulator.setdefault(key, (key, translate_schema_type_to_type(v), v.get('title', k), genoptions(v)))
-            applies_to_map.setdefault(key, event_type.value)
+            applies_to_map.setdefault(k, []).append(event_type.value)
 
     attrs = dict((attr, create_new_func(attr, attrtype, label=label, optionslist=optionslist))
                   for attr, attrtype, label, optionslist in attributes_accumulator.values())
@@ -208,7 +216,7 @@ def generate_global_event_variables(event_types):
     return type(classname, (EventVariables,), attrs), applies_to_map
 
 
-def render_global_eventvariables(event_types):
+def render_aggregate_eventvariables(event_types):
 
     variables_class, applies_to_map = generate_global_event_variables(event_types)
 
@@ -219,8 +227,7 @@ def render_global_eventvariables(event_types):
         item['exclusive_to'] = applies_to_map.get(item['name'], None)
 
         if item['field_type'] not in ('select', 'select_multiple'):
-            del item['options']
-
+            del item['options']  # Prune options attribute from non-select items.
     return rules
 
 

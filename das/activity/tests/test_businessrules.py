@@ -107,7 +107,7 @@ class BusinessRulesTestCase(TestCase):
             },
         ]
 
-        for event in (Event('new', 200, 'bar'), Event('active', 0)):#, Event('active', 0), Event('active', 200)):
+        for event in (Event('new', 200, 'bar'), Event('active', 0)):
             run_all(rule_list=sample_rules,
                     defined_variables=TestEventVariables(event),
                     defined_actions=TestEventActions(event),
@@ -119,7 +119,7 @@ class BusinessRulesTestCase(TestCase):
 
         snare_et = EventType.objects.get(value='snare_rep')
         variables_class, applies_to = generate_global_event_variables([snare_et,])
-        exported_rule_data = export_rule_data(variables_class, EventActions)
+        # exported_rule_data = export_rule_data(variables_class, EventActions)
         # print(json.dumps(exported_rule_data, indent=2))
 
         sample_rules = [

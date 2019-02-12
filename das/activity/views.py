@@ -21,18 +21,23 @@ import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
 
+
 from activity.models import Event, EventNote, EventClass,\
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community,\
-    EventFilter, EventSource, EventProvider, AlertRule
+    EventFilter, EventSource, EventProvider, AlertRule, NotificationMethod
+
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
     EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer, \
-    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, AlertRuleSerializer
+    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, AlertRuleSerializer, \
+    NotificationMethodSerializer
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
+from activity.businessrules import render_aggregate_eventvariables
+
 from rest_framework.permissions import IsAuthenticated
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool, loads
@@ -901,7 +906,7 @@ class EventAlertTargetsListView(generics.ListAPIView):
         return accounts.models.User.objects.none()
 
 
-from activity.businessrules import render_global_eventvariables
+# Views for Advanced Alert Functionality.
 class EventAlertConditionsListView(generics.ListAPIView):
 
     permission_classes = (EventCategoryPermissions,)
@@ -919,16 +924,72 @@ class EventAlertConditionsListView(generics.ListAPIView):
 
     def get(self, *args, **kwargs):
 
-        rules = render_global_eventvariables(self.get_queryset())
+        rules = render_aggregate_eventvariables(self.get_queryset())
 
         return response.Response(rules, status=status.HTTP_200_OK)
 
-class EventAlertRulesListView(generics.ListCreateAPIView):
+
+class AlertRuleListView(generics.ListCreateAPIView):
 
     permission_classes = (IsOwner,)
-
     serializer_class = AlertRuleSerializer
+
+    def get_queryset(self):
+        return AlertRule.objects.filter(owner=self.request.user).order_by('ordernum', 'display')
+
+    def post(self, request, *args, **kwargs):
+        request.data['owner'] = self.request.user
+        return super().post(request, *args, **kwargs)
+
+
+class AlertRuleView(generics.RetrieveUpdateDestroyAPIView):
+
+    permission_class = (IsOwner,)
+    serializer_class = AlertRuleSerializer
+    pagination_class = StandardResultsSetPagination
 
     queryset = AlertRule.objects.all()
 
+    lookup_field = 'id'
 
+    def get_queryset(self):
+        return AlertRule.objects.filter(owner=self.request.user)
+
+    def get(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if obj:
+            self.check_object_permissions(self.request, obj)
+        return super().get(request, *args, **kwargs)
+
+
+class NotificationMethodListView(generics.ListCreateAPIView):
+
+    permission_classes = (IsOwner,)
+    serializer_class = NotificationMethodSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        return NotificationMethod.objects.filter(owner=self.request.user).order_by('method')
+
+    def post(self, request, *args, **kwargs):
+        request.data['owner'] = self.request.user
+        return super().post(request, *args, **kwargs)
+
+
+class NotificationMethodView(generics.RetrieveUpdateDestroyAPIView):
+
+    permission_class = (IsOwner,)
+    serializer_class = NotificationMethodSerializer
+
+    queryset = NotificationMethod.objects.all()
+
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        return NotificationMethod.objects.filter(owner=self.request.user)
+
+    def get(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if obj:
+            self.check_object_permissions(self.request, obj)
+        return super().get(request, *args, **kwargs)

@@ -244,6 +244,6 @@ class AlertRuleAdmin(admin.ModelAdmin):
 class NotificationMethodAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
 
-@admin.register(models.AlertRuleNotificationMethod)
-class AlertRuleNotificationMethodAdmin(admin.ModelAdmin):
-    readonly_fields = ('id',)
+# @admin.register(models.AlertRuleNotificationMethod)
+# class AlertRuleNotificationMethodAdmin(admin.ModelAdmin):
+#     readonly_fields = ('id',)

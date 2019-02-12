@@ -1433,8 +1433,45 @@ class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
         return rep
 
 
+class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        fields = '__all__'
+        model = activity.models.NotificationMethod
+        read_only_fields = ('id', 'owner',)
+
+
 class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
 
+    notification_method_ids = rest_framework.serializers.PrimaryKeyRelatedField(
+        queryset=activity.models.NotificationMethod.objects.all(),
+        many=True, write_only=True)
+
+    notification_methods = NotificationMethodSerializer(many=True, read_only=True)
+
     class Meta:
+        fields = '__all__'
         model = activity.models.AlertRule
-        read_only_Fields = ('id',)
+        read_only_fields = ('id', 'owner', 'notification_methods',)
+
+    def to_representation(self, instance):
+
+        rep = super().to_representation(instance)
+
+        rep['url'] = utils.add_base_url(self.context['request'],
+                                        reverse('alert-view',
+                                                args=[instance.id, ]))
+
+        return rep
+
+    def update(self, instance, validated_data):
+
+        notification_method_ids = validated_data.pop('notification_method_ids', None)
+
+        if notification_method_ids:
+            instance.notification_methods.clear()
+            instance.notification_methods.add(*notification_method_ids)
+
+        return super().update(instance, validated_data)
+
+
+
