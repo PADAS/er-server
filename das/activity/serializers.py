@@ -11,6 +11,7 @@ from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
 from django.urls import reverse
 from django.core.exceptions import PermissionDenied
+from django.core.validators import EmailValidator, RegexValidator
 from django.contrib.auth import get_user_model
 from django.http import Http404
 import django.db
@@ -50,6 +51,7 @@ from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 import utils.schema_utils as schema_utils
 from activity.models import EventRelationship
 import usercontent.serializers
+
 
 
 logger = logging.getLogger(__name__)
@@ -1432,6 +1434,7 @@ class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
 
         return rep
 
+PHONE_NUMBER_VALIDATOR = RegexValidator(regex=r'^\+?1?[-\d]{9,15}$', message="Not a valid phone number.")
 
 class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
 
@@ -1451,6 +1454,20 @@ class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
                                                 args=[instance.id, ]))
         return rep
 
+    def validate(self, attrs):
+
+        if attrs['method'] == 'sms':
+            try:
+                PHONE_NUMBER_VALIDATOR(attrs['value'])
+            except django.core.exceptions.ValidationError:
+                raise ValidationError({'value': 'Must be a valid phone number when using method=\'sms\''})
+        elif attrs['method'] == 'email':
+            try:
+                EmailValidator()(attrs['value'])
+            except django.core.exceptions.ValidationError:
+                raise ValidationError({'value': 'Must be a valid email address when using method=\'email\''})
+
+        return super().validate(attrs)
 
 class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
 
