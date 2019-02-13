@@ -201,7 +201,7 @@ class FirmsClient:
 
         for s in lines:
             # Skip header
-            if s.startswith('latitude'):
+            if s.startswith('latitude') or not s:
                 continue
             vals = [f(v) for f, v in zip(field_transform, s.split(','))]
             rec = dict(list(zip(field_names, vals)))
