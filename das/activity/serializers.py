@@ -1434,10 +1434,22 @@ class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
 
 
 class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
+
+    owner = rest_framework.serializers.ReadOnlyField(source='owner.username')
+
     class Meta:
         fields = '__all__'
         model = activity.models.NotificationMethod
         read_only_fields = ('id', 'owner',)
+
+    def to_representation(self, instance):
+
+        rep = super().to_representation(instance)
+
+        rep['url'] = utils.add_base_url(self.context['request'],
+                                        reverse('notificationmethod-view',
+                                                args=[instance.id, ]))
+        return rep
 
 
 class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
@@ -1455,6 +1467,8 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
 
     conditions = rest_framework.serializers.JSONField()
     schedule = rest_framework.serializers.JSONField()
+
+    owner = rest_framework.serializers.ReadOnlyField(source='owner.username')
 
     class Meta:
         fields = '__all__'

@@ -939,9 +939,8 @@ class AlertRuleListView(generics.ListCreateAPIView):
     def get_queryset(self):
         return AlertRule.objects.filter(owner=self.request.user).order_by('ordernum', 'display')
 
-    def post(self, request, *args, **kwargs):
-        request.data['owner'] = self.request.user
-        return super().post(request, *args, **kwargs)
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 
 class AlertRuleView(generics.RetrieveUpdateDestroyAPIView):
@@ -973,10 +972,8 @@ class NotificationMethodListView(generics.ListCreateAPIView):
     def get_queryset(self):
         return NotificationMethod.objects.filter(owner=self.request.user).order_by('method')
 
-    def post(self, request, *args, **kwargs):
-        request.data['owner'] = self.request.user
-        return super().post(request, *args, **kwargs)
-
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 class NotificationMethodView(generics.RetrieveUpdateDestroyAPIView):
 
