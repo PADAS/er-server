@@ -772,7 +772,7 @@ class KmlSubjectsView(generics.GenericAPIView):
 
         subject_list = [{'name': subject['name'],
                          'species': self.get_display_subtype(subject.get('subject_subtype')),
-                         'region': subject.get('additional').get('region', DEFAULT_REGION_NAME),
+                         'region': subject.get('additional').get('region') if isinstance(subject.get('additional').get('region'), str) else DEFAULT_REGION_NAME,
                          'visibility': 0,
                          'href': self.build_link_for_subject(subject)
                          } for subject in subjects
