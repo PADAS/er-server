@@ -1446,7 +1446,15 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
         queryset=activity.models.NotificationMethod.objects.all(),
         many=True, write_only=True)
 
+    event_types = rest_framework.serializers.SlugRelatedField(
+        queryset=activity.models.EventType.objects.all(),
+        many=True, write_only=False,
+        slug_field='value')
+
     notification_methods = NotificationMethodSerializer(many=True, read_only=True)
+
+    conditions = rest_framework.serializers.JSONField()
+    schedule = rest_framework.serializers.JSONField()
 
     class Meta:
         fields = '__all__'

@@ -204,7 +204,7 @@ def generate_global_event_variables(event_types, only_common_factors=False):
         rendered_schema = schema_utils.get_rendered_schema(event_type.schema)
         keyset = set(rendered_schema['properties'].keys())
         keyset_list.append(keyset)
-        print(f'Report type: {event_type.value} - Adding keyset: {keyset}')
+        logger.debug('event_type: %s - Adding keyset: %s', event_type.value, keyset)
 
         # Accumulate rendered schema properties in a dict.
         schema_properties_map[event_type.value] = rendered_schema.get('properties', {})
@@ -213,7 +213,7 @@ def generate_global_event_variables(event_types, only_common_factors=False):
     # Determine intersection of keys.
     if only_common_factors:
         keyset_intersection = set.intersection(*keyset_list)
-        print(f'Keyset intersection: {keyset_intersection}')
+        logger.debug('Keyset intersection: %s', keyset_intersection)
 
 
 
@@ -228,8 +228,6 @@ def generate_global_event_variables(event_types, only_common_factors=False):
                 continue
 
             rule_return_type = translate_schema_type_to_type(v)
-            if k in attributes_accumulator:
-                print(f'Accumulator already has a {k} member. returning {rule_return_type}')
 
             newattr = RuleVariableSpec(attrname=k, return_type=rule_return_type,
                                        label=v.get('title', k), optionslist=genoptions(v))
@@ -248,14 +246,14 @@ def generate_global_event_variables(event_types, only_common_factors=False):
     attrs = dict((x.attrname, create_new_func(x.attrname, x.return_type, label=x.label, optionslist=x.optionslist))
               for x in attributes_accumulator.values())
 
-    # Add select variable for event-type
-    event_type_options = [{'name': et.value, 'label': et.display} for et in event_types]
-
-    def event_type_getter(self):
-        return [self.event.event_type.value,]
-
-    attrs['event_type'] = variables.select_multiple_rule_variable(label=_('Report Type'),
-                                                                  options=event_type_options)(event_type_getter)
+    # # Add select variable for event-type
+    # event_type_options = [{'name': et.value, 'label': et.display} for et in event_types]
+    #
+    # def event_type_getter(self):
+    #     return [self.event.event_type.value,]
+    #
+    # attrs['event_type'] = variables.select_multiple_rule_variable(label=_('Report Type'),
+    #                                                               options=event_type_options)(event_type_getter)
 
 
     # Invent a class name

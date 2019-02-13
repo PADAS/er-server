@@ -1248,12 +1248,13 @@ class AlertRule(TimestampedModel):
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True, default=0)
 
-    definition = JSONField(default=dict, blank=True)
+    conditions = JSONField(default=dict, blank=True)
     schedule = JSONField(default=dict, blank=True)
 
     notification_methods = models.ManyToManyField(NotificationMethod, related_name='alert_rules',
                                                   related_query_name='alert_rule',)
-                                                  # through='AlertRuleNotificationMethod')
+
+    event_types = models.ManyToManyField(EventType, related_name='alert_rules', related_query_name='alert_rule',)
 
     is_active = models.BooleanField(default=True,)
 
