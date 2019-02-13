@@ -158,7 +158,14 @@ class BusinessRulesTestCase(TestCase):
 
     def test_generate_global_eventvariables(self):
 
-        variables_class, _ = generate_global_event_variables(EventType.objects.all())
+        variables_class, _ = generate_global_event_variables(EventType.objects.all(), only_common_factors=True)
+
+        exported_rule_data = export_rule_data(variables_class, EventActions)
+        print(json.dumps(exported_rule_data, indent=2))
+
+    def test_filtered_eventvariables(self):
+
+        variables_class, _ = generate_global_event_variables(EventType.objects.filter(value__in=['sit_rep', 'fence_rep']))
 
         exported_rule_data = export_rule_data(variables_class, EventActions)
         print(json.dumps(exported_rule_data, indent=2))

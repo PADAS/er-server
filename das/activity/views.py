@@ -924,7 +924,8 @@ class EventAlertConditionsListView(generics.ListAPIView):
 
     def get(self, *args, **kwargs):
 
-        rules = render_aggregate_eventvariables(self.get_queryset())
+        only_common_factors = parse_bool(self.request.query_params.get('only_common_factors', False))
+        rules = render_aggregate_eventvariables(self.get_queryset(), only_common_factors=only_common_factors)
 
         return response.Response(rules, status=status.HTTP_200_OK)
 

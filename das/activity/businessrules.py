@@ -3,6 +3,7 @@ import json
 from business_rules import actions, engine, fields, operators, variables, export_rule_data
 
 from django.utils.dateparse import parse_duration
+from django.utils.translation import ugettext as _
 
 from datetime import datetime, timedelta
 import pytz
@@ -41,15 +42,15 @@ class EventVariables(variables.BaseVariables):
     def __init__(self, event):
         self.event = event
 
-    @variables.select_multiple_rule_variable(label='Priority', options=priority_options)
+    @variables.select_multiple_rule_variable(label=_('Priority'), options=priority_options)
     def priority(self):
         return [str(self.event.priority),]
 
-    @variables.select_multiple_rule_variable(label='State', options=state_options)
+    @variables.select_multiple_rule_variable(label=_('State'), options=state_options)
     def state(self):
         return [self.event.state,]
 
-    @variables.select_multiple_rule_variable(label='State Change', options=state_change_options)
+    @variables.select_multiple_rule_variable(label=_('State Change'), options=state_change_options)
     def state_change(self):
         return [getattr(self.event, 'state_change', None),]
 
@@ -64,11 +65,11 @@ class EventActions(actions.BaseActions):
         print(f'Sending alert for event {self.event} to recipient {recipient}.')
 
 
-class SchemaAttribute(NamedTuple):
-    key: str
+class RuleVariableSpec(NamedTuple):
+    attrname: str
     return_type: Any
-    title: str
-    options: list
+    label: str
+    optionslist: list
 
 
 class Schedule:
@@ -142,6 +143,8 @@ def create_new_func(key, return_type, label=None, optionslist=None):
             return [self.event.details.get(key),]
 
         # Assume 'select_multiple'
+
+        optionslist = sorted(optionslist, key=lambda x: x['label'])
         return variables.select_multiple_rule_variable(label, options=optionslist)(f)
 
     def f(self):
@@ -185,40 +188,85 @@ def genoptions(schema_option):
     return []
 
 
-def generate_global_event_variables(event_types):
+def generate_global_event_variables(event_types, only_common_factors=False):
     '''
     From a list of EventTypes, generate an EventVariables class adhering to Venmo business rules interface.
     :param event_type: A DAS EventType object that has a valid schema.
     :return: A `Variables` type to be used with Venmo business-rules package.
     '''
 
-    applies_to_map = {}
-    attributes_accumulator = {}
-    # Render the EventType's schema.
+    schema_properties_map = {}
+
+    # Reduce schemas to common properties
+    keyset_list = []
     for event_type in event_types:
+
         rendered_schema = schema_utils.get_rendered_schema(event_type.schema)
+        keyset = set(rendered_schema['properties'].keys())
+        keyset_list.append(keyset)
+        print(f'Report type: {event_type.value} - Adding keyset: {keyset}')
+
+        # Accumulate rendered schema properties in a dict.
+        schema_properties_map[event_type.value] = rendered_schema.get('properties', {})
+
+
+    # Determine intersection of keys.
+    if only_common_factors:
+        keyset_intersection = set.intersection(*keyset_list)
+        print(f'Keyset intersection: {keyset_intersection}')
+
+
+
+    attributes_accumulator = {}
+    applies_to_map = {}
+    for event_type_value, schema_properties in schema_properties_map.items():
 
         # Create an attributes list derived from schema and suitable for creating a Variables class.
-        for k, v in rendered_schema['properties'].items():
+        for k, v in schema_properties.items():
+
+            if only_common_factors and k not in keyset_intersection:
+                continue
 
             rule_return_type = translate_schema_type_to_type(v)
             if k in attributes_accumulator:
                 print(f'Accumulator already has a {k} member. returning {rule_return_type}')
-            attributes_accumulator.setdefault(k, (k, rule_return_type, v.get('title', k), genoptions(v)))
 
-            applies_to_map.setdefault(k, []).append(event_type.value)
+            newattr = RuleVariableSpec(attrname=k, return_type=rule_return_type,
+                                       label=v.get('title', k), optionslist=genoptions(v))
 
-    attrs = dict((attr, create_new_func(attr, attrtype, label=label, optionslist=optionslist))
-                  for attr, attrtype, label, optionslist in attributes_accumulator.values())
+            attr = attributes_accumulator.get(k, None)
+            if attr:
+                if attr.return_type == newattr.return_type:
+                    attr.optionslist.extend(genoptions(v))
+                else:
+                    logger.warning('Name collision on %s with different return types.', k)
+            else:
+                attributes_accumulator[k] = newattr
 
-    # Invent a class name.
+            applies_to_map.setdefault(k, []).append(event_type_value)
+
+    attrs = dict((x.attrname, create_new_func(x.attrname, x.return_type, label=x.label, optionslist=x.optionslist))
+              for x in attributes_accumulator.values())
+
+    # Add select variable for event-type
+    event_type_options = [{'name': et.value, 'label': et.display} for et in event_types]
+
+    def event_type_getter(self):
+        return [self.event.event_type.value,]
+
+    attrs['event_type'] = variables.select_multiple_rule_variable(label=_('Report Type'),
+                                                                  options=event_type_options)(event_type_getter)
+
+
+    # Invent a class name
     classname = 'GlobalEventVariables'
     return type(classname, (EventVariables,), attrs), applies_to_map
 
 
-def render_aggregate_eventvariables(event_types):
+def render_aggregate_eventvariables(event_types, only_common_factors=False):
 
-    variables_class, applies_to_map = generate_global_event_variables(event_types)
+    variables_class, applies_to_map = generate_global_event_variables(event_types,
+                                                                      only_common_factors=only_common_factors)
 
     rules = export_rule_data(variables_class, EventActions)
 
