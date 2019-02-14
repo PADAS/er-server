@@ -560,3 +560,31 @@ class TractVehicleHandler():
         status_ok = {'status': 200, 'message': 'success'}
 
         return Response(data=status_ok, status=status.HTTP_200_OK)
+
+
+class SigFoxCallback(serializers.Serializer):
+    location = serializers.DictField()
+    recorded_at = serializers.DateTimeField()
+    manufacturer_id = serializers.CharField()
+
+
+class SigFoxPushHandler():
+
+    SENSOR_TYPE = 'animal-tracking-sf'
+    DEFAULT_SOURCE_TYPE = 'tracking-device'
+
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+
+        params = SigFoxCallback(data=request.data)
+
+        if params.is_valid():
+            logger.debug("Recieved new push message %s", request.data)
+            logger.debug("Params extracted %s", params)
+
+        status_ok = {'status': 200, 'message': 'success'}
+
+        return Response(data=status_ok, status=status.HTTP_200_OK)
+
+
+
