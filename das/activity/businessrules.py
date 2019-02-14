@@ -1,5 +1,7 @@
-from utils import schema_utils
+import inspect
 import json
+
+from utils import schema_utils
 from business_rules import actions, engine, fields, operators, variables, export_rule_data
 
 from django.utils.dateparse import parse_duration
@@ -13,6 +15,7 @@ from typing import NamedTuple, Callable, Dict, Any
 import logging
 
 from activity.models import EventType, Event
+from activity.variables import custom_select_multiple_rule_variable
 
 # Use string value of priority as value (ex. '0') to satisfy rules engine.
 priority_options = [dict(name=str(x), label=y) for x, y in Event.PRIORITY_CHOICES]
@@ -123,6 +126,62 @@ class Schedule:
         for period in periods:
             start, end = (parse_duration(f'{x}:00') for x in period)
             yield (start.seconds, end.seconds)
+
+whitelist_operators_map = {
+    fields.FIELD_NUMERIC: {
+        'equal_to': '=',
+        'greater_than': '>',
+        'less_than': '<',
+        'greater_than_or_equal_to': '>=',
+        'less_than_or_equal_to': '<=',
+    },
+
+    fields.FIELD_SELECT_MULTIPLE: {
+        'shares_at_least_one_element_with': 'Is One Of',
+        'shares_no_elements_with': 'Is Not One Of'
+    },
+
+    'string': {
+        'contains': 'Includes',
+        'non_empty': 'Is Not Empty',
+    }
+}
+
+def whitelist_operators(vtypename, operators):
+
+    wtype = whitelist_operators_map.get(vtypename)
+    if wtype:
+        for operator in operators:
+            label = wtype.get(operator['name'])
+            if label:
+                operator['label'] = label
+                print(f'For {vtypename} mapped {operator["name"]} to {label}')
+                yield operator
+    else:
+        yield from operators
+
+# def export_rule_data(variables, actions):
+#     """ export_rule_data is used to export all information about the
+#     variables, actions, and operators to the client. This will return a
+#     dictionary with three keys:
+#     - variables: a list of all available variables along with their label, type and options
+#     - actions: a list of all actions along with their label and params
+#     - variable_type_operators: a dictionary of all field_types -> list of available operators
+#     """
+#     from business_rules import operators
+#     actions_data = actions.get_all_actions()
+#     variables_data = variables.get_all_variables()
+#     variable_type_operators = {}
+#     for variable_class in inspect.getmembers(operators, lambda x: getattr(x, 'export_in_rule_data', False)):
+#         variable_type = variable_class[1] # getmembers returns (name, value)
+#
+#         replacement_operator_list = list(whitelist_operators(variable_type.name,
+#                                  variable_type.get_all_operators()))
+#         variable_type_operators[variable_type.name] = replacement_operator_list
+#
+#     return {"variables": variables_data,
+#             "actions": actions_data,
+#             "variable_type_operators": variable_type_operators}
 
 
 def create_new_func(key, return_type, label=None, optionslist=None):
@@ -261,6 +320,7 @@ def generate_global_event_variables(event_types, only_common_factors=False):
     return type(classname, (EventVariables,), attrs), applies_to_map
 
 
+PRUNE_OPTIONS_FROM = (fields.FIELD_TEXT, fields.FIELD_NO_INPUT, fields.FIELD_NUMERIC,)
 def render_aggregate_eventvariables(event_types, only_common_factors=False):
 
     variables_class, applies_to_map = generate_global_event_variables(event_types,
@@ -268,12 +328,18 @@ def render_aggregate_eventvariables(event_types, only_common_factors=False):
 
     rules = export_rule_data(variables_class, EventActions)
 
+    replacement_operators = {}
+    for k, v in rules['variable_type_operators'].items():
+        replacement_operators[k] = whitelist_operators(k, v)
+
+    rules['variable_type_operators'] = replacement_operators
+
     # Annotate conditions with event-type information, and nudge operators into the place where the UI wants them.
     for item in rules['variables']:
         item['exclusive_to'] = applies_to_map.get(item['name'], None)
 
-        if item['field_type'] not in ('select', 'select_multiple'):
-            del item['options']  # Prune options attribute from non-select items.
+        if item['field_type'] in PRUNE_OPTIONS_FROM:
+            del item['options']
     return rules
 
 
