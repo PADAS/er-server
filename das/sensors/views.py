@@ -52,7 +52,7 @@ class SensorObservation(generics.GenericAPIView):
             return FollowltTrackerHandler.post(request, sensor_type=sensor_type,
                                                provider_key=provider_key)
 
-        elif sensor_type == FollowltTrackerHandler.SENSOR_TYPE:
+        elif sensor_type == SigFoxPushHandler.SENSOR_TYPE:
             return SigFoxPushHandler.post(request, sensor_type=sensor_type,
                                                provider_key=provider_key)
 
