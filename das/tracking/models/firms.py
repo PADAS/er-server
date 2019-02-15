@@ -203,13 +203,17 @@ class FirmsClient:
             # Skip header
             if s.startswith('latitude') or not s:
                 continue
-            vals = [f(v) for f, v in zip(field_transform, s.split(','))]
-            rec = dict(list(zip(field_names, vals)))
+            try:
+                vals = [f(v) for f, v in zip(field_transform, s.split(','))]
+            except ValueError as ve:
+                logger.error('Failed parsing FIRMS line "%s".', extra={'ValueError': ve})
+            else:
+                rec = dict(list(zip(field_names, vals)))
 
-            # FIRMS ftp data times are UTC.
-            rec['recorded_at'] = parse_date('{} {}'.format(
-                rec['acq_date'], rec['acq_time'])).replace(tzinfo=pytz.UTC)
-            yield rec
+                # FIRMS ftp data times are UTC.
+                rec['recorded_at'] = parse_date('{} {}'.format(
+                    rec['acq_date'], rec['acq_time'])).replace(tzinfo=pytz.UTC)
+                yield rec
 
 
 class FirmsPlugin(TrackingPlugin):
