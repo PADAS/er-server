@@ -563,14 +563,12 @@ class TractVehicleHandler():
 
 
 class SigFoxCallback(serializers.Serializer):
-    location = serializers.DictField()
-    recorded_at = serializers.DateTimeField()
-    manufacturer_id = serializers.CharField()
+    data = serializers.DictField()
 
 
 class SigFoxPushHandler():
 
-    SENSOR_TYPE = 'animal-tracking-sf'
+    SENSOR_TYPE = 'sf-animal-tracker'
     DEFAULT_SOURCE_TYPE = 'tracking-device'
 
     @classmethod
@@ -578,11 +576,15 @@ class SigFoxPushHandler():
 
         params = SigFoxCallback(data=request.data)
 
-        if params.is_valid():
-            logger.debug("Recieved new push message %s", request.data)
-            logger.debug("Params extracted %s", params)
+        logger.info("Sigfox observation %s",
+                        request.data, extra={'obs.new': request.data})
 
-        status_ok = {'status': 200, 'message': 'success'}
+        if not params.is_valid():
+            logger.debug("Params failed to be extracted %s", params.errors) 
+        else:
+            logger.debug("Params extracted %s", params)    
+
+        status_ok = {'status': 200, 'message': 'success', 'handler': 'sigfox-push'}
 
         return Response(data=status_ok, status=status.HTTP_200_OK)
 
