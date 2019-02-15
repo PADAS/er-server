@@ -8,7 +8,7 @@ from utils.json import JSONTextParser
 
 from utils.drf import AllowAnyGet
 from sensors.handlers import GsatHandler, GenericSensorHandler,\
-    DasRadioAgentHandler, SkylineVehicleTrackerHandler, FollowltTrackerHandler,  TractVehicleHandler
+    DasRadioAgentHandler, SkylineVehicleTrackerHandler, FollowltTrackerHandler,  TractVehicleHandler, SigFoxPushHandler
 from sensors.camera_trap import CameraTrapSensorHandler
 from observations.serializers import ObservationSerializer
 
@@ -50,6 +50,10 @@ class SensorObservation(generics.GenericAPIView):
 
         elif sensor_type == FollowltTrackerHandler.SENSOR_TYPE:
             return FollowltTrackerHandler.post(request, sensor_type=sensor_type,
+                                               provider_key=provider_key)
+
+        elif sensor_type == SigFoxPushHandler.SENSOR_TYPE:
+            return SigFoxPushHandler.post(request, sensor_type=sensor_type,
                                                provider_key=provider_key)
 
         else:
