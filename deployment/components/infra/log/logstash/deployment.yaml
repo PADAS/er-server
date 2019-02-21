@@ -29,6 +29,7 @@ spec:
             cpu: "50m"
         args:
         - --config.reload.automatic
+        - --log.level=warn
       volumes:
       - name: pipelines
         configMap:

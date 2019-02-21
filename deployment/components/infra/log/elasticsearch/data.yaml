@@ -46,6 +46,11 @@ spec:
           privileged: true
       containers:
       - name: elasticsearch-data
+        command:
+        - "/bin/sh"
+        args:
+        - "-c"
+        - "cp /tmp/elasticsearch/log4j2.properties /elasticsearch/config/log4j2.properties && chown elasticsearch:elasticsearch /elasticsearch/config/log4j2.properties && /run.sh"
         securityContext:
           privileged: true
           capabilities:
@@ -82,8 +87,14 @@ spec:
           name: transport
           protocol: TCP
         volumeMounts:
-        - mountPath: /usr/share/elasticsearch/data
-          name: elasticsearch-data
+        - name: elasticsearch-data
+          mountPath: /usr/share/elasticsearch/data
+        - name: "log4j-properties"
+          mountPath: "/tmp/elasticsearch"
+      volumes:
+        - name: "log4j-properties"
+          configMap:
+            name: "elasticsearch-logging-configmap"
   volumeClaimTemplates:
   - metadata:
       name: elasticsearch-data
