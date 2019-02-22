@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 def get_silent_sources():
 
     silent_sources = []
+    # we only want sources with "silence_notification_threshold" in its additional json
+    # then order by observation recorded and take first source giving us the latest observation for each source
     source_observations = Observation.objects\
         .filter(source__additional__silence_notification_threshold__isnull=False)\
         .order_by('source_id', '-recorded_at')\
@@ -29,6 +31,7 @@ def get_silent_sources():
         # now we have config lets check if it exceeded threshold
         if check_source_silent(silent_source_check_data, silent_source_alert_config):
             source_subject = Subject.objects.filter(subjectsource__source_id=obs.source_id, subjectsource__assigned_range__contains=obs.recorded_at).first()
+            #TODO do we need subject here?  It is nice to get the name for human readability, but it does add DB lookups
             silent_source_check_data['subject_name'] = source_subject.name
             logger.warning('Subject {0} has exceeded silent threshold of {1}, its last known observation is {2}'
                            .format(silent_source_check_data.get('subject_name'),
@@ -43,7 +46,7 @@ def get_silent_sources():
 # return the config for this provider's lag alert report
 def get_silent_source_alert_config(source):
     # hard coded for now, but could come from file, etc.
-    threshold = source.additional.get('silence_notification_threshold', '01:00:00')# default to an hour
+    threshold = source.additional.get('silence_notification_threshold', None)
     configured_lag_threshold = {
         'silence_notification_threshold': threshold,
         'site_name': settings.UI_SITE_NAME,
@@ -58,7 +61,7 @@ def check_source_silent(silent_source_check_data, silent_source_alert_config):
     threshold = silent_source_alert_config.get('silence_notification_threshold', None)
 
     if any( [threshold is None, len(threshold) == 0]):
-        return False  # TODO we don't have a configuration for this source and no default specified
+        return False  # TODO how did we get here? source should have only returned if threshold was configured
 
     # configured value is a string, lets parse to timedelta
     threshold = parse_duration(threshold)
@@ -67,7 +70,7 @@ def check_source_silent(silent_source_check_data, silent_source_alert_config):
     return False
 
 
-# given check data and config send a lag alert as specified in DAS-3365
+# given check data and config send a lag alert as specified in DAS-3533
 def send_silent_source_alert(silent_source_check_data, silent_source_alert_config, usernames=None):
     # Limit recipients to those identified by usernames argument.
     recipients = get_users_for_permission(
@@ -76,7 +79,7 @@ def send_silent_source_alert(silent_source_check_data, silent_source_alert_confi
     recipients = list(recipients)
     if len(recipients) < 1:
         logger.info(
-            'No recipients for Observation lag notification, so not generating report data.')
+            'No recipients for Silent Source notification, so not generating report data.')
         return
 
     email_body, message_subject = generate_silent_source_notification_email(silent_source_check_data, silent_source_alert_config)
