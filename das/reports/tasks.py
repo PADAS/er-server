@@ -1,6 +1,7 @@
 import logging
 from das_server import celery
 from reports.observationlagnotification import get_lagging_providers, send_lag_delay_alert
+from reports.subjectsilentnotification import get_silent_sources, send_silent_source_alert
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,13 @@ def alert_lag_delay(self):
     for lagging_provider in lagging_providers:
         send_lag_delay_alert(*lagging_provider)
 
+
+@celery.app.task(bind=True)
+def alert_subject_silent(self):
+    silent_subjects = get_silent_sources()
+
+    for silent_subject in silent_subjects:
+        send_silent_source_alert(*silent_subject)
 
 
 
