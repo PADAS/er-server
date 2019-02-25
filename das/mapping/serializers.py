@@ -24,7 +24,7 @@ class MBTilesSerializer(serializers.Serializer):
 class ExternalTileSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.TileLayer
-        fields = ('id', 'name', 'attributes')
+        fields = ('id', 'name', 'attributes', 'ordernum')
 
     def to_representation(self, instance):
         rep = super(ExternalTileSerializer, self).to_representation(instance)
