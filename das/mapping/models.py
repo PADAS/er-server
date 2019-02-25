@@ -42,6 +42,11 @@ class Map(TimestampedModel):
         return self.name
 
 
+class TileLayerQuerySet(models.QuerySet):
+    def by_ordernum(self):
+        return self.order_by('ordernum', 'name')
+
+
 class TileLayer(TimestampedModel):
     """
     External
@@ -50,6 +55,8 @@ class TileLayer(TimestampedModel):
     name = models.CharField(max_length=80, unique=True)
     attributes = JSONField(default=dict, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    objects = TileLayerQuerySet.as_manager()
 
     def __str__(self):
         return self.name
