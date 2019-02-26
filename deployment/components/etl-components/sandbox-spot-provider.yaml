@@ -24,10 +24,10 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: etl-configmap
-                  key: SPOT_PROVIDER_DAS_TOKEN
+                  key: SANDBOX_SPOT_PROVIDER_DAS_TOKEN
             - name: SOURCE_GROUP
               valueFrom:
                 configMapKeyRef:
                   name: etl-configmap
-                  key: SOURCE_GROUP
+                  key: SANDBOX_SPOT_SOURCE_GROUP
           restartPolicy: Never
