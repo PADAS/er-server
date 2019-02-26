@@ -1,6 +1,7 @@
 project-id: padas-app
 cluster-name: etl-providers
 server-branch-name: develop
+spot-provider-branch-name: develop
 skyline-provider-branch-name: develop
 quadratex-provider-branch-name: develop
 tracktrace-provider-branch-name: develop

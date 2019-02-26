@@ -5,3 +5,4 @@ paths:
 - environments/etl-configmap.yaml
 - etl-components/quadratex-provider.yaml
 - etl-components/tracktrace-provider.yaml
+- etl-components/sandbox-spot-provider.yaml
