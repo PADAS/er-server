@@ -18,3 +18,6 @@ data:
   BANGWEULU_QUADRATEX_API_TOKEN: "<<quadratex-provider-api-token>>"
   NLUWANGWA_QUIKTRAK_TOKEN: "<<quadratex-provider-das-token>>"
   NLUWANGWA_QUIKTRAK_API_TOKEN: "<<quadratex-provider-api-token>>"
+  SANDBOX_DAS_SENSOR_ENDPOINT: "https://sandbox.pamdas.org/api/v1.0"
+  SANDBOX_SPOT_PROVIDER_DAS_TOKEN: "puw6LF5CvxggtZ3ufpCAUFal33NWwG"
+  SANDBOX_SPOT_SOURCE_GROUP: "a2ba52342f024936b98ce22781c8275a"

@@ -2,7 +2,7 @@ apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
   namespace: <<namespace>>
-  name: skyline-provider-etl
+  name: sandbox-spot-provider-etl
 spec:
   schedule: "*/20 * * * *"
   jobTemplate:
@@ -19,29 +19,15 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: etl-configmap
-                  key: GRUMETI_DAS_SENSOR_ENDPOINT
+                  key: SANDBOX_DAS_SENSOR_ENDPOINT
             - name: DAS_TOKEN
               valueFrom:
                 configMapKeyRef:
                   name: etl-configmap
-                  key: SKYLINE_PROVIDER_DAS_TOKEN
-            - name: SKY_CID
+                  key: SPOT_PROVIDER_DAS_TOKEN
+            - name: SOURCE_GROUP
               valueFrom:
                 configMapKeyRef:
                   name: etl-configmap
-                  key: SKYLINE_PROVIDER_CID
-            - name: SKY_USER
-              valueFrom:
-                configMapKeyRef:
-                  name: etl-configmap
-                  key: SKYLINE_PROVIDER_USER
-            - name: SKY_PASSWD
-              valueFrom:
-                configMapKeyRef:
-                  name: etl-configmap
-                  key: SKYLINE_PROVIDER_PASSWORD
-            args:
-            - --config
-            - config/config.yaml
-            - config/action.yaml
+                  key: SOURCE_GROUP
           restartPolicy: Never
