@@ -81,6 +81,13 @@ resources:
     private_key: ((das-versions-github))
     initial_version: ((initial-web-version))
 
+- name: git-spot-provider
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-spot-provider.git
+    branch: ((spot-provider-branch-name))
+    private_key: ((das-spot-provider-github))
+
 - name: git-skyline-provider
   type: versioned-git-resource
   source:
@@ -261,6 +268,14 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/etl/smartconnect-provider
+
+- name: image-spot-provider
+  type: docker-image-with-file-build-args
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/etl/spot-provider
 
 - name: slack-alert
   type: slack-notification
@@ -589,6 +604,27 @@ jobs:
             :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
+- name: docker-build-spot-provider
+  max_in_flight: 1
+  plan:
+  - get: git-spot-provider
+    trigger: true
+  - put: image-spot-provider
+    params: {
+      build: git-spot-provider,
+      tag: git-spot-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
 - name: docker-build-tracktrace-provider
   max_in_flight: 1
   plan:
@@ -676,6 +712,8 @@ jobs:
         trigger: true
       - get: git-skyline-provider
         passed: [docker-build-skyline-provider]
+      - get: git-spot-provider
+        passed: [docker-build-spot-provider]
       - get: git-tracktrace-provider
         passed: [docker-build-tracktrace-provider]
       - get: git-quadratex-provider
