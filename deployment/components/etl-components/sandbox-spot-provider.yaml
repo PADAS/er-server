@@ -12,8 +12,8 @@ spec:
           imagePullSecrets:
           - name: gcr-secret
           containers:
-          - name: skyline-provider-etl
-            image: gcr.io/padas-app/etl/skyline-provider:latest
+          - name: spot-provider-etl
+            image: gcr.io/padas-app/etl/spot-provider:latest
             env:
             - name: DAS_ENDPOINT
               valueFrom:
