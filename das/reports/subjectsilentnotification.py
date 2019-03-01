@@ -5,7 +5,7 @@ import pytz
 from django.utils.dateparse import parse_duration
 from reports.distribution import send_report, get_users_for_permission, SILENT_SOURCE_NOTIFY_PERMISSION_CODENAME
 from observations.models import Observation, Subject
-from django.db.models import F, Subquery, OuterRef, Max
+from django.db.models import F, Subquery, OuterRef, Max, Q
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -16,18 +16,22 @@ def get_silent_sources():
     # we only want sources with "silence_notification_threshold" in its additional json
     # then order by observation recorded and take first source giving us the latest observation for each source
     source_observations = Observation.objects\
-        .filter(source__additional__silence_notification_threshold__isnull=False)\
-        .order_by('source_id', '-recorded_at')\
+        .filter(Q(source__additional__silence_notification_threshold__isnull=False) |
+                Q(source__provider__additional__silence_notification_threshold__isnull=False))\
+        .order_by('source_id', '-recorded_at') \
+        .prefetch_related('source')\
+        .prefetch_related('source__provider')\
         .distinct('source_id')
 
     for obs in source_observations:
         # build data object to pass to threshold check
         silent_source_check_data = {
             'source_last_obs': obs,
-            'source': obs.source
+            'source': obs.source,
+            'provider': obs.source.provider
         }
         # get config for this provider
-        silent_source_alert_config = get_silent_source_alert_config(obs.source)
+        silent_source_alert_config = get_silent_source_alert_config(obs.source, obs.source.provider)
         # now we have config lets check if it exceeded threshold
         if check_source_silent(silent_source_check_data, silent_source_alert_config):
             source_subject = Subject.objects.filter(subjectsource__source_id=obs.source_id, subjectsource__assigned_range__contains=obs.recorded_at).first()
@@ -44,9 +48,10 @@ def get_silent_sources():
 
 
 # return the config for this provider's lag alert report
-def get_silent_source_alert_config(source):
-    # hard coded for now, but could come from file, etc.
-    threshold = source.additional.get('silence_notification_threshold', None)
+def get_silent_source_alert_config(source, source_provider):
+    # default to the value in the provider for this source, but override if defined directly on the source
+    threshold = source_provider.additional.get('silence_notification_threshold', None)
+    threshold = source.additional.get('silence_notification_threshold', threshold)
     configured_lag_threshold = {
         'silence_notification_threshold': threshold,
         'site_name': settings.UI_SITE_NAME,
