@@ -952,6 +952,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
 
         record_serial_base = int(self.request.GET.get('record_serial_base', -1))
 
+        max_records = int(self.request.GET.get('max_records', -1))
+
         # Time range to query observation data according to user's permission
         max_days = 36500  # View All time days permission's number of days
         (lower, upper) = calculate_subject_view_window(
@@ -968,36 +970,26 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         fieldnames = ['chronofile', 'recordserial', 'collar_id', fixtime_label, dloadtime_label,
                       'lon', 'lat', 'height', 'temp']
         csv_data = []
-        subjects = self.get_queryset(request_subject_chronofile)
         cur_record_serial = record_serial_base
-        for subject in subjects:
-            items = self.get_subject_trackdata_queryset(filter_flag, lower, subject, upper, get_current)
-
+        if get_current is True:
+            items = self.get_subject_status_queryset(max_records)
             if items:
                 for item in items:
                     cur_record_serial += 1
-                    recorded_at = item['recorded_at'].astimezone(
-                        current_tz) if format != 'json' else item['recorded_at']
-                    created_at = item['created_at'].astimezone(
-                        current_tz) if format != 'json' else item['created_at']
-                    chronofile = item['subjectsource_additional'].get('chronofile', '') \
-                        if item['subjectsource_additional'] else ''
-                    collar_id = item['collar_id']
-                    if chronofile:
-                        pass
-                    data = {'lat': item['location'].x,
-                            'lon': item['location'].y,
-                            'height': item['location'].z,
-                            'chronofile': chronofile,
-                            'collar_id': collar_id,
-                            'recordserial': cur_record_serial,
-                            fixtime_label: recorded_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
-                            else recorded_at.isoformat(),
-                            dloadtime_label: created_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
-                            else created_at.isoformat(),
-                            'temp': item['additional'].get('temp', '')
-                            }
+                    data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, format,
+                                                         item, request_subject_chronofile)
                     csv_data.append(data)
+        else:
+            subjects = self.get_queryset(request_subject_chronofile)
+            for subject in subjects:
+                items = self.get_subject_trackdata_queryset(filter_flag, lower, subject, upper, max_records, request_subject_chronofile)
+
+                if items:
+                    for item in items:
+                        cur_record_serial += 1
+                        data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, format,
+                                                             item, request_subject_chronofile)
+                        csv_data.append(data)
 
         # Generate CSV attachment and send it with response
         timestamp = current_tz.localize(datetime.datetime.utcnow())
@@ -1019,23 +1011,63 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             writer.writerows(csv_data)
         return response
 
-    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, get_current):
-        if get_current is False:
-            qs = models.Observation.objects.filter(source__subjectsource__subject=subject,
-                                                             exclusion_flags=filter_flag,
-                                                             recorded_at__range=[lower, upper],
-                                                             source__subjectsource__assigned_range__contains=F(
-                                                                 'recorded_at')) \
-                .annotate(subjectsource_additional=F('source__subjectsource__additional'),
-                          collar_id=F('source__manufacturer_id')).values()
-        else:
-            min_age_days = get_minimum_allowed_age(self.request.user) or 0
-            qs = models.SubjectStatus.objects.filter(subject=subject,
-                                                           # subject__subjectsource__assigned_range__contains=F('recorded_at'),
-                                                           delay_hours=min_age_days * 24) \
-                .annotate(subjectsource_additional=F('subject__subjectsource__additional'),
-                          collar_id=F('subject__subjectsource__source__manufacturer_id')).values()
+    def get_csv_observation_data(self, cur_record_serial, dloadtime_label, fixtime_label, format, item,
+                                 request_subject_chronofile):
+        recorded_at = item['recorded_at'].astimezone(
+            current_tz) if format != 'json' else item['recorded_at']
+        created_at = item['created_at'].astimezone(
+            current_tz) if format != 'json' else item['created_at']
+        chronofile = request_subject_chronofile if request_subject_chronofile is not None \
+            else item['subjectsource_additional'].get('chronofile', '') \
+            if item['subjectsource_additional'] else ''
+        collar_id = item['collar_id']
+        if chronofile:
+            pass
+        data = {'lat': item['location'].x,
+                'lon': item['location'].y,
+                'height': item['location'].z,
+                'chronofile': chronofile,
+                'collar_id': collar_id,
+                'recordserial': cur_record_serial,
+                fixtime_label: recorded_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
+                else recorded_at.isoformat(),
+                dloadtime_label: created_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
+                else created_at.isoformat(),
+                'temp': item['additional'].get('temp', 0)
+                }
+        return data
 
+    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records, request_subject_chronofile):
+        qs = models.Observation.objects.all()
+        if request_subject_chronofile is not None:
+            qs = qs.filter(exclusion_flags=filter_flag,
+                             recorded_at__range=[lower, upper],
+                             source__subjectsource__assigned_range__contains=F(
+                                 'recorded_at'),
+                             source__subjectsource__additional__chronofile=int(request_subject_chronofile))
+        else:
+            qs = qs.filter(exclusion_flags=filter_flag,
+                             recorded_at__range=[lower, upper],
+                             source__subjectsource__assigned_range__contains=F(
+                                 'recorded_at'),
+                             source__subjectsource__subject=subject)
+        qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
+                      collar_id=F('source__manufacturer_id')).values()
+
+        if max_records > 0:
+            qs = qs[:max_records]
+        return qs
+
+    def get_subject_status_queryset(self, max_records):
+
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+        qs = models.SubjectStatus.objects.filter(delay_hours=min_age_days * 24)\
+            .filter(subject__subjectsource__additional__chronofile__isnull=False,
+                    subject__subjectsource__assigned_range__contains=datetime.datetime.utcnow()) \
+            .annotate(subjectsource_additional=F('subject__subjectsource__additional'),
+                      collar_id=F('subject__subjectsource__source__manufacturer_id')).values()
+        if max_records > 0:
+            qs = qs[:max_records]
         return qs
 
 
