@@ -920,7 +920,6 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         # To include inactive subjects in trackingdata report
         # queryset = queryset.by_is_active()
         queryset = queryset.by_user_subjects(self.request.user)
-        # queryset = queryset.filter(id='aeac8f78-00d9-4286-8e92-d5bb3b3c33e2')
         if chronofile is not None:
             queryset = queryset.filter(subjectsource__additional__chronofile=int(chronofile))
         return queryset
@@ -944,14 +943,20 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         except:
             request_date_before = None
 
+        # return in json format or csv
         format = self.request.GET.get('format', '').lower()
 
+        # get data for a specific chronofile? This is for STE downloader
         request_subject_chronofile = self.request.GET.get('subject_chronofile', None)
 
+        # get current status? or historical observations
         get_current = self.request.GET.get('current_status', 'false').lower() == 'true'
 
+        # This call will embed a in order manufactured serial number per returned row
+        #  do we start at 0 or some other number? This is for STE downloader
         record_serial_base = int(self.request.GET.get('record_serial_base', -1))
 
+        # max number of records to return
         max_records = int(self.request.GET.get('max_records', -1))
 
         # Time range to query observation data according to user's permission
@@ -961,6 +966,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         if lower >= upper:
             raise PermissionDenied
 
+        # if passed in bounds further restrict calculated ones for the user, use those
         upper = request_date_before if request_date_before is not None and request_date_before < upper else upper
         lower = request_date_after if request_date_after is not None and request_date_after > lower else lower
 
@@ -972,6 +978,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         csv_data = []
         cur_record_serial = record_serial_base
         if get_current is True:
+            # all the current status objects for the allowed subjects
             items = self.get_subject_status_queryset(max_records)
             if items:
                 for item in items:
@@ -982,6 +989,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         else:
             subjects = self.get_queryset(request_subject_chronofile)
             for subject in subjects:
+                # all the relevant observations for the subject (or chronofile)
                 items = self.get_subject_trackdata_queryset(filter_flag, lower, subject, upper, max_records, request_subject_chronofile)
 
                 if items:
@@ -1040,19 +1048,22 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
     def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records, request_subject_chronofile):
         qs = models.Observation.objects.all()
         if request_subject_chronofile is not None:
+            # NOTE: time bounds are EXCLUSIVE
             qs = qs.filter(exclusion_flags=filter_flag,
-                             recorded_at__range=[lower, upper],
+                             recorded_at__gt=lower,
+                             recorded_at__lt=upper,
                              source__subjectsource__assigned_range__contains=F(
                                  'recorded_at'),
                              source__subjectsource__additional__chronofile=int(request_subject_chronofile))
         else:
             qs = qs.filter(exclusion_flags=filter_flag,
-                             recorded_at__range=[lower, upper],
+                             recorded_at__gt=lower,
+                             recorded_at__lt=upper,
                              source__subjectsource__assigned_range__contains=F(
                                  'recorded_at'),
                              source__subjectsource__subject=subject)
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
-                      collar_id=F('source__manufacturer_id')).values()
+                      collar_id=F('source__manufacturer_id')).order_by('recorded_at').values()
 
         if max_records > 0:
             qs = qs[:max_records]
@@ -1091,19 +1102,22 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                    'data_stops_reason', 'collar_status', 'collar_model',
                    'has_acc_data', 'data_owners', 'region', 'country']
 
-        sources = self.get_queryset()
-        sources = sources.annotate(ss=FilteredRelation('subjectsource', condition=Q(subjectsource__assigned_range__contains=datetime.datetime.utcnow())))\
+        # NOTE: nearly all the data for this call is actually found in the source and subject source, however
+        #       it is the subject and by association the subject_group that are limited by the user
+        #       so make sure to get the source the is currently assigned
+        subjects = self.get_queryset()
+        subjects = subjects.annotate(ss=FilteredRelation('subjectsource',
+                                    condition=Q(subjectsource__assigned_range__contains=datetime.datetime.utcnow())))\
                     .annotate(subjectsource_additional=F('ss__additional'))\
                     .annotate(source_model_name=F('ss__source__model_name'))\
                     .annotate(source_manufacturer_id=F('ss__source__manufacturer_id'))\
                     .annotate(subjectsource_assigned_range=F('ss__assigned_range'))\
                     .annotate(source_additional=F('ss__source__additional'))
 
-        for subject in sources:
+        for subject in subjects:
             subject.subjectsource_additional = {} if subject.subjectsource_additional is None \
                 else subject.subjectsource_additional
-            #subject.source_additional = {} if subject.source_additional is None \
-            #    else subject.source_additional
+
             source_details = {}
             try:
                 # Collect Subject details.
@@ -1118,11 +1132,6 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                 if subject.source_additional is not None:
                     # Collect Source details.
 
-                    # TODO: Validate this assumption that the "first" record is
-                    # the right one.
-                    # subject_source = models.SubjectSource.objects. \
-                    #     get_subject_source(subject, subject.source.id).first()
-                    #subject_source.additional = {} if subject_source.additional is None else subject_source.additional
                     lower = subject.subjectsource_assigned_range.lower
                     upper = subject.subjectsource_assigned_range.upper
                     try:
