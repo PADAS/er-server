@@ -69,7 +69,7 @@ class InreachClient(BasicAuthClient):
                    'Authorization': super(InreachClient, self).auth_header()
                    }
 
-        path = '/ipcinbound/V1/Location.svc/History?'.format(qs)
+        path = '/ipcinbound/V1/Location.svc/History?{}'.format(qs)
         conn.request('GET', path, None, headers)
 
         res = conn.getresponse()
