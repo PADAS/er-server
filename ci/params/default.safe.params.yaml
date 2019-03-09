@@ -1,5 +1,5 @@
 project-id: padas-app
-vp-tools-container-version: "1.0.325"
+vp-tools-container-version: "1.0.408"
 
 #Infrastructure
 iaas: gcp

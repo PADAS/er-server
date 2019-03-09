@@ -51,15 +51,15 @@ class InreachClient(BasicAuthClient):
         :return:
         '''
 
-        conn = http.client.HTTPSConnection('explore.delorme.com')
+        conn = http.client.HTTPSConnection(self.host)
 
         start_ts = kwargs.get(
             'after', (datetime.datetime.now() - timedelta(days=31)))
         end_ts = start_ts + timedelta(days=60)
         payload = {
             'IMEIs': imei,
-            'Start': start_ts.strftime('%Y-%m-%dT%H:%M:%S'),
-            'End': end_ts.strftime('%Y-%m-%dT%H:%M:%S')
+            'Start': start_ts.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'End': end_ts.strftime('%Y-%m-%dT%H:%M:%SZ')
         }
 
         qs = urllib.parse.urlencode(payload)
