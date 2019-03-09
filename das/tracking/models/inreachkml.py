@@ -14,7 +14,7 @@ from django.contrib.gis.db import models
 from django.contrib.contenttypes.fields import GenericRelation
 
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin
+from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin, DasPluginFetchError
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +65,14 @@ class InreachKMLClient(object):
         conn.request("GET", url, headers=headers)
         res = conn.getresponse()
         data = res.read()
+        data_str = data.decode('utf8')
 
-        return data.decode('utf8')
+        if res.code != 200:
+            msg = f'Failed to get InReach KML feed for {imei} code {res.code} msg {data_str}'
+            logger.warning(msg, extra=dict(imei=imei, status=res.code))
+            raise DasPluginFetchError(msg)
+
+        return data_str
 
     def gen_placemarks(self, xmlstring):
 
@@ -203,6 +209,10 @@ class InreachKMLPlugin(TrackingPlugin):
             source.manufacturer_id, latest_ts))
 
         dat = client.get_data(source.manufacturer_id, d1=latest_ts)
+        if not dat:
+            self.logger.debug("No data found for manufacturer_id %s after %s" % (
+                source.manufacturer_id, latest_ts))
+            return
 
         for observation in client.gen_placemarks(dat):
             latest_ts = max(latest_ts, observation['recorded_at'])
