@@ -339,7 +339,8 @@ class SubjectsView(generics.ListCreateAPIView):
             try:
                 updated_since = dateparse(updated_since)
             except ValueError:
-                raise ValueError(f'Invalid value for updated_since: "{updated_since}"')
+                raise ValueError(
+                    f'Invalid value for updated_since: "{updated_since}"')
             else:
                 queryset = queryset.by_updated_since(updated_since)
 
@@ -699,11 +700,11 @@ class KmlRootView(generics.GenericAPIView):
                                           datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
 
         context = {'network_link':
-                       {'name': settings.KML_FEED_TITLE,
-                        'visibility': 0,
-                        'open': 1,
-                        'href': self.build_link_for_user()
-                        }
+                   {'name': settings.KML_FEED_TITLE,
+                    'visibility': 0,
+                    'open': 1,
+                    'href': self.build_link_for_user()
+                    }
                    }
 
         result = render_to_string('kml/user_root.xml', context)
@@ -921,7 +922,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         # queryset = queryset.by_is_active()
         queryset = queryset.by_user_subjects(self.request.user)
         if chronofile is not None:
-            queryset = queryset.filter(subjectsource__additional__chronofile=int(chronofile))
+            queryset = queryset.filter(
+                subjectsource__additional__chronofile=int(chronofile))
         return queryset
 
     def get(self, request, *args, **kwargs):
@@ -934,12 +936,14 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             filter_flag = 0
 
         try:
-            request_date_after = parse_datetime(self.request.GET.get('after_date', None))
+            request_date_after = parse_datetime(
+                self.request.GET.get('after_date', None))
         except:
             request_date_after = None
 
         try:
-            request_date_before = parse_datetime(self.request.GET.get('before_date', None))
+            request_date_before = parse_datetime(
+                self.request.GET.get('before_date', None))
         except:
             request_date_before = None
 
@@ -947,14 +951,17 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         format = self.request.GET.get('format', '').lower()
 
         # get data for a specific chronofile? This is for STE downloader
-        request_subject_chronofile = self.request.GET.get('subject_chronofile', None)
+        request_subject_chronofile = self.request.GET.get(
+            'subject_chronofile', None)
 
         # get current status? or historical observations
-        get_current = self.request.GET.get('current_status', 'false').lower() == 'true'
+        get_current = self.request.GET.get(
+            'current_status', 'false').lower() == 'true'
 
         # This call will embed a in order manufactured serial number per returned row
         #  do we start at 0 or some other number? This is for STE downloader
-        record_serial_base = int(self.request.GET.get('record_serial_base', -1))
+        record_serial_base = int(
+            self.request.GET.get('record_serial_base', -1))
 
         # max number of records to return
         max_records = int(self.request.GET.get('max_records', -1))
@@ -966,13 +973,16 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         if lower >= upper:
             raise PermissionDenied
 
-        # if passed in bounds further restrict calculated ones for the user, use those
+        # if passed in bounds further restrict calculated ones for the user,
+        # use those
         upper = request_date_before if request_date_before is not None and request_date_before < upper else upper
         lower = request_date_after if request_date_after is not None and request_date_after > lower else lower
 
         # Get SubjectSource and Observations with in time range for subjects
-        fixtime_label = 'fixtime ({})'.format(tz_offset) if format != 'json' else 'fixtime'
-        dloadtime_label = 'dloadtime ({})'.format(tz_offset) if format != 'json' else 'dloadtime'
+        fixtime_label = 'fixtime ({})'.format(
+            tz_offset) if format != 'json' else 'fixtime'
+        dloadtime_label = 'dloadtime ({})'.format(
+            tz_offset) if format != 'json' else 'dloadtime'
         fieldnames = ['chronofile', 'recordserial', 'collar_id', fixtime_label, dloadtime_label,
                       'lon', 'lat', 'height', 'temp']
         csv_data = []
@@ -990,7 +1000,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             subjects = self.get_queryset(request_subject_chronofile)
             for subject in subjects:
                 # all the relevant observations for the subject (or chronofile)
-                items = self.get_subject_trackdata_queryset(filter_flag, lower, subject, upper, max_records, request_subject_chronofile)
+                items = self.get_subject_trackdata_queryset(
+                    filter_flag, lower, subject, upper, max_records, request_subject_chronofile)
 
                 if items:
                     for item in items:
@@ -1050,31 +1061,31 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         if request_subject_chronofile is not None:
             # NOTE: time bounds are EXCLUSIVE
             qs = qs.filter(exclusion_flags=filter_flag,
-                             recorded_at__gt=lower,
-                             recorded_at__lt=upper,
-                             source__subjectsource__assigned_range__contains=F(
-                                 'recorded_at'),
-                             source__subjectsource__additional__chronofile=int(request_subject_chronofile))
+                           recorded_at__gt=lower,
+                           recorded_at__lt=upper,
+                           source__subjectsource__assigned_range__contains=F(
+                               'recorded_at'),
+                           source__subjectsource__additional__chronofile=int(request_subject_chronofile))
         else:
             qs = qs.filter(exclusion_flags=filter_flag,
-                             recorded_at__gt=lower,
-                             recorded_at__lt=upper,
-                             source__subjectsource__assigned_range__contains=F(
-                                 'recorded_at'),
-                             source__subjectsource__subject=subject)
+                           recorded_at__gt=lower,
+                           recorded_at__lt=upper,
+                           source__subjectsource__assigned_range__contains=F(
+                               'recorded_at'),
+                           source__subjectsource__subject=subject)
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
-                      collar_id=F('source__manufacturer_id')).order_by('recorded_at').values()
+                         collar_id=F('source__manufacturer_id')).order_by('recorded_at').values()
 
         if max_records > 0:
             qs = qs[:max_records]
         return qs
 
     def get_subject_status_queryset(self, max_records):
-
+        now = pytz.utc.localize(datetime.datetime.utcnow())
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         qs = models.SubjectStatus.objects.filter(delay_hours=min_age_days * 24)\
             .filter(subject__subjectsource__additional__chronofile__isnull=False,
-                    subject__subjectsource__assigned_range__contains=datetime.datetime.utcnow()) \
+                    subject__subjectsource__assigned_range__contains=now) \
             .annotate(subjectsource_additional=F('subject__subjectsource__additional'),
                       collar_id=F('subject__subjectsource__source__manufacturer_id')).values()
         if max_records > 0:
@@ -1091,8 +1102,10 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         :return: List of dictionaries containing required details.
         """
         tracking_metadata = []
-        data_starts = 'data_starts ({})'.format(tz_offset) if format != 'json' else 'data_starts'
-        data_stops = 'data_stops ({})'.format(tz_offset) if format != 'json' else 'data_stops'
+        data_starts = 'data_starts ({})'.format(
+            tz_offset) if format != 'json' else 'data_starts'
+        data_stops = 'data_stops ({})'.format(
+            tz_offset) if format != 'json' else 'data_stops'
         headers = ['chronofile', 'collar_type', 'collar_id', 'active',
                    'frequency', 'animal_id', 'name', 'species',
                    data_starts, data_stops,
@@ -1105,14 +1118,15 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         # NOTE: nearly all the data for this call is actually found in the source and subject source, however
         #       it is the subject and by association the subject_group that are limited by the user
         #       so make sure to get the source the is currently assigned
+        now = pytz.utc.localize(datetime.datetime.utcnow())
         subjects = self.get_queryset()
         subjects = subjects.annotate(ss=FilteredRelation('subjectsource',
-                                    condition=Q(subjectsource__assigned_range__contains=datetime.datetime.utcnow())))\
-                    .annotate(subjectsource_additional=F('ss__additional'))\
-                    .annotate(source_model_name=F('ss__source__model_name'))\
-                    .annotate(source_manufacturer_id=F('ss__source__manufacturer_id'))\
-                    .annotate(subjectsource_assigned_range=F('ss__assigned_range'))\
-                    .annotate(source_additional=F('ss__source__additional'))
+                                                         condition=Q(subjectsource__assigned_range__contains=now)))\
+            .annotate(subjectsource_additional=F('ss__additional'))\
+            .annotate(source_model_name=F('ss__source__model_name'))\
+            .annotate(source_manufacturer_id=F('ss__source__manufacturer_id'))\
+            .annotate(subjectsource_assigned_range=F('ss__assigned_range'))\
+            .annotate(source_additional=F('ss__source__additional'))
 
         for subject in subjects:
             subject.subjectsource_additional = {} if subject.subjectsource_additional is None \
@@ -1136,8 +1150,10 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                     upper = subject.subjectsource_assigned_range.upper
                     try:
                         if format != 'json':
-                            lower = lower.astimezone(current_tz) if lower != datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=pytz.utc) else lower
-                            upper = upper.astimezone(current_tz) if upper != datetime.datetime(datetime.MAXYEAR, 12, 31, tzinfo=pytz.utc)else upper
+                            lower = lower.astimezone(current_tz) if lower != datetime.datetime(
+                                datetime.MINYEAR, 1, 1, tzinfo=pytz.utc) else lower
+                            upper = upper.astimezone(current_tz) if upper != datetime.datetime(
+                                datetime.MAXYEAR, 12, 31, tzinfo=pytz.utc)else upper
                     except:
                         pass
                     source_details.update({
