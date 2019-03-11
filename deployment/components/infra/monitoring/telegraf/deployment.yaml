@@ -2,6 +2,7 @@ apiVersion: "apps/v1"
 kind: "Deployment"
 metadata:
   name: "telegraf"
+  namespace: "<<infra-namespace>>"
 spec:
   replicas: 1
   selector:
@@ -34,7 +35,7 @@ spec:
           initialDelaySeconds: 60
           timeoutSeconds: 5
         volumeMounts:
-        - name: "telegraf"
+        - name: "config"
           mountPath: "/etc/telegraf/telegraf.conf"
           readOnly: true
       volumes:
