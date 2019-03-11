@@ -35,6 +35,7 @@ skyline-provider-branch-name: develop
 quadratex-provider-branch-name: develop
 spot-provider-branch-name: develop
 tracktrace-provider-branch-name: develop
+sigfox-provider-branch-name: develop
 version-prefix: "not-set"
 initial-server-version: "0.0.0"
 initial-web-version: "0.0.0"
