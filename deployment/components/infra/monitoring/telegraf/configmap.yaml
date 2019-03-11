@@ -1,0 +1,36 @@
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata:
+  name: "telegraf"
+data:
+  telegraf.conf: |-
+    [global_tags]
+    [agent]
+      interval = "1m"
+      round_interval = true
+      metric_batch_size = 1000
+      metric_buffer_limit = 10000
+      collection_jitter = "0s"
+      flush_interval = "10s"
+      flush_jitter = "5s"
+      precision = "1s"
+      debug = true
+      quiet = false
+      logfile = ""
+      omit_hostname = true
+    [[inputs.http_listener_v2]]
+      service_address = ":8080"
+      path = "/telegraf"
+      methods = ["POST"]
+      read_timeout = "10s"
+      write_timeout = "10s"
+      max_body_size = "500MB"
+      data_format = "influx"
+    [[outputs.prometheus_client]]
+      listen = ":9273"
+      path = "/metrics"
+      expiration_interval = "5m"
+      string_as_label = true
+      export_timestamp = true
+    [[outputs.file]]
+      files = ["stdout"]
