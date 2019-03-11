@@ -4,6 +4,9 @@ metadata:
   name: "telegraf"
   namespace: "<<infra-namespace>>"
 data:
+  ssl.pem: <<pamdas-org-ssl-cert>>
+  ssl.key: <<pamdas-org-ssl-key>>
+  ca.pem: <<pamdas-org-ssl-ca>>
   telegraf.conf: |-
     [global_tags]
     [agent]
@@ -26,6 +29,8 @@ data:
       read_timeout = "10s"
       write_timeout = "10s"
       max_body_size = "500MB"
+      tls_cert = "/etc/telegraf/ssl.pem"
+      tls_key = "/etc/telegraf/ssl.key"
       data_format = "influx"
     [[outputs.prometheus_client]]
       listen = ":9273"
