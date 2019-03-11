@@ -21,17 +21,19 @@ spec:
         livenessProbe:
           httpGet:
             path: "/metrics"
-            port: "telegraf"
+            port: "metrics"
           initialDelaySeconds: 60
           periodSeconds: 60
           timeoutSeconds: 5
         ports:
-        - name: "telegraf"
+        - name: "metrics"
           containerPort: 9273
+        - name: "telegraf"
+          containerPort: 8086
         readinessProbe:
           httpGet:
             path: "/metrics"
-            port: "telegraf"
+            port: "metrics"
           initialDelaySeconds: 60
           timeoutSeconds: 5
         volumeMounts:

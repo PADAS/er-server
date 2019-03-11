@@ -20,7 +20,7 @@ data:
       logfile = ""
       omit_hostname = true
     [[inputs.http_listener_v2]]
-      service_address = ":8080"
+      service_address = ":8086"
       path = "/telegraf"
       methods = ["POST"]
       read_timeout = "10s"
