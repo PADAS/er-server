@@ -68,7 +68,7 @@ urlpatterns = [
     url(r'^sourceproviders/?$', views.SourceProvidersView.as_view()),
     url(r'^sourceprovider/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.SourceProvidersViewPartial.as_view()),
-    url(r'^trackingdata/export/$', views.TrackingDataCsvView.as_view()),
+    url(r'^trackingdata/export/?$', views.TrackingDataCsvView.as_view()),
     url(r'^trackingmetadata/export/?$',
         views.TrackingMetaDataExportView.as_view()),
     url(r'^sourcegroup/(?P<slug>[a-zA-Z0-9\w\W\s\S-]+)/?$',
