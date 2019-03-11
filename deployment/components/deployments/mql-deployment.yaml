@@ -8,6 +8,8 @@ spec:
     metadata:
       labels:
         das.component: mql
+      annotations:
+        prometheus.io/port: "9102"
     spec:
       imagePullSecrets:
         - name: gcr-secret
@@ -28,3 +30,8 @@ spec:
             configMapKeyRef:
               name: default-configmap
               key: API_PORT
+      - image: prom/statsd-exporter:v0.8.1
+        name: statsd-exporter
+        args: ["--statsd.listen-udp=127.0.0.1:8125"]
+        ports:
+        - containerPort: 9102
