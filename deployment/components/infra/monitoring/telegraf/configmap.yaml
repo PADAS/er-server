@@ -29,6 +29,7 @@ data:
       read_timeout = "10s"
       write_timeout = "10s"
       max_body_size = "500MB"
+      tls_allowed_cacerts = ["/etc/telegraf/ca.pem"]
       tls_cert = "/etc/telegraf/ssl.pem"
       tls_key = "/etc/telegraf/ssl.key"
       data_format = "influx"
