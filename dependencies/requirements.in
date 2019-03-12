@@ -87,3 +87,6 @@ pymet==0.1.21
 humanize==0.5.1
 
 azure==4.0.0
+
+# Using datadog library for its statsd module
+datadog==0.27.0

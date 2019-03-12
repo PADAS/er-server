@@ -26,6 +26,8 @@ coreschema==0.0.4         # via coreapi
 cryptography==1.9         # via pyopenssl
 cycler==0.10.0            # via matplotlib
 cython==0.27.3
+datadog==0.27.0
+decorator==4.3.2          # via datadog
 descartes==1.1.0          # via geopandas
 django-cors-headers==2.1.0
 django-extra-fields==0.9
