@@ -1,0 +1,15 @@
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "telegraf"
+  namespace: "<<infra-namespace>>"
+  labels:
+    app: "telegraf"
+spec:
+  ports:
+  - name: "telegraf"
+    port: 8086
+    targetPort: "telegraf"
+  selector:
+    app: "telegraf"
+  type: "ClusterIP"
