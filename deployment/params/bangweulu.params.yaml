@@ -13,7 +13,7 @@ static-values:
   use-azure-storage: "true"
   iaas-workspace: "DAS-Dev"
 environment:
-  das-static-ip: "23.97.160.25"
+  das-static-ip: DAS_STATIC_IP
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
 vault-lookups:
   db-password: padas-app/main/partner/apn/site/bangweulu/azurerm-postgresql-server-site-password
