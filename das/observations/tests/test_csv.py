@@ -3,7 +3,7 @@ import pytz
 from datetime import datetime
 from urllib.parse import urlencode
 
-from dateutil import tz
+from dateutil import tz, parser
 from pytz import utc
 from django.utils import timezone
 from django.db.models import F
@@ -139,7 +139,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         csv_data = csv_data[1:-1]
         self.assertEqual(
             Observation.objects.filter(source__subjectsource__assigned_range__contains=F('recorded_at'),
-                exclusion_flags=0).count(), len(csv_data)
+                                       exclusion_flags=0).count(), len(csv_data)
         )
 
     def test_csv_observation_data_with_exclusion_flag(self):
@@ -157,7 +157,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         csv_data = csv_data[1:-1]
         self.assertEqual(
             Observation.objects.filter(source__subjectsource__assigned_range__contains=F('recorded_at'),
-                exclusion_flags=1).count(), len(csv_data)
+                                       exclusion_flags=1).count(), len(csv_data)
         )
 
     def test_normal_user_access_subject_observation_data(self):
@@ -209,7 +209,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         recorded_at_timestamps = [observation[fixtime_key]
                                   for observation in observations]
         recorded_time = sample_observation.recorded_at.astimezone(
-            tz.gettz(timezone.get_current_timezone_name())).strftime('%m/%d%Y %H:%M:%S')
+            tz.gettz(timezone.get_current_timezone_name())).strftime('%m/%d/%Y %H:%M:%S')
         self.assertIn(recorded_time, recorded_at_timestamps)
 
     def test_different_chronofile_values_for_same_subject(self):
@@ -243,7 +243,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         self.assertTrue(len(unique_chrono_files) > 1)
 
     def test_csv_observation_with_inactive_subject(self):
-        inactive_subject_observation_ids = []
+        inactive_subject_observation_fix_times = []
         csv_observation_ids = []
         self.subject_group.permission_sets.add(PermissionSet.objects.get(
             name='View Tracks All Time')
@@ -256,7 +256,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
             subject.is_active = False
             subject.save()
             for obs in Observation.objects.get_subject_observations(subject):
-                inactive_subject_observation_ids.append(obs.id)
+                inactive_subject_observation_fix_times.append(obs.recorded_at)
         africa_subject_group = SubjectGroup.objects.get(
             name='African elephant subjet group')
         africa_subject_group.permission_sets.add(PermissionSet.objects.get(
@@ -266,7 +266,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
             subject.is_active = False
             subject.save()
             for obs in Observation.objects.get_subject_observations(subject):
-                inactive_subject_observation_ids.append(obs.id)
+                inactive_subject_observation_fix_times.append(obs.recorded_at)
 
         request = self.factory.get(API_BASE + '/trackingdata/export/')
         self.force_authenticate(request, self.user)
@@ -280,8 +280,9 @@ class TrackingDataCsvViewTest(BaseAPITest):
         csv_data = [row.split(',') for row in csv_file_data[1:-1]]
         observations = [dict(zip(header, data)) for data in csv_data]
 
+        fixtime_key = 'fixtime ({})'.format(tz_offset)
         # Get list of observation ids
-        csv_observation_ids = [observation['recordserial']
+        csv_observation_ids = [observation[fixtime_key]
                                for observation in observations]
 
         observation_filter = {'filter': 1}
@@ -302,9 +303,12 @@ class TrackingDataCsvViewTest(BaseAPITest):
         observations = [dict(zip(header, data)) for data in csv_data]
 
         # Get list of observation ids
-        csv_observation_ids.extend([observation['recordserial']
-                        for observation in observations])
+        fixtime_key = 'fixtime ({})'.format(tz_offset)
+        csv_observation_ids.extend([observation[fixtime_key]
+                                    for observation in observations])
         unique_csv_observation_ids = list(set(csv_observation_ids))
-        self.assertTrue(any(str(obs_id) in unique_csv_observation_ids
-                            for obs_id in inactive_subject_observation_ids)
+        unique_csv_observation_ids = [current_tz.localize(
+            parser.parse(obs_time)) for obs_time in unique_csv_observation_ids]
+        self.assertTrue(any([obs_time.astimezone(current_tz) in unique_csv_observation_ids
+                             for obs_time in inactive_subject_observation_fix_times])
                         )
