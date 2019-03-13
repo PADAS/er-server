@@ -2,7 +2,7 @@ import logging
 import time
 
 from django.conf import settings
-
+from utils import stats
 
 class RequestLoggingMiddleware(object):
     logger = logging.getLogger('django.request')
@@ -73,5 +73,7 @@ class RequestLoggingMiddleware(object):
 
         except Exception as e:
             logging.exception('RequestLoggingMiddleware Error')
+
+        stats.increment(request.resolver_match.view_name)
 
         return response
