@@ -289,12 +289,12 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             int((tz_difference - int(tz_difference)) * 60))
         reported_at = 'Reported At ({})'.format(tz_offset)
         default_headers = [
-                        'Report Type', 'Report Type Internal Value', 'Report Id', 'Title',
-                        'Priority', 'Priority Internal Value', 'Status', 'Reported By',
-                        'Reported By Internal Value', reported_at, 'Latitude', 'Longitude', 
-                        'Number of Notes', 'Notes', 'Number of Related Subjects', 
+            'Report Type', 'Report Type Internal Value', 'Report Id', 'Title',
+            'Priority', 'Priority Internal Value', 'Status', 'Reported By',
+                        'Reported By Internal Value', reported_at, 'Latitude', 'Longitude',
+                        'Number of Notes', 'Notes', 'Number of Related Subjects',
                         'Collection Report Id', 'CUSTOM FIELDS BEGIN HERE'
-                        ]
+        ]
         custom_headers = []
         combined_headers = []
 
@@ -346,8 +346,9 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             for key, order in current_schema_order.items():
                 item_display_name = schema_utils.get_display_value_header_for_key(
                     current_schema, key)
-                schema_data[key] = details.get(key, '')
-                schema_data[item_display_name] = details.get(item_display_name, '')
+                schema_data[key] = self.escape_string(details.get(key, ''))
+                schema_data[item_display_name] = self.escape_string(
+                    details.get(item_display_name, ''))
 
             parent_event = Event.objects.filter(
                 out_relationship__to_event=event,
@@ -370,7 +371,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'lat': event.location.y if event.location is not None else '',
                 'lon': event.location.x if event.location is not None else '',
                 'num_notes': event.notes.count(),
-                'notes': '\n'.join([note.text for note in event.notes.all()]),
+                'notes': self.escape_string('\n'.join([note.text for note in event.notes.all()])),
                 'num_attach': event.related_subjects.count(),
                 'parent_id': parent_event,
                 'status': 'Resolved' if event.state == Event.SC_RESOLVED else 'Active',
@@ -403,12 +404,14 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             'event_export_data': event_export_data,
             'combined_headers': [header.replace(' ', '_') for header in combined_headers],
             'custom_headers': custom_headers
-            }
+        }
 
     def escape_string(self, string):
-        if not isinstance(string, str):
+        if not isinstance(string, str) or not string:
             return string
         string = string.replace('"', '""')
+        strings = string.splitlines()
+        string = " ".join(strings)
         return '"' + string + '"'
 
     def get(self, request, *args, **kwargs):
@@ -571,7 +574,8 @@ class EventsView(generics.ListCreateAPIView):
                 updated_since = dateparser.parse(updated_since)
                 queryset = queryset.updated_since(updated_since)
             except ValueError:
-                raise ValueError(f"Invalid value for 'updated_since' = '{updated_since}'")
+                raise ValueError(
+                    f"Invalid value for 'updated_since' = '{updated_since}'")
 
         event_categories = query_params.getlist('event_category', None)
         if event_categories is None or len(event_categories) == 0:
