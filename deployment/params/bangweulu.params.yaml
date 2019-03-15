@@ -4,9 +4,9 @@ static-values:
   node-exporter-version: v0.16.0
   monitoring-version: "0.0.15"
   log_url: "logs.pamdas.org:5044"
-  db-host-name: "apn.postgres.database.azure.com"
+  db-host-name: "das-postgres-apn.postgres.database.azure.com"
   db-name: "bangweulu"
-  db-user: "bangweulu@apn.postgres.database.azure.com"
+  db-user: "bangweulu@das-postgres-apn"
   storage-account-name: "bangweuluf36fbd80"
   storage-container: "assets"
   storage-base-path: "root-path"
