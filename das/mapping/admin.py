@@ -93,18 +93,20 @@ class FeaturesInline(admin.TabularInline):
 
 @admin.register(models.SpatialFeatureGroupStatic)
 class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
+    ordering = ('name',)
     search_fields = ('name',)
-    raw_id_fields = ('features',)
+    autocomplete_fields = ('features',)
 
 
 @admin.register(models.SpatialFeatureType)
 class SpatialFeatureTypeAdmin(admin.ModelAdmin):
+    ordering = ('name', )
     search_fields = ('name',)
 
 
 @admin.register(models.DisplayCategory)
 class DisplayCategegoryAdmin(admin.ModelAdmin):
-    pass
+    ordering = ('name',)
 
 
 from django.db.models.expressions import RawSQL
@@ -134,16 +136,16 @@ class GeometryTypeFilter(django_admin.SimpleListFilter):
 
 @admin.register(models.SpatialFeature)
 class SpatialFeatureAdmin(BaseFeatureAdmin):
+    ordering = ('name',)
     list_display = ('name', 'feature_type',
                     'external_source', 'geometry_type',)
     list_filter = (GeometryTypeFilter, 'feature_type',)
-    search_fields = ('name', 'short_name', 'external_id',)
+    search_fields = ('name', 'short_name', 'external_id', 'id')
     inlines = (
         FeaturesInline,
     )
 
     def get_queryset(self, request):
-        """Limit Subjects to those this person can administer"""
         qs = super().get_queryset(request)
         qs = qs.annotate(geometry_type=RawSQL(
             '''geometryType(feature_geometry)''', ()))
