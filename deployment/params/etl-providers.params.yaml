@@ -24,6 +24,7 @@ vault-lookups:
   tracktrace-provider-api-token: padas-app/sites/lewa/tracktrace-provider-api-token
   quadratex-provider-das-token: padas-app/sites/bangweulu/quadratex-provider-das-token
   quadratex-provider-api-token: padas-app/sites/bangweulu/quadratex-provider-api-token
+  niassa-spot-das-token: padas-app/sites/niassa/spot-provider-token
   olpejeta-sigfox-uid: padas-app/sites/olpejeta/sigfox-uid
   olpejeta-sigfox-uid-token: padas-app/sites/olpejeta/sigfox-uid-token
   olpejeta-sigfox-das-token: padas-app/sites/olpejeta/sigfox-provider-token
