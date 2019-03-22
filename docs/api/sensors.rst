@@ -54,6 +54,8 @@ In the URL of the api, is referenced a provider_key. This is authored in the "So
             "additional": {"gps_error": ".05"}
         }
 
+DAS Radio Agent API
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. http:post:: /sensors/dasradioagent/(string:provider_key)/status
 
    Similar to the gps-radio API, this interface supports the unique attributes of the TRBOnet radio software.
@@ -71,37 +73,56 @@ In the URL of the api, is referenced a provider_key. This is authored in the "So
    :reqjson string last_voice_call_start_at: iso date of last mic key, the last time the user initiated a voice call.
    :reqjson string location_requested_at: iso date of...
 
-   If the message_key is a heartbeat, ignore any of the previous fields found in the posted payload. Instead, this is the format to post:
+   This API also allows posting system status information as a "heartbeat".
 
-    'message_key': 'heartbeat',
+   To post a heartbeat, include the following attributes:
 
-    'heartbeat': {
-        'title': 'System Activity',
-        'interval': <number of seconds between internal system checks, for example an internal status check occurs every 30 seconds>,
-        'latest_at': <iso date of now>
-    },
-    'datasource': {
-        'title': 'Radio Activity',
-        'connected': [true,false], <here we are communicating that the software system is connected to the radio system>
-        'connection_changed_at': <iso date of last connection change>,
-        'latest_at': <iso date of latest radio update>
-    }
+   :reqjson string message_key: "heartbeat"
+   :reqjson dict heartbeat: {}
+   :reqjson dict datasource: {}
 
+   Each of "heartbeat" and "datasource" contain a dictionary that is best described with an example (shown below).
+
+   Within "heartbeat", include these:
+
+   :reqjson string title: "System Activity" <-- This will display in EarthRanger's status list.
+   :reqjson int interval: This indicates the expected heartbeat interval.
+   :reqjson string latest_at: Current time in ISO format (see example below)
+   :reqjson string started_at: The time your process last started
+   :reqjson string uptime: optional A description indicating how long the service has been running.
+
+   Within "datasource", include these:
+
+   :reqjson string title: A string to indicate the the activity that the system is providing
+   :reqjson boolean connected: Indicate whether the datasource is connected
+   :reqjson string connection_changed_at: An ISO datetime to indicate that last time the connection state changed
+   :reqjson string latest_at: An ISO datetime to indicate the latest time of data activity.
+
+   .. code-block:: json
+
+            {
+                "message_key": "heartbeat",
+
+                "heartbeat": {
+                    "title": "System Activity",
+                    "interval": 15,
+                    "latest_at": "2019-03-21T15:34:01+00:00",
+                    "started_at": "2019-03-15T10:21:48+00:00",
+                    "uptime": "6 days 05:12:13"
+                },
+                "datasource": {
+                    "title": "Radio Activity",
+                    "connected": true,
+                    "connection_changed_at": "2019-03-20T15:34:01+00:00",
+                    "latest_at": "2019-03-21T12:21:28+00:00"
+                }
+            }
 
 
    :reqheader Authorization: Bearer <auth token>
    :reqheader Accept: application/json
-   :statuscode 201: image successfully posted
-
-
-.. http:post:: /sensors/gsat/(string:provider_key)/status
-
-    Similar to the gps-radio API, this interface supports the unique attributes of the GSAT satellite radio.
-
-
-   :reqheader Authorization: Bearer <auth token>
-   :reqheader Accept: application/json
-   :statuscode 201: image successfully posted
+   :statuscode 201: observation successfully posted
+   :statuscode 200: heartbeat successfully posted
 
 
 Camera Trap API
