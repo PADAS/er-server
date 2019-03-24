@@ -558,7 +558,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     revision = Revision()
 
     def __str__(self):
-        return '{0}-{1}-{2}'.format(self.feature_type.name, self.id, self.name)
+        return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
 
 
 @deconstructible
@@ -631,7 +631,8 @@ class SpatialFile(TimestampedModel):
                     name_field=self.name_field, id_field=self.id_field
                 )
             else:
-                raise ValidationError(f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')
+                raise ValidationError(
+                    f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')
         except Exception as err:
             logger.error(err)
             raise ValidationError(err)
@@ -647,7 +648,8 @@ class SpatialFile(TimestampedModel):
                 os.remove(uploaded_file_path)
             shutil.rmtree(uploaded_file_directory)
         except PermissionError:
-            logger.exception(f'Cleaning up spatial files after import: {uploaded_file_directory}')
+            logger.exception(
+                f'Cleaning up spatial files after import: {uploaded_file_directory}')
 
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
