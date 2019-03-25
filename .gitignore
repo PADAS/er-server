@@ -68,6 +68,10 @@ target/
 # Terraform state files
 terraform.tfstate.backup
 terraform.tfstate
+**/.terraform
+
+# Terraform rendered templates
+**/templates/rendered
 
 ### JetBrains template
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion
