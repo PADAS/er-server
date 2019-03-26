@@ -15,6 +15,7 @@ static-values:
 environment:
   namespace: NAMESPACE
   infra-namespace: INFRA_NAMESPACE
+  iaas-workspace: WORKSPACE
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
