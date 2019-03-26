@@ -9,6 +9,7 @@ static-values:
 environment:
   das-static-ip: DAS_STATIC_IP
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
+  iaas-workspace: WORKSPACE
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
