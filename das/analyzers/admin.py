@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.admin import ModelAdmin
 from django.conf import settings
 import analyzers.models as models
-
+from analyzers.forms import EnvironmentalAnalyzerAdminForm
 
 @admin.register(models.ObservationAnnotator)
 class ObservationAnnotatorAdmin(admin.ModelAdmin):
@@ -60,18 +60,25 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': (('name', 'subject_group', 'is_active'))
+            'fields': ('name', 'subject_group', 'is_active'),
         }
         ),
-        ('Speed Threshold Parameters', {
+        ('Environmental Analysis Parameters', {
             'classes': ('wide',),
-            'fields': ('threshold_value', 'scale_meters', 'GEE_img_name', 'GEE_img_band_name', 'short_description',)
+            'fields': ('threshold_value', 'scale_meters', 'GEE_img_name', 'GEE_img_band_name', 'short_description',
+                       'search_time_hours', 'notes',)
+        }),
+        ('Earth Engine Access', {
+            'classes': ('wide', 'collapse',),
+            'fields': ('earth_engine_json_key',)
         }),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'search_time_hours', 'notes',)
+            'fields': ('id', 'additional',)
         })
     )
+
+    form = EnvironmentalAnalyzerAdminForm
 
 
 @admin.register(models.ProximityAnalyzerConfig)
