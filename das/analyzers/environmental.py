@@ -21,15 +21,27 @@ from analyzers.base import SubjectAnalyzer
 
 from pymet import eetools
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+EARTH_ENGINE_KEY_PROPERTY = 'earth_engine_json_key'
 def require_earthengine(func):
 
     def f1(self, *args, **kwargs):
 
-        eetools.initialize_earthengine(self.config.additional['earth_engine_json_key'])
-        return func(self, *args, **kwargs)
+        try:
+            eetools.initialize_earthengine(self.config.additional[EARTH_ENGINE_KEY_PROPERTY])
+        except KeyError:
+            msg = f'Unable to initialize Earth Engine API without a value for "{EARTH_ENGINE_KEY_PROPERTY}".'
+            logger.warning(msg)
+            raise ValueError(msg)
+        except Exception:
+            logger.exception('Unable to initialize Earth Engine API.')
+            raise
+        else:
+            return func(self, *args, **kwargs)
 
-        raise ValueError(
-            'This function requires Earth Engine tools, but they are not initialize.')
     return f1
 
 
