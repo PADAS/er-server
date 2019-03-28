@@ -1,0 +1,5 @@
+server-branch-name: develop
+web-branch-name: develop
+das-static-ip:
+deploy-params-environment: integration
+deployment-plan: integration
