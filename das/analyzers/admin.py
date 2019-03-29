@@ -47,6 +47,18 @@ class ImmobilityAnalyzerAdmin(admin.ModelAdmin):
         })
     )
 
+google_earthengine_service_account_link = 'https://developers.google.com/earth-engine/service_account'
+EARTH_ENGINE_KEY_DESCRIPTION = f'''
+<p>
+This analyzer requires access to Google's Earth Engine API using a service account private key.
+</p>
+<p>To learn how to get a service account key, visit
+ <a target="_blank" href="{google_earthengine_service_account_link}">{google_earthengine_service_account_link}</a>.
+<br/>
+Once you have a service account, you can create a private key for it. Download the 
+private key and paste it's contents in this form (be sure to use the JSON format key).
+'''
+
 
 @admin.register(models.EnvironmentalSubjectAnalyzerConfig)
 class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
@@ -69,6 +81,7 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
                        'search_time_hours', 'notes',)
         }),
         ('Earth Engine Access', {
+            'description': EARTH_ENGINE_KEY_DESCRIPTION,
             'classes': ('wide', 'collapse',),
             'fields': ('earth_engine_json_key',)
         }),

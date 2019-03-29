@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class EnvironmentalAnalyzerAdminForm(JSONFieldFormMixin, forms.ModelForm):
 
     earth_engine_json_key = forms.CharField(label='Earth Engine JSON Key',
-                                            widget=FixedWidthFontTextArea(),
+                                            widget=FixedWidthFontTextArea(attrs={'cols': '100', 'rows': '30'}),
                                      required=False,
                                      help_text=_(
                                          'Paste the contents of your Earth Engine JSON key here.'))
