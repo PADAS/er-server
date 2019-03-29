@@ -1,5 +1,5 @@
 import logging
-
+import json
 from datetime import datetime, timedelta
 import pytz
 
@@ -31,7 +31,8 @@ def require_earthengine(func):
     def f1(self, *args, **kwargs):
 
         try:
-            eetools.initialize_earthengine(self.config.additional[EARTH_ENGINE_KEY_PROPERTY])
+            key_dict = json.loads(self.config.additional[EARTH_ENGINE_KEY_PROPERTY])
+            eetools.initialize_earthengine(key_dict)
         except KeyError:
             msg = f'Unable to initialize Earth Engine API without a value for "{EARTH_ENGINE_KEY_PROPERTY}".'
             logger.warning(msg)
@@ -215,8 +216,6 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
         event_details = {'name': self.subject.name}
         event_details.update(this_result.values)
 
-        import json
-        print(json.dumps(event_details, indent=2))
         # Create a dict() location to satisfy our EventSerializer.
         event_location_value = {
             'longitude': this_result.geometry_collection[0].x,
@@ -230,7 +229,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
             if any((
                 last_result is None,
                 last_result and this_result.level != last_result.level,
-                last_result and timedelta(minutes=5) > (datetime.now(tz=pytz.utc) - last_result.created_at),)
+                last_result and (this_result.estimated_time > last_result.estimated_time))
             ):
                 event_data = dict(
                     title=this_result.title,

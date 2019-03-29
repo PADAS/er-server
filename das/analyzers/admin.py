@@ -74,7 +74,7 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
         }),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'additional',)
+            'fields': ('id',)
         })
     )
 
