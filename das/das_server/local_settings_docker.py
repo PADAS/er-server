@@ -61,6 +61,10 @@ DATABASES = {
     },
 }
 
+# use these when you want to send SMS from kenya
+SENDSMS_AFRICAS_TALKING_USERNAME = os.getenv('SMS_ID', '')
+SENDSMS_AFRICAS_TALKING_API_KEY = os.getenv('SMS_TOKEN', '')
+
 USE_AZURE_STORAGE = os.getenv('USE_AZURE_STORAGE', 'false')
 
 if USE_AZURE_STORAGE == 'true':
