@@ -23,7 +23,7 @@ infra-namespace: "infra"
 #Azure
 azure-subscription-id: c4f7019a-487c-4211-a8ae-377fa0a0a0aa
 azure-tenant-id: 0e10ccd8-5b77-476f-af4c-13ff073b52f6
-azure-client-id: 738d81fb-884c-4712-a4a9-750ef1ee3f14
+azure-client-id: d2cfcb1e-18a9-4592-9518-3ef941d51b8c
 use-azure-storage: "false"
 
 #Build
