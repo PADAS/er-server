@@ -22,10 +22,10 @@ class AdditionalTestCase(TestCase):
         additional_data = {
             'notes': 'Testing Notes',
             'expiry': '12/3/2018',
-            'mou_date_signed': '01/09/2018',
-            'mou_type': 'Sample MoU Type',
+            'moudatesigned': '01/09/2018',
+            'moutype': 'Sample MoU Type',
             'tech': ['iOS'],
-            'organization': ['KWS'],
+            'organization': 'KWS',
         }
         form_data = {
             'first_name': 'Hugh',
@@ -45,10 +45,10 @@ class AdditionalTestCase(TestCase):
         # Update date fields from additional_data in iso format
         expiry = self.convert_datestring_to_datetime(additional_data['expiry'])
         mou_date_signed = self.convert_datestring_to_datetime(
-            additional_data['mou_date_signed'])
+            additional_data['moudatesigned'])
         additional_data['expiry'] = expiry.astimezone(
             pytz.timezone("UTC")).isoformat()
-        additional_data['mou_date_signed'] = mou_date_signed.astimezone(
+        additional_data['moudatesigned'] = mou_date_signed.astimezone(
             pytz.timezone("UTC")).isoformat()
         self.assertTrue(all(item in user.additional.items()
                             for item in additional_data.items()))

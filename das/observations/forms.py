@@ -20,19 +20,20 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
     '''
     This provides extra form fields for the attributes we expect to have stored in SubjectSource.additional.
     '''
+    chronofile = forms.IntegerField(required=False, label='Chronofile')
     data_status = forms.CharField(required=False, label='Data Status')
     data_starts_source = forms.CharField(
         required=False, label='Data Starts Source')
     data_stops_source = forms.CharField(
         required=False, label='Data Stops Source')
-    data_stops_reason = forms.TypedMultipleChoiceField(
-        required=False, label='Data Stops Reason',
-        widget=FilteredSelectMultiple(verbose_name='Data Stops Reason',
-                                      is_stacked=False))
+    data_stops_reason = forms.ChoiceField(required=False,
+                                          help_text='Reason for Stop')
+    comments = forms.CharField(required=False, label='Comments',
+                               widget=forms.Textarea)
 
     @staticmethod
     def fetch_stop_reasons():
-        stop_reasons_choices = {}
+        stop_reasons_choices = {'': ''}
         for stop_reason in Choice.objects.filter(
                 model='observations.Source',
                 field='data stops reason').order_by('ordernum'):
@@ -46,8 +47,8 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     class Meta:
         model = SubjectSource
-        json_fields = ('data_status', 'data_starts_source',
-                       'data_stops_source', 'data_stops_reason')
+        json_fields = ('chronofile', 'data_status', 'data_starts_source',
+                       'data_stops_source', 'data_stops_reason', 'comments')
         fields = ('id', 'subject', 'source', 'assigned_range',
                   'additional') + json_fields
 
@@ -67,7 +68,8 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
     This provides extra form fields for the attributes we expect to have stored
     in Source.additional.
     '''
-    collar_status = forms.CharField(required=False, label='Collar Status')
+    collar_status = forms.ChoiceField(required=False,
+                                      label='Collar Status')
     collar_model = forms.CharField(required=False, label='Collar Model')
     collar_manufacturer = forms.CharField(required=False,
                                           label='Collar Manufacturer')
@@ -78,8 +80,8 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
             verbose_name='Data Owners', is_stacked=False))
     adjusted_beacon_freq = forms.CharField(
         required=False, label='Adjusted Beacon Frequency')
-    primary_frequency = forms.CharField(required=False,
-                                        label='Primary Frequency')
+    frequency = forms.CharField(required=False,
+                                label='Primary Frequency')
     backup_frequency = forms.CharField(required=False,
                                        label='Backup Frequency')
     adjusted_frequency = forms.CharField(required=False,
@@ -92,26 +94,35 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
     feed_id = forms.CharField(required=False, label='Feed Id')
     feed_passwd = forms.CharField(required=False, label='Feed Password')
 
-
     @staticmethod
     def fetch_organizations():
-        org_choices = {}
+        org_choices = {'': ''}
         for organization in Choice.objects.filter(
                 model='accounts.user.User',
                 field='organization').order_by('ordernum'):
             org_choices[organization.value] = organization.display
         return tuple([(key, value) for key, value in org_choices.items()])
 
+    @staticmethod
+    def fetch_collar_status():
+        choices = {'': ''}
+        for choice in Choice.objects.filter(
+                model='observations.Source',
+                field='collar_status').order_by('ordernum'):
+            choices[choice.value] = choice.display
+        return tuple([(key, value) for key, value in choices.items()])
+
     def __init__(self, *args, **kwargs):
         super(SourceForm, self).__init__(*args, **kwargs)
         self.fields['data_owners'].choices = self.fetch_organizations()
+        self.fields['collar_status'].choices = self.fetch_collar_status()
 
     class Meta:
         model = Source
         json_fields = ('collar_key', 'collar_status', 'collar_model',
                        'collar_manufacturer', 'has_acc_data', 'data_owners',
                        'feed_id', 'feed_passwd',
-                       'adjusted_beacon_freq', 'primary_frequency',
+                       'adjusted_beacon_freq', 'frequency',
                        'adjusted_frequency',
                        'backup_frequency', 'predicted_expiry')
         fields = ('id', 'manufacturer_id', 'provider', 'source_type',
@@ -204,8 +215,8 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
 
         commit = kwargs.pop('commit', True)
         instance = super(SubjectForm, self).save(*args,
-                                                               commit=False,
-                                                               **kwargs)
+                                                 commit=False,
+                                                 **kwargs)
 
         if commit:
             instance.save()
@@ -223,9 +234,10 @@ class SubjectChangeListForm(forms.ModelForm):
 
 
 lag_notification_threshold_help_text =  \
-_('Threshold in hours:minutes:seconds that indicates an abnormal delay in data for this Source Provider.')
+    _('Threshold in hours:minutes:seconds that indicates an abnormal delay in data for this Source Provider.')
 
-class  SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
+
+class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
     lag_notification_threshold = forms.CharField(max_length=8, required=False,
                                                  help_text=lag_notification_threshold_help_text)
@@ -235,7 +247,6 @@ class  SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
         fields = ['provider_key', 'display_name', 'additional']
         json_fields = ('lag_notification_threshold',)
         json_date_fields = set()
-
 
     # def clean_lag_notification_threshold(self):
 
@@ -247,13 +258,14 @@ class  SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
         if value and \
                 (not parse_duration(value) or
                     not re.match(r'\d{1,2}:\d{2}:\d{2}', value)
-                ):
+                 ):
             raise forms.ValidationError(
                 {'lag_notification_threshold': forms.ValidationError(
                     _('Notification threshold must be of the form HH:MM:SS.'), code='invalid')}
             )
 
         return cleaned_data
+
 
 class SetRandomColorForm(ActionForm):
     pass

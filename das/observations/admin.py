@@ -146,7 +146,7 @@ class SubjectSourceInline(InlineExtraDynamicMixin, admin.StackedInline):
         ),
         ('Source Assignment Attributes', {
             'classes': ('wide', 'collapse',),
-            'fields': ('data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason')
+            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'comments')
         }
         ),
         ('Raw Attributes Data', {
@@ -522,7 +522,7 @@ class CommonNameAdmin(admin.ModelAdmin):
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
     list_display = ['manufacturer_id', 'source_type',
-                    'model_name', 'get_attributes', '_provider_display_name',]
+                    'model_name', 'get_attributes', '_provider_display_name', ]
     search_fields = ('id', 'manufacturer_id', 'model_name', 'additional',)
     list_filter = ('source_type', 'model_name')
     readonly_fields = ('id', 'created_at', 'updated_at',)
@@ -539,7 +539,7 @@ class SourceAdmin(admin.ModelAdmin):
             'classes': ('wide',),
             'fields': ('collar_status', 'collar_model', 'has_acc_data',
                        'collar_manufacturer', 'data_owners',
-                       'adjusted_beacon_freq', 'primary_frequency',
+                       'adjusted_beacon_freq', 'frequency',
                        'adjusted_frequency',
                        'backup_frequency', 'predicted_expiry',
                        'feed_id', 'feed_passwd'
@@ -632,7 +632,7 @@ class SubjectSourceAdmin(admin.ModelAdmin):
         ),
         ('Attributes', {
             'classes': ('wide',),
-            'fields': ('data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason')
+            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'comments')
         }
         ),
         ('Advanced', {
@@ -737,6 +737,9 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
         (_('Permissions'), {'fields': ('permission_sets',)}),
 
     )
+    list_display = ('name', 'is_visible')
+    list_editable = ('is_visible',)
+    list_filter = ('is_visible',)
     filter_horizontal = ('children', 'permission_sets', 'subjects')
 
     def formfield_for_dbfield(self, db_field, **kwargs):
@@ -844,7 +847,8 @@ class SubjectStatusAdmin(admin.ModelAdmin):
         state_desc = o.additional.get('state', '')
         if state_desc:
             state_desc = state_desc.capitalize()
-            state_desc = f"{state_desc} w/GPS" if o.additional.get('gps_fix') else state_desc
+            state_desc = f"{state_desc} w/GPS" if o.additional.get(
+                'gps_fix') else state_desc
         else:
             state_desc = f"{o.subject.subject_subtype.display}"
         return mark_safe(f'<img src="{o.subject.image_url}" style="height:1.8em;float:right;" alt="{state_desc}"/>')
@@ -894,6 +898,8 @@ class SourceProviderAdmin(admin.ModelAdmin):
     )
 
 # @admin.register(models.SubjectSummary)
+
+
 class SubjectSummaryAdmin(admin.ModelAdmin):
     change_list_template = 'admin/subject_summary_change_list.html'
     date_hierarchy = 'updated_at'
