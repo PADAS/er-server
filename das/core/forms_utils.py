@@ -4,10 +4,11 @@ import pytz
 from dateutil.parser import parse
 
 from django.utils.safestring import mark_safe
+from django import forms
 from django.forms.fields import MultiValueField, DateTimeField
 from django.forms import MultiWidget
 
-from django.forms.widgets import DateTimeInput, TextInput
+from django.forms.widgets import DateTimeInput, TextInput, Widget
 
 
 class ColorPickerWidget(TextInput):
@@ -131,3 +132,20 @@ class AssignedDateTimeRangeField(MultiValueField):
         if d2 is None:
             d2 = datetime.max.replace(tzinfo=pytz.utc)
         return (d1, d2)
+
+
+class FixedWidthFontTextArea(forms.Textarea):
+    template_name = 'admin/core/fixed_width_textarea.html'
+
+    def __init__(self, attrs=None):
+        # Use slightly better defaults than HTML's 20x2 box
+        default_attrs = {'cols': '50', 'rows': '40'}
+        if attrs:
+            default_attrs.update(attrs)
+        super().__init__(default_attrs)
+
+    class Media:
+        css = {
+            'all': ('css/fixed_width_textarea.css',),
+        }
+

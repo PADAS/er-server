@@ -1,38 +1,116 @@
 import logging
+import json
+from datetime import datetime, timedelta
+import pytz
+
 import pymet.base
 import django.conf
 
-eetools = None
-try:
-    earthengine_enabled = getattr(
-        django.conf.settings, 'EARTHENGINE_ENABLED', False)
-    if earthengine_enabled:
-        import pymet.eetools as eetools
-except AttributeError:
-    pass
-
+from typing import NamedTuple
 
 from django.contrib.gis.geos import Point as DjangoPoint
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.utils.translation import ugettext_lazy as _
 
 from analyzers.utils import save_analyzer_event
-from activity.models import Event
+from activity.models import Event, EventType, EventCategory
 from analyzers.models import EnvironmentalSubjectAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
 from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.base import SubjectAnalyzer
 
+from pymet import eetools
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+EARTH_ENGINE_KEY_PROPERTY = 'earth_engine_json_key'
 def require_earthengine(func):
 
-    if eetools is None:
-        def f1(*args, **kwargs):
-            raise ValueError(
-                'This function requires Earth Engine tools, but they are not initialize.')
-        return f1
-    else:
-        return func
+    def f1(self, *args, **kwargs):
+
+        try:
+            key_dict = json.loads(self.config.additional[EARTH_ENGINE_KEY_PROPERTY])
+            eetools.initialize_earthengine(key_dict)
+        except KeyError:
+            msg = f'Unable to initialize Earth Engine API without a value for "{EARTH_ENGINE_KEY_PROPERTY}".'
+            logger.warning(msg)
+            raise ValueError(msg)
+        except Exception:
+            logger.exception('Unable to initialize Earth Engine API.')
+            raise
+        else:
+            return func(self, *args, **kwargs)
+
+    return f1
+
+
+class EventTypeSpec(NamedTuple):
+    value: str
+    display: str
+    schema: dict = None
+
+ENVIRONMENTAL_VALUE_SCHEMA = {
+                "schema":
+                {
+                    "$schema": "http://json-schema.org/draft-04/schema#",
+                    "title": "Empty Event Schema",
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string", "title": "Subject Name"
+                        },
+                        "environmental_descriptor": {
+                            "type": "string", "title": "Environmental Descriptor",
+                        },
+                        "mean_value": {
+                            "type": "number", "title": "Mean Value",
+                        },
+                        "img_name": {
+                            "type": "string", "title": "Earth Engine Image Name",
+                        },
+                        "img_band_name": {
+                            "type": "string", "title": "Image Band Name",
+                        },
+                        "total_fix_count": {
+                            "type": "number", "title": "Total Fix Count"
+                        },
+                    }
+                },
+                "definition": [
+                    "name",
+                    "environmental_descriptor",
+                    "mean_value",
+                    "total_fix_count",
+                    "img_name",
+                    "img_band_name",
+                ]
+                }
+ENVIRONMENTAL_ALL_CLEAR_SCHEMA = {
+                "schema":
+                {
+                    "$schema": "http://json-schema.org/draft-04/schema#",
+                    "title": "Empty Event Schema",
+                    "type": "object",
+                    "properties": {}
+                },
+                "definition": []
+                }
+
+EnvironmentalValueEventType = EventTypeSpec(value='environmental_value', display='Environmental Value',
+                                            schema=ENVIRONMENTAL_VALUE_SCHEMA)
+EnvironmentalAllClearEventType = EventTypeSpec(value='environmental_all_clear', display='Environmental All Clear',
+                                               schema=ENVIRONMENTAL_ALL_CLEAR_SCHEMA)
+
+def ensure_environmental_event_types():
+
+    ec, created = EventCategory.objects.get_or_create(
+        value='analyzer_event', defaults=dict(display='Analyzer Events'))
+
+    for et in [EnvironmentalValueEventType, EnvironmentalAllClearEventType]:
+        EventType.objects.get_or_create(value=et.value, category=ec,
+                                        defaults=dict(display=et.display, schema=et.schema))
 
 
 class EnvironmentalAnalyzer(SubjectAnalyzer):
@@ -133,6 +211,8 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
 
         event_data = None
 
+        ensure_environmental_event_types()
+
         event_details = {'name': self.subject.name}
         event_details.update(this_result.values)
 
@@ -144,17 +224,24 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
 
         # Notify if result is critical or warning
         if this_result.level in (CRITICAL, WARNING):
-            event_data = dict(
-                title=this_result.title,
-                event_time=this_result.estimated_time,
-                provenance=Event.PC_ANALYZER,
-                event_type='environmental_value',  # environmental_value
-                priority=EVENT_PRIORITY_MAP.get(
-                    this_result.level, Event.PRI_URGENT),
-                location=event_location_value,
-                event_details=event_details,
-                related_subjects=[{'id': self.subject.id}, ],
-            )
+
+            # Guard against rapid fire repeated events.
+            if any((
+                last_result is None,
+                last_result and this_result.level != last_result.level,
+                last_result and (this_result.estimated_time > last_result.estimated_time))
+            ):
+                event_data = dict(
+                    title=this_result.title,
+                    event_time=this_result.estimated_time,
+                    provenance=Event.PC_ANALYZER,
+                    event_type=EnvironmentalValueEventType.value,  # environmental_value
+                    priority=EVENT_PRIORITY_MAP.get(
+                        this_result.level, Event.PRI_URGENT),
+                    location=event_location_value,
+                    event_details=event_details,
+                    related_subjects=[{'id': self.subject.id}, ],
+                )
 
         # Notify if there is a state transition from Critical/Warning back to
         # OK
@@ -164,7 +251,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
                 title=this_result.title,
                 time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='environment_all_clear',  # environment_all_clear
+                event_type=EnvironmentalAllClearEventType.value,  # environment_all_clear
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
