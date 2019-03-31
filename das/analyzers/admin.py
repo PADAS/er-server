@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.admin import ModelAdmin
 from django.conf import settings
 import analyzers.models as models
-
+from analyzers.forms import EnvironmentalAnalyzerAdminForm
 
 @admin.register(models.ObservationAnnotator)
 class ObservationAnnotatorAdmin(admin.ModelAdmin):
@@ -47,6 +47,18 @@ class ImmobilityAnalyzerAdmin(admin.ModelAdmin):
         })
     )
 
+google_earthengine_service_account_link = 'https://developers.google.com/earth-engine/service_account'
+EARTH_ENGINE_KEY_DESCRIPTION = f'''
+<p>
+This analyzer requires access to Google's Earth Engine API using a service account private key.
+</p>
+<p>To learn how to get a service account key, visit
+ <a target="_blank" href="{google_earthengine_service_account_link}">{google_earthengine_service_account_link}</a>.
+<br/>
+Once you have a service account, you can create a private key for it. Download the 
+private key and paste it's contents in this form (be sure to use the JSON format key).
+'''
+
 
 @admin.register(models.EnvironmentalSubjectAnalyzerConfig)
 class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
@@ -60,18 +72,26 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': (('name', 'subject_group', 'is_active'))
+            'fields': ('name', 'subject_group', 'is_active'),
         }
         ),
-        ('Speed Threshold Parameters', {
+        ('Environmental Analysis Parameters', {
             'classes': ('wide',),
-            'fields': ('threshold_value', 'scale_meters', 'GEE_img_name', 'GEE_img_band_name', 'short_description',)
+            'fields': ('threshold_value', 'scale_meters', 'GEE_img_name', 'GEE_img_band_name', 'short_description',
+                       'search_time_hours', 'notes',)
+        }),
+        ('Earth Engine Access', {
+            'description': EARTH_ENGINE_KEY_DESCRIPTION,
+            'classes': ('wide', 'collapse',),
+            'fields': ('earth_engine_json_key',)
         }),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'search_time_hours', 'notes',)
+            'fields': ('id',)
         })
     )
+
+    form = EnvironmentalAnalyzerAdminForm
 
 
 @admin.register(models.ProximityAnalyzerConfig)
