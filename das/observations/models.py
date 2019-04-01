@@ -931,11 +931,12 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             state = getattr(self, 'status_radio_state', None) or \
                 self.subjectstatus_set.get(delay_hours=0).radio_state
         except (SubjectStatus.DoesNotExist, AttributeError):
-            yield key
             yield '-'.join((key, 'black'))
+            yield key
         else:
             color = STATUS_COLORS.get(state, 'black')
             yield '-'.join((key, color))
+            yield key
 
     def get_users_to_notify(self):
         """

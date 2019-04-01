@@ -82,7 +82,7 @@ class AwtClient(object):
             }
 
     def __init__(self, host=None, username=None, password=None,
-                 subscription_token=None):
+                 subscription_token=None, enable_history=False):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.host = host
         self.username = username
@@ -91,6 +91,7 @@ class AwtClient(object):
         self.session_token = None
         self.redis_client = redis.from_url(
             settings.CELERY_BROKER_URL)
+        self.enable_history_api = enable_history
 
     def decrypt_response(self, response):
         # Get IV and Ciphertext from response
@@ -274,7 +275,11 @@ class AwtClient(object):
                 key = None
                 api_type = self.REPLAY_API
                 if now - start_time > self.replay_api_coverage:
-                    api_type = self.HISTORY_API
+                    if self.enable_history_api:
+                        api_type = self.HISTORY_API
+                    else:
+                        self.logger.warning(
+                            f'AWT date range requires disabled history api: {self.username}, {params}')
         return api_type, key
 
     def fetch_data(self, params=None):

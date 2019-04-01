@@ -9,15 +9,12 @@ from django.db import connections
 RESET_SERIAL_NUMBER_SQL = "select setval('public.activity_event_serial_number_seq', 1, false);"
 
 REVISION_DELETIONS = [
-    'delete from activity_eventrevision;',
-    'delete from activity_eventrelatedsubject;',
-    'delete from activity_eventdetails;',
-    'delete from activity_eventdetailsrevision;',
-    'delete from activity_eventfile;',
-    'delete from activity_eventfilerevision;',
-    'delete from activity_eventnote;',
-    'delete from activity_eventnoterevision;',
-    'delete from activity_eventrelationship;',
+    'delete from activity_eventrevision',
+    'delete from activity_eventattachementrevision',
+    'delete from activity_eventdetailsrevision',
+    'delete from activity_eventfilerevision',
+    'delete from activity_eventnoterevision',
+    'delete from activity_eventphotorevision',
 ]
 
 

@@ -23,5 +23,5 @@ class EnvironmentalSubjectAnalyzerConfig(SubjectAnalyzerConfig):
 
     class Meta(SubjectAnalyzerConfig.Meta):
         abstract = False
-        verbose_name = _('Environmental Analyzer')
-        verbose_name_plural = _('Environmental Analyzers')
+        verbose_name = _('Google Earth Engine Analyzer')
+        verbose_name_plural = _('Google Earth Engine Analyzers')

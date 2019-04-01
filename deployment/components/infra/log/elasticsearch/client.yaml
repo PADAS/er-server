@@ -46,6 +46,11 @@ spec:
           privileged: true
       containers:
       - name: elasticsearch-logging
+        command:
+        - "/bin/sh"
+        args:
+        - "-c"
+        - "cp /tmp/elasticsearch/log4j2.properties /elasticsearch/config/log4j2.properties && chown elasticsearch:elasticsearch /elasticsearch/config/log4j2.properties && /run.sh"
         securityContext:
           privileged: false
           capabilities:
@@ -88,7 +93,12 @@ spec:
         volumeMounts:
         - name: storage
           mountPath: /data
+        - name: "log4j-properties"
+          mountPath: "/tmp/elasticsearch"
       volumes:
-          - emptyDir:
-              medium: ""
-            name: "storage"
+      - name: "storage"
+        emptyDir:
+          medium: ""
+      - name: "log4j-properties"
+        configMap:
+          name: "elasticsearch-logging-configmap"

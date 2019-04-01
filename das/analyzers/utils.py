@@ -7,6 +7,8 @@ from activity.models import Event
 from activity.serializers import EventSerializer
 from django.contrib.auth import get_user_model
 
+import logging
+logger = logging.getLogger(__name__)
 
 def latest_event_for(analyzer):
     """ Returns the most recent event or None for a given subject and analyzer """
@@ -67,6 +69,7 @@ def save_analyzer_event(event_data):
                           context={'request': request})
 
     if ser.is_valid():
+        logger.info('Saving analyzer event.', extra=event_data)
         return ser.create(ser.validated_data)
 
     raise ValueError('Analyzer Event is invalid, errors=%s' % (ser.errors,))
