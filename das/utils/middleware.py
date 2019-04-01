@@ -74,6 +74,6 @@ class RequestLoggingMiddleware(object):
         except Exception as e:
             logging.exception('RequestLoggingMiddleware Error')
 
-        stats.increment_for_view(request.resolver_match.view_name)
+        # stats.increment_for_view(request.resolver_match.view_name)
 
         return response
