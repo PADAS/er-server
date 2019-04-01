@@ -179,8 +179,13 @@ jobs:
 
               vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/default.params.yaml git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
 
-- name: destroy-cluster
+#########################
+# Destructive Jobs
+#########################
+
+- name: destroy-resources
   disable_manual_trigger: true
+  serial: true
   plan:
   - do:
     - get: git-deployment
@@ -209,24 +214,20 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
           AZURE_CLIENT_ID: ((azure-client-id)),
           AZURE_CLIENT_SECRET: ((azure-client-secret)),
-          LOGSTASH_URL: ((logstash-url))
+          LOGSTASH_URL: ((logstash-url)),
+          DELETE_CLUSTER: "no"
         }
         run:
           path: /bin/bash
           args:
           - -ec
           - |
-            echo "Deleting cluster. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name))"
-            vcloud clusters delete -i ((iaas)) -w ((iaas-workspace)) -z ((iaas-zone)) -n ((cluster-name)) -f
-
-- name: destroy-namespace
-  disable_manual_trigger: true
-  serial: true
-  plan:
-  - do:
-    - get: git-deployment
-      params:
-        submodules: none
+            if [ "$DELETE_CLUSTER" == "yes" ]; then
+              echo "Deleting cluster. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name))"
+              vcloud clusters delete -i ((iaas)) -w ((iaas-workspace)) -z ((iaas-zone)) -n ((cluster-name)) -f || true
+            else
+              echo "Skipping cluster deletion"
+            fi
     - task: delete-namespace
       config:
         platform: linux
@@ -250,24 +251,20 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
           AZURE_CLIENT_ID: ((azure-client-id)),
           AZURE_CLIENT_SECRET: ((azure-client-secret)),
-          LOGSTASH_URL: ((logstash-url))
+          LOGSTASH_URL: ((logstash-url)),
+          DELETE_CLUSTER: "no"
         }
         run:
           path: /bin/bash
           args:
           - -ec
           - |
-            echo "Deleting namespace. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)), Namespace ((namespace))"
-            vcloud clusters delete-namespace -i ((iaas)) -w ((iaas-workspace)) -z ((iaas-zone)) -n ((cluster-name)) --namespace ((namespace))
-
-- name: destroy-disks
-  disable_manual_trigger: true
-  serial: true
-  plan:
-  - do:
-    - get: git-deployment
-      params:
-        submodules: none
+            if [ "$DELETE_CLUSTER" == "yes" ]; then
+              echo "Skipping namespace deletion"
+            else
+              echo "Deleting namespace. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)), Namespace ((namespace))"
+              vcloud clusters delete-namespace -i ((iaas)) -w ((iaas-workspace)) -z ((iaas-zone)) -n ((cluster-name)) --namespace ((namespace)) || true
+            fi
     - task: delete-disks
       config:
         platform: linux
@@ -299,15 +296,7 @@ jobs:
           - -ec
           - |
             echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)) Namespace ((namespace))"
-            vcloud disks delete git-deployment/((disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((namespace)) -z=((iaas-zone)) -f
-- name: destroy-infra-disks
-  disable_manual_trigger: true
-  serial: true
-  plan:
-  - do:
-    - get: git-deployment
-      params:
-        submodules: none
+            vcloud disks delete git-deployment/((disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((namespace)) -z=((iaas-zone)) -f || true
     - task: delete-infra-disks
       config:
         platform: linux
@@ -331,12 +320,17 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
           AZURE_CLIENT_ID: ((azure-client-id)),
           AZURE_CLIENT_SECRET: ((azure-client-secret)),
-          LOGSTASH_URL: ((logstash-url))
+          LOGSTASH_URL: ((logstash-url)),
+          DELETE_CLUSTER: "no"
         }
         run:
           path: /bin/bash
           args:
           - -ec
           - |
-            echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)) Namespace ((namespace))"
-            vcloud disks delete git-deployment/((infra-disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((infra-namespace)) -z=((iaas-zone)) -f
+            if [ "$DELETE_CLUSTER" == "yes" ]; then
+              echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)) Namespace ((namespace))"
+              vcloud disks delete git-deployment/((infra-disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((infra-namespace)) -z=((iaas-zone)) -f || true
+            else
+              echo "Skipping infra disk deletion"
+            fi

@@ -2,6 +2,7 @@ import datetime
 import logging
 import pytz
 from dateutil.parser import parse as parse_date
+from datetime import datetime, timezone
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -560,3 +561,47 @@ class TractVehicleHandler():
         status_ok = {'status': 200, 'message': 'success'}
 
         return Response(data=status_ok, status=status.HTTP_200_OK)
+
+
+class SigFoxCallback(serializers.Serializer):
+    device = serializers.CharField()
+    time = serializers.IntegerField()
+    loc = serializers.DictField()
+
+
+class SigFoxPushHandler():
+
+    SENSOR_TYPE = 'sf-animal-tracker'
+    SOURCE_TYPE = 'tracking-device'
+    MODEL_NAME = 'DigitAnimal'
+
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+
+        params = SigFoxCallback(data=request.data)
+
+        logger.info("Sigfox observation %s",
+                        request.data, extra={'obs.new': request.data})
+
+        if not params.is_valid():
+            resp = Response(data={'status': 404, 'message': params.errors}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            unix_epoch = params['time']
+            obs_date_utc = datetime.fromtimestamp(unix_epoch, timezone.utc)
+            device_id = params['device']
+            location = {
+                'longitude': params['loc']['lng'],
+                'latitude': params['loc']['lat']
+            }
+
+            src, created = Source.objects.ensure_source(cls.SOURCE_TYPE,
+                                                    provider=provider_key,
+                                                    manufacturer_id=device_id,
+                                                    model_name = '{}:{}'.format(cls.SENSOR_TYPE, provider_key))  
+
+        status_ok = {'status': 200, 'message': 'success', 'handler': 'sigfox-push'}
+
+        return Response(data=status_ok, status=status.HTTP_201_OK)
+
+
+

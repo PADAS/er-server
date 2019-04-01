@@ -8,10 +8,11 @@ from utils.json import JSONTextParser
 
 from utils.drf import AllowAnyGet
 from sensors.handlers import GsatHandler, GenericSensorHandler,\
-    DasRadioAgentHandler, SkylineVehicleTrackerHandler, FollowltTrackerHandler,  TractVehicleHandler
+    DasRadioAgentHandler, SkylineVehicleTrackerHandler, FollowltTrackerHandler,  TractVehicleHandler, SigFoxPushHandler
 from sensors.camera_trap import CameraTrapSensorHandler
 from observations.serializers import ObservationSerializer
 
+from utils.stats import increment
 
 class SensorObservation(generics.GenericAPIView):
 
@@ -34,6 +35,10 @@ class SensorObservation(generics.GenericAPIView):
         return Response(data=errordata, status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request, *args, sensor_type=None, provider_key=None, **kwargs):
+
+        increment(f'sensor_{sensor_type}')
+        increment(f'sensor_{sensor_type}_{provider_key}')
+
         if sensor_type == DasRadioAgentHandler.SENSOR_TYPE:
             return DasRadioAgentHandler.post(request, provider_key)
 
@@ -50,6 +55,10 @@ class SensorObservation(generics.GenericAPIView):
 
         elif sensor_type == FollowltTrackerHandler.SENSOR_TYPE:
             return FollowltTrackerHandler.post(request, sensor_type=sensor_type,
+                                               provider_key=provider_key)
+
+        elif sensor_type == SigFoxPushHandler.SENSOR_TYPE:
+            return SigFoxPushHandler.post(request, sensor_type=sensor_type,
                                                provider_key=provider_key)
 
         else:

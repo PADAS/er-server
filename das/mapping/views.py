@@ -134,7 +134,7 @@ class LayerListJsonView(generics.ListAPIView):
     """
     List of available map layers.
     """
-    queryset = TileLayer.objects.all()
+    queryset = TileLayer.objects.all().by_ordernum()
     serializer_class = serializers.TileLayerSerializer
 
 

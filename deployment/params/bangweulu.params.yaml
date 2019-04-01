@@ -4,13 +4,11 @@ static-values:
   node-exporter-version: v0.16.0
   monitoring-version: "0.0.15"
   log_url: "logs.pamdas.org:5044"
-  db-host-name: "das-postgres-west-europe.postgres.database.azure.com"
-  db-name: "bangweulu_test"
-  db-user: "bangweulu_test@das-postgres-west-europe"
-  db-password: "7VZdpOfgs4iNUOXOm7N/uoGk"
-  storage-account-name: "bangweulustorage"
-  storage-container: "bangweulu-assets"
-  storage-account-key: "CBhs0rQ1WXKfHKKYWUcRqk3NE8zMp3uCDYsZczsGVdivKzlH+i6RGLpBubaPIspC7m0F8aF9WrBcjw5pTj64Hg=="
+  db-host-name: "das-postgres-apn.postgres.database.azure.com"
+  db-name: "bangweulu"
+  db-user: "bangweulu@das-postgres-apn"
+  storage-account-name: "bangweuluf36fbd80"
+  storage-container: "assets"
   storage-base-path: "root-path"
   use-azure-storage: "true"
   iaas-workspace: "DAS-Dev"
@@ -18,6 +16,8 @@ environment:
   das-static-ip: DAS_STATIC_IP
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
 vault-lookups:
+  db-password: padas-app/main/partner/apn/site/bangweulu/azurerm-postgresql-server-site-password
+  storage-account-key: padas-app/main/partner/site/bangweulu/azurerm-storage-account-primary-access-key
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
   bundle-crt: padas-app/main/bundle-crt

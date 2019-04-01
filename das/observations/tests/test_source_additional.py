@@ -31,11 +31,14 @@ class SourceAdditionalTest(TestCase):
         Choice.objects.create(model="accounts.user.User",
                               field="organization", value="KWS", display="KWS")
 
+        Choice.objects.create(model="observations.Source",
+                              field="collar_status", value="Activated", display="Activated")
+
     def test_source_additional_data(self):
         additional_data = {
             'collar_status': 'Activated', 'collar_model': 'GPS',
             'collar_manufacturer': 'Vectronics', 'data_owners': ['KWS'],
-            'adjusted_beacon_freq': '125', 'primary_frequency': '120',
+            'adjusted_beacon_freq': '125', 'frequency': '120',
             'adjusted_frequency': '40', 'backup_frequency': '180',
             'predicted_expiry': '12/11/2018',
             'collar_key': '6484B8CA88E2B996421AB903D0B215AFAE285CAAE932F35F1'}
@@ -66,10 +69,13 @@ class SubjectSourceAdditionalTest(TestCase):
         Choice.objects.create(model="accounts.user.User",
                               field="organization", value="KWS",
                               display="KWS")
+        Choice.objects.create(model="observations.Source",
+                              field="collar_status", value="Activated", display="Activated")
+
         additional_data = {
             'collar_status': 'Activated', 'collar_model': 'GPS',
             'collar_manufacturer': 'Vectronics', 'data_owners': ['KWS'],
-            'adjusted_beacon_freq': '125', 'primary_frequency': '120',
+            'adjusted_beacon_freq': '125', 'frequency': '120',
             'adjusted_frequency': '40', 'backup_frequency': '180',
             'predicted_expiry': '12/11/2018',
             'collar_key': '6484B8CA88E2B996421AB903D0B215AFAE285CAAE932F35F1'}
@@ -82,7 +88,8 @@ class SubjectSourceAdditionalTest(TestCase):
         form = SourceForm(data=form_data)
         self.assertTrue(form.is_valid())
         form.save()
-        self.source, created = Source.objects.get_or_create(model_name='GPSFix')
+        self.source, created = Source.objects.get_or_create(
+            model_name='GPSFix')
 
         Choice.objects.create(model="observations.Source",
                               field="data stops reason",
@@ -101,7 +108,7 @@ class SubjectSourceAdditionalTest(TestCase):
                      'assigned_range_1': end_date
                      }
         additional_data = {'data_status': 'Activated',
-                           'data_stops_reason': ['Damaged']}
+                           'data_stops_reason': 'Damaged'}
         form_data = {**form_data, **additional_data}
         form = SubjectSourceForm(data=form_data)
         self.assertTrue(form.is_valid())

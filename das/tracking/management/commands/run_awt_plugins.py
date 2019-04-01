@@ -200,7 +200,7 @@ class Command(BaseCommand):
 
                 try:
                     source_plugin = next(
-                        SourcePlugin.objects.filter(source=source))
+                        iter(SourcePlugin.objects.filter(source=source)))
                 except StopIteration:
                     continue
 

@@ -78,6 +78,10 @@ def get_all_connections():
     return all_conns
 
 
+def get_session_count():
+    return redis_client.hlen(CLIENT_LIST_KEY)
+
+
 def get_client_list():
     for sid, client_data in redis_client.hgetall(CLIENT_LIST_KEY).items():
         client_data = _restore_client_data(client_data.decode('utf-8'))

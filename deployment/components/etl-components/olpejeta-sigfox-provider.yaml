@@ -1,0 +1,28 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  namespace: <<namespace>>
+  name: olpejeta-sigfox-provider-etl
+spec:
+  schedule: "*/10 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          imagePullSecrets:
+          - name: gcr-secret
+          containers:
+          - name: sigfox-provider-etl
+            image: gcr.io/padas-app/etl/sigfox-provider:latest
+            env:
+            - name: DAS_ENDPOINT
+              value: "<<olpejeta-das-endpoint>>"
+            - name: DAS_TOKEN
+              value: "<<olpejeta-sigfox-das-token>>"
+            - name: SF_UID
+              value: "<<olpejeta-sigfox-uid>>"
+            - name: SF_UID_TOKEN
+              value: "<<olpejeta-sigfox-uid-token>>"
+            - name: SOURCE_PROVIDER
+              value: "<<olpejeta-sigfox-provider>>"
+          restartPolicy: Never

@@ -22,6 +22,8 @@ from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
 from rt_api import client
 
+from utils.stats import update_gauge
+
 from activity.serializers import EventSerializer
 
 from observations.models import SocketClient
@@ -292,6 +294,10 @@ def check_redis_queues():
     conn = queue_client.client_list()
     conn_count = len(conn)
     logger.info({'redis.conn.count': conn_count})
+
+
+    realtime_session_count = client.get_session_count()
+
     # realtime queues
     # TODO - encapsulte the queries into a rt_api.queue_client
     rt_p1 = queue_client.llen('realtime_p1')
@@ -300,3 +306,33 @@ def check_redis_queues():
     logger.info({'rt.realtime.p1': rt_p1})
     logger.info({'rt.realtime.p2': rt_p2})
     logger.info({'rt.realtime.p3': rt_p3})
+
+    logger.info({'rt.realtime.client_count': realtime_session_count})
+
+
+    for key, value in [
+        ('redis_connection_count', conn_count),
+        ('realtime_session_count', realtime_session_count),
+        ('realtime_p1_length', rt_p1),
+        ('realtime_p2_length', rt_p2),
+        ('realtime_p3_length', rt_p3),
+        ]:
+        update_gauge(metric=key, value=value, tags=['realtime',])
+
+    memory_info = queue_client.info('memory')
+
+    val = -1
+    try:
+        val = memory_info['used_memory'] / memory_info['maxmemory']
+    except ZeroDivisionError:
+        val = memory_info['used_memory'] / memory_info['total_system_memory']
+
+    update_gauge('redis_memory_gauge', val)
+
+    logger.info('redis_memory_use', extra={
+        'used_memory': memory_info['used_memory'],
+        'maxmemory': memory_info['maxmemory'],
+        'total_system_memory': memory_info['total_system_memory'],
+        'memory_gauge': val,
+    })
+

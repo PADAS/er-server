@@ -265,3 +265,53 @@ class ConservancyAdmin(BaseChoiceAdmin):
 @admin.register(models.Team)
 class TeamAdmin(BaseChoiceAdmin):
     pass
+
+
+@admin.register(models.ActionTaken)
+class ActionTakenAdmin(BaseChoiceAdmin):
+    pass
+
+
+@admin.register(models.Behavior)
+class BehaviorAdmin(BaseChoiceAdmin):
+    pass
+
+
+@admin.register(models.Color)
+class ColorAdmin(BaseChoiceAdmin):
+    pass
+
+
+@admin.register(models.ContactType)
+class ContactTypeAdmin(BaseChoiceAdmin):
+    pass
+
+
+@admin.register(models.FenceSection)
+class FenceSectionAdmin(BaseChoiceAdmin):
+    pass
+
+
+@admin.register(models.Health)
+class HealthAdmin(BaseChoiceAdmin):
+    pass
+
+
+@admin.register(models.Livestock)
+class LivestockAdmin(BaseChoiceAdmin):
+    pass
+
+
+@admin.register(models.PoachingMean)
+class PoachingMeanAdmin(BaseChoiceAdmin):
+    pass
+
+
+@admin.register(models.Tribe)
+class TribeAdmin(BaseChoiceAdmin):
+    pass
+
+
+@admin.register(models.WildlifeGap)
+class WildlifeGapAdmin(BaseChoiceAdmin):
+    pass

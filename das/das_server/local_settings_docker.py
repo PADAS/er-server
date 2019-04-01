@@ -50,18 +50,6 @@ NOTIFY_LOW_PRIORITY_EVENT = 'low_priority_alerts'
 
 EXPORT_KML_ENABLED = True
 
-USE_AZURE_STORAGE = os.getenv('USE_AZURE_STORAGE', 'false')
-
-if USE_AZURE_STORAGE == 'true':
-    # Azure storage - see https://django-storages.readthedocs.io/en/latest/backends/azure.html
-    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
-    STATICFILES_STORAGE = 'storages.backends.azure_storage.AzureStorage'
-    AZURE_ACCOUNT_NAME = os.getenv('STORAGE_ACCOUNT', '')
-    AZURE_ACCOUNT_KEY = os.getenv('STORAGE_ACCOUNT_KEY', '')
-    AZURE_CONTAINER = os.getenv('STORAGE_CONTAINER', '')
-    # todo - add the blob storage keys here
-
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
@@ -72,5 +60,21 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD','password'),
     },
 }
+
+# use these when you want to send SMS from kenya
+SENDSMS_AFRICAS_TALKING_USERNAME = os.getenv('SMS_ID', '')
+SENDSMS_AFRICAS_TALKING_API_KEY = os.getenv('SMS_TOKEN', '')
+
+USE_AZURE_STORAGE = os.getenv('USE_AZURE_STORAGE', 'false')
+
+if USE_AZURE_STORAGE == 'true':
+    # Azure storage - see https://django-storages.readthedocs.io/en/latest/backends/azure.html
+    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+    STATICFILES_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+    AZURE_ACCOUNT_NAME = os.getenv('STORAGE_ACCOUNT', '')
+    AZURE_ACCOUNT_KEY = os.getenv('STORAGE_ACCOUNT_KEY', '')
+    AZURE_CONTAINER = os.getenv('STORAGE_CONTAINER', '')
+    # enable SSL for Azure DBse
+    DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
 
 SHOW_STATIONARY_SUBJECTS_ON_MAP = True

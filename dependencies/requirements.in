@@ -82,9 +82,12 @@ openpyxl==2.5.4
 #pymet and requirements that pymet is not pinning
 rasterio==1.0a9
 geojson==2.3.0
-pymet==0.1.21
+pymet==0.1.22
 
 humanize==0.5.1
 
 azure==4.0.0
 business-rules==1.0.1
+
+# Using datadog library for its statsd module
+datadog==0.27.0

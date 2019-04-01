@@ -81,6 +81,20 @@ resources:
     private_key: ((das-versions-github))
     initial_version: ((initial-web-version))
 
+- name: git-spot-provider
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-spot-provider.git
+    branch: ((spot-provider-branch-name))
+    private_key: ((das-spot-provider-github))
+
+- name: git-sigfox-provider
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-sigfox-provider.git
+    branch: ((sigfox-provider-branch-name))
+    private_key: ((das-sigfox-provider-github))
+
 - name: git-skyline-provider
   type: versioned-git-resource
   source:
@@ -261,6 +275,22 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/etl/smartconnect-provider
+
+- name: image-spot-provider
+  type: docker-image-with-file-build-args
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/etl/spot-provider
+
+- name: image-sigfox-provider
+  type: docker-image-with-file-build-args
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/etl/sigfox-provider
 
 - name: slack-alert
   type: slack-notification
@@ -589,6 +619,48 @@ jobs:
             :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
+- name: docker-build-spot-provider
+  max_in_flight: 1
+  plan:
+  - get: git-spot-provider
+    trigger: true
+  - put: image-spot-provider
+    params: {
+      build: git-spot-provider,
+      tag: git-spot-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-sigfox-provider
+  max_in_flight: 1
+  plan:
+  - get: git-sigfox-provider
+    trigger: true
+  - put: image-sigfox-provider
+    params: {
+      build: git-sigfox-provider,
+      tag: git-sigfox-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
 - name: docker-build-tracktrace-provider
   max_in_flight: 1
   plan:
@@ -676,6 +748,10 @@ jobs:
         trigger: true
       - get: git-skyline-provider
         passed: [docker-build-skyline-provider]
+      - get: git-spot-provider
+        passed: [docker-build-spot-provider]
+      - get: git-sigfox-provider
+        passed: [docker-build-sigfox-provider]
       - get: git-tracktrace-provider
         passed: [docker-build-tracktrace-provider]
       - get: git-quadratex-provider
@@ -915,9 +991,13 @@ jobs:
               :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
               $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
-- name: destroy-cluster
-  serial: true
+#########################
+# Destructive Jobs
+#########################
+
+- name: destroy-resources
   disable_manual_trigger: true
+  serial: true
   plan:
   - do:
     - get: git-deployment
@@ -946,24 +1026,20 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
           AZURE_CLIENT_ID: ((azure-client-id)),
           AZURE_CLIENT_SECRET: ((azure-client-secret)),
-          LOGSTASH_URL: ((logstash-url))
+          LOGSTASH_URL: ((logstash-url)),
+          DELETE_CLUSTER: "no"
         }
         run:
           path: /bin/bash
           args:
           - -ec
           - |
-            echo "Deleting cluster. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name))"
-            vcloud clusters delete -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -n ((cluster-name)) -z ((iaas-zone)) -f
-
-- name: destroy-namespace
-  serial: true
-  disable_manual_trigger: true
-  plan:
-  - do:
-    - get: git-deployment
-      params:
-        submodules: none
+            if [ "$DELETE_CLUSTER" == "yes" ]; then
+              echo "Deleting cluster. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name))"
+              vcloud clusters delete -i ((iaas)) -w ((iaas-workspace)) -z ((iaas-zone)) -n ((cluster-name)) -f || true
+            else
+              echo "Skipping cluster deletion"
+            fi
     - task: delete-namespace
       config:
         platform: linux
@@ -987,24 +1063,20 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
           AZURE_CLIENT_ID: ((azure-client-id)),
           AZURE_CLIENT_SECRET: ((azure-client-secret)),
-          LOGSTASH_URL: ((logstash-url))
+          LOGSTASH_URL: ((logstash-url)),
+          DELETE_CLUSTER: "no"
         }
         run:
           path: /bin/bash
           args:
           - -ec
           - |
-            echo "Deleting namespace. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)), Namespace ((namespace))"
-            vcloud clusters delete-namespace -i ((iaas)) -w ((iaas-workspace)) -n ((cluster-name)) -z ((iaas-zone)) --namespace ((namespace))
-
-- name: destroy-disks
-  serial: true
-  disable_manual_trigger: true
-  plan:
-  - do:
-    - get: git-deployment
-      params:
-        submodules: none
+            if [ "$DELETE_CLUSTER" == "yes" ]; then
+              echo "Skipping namespace deletion"
+            else
+              echo "Deleting namespace. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)), Namespace ((namespace))"
+              vcloud clusters delete-namespace -i ((iaas)) -w ((iaas-workspace)) -z ((iaas-zone)) -n ((cluster-name)) --namespace ((namespace)) || true
+            fi
     - task: delete-disks
       config:
         platform: linux
@@ -1035,17 +1107,9 @@ jobs:
           args:
           - -ec
           - |
-            echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)), Namespace ((namespace))"
-            vcloud disks delete git-deployment/((disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((namespace)) -z=((iaas-zone)) -f
-- name: destroy-infra-disks
-  serial: true
-  disable_manual_trigger: true
-  plan:
-  - do:
-    - get: git-deployment
-      params:
-        submodules: none
-    - task: delete-disks
+            echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)) Namespace ((namespace))"
+            vcloud disks delete git-deployment/((disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((namespace)) -z=((iaas-zone)) -f || true
+    - task: delete-infra-disks
       config:
         platform: linux
         image_resource:
@@ -1068,12 +1132,17 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
           AZURE_CLIENT_ID: ((azure-client-id)),
           AZURE_CLIENT_SECRET: ((azure-client-secret)),
-          LOGSTASH_URL: ((logstash-url))
+          LOGSTASH_URL: ((logstash-url)),
+          DELETE_CLUSTER: "no"
         }
         run:
           path: /bin/bash
           args:
           - -ec
           - |
-            echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)), Namespace ((namespace))"
-            vcloud disks delete git-deployment/((infra-disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((infra-namespace)) -z=((iaas-zone)) -f
+            if [ "$DELETE_CLUSTER" == "yes" ]; then
+              echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)) Namespace ((namespace))"
+              vcloud disks delete git-deployment/((infra-disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((infra-namespace)) -z=((iaas-zone)) -f || true
+            else
+              echo "Skipping infra disk deletion"
+            fi

@@ -202,12 +202,12 @@ class FirmsClient:
 
         for s in lines:
             # Skip header
-            if s.startswith('latitude') or len(s) == 0:
+            if s.startswith('latitude') or not s:
                 continue
             try:
                 vals = [f(v) for f, v in zip(field_transform, s.split(','))]
-            except Exception as e:
-                logger.error('Failed parsing %s', s)
+            except ValueError as ve:
+                logger.error('Failed parsing FIRMS line "%s".', extra={'ValueError': ve})
             else:
                 rec = dict(list(zip(field_names, vals)))
 
