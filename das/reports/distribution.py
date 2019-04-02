@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 # who gets a Source Report.
 SOURCE_REPORT_PERMISSION_CODENAME = 'receive_source_report'
 OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME = 'receive_lag_notification'
+SILENT_SOURCE_NOTIFY_PERMISSION_CODENAME = 'receive_silent_source_notification'
 
 
 def send_report(subject='', to_email=None, text_content='', from_email=None, html_content=None):
@@ -77,4 +78,22 @@ def create_lag_notify_permissionset():
 
     permission_set, created = accounts.models.PermissionSet.objects.get_or_create(
         name='Receive observation lag notification')
+    permission_set.permissions.add(perm)
+
+def create_silent_source_notify_permissionset():
+    '''
+    This should run once (probably as part of a migration) to add the proper permission and permissionset that
+    will identify the users who receive silent source notifications.
+    :return:
+    '''
+    User = django.contrib.auth.get_user_model()
+    content_type = ContentType.objects.get_for_model(User)
+    perm, created = django.contrib.auth.models.Permission.objects.get_or_create(
+        codename= SILENT_SOURCE_NOTIFY_PERMISSION_CODENAME,
+        content_type=content_type,
+        defaults=dict(name=_('Receive silent source notification'), )
+    )
+
+    permission_set, created = accounts.models.PermissionSet.objects.get_or_create(
+        name='Receive silent source notification')
     permission_set.permissions.add(perm)
