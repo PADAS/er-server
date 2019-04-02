@@ -546,6 +546,12 @@ class SourceAdmin(admin.ModelAdmin):
                        )
         }
         ),
+        ('Data Source Configuration', {
+            'classes': ('wide',),
+            'fields': ('silence_notification_threshold',)
+        }
+         ),
+
         ('Advanced Source Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('id', 'additional', 'created_at', 'updated_at')
@@ -886,7 +892,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
         ),
         ('Provider configurations', {
             'classes': ('wide',),
-            'fields': (('lag_notification_threshold',))
+            'fields': ('lag_notification_threshold', 'silence_notification_threshold',)
         }
         ),
 

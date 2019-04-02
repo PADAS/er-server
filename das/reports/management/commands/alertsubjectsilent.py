@@ -1,14 +1,14 @@
 from django.core.management.base import BaseCommand
 
-from reports.tasks import alert_subject_silent
+from reports.tasks import run_silent_source_report
 
 
 class Command(BaseCommand):
 
-    help = 'Alert if a Source Provider\'s average obvservation lag exceeds a its configured threshold.'
+    help = 'Report any Sources having no observations recorded within a configured threshold.'
 
     def handle(self, *args, **options):
-        alert_subject_silent()
+        run_silent_source_report()
 
     def add_arguments(self, parser):
         pass
