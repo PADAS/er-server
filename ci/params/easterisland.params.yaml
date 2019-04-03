@@ -3,8 +3,9 @@ cluster-name: partners
 version-prefix: dev
 server-branch-name: develop
 web-branch-name: develop
-namespace: k6training
-das-static-ip: 104.199.121.81
-deploy-params-environment: production
+namespace: sawc
+iaas: gcp
+das-static-ip: 35.233.218.181
+iaas-workspace: padas-app
 deployment-plan: integration
 
