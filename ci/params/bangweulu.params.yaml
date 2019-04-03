@@ -1,4 +1,4 @@
-cluster-name: apn
+cluster-name: africanparks
 version-prefix: dev
 server-branch-name: develop
 web-branch-name: develop
