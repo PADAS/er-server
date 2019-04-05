@@ -131,14 +131,6 @@ class CameraTrapSensorHandler:
             except KeyError:
                 pass
 
-        # just a quick look to see if it is a png. WARNING - this
-        # and the exif handler could be overflow targets
-        file_data = request.data['filecontent.file']
-        file_name = request.data['filecontent.name']
-        if imghdr.what(file_name, file_data) is 'png':
-            return Response(data={'message': 'PNG images are not currently supported'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
         request.data['file'] = request.data['filecontent.file']
         params = CameraTrapPostParameters(data=request.data)
         if not params.is_valid():
@@ -175,7 +167,7 @@ class CameraTrapSensorHandler:
                 logger.exception('Corrupt GPS info in file: %s', camera_name)
 
         if cls.if_exists_event_file(file_name):
-            return Response(status=status.HTTP_405_CONFLICT)
+            return Response(status=status.HTTP_409_CONFLICT)
 
         if params.validated_data['group_id']:
             try:
