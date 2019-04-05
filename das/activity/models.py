@@ -255,9 +255,11 @@ class EventType(TimestampedModel):
 
 
 def parse_date_range(val):
-    lower, upper = (None, None)
-    lower = dateparse.parse_datetime(val['lower'])
-    upper = dateparse.parse_datetime(val['upper'])
+    lower, upper = (val.get('lower'), val.get('upper'))
+    if lower is not None:
+        lower = dateparse.parse_datetime(lower)
+    if upper is not None:
+        upper = dateparse.parse_datetime(upper)
     return (lower, upper)
 
 
