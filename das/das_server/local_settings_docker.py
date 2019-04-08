@@ -76,5 +76,7 @@ if USE_AZURE_STORAGE == 'true':
     AZURE_CONTAINER = os.getenv('STORAGE_CONTAINER', '')
     # enable SSL for Azure DBse
     DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
+    # Assume Azure deployments are prod focused, no debug enabled
+    DEBUG = os.getenv('API_DEBUG', False)
 
 SHOW_STATIONARY_SUBJECTS_ON_MAP = True
