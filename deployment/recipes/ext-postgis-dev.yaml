@@ -1,0 +1,11 @@
+- namespace
+- persistentvolumes
+- deployments
+- services/api-service.yaml
+- services/nginx-service.yaml
+- services/redis-service.yaml
+- services/rt-api-service.yml
+- services/web-service.yaml
+- devtools/postgis-service-ext.yaml
+- infra/monitoring
+- environments/dev-configmap.yaml
