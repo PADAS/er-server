@@ -13,4 +13,4 @@ if [ ! -z "$BUNDLE_CRT" ]; then
     echo "$PAMDAS_ORG_PRIVATE_KEY_PEM" > $SSL_PATH/pamdas.org-private-key.pem
 fi
 
-/usr/sbin/nginx -c /etc/nginx/nginx.conf -g "daemon off;"
+/usr/sbin/nginx-debug -c /etc/nginx/nginx.conf -g "daemon off;"
