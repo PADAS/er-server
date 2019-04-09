@@ -1,3 +1,4 @@
+paths:
 - namespace
 - persistentvolumes
 - deployments
