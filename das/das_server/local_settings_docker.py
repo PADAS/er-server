@@ -12,16 +12,17 @@ MEDIA_ROOT = '/user-uploads'
 MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
 
 SECRET_KEY = 'aefefsfees'
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-TEMPLATE_DEBUG = True
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-DEV = True
+# To simplify k8 deployment, set an env for ENABLE_DEV when using
+# docker compose
+DEBUG = os.getenv('ENABLE_DEV', False)
+TEMPLATE_DEBUG = os.getenv('ENABLE_DEV', False)
+DEV = os.getenv('ENABLE_DEV', False)
+
 ALLOWED_HOSTS = ['*']
 CORS_ORIGIN_ALLOW_ALL = True
-TIME_ZONE = 'US/Pacific'
+TIME_ZONE = os.getenv('TIME_ZONE', 'US/Pacific')
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -76,7 +77,5 @@ if USE_AZURE_STORAGE == 'true':
     AZURE_CONTAINER = os.getenv('STORAGE_CONTAINER', '')
     # enable SSL for Azure DBse
     DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
-    # Assume Azure deployments are prod focused, no debug enabled
-    DEBUG = os.getenv('API_DEBUG', False)
 
 SHOW_STATIONARY_SUBJECTS_ON_MAP = True
