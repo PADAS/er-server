@@ -7,6 +7,6 @@ namespace: easterisland
 iaas: gcp
 das-static-ip: 35.233.218.181
 iaas-workspace: padas-app
-deploy-recipe: deploy-recipe: ext-postgis-dev.yaml
+deploy-recipe: ext-postgis-dev.yaml
 deployment-plan: integration
 
