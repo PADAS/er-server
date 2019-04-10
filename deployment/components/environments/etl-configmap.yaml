@@ -17,8 +17,6 @@ data:
   LEWA_TRACK_TRACE_API_TOKEN: "<<tracktrace-provider-api-token>>"
   BANGWEULU_QUADRATEX_DAS_TOKEN: "<<quadratex-provider-das-token>>"
   BANGWEULU_QUADRATEX_API_TOKEN: "<<quadratex-provider-api-token>>"
-  BANGWEULU_AZ_QUADRATEX_DAS_TOKEN: "<<bang-az-provider-das-token>>"
-  BANGWEULU_AZ_QUADRATEX_API_TOKEN: "<<quadratex-provider-api-token>>"
   NLUWANGWA_QUIKTRAK_TOKEN: "<<quadratex-provider-das-token>>"
   NLUWANGWA_QUIKTRAK_API_TOKEN: "<<quadratex-provider-api-token>>"
   SANDBOX_DAS_SENSOR_ENDPOINT: "https://sandbox.pamdas.org/api/v1.0"
