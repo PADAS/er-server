@@ -32,6 +32,9 @@ data:
         remove_field => [ "[host]" ]
         add_field => { "host" => "%{[beat][hostname]}"}
       }
+      mutate {
+        remove_field => [ "[data]" ]
+      }
     }
     output {
       elasticsearch {
