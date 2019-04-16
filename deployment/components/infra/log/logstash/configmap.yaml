@@ -33,7 +33,7 @@ data:
         add_field => { "host" => "%{[beat][hostname]}"}
       }
       mutate {
-        remove_field => [ "[data]" ]
+        remove_field => [ "[data]", "[kubernetes][label][app]" ]
       }
     }
     output {
