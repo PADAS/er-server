@@ -7,6 +7,7 @@ call your project be overriding the settings file
 
 from .settings import *
 import os
+from utils import env
 
 MEDIA_ROOT = '/user-uploads'
 MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
@@ -14,17 +15,31 @@ MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
 SECRET_KEY = 'aefefsfees'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# To simplify k8 deployment, set an env for ENABLE_DEV when using
+# To simplify k8 deployment, set an .env for ENABLE_DEV when using
 # docker compose
-DEBUG = os.getenv('ENABLE_DEV', False)
-TEMPLATE_DEBUG = os.getenv('ENABLE_DEV', False)
-DEV = os.getenv('ENABLE_DEV', False)
+DEBUG = env.str_to_bool(os.getenv('ENABLE_DEBUG', False))
+TEMPLATE_DEBUG = env.str_to_bool(os.getenv('ENABLE_DEBUG', False))
+DEV = env.str_to_bool(os.getenv('ENABLE_DEV', False))
 
-ALLOWED_HOSTS = ['*']
-CORS_ORIGIN_ALLOW_ALL = True
+SHOW_TRACK_DAYS = int(os.getenv('SHOW_TRACK_DAYS', '14'))
+SHOW_STATIONARY_SUBJECTS_ON_MAP = os.getenv('SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
+
 TIME_ZONE = os.getenv('TIME_ZONE', 'US/Pacific')
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+
+# TODO - Import terraform generated FQDN
+# CORS_ORIGN_FQDN = os.getenv('CORS_ORIGIN_FQDN')
+# ALLOWED_HOSTS = ['localhost:9000','CORS_ORIGIN_FQDN,'localhost','*']
+if os.getenv('CORS_ORIGIN_FQDN') is None:
+    ALLOWED_HOSTS = ['*']
+# TODO - Make this default to False
+CORS_ORIGIN_ALLOW_ALL = env.str_to_bool(os.getenv('CORS_ORIGIN_ALLOW_ALL', True))
+# TODO - Generate whitelist from terrform fqdn
+# (
+#       'localhost:9000','http://localhost:9000',CORS_ORIGN_FQDN,'https://'+ CORS_ORIGN_FQDN','http://' + CORS_ORIGN_FQDN
+#  )
+
+SESSION_COOKIE_SECURE = env.str_to_bool(os.getenv(SESSION_COOKIE_SECURE, True))
+CSRF_COOKIE_SECURE = env.str_to_bool(os.getenv(CSRF_COOKIE_SECURE, True))
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 STATIC_ROOT = '/var/www/static/'
@@ -32,15 +47,16 @@ STATIC_ROOT = '/var/www/static/'
 # add the path to your local copy of the das-web static root dir that contains index.html
 #STATICFILES_DIRS = STATICFILES_DIRS + (os.path.join(BASE_DIR, 'www'),)
 
-# can use console output for email in dev
+# TODO can use aws mail short term, until we source a commercial mailer
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 AWS_SES_REGION_NAME = 'us-west-2'
 AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 # the address to send notification emails from
-FROM_EMAIL = 'notifications.demo@pamdas.org'
-DEFAULT_FROM_EMAIL = 'notifications.demo@pamdas.org'
-EMAIL_HOST_USER = 'AKIAJLH5VZD6IQWTWPQQ'
-EMAIL_HOST = 'email-smtp.us-west-2.amazonaws.com'
+# TODO - Do we need both fields?
+FROM_EMAIL = os.getenv('FROM_EMAIL')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST = os.getenv('EMAIL_HOST, 'email-smtp.us-west-2.amazonaws.com')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
 EMAIL_USE_TLS = True
 EMAIL_PORT = 2587
@@ -63,8 +79,9 @@ DATABASES = {
 }
 
 # use these when you want to send SMS from kenya
-SENDSMS_AFRICAS_TALKING_USERNAME = os.getenv('SMS_ID', '')
-SENDSMS_AFRICAS_TALKING_API_KEY = os.getenv('SMS_TOKEN', '')
+# TODO - set sms provider by type
+SENDSMS_AFRICAS_TALKING_USERNAME = os.getenv('SMS_ID')
+SENDSMS_AFRICAS_TALKING_API_KEY = os.getenv('SMS_TOKEN')
 
 USE_AZURE_STORAGE = os.getenv('USE_AZURE_STORAGE', 'false')
 
@@ -78,4 +95,11 @@ if USE_AZURE_STORAGE == 'true':
     # enable SSL for Azure DBse
     DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
 
-SHOW_STATIONARY_SUBJECTS_ON_MAP = True
+EUS_SETTINGS = {
+    # 'zendesk' or 'email'
+    'type': os.getenv('EUS_TYPE'),
+    'name': os.getenv('EUS_NAME'),
+    'email': os.getenv('EUS_EMAIL'),
+    'organization': os.getenv('
+    ')
+}
