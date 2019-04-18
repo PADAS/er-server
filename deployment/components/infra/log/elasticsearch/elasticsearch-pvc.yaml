@@ -49,6 +49,54 @@ spec:
 kind: "PersistentVolumeClaim"
 apiVersion: "v1"
 metadata:
+  name: "elasticsearch-data-elasticsearch-data-3"
+  namespace: "<<namespace>>"
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "100Gi"
+  storageClassName: "ssd"
+  selector:
+    matchLabels:
+      component: "<<namespace>>-elasticsearch-data-3"
+---
+kind: "PersistentVolumeClaim"
+apiVersion: "v1"
+metadata:
+  name: "elasticsearch-data-elasticsearch-data-4"
+  namespace: "<<namespace>>"
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "100Gi"
+  storageClassName: "ssd"
+  selector:
+    matchLabels:
+      component: "<<namespace>>-elasticsearch-data-4"
+---
+kind: "PersistentVolumeClaim"
+apiVersion: "v1"
+metadata:
+  name: "elasticsearch-data-elasticsearch-data-5"
+  namespace: "<<namespace>>"
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "100Gi"
+  storageClassName: "ssd"
+  selector:
+    matchLabels:
+      component: "<<namespace>>-elasticsearch-data-5"
+---
+kind: "PersistentVolumeClaim"
+apiVersion: "v1"
+metadata:
   name: "elasticsearch-master-elasticsearch-master-0"
   namespace: "<<namespace>>"
 spec:
