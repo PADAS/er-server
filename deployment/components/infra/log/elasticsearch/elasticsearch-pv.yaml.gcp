@@ -117,6 +117,63 @@ kind: "PersistentVolume"
 metadata:
   annotations:
       volume.beta.kubernetes.io/mount-options: "discard"
+  name: <<namespace>>-elasticsearch-data-6
+  labels:
+    component: <<namespace>>-elasticsearch-data-6
+spec:
+  capacity:
+    storage: "100Gi"
+  accessModes:
+    - "ReadWriteOnce"
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: "ssd"
+  gcePersistentDisk:
+    fsType: "ext4"
+    pdName: "<<cluster-name>>-<<namespace>>-elasticsearch-data-6"
+---
+apiVersion: "v1"
+kind: "PersistentVolume"
+metadata:
+  annotations:
+      volume.beta.kubernetes.io/mount-options: "discard"
+  name: <<namespace>>-elasticsearch-data-7
+  labels:
+    component: <<namespace>>-elasticsearch-data-7
+spec:
+  capacity:
+    storage: "100Gi"
+  accessModes:
+    - "ReadWriteOnce"
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: "ssd"
+  gcePersistentDisk:
+    fsType: "ext4"
+    pdName: "<<cluster-name>>-<<namespace>>-elasticsearch-data-7"
+---
+apiVersion: "v1"
+kind: "PersistentVolume"
+metadata:
+  annotations:
+      volume.beta.kubernetes.io/mount-options: "discard"
+  name: <<namespace>>-elasticsearch-data-8
+  labels:
+    component: <<namespace>>-elasticsearch-data-8
+spec:
+  capacity:
+    storage: "100Gi"
+  accessModes:
+    - "ReadWriteOnce"
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: "ssd"
+  gcePersistentDisk:
+    fsType: "ext4"
+    pdName: "<<cluster-name>>-<<namespace>>-elasticsearch-data-8"
+---
+apiVersion: "v1"
+kind: "PersistentVolume"
+metadata:
+  annotations:
+      volume.beta.kubernetes.io/mount-options: "discard"
   name: <<namespace>>-elasticsearch-master-0
   labels:
     component: <<namespace>>-elasticsearch-master-0

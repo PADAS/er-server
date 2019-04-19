@@ -4,6 +4,7 @@ metadata:
   namespace: <<namespace>>
   name: logstash
 spec:
+  replicas: 4
   template:
     metadata:
       labels:
