@@ -29,14 +29,13 @@ TIME_ZONE = os.getenv('TIME_ZONE', 'US/Pacific')
 # TODO - Import terraform generated FQDN
 # CORS_ORIGN_FQDN = os.getenv('CORS_ORIGIN_FQDN')
 # ALLOWED_HOSTS = ['localhost:9000','CORS_ORIGIN_FQDN,'localhost','*']
-if os.getenv('CORS_ORIGIN_FQDN') is None:
-    ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['*']
 # TODO - Make this default to False
-CORS_ORIGIN_ALLOW_ALL = env.str_to_bool(os.getenv('CORS_ORIGIN_ALLOW_ALL', True))
-# TODO - Generate whitelist from terrform fqdn
-# (
-#       'localhost:9000','http://localhost:9000',CORS_ORIGN_FQDN,'https://'+ CORS_ORIGN_FQDN','http://' + CORS_ORIGN_FQDN
-#  )
+CORS_ORIGIN_ALLOW_ALL = env.str_to_bool(os.getenv('CORS_ORIGIN_ALLOW_ALL', False))
+SERVER_FQDN = os.getenv('FQDN', '')
+CORS_ORIGIN_WHITELIST = (
+        'localhost:9000','http://localhost:9000', SERVER_FQDN, f'https://{SERVER_FQDN}', f'http://{SERVER_FQDN}
+    )
 
 SESSION_COOKIE_SECURE = env.str_to_bool(os.getenv('SESSION_COOKIE_SECURE', True))
 CSRF_COOKIE_SECURE = env.str_to_bool(os.getenv('CSRF_COOKIE_SECURE', True))
@@ -92,7 +91,7 @@ if USE_AZURE_STORAGE == 'true':
     AZURE_ACCOUNT_NAME = os.getenv('STORAGE_ACCOUNT', '')
     AZURE_ACCOUNT_KEY = os.getenv('STORAGE_ACCOUNT_KEY', '')
     AZURE_CONTAINER = os.getenv('STORAGE_CONTAINER', '')
-    # enable SSL for Azure DBse
+    # enable SSL for Azure DBs
     DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
 
 EUS_SETTINGS = {
