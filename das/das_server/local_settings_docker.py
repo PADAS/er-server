@@ -34,7 +34,7 @@ ALLOWED_HOSTS = ['*']
 CORS_ORIGIN_ALLOW_ALL = env.str_to_bool(os.getenv('CORS_ORIGIN_ALLOW_ALL', False))
 SERVER_FQDN = os.getenv('FQDN', '')
 CORS_ORIGIN_WHITELIST = (
-        'localhost:9000','http://localhost:9000', SERVER_FQDN, f'https://{SERVER_FQDN}', f'http://{SERVER_FQDN}
+        'localhost:9000','http://localhost:9000', SERVER_FQDN, f'https://{SERVER_FQDN}', f'http://{SERVER_FQDN}'
     )
 
 SESSION_COOKIE_SECURE = env.str_to_bool(os.getenv('SESSION_COOKIE_SECURE', True))
