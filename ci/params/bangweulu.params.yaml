@@ -7,7 +7,7 @@ iaas: azure
 iaas-zone: westeurope
 iaas-workspace: DAS-Dev
 cluster-spec: deployment/cluster-specs/azure.yaml
-das-static-ip: 40.113.136.71
+das-static-ip: 40.68.144.232 
 deployment-plan: integration
 deploy-recipe: standard-az.yaml
 deploy-params-environment: bangweulu
