@@ -30,6 +30,7 @@ datadog==0.27.0
 decorator==4.3.2          # via datadog
 descartes==1.1.0          # via geopandas
 django-cors-headers==2.1.0
+django-environ==0.4.5
 django-extra-fields==0.9
 django-js-asset==0.1.1    # via django-mptt
 django-leaflet==0.23.0

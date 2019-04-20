@@ -6,10 +6,10 @@ static-values:
   log_url: "logs.pamdas.org:5044"
   # app cfg params
   db-host-name: "das-postgres-apn.postgres.database.azure.com"
-  db-name: "bangweulu"
-  db-user: "bangweulu@das-postgres-apn"
+  db-name: "garamba"
+  db-user: "garamba@das-postgres-apn"
   config-account-name: "dasconfigwesteurope"
-  storage-account-name: "bangweulufc2b1961"
+  storage-account-name: "garamba04e2ec60"
   storage-container: "assets"
   storage-base-path: "root-path"
   use-azure-storage: "true"
@@ -22,8 +22,8 @@ vault-lookups:
   pamdas-org-ssl-cert: padas-app/main/pamdas-org-ssl-cert
   pamdas-org-ssl-ca: padas-app/main/pamdas-org-ssl-ca
   # app cfg secrets
-  db-password: padas-app/main/partner/apn/site/bangweulu/azurerm-postgresql-server-site-password
+  db-password: padas-app/main/partner/apn/site/garamba/azurerm-postgresql-server-site-password
   config-account-key: padas-app/main/dasconfigwesteurope-access-key
-  storage-account-key: padas-app/main/partner/site/bangweulu/azurerm-storage-account-primary-access-key
+  storage-account-key: padas-app/main/partner/site/garamba/azurerm-storage-account-primary-access-key
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
