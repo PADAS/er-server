@@ -22,24 +22,23 @@ TEMPLATE_DEBUG = env.str_to_bool(os.getenv('ENABLE_DEBUG', False))
 DEV = env.str_to_bool(os.getenv('ENABLE_DEV', False))
 
 SHOW_TRACK_DAYS = int(os.getenv('SHOW_TRACK_DAYS', '14'))
-SHOW_STATIONARY_SUBJECTS_ON_MAP = os.getenv('SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
+SHOW_STATIONARY_SUBJECTS_ON_MAP = env.str_to_bool(os.getenv('SHOW_STATIONARY_SUBJECTS_ON_MAP', False))
 
 TIME_ZONE = os.getenv('TIME_ZONE', 'US/Pacific')
 
 # TODO - Import terraform generated FQDN
 # CORS_ORIGN_FQDN = os.getenv('CORS_ORIGIN_FQDN')
 # ALLOWED_HOSTS = ['localhost:9000','CORS_ORIGIN_FQDN,'localhost','*']
-if os.getenv('CORS_ORIGIN_FQDN') is None:
-    ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['*']
 # TODO - Make this default to False
-CORS_ORIGIN_ALLOW_ALL = env.str_to_bool(os.getenv('CORS_ORIGIN_ALLOW_ALL', True))
-# TODO - Generate whitelist from terrform fqdn
-# (
-#       'localhost:9000','http://localhost:9000',CORS_ORIGN_FQDN,'https://'+ CORS_ORIGN_FQDN','http://' + CORS_ORIGN_FQDN
-#  )
+CORS_ORIGIN_ALLOW_ALL = env.str_to_bool(os.getenv('CORS_ORIGIN_ALLOW_ALL', False))
+SERVER_FQDN = os.getenv('FQDN', '')
+CORS_ORIGIN_WHITELIST = (
+        'localhost:9000','http://localhost:9000', SERVER_FQDN, f'https://{SERVER_FQDN}', f'http://{SERVER_FQDN}
+    )
 
-SESSION_COOKIE_SECURE = env.str_to_bool(os.getenv(SESSION_COOKIE_SECURE, True))
-CSRF_COOKIE_SECURE = env.str_to_bool(os.getenv(CSRF_COOKIE_SECURE, True))
+SESSION_COOKIE_SECURE = env.str_to_bool(os.getenv('SESSION_COOKIE_SECURE', True))
+CSRF_COOKIE_SECURE = env.str_to_bool(os.getenv('CSRF_COOKIE_SECURE', True))
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 STATIC_ROOT = '/var/www/static/'
@@ -56,7 +55,7 @@ AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 FROM_EMAIL = os.getenv('FROM_EMAIL')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST = os.getenv('EMAIL_HOST, 'email-smtp.us-west-2.amazonaws.com')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'email-smtp.us-west-2.amazonaws.com')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
 EMAIL_USE_TLS = True
 EMAIL_PORT = 2587
@@ -92,7 +91,7 @@ if USE_AZURE_STORAGE == 'true':
     AZURE_ACCOUNT_NAME = os.getenv('STORAGE_ACCOUNT', '')
     AZURE_ACCOUNT_KEY = os.getenv('STORAGE_ACCOUNT_KEY', '')
     AZURE_CONTAINER = os.getenv('STORAGE_CONTAINER', '')
-    # enable SSL for Azure DBse
+    # enable SSL for Azure DBs
     DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
 
 EUS_SETTINGS = {
@@ -100,6 +99,5 @@ EUS_SETTINGS = {
     'type': os.getenv('EUS_TYPE'),
     'name': os.getenv('EUS_NAME'),
     'email': os.getenv('EUS_EMAIL'),
-    'organization': os.getenv('
-    ')
+    'organization': os.getenv('EUS_ORG')
 }
