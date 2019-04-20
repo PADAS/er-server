@@ -13,7 +13,7 @@ data:
   STORAGE_CONTAINER: "<<storage-container>>"
   STORAGE_ACCOUNT_KEY: "<<storage-account-key>>"
   STORAGE_BASE_PATH: "<<storage-base-path>>"
+  CONFIG_ACCOUNT_KEY: "<<config-account-key>>"
+  CONFIG_ACCOUNT: "<<config-account-name>>"
   USE_AZURE_STORAGE: "<<use-azure-storage>>"
-  SMS_ID: "<<sms_id>>"
-  SMS_TOKEN: "<<sms_token>>"
 
