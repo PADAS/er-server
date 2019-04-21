@@ -129,6 +129,10 @@ class InreachPlugin(TrackingPlugin):
     DEFAULT_START_OFFSET = timedelta(days=31)
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=10)
 
+    class Meta:
+        verbose_name = "inReach Professional plugin"
+        verbose_name_plural = "inReach Professional plugins"
+
     def should_run(self, source_plugin):
 
         # Don't bother running now if less than 20 minutes has passed since the
