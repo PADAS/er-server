@@ -164,6 +164,10 @@ class InreachKMLPlugin(TrackingPlugin):
 
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=10)
 
+    class Meta:
+        verbose_name = "inReach Personal plugin"
+        verbose_name_plural = "inReach Personal plugins"
+
     def should_run(self, source_plugin):
 
         # Don't bother running now if less than 20 minutes has passed since the
