@@ -6,7 +6,6 @@ import observations.models
 
 
 NEW_SUBTYPES = [{'display': 'Fence Attendant', 'value': 'fence_attendant'},
-                {'display': 'Ranger Radio', 'value': 'ranger_radio'},
                 ]
 
 SUBJECT_TYPE_VALUE = 'person'
