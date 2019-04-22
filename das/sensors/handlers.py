@@ -33,7 +33,7 @@ class SensorPostParameters(serializers.Serializer):
     additional = serializers.DictField(default={})
 
 
-class GenericSensorHandler():
+class GenericSensorHandler:
 
     DEFAULT_SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
@@ -41,67 +41,74 @@ class GenericSensorHandler():
     @classmethod
     def post(cls, request, sensor_type, provider_key):
 
-        params = SensorPostParameters(data=request.data)
+        params = SensorPostParameters(data=request.data, many=True)
         if not params.is_valid():
             return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        params = params.validated_data
-        manufacturer_id = params['manufacturer_id']
-        location = None
-        try:
-            location = params['location']
-            lat = location.get('lat', None)
-            lon = location.get('lon', None)
+        return cls.process_observations(params.validated_data, provider_key, sensor_type)
 
-            # location = Point(x=float(lon), y=float(lat))
-            location = {'latitude': float(lat), 'longitude': float(lon)}
-        except:
+    @classmethod
+    def process_observations(cls, observations_json, provider_key, sensor_type):
+
+        errors = []
+        for an_observation in observations_json:
+
+            manufacturer_id = an_observation['manufacturer_id']
             location = None
+            try:
+                location = an_observation['location']
+                lat = location.get('lat', None)
+                lon = location.get('lon', None)
 
-        subject_subtype = params.get(
-            'subject_subtype', cls.DEFAULT_SUBJECT_SUBTYPE)
+                # location = Point(x=float(lon), y=float(lat))
+                location = {'latitude': float(lat), 'longitude': float(lon)}
+            except:
+                location = None
 
-        source_type = params.get('source_type', provider_key)
-        model_name = params.get('model_name', None) or '{}:{}'.format(
-            sensor_type, provider_key)
+            subject_subtype = an_observation.get(
+                'subject_subtype', cls.DEFAULT_SUBJECT_SUBTYPE)
+            source_type = an_observation.get('source_type', provider_key)
+            model_name = an_observation.get('model_name', None) or '{}:{}'.format(
+                sensor_type, provider_key)
+            subject_name = an_observation.get('subject_name') or manufacturer_id
+            src = Source.objects.ensure_source(source_type,
+                                               provider=provider_key,
+                                               manufacturer_id=manufacturer_id,
+                                               model_name=model_name,
+                                               subject={
+                                                   'subject_subtype_id': subject_subtype,
+                                                   'name': subject_name
+                                               }
+                                               )
+            recorded_at = an_observation.get('recorded_at')
+            additional = an_observation.get('additional', {})
+            # Short-circuit if we already have this observation.
+            if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
+                logger.info("Processed duplicate observation %s",
+                            subject_subtype, extra={'obs.dup': provider_key})
+                errors.append({})
+                continue
+            observation = {
+                'location': location,
+                'recorded_at': recorded_at,
+                'source': str(src.id),
+                'additional': additional,
+            }
+            serializer = ObservationSerializer(data=observation)
+            if serializer.is_valid():
+                serializer.save()
+                logger.info("Added new observation %s", observation,
+                            extra={'obs.new': provider_key})
+                notify_new_tracks(src.id)
+                errors.append({})
+            else:
+                errors.append(serializer.errors())
 
-        subject_name = params.get('subject_name') or manufacturer_id
+        for error in errors:
+            if error:
+                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
-        src = Source.objects.ensure_source(source_type,
-                                           provider=provider_key,
-                                           manufacturer_id=manufacturer_id,
-                                           model_name=model_name,
-                                           subject={
-                                               'subject_subtype_id': subject_subtype,
-                                               'name': subject_name
-                                           }
-                                           )
-
-        recorded_at = params.get('recorded_at')
-        additional = params.get('additional', {})
-
-        # Short-circuit if we already have this observation.
-        if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
-            logger.info("Processed duplicate observation %s",
-                        subject_subtype, extra={'obs.dup': provider_key})
-            return Response({}, status=status.HTTP_201_CREATED)
-
-        observation = {
-            'location': location,
-            'recorded_at': recorded_at,
-            'source': str(src.id),
-            'additional': additional,
-        }
-
-        serializer = ObservationSerializer(data=observation)
-        if serializer.is_valid():
-            serializer.save()
-            logger.info("Added new observation %s", observation,
-                        extra={'obs.new': provider_key})
-            notify_new_tracks(src.id)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({}, status=status.HTTP_201_CREATED)
 
 
 class FollowltTrackerHandler:
