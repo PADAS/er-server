@@ -44,18 +44,22 @@ class EventVariables(variables.BaseVariables):
 
     def __init__(self, event):
         self.event = event
+        # self.event.details = self.event.event_details.get().data
+
 
     @variables.select_multiple_rule_variable(label=_('Priority'), options=priority_options)
     def priority(self):
-        return [str(self.event.priority),]
+        return [str(self.event.get('priority')),]
 
     @variables.select_multiple_rule_variable(label=_('State'), options=state_options)
     def state(self):
-        return [self.event.state,]
+        return [self.event.get('state'),]
 
     @variables.select_multiple_rule_variable(label=_('State Change'), options=state_change_options)
     def state_change(self):
-        return [getattr(self.event, 'state_change', None),]
+        return [getattr(self.event, 'state_change', None), ]
+
+
 
 
 class EventActions(actions.BaseActions):
@@ -117,23 +121,27 @@ class Schedule:
         # Calculate sample's total seconds for the day.
         ts_seconds = (sample_ts - sample_ts.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds()
 
-        for x, y in self.generate_ranges(periods):
+        for x, y in self._generate_ranges(periods):
             if x <= ts_seconds and ts_seconds <= y:  # inclusive
                 return True
         return False
 
-    def generate_ranges(self, periods):
+    @staticmethod
+    def _generate_ranges(periods):
         for period in periods:
             start, end = (parse_duration(f'{x}:00') for x in period)
             yield (start.seconds, end.seconds)
 
-whitelist_operators_map = {
+
+_WHITELISTED_OPERATORS = {
     fields.FIELD_NUMERIC: {
         'equal_to': '=',
         'greater_than': '>',
         'less_than': '<',
-        'greater_than_or_equal_to': '≥',
-        'less_than_or_equal_to': '≤',
+        # 'greater_than_or_equal_to': '≥',
+        # 'less_than_or_equal_to': '≤',
+        'greater_than_or_equal_to': '>=',
+        'less_than_or_equal_to': '<=',
     },
 
     fields.FIELD_SELECT_MULTIPLE: {
@@ -147,9 +155,10 @@ whitelist_operators_map = {
     }
 }
 
+
 def whitelist_operators(vtypename, operators):
 
-    wtype = whitelist_operators_map.get(vtypename)
+    wtype = _WHITELISTED_OPERATORS.get(vtypename)
     if wtype:
         for operator in operators:
             label = wtype.get(operator['name'])
@@ -199,8 +208,8 @@ def create_new_func(key, return_type, label=None, optionslist=None):
 
         # For a multi-select option we return the Event's value as a member of a list.
         def f(self):
-            return [self.event.details.get(key),]
-
+            # return [self.event.details.get(key, {}).get('value'),]
+            return [self.event['event_details'].get(key, {}).get('value'),]
         # Assume 'select_multiple'
 
         optionslist = sorted(optionslist, key=lambda x: x['label'])
@@ -236,7 +245,7 @@ def translate_schema_type_to_type(option):
         raise NotImplementedError(f'I don\'t support type \'{option["type"]}\' yet.')
 
 
-def genoptions(schema_option):
+def generate_option_list(schema_option):
     '''
     Transform an Event-Type choice list from `enumNames` to business-rules friendly list.
     :param schema_option:
@@ -250,7 +259,7 @@ def genoptions(schema_option):
 def generate_global_event_variables(event_types, only_common_factors=False):
     '''
     From a list of EventTypes, generate an EventVariables class adhering to Venmo business rules interface.
-    :param event_type: A DAS EventType object that has a valid schema.
+    :param event_types: A list of DAS EventType objects from which to build a variables type.
     :return: A `Variables` type to be used with Venmo business-rules package.
     '''
 
@@ -268,13 +277,10 @@ def generate_global_event_variables(event_types, only_common_factors=False):
         # Accumulate rendered schema properties in a dict.
         schema_properties_map[event_type.value] = rendered_schema.get('properties', {})
 
-
     # Determine intersection of keys.
     if only_common_factors:
         keyset_intersection = set.intersection(*keyset_list)
         logger.debug('Keyset intersection: %s', keyset_intersection)
-
-
 
     attributes_accumulator = {}
     applies_to_map = {}
@@ -289,12 +295,12 @@ def generate_global_event_variables(event_types, only_common_factors=False):
             rule_return_type = translate_schema_type_to_type(v)
 
             newattr = RuleVariableSpec(attrname=k, return_type=rule_return_type,
-                                       label=v.get('title', k), optionslist=genoptions(v))
+                                       label=v.get('title', k), optionslist=generate_option_list(v))
 
             attr = attributes_accumulator.get(k, None)
             if attr:
                 if attr.return_type == newattr.return_type:
-                    attr.optionslist.extend(genoptions(v))
+                    attr.optionslist.extend(generate_option_list(v))
                 else:
                     logger.warning('Name collision on %s with different return types.', k)
             else:
@@ -321,6 +327,8 @@ def generate_global_event_variables(event_types, only_common_factors=False):
 
 
 PRUNE_OPTIONS_FROM = (fields.FIELD_TEXT, fields.FIELD_NO_INPUT, fields.FIELD_NUMERIC,)
+
+
 def render_aggregate_eventvariables(event_types, only_common_factors=False):
 
     variables_class, applies_to_map = generate_global_event_variables(event_types,

@@ -1434,7 +1434,9 @@ class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
 
         return rep
 
+
 PHONE_NUMBER_VALIDATOR = RegexValidator(regex=r'^\+?1?[-\d]{9,15}$', message="Not a valid phone number.")
+
 
 class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
 
@@ -1469,18 +1471,19 @@ class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
 
         return super().validate(attrs)
 
-class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
 
-    notification_method_ids = rest_framework.serializers.PrimaryKeyRelatedField(
-        queryset=activity.models.NotificationMethod.objects.all(),
-        many=True, write_only=True)
+class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
+    '''
+    Notice that 'notification_methods' and 'notification_method_ids' work together to provide clean read-write
+    capabilities in this serializer.
+
+    See: https://stackoverflow.com/questions/29950956/drf-simple-foreign-key-assignment-with-nested-serializers
+    '''
 
     event_types = rest_framework.serializers.SlugRelatedField(
         queryset=activity.models.EventType.objects.all(),
         many=True, write_only=False,
         slug_field='value')
-
-    notification_methods = NotificationMethodSerializer(many=True, read_only=True)
 
     conditions = rest_framework.serializers.JSONField()
     schedule = rest_framework.serializers.JSONField()
@@ -1491,6 +1494,11 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
         fields = '__all__'
         model = activity.models.AlertRule
         read_only_fields = ('id', 'owner', 'notification_methods',)
+
+    notification_method_ids = rest_framework.serializers.PrimaryKeyRelatedField(
+        queryset=activity.models.NotificationMethod.objects.all(),
+        many=True, write_only=True, source='notification_methods')
+    notification_methods = NotificationMethodSerializer(many=True, read_only=True)
 
     def to_representation(self, instance):
 

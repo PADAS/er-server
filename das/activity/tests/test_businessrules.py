@@ -1,9 +1,20 @@
 from datetime import datetime, timedelta
 import pytz
 import json
-from django.test import TestCase
+from django.http.request import HttpRequest
 
+from django.contrib.gis.geos import Point
+from django.contrib.auth.models import Permission
+
+from django.test import TestCase
 from django.core.management import call_command
+import utils.schema_utils as schema_utils
+
+from core.tests import BaseAPITest
+from accounts.models import PermissionSet
+
+from activity.serializers import EventSerializer, AlertRuleSerializer
+from activity.views import AlertRuleListView, NotificationMethodListView
 
 from business_rules import export_rule_data, run_all
 
@@ -12,16 +23,24 @@ from activity.businessrules import EventActions, EventVariables, generate_global
 
 from typing import NamedTuple
 
-from activity.models import EventType
+from accounts.models import User
+
+from activity.models import EventType, Event, EventCategory, AlertRule
 from utils import schema_utils
 
-class Event(NamedTuple):
+power_user_permissions = [
+    'security_read',
+    'monitoring_create', 'monitoring_read', 'monitoring_update', 'monitoring_delete',
+    'logistics_create', 'logistics_read', 'logistics_update', 'logistics_delete']
+
+
+class MockEvent(NamedTuple):
     state: str
     priority: int = 0
     foo: str = ''
 
 
-class BusinessRulesTestCase(TestCase):
+class BusinessRulesTestCase(BaseAPITest):
 
     def setUp(self):
         super().setUp()
@@ -29,6 +48,15 @@ class BusinessRulesTestCase(TestCase):
         call_command('loaddata', 'event_data_model')
         call_command('loaddata', 'test_events_schema')
 
+        self.power_user = User.objects.create_user(username='poweruser',
+                                                   password='asdfo9823sfiu23$',
+                                                   email='poweruser@tempuri.org')
+
+        self.power_user_permissionset = PermissionSet.objects.create(name='power_set')
+        for perm in power_user_permissions:
+            self.power_user_permissionset.permissions.add(
+                Permission.objects.get(codename=perm))
+        self.power_user.permission_sets.add(self.power_user_permissionset)
 
     def test_just_the_rules_engine_variables(self):
 
@@ -81,17 +109,17 @@ class BusinessRulesTestCase(TestCase):
                         {
                             "name": "priority",
                             "operator": "shares_at_least_one_element_with",
-                            "value": ['200', '100',],
+                            "value": ['200', '100', ],
                         },
                         {
                             "name": "state",
                             "operator": "shares_at_least_one_element_with",
-                            "value": ['new', 'active',],
+                            "value": ['new', 'active', ],
                         },
                         {
                             "name": "foo",
                             "operator": "is_contained_by",
-                            "value": ['bar', 'baz',],
+                            "value": ['bar', 'baz', ],
                         }
                     ]
                 },
@@ -107,7 +135,7 @@ class BusinessRulesTestCase(TestCase):
             },
         ]
 
-        for event in (Event('new', 200, 'bar'), Event('active', 0)):
+        for event in (MockEvent('new', 200, 'bar'), MockEvent('active', 0)):
             run_all(rule_list=sample_rules,
                     defined_variables=TestEventVariables(event),
                     defined_actions=TestEventActions(event),
@@ -118,7 +146,7 @@ class BusinessRulesTestCase(TestCase):
     def test_create_eventtype_variables_class(self):
 
         snare_et = EventType.objects.get(value='snare_rep')
-        variables_class, applies_to = generate_global_event_variables([snare_et,])
+        variables_class, applies_to = generate_global_event_variables([snare_et, ])
         # exported_rule_data = export_rule_data(variables_class, EventActions)
         # print(json.dumps(exported_rule_data, indent=2))
 
@@ -129,7 +157,7 @@ class BusinessRulesTestCase(TestCase):
                         {
                             "name": "priority",
                             "operator": "shares_at_least_one_element_with",
-                            "value": ['1', '100', '200',],
+                            "value": ['1', '100', '200', ],
                         },
                         {
                             "name": "state",
@@ -150,22 +178,25 @@ class BusinessRulesTestCase(TestCase):
             },
         ]
 
-        for event in (Event('new', 0), Event('new', 200), Event('active', 0), Event('active', 200)):
+        for event in (MockEvent('new', 0), MockEvent('new', 200), MockEvent('active', 0), MockEvent('active', 200)):
             run_all(rule_list=sample_rules,
                     defined_variables=EventVariables(event),
                     defined_actions=EventActions(event),
                     stop_on_first_trigger=False)
 
-    def test_generate_global_eventvariables(self):
+    @staticmethod
+    def test_generate_global_eventvariables():
 
         variables_class, _ = generate_global_event_variables(EventType.objects.all(), only_common_factors=True)
 
         exported_rule_data = export_rule_data(variables_class, EventActions)
         print(json.dumps(exported_rule_data, indent=2))
 
-    def test_filtered_eventvariables(self):
+    @staticmethod
+    def test_filtered_eventvariables():
 
-        variables_class, _ = generate_global_event_variables(EventType.objects.filter(value__in=['sit_rep', 'fence_rep']))
+        variables_class, _ = generate_global_event_variables(
+            EventType.objects.filter(value__in=['sit_rep', 'fence_rep']))
 
         exported_rule_data = export_rule_data(variables_class, EventActions)
         print(json.dumps(exported_rule_data, indent=2))
@@ -187,8 +218,163 @@ class BusinessRulesTestCase(TestCase):
         self.assertFalse(d1.replace(hour=12, minute=30) in schedule)
 
         # Test a value at the edge of a period
-        self.assertTrue(d1.replace(hour=12, minute=0 ) in schedule)
+        self.assertTrue(d1.replace(hour=12, minute=0) in schedule)
 
         # Test a day without defined periods
         self.assertFalse(d1 + timedelta(days=1) in schedule)
 
+    def test_event_serialization(self):
+        pass
+
+    def test_create_an_alert_rule(self):
+
+        # Create a notification method
+        notification_method = {
+            'method': 'sms',
+            'value': '+12062147021'
+        }
+
+        request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
+        self.force_authenticate(request, self.power_user)
+        response = NotificationMethodListView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        notification_method_id = response.data["id"]
+        print(f'NotificationMethod.id: {notification_method_id}')
+
+        # Create an alert rule
+        alert_rule = {
+            'notification_method_ids': [notification_method_id, ],
+            'event_types': ['carcass_rep', ],
+            'schedule': {
+                "monday": [("08:00", "12:00"), ("13:00", "17:30")],
+                "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
+            },
+            'conditions': {
+                "all": [
+                    {
+                        "name": "priority",
+                        "operator": "shares_at_least_one_element_with",
+                        "value": ['1', '100', '200', ],
+                    },
+                    {
+                        "name": "state",
+                        "operator": "shares_at_least_one_element_with",
+                        "value": ["active", "new", ],
+                    },
+                    {
+                        'name': 'carcassrep_species',
+                        'operator': 'is_contained_by',
+                        'value': ['redriverhog', ],
+                    }
+                ]
+            },
+            'display': 'Test alert rule for carcass report.',
+        }
+
+        request = self.factory.post(self.api_base + '/activity/alerts', alert_rule)
+        self.force_authenticate(request, self.power_user)
+        response = AlertRuleListView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        alert_rule_id = response.data['id']
+        print(f'AlertRule.id: {alert_rule_id}')
+
+        # Get the alert rule from the database
+        request = HttpRequest()
+        request.user = self.power_user
+        request.META['SERVER_NAME'] = 'localhost'
+        request.META['SERVER_PORT'] = 8100
+        ar = AlertRule.objects.get(id=alert_rule_id)
+        ar_repr = AlertRuleSerializer(context={'request': request}).to_representation(ar)
+        print(json.dumps(ar_repr, indent=2, default=str))
+
+    def test_a_real_event_against_a_defined_alert_rule(self):
+
+        # Create a carcass event with some details
+        et = EventType.objects.get(value='carcass_rep')
+
+        event_details = {
+            'carcassrep_ageofanimal': {'name': 'Juvenile', 'value': 'juvenile'},
+            'carcassrep_ageofcarcass': {'name': 'Fresh (within a week)', 'value': 'within_a_week'},
+            'carcassrep_causeofdeath': {'name': 'Unnatural - Shot', 'value': 'unnaturalshot'},
+            'carcassrep_sex': {'name': 'Male', 'value': 'male'},
+            'carcassrep_species': {'name': 'Red River Hog', 'value': 'redriverhog'},
+            'carcassrep_trophystatus': {'name': 'Intact', 'value': 'intact'},
+        }
+
+        event_data = dict(
+            state='active',
+            title='Test Event No. 1',
+            event_time=datetime.now(tz=pytz.utc),
+            provenance=Event.PC_STAFF,
+            event_type=et.value,
+            priority=Event.PRI_IMPORTANT,
+            location=dict(longitude=37.5123, latitude=1.4590),
+            event_details=event_details,
+            # related_subjects=[{'id': self.subject.id}, ],
+        )
+
+        user1 = User.objects.create(username='username1', first_name='User No.1',
+                                    last_name='Test User', email='username1@tempuri.org',
+                                    password='aSdFo1uasdf801$1', is_superuser=True)
+
+        request = HttpRequest()
+        request.user = self.power_user
+        request.META['SERVER_NAME'] = 'localhost'
+        request.META['SERVER_PORT'] = 8100
+        ser = EventSerializer(data=event_data, context={'request': request})
+
+        if not ser.is_valid():
+            print(f'Event is not valid. Errors are: {ser.errors}')
+        else:
+            event = ser.create(ser.validated_data)
+            event = Event.objects.get(id=event.id)
+
+        eventdata = EventSerializer(event,
+                                    context={'request': request,
+                                             # 'include_related_events': True
+                                             }).data
+        print(json.dumps(eventdata, indent=2, default=str))
+
+        # Create an alert rule
+        sample_rules = [
+            {
+                "conditions": {
+                    "all": [
+                        {
+                            "name": "priority",
+                            "operator": "shares_at_least_one_element_with",
+                            "value": ['1', '100', '200', ],
+                        },
+                        {
+                            "name": "state",
+                            "operator": "shares_at_least_one_element_with",
+                            "value": ["active", "new", ],
+                        },
+                        {
+                            'name': 'carcassrep_species',
+                            'operator': 'is_contained_by',
+                            'value': ['redriverhog', ],
+                        }
+                    ]
+                },
+
+                "actions": [
+                    {
+                        "name": "send_alert",
+                        "params": {
+                            "recipient": "somepeople",
+                        }
+                    }
+                ]
+            },
+        ]
+
+        # Constitute an EventVariables class
+        event_variables, _ = generate_global_event_variables({event.event_type})
+
+        # Process the event against the single alert rule
+        run_all(rule_list=sample_rules,
+                defined_variables=event_variables(eventdata),
+                defined_actions=EventActions(eventdata),
+                stop_on_first_trigger=False)
