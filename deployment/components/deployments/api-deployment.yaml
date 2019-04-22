@@ -78,6 +78,11 @@ spec:
             configMapKeyRef:
               name: site-configmap
               key: CONFIG_ACCOUNT_KEY
+        - name: CONFIG_CONTAINER
+          valueFrom:
+            configMapKeyRef:
+              name: site-configmap
+              key: CONFIG_CONTAINER
         - name: EMAIL_PASSWORD
           valueFrom:
             configMapKeyRef:
