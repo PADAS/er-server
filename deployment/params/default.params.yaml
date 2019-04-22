@@ -14,6 +14,8 @@ static-values:
   db-host-name: "localhost"
   sms_id: ""
   sms_token: ""
+  config-account: "dasconfigwestus"
+  config-container: "dev-az"
 environment:
   namespace: NAMESPACE
   infra-namespace: INFRA_NAMESPACE
@@ -25,3 +27,4 @@ vault-lookups:
   pamdas-org-ssl-key: padas-app/main/pamdas-org-ssl-key
   pamdas-org-ssl-cert: padas-app/main/pamdas-org-ssl-cert
   pamdas-org-ssl-ca: padas-app/main/pamdas-org-ssl-ca
+  config-account-key: "padas-app/main/dasconfigwestus-key"

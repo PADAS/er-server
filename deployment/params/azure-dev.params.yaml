@@ -14,6 +14,7 @@ static-values:
   storage-base-path: "root-path"
   use-azure-storage: "true"
   config-account: "dasconfigwestus"
+  config-container: "azure-dev"
 environment:
   das-static-ip: DAS_STATIC_IP
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
