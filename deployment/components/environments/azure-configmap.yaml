@@ -16,6 +16,5 @@ data:
   CONFIG_CONTAINER: "<<config-container>>"
   CONFIG_ACCOUNT_KEY: "<<config-account-key>>"
   CONFIG_ACCOUNT: "<<config-account>>"
-  CONFIG_ACCOUNT: "<<config-container>>"
   USE_AZURE_STORAGE: "<<use-azure-storage>>"
 
