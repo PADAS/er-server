@@ -917,7 +917,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('provider_key', 'display_name',)
+            'fields': ('provider_key', 'display_name', 'notes')
         }
         ),
         ('Provider configurations', {

@@ -184,6 +184,7 @@ class SourceProvider(TimestampedModel):
                                     max_length=100, null='False', unique=True)
     display_name = models.CharField('Display name for source provider.',
                                     max_length=100, null=False,)
+    notes = models.TextField(blank=True, null=True)
     additional = JSONField('additional data', default=dict, blank=True)
     objects = SourceProviderManager()
 
@@ -663,7 +664,6 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             .annotate(status_radio_state=F('s1__radio_state')) \
             .annotate(status_radio_state_at=F('s1__radio_state_at')) \
             .annotate(status_location=F('s1__location'))
-
 
     def by_updated_since(self, updated_since):
 
