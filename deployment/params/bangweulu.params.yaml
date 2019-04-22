@@ -9,6 +9,7 @@ static-values:
   db-name: "bangweulu"
   db-user: "bangweulu@das-postgres-apn"
   config-account: "dasconfigwesteurope"
+  config-container: "bangweulu"
   storage-account-name: "bangweulufc2b1961"
   storage-container: "assets"
   storage-base-path: "root-path"
