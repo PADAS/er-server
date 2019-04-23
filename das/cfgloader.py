@@ -18,14 +18,15 @@ class AzureCfgLoader():
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='config_loader')
-    parser.add_argument('--storagetype', default=os.environ.get('STORAGE_TYPE', 'azure'))
-    parser.add_argument('--account', default=os.environ.get('CONFIG_ACCT', 'dasconfigwesteurope'))
-    parser.add_argument('--container', default=os.environ.get('CONFIG_CONTAINER', ''))
-    parser.add_argument('--accesskey', default=os.environ.get('CONFIG_KEY', ''))
-    args = parser.parse_args()
+    if os.environ.get('USE_AZURE_STORAGE', 'false') == 'true':
+        parser = argparse.ArgumentParser(description='config_loader')
+        parser.add_argument('--storagetype', default=os.environ.get('STORAGE_TYPE', 'azure'))
+        parser.add_argument('--account', default=os.environ.get('CONFIG_ACCT', 'dasconfigwesteurope'))
+        parser.add_argument('--container', default=os.environ.get('CONFIG_CONTAINER', ''))
+        parser.add_argument('--accesskey', default=os.environ.get('CONFIG_KEY', ''))
+        args = parser.parse_args()
 
-    # for now, we'll assume azure. We'll fill in gcp and S3 via boto
-    # the .env file is expected to be in the same directory as the settings files
-    loader = AzureCfgLoader(args.account, args.container, args.accesskey)
-    loader.fetch_env_config()
+        # for now, we'll assume azure. We'll fill in gcp and S3 via boto
+        # the .env file is expected to be in the same directory as the settings files
+        loader = AzureCfgLoader(args.account, args.container, args.accesskey)
+        loader.fetch_env_config()
