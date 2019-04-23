@@ -59,11 +59,11 @@ AWS_SES_REGION_NAME = 'us-west-2'
 AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 # the address to send notification emails from
 # TODO - Do we need both fields?
-FROM_EMAIL = env('FROM_EMAIL')
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
-EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+FROM_EMAIL = env.str('FROM_EMAIL', '')
+DEFAULT_FROM_EMAIL = env.str('DEFAULT_FROM_EMAIL', '')
+EMAIL_HOST_USER = env.str('EMAIL_HOST_USER', '')
 EMAIL_HOST = env.str('EMAIL_HOST', 'email-smtp.us-west-2.amazonaws.com')
-EMAIL_HOST_PASSWORD = env('EMAIL_PASSWORD')
+EMAIL_HOST_PASSWORD = env.str('EMAIL_PASSWORD', '')
 EMAIL_USE_TLS = True
 EMAIL_PORT = 2587
 
@@ -86,8 +86,8 @@ DATABASES = {
 
 # use these when you want to send SMS from kenya
 # TODO - set sms provider by type
-SENDSMS_AFRICAS_TALKING_USERNAME = env('SMS_ID')
-SENDSMS_AFRICAS_TALKING_API_KEY = env('SMS_TOKEN')
+SENDSMS_AFRICAS_TALKING_USERNAME = env.str('SMS_ID', '')
+SENDSMS_AFRICAS_TALKING_API_KEY = env.str('SMS_TOKEN', '')
 
 USE_AZURE_STORAGE = env.str('USE_AZURE_STORAGE', 'false')
 
@@ -102,8 +102,8 @@ if USE_AZURE_STORAGE == 'true':
 
 EUS_SETTINGS = {
     # 'zendesk' or 'email'
-    'type': env('EUS_TYPE'),
-    'name': env('EUS_NAME'),
-    'email': env('EUS_EMAIL'),
-    'organization': env('EUS_ORG')
+    'type': env.str('EUS_TYPE', 'email'),
+    'name': env.str('EUS_NAME', 'eus test user'),
+    'email': env.str('EUS_EMAIL', 'eus_test@pamdas.org'),
+    'organization': env.str('EUS_ORG', 'pamdas.org')
 }
