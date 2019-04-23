@@ -1,8 +1,9 @@
 project-id: padas-app
-cluster-name: k6training
+cluster-name: partners
+version-prefix: dev
 server-branch-name: develop
 web-branch-name: develop
-tag-as-latest: false
+namespace: k6training
 das-static-ip: 104.199.121.81
 deploy-params-environment: production
 deployment-plan: integration

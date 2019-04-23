@@ -1,0 +1,12 @@
+pipeline-name: permissions-test
+cluster-name: permissions-test
+version-prefix: not-set
+server-branch-name: feature/permissions-merge-DAS-2373
+web-branch-name: develop
+tag-as-latest: true
+deploy-params-environment: develop
+deploy-recipe: standard.yaml
+iaas: gcp
+iaas-workspace: padas-app
+iaas-zone: us-west1-a
+cluster-spec: deployment/cluster-specs/gcp.yaml

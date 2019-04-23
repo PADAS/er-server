@@ -41,6 +41,7 @@ django-pgviews==0.5.3
 django-model-utils==3.0.0
 #see https://github.com/ottoyiu/django-cors-headers
 django-cors-headers==2.1.0
+django-environ==0.4.5
 django-oauth-toolkit==1.0.0
 django-rest-swagger==2.1.2
 django-leaflet==0.23.0
@@ -91,3 +92,5 @@ business-rules==1.0.1
 
 # Using datadog library for its statsd module
 datadog==0.27.0
+
+whitenoise==4.1.2

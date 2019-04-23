@@ -8,10 +8,11 @@ import collections
 import string
 import random
 import io
-
 from datetime import datetime, timedelta
+
 import pytz
 
+from django.utils import dateparse
 import django.contrib.auth
 from django.db import transaction
 from django.utils import lorem_ipsum
@@ -29,8 +30,7 @@ from core.tests import BaseAPITest
 from choices.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory,\
-    EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, EventSource, EventProvider
-
+    EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, EventSource, EventProvider, parse_date_range
 from activity import views
 from observations.models import Subject
 from accounts.serializers import UserDisplaySerializer
@@ -1593,3 +1593,31 @@ class TestEventView(BaseAPITest):
         # Expect 400 Bad Request, because the given external_event_type will
         # not be found for this user.
         self.assertEqual(response.status_code, 400)
+
+
+class TestParsing(TestCase):
+
+    def test_dates(self):
+        upper = dateparse.parse_datetime('2019-01-01T01:00:00')
+        lower = dateparse.parse_datetime('2018-12-12T01:00:00')
+        val = dict(lower=lower.isoformat(),
+                   upper=upper.isoformat())
+        result = parse_date_range(val)
+        self.assertTupleEqual((lower, upper), result)
+
+    def test_missing_upper(self):
+        lower = dateparse.parse_datetime('2018-12-12T01:00:00')
+        val = dict(lower=lower.isoformat())
+        result = parse_date_range(val)
+        self.assertTupleEqual((lower, None), result)
+
+    def test_missing_lower(self):
+        upper = dateparse.parse_datetime('2018-12-12T01:00:00')
+        val = dict(upper=upper.isoformat())
+        result = parse_date_range(val)
+        self.assertTupleEqual((None, upper), result)
+
+    def test_bad_lower(self):
+        val = dict(lower=0)
+        with self.assertRaises(TypeError):
+            result = parse_date_range(val)

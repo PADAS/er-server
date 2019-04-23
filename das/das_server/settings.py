@@ -67,6 +67,8 @@ INSTALLED_APPS = (
 )
 
 MIDDLEWARE = (
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -77,7 +79,6 @@ MIDDLEWARE = (
     #'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
     'revision.middleware.RevisionMiddleware',
     'utils.middleware.RequestLoggingMiddleware'
@@ -489,3 +490,12 @@ EUS_SETTINGS = {
     'email': '',
     'organization': ''
 }
+
+
+def whitenoise_headers_func(headers, path, url):
+    # This is intended for testing purposes, to add a header to assets that are served up by whitenoise.
+    # We'll take it out but for now it will help us identify whether we're using whitenoise properly.
+    headers['x-er-source'] = 'wn'
+
+
+WHITENOISE_ADD_HEADERS_FUNCTION = whitenoise_headers_func

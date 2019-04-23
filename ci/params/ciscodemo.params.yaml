@@ -1,0 +1,10 @@
+project-id: padas-app
+cluster-name: partners
+version-prefix: dev
+server-branch-name: develop
+web-branch-name: develop
+namespace: ciscodemo   
+iaas: gcp
+das-static-ip: 35.197.98.78
+iaas-workspace: padas-app
+deployment-plan: integration

@@ -7,6 +7,5 @@ namespace: sawc
 iaas: gcp
 das-static-ip: 35.247.57.153
 iaas-workspace: padas-app
-cluster-spec: deployment/cluster-specs/gcp.yaml
 deployment-plan: integration
-deploy-recipe: standard.yaml
+

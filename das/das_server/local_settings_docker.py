@@ -8,22 +8,44 @@ call your project be overriding the settings file
 from .settings import *
 import os
 
+import environ
+env = environ.Env(
+    # set casting, default value
+    DEBUG=(bool, False)
+)
+
+environ.Env.read_env()
+
 MEDIA_ROOT = '/user-uploads'
 MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
 
 SECRET_KEY = 'aefefsfees'
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-TEMPLATE_DEBUG = True
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-DEV = True
+# To simplify k8 deployment, set an .env for ENABLE_DEV when using
+# docker compose
+DEBUG = env.bool('ENABLE_DEBUG', False)
+TEMPLATE_DEBUG = env.bool('ENABLE_DEBUG', False)
+DEV = env.bool('ENABLE_DEV', False)
+
+SHOW_TRACK_DAYS = env.int('SHOW_TRACK_DAYS', 14)
+SHOW_STATIONARY_SUBJECTS_ON_MAP = env.bool('SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
+
+TIME_ZONE = env.str('TIME_ZONE', 'US/Pacific')
+
+# TODO - Import terraform generated FQDN
+# CORS_ORIGN_FQDN = os.getenv('CORS_ORIGIN_FQDN')
+# ALLOWED_HOSTS = ['localhost:9000','CORS_ORIGIN_FQDN,'localhost','*']
 ALLOWED_HOSTS = ['*']
-CORS_ORIGIN_ALLOW_ALL = True
-TIME_ZONE = 'US/Pacific'
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+# TODO - Make this default to False
+CORS_ORIGIN_ALLOW_ALL = env.bool('CORS_ORIGIN_ALLOW_ALL', False)
+SERVER_FQDN = env.str('FQDN', '')
+CORS_ORIGIN_WHITELIST = (
+        'localhost:9000','http://localhost:9000', SERVER_FQDN, f'https://{SERVER_FQDN}', f'http://{SERVER_FQDN}'
+    )
+
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', True)
+CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', True)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 STATIC_ROOT = '/var/www/static/'
@@ -31,16 +53,17 @@ STATIC_ROOT = '/var/www/static/'
 # add the path to your local copy of the das-web static root dir that contains index.html
 #STATICFILES_DIRS = STATICFILES_DIRS + (os.path.join(BASE_DIR, 'www'),)
 
-# can use console output for email in dev
+# TODO can use aws mail short term, until we source a commercial mailer
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 AWS_SES_REGION_NAME = 'us-west-2'
 AWS_SES_REGION_ENDPOINT = 'email.us-west-2.amazonaws.com'
 # the address to send notification emails from
-FROM_EMAIL = 'notifications.demo@pamdas.org'
-DEFAULT_FROM_EMAIL = 'notifications.demo@pamdas.org'
-EMAIL_HOST_USER = 'AKIAJLH5VZD6IQWTWPQQ'
-EMAIL_HOST = 'email-smtp.us-west-2.amazonaws.com'
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
+# TODO - Do we need both fields?
+FROM_EMAIL = env.str('FROM_EMAIL', '')
+DEFAULT_FROM_EMAIL = env.str('DEFAULT_FROM_EMAIL', '')
+EMAIL_HOST_USER = env.str('EMAIL_HOST_USER', '')
+EMAIL_HOST = env.str('EMAIL_HOST', 'email-smtp.us-west-2.amazonaws.com')
+EMAIL_HOST_PASSWORD = env.str('EMAIL_PASSWORD', '')
 EMAIL_USE_TLS = True
 EMAIL_PORT = 2587
 
@@ -53,28 +76,34 @@ EXPORT_KML_ENABLED = True
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': os.getenv('DB_NAME', 'das'),
-        'USER': os.getenv('DB_USER','das'),
-        'HOST': os.getenv('DB_HOST', 'postgis'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-        'PASSWORD': os.getenv('DB_PASSWORD','password'),
+        'NAME': env.str('DB_NAME', 'das'),
+        'USER': env.str('DB_USER','das'),
+        'HOST': env.str('DB_HOST', 'postgis'),
+        'PORT': env.str('DB_PORT', '5432'),
+        'PASSWORD': env.str('DB_PASSWORD','password'),
     },
 }
 
 # use these when you want to send SMS from kenya
-SENDSMS_AFRICAS_TALKING_USERNAME = os.getenv('SMS_ID', '')
-SENDSMS_AFRICAS_TALKING_API_KEY = os.getenv('SMS_TOKEN', '')
+# TODO - set sms provider by type
+SENDSMS_AFRICAS_TALKING_USERNAME = env.str('SMS_ID', '')
+SENDSMS_AFRICAS_TALKING_API_KEY = env.str('SMS_TOKEN', '')
 
-USE_AZURE_STORAGE = os.getenv('USE_AZURE_STORAGE', 'false')
+USE_AZURE_STORAGE = env.str('USE_AZURE_STORAGE', 'false')
 
 if USE_AZURE_STORAGE == 'true':
     # Azure storage - see https://django-storages.readthedocs.io/en/latest/backends/azure.html
     DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
-    STATICFILES_STORAGE = 'storages.backends.azure_storage.AzureStorage'
-    AZURE_ACCOUNT_NAME = os.getenv('STORAGE_ACCOUNT', '')
-    AZURE_ACCOUNT_KEY = os.getenv('STORAGE_ACCOUNT_KEY', '')
-    AZURE_CONTAINER = os.getenv('STORAGE_CONTAINER', '')
-    # enable SSL for Azure DBse
+    AZURE_ACCOUNT_NAME = env.str('STORAGE_ACCOUNT', '')
+    AZURE_ACCOUNT_KEY = env.str('STORAGE_ACCOUNT_KEY', '')
+    AZURE_CONTAINER = env.str('STORAGE_CONTAINER', '')
+    # enable SSL for Azure DBs
     DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
 
-SHOW_STATIONARY_SUBJECTS_ON_MAP = True
+EUS_SETTINGS = {
+    # 'zendesk' or 'email'
+    'type': env.str('EUS_TYPE', 'email'),
+    'name': env.str('EUS_NAME', 'eus test user'),
+    'email': env.str('EUS_EMAIL', 'eus_test@pamdas.org'),
+    'organization': env.str('EUS_ORG', 'pamdas.org')
+}

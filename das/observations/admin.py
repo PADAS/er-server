@@ -1,43 +1,35 @@
 import random
 import csv
 from datetime import datetime, timedelta
+
 import pytz
-
 import humanize
-
 from django.contrib import admin
 from django.db import connection
-
 from django.conf import settings
 from django.urls import reverse
 from django.core.paginator import Paginator
-
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.contenttypes.admin import GenericTabularInline
-
 from django import forms
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
 from django.utils.translation import ugettext_lazy as _
-
 from django.db.models import Q, F, Count, Value, ExpressionWrapper, Avg, Window, Max, Sum, Min
 from django.contrib.postgres.aggregates import ArrayAgg
-
 from django.db.models.functions import FirstValue, LastValue, Trunc, RowNumber
 from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
-
 from django.db.models.functions import Now
 from django.http import HttpResponse
+from django.template.loader import render_to_string
+from django.utils.html import format_html
+from django.db.models.expressions import RawSQL
 
 import observations.models as models
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
-
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
 from utils.html import make_html_list
-
-from django.template.loader import render_to_string
-from django.utils.html import format_html
 
 site_title = _('DAS Administration (advanced view)')
 admin.site.site_title = site_title
@@ -327,11 +319,43 @@ class ObservationAdmin(ExportCsvMixin, admin.ModelAdmin):
     actions = ['export_as_csv', ]
 
 
+class SourceProviderFilter(admin.SimpleListFilter):
+    title = 'Source Provider'
+    parameter_name = 'provider_key'
+
+    def lookups(self, request, model_admin):
+        return [(p.provider_key, p.display_name) for p in sorted(models.SourceProvider.objects.all(),
+                                                                 key=lambda p: p.display_name.lower())]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(subjectsource__source__provider__provider_key=value)
+        return queryset
+
+
+class SSSourceProviderFilter(SourceProviderFilter):
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(subject__subjectsource__source__provider__provider_key=value)
+        return queryset
+
+
+class SourceSourceProviderFilter(SourceProviderFilter):
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(provider__provider_key=value)
+        return queryset
+
+
 @admin.register(models.Subject)
 class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
 
     list_display = ('name', 'subject_subtype',  # '_subject_subtype_display',
-                    '_is_active', 'get_attributes', 'all_groups', 'all_sources', '_status',)
+                    '_is_active', 'get_attributes', 'all_groups', 'all_sources', '_status',
+                    )
 
     search_fields = ('name', 'subject_subtype__display', 'common_name__display',
                      'subjectsource__source__manufacturer_id')
@@ -357,6 +381,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
     list_filter = ('is_active', GroupAssignedFilter,
                    'subject_subtype__subject_type__display',
                    'subject_subtype__display',
+                   SourceProviderFilter
                    )
     list_editable = ('subject_subtype',)
     readonly_fields = ('id', 'created_at', 'updated_at',)
@@ -522,9 +547,9 @@ class CommonNameAdmin(admin.ModelAdmin):
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
     list_display = ['manufacturer_id', 'source_type',
-                    'model_name', 'get_attributes', '_provider_display_name', ]
+                    'model_name', 'get_attributes', '_source_provider', ]
     search_fields = ('id', 'manufacturer_id', 'model_name', 'additional',)
-    list_filter = ('source_type', 'model_name')
+    list_filter = ('source_type', 'model_name', SourceSourceProviderFilter)
     readonly_fields = ('id', 'created_at', 'updated_at',)
 #    filter_horizontal = ('groups',)
 
@@ -546,6 +571,12 @@ class SourceAdmin(admin.ModelAdmin):
                        )
         }
         ),
+        ('Data Source Configuration', {
+            'classes': ('wide',),
+            'fields': ('silence_notification_threshold',)
+        }
+        ),
+
         ('Advanced Source Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('id', 'additional', 'created_at', 'updated_at')
@@ -567,7 +598,7 @@ class SourceAdmin(admin.ModelAdmin):
         qs = qs.select_related('provider',)
         return qs
 
-    def _provider_display_name(self, o):
+    def _source_provider(self, o):
         return o.provider.display_name
 
 
@@ -806,9 +837,6 @@ class SourceTypeFilter(admin.SimpleListFilter):
         return queryset
 
 
-from django.db.models.expressions import RawSQL
-
-
 @admin.register(models.SubjectStatus)
 class SubjectStatusAdmin(admin.ModelAdmin):
     search_fields = (
@@ -817,9 +845,11 @@ class SubjectStatusAdmin(admin.ModelAdmin):
     # change_list_template = 'admin/subject_status_change_list.html'
     # readonly_fields = ('recorded_at', 'subject','delay_hours', 'additional')
     list_display = ('_status', 'radio_state_at', '_age_of_state', 'subject_link',
-                    'recorded_at', '_location', '_age')
+                    'recorded_at', '_location', '_age', '_source_provider')
     list_filter = (RadioStatusFilter, SourceTypeFilter,
-                   'subject__subject_subtype__display',)
+                   'subject__subject_subtype__display',
+                   SSSourceProviderFilter
+                   )
     list_display_links = None  # Disable all links
 
     actions = None  # Disable all actions.
@@ -862,12 +892,18 @@ class SubjectStatusAdmin(admin.ModelAdmin):
         qs = qs.annotate(state_order=RawSQL(
             '''jsonb_extract_path_text(observations_subjectstatus.additional, 'state')
              || jsonb_extract_path_text(observations_subjectstatus.additional, 'gps_fix')''', ()))
+        qs = qs.prefetch_related('subject')
+        qs = qs.annotate(
+            provider_name=F('subject__subjectsource__source__provider__display_name'))
         return qs
 
     def _location(self, o):
         return f'{o.location.x:0.4} / {o.location.y:0.4}'
     _location.short_description = 'Longitude / Latitude'
     _location.admin_order_field = 'location'
+
+    def _source_provider(self, o):
+        return o.provider_name
 
 
 @admin.register(models.SourceProvider)
@@ -881,12 +917,12 @@ class SourceProviderAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('provider_key', 'display_name',)
+            'fields': ('provider_key', 'display_name', 'notes')
         }
         ),
         ('Provider configurations', {
             'classes': ('wide',),
-            'fields': (('lag_notification_threshold',))
+            'fields': ('lag_notification_threshold', 'silence_notification_threshold',)
         }
         ),
 

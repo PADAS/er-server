@@ -23,7 +23,7 @@ def safe_get(val, keys, default=None):
             val = val[k]
         if isinstance(val, str):
             return escape(val)
-    except KeyError:
+    except (KeyError, TypeError):
         pass
     return default
 
