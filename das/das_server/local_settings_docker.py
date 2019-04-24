@@ -14,6 +14,8 @@ env = environ.Env(
     DEBUG=(bool, False)
 )
 
+# this reads the .env file in the local dir. You can
+# specify specific envs if needed.
 environ.Env.read_env()
 
 MEDIA_ROOT = '/user-uploads'
@@ -22,8 +24,6 @@ MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
 SECRET_KEY = 'aefefsfees'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# To simplify k8 deployment, set an .env for ENABLE_DEV when using
-# docker compose
 DEBUG = env.bool('ENABLE_DEBUG', False)
 TEMPLATE_DEBUG = env.bool('ENABLE_DEBUG', False)
 DEV = env.bool('ENABLE_DEV', False)
@@ -33,20 +33,20 @@ SHOW_STATIONARY_SUBJECTS_ON_MAP = env.bool('SHOW_STATIONARY_SUBJECTS_ON_MAP', Fa
 
 TIME_ZONE = env.str('TIME_ZONE', 'US/Pacific')
 
-# TODO - Import terraform generated FQDN
-# CORS_ORIGN_FQDN = os.getenv('CORS_ORIGIN_FQDN')
-# ALLOWED_HOSTS = ['localhost:9000','CORS_ORIGIN_FQDN,'localhost','*']
-ALLOWED_HOSTS = ['*']
+SERVER_FQDN = env.str('FQDN', '')
+ALLOWED_HOSTS = ['localhost:9000', SERVER_FQDN,'localhost','*']
 # TODO - Make this default to False
 CORS_ORIGIN_ALLOW_ALL = env.bool('CORS_ORIGIN_ALLOW_ALL', False)
-SERVER_FQDN = env.str('FQDN', '')
+
 CORS_ORIGIN_WHITELIST = (
         'localhost:9000','http://localhost:9000', SERVER_FQDN, f'https://{SERVER_FQDN}', f'http://{SERVER_FQDN}'
     )
+CORS_REPLACE_HTTPS_REFERER = env.bool('CORS_REPLACE_HTTPS_REFERER', True)
 
 SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', True)
 CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', True)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_TRUSTED_ORIGINS = ('localhost:9000', SERVER_FQDN)
 
 STATIC_ROOT = '/var/www/static/'
 
@@ -65,7 +65,7 @@ EMAIL_HOST_USER = env.str('EMAIL_HOST_USER', '')
 EMAIL_HOST = env.str('EMAIL_HOST', 'email-smtp.us-west-2.amazonaws.com')
 EMAIL_HOST_PASSWORD = env.str('EMAIL_PASSWORD', '')
 EMAIL_USE_TLS = True
-EMAIL_PORT = 2587
+EMAIL_PORT = env.int('EMAIL_PORT', 2587)
 
 NOTIFY_HIGH_PRIORITY_EVENT = 'high_priority_alerts'
 NOTIFY_MEDIUM_PRIORITY_EVENT = 'medium_priority_alerts'
