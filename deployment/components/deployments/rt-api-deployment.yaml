@@ -58,7 +58,7 @@ spec:
             configMapKeyRef:
               name: site-configmap
               key: DB_PASSWORD
-      - name: USE_AZURE_STORAGE
+        - name: USE_AZURE_STORAGE
           valueFrom:
             configMapKeyRef:
               name: site-configmap
