@@ -21,9 +21,9 @@ if __name__ == '__main__':
     if os.environ.get('USE_AZURE_STORAGE', 'false') == 'true':
         parser = argparse.ArgumentParser(description='config_loader')
         parser.add_argument('--storagetype', default=os.environ.get('STORAGE_TYPE', 'azure'))
-        parser.add_argument('--account', default=os.environ.get('CONFIG_ACCT', 'dasconfigwesteurope'))
+        parser.add_argument('--account', default=os.environ.get('CONFIG_ACCOUNT', 'dasconfigwesteurope'))
         parser.add_argument('--container', default=os.environ.get('CONFIG_CONTAINER', ''))
-        parser.add_argument('--accesskey', default=os.environ.get('CONFIG_KEY', ''))
+        parser.add_argument('--accesskey', default=os.environ.get('CONFIG_ACCOUNT_KEY', ''))
         args = parser.parse_args()
 
         # for now, we'll assume azure. We'll fill in gcp and S3 via boto
