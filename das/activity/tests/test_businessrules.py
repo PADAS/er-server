@@ -18,8 +18,9 @@ from activity.views import AlertRuleListView, NotificationMethodListView
 
 from business_rules import export_rule_data, run_all
 
-from activity.businessrules import EventActions, EventVariables, generate_global_event_variables, \
-    Schedule
+from activity.businessrules import EventActions, EventVariables, generate_global_event_variables
+
+from core.utils import OneWeekSchedule
 
 from typing import NamedTuple
 
@@ -27,17 +28,12 @@ from accounts.models import User
 
 from activity.models import EventType, Event, EventCategory, AlertRule
 from utils import schema_utils
+from business_rules import actions, engine, fields, operators, variables, export_rule_data
 
 power_user_permissions = [
     'security_read',
     'monitoring_create', 'monitoring_read', 'monitoring_update', 'monitoring_delete',
     'logistics_create', 'logistics_read', 'logistics_update', 'logistics_delete']
-
-
-class MockEvent(NamedTuple):
-    state: str
-    priority: int = 0
-    foo: str = ''
 
 
 class BusinessRulesTestCase(BaseAPITest):
@@ -60,8 +56,6 @@ class BusinessRulesTestCase(BaseAPITest):
 
     def test_just_the_rules_engine_variables(self):
 
-        from business_rules import actions, engine, fields, operators, variables, export_rule_data
-
         alert_actions = []
 
         class TestEventVariables(variables.BaseVariables):
@@ -72,13 +66,13 @@ class BusinessRulesTestCase(BaseAPITest):
             @variables.select_multiple_rule_variable(label='Priority', options=[{'name': '0', 'label': 'None'},
                                                                                 {'name': '100', 'label': 'Green'}])
             def priority(self):
-                return [str(self.event.priority), ]
+                return [str(self.event.get('priority')), ]
 
             @variables.select_multiple_rule_variable(label='State', options=[{'name': 'new', 'label': 'New'},
                                                                              {'name': 'active', 'label': 'Active'},
                                                                              {'name': 'resolved', 'label': 'Resolved'}])
             def state(self):
-                return [self.event.state, ]
+                return [str(self.event.get('state')), ]
 
             @variables.select_multiple_rule_variable(label='Foo', options=[
                 {'name': 'bar', 'label': 'Bar'},
@@ -86,7 +80,7 @@ class BusinessRulesTestCase(BaseAPITest):
                 {'name': 'bat', 'label': 'Bat'}
             ])
             def foo(self):
-                return [self.event.foo, ]
+                return [str(self.event.get('foo')), ]
 
         class TestEventActions(actions.BaseActions):
 
@@ -135,13 +129,14 @@ class BusinessRulesTestCase(BaseAPITest):
             },
         ]
 
-        for event in (MockEvent('new', 200, 'bar'), MockEvent('active', 0)):
+        for event in (dict(state='new', priority=200, foo='bar'), dict(state='active', priority=0)):
             run_all(rule_list=sample_rules,
                     defined_variables=TestEventVariables(event),
                     defined_actions=TestEventActions(event),
                     stop_on_first_trigger=False)
 
         self.assertEqual(len(alert_actions), 1)
+
 
     def test_create_eventtype_variables_class(self):
 
@@ -178,7 +173,12 @@ class BusinessRulesTestCase(BaseAPITest):
             },
         ]
 
-        for event in (MockEvent('new', 0), MockEvent('new', 200), MockEvent('active', 0), MockEvent('active', 200)):
+        for event in (
+            dict(state='new', priority=0),
+            dict(state='new', priority=200),
+            dict(state='active', priority=0),
+            dict(state='active', priority=200)
+        ):
             run_all(rule_list=sample_rules,
                     defined_variables=EventVariables(event),
                     defined_actions=EventActions(event),
@@ -207,7 +207,7 @@ class BusinessRulesTestCase(BaseAPITest):
             'monday': [('08:00', '12:00'), ('13:00', '18:30')]
         }
 
-        schedule = Schedule(periods)
+        schedule = OneWeekSchedule(periods)
         d1 = datetime.now(tz=pytz.timezone('America/Los_Angeles'))
 
         # Find the most recent Monday.
@@ -291,7 +291,7 @@ class BusinessRulesTestCase(BaseAPITest):
     def test_a_real_event_against_a_defined_alert_rule(self):
 
         # Create a carcass event with some details
-        et = EventType.objects.get(value='carcass_rep')
+        carcass_eventtype = EventType.objects.get(value='carcass_rep')
 
         event_details = {
             'carcassrep_ageofanimal': {'name': 'Juvenile', 'value': 'juvenile'},
@@ -307,7 +307,7 @@ class BusinessRulesTestCase(BaseAPITest):
             title='Test Event No. 1',
             event_time=datetime.now(tz=pytz.utc),
             provenance=Event.PC_STAFF,
-            event_type=et.value,
+            event_type=carcass_eventtype.value,
             priority=Event.PRI_IMPORTANT,
             location=dict(longitude=37.5123, latitude=1.4590),
             event_details=event_details,
