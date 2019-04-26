@@ -5,6 +5,7 @@ from typing import NamedTuple, Callable, Dict, Any
 
 import json
 
+from core.utils import NonHttpRequest
 from activity.serializers import EventSerializer
 
 from utils import schema_utils
@@ -12,9 +13,6 @@ from business_rules import actions, engine, fields, operators, variables, export
 
 from django.utils.dateparse import parse_duration
 from django.utils.translation import ugettext as _
-from django.http.request import HttpRequest
-
-
 
 import logging
 
@@ -300,8 +298,6 @@ def render_aggregate_eventvariables(event_types, only_common_factors=False):
 
 
 def render_event(event, user):
-    request = HttpRequest()
-    request.META['SERVER_NAME'] = 'tempuri.org'
-    request.META['SERVER_PORT'] = 80
+    request = NonHttpRequest()
     request.user = user
     return EventSerializer(event, context={'request': request,}).data

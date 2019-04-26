@@ -6,6 +6,7 @@ import json
 
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.utils.dateparse import parse_duration
+from django.http.request import HttpRequest
 
 
 class StaticImageFinder(object):
@@ -100,4 +101,12 @@ class OneWeekSchedule(Schedule):
             start, end = (parse_duration(f'{x}:00') for x in period)
             yield (start.seconds, end.seconds)
 
+
+class NonHttpRequest(HttpRequest):
+    '''
+    This is a simple convenient class with minimal support for satisfying serialization
+    outside an actual request.
+    '''
+    def build_absolute_uri(self, url):
+        return url
 
