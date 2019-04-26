@@ -1,16 +1,20 @@
+from datetime import datetime, timedelta
+import pytz
 import inspect
+from typing import NamedTuple, Callable, Dict, Any
+
 import json
+
+from activity.serializers import EventSerializer
 
 from utils import schema_utils
 from business_rules import actions, engine, fields, operators, variables, export_rule_data
 
 from django.utils.dateparse import parse_duration
 from django.utils.translation import ugettext as _
+from django.http.request import HttpRequest
 
-from datetime import datetime, timedelta
-import pytz
 
-from typing import NamedTuple, Callable, Dict, Any
 
 import logging
 
@@ -44,8 +48,6 @@ class EventVariables(variables.BaseVariables):
 
     def __init__(self, event):
         self.event = event
-        # self.event.details = self.event.event_details.get().data
-
 
     @variables.select_multiple_rule_variable(label=_('Priority'), options=priority_options)
     def priority(self):
@@ -58,8 +60,6 @@ class EventVariables(variables.BaseVariables):
     @variables.select_multiple_rule_variable(label=_('State Change'), options=state_change_options)
     def state_change(self):
         return [getattr(self.event, 'state_change', None), ]
-
-
 
 
 class EventActions(actions.BaseActions):
@@ -84,10 +84,12 @@ _WHITELISTED_OPERATORS = {
         'equal_to': '=',
         'greater_than': '>',
         'less_than': '<',
-        'greater_than_or_equal_to': '≥',
-        'less_than_or_equal_to': '≤',
         # 'greater_than_or_equal_to': '>=',
         # 'less_than_or_equal_to': '<=',
+
+        # TODO: Resolve how to include special characters here that will be represented correctly inside a container.
+        'greater_than_or_equal_to': '≥',
+        'less_than_or_equal_to': '≤',
     },
 
     fields.FIELD_SELECT_MULTIPLE: {
@@ -110,7 +112,7 @@ def whitelist_operators(vtypename, operators):
             label = wtype.get(operator['name'])
             if label:
                 operator['label'] = label
-                print(f'For {vtypename} mapped {operator["name"]} to {label}')
+                logger.debug(f'For {vtypename} mapped {operator["name"]} to {label}')
                 yield operator
     else:
         yield from operators
@@ -297,4 +299,9 @@ def render_aggregate_eventvariables(event_types, only_common_factors=False):
     return rules
 
 
-
+def render_event(event, user):
+    request = HttpRequest()
+    request.META['SERVER_NAME'] = 'tempuri.org'
+    request.META['SERVER_PORT'] = 80
+    request.user = user
+    return EventSerializer(event, context={'request': request,}).data

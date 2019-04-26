@@ -64,8 +64,9 @@ class OneWeekSchedule(Schedule):
 
     Once initialized you can ask if a datetime is in the Schedule.
     '''
-    days_of_week = ['zero', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-    # reverse_dow: Dict[int, str] = dict((i, name) for i, name in enumerate(days_of_week, start=1))
+
+    # List of days compatible with ISO weekday index.
+    days_of_week = ['index-0', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
     def __init__(self, periods: Dict[str, list]):
         self.periods = periods

@@ -18,7 +18,7 @@ from activity.views import AlertRuleListView, NotificationMethodListView
 
 from business_rules import export_rule_data, run_all
 
-from activity.businessrules import EventActions, EventVariables, generate_global_event_variables
+from activity.businessrules import EventActions, EventVariables, generate_global_event_variables, render_event
 
 from core.utils import OneWeekSchedule
 
@@ -314,10 +314,6 @@ class BusinessRulesTestCase(BaseAPITest):
             # related_subjects=[{'id': self.subject.id}, ],
         )
 
-        user1 = User.objects.create(username='username1', first_name='User No.1',
-                                    last_name='Test User', email='username1@tempuri.org',
-                                    password='aSdFo1uasdf801$1', is_superuser=True)
-
         request = HttpRequest()
         request.user = self.power_user
         request.META['SERVER_NAME'] = 'localhost'
@@ -330,10 +326,7 @@ class BusinessRulesTestCase(BaseAPITest):
             event = ser.create(ser.validated_data)
             event = Event.objects.get(id=event.id)
 
-        eventdata = EventSerializer(event,
-                                    context={'request': request,
-                                             # 'include_related_events': True
-                                             }).data
+        eventdata = render_event(event, self.power_user)
         print(json.dumps(eventdata, indent=2, default=str))
 
         # Create an alert rule
