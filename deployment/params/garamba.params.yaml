@@ -9,6 +9,7 @@ static-values:
   db-name: "garamba"
   db-user: "garamba@das-postgres-apn"
   config-account-name: "dasconfigwesteurope"
+  config-container: "garamba"
   storage-account-name: "garamba04e2ec60"
   storage-container: "assets"
   storage-base-path: "root-path"
