@@ -11,6 +11,7 @@ from django.core.management import call_command
 import utils.schema_utils as schema_utils
 
 from core.tests import BaseAPITest
+from core.utils import NonHttpRequest
 from accounts.models import PermissionSet
 
 from activity.serializers import EventSerializer, AlertRuleSerializer
@@ -212,7 +213,10 @@ class BusinessRulesTestCase(BaseAPITest):
 
         # Find the most recent Monday.
         d1 = d1 - timedelta(days=d1.weekday())
+        d1 = d1.replace(hour=17)
         self.assertTrue(d1 in schedule)
+        d1 = d1.replace(hour=19)
+        self.assertFalse(d1 in schedule)
 
         # Test a negative
         self.assertFalse(d1.replace(hour=12, minute=30) in schedule)
@@ -280,10 +284,8 @@ class BusinessRulesTestCase(BaseAPITest):
         print(f'AlertRule.id: {alert_rule_id}')
 
         # Get the alert rule from the database
-        request = HttpRequest()
+        request = NonHttpRequest()
         request.user = self.power_user
-        request.META['SERVER_NAME'] = 'localhost'
-        request.META['SERVER_PORT'] = 8100
         ar = AlertRule.objects.get(id=alert_rule_id)
         ar_repr = AlertRuleSerializer(context={'request': request}).to_representation(ar)
         print(json.dumps(ar_repr, indent=2, default=str))
