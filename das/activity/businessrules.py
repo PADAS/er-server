@@ -62,12 +62,14 @@ class EventVariables(variables.BaseVariables):
 
 class EventActions(actions.BaseActions):
 
-    def __init__(self, event):
+    def __init__(self, event, action_list):
         self.event = event
+        self.action_list = action_list
 
-    @actions.rule_action(params={"recipient": fields.FIELD_TEXT,})
-    def send_alert(self, recipient):
-        print(f'Sending alert for event {self.event} to recipient {recipient}.')
+    @actions.rule_action(params={"notification_methods": fields.FIELD_NO_INPUT})
+    def send_alert(self, notification_methods):
+        logger.info(f'Sending alert for event {self.event["id"]} to notification_methods {notification_methods}.')
+        self.action_list.append(dict(action='send_alert', event=self.event, notification_methods=notification_methods))
 
 
 class RuleVariableSpec(NamedTuple):
