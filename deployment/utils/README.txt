@@ -25,4 +25,4 @@ MAC-JayL-2:utils jayl$ curl -w "@curl-format.txt" -o /dev/null -H "Authorization
       size_download:  21051
 
 
-Note the network latency, the delta between app contact, and it starting to return data, and delivering the payload. Because the net is variant, make sure you run it a number of times to get an understanding of average responses. We seem to have a delta in payload, I don't think that is significant, but we should understand what the underlying reason for that.
+Note the network latency, the delta between app contact, and it starting to return data, and delivering the payload. Because the net is variant, make sure you run it a number of times to get an understanding of average responses. We seem to have a delta in payload, I don't think that is significant, but we should understand the underlying reason for that.
