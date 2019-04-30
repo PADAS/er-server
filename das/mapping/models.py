@@ -88,6 +88,12 @@ class FeatureType(TimestampedModel):
     def natural_key(self):
         return (self.name,)
 
+    @property
+    def feature_count(self):
+        return PolygonFeature.objects.filter(type=self).count() + \
+            LineFeature.objects.filter(type=self).count() + \
+            PointFeature.objects.filter(type=self).count()
+
 
 class FeatureSetManager(models.Manager):
     def get_by_natural_key(self, name):
