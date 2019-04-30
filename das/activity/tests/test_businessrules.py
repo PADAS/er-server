@@ -20,7 +20,7 @@ from activity.alerts_views import AlertRuleListView, NotificationMethodListView
 from business_rules import export_rule_data, run_all
 
 from activity.businessrules import EventActions, EventVariables, _generate_aggregate_event_variables_class, render_event
-
+from activity.alertingservice import evaluate_event_on_alertrules
 from core.utils import OneWeekSchedule
 
 from typing import NamedTuple
@@ -192,7 +192,7 @@ class BusinessRulesTestCase(BaseAPITest):
         variables_class, _ = _generate_aggregate_event_variables_class(EventType.objects.all(), only_common_factors=True)
 
         exported_rule_data = export_rule_data(variables_class, EventActions)
-        print(json.dumps(exported_rule_data, indent=2))
+        # print(json.dumps(exported_rule_data, indent=2))
 
     @staticmethod
     def test_filtered_eventvariables():
@@ -201,7 +201,7 @@ class BusinessRulesTestCase(BaseAPITest):
             EventType.objects.filter(value__in=['sit_rep', 'fence_rep']))
 
         exported_rule_data = export_rule_data(variables_class, EventActions)
-        print(json.dumps(exported_rule_data, indent=2))
+        # print(json.dumps(exported_rule_data, indent=2))
 
     def test_schedule_mask(self):
 
@@ -245,7 +245,7 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         notification_method_id = response.data["id"]
-        print(f'NotificationMethod.id: {notification_method_id}')
+        # print(f'NotificationMethod.id: {notification_method_id}')
 
         # Create an alert rule
         alert_rule = {
@@ -282,14 +282,14 @@ class BusinessRulesTestCase(BaseAPITest):
         response = AlertRuleListView.as_view()(request)
         self.assertEqual(response.status_code, 201)
         alert_rule_id = response.data['id']
-        print(f'AlertRule.id: {alert_rule_id}')
+        # print(f'AlertRule.id: {alert_rule_id}')
 
         # Get the alert rule from the database
         request = NonHttpRequest()
         request.user = self.power_user
         ar = AlertRule.objects.get(id=alert_rule_id)
         ar_repr = AlertRuleSerializer(context={'request': request}).to_representation(ar)
-        print(json.dumps(ar_repr, indent=2, default=str))
+        # print(json.dumps(ar_repr, indent=2, default=str))
 
     def test_a_real_event_against_a_defined_alert_rule(self):
 
@@ -328,7 +328,7 @@ class BusinessRulesTestCase(BaseAPITest):
             event = Event.objects.get(id=event.id)
 
         eventdata = render_event(event, self.power_user)
-        print(json.dumps(eventdata, indent=2, default=str))
+        # print(json.dumps(eventdata, indent=2, default=str))
 
         # Create a notification method
         notification_method = {
@@ -342,7 +342,7 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         notification_method_id = response.data["id"]
-        print(f'NotificationMethod.id: {notification_method_id}')
+        # print(f'NotificationMethod.id: {notification_method_id}')
 
         # Create an alert rule
 
@@ -379,8 +379,6 @@ class BusinessRulesTestCase(BaseAPITest):
                     'monday': [('08:00', '12:00'), ('13:00', '18:30')]
                 }
             },
-            owner=self.power_user
-
         )
 
         request = NonHttpRequest()
@@ -392,62 +390,5 @@ class BusinessRulesTestCase(BaseAPITest):
             alert_rule = ser.create(ser.validated_data)
             alert_rule = AlertRule.objects.get(id=alert_rule.id)
 
-        # This example alert rule illustrates the make up of what the business-rules library is expecting.
-        # example_alert_rules = [
-        #     {
-        #         "conditions": {
-        #             "all": [
-        #                 {
-        #                     "name": "priority",
-        #                     "operator": "shares_at_least_one_element_with",
-        #                     "value": ['1', '100', '200', ],
-        #                 },
-        #                 {
-        #                     "name": "state",
-        #                     "operator": "shares_at_least_one_element_with",
-        #                     "value": ["active", "new", ],
-        #                 },
-        #                 {
-        #                     'name': 'carcassrep_species',
-        #                     'operator': 'is_contained_by',
-        #                     'value': ['redriverhog', ],
-        #                 }
-        #             ]
-        #         },
-        #
-        #         "actions": [
-        #             {
-        #                 "name": "send_alert",
-        #                 "params": {
-        #                     "notification_methods": ["some method",],
-        #                 }
-        #             }
-        #         ]
-        #     },
-        # ]
-
-        # Constitute an EventVariables class
-        event_variables, _ = _generate_aggregate_event_variables_class({event.event_type})
-
-        sample_rules = [
-            {
-                'conditions': alert_rule.conditions,
-                'actions': [
-                    {
-                        "name": "send_alert",
-                        "params": {
-                            "notification_methods": [n.id for n in alert_rule.notification_methods.all()],
-                        }
-                    }
-                ]
-            },
-        ]
-
-        action_list = []
-        # Process the event against the single alert rule
-        run_all(rule_list=sample_rules,
-                defined_variables=event_variables(eventdata),
-                defined_actions=EventActions(eventdata, action_list),
-                stop_on_first_trigger=False)
-
+        action_list = evaluate_event_on_alertrules(alert_rule, event)
         self.assertTrue(len(action_list) == 1)

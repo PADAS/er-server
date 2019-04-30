@@ -1440,12 +1440,13 @@ PHONE_NUMBER_VALIDATOR = RegexValidator(regex=r'^\+?1?[-\d]{9,15}$', message="No
 
 class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
 
-    owner = rest_framework.serializers.ReadOnlyField(source='owner.username')
+    owner_username = rest_framework.serializers.ReadOnlyField(source='owner.username')
+    owner = rest_framework.serializers.HiddenField(default=rest_framework.serializers.CurrentUserDefault())
 
     class Meta:
         fields = '__all__'
         model = activity.models.NotificationMethod
-        read_only_fields = ('id', 'owner',)
+        read_only_fields = ('id', 'owner_username',)
 
     def to_representation(self, instance):
 
@@ -1488,17 +1489,18 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     conditions = rest_framework.serializers.JSONField()
     schedule = rest_framework.serializers.JSONField()
 
-    owner = rest_framework.serializers.ReadOnlyField(source='owner.username')
-
-    class Meta:
-        fields = '__all__'
-        model = activity.models.AlertRule
-        read_only_fields = ('id', 'owner', 'notification_methods',)
+    owner_username = rest_framework.serializers.ReadOnlyField(source='owner.username')
+    owner = rest_framework.serializers.HiddenField(default=rest_framework.serializers.CurrentUserDefault())
 
     notification_method_ids = rest_framework.serializers.PrimaryKeyRelatedField(
         queryset=activity.models.NotificationMethod.objects.all(),
         many=True, write_only=True, source='notification_methods')
     notification_methods = NotificationMethodSerializer(many=True, read_only=True)
+
+    class Meta:
+        fields = '__all__'
+        model = activity.models.AlertRule
+        read_only_fields = ('id', 'owner_username', 'notification_methods',)
 
     def to_representation(self, instance):
 
