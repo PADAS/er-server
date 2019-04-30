@@ -47,6 +47,10 @@ class EventVariables(variables.BaseVariables):
     def __init__(self, event):
         self.event = event
 
+    @variables.string_rule_variable(label=_('Title'))
+    def title(self):
+        return self.event.get('title')
+
     @variables.select_multiple_rule_variable(label=_('Priority'), options=priority_options)
     def priority(self):
         return [str(self.event.get('priority')),]
@@ -117,29 +121,6 @@ def whitelist_operators(vtypename, operators):
     else:
         yield from operators
 
-# def export_rule_data(variables, actions):
-#     """ export_rule_data is used to export all information about the
-#     variables, actions, and operators to the client. This will return a
-#     dictionary with three keys:
-#     - variables: a list of all available variables along with their label, type and options
-#     - actions: a list of all actions along with their label and params
-#     - variable_type_operators: a dictionary of all field_types -> list of available operators
-#     """
-#     from business_rules import operators
-#     actions_data = actions.get_all_actions()
-#     variables_data = variables.get_all_variables()
-#     variable_type_operators = {}
-#     for variable_class in inspect.getmembers(operators, lambda x: getattr(x, 'export_in_rule_data', False)):
-#         variable_type = variable_class[1] # getmembers returns (name, value)
-#
-#         replacement_operator_list = list(whitelist_operators(variable_type.name,
-#                                  variable_type.get_all_operators()))
-#         variable_type_operators[variable_type.name] = replacement_operator_list
-#
-#     return {"variables": variables_data,
-#             "actions": actions_data,
-#             "variable_type_operators": variable_type_operators}
-
 
 def create_new_func(key, return_type, label=None, optionslist=None):
     '''
@@ -156,9 +137,7 @@ def create_new_func(key, return_type, label=None, optionslist=None):
 
         # For a multi-select option we return the Event's value as a member of a list.
         def f(self):
-            # return [self.event.details.get(key, {}).get('value'),]
             return [self.event['event_details'].get(key, {}).get('value'),]
-        # Assume 'select_multiple'
 
         optionslist = sorted(optionslist, key=lambda x: x['label'])
         return variables.select_multiple_rule_variable(label, options=optionslist)(f)
@@ -204,10 +183,11 @@ def generate_option_list(schema_option):
     return []
 
 
-def generate_global_event_variables(event_types, only_common_factors=False):
+def _generate_aggregate_event_variables_class(event_types, only_common_factors=False):
     '''
-    From a list of EventTypes, generate an EventVariables class adhering to Venmo business rules interface.
+    From a list of EventTypes, generate an EventVariables class adhering to business-rules interface.
     :param event_types: A list of DAS EventType objects from which to build a variables type.
+    :param only_common_factors: Whether to reduce the list of variables to just those which apply to all event_types.
     :return: A `Variables` type to be used with Venmo business-rules package.
     '''
 
@@ -259,17 +239,8 @@ def generate_global_event_variables(event_types, only_common_factors=False):
     attrs = dict((x.attrname, create_new_func(x.attrname, x.return_type, label=x.label, optionslist=x.optionslist))
                  for x in attributes_accumulator.values())
 
-    # # Add select variable for event-type
-    # event_type_options = [{'name': et.value, 'label': et.display} for et in event_types]
-    #
-    # def event_type_getter(self):
-    #     return [self.event.event_type.value,]
-    #
-    # attrs['event_type'] = variables.select_multiple_rule_variable(label=_('Report Type'),
-    #                                                               options=event_type_options)(event_type_getter)
-
-
     # Invent a class name
+    # TODO: Research the behavior of new-ing up a type like this repeatedly.
     classname = 'GlobalEventVariables'
     return type(classname, (EventVariables,), attrs), applies_to_map
 
@@ -277,10 +248,16 @@ def generate_global_event_variables(event_types, only_common_factors=False):
 PRUNE_OPTIONS_FROM = (fields.FIELD_TEXT, fields.FIELD_NO_INPUT, fields.FIELD_NUMERIC,)
 
 
-def render_aggregate_eventvariables(event_types, only_common_factors=False):
+def render_aggregate_event_variables(event_types, only_common_factors=False):
+    '''
+    From a list of EventTypes, generate render a set of rules.
+    :param event_types: A list of DAS EventType objects from which to build a variables type.
+    :param only_common_factors: Whether to reduce the list of variables to just those which apply to all event_types.
+    :return: A rules document that the UI will render allowing a user to build a condition set.
+    '''
 
-    variables_class, applies_to_map = generate_global_event_variables(event_types,
-                                                                      only_common_factors=only_common_factors)
+    variables_class, applies_to_map = _generate_aggregate_event_variables_class(event_types,
+                                                                                only_common_factors=only_common_factors)
 
     rules = export_rule_data(variables_class, EventActions)
 
@@ -300,6 +277,7 @@ def render_aggregate_eventvariables(event_types, only_common_factors=False):
 
 
 def render_event(event, user):
+    # This is a covenience function to render an Event
     request = NonHttpRequest()
     request.user = user
     return EventSerializer(event, context={'request': request,}).data

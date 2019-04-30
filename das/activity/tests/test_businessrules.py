@@ -15,11 +15,11 @@ from core.utils import NonHttpRequest
 from accounts.models import PermissionSet
 
 from activity.serializers import EventSerializer, AlertRuleSerializer
-from activity.views import AlertRuleListView, NotificationMethodListView
+from activity.alerts_views import AlertRuleListView, NotificationMethodListView
 
 from business_rules import export_rule_data, run_all
 
-from activity.businessrules import EventActions, EventVariables, generate_global_event_variables, render_event
+from activity.businessrules import EventActions, EventVariables, _generate_aggregate_event_variables_class, render_event
 
 from core.utils import OneWeekSchedule
 
@@ -141,7 +141,7 @@ class BusinessRulesTestCase(BaseAPITest):
     def test_create_eventtype_variables_class(self):
 
         snare_et = EventType.objects.get(value='snare_rep')
-        variables_class, applies_to = generate_global_event_variables([snare_et, ])
+        variables_class, applies_to = _generate_aggregate_event_variables_class([snare_et, ])
         # exported_rule_data = export_rule_data(variables_class, EventActions)
         # print(json.dumps(exported_rule_data, indent=2))
 
@@ -189,7 +189,7 @@ class BusinessRulesTestCase(BaseAPITest):
     @staticmethod
     def test_generate_global_eventvariables():
 
-        variables_class, _ = generate_global_event_variables(EventType.objects.all(), only_common_factors=True)
+        variables_class, _ = _generate_aggregate_event_variables_class(EventType.objects.all(), only_common_factors=True)
 
         exported_rule_data = export_rule_data(variables_class, EventActions)
         print(json.dumps(exported_rule_data, indent=2))
@@ -197,7 +197,7 @@ class BusinessRulesTestCase(BaseAPITest):
     @staticmethod
     def test_filtered_eventvariables():
 
-        variables_class, _ = generate_global_event_variables(
+        variables_class, _ = _generate_aggregate_event_variables_class(
             EventType.objects.filter(value__in=['sit_rep', 'fence_rep']))
 
         exported_rule_data = export_rule_data(variables_class, EventActions)
@@ -353,6 +353,11 @@ class BusinessRulesTestCase(BaseAPITest):
             conditions={
                 "all": [
                     {
+                        "name": "title",
+                        "operator": "contains",
+                        "value": "Test Event No"
+                    },
+                    {
                         "name": "priority",
                         "operator": "shares_at_least_one_element_with",
                         "value": ['1', '100', '200', ],
@@ -422,7 +427,7 @@ class BusinessRulesTestCase(BaseAPITest):
         # ]
 
         # Constitute an EventVariables class
-        event_variables, _ = generate_global_event_variables({event.event_type})
+        event_variables, _ = _generate_aggregate_event_variables_class({event.event_type})
 
         sample_rules = [
             {
