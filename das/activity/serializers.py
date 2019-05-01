@@ -1495,10 +1495,10 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     See: https://stackoverflow.com/questions/29950956/drf-simple-foreign-key-assignment-with-nested-serializers
     '''
 
-    event_types = rest_framework.serializers.SlugRelatedField(
+    reportTypes = rest_framework.serializers.SlugRelatedField(
         queryset=activity.models.EventType.objects.all(),
         many=True, write_only=False,
-        slug_field='value',)
+        slug_field='value', source='event_types')
 
     conditions = rest_framework.serializers.JSONField()
     schedule = rest_framework.serializers.JSONField()
@@ -1512,7 +1512,7 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     notification_methods = NotificationMethodSerializer(many=True, read_only=True)
 
     class Meta:
-        fields = '__all__'
+        exclude = ('event_types',)
         model = activity.models.AlertRule
         read_only_fields = ('id', 'owner_username', 'notification_methods',)
 
