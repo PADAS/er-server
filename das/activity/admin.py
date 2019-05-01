@@ -238,7 +238,7 @@ class EventRelationshipAdmin(admin.ModelAdmin):
 @admin.register(models.AlertRule)
 class AlertRuleAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
-    list_display = ('owner_username', 'display', 'is_active', 'ordernum',)
+    list_display = ('owner_username', 'title', 'is_active', 'ordernum',)
     form = AlertRuleForm
 
     def owner_username(self, instance):
@@ -249,4 +249,8 @@ class AlertRuleAdmin(admin.ModelAdmin):
 @admin.register(models.NotificationMethod)
 class NotificationMethodAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
+    list_display = ('owner_username', 'method', 'value', 'is_active',)
 
+    def owner_username(self, instance):
+        return instance.owner.username
+    owner_username.short_description = _('Owner')

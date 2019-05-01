@@ -1440,35 +1440,49 @@ PHONE_NUMBER_VALIDATOR = RegexValidator(regex=r'^\+?1?[-\d]{9,15}$', message="No
 
 class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
 
-    owner_username = rest_framework.serializers.ReadOnlyField(source='owner.username')
     owner = rest_framework.serializers.HiddenField(default=rest_framework.serializers.CurrentUserDefault())
 
+    contact = rest_framework.serializers.DictField()
+
     class Meta:
-        fields = '__all__'
         model = activity.models.NotificationMethod
-        read_only_fields = ('id', 'owner_username',)
+        read_only_fields = ('id', 'owner',)
+        fields = ('title', 'contact', 'is_active',) + read_only_fields
 
     def to_representation(self, instance):
 
+        instance.contact = {'method': instance.method,
+                            'value': instance.value}
         rep = super().to_representation(instance)
+
+        rep['owner'] = {
+            'username': instance.owner.username
+        }
 
         rep['url'] = utils.add_base_url(self.context['request'],
                                         reverse('notificationmethod-view',
                                                 args=[instance.id, ]))
         return rep
 
+    def create(self, validated_data):
+        contact = validated_data.pop('contact')
+        validated_data['method'] = contact['method']
+        validated_data['value'] = contact['value']
+        return super().create(validated_data)
+
     def validate(self, attrs):
 
-        if attrs['method'] == 'sms':
+        contact = attrs['contact']
+        if contact['method'] == 'sms':
             try:
-                PHONE_NUMBER_VALIDATOR(attrs['value'])
+                PHONE_NUMBER_VALIDATOR(contact['value'])
             except django.core.exceptions.ValidationError:
-                raise ValidationError({'value': 'Must be a valid phone number when using method=\'sms\''})
-        elif attrs['method'] == 'email':
+                raise ValidationError({'contact.value': 'Must be a valid phone number when using contact.method=\'sms\''})
+        elif contact['method'] == 'email':
             try:
-                EmailValidator()(attrs['value'])
+                EmailValidator()(contact['value'])
             except django.core.exceptions.ValidationError:
-                raise ValidationError({'value': 'Must be a valid email address when using method=\'email\''})
+                raise ValidationError({'contact.value': 'Must be a valid email address when using contact.method=\'email\''})
 
         return super().validate(attrs)
 
@@ -1484,12 +1498,12 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     event_types = rest_framework.serializers.SlugRelatedField(
         queryset=activity.models.EventType.objects.all(),
         many=True, write_only=False,
-        slug_field='value')
+        slug_field='value',)
 
     conditions = rest_framework.serializers.JSONField()
     schedule = rest_framework.serializers.JSONField()
 
-    owner_username = rest_framework.serializers.ReadOnlyField(source='owner.username')
+    # owner_username = rest_framework.serializers.ReadOnlyField(source='owner.username')
     owner = rest_framework.serializers.HiddenField(default=rest_framework.serializers.CurrentUserDefault())
 
     notification_method_ids = rest_framework.serializers.PrimaryKeyRelatedField(
@@ -1505,6 +1519,9 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     def to_representation(self, instance):
 
         rep = super().to_representation(instance)
+        rep['owner'] = {
+            'username': instance.owner.username
+        }
 
         rep['url'] = utils.add_base_url(self.context['request'],
                                         reverse('alert-view',
