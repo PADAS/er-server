@@ -1,19 +1,14 @@
+import logging
 
 from business_rules import run_all
+from accounts.models import User
 
-from core.utils import NonHttpRequest
-
-from activity.models import AlertRule, NotificationMethod
 from activity.businessrules import _generate_aggregate_event_variables_class, render_event, \
     EventActions
 
+logger = logging.getLogger(__name__)
 
-def get_alertrules_for_event(event):
-    # Get Alert Rules that match the given event.
-    pass
-
-
-def evaluate_event_on_alertrules(alert_rule, event):
+def evaluate_event_on_alertrules(alert_rules, event):
 
     # Constitute an EventVariables class
     event_variables, _ = _generate_aggregate_event_variables_class({event.event_type})
@@ -29,10 +24,15 @@ def evaluate_event_on_alertrules(alert_rule, event):
                     }
                 }
             ]
-        },
+        }
+        for alert_rule in alert_rules
     ]
 
-    rendered_event = render_event(event, alert_rule.owner)
+    # Here I render the Event as a superuser, to discount any restrictions on the various users
+    # within the list of AlertRules. I will leave it up to the logic that sends alerts to determine
+    # whether an individual user has read access.
+    # TODO: Reconsider this since the alternative is to evaluate the Event+Rule once for each user.
+    rendered_event = render_event(event, User(is_superuser=True))
 
     action_list = []
     # Process the event against the single alert rule
@@ -43,37 +43,3 @@ def evaluate_event_on_alertrules(alert_rule, event):
 
     return action_list
 
-
-# This example alert rule illustrates the make up of what the business-rules library is expecting.
-# example_alert_rules = [
-#     {
-#         "conditions": {
-#             "all": [
-#                 {
-#                     "name": "priority",
-#                     "operator": "shares_at_least_one_element_with",
-#                     "value": ['1', '100', '200', ],
-#                 },
-#                 {
-#                     "name": "state",
-#                     "operator": "shares_at_least_one_element_with",
-#                     "value": ["active", "new", ],
-#                 },
-#                 {
-#                     'name': 'carcassrep_species',
-#                     'operator': 'is_contained_by',
-#                     'value': ['redriverhog', ],
-#                 }
-#             ]
-#         },
-#
-#         "actions": [
-#             {
-#                 "name": "send_alert",
-#                 "params": {
-#                     "notification_methods": ["some method",],
-#                 }
-#             }
-#         ]
-#     },
-# ]

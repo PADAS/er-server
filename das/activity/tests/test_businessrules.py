@@ -90,7 +90,6 @@ class BusinessRulesTestCase(BaseAPITest):
 
             @actions.rule_action(params={"recipient": fields.FIELD_TEXT, })
             def send_alert(self, recipient):
-                print(f'Sending alert for event {self.event} to recipient {recipient}.')
                 alert_actions.append(self.event)
 
         exported_rule_data = export_rule_data(TestEventVariables, EventActions)
@@ -345,10 +344,8 @@ class BusinessRulesTestCase(BaseAPITest):
         # print(f'NotificationMethod.id: {notification_method_id}')
 
         # Create an alert rule
-
-        alert_rule_data = dict(
+        alert_rule_1 = dict(
             event_types=[carcass_eventtype.value, ],
-
             notification_method_ids=[notification_method_id, ],
             conditions={
                 "all": [
@@ -380,15 +377,40 @@ class BusinessRulesTestCase(BaseAPITest):
                 }
             },
         )
+        alert_rule_2 = dict(
+            event_types=[carcass_eventtype.value, ],
+            notification_method_ids=[notification_method_id, ],
+            conditions={
+                "all": [
+                    {
+                        "name": "title",
+                        "operator": "contains",
+                        "value": "Elephant"
+                    },
+                ]
+            },
+            schedule={
+                'periods': {
+                    'monday': [('08:00', '12:00'), ('13:00', '18:30')]
+                }
+            },
+        )
 
-        request = NonHttpRequest()
-        request.user = self.power_user
-        ser = AlertRuleSerializer(data=alert_rule_data, context={'request': request})
-        if not ser.is_valid():
-            print(f'AlertRule is not valid. Errors are: {ser.errors}')
-        else:
-            alert_rule = ser.create(ser.validated_data)
-            alert_rule = AlertRule.objects.get(id=alert_rule.id)
+        alert_rules_list = []
+        for ar in [alert_rule_1, alert_rule_2]:
+            request = NonHttpRequest()
+            request.user = self.power_user
+            ser = AlertRuleSerializer(data=ar, context={'request': request})
+            if not ser.is_valid():
+                print(f'AlertRule is not valid. Errors are: {ser.errors}')
+            else:
+                rule = ser.create(ser.validated_data)
+                rule = AlertRule.objects.get(id=rule.id)
+                alert_rules_list.append(rule)
 
-        action_list = evaluate_event_on_alertrules(alert_rule, event)
+        self.assertEqual(len(AlertRule.objects.filter(event_types=event.event_type)), 2)
+
+        action_list = evaluate_event_on_alertrules(alert_rules_list, event)
         self.assertTrue(len(action_list) == 1)
+
+        print(action_list)
