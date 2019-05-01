@@ -102,7 +102,7 @@ class EventTypeForm(forms.ModelForm):
 
 
 class AlertRuleForm(forms.ModelForm):
-    definition = forms.CharField(widget=MonospaceTextWidget(
+    conditions = forms.CharField(widget=MonospaceTextWidget(
         attrs={'rows': 30, 'cols': 100}))
 
     schedule = forms.CharField(widget=MonospaceTextWidget(

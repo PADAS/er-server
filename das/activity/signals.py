@@ -20,6 +20,12 @@ def event_post_save(sender, instance, created, **kwargs):
         {'event_id': str(instance.pk)},
         'das.event.new' if created else 'das.event.update'))
 
+    transaction.on_commit(lambda:
+                          celery.app.send_task(
+                              'activity.tasks.evaluate_alert_rules', args=(str(instance.id),))
+                          )
+
+
 
 @receiver(post_delete, sender=Event)
 def event_post_delete(sender, instance, **kwargs):

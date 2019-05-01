@@ -3,10 +3,17 @@ import logging
 from business_rules import run_all
 from accounts.models import User
 
+from activity.models import AlertRule
 from activity.businessrules import _generate_aggregate_event_variables_class, render_event, \
     EventActions
 
 logger = logging.getLogger(__name__)
+
+
+def evaluate_event(event):
+
+    alert_rules = AlertRule.objects.filter(event_types=event.event_type)
+    return evaluate_event_on_alertrules(alert_rules, event)
 
 def evaluate_event_on_alertrules(alert_rules, event):
 

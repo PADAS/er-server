@@ -2,9 +2,24 @@ import logging
 
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 from das_server import celery
-from activity.models import EventPhoto
+from activity.models import EventPhoto, Event
+
+from activity.alertingservice import evaluate_event
 
 logger = logging.getLogger(__name__)
+
+
+@celery.app.task(bind=True)
+def evaluate_alert_rules(self, event_id):
+
+    try:
+        logger.info('Evaluating Event %s for alerting.', event_id)
+        event = Event.objects.get(id=event_id)
+        action_list = evaluate_event(event)
+
+        print(f'Action List: {action_list}')
+    except Exception as e:
+        logger.exception('Failed when evaluating alert rules for event {}'.format(event_id))
 
 
 @celery.app.task(bind=True)
