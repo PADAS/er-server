@@ -1,5 +1,8 @@
 import logging
 
+from django.utils import timezone
+
+from core.utils import OneWeekSchedule
 from business_rules import run_all
 from accounts.models import User
 
@@ -15,11 +18,16 @@ def evaluate_event(event):
     alert_rules = AlertRule.objects.filter(event_types=event.event_type)
     return evaluate_event_on_alertrules(alert_rules, event)
 
+
 def evaluate_event_on_alertrules(alert_rules, event):
 
     # Constitute an EventVariables class
     event_variables, _ = _generate_aggregate_event_variables_class({event.event_type})
 
+    def filter_on_schedule(alert_rule):
+        return timezone.localtime() in OneWeekSchedule(alert_rule.schedule.get('periods'))
+
+    alert_rules = filter(filter_on_schedule, alert_rules)
     rendered_rules = [
         {
             'conditions': alert_rule.conditions,

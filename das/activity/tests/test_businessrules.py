@@ -234,8 +234,12 @@ class BusinessRulesTestCase(BaseAPITest):
 
         # Create a notification method
         notification_method = {
-            'method': 'sms',
-            'value': '+12062147021'
+            'contact': {
+                'method': 'sms',
+                'value': '+12062147021'
+            },
+            'title':'Some notification method',
+            'is_active': True
         }
 
         request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
@@ -249,7 +253,7 @@ class BusinessRulesTestCase(BaseAPITest):
         # Create an alert rule
         alert_rule = {
             'notification_method_ids': [notification_method_id, ],
-            'event_types': ['carcass_rep', ],
+            'reportTypes': ['carcass_rep', ],
             'schedule': {
                 "monday": [("08:00", "12:00"), ("13:00", "17:30")],
                 "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
@@ -331,8 +335,12 @@ class BusinessRulesTestCase(BaseAPITest):
 
         # Create a notification method
         notification_method = {
-            'method': 'sms',
-            'value': '+12062147021'
+            'contact': {
+                'method': 'sms',
+                'value': '+12062147021'
+            },
+            'title':'Some notification method',
+            'is_active': True
         }
 
         request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
@@ -345,7 +353,7 @@ class BusinessRulesTestCase(BaseAPITest):
 
         # Create an alert rule
         alert_rule_1 = dict(
-            event_types=[carcass_eventtype.value, ],
+            reportTypes=[carcass_eventtype.value, ],
             notification_method_ids=[notification_method_id, ],
             conditions={
                 "all": [
@@ -373,12 +381,17 @@ class BusinessRulesTestCase(BaseAPITest):
             },
             schedule={
                 'periods': {
-                    'monday': [('08:00', '12:00'), ('13:00', '18:30')]
+                    'monday': [('08:00', '12:00'), ('13:00', '18:30')],
+                    'tuesday': [('08:00', '12:00'), ('13:00', '18:30')],
+                    'wednesday': [('08:00', '12:00'), ('13:00', '18:30')],
+                    'thursday': [('08:00', '12:00'), ('13:00', '18:30')],
+                    'friday': [('08:00', '12:00'), ('13:00', '18:30')],
+                    'saturday': [('08:00', '12:00'), ('13:00', '18:30')],
                 }
             },
         )
         alert_rule_2 = dict(
-            event_types=[carcass_eventtype.value, ],
+            reportTypes=[carcass_eventtype.value, ],
             notification_method_ids=[notification_method_id, ],
             conditions={
                 "all": [
