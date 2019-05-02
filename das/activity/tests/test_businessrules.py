@@ -3,6 +3,8 @@ import pytz
 import json
 from django.http.request import HttpRequest
 
+from django.utils import timezone
+
 from django.contrib.gis.geos import Point
 from django.contrib.auth.models import Permission
 
@@ -294,6 +296,33 @@ class BusinessRulesTestCase(BaseAPITest):
         ar_repr = AlertRuleSerializer(context={'request': request}).to_representation(ar)
         # print(json.dumps(ar_repr, indent=2, default=str))
 
+    def _create_a_period_from_datetime(self, dt=None, including_time=True):
+        '''
+        Given a datetime, create a OneWeekSchedule with periods that include (or exclude) it.
+        :param dt: defaults to now (in the django app's timezone).
+        :param including_time: whether the schedule should include the given time.
+        :return: a 'periods' dict.
+        '''
+        dt = dt or timezone.localtime()
+
+        day_key = ['1', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][dt.isoweekday()]
+
+        if including_time:
+            h1 = dt - timedelta(minutes=30)
+            h2 = dt + timedelta(minutes=30)
+        else:
+            h1 = dt + timedelta(minutes=30)
+            h2 = dt + timedelta(minutes=30)
+
+        h1 = f'{h1.hour}:{h1.minute}'
+        h2 = f'{h2.hour}:{h2.minute}'
+
+        periods = {
+            day_key: [(h1, h2)]
+        }
+
+
+
     def test_a_real_event_against_a_defined_alert_rule(self):
 
         # Create a carcass event with some details
@@ -380,14 +409,7 @@ class BusinessRulesTestCase(BaseAPITest):
                 ]
             },
             schedule={
-                'periods': {
-                    'monday': [('08:00', '12:00'), ('13:00', '18:30')],
-                    'tuesday': [('08:00', '12:00'), ('13:00', '18:30')],
-                    'wednesday': [('08:00', '12:00'), ('13:00', '18:30')],
-                    'thursday': [('08:00', '12:00'), ('13:00', '18:30')],
-                    'friday': [('08:00', '12:00'), ('13:00', '18:30')],
-                    'saturday': [('08:00', '12:00'), ('13:00', '18:30')],
-                }
+                'periods': self._create_a_period_from_datetime(including_time=True)
             },
         )
         alert_rule_2 = dict(
@@ -403,9 +425,7 @@ class BusinessRulesTestCase(BaseAPITest):
                 ]
             },
             schedule={
-                'periods': {
-                    'monday': [('08:00', '12:00'), ('13:00', '18:30')]
-                }
+                'periods': self._create_a_period_from_datetime(including_time=False)
             },
         )
 
@@ -424,6 +444,6 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(len(AlertRule.objects.filter(event_types=event.event_type)), 2)
 
         action_list = evaluate_event_on_alertrules(alert_rules_list, event)
-        self.assertTrue(len(action_list) == 1)
+        self.assertEqual(len(action_list), 1)
 
         print(action_list)
