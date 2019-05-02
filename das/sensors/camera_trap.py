@@ -146,6 +146,12 @@ class CameraTrapSensorHandler:
     def post_camera_trap_report(cls, request, params):
         file = request.data['filecontent.file']
         file_name = file.name
+        # for now, just return a 400 (should be a 415) if the extension is '.png'
+        # later, we'll get a bit more clever, and refactor the code so that a 
+        # user can pass in valid data with a png. 
+        if '.png' in file_name.lower():
+            return Response(data='png is not a supported media type',
+                                status=status.HTTP_400_BAD_REQUEST)
         exif = load_exif(file.read())
         exif_dict = dict(iter_exif(exif))
         location = None
