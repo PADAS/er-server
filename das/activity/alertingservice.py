@@ -27,7 +27,15 @@ def evaluate_event_on_alertrules(alert_rules, event):
     def filter_on_schedule(alert_rule):
         return timezone.localtime() in OneWeekSchedule(alert_rule.schedule.get('periods'))
 
-    alert_rules = filter(filter_on_schedule, alert_rules)
+    # Filter out rules that don't match by schedule.
+    alert_rules = list(filter(filter_on_schedule, alert_rules))
+
+    # Separate remaining alert rules by whether each is unconditional
+    unconditional_rules = list(filter(lambda an_alert_rule: not an_alert_rule.is_conditional, alert_rules))
+
+    # Render remaining rules as input to business rules engine.
+    conditional_rules = list(filter(lambda r: r.is_conditional, alert_rules))
+
     rendered_rules = [
         {
             'conditions': alert_rule.conditions,
@@ -40,7 +48,7 @@ def evaluate_event_on_alertrules(alert_rules, event):
                 }
             ]
         }
-        for alert_rule in alert_rules
+        for alert_rule in conditional_rules
     ]
 
     # Here I render the Event as a superuser, to discount any restrictions on the various users
@@ -50,11 +58,17 @@ def evaluate_event_on_alertrules(alert_rules, event):
     rendered_event = render_event(event, User(is_superuser=True))
 
     action_list = []
+
     # Process the event against the single alert rule
     run_all(rule_list=rendered_rules,
             defined_variables=event_variables(rendered_event),
             defined_actions=EventActions(rendered_event, action_list),
             stop_on_first_trigger=False)
+
+    # Add actions for the unconditional alert rules.
+    for alert_rule in unconditional_rules:
+        action_list.append(dict(action='send_alert', event=rendered_event,
+                                notification_methods=[n.id for n in alert_rule.notification_methods.all()]))
 
     return action_list
 

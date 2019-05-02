@@ -1252,6 +1252,10 @@ class AlertRule(TimestampedModel):
 
     is_active = models.BooleanField(default=True,)
 
+    @property
+    def is_conditional(self):
+        return bool(self.conditions)
+
 
 
 

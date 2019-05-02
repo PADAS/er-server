@@ -1500,21 +1500,20 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
         many=True, write_only=False,
         slug_field='value', source='event_types')
 
-    conditions = rest_framework.serializers.JSONField()
-    schedule = rest_framework.serializers.JSONField()
+    conditions = rest_framework.serializers.JSONField(required=False, default=dict)
+    schedule = rest_framework.serializers.JSONField(required=False, default=dict)
 
-    # owner_username = rest_framework.serializers.ReadOnlyField(source='owner.username')
     owner = rest_framework.serializers.HiddenField(default=rest_framework.serializers.CurrentUserDefault())
 
     notification_method_ids = rest_framework.serializers.PrimaryKeyRelatedField(
         queryset=activity.models.NotificationMethod.objects.all(),
-        many=True, write_only=True, source='notification_methods')
-    notification_methods = NotificationMethodSerializer(many=True, read_only=True)
+        many=True, write_only=False, source='notification_methods')
+    # notification_methods = NotificationMethodSerializer(many=True, read_only=True)
 
     class Meta:
-        exclude = ('event_types',)
+        exclude = ('event_types', 'notification_methods',)
         model = activity.models.AlertRule
-        read_only_fields = ('id', 'owner_username', 'notification_methods',)
+        read_only_fields = ('id', 'owner_username')  # 'notification_methods',)
 
     def to_representation(self, instance):
 

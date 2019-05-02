@@ -74,7 +74,9 @@ class OneWeekSchedule(Schedule):
 
     def __contains__(self, value):
 
-        if not self.periods: return True
+        if not bool(self.periods):
+            return True
+
         # Truncate the timestamp to our finest granularity.
         value = value.replace(second=0, microsecond=0)
 
