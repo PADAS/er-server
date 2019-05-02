@@ -147,7 +147,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         ),
     )
     date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
-    additional = JSONField('additional data', default={},
+    additional = JSONField('additional data', default=dict,
                            null=True, blank=True)
     is_nologin = models.BooleanField(
         _('no login'),

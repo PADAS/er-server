@@ -62,9 +62,9 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         queryset=Source.objects.all().order_by('manufacturer_id').prefetch_related('provider',))
 
 
-
 silence_notification_threshold_help_text_for_source =  \
     _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source.')
+
 
 class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
@@ -132,6 +132,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
                        'adjusted_beacon_freq', 'frequency',
                        'adjusted_frequency',
                        'backup_frequency', 'predicted_expiry', 'silence_notification_threshold')
+        json_date_fields = ('predicted_expiry',)
         fields = ('id', 'manufacturer_id', 'provider', 'source_type',
                   'model_name', 'additional') + json_fields
 
@@ -246,18 +247,20 @@ lag_notification_threshold_help_text =  \
 silence_notification_threshold_help_text =  \
     _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source Provider.')
 
+
 class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
     lag_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                  help_text=lag_notification_threshold_help_text)
 
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
-                                                 help_text=silence_notification_threshold_help_text)
+                                                     help_text=silence_notification_threshold_help_text)
 
     class Meta:
         model = SourceProvider
         fields = ['provider_key', 'display_name', 'additional']
-        json_fields = ('lag_notification_threshold', 'silence_notification_threshold',)
+        json_fields = ('lag_notification_threshold',
+                       'silence_notification_threshold',)
         json_date_fields = set()
 
     # def clean_lag_notification_threshold(self):
