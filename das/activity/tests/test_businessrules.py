@@ -167,7 +167,7 @@ class BusinessRulesTestCase(BaseAPITest):
                     {
                         "name": "send_alert",
                         "params": {
-                            "notification_methods": [1,2,3,],
+                            "alert_rule_id": '1234',
                         }
                     }
                 ]

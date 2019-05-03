@@ -2,6 +2,7 @@ import logging
 
 from django.utils import timezone
 
+
 from core.utils import OneWeekSchedule
 from business_rules import run_all
 from accounts.models import User
@@ -15,7 +16,9 @@ logger = logging.getLogger(__name__)
 
 def evaluate_event(event):
 
-    alert_rules = AlertRule.objects.filter(event_types=event.event_type)
+    # Title
+    alert_rules = AlertRule.objects.filter(event_types=event.event_type, is_active=True).order_by('ordernum', 'title')
+        # .annotate(evaluation_sequence=RowNumber())
     return evaluate_event_on_alertrules(alert_rules, event)
 
 
@@ -25,6 +28,7 @@ def evaluate_event_on_alertrules(alert_rules, event):
     event_variables, _ = _generate_aggregate_event_variables_class({event.event_type})
 
     def filter_on_schedule(alert_rule):
+        print(f'schedule: {alert_rule.schedule} {type(alert_rule.schedule)}')
         return timezone.localtime() in OneWeekSchedule(alert_rule.schedule.get('periods'))
 
     # Filter out rules that don't match by schedule.
@@ -43,7 +47,7 @@ def evaluate_event_on_alertrules(alert_rules, event):
                 {
                     "name": "send_alert",
                     "params": {
-                        "notification_methods": [n.id for n in alert_rule.notification_methods.all()],
+                        "alert_rule_id": str(alert_rule.id),
                     }
                 }
             ]
@@ -67,8 +71,7 @@ def evaluate_event_on_alertrules(alert_rules, event):
 
     # Add actions for the unconditional alert rules.
     for alert_rule in unconditional_rules:
-        action_list.append(dict(action='send_alert', event=rendered_event,
-                                notification_methods=[n.id for n in alert_rule.notification_methods.all()]))
+        action_list.append(dict(action='send_alert', event=rendered_event, alert_rule_id=str(alert_rule.id)))
 
     return action_list
 
