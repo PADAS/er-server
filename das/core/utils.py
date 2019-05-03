@@ -69,10 +69,13 @@ class OneWeekSchedule(Schedule):
     # List of days compatible with ISO weekday index.
     days_of_week = ['index-0', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
-    def __init__(self, periods: Dict[str, list]):
+    def __init__(self, periods: Dict[str, list] = dict):
         self.periods = periods
 
     def __contains__(self, value):
+
+        if not bool(self.periods):
+            return True
 
         # Truncate the timestamp to our finest granularity.
         value = value.replace(second=0, microsecond=0)

@@ -3,6 +3,8 @@ import pytz
 import json
 from django.http.request import HttpRequest
 
+from django.utils import timezone
+
 from django.contrib.gis.geos import Point
 from django.contrib.auth.models import Permission
 
@@ -234,8 +236,12 @@ class BusinessRulesTestCase(BaseAPITest):
 
         # Create a notification method
         notification_method = {
-            'method': 'sms',
-            'value': '+12062147021'
+            'contact': {
+                'method': 'sms',
+                'value': '+12062147021'
+            },
+            'title':'Some notification method',
+            'is_active': True
         }
 
         request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
@@ -249,7 +255,7 @@ class BusinessRulesTestCase(BaseAPITest):
         # Create an alert rule
         alert_rule = {
             'notification_method_ids': [notification_method_id, ],
-            'event_types': ['carcass_rep', ],
+            'reportTypes': ['carcass_rep', ],
             'schedule': {
                 "monday": [("08:00", "12:00"), ("13:00", "17:30")],
                 "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
@@ -289,6 +295,33 @@ class BusinessRulesTestCase(BaseAPITest):
         ar = AlertRule.objects.get(id=alert_rule_id)
         ar_repr = AlertRuleSerializer(context={'request': request}).to_representation(ar)
         # print(json.dumps(ar_repr, indent=2, default=str))
+
+    def _create_a_period_from_datetime(self, dt=None, including_time=True):
+        '''
+        Given a datetime, create a OneWeekSchedule with periods that include (or exclude) it.
+        :param dt: defaults to now (in the django app's timezone).
+        :param including_time: whether the schedule should include the given time.
+        :return: a 'periods' dict.
+        '''
+        dt = dt or timezone.localtime()
+
+        day_key = ['1', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][dt.isoweekday()]
+
+        if including_time:
+            h1 = dt - timedelta(minutes=30)
+            h2 = dt + timedelta(minutes=30)
+        else:
+            h1 = dt + timedelta(minutes=30)
+            h2 = dt + timedelta(minutes=30)
+
+        h1 = f'{h1.hour}:{h1.minute}'
+        h2 = f'{h2.hour}:{h2.minute}'
+
+        periods = {
+            day_key: [(h1, h2)]
+        }
+
+
 
     def test_a_real_event_against_a_defined_alert_rule(self):
 
@@ -331,8 +364,12 @@ class BusinessRulesTestCase(BaseAPITest):
 
         # Create a notification method
         notification_method = {
-            'method': 'sms',
-            'value': '+12062147021'
+            'contact': {
+                'method': 'sms',
+                'value': '+12062147021'
+            },
+            'title':'Some notification method',
+            'is_active': True
         }
 
         request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
@@ -345,7 +382,7 @@ class BusinessRulesTestCase(BaseAPITest):
 
         # Create an alert rule
         alert_rule_1 = dict(
-            event_types=[carcass_eventtype.value, ],
+            reportTypes=[carcass_eventtype.value, ],
             notification_method_ids=[notification_method_id, ],
             conditions={
                 "all": [
@@ -372,13 +409,11 @@ class BusinessRulesTestCase(BaseAPITest):
                 ]
             },
             schedule={
-                'periods': {
-                    'monday': [('08:00', '12:00'), ('13:00', '18:30')]
-                }
+                'periods': self._create_a_period_from_datetime(including_time=True)
             },
         )
         alert_rule_2 = dict(
-            event_types=[carcass_eventtype.value, ],
+            reportTypes=[carcass_eventtype.value, ],
             notification_method_ids=[notification_method_id, ],
             conditions={
                 "all": [
@@ -390,9 +425,7 @@ class BusinessRulesTestCase(BaseAPITest):
                 ]
             },
             schedule={
-                'periods': {
-                    'monday': [('08:00', '12:00'), ('13:00', '18:30')]
-                }
+                'periods': self._create_a_period_from_datetime(including_time=False)
             },
         )
 
@@ -411,6 +444,83 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(len(AlertRule.objects.filter(event_types=event.event_type)), 2)
 
         action_list = evaluate_event_on_alertrules(alert_rules_list, event)
-        self.assertTrue(len(action_list) == 1)
+        self.assertEqual(len(action_list), 1)
+
+        print(action_list)
+
+    def test_alert_rule_with_empty_schedule(self):
+
+        # Create a carcass event with some details
+        carcass_eventtype = EventType.objects.get(value='carcass_rep')
+
+        event_details = {
+            'carcassrep_ageofanimal': {'name': 'Juvenile', 'value': 'juvenile'},
+            'carcassrep_ageofcarcass': {'name': 'Fresh (within a week)', 'value': 'within_a_week'},
+            'carcassrep_causeofdeath': {'name': 'Unnatural - Shot', 'value': 'unnaturalshot'},
+            'carcassrep_sex': {'name': 'Male', 'value': 'male'},
+            'carcassrep_species': {'name': 'Red River Hog', 'value': 'redriverhog'},
+            'carcassrep_trophystatus': {'name': 'Intact', 'value': 'intact'},
+        }
+
+        event_data = dict(
+            state='active',
+            title='Test Event No. 1',
+            event_time=datetime.now(tz=pytz.utc),
+            provenance=Event.PC_STAFF,
+            event_type=carcass_eventtype.value,
+            priority=Event.PRI_IMPORTANT,
+            location=dict(longitude=37.5123, latitude=1.4590),
+            event_details=event_details,
+            # related_subjects=[{'id': self.subject.id}, ],
+        )
+
+        request = NonHttpRequest()
+        request.user = self.power_user
+        ser = EventSerializer(data=event_data, context={'request': request})
+
+        if not ser.is_valid():
+            print(f'Event is not valid. Errors are: {ser.errors}')
+        else:
+            event = ser.create(ser.validated_data)
+            event = Event.objects.get(id=event.id)
+
+        # Create a notification method
+        notification_method = {
+            'contact': {
+                'method': 'sms',
+                'value': '+12062147021'
+            },
+            'title':'Some notification method',
+            'is_active': True
+        }
+
+        request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
+        self.force_authenticate(request, self.power_user)
+        response = NotificationMethodListView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        notification_method_id = response.data["id"]
+        # print(f'NotificationMethod.id: {notification_method_id}')
+
+        # Create an alert rule
+        alert_rule_1 = dict(
+            reportTypes=[carcass_eventtype.value, ],
+            notification_method_ids=[notification_method_id, ],
+        )
+
+        alert_rules_list = []
+        for ar in [alert_rule_1,]:
+            request = NonHttpRequest()
+            request.user = self.power_user
+            ser = AlertRuleSerializer(data=ar, context={'request': request})
+            if not ser.is_valid():
+                print(f'AlertRule is not valid. Errors are: {ser.errors}')
+            else:
+                rule = ser.create(ser.validated_data)
+                rule = AlertRule.objects.get(id=rule.id)
+                alert_rules_list.append(rule)
+
+        action_list = evaluate_event_on_alertrules(alert_rules_list, event)
+        self.assertEqual(len(action_list), 1)
 
         print(action_list)

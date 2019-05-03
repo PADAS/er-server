@@ -1141,6 +1141,7 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                     'rgb': subject.additional.get('rgb', ''),
                     'sex': subject.additional.get('sex', ''),
                     'region': subject.additional.get('region', ''),
+                    'active': subject.is_active,
                     'country': subject.additional.get('country', '')})
 
                 if subject.source_additional is not None:
@@ -1161,9 +1162,8 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                             'chronofile', None),
                         'collar_type': subject.source_model_name,
                         'collar_id': subject.source_manufacturer_id,
-                        'active': subject.source_additional.get('active', ''),
                         'frequency': subject.source_additional.get(
-                            'frequency', ''),
+                            'frequency', 0.0),
                         'animal_id': subject.source_additional.get(
                             'tm_animal_id', ''),
                         data_starts: lower.strftime('%m/%d/%Y %H:%M:%S') if format != 'json' else lower.isoformat(),

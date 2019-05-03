@@ -191,6 +191,7 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
         model = User
         json_fields = ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
                        'organization', 'tech')
+        json_date_fields = ('expiry', 'moudatesigned')
         fields = ('first_name', 'last_name', 'email', 'phone',
                   'is_email_alert', 'is_sms_alert', 'username') + json_fields
 

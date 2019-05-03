@@ -44,7 +44,7 @@ class AlertRuleListView(generics.ListCreateAPIView):
     serializer_class = AlertRuleSerializer
 
     def get_queryset(self):
-        return AlertRule.objects.filter(owner=self.request.user).order_by('ordernum', 'display')
+        return AlertRule.objects.filter(owner=self.request.user).order_by('ordernum', 'title')
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)

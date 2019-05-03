@@ -1,7 +1,7 @@
 cluster-name: apn
-version-prefix: dev
-server-branch-name: develop
-web-branch-name: develop
+version-prefix: rel
+server-branch-name: release/1.65.1k8
+web-branch-name: release/1.65.1
 namespace: bangweulu
 iaas: azure
 iaas-zone: westeurope
