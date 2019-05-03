@@ -8,11 +8,15 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import send_mail
 
 from activity.serializers import EventSerializer, EventNoteSerializer
 from activity.models import Event
+from das_server import settings
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 import utils.schema_utils as schema_utils
+
+from sendsms import api
 
 
 logger = logging.getLogger(__name__)
@@ -313,3 +317,15 @@ def send_event_sms(event, user, revisions):
     logger.info('Sending new event sms to {0}'.format(user.phone))
 
     user.send_sms(body)
+
+
+def send_email(subject, to_email, body):
+    # to_email can be a recipient list
+    send_mail(subject, body, settings.FROM_EMAIL, [to_email], False)
+
+
+def send_sms(msg, recip):
+    # as with send_email, multiple recips are supported
+    api.send_sms(body=msg, from_phone=settings.SENDSMS_FROM,
+                 to=[recip])
+
