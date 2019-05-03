@@ -30,6 +30,7 @@ from typing import NamedTuple
 from accounts.models import User
 
 from activity.models import EventType, Event, EventCategory, AlertRule
+from activity.tasks import send_alert_to_user
 from utils import schema_utils
 from business_rules import actions, engine, fields, operators, variables, export_rule_data
 
@@ -524,3 +525,79 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(len(action_list), 1)
 
         print(action_list)
+
+    def test_sending_a_message_for_an_event_alert(self):
+
+        # Create a carcass event with some details
+        carcass_eventtype = EventType.objects.get(value='carcass_rep')
+
+        event_details = {
+            'carcassrep_ageofanimal': {'name': 'Juvenile', 'value': 'juvenile'},
+            'carcassrep_ageofcarcass': {'name': 'Fresh (within a week)', 'value': 'within_a_week'},
+            'carcassrep_causeofdeath': {'name': 'Unnatural - Shot', 'value': 'unnaturalshot'},
+            'carcassrep_sex': {'name': 'Male', 'value': 'male'},
+            'carcassrep_species': {'name': 'Red River Hog', 'value': 'redriverhog'},
+            'carcassrep_trophystatus': {'name': 'Intact', 'value': 'intact'},
+        }
+
+        event_data = dict(
+            state='active',
+            title='Test Event No. 1',
+            event_time=datetime.now(tz=pytz.utc),
+            provenance=Event.PC_STAFF,
+            event_type=carcass_eventtype.value,
+            priority=Event.PRI_IMPORTANT,
+            location=dict(longitude=37.5123, latitude=1.4590),
+            event_details=event_details,
+            # related_subjects=[{'id': self.subject.id}, ],
+        )
+
+        request = NonHttpRequest()
+        request.user = self.power_user
+        ser = EventSerializer(data=event_data, context={'request': request})
+
+        if not ser.is_valid():
+            print(f'Event is not valid. Errors are: {ser.errors}')
+        else:
+            event = ser.create(ser.validated_data)
+            event = Event.objects.get(id=event.id)
+
+        # Create a notification method
+        notification_method = {
+            'contact': {
+                'method': 'email',
+                'value': 'chrisdo@vulcan.com'
+            },
+            'title':'Some notification method',
+            'is_active': True
+        }
+
+        request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
+        self.force_authenticate(request, self.power_user)
+        response = NotificationMethodListView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        notification_method_id = response.data["id"]
+        # print(f'NotificationMethod.id: {notification_method_id}')
+
+        # Create an alert rule
+        alert_rule_1 = dict(
+            reportTypes=[carcass_eventtype.value, ],
+            notification_method_ids=[notification_method_id, ],
+        )
+
+        alert_rules_list = []
+        for ar in [alert_rule_1,]:
+            request = NonHttpRequest()
+            request.user = self.power_user
+            ser = AlertRuleSerializer(data=ar, context={'request': request})
+            if not ser.is_valid():
+                print(f'AlertRule is not valid. Errors are: {ser.errors}')
+            else:
+                rule = ser.create(ser.validated_data)
+                rule = AlertRule.objects.get(id=rule.id)
+                alert_rules_list.append(rule)
+
+
+        send_alert_to_user(alert_rule_id=str(rule.id), event_id=str(event.id),
+                           notification_method_id=str(notification_method_id))

@@ -8,6 +8,7 @@ from activity.alertingservice import evaluate_event
 from activity.models import EventPhoto, Event, EventType, NotificationMethod, AlertRule
 from das_server import celery, mailer, settings
 from reports.distribution import send_report
+from activity.businessrules import render_event
 
 logger = logging.getLogger(__name__)
 
@@ -93,27 +94,33 @@ def send_alert_to_user(alert_rule_id=None, event_id=None, notification_method_id
         raise ValueError(f'Cannot continue with event={event}, '
                          f'alert_rule={alert_rule}, notification_method={notification_method}')
 
-    recip = notification_method.value
-    method = notification_method.method
-    subject = create_email_subject(event)
-    if method.lower() == 'email':
+    eventdata = render_event(event, notification_method.owner)
+
+    eventdata['title'] = eventdata['title'] or event.title
+
+    message_subject = create_email_subject(event)
+
+    if notification_method.method == 'email':
+        logger.debug(f"Sending email alert {event_id} to {notification_method.value}")
         send_report(
-            subject=subject,
-            to_email=recip,
-            text_content=str(event.__dict__)
+            subject=message_subject,
+            to_email=notification_method.value,
+            text_content=f'Alert for Event {eventdata["title"]}'
         )
-        logger.info(f"Sent email alert {event_id} to {recip}")
-    elif method.lower() == 'sms':
+        logger.info(f"Sent email alert {event_id} to {notification_method.value}")
+    elif notification_method.method.lower() == 'sms':
+        logger.debug(f"Sending sms alert {event_id} to {notification_method.value}")
         parameters = {
             'serial': event.id,
             'color': 'gray',
             'title': event.title
         }
         msg = render_to_string('new_event_sms.txt', parameters).strip()
-        mailer.send_sms(msg, recip)
-        logger.info(f"Sent sms alert {event_id} to {recip}")
+        mailer.send_sms(msg, notification_method.value)
+        logger.info(f"Sent sms alert {event_id} to {notification_method.value}")
     else:
-        logger.error(f"Failed to send alert {event_id} to {recip} via {method}")
+        logger.error(f"Unsupported NotifcationMethod ({notification_method.method})"
+                     f" when processing event:{event_id} for notification: {notification_method.id}")
 
 
 # TODO - move me to a good location
