@@ -1,0 +1,14 @@
+<h3>EarthRanger Event Alert {{ event.time.strftime('%b %d, %Y %H:%M (UTC)') }}</h3>
+
+<div style="width:980px;padding:8px;border:1px solid gray;">
+    <div><strong>{{  event.title }}</strong></div>
+    <div><strong>Priority: {{ event.priority }}</strong></div>
+</div>
+
+<div><p><strong>Event Details</strong></p>
+<table>
+{%  for key,val in event.details.items() %}
+    <tr><td>{{ key }}</td><td>{{ val }}</td></tr>
+{% endfor %}
+    </table>
+</div>

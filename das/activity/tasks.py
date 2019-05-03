@@ -100,12 +100,27 @@ def send_alert_to_user(alert_rule_id=None, event_id=None, notification_method_id
 
     message_subject = create_email_subject(event)
 
+    import json
+    print(json.dumps(eventdata, indent=2, default=str))
+
+    report_context = {
+        'event': {
+            'time': event.event_time,
+            'priority': event.get_display_value('priority', 'Grey'),
+            'title': eventdata['title'],
+            'details': eventdata['event_details'],
+        }
+    }
+    print(json.dumps(report_context, indent=2, default=str))
+    email_body = render_to_string('eventalert.html', report_context)
+
     if notification_method.method == 'email':
         logger.debug(f"Sending email alert {event_id} to {notification_method.value}")
         send_report(
             subject=message_subject,
             to_email=notification_method.value,
-            text_content=f'Alert for Event {eventdata["title"]}'
+            html_content=email_body,
+            text_content=f'EarthRanger Alert (attached as HTML).'
         )
         logger.info(f"Sent email alert {event_id} to {notification_method.value}")
     elif notification_method.method.lower() == 'sms':
@@ -131,4 +146,4 @@ def create_email_subject(event):
         etype = EventType.objects.get(id=event.event_type_id)
         title = etype.display
 
-    return f"DAS {priority} Alert: {event.serial_number} {title}"
+    return f"EarthRanger Alert: [{event.serial_number}] {title}"
