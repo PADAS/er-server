@@ -227,6 +227,7 @@ TIME_ZONE = 'UTC'
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "www", "static")
 STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, 'activity'),
     os.path.join(BASE_DIR, 'observations'),
     os.path.join(BASE_DIR, 'mapping'),
     os.path.join(BASE_DIR, 'rt_api')
@@ -494,7 +495,8 @@ EUS_SETTINGS = {
 
 def whitenoise_headers_func(headers, path, url):
     # This is intended for testing purposes, to add a header to assets that are served up by whitenoise.
-    # We'll take it out but for now it will help us identify whether we're using whitenoise properly.
+    # We'll take it out but for now it will help us identify whether we're
+    # using whitenoise properly.
     headers['x-er-source'] = 'wn'
 
 

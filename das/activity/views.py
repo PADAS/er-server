@@ -196,6 +196,9 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
         schema['schema']['id'] = utils.add_base_url(request, reverse(
             'event-schema-eventtype', args=[eventtype.value, ]))
+        schema['schema']['icon_id'] = eventtype.icon_id
+        schema['schema']['image_url'] = utils.add_base_url(
+            request, eventtype.image_url)
 
         return generics.views.Response(schema)
 
