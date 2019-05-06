@@ -41,7 +41,11 @@ class GenericSensorHandler:
     @classmethod
     def post(cls, request, sensor_type, provider_key):
 
-        params = SensorPostParameters(data=request.data, many=True)
+        observations_json = request.data
+        if isinstance(observations_json, dict):
+            observations_json = [observations_json]
+
+        params = SensorPostParameters(data=observations_json, many=True)
         if not params.is_valid():
             return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
 
