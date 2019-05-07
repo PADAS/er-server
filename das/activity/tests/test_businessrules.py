@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
 import pytz
 import json
+
+import jsonschema
+
 from django.http.request import HttpRequest
 
 from django.utils import timezone
@@ -208,15 +211,18 @@ class BusinessRulesTestCase(BaseAPITest):
     def test_schedule_mask(self):
 
         periods = {
-            'monday': [('08:00', '12:00'), ('13:00', '18:30')]
+            'periods': {
+                'sunday': [['08:00', '12:00'], ['13:00', '18:30']]
+            }
         }
 
         schedule = OneWeekSchedule(periods)
         d1 = datetime.now(tz=pytz.timezone('America/Los_Angeles'))
 
         # Find the most recent Monday.
-        d1 = d1 - timedelta(days=d1.weekday())
+        d1 = d1 - timedelta(days=d1.isoweekday())
         d1 = d1.replace(hour=17)
+        print (f'Testing {d1}')
         self.assertTrue(d1 in schedule)
         d1 = d1.replace(hour=19)
         self.assertFalse(d1 in schedule)
@@ -258,8 +264,10 @@ class BusinessRulesTestCase(BaseAPITest):
             'notification_method_ids': [notification_method_id, ],
             'reportTypes': ['carcass_rep', ],
             'schedule': {
-                "monday": [("08:00", "12:00"), ("13:00", "17:30")],
-                "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
+                "periods": {
+                    "monday": [("08:00", "12:00"), ("13:00", "17:30")],
+                    "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
+                }
             },
             'conditions': {
                 "all": [
@@ -315,12 +323,14 @@ class BusinessRulesTestCase(BaseAPITest):
             h1 = dt + timedelta(minutes=30)
             h2 = dt + timedelta(minutes=30)
 
-        h1 = f'{h1.hour}:{h1.minute}'
-        h2 = f'{h2.hour}:{h2.minute}'
+        h1 = f'{h1.hour:02}:{h1.minute:02}'
+        h2 = f'{h2.hour:02}:{h2.minute:02}'
 
         periods = {
-            day_key: [(h1, h2)]
+            day_key: [[h1, h2]]
         }
+
+        return periods
 
 
 
@@ -507,6 +517,7 @@ class BusinessRulesTestCase(BaseAPITest):
         alert_rule_1 = dict(
             reportTypes=[carcass_eventtype.value, ],
             notification_method_ids=[notification_method_id, ],
+
         )
 
         alert_rules_list = []
@@ -601,3 +612,66 @@ class BusinessRulesTestCase(BaseAPITest):
 
         send_alert_to_user(alert_rule_id=str(rule.id), event_id=str(event.id),
                            notification_method_id=str(notification_method_id))
+
+
+
+    def test_schedule_schema(self):
+        valid_document_1 = {
+            "schedule_type": "week",
+            "periods": {
+                "monday": [["00:00", "23:00"]],
+                "tuesday": [["06:00", "11:00"], ["12:30", "18:30"]]
+            }
+        }
+
+        try:
+            assumed_valid = False
+            jsonschema.validate(valid_document_1, OneWeekSchedule.json_schema)
+            assumed_valid = True
+        finally:
+            self.assertTrue(assumed_valid, msg='Incorrectly assumed a schema is valid.')
+
+        invalid_document_1 = {
+            "periods": {
+                "monday": [["00:00", "23:00"]],
+                "wednesday": [["00:01", "11:00", "12:30"]], # <-- invalid
+                "thurs": [["01:01", "12:30"]]
+            }
+        }
+
+        with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid time-range tuple."):
+            #jsonschema.validate(invalid_document_1, OneWeekSchedule.json_schema)
+            schedule = OneWeekSchedule(invalid_document_1)
+
+        invalid_document_2 = {
+            "periods": {
+                "monday": [["00:00", "23:00"]],
+                "thurs": [["01:01", "12:30"]] # <-- invalid
+            }
+        }
+
+        with self.assertRaises(jsonschema.ValidationError, msg="Expected error for disallowed additional property."):
+            jsonschema.validate(invalid_document_2, OneWeekSchedule.json_schema)
+
+        invalid_document_3 = {
+            "periods": {
+                "monday": [["00:00", "23:00"]],
+                "friday": [["01:01", "12:30"]]
+            },
+            "somerandomkey": { 'something': 1} # <-- invalid
+        }
+
+        with self.assertRaises(jsonschema.ValidationError, msg="Expected error for disallowed additional property."):
+            jsonschema.validate(invalid_document_3, OneWeekSchedule.json_schema)
+
+        invalid_document_4 = {
+            "schedule_type": "month",
+            "periods": {
+                "monday": [["00:00", "23:00"]],
+                "friday": [["01:01", "12:30"]]
+            }
+        }
+
+        with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid schedule_type."):
+            jsonschema.validate(invalid_document_4, OneWeekSchedule.json_schema)
+

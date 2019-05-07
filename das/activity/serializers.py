@@ -42,6 +42,7 @@ from utils.json import loads
 from utils.drf import PointValidator
 import activity.models
 import utils
+from core.utils import OneWeekSchedule
 from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
 from observations.serializers import SubjectSerializer, SourceSerializer, get_subject_display
 from observations.models import Subject
@@ -1514,6 +1515,18 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
         exclude = ('event_types', 'notification_methods',)
         model = activity.models.AlertRule
         read_only_fields = ('id', 'owner_username')  # 'notification_methods',)
+
+    def validate_schedule(self, value):
+
+        try:
+            jsonschema.validate(value, OneWeekSchedule.json_schema)
+        except jsonschema.ValidationError as ve:
+            rpath = '/'.join([''] + [str(x) for x in ve.relative_path])
+            error_message = f'JSON schema validation error at {rpath}. Value {ve.instance} failed {ve.validator} ' \
+                f'validation against {ve.validator_value}'
+            raise rest_framework.serializers.ValidationError(error_message)
+
+        return value
 
     def to_representation(self, instance):
 

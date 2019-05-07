@@ -4,6 +4,8 @@ from typing import Dict
 
 import json
 
+import jsonschema
+
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.utils.dateparse import parse_duration
 from django.http.request import HttpRequest
@@ -41,13 +43,13 @@ static_image_finder = StaticImageFinder()
 class Schedule:
 
     def __init__(self, periods: Dict[str, list]):
-        self.periods = periods
+        self.schedule_definition = periods
 
     def __contains__(self, value):
         raise NotImplemented('An extending class must implement __contains__.')
 
     def __repr__(self):
-        return json.dumps(self.periods)
+        return json.dumps(self.schedule_definition)
 
 
 class OneWeekSchedule(Schedule):
@@ -57,10 +59,13 @@ class OneWeekSchedule(Schedule):
     An example range is: ('08:30', '14:00') to represent a range from 8:30am to 2:00pm.
 
     A complete example is:
-
         {
-            "monday": [("08:00", "12:00"), ("13:00", "17:30")],
-            "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
+          "schedule_type": "week",
+          "periods":
+            {
+                "monday": [["08:00", "12:00"], ["13:00", "17:30"]],
+                "wednesday": [["08:00", "12:00"], ["13:00", "17:30"]]
+            }
         }
 
     Once initialized you can ask if a datetime is in the Schedule.
@@ -69,12 +74,19 @@ class OneWeekSchedule(Schedule):
     # List of days compatible with ISO weekday index.
     days_of_week = ['index-0', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
-    def __init__(self, periods: Dict[str, list] = dict):
-        self.periods = periods
+    def __init__(self, schedule_definition: Dict[str, dict] = dict):
+
+        self.schedule_definition = schedule_definition
+
+        if self.schedule_definition:
+            self.validate_schedule_document()
+            self.periods = self.schedule_definition.get('periods')
+        else:
+            self.periods = {}
 
     def __contains__(self, value):
 
-        if not bool(self.periods):
+        if not bool(self.schedule_definition):
             return True
 
         # Truncate the timestamp to our finest granularity.
@@ -103,6 +115,71 @@ class OneWeekSchedule(Schedule):
         for period in periods:
             start, end = (parse_duration(f'{x}:00') for x in period)
             yield (start.seconds, end.seconds)
+
+    def validate_schedule_document(self):
+        jsonschema.validate(self.schedule_definition, self.json_schema)
+
+    json_schema = {
+        "definitions": {
+            "dayofweek": {
+                "$id": "#/properties/periods/properties/dayofweek_periods",
+                "type": "array",
+                "title": "Day of week periods Schema",
+                "default": None,
+                "items": {
+                    "$id": "#/properties/periods/properties/dayofweek/items",
+                    "type": "array",
+                    "title": "Time-based periods Schema",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                        "$id": "#/properties/periods/properties/dayofweek/items/items",
+                        "type": "string",
+                        "title": "Time-range Schema",
+                        "default": "",
+                        "examples": [
+                            "08:00", "17:30",
+                        ],
+                        "minLength": 5,
+                        "maxLength": 5,
+                        "pattern": "^[0-2]\\d:[0-5]\\d$"
+                                   # "pattern": "^\\d{2}:\\d{2}$"
+                    }
+                }
+            }
+
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://earthranger.com/schedule.json",
+        "type": "object",
+        "title": "The Root Schema",
+        "additionalProperties": False,
+        "properties": {
+            "schedule_type": {
+                "$id": "#/properties/schedule_type",
+                "type": "string",
+                "default": "week",
+                "enum": ["week"],
+                "title": "The kind of schedule this document represents. Currently only 'week' is supported."
+            },
+            "periods": {
+                "$id": "#/properties/periods",
+                "type": "object",
+                "title": "The Periods Schema",
+                "default": None,
+                "additionalProperties": False,
+                "properties": {
+                    "monday": {"$ref": "#/definitions/dayofweek"},
+                    "tuesday": {"$ref": "#/definitions/dayofweek"},
+                    "wednesday": {"$ref": "#/definitions/dayofweek"},
+                    "thursday": {"$ref": "#/definitions/dayofweek"},
+                    "friday": {"$ref": "#/definitions/dayofweek"},
+                    "saturday": {"$ref": "#/definitions/dayofweek"},
+                    "sunday": {"$ref": "#/definitions/dayofweek"},
+                }
+            }
+        }
+    }
 
 
 class NonHttpRequest(HttpRequest):

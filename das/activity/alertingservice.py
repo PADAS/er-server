@@ -28,8 +28,7 @@ def evaluate_event_on_alertrules(alert_rules, event):
     event_variables, _ = _generate_aggregate_event_variables_class({event.event_type})
 
     def filter_on_schedule(alert_rule):
-        print(f'schedule: {alert_rule.schedule} {type(alert_rule.schedule)}')
-        return timezone.localtime() in OneWeekSchedule(alert_rule.schedule.get('periods'))
+        return timezone.localtime() in OneWeekSchedule(alert_rule.schedule)
 
     # Filter out rules that don't match by schedule.
     alert_rules = list(filter(filter_on_schedule, alert_rules))
