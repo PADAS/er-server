@@ -202,9 +202,7 @@ class BusinessRulesTestCase(BaseAPITest):
     def test_schedule_mask(self):
 
         periods = {
-            'periods': {
-                'sunday': [['08:00', '12:00'], ['13:00', '18:30']]
-            }
+            'sunday': [['08:00', '12:00'], ['13:00', '18:30']]
         }
 
         schedule = OneWeekSchedule(periods)
@@ -255,10 +253,8 @@ class BusinessRulesTestCase(BaseAPITest):
             'notification_method_ids': [notification_method_id, ],
             'reportTypes': ['carcass_rep', ],
             'schedule': {
-                "periods": {
-                    "monday": [("08:00", "12:00"), ("13:00", "17:30")],
-                    "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
-                }
+                "monday": [("08:00", "12:00"), ("13:00", "17:30")],
+                "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
             },
             'conditions': {
                 "all": [
@@ -410,9 +406,7 @@ class BusinessRulesTestCase(BaseAPITest):
                     }
                 ]
             },
-            schedule={
-                'periods': self._create_a_period_from_datetime(including_time=True)
-            },
+            schedule=self._create_a_period_from_datetime(including_time=True)
         )
         alert_rule_2 = dict(
             reportTypes=[carcass_eventtype.value, ],
@@ -426,9 +420,7 @@ class BusinessRulesTestCase(BaseAPITest):
                     },
                 ]
             },
-            schedule={
-                'periods': self._create_a_period_from_datetime(including_time=False)
-            },
+            schedule=self._create_a_period_from_datetime(including_time=False)
         )
 
         alert_rules_list = []
@@ -609,10 +601,8 @@ class BusinessRulesTestCase(BaseAPITest):
     def test_schedule_schema(self):
         valid_document_1 = {
             "schedule_type": "week",
-            "periods": {
-                "monday": [["00:00", "23:00"]],
-                "tuesday": [["06:00", "11:00"], ["12:30", "18:30"]]
-            }
+            "monday": [["00:00", "23:00"]],
+            "tuesday": [["06:00", "11:00"], ["12:30", "18:30"]]
         }
 
         try:
@@ -623,11 +613,9 @@ class BusinessRulesTestCase(BaseAPITest):
             self.assertTrue(assumed_valid, msg='Incorrectly assumed a schema is valid.')
 
         invalid_document_1 = {
-            "periods": {
-                "monday": [["00:00", "23:00"]],
-                "wednesday": [["00:01", "11:00", "12:30"]], # <-- invalid
-                "thurs": [["01:01", "12:30"]]
-            }
+            "monday": [["00:00", "23:00"]],
+            "wednesday": [["00:01", "11:00", "12:30"]], # <-- invalid
+            "thurs": [["01:01", "12:30"]]
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid time-range tuple."):
@@ -635,20 +623,16 @@ class BusinessRulesTestCase(BaseAPITest):
             schedule = OneWeekSchedule(invalid_document_1)
 
         invalid_document_2 = {
-            "periods": {
-                "monday": [["00:00", "23:00"]],
-                "thurs": [["01:01", "12:30"]] # <-- invalid
-            }
+            "monday": [["00:00", "23:00"]],
+            "thurs": [["01:01", "12:30"]] # <-- invalid
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for disallowed additional property."):
             jsonschema.validate(invalid_document_2, OneWeekSchedule.json_schema)
 
         invalid_document_3 = {
-            "periods": {
-                "monday": [["00:00", "23:00"]],
-                "friday": [["01:01", "12:30"]]
-            },
+            "monday": [["00:00", "23:00"]],
+            "friday": [["01:01", "12:30"]],
             "somerandomkey": { 'something': 1} # <-- invalid
         }
 
@@ -657,10 +641,8 @@ class BusinessRulesTestCase(BaseAPITest):
 
         invalid_document_4 = {
             "schedule_type": "month",
-            "periods": {
-                "monday": [["00:00", "23:00"]],
-                "friday": [["01:01", "12:30"]]
-            }
+            "monday": [["00:00", "23:00"]],
+            "friday": [["01:01", "12:30"]]
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid schedule_type."):

@@ -76,13 +76,10 @@ class OneWeekSchedule(Schedule):
 
     def __init__(self, schedule_definition: Dict[str, dict] = dict):
 
-        self.schedule_definition = schedule_definition
+        self.schedule_definition = schedule_definition or {}
 
         if self.schedule_definition:
             self.validate_schedule_document()
-            self.periods = self.schedule_definition.get('periods')
-        else:
-            self.periods = {}
 
     def __contains__(self, value):
 
@@ -92,7 +89,7 @@ class OneWeekSchedule(Schedule):
         # Truncate the timestamp to our finest granularity.
         value = value.replace(second=0, microsecond=0)
 
-        relevant_periods = self.periods.get(self.days_of_week[value.isoweekday()])
+        relevant_periods = self.schedule_definition.get(self.days_of_week[value.isoweekday()])
         if relevant_periods:
             return self.test_timestamp(value, relevant_periods)
         return False
@@ -143,7 +140,6 @@ class OneWeekSchedule(Schedule):
                         "minLength": 5,
                         "maxLength": 5,
                         "pattern": "^[0-2]\\d:[0-5]\\d$"
-                                   # "pattern": "^\\d{2}:\\d{2}$"
                     }
                 }
             }
@@ -152,7 +148,7 @@ class OneWeekSchedule(Schedule):
         "$schema": "http://json-schema.org/draft-07/schema#",
         "$id": "https://earthranger.com/schedule.json",
         "type": "object",
-        "title": "The Root Schema",
+        "title": "The Schedule Schema",
         "additionalProperties": False,
         "properties": {
             "schedule_type": {
@@ -162,22 +158,13 @@ class OneWeekSchedule(Schedule):
                 "enum": ["week"],
                 "title": "The kind of schedule this document represents. Currently only 'week' is supported."
             },
-            "periods": {
-                "$id": "#/properties/periods",
-                "type": "object",
-                "title": "The Periods Schema",
-                "default": None,
-                "additionalProperties": False,
-                "properties": {
-                    "monday": {"$ref": "#/definitions/dayofweek"},
-                    "tuesday": {"$ref": "#/definitions/dayofweek"},
-                    "wednesday": {"$ref": "#/definitions/dayofweek"},
-                    "thursday": {"$ref": "#/definitions/dayofweek"},
-                    "friday": {"$ref": "#/definitions/dayofweek"},
-                    "saturday": {"$ref": "#/definitions/dayofweek"},
-                    "sunday": {"$ref": "#/definitions/dayofweek"},
-                }
-            }
+            "monday": {"$ref": "#/definitions/dayofweek"},
+            "tuesday": {"$ref": "#/definitions/dayofweek"},
+            "wednesday": {"$ref": "#/definitions/dayofweek"},
+            "thursday": {"$ref": "#/definitions/dayofweek"},
+            "friday": {"$ref": "#/definitions/dayofweek"},
+            "saturday": {"$ref": "#/definitions/dayofweek"},
+            "sunday": {"$ref": "#/definitions/dayofweek"},
         }
     }
 
