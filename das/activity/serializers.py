@@ -1277,6 +1277,12 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
 
 class EventGeoJsonSerializer(EventSerializer):
+    fields_to_copy = ('id', 'event_type', 'serial_number', 'time',
+                      'priority', 'priority_label', 'title', 'state',
+                      'event_details',
+                      'created_at', 'updated_at', 'event_category',
+                      'is_collection')
+
     @classmethod
     def many_init(cls, *args, **kwargs):
         child_serializer = cls(*args, **kwargs)
@@ -1301,6 +1307,12 @@ class EventGeoJsonSerializer(EventSerializer):
                 event_rep = make_feature(self.context['request'], event)
         if not event_rep:
             event_rep = utils.json.empty_geojson_feature()
+
+        properties = event_rep['properties']
+
+        for name in self.fields_to_copy:
+            if name in rep and name not in properties:
+                properties[name] = rep[name]
 
         return event_rep
 
