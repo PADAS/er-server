@@ -5,6 +5,8 @@ from celery_once import QueueOnce
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 from django.template.loader import render_to_string
 from activity.alerting.service import evaluate_event
+from activity.alerting.message import send_event_alert
+
 from activity.models import EventPhoto, Event, EventType, NotificationMethod, AlertRule
 from das_server import celery, mailer
 from reports.distribution import send_report
@@ -72,78 +74,6 @@ def send_alert_to_user(alert_rule_id=None, event_id=None, notification_method_id
     if any((x is None for x in (alert_rule_id, notification_method_id, event_id))):
         raise ValueError('Coding error.  I need keyword arguments.')
 
-    # At this point we have IDs for the alert-rule, the notification-method and the event.
-    # We can render the event message
-    #   and also include the "reason" (ex. the Alert Rule Title)
-
     logger.info(f"Sending alert of event {event_id} to notification id {notification_method_id}")
+    send_event_alert(alert_rule_id=alert_rule_id, event_id=event_id, notification_method_id=notification_method_id)
 
-    event, notification_method, alert_rule = None, None, None
-    try:
-        event = Event.objects.get(id=event_id)
-        notification_method = NotificationMethod.objects.get(id=notification_method_id)
-        alert_rule = AlertRule.objects.get(id=alert_rule_id)
-    except Event.DoesNotExist:
-        logger.exception(f'No Event found for id: {event_id}')
-    except NotificationMethod.DoesNotExist:
-        logger.exception(f'No NotificationMethod found for id: {notification_method_id}')
-    except AlertRule.DoesNotExist:
-        logger.exception(f'No AlertRule found for id: {alert_rule_id}')
-
-    if any((x is None for x in [event, notification_method, alert_rule])):
-        raise ValueError(f'Cannot continue with event={event}, '
-                         f'alert_rule={alert_rule}, notification_method={notification_method}')
-
-    eventdata = render_event(event, notification_method.owner)
-
-    eventdata['title'] = eventdata['title'] or event.title
-
-    message_subject = create_email_subject(event)
-
-    import json
-    print(json.dumps(eventdata, indent=2, default=str))
-
-    report_context = {
-        'event': {
-            'time': event.event_time,
-            'priority': event.get_display_value('priority', 'Grey'),
-            'title': eventdata['title'],
-            'details': eventdata['event_details'],
-        }
-    }
-    print(json.dumps(report_context, indent=2, default=str))
-    email_body = render_to_string('eventalert.html', report_context)
-
-    if notification_method.method == 'email':
-        logger.debug(f"Sending email alert {event_id} to {notification_method.value}")
-        send_report(
-            subject=message_subject,
-            to_email=notification_method.value,
-            html_content=email_body,
-            text_content=f'EarthRanger Alert (attached as HTML).'
-        )
-        logger.info(f"Sent email alert {event_id} to {notification_method.value}")
-    elif notification_method.method.lower() == 'sms':
-        logger.debug(f"Sending sms alert {event_id} to {notification_method.value}")
-        parameters = {
-            'serial': event.id,
-            'color': 'gray',
-            'title': event.title
-        }
-        msg = render_to_string('new_event_sms.txt', parameters).strip()
-        mailer.send_sms(msg, notification_method.value)
-        logger.info(f"Sent sms alert {event_id} to {notification_method.value}")
-    else:
-        logger.error(f"Unsupported NotifcationMethod ({notification_method.method})"
-                     f" when processing event:{event_id} for notification: {notification_method.id}")
-
-
-# TODO - move me to a good location
-def create_email_subject(event):
-    priority = event.get_display_value('priority', 'Grey')
-    title = event.title
-    if title is None:
-        etype = EventType.objects.get(id=event.event_type_id)
-        title = etype.display
-
-    return f"EarthRanger Alert: [{event.serial_number}] {title}"

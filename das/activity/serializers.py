@@ -1524,8 +1524,15 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
 
     def validate_conditions(self, value):
         try:
+
+            # Guardrail: If the request includes an empty array for either conditions-list, then delete it.
+            for key in ('all','anyOf'):
+                if key in value and len(value[key]) < 1:
+                    del value['key']
+
             Conditions(value).validate()
             return value
+
         except jsonschema.ValidationError as ve:
             rpath = '/'.join([''] + [str(x) for x in ve.relative_path])
             error_message = f'JSON schema validation error at {rpath}. Value {ve.instance} failed {ve.validator} ' \

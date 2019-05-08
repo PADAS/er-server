@@ -38,6 +38,7 @@ class Conditions:
                 "$id": "#/properties/all",
                 "type": "array",
                 "title": "Array of conditions definitions",
+                "minItems": 1,
                 "items": {
                     "type": "object"
                 }
@@ -46,6 +47,7 @@ class Conditions:
                 "$id": "#/properties/anyOf",
                 "type": "array",
                 "title": "Array of conditions definitions",
+                "minItems": 1,
                 "items": {
                     "type": "object"
                 }

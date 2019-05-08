@@ -136,7 +136,7 @@ def create_new_func(key, return_type, label=None, optionslist=None):
         return variables.select_multiple_rule_variable(label, options=optionslist)(f)
 
     def f(self):
-        return self.event.details.get(key)
+        return self.event.get('event_details', {}).get(key)
 
     if return_type == str:
         return variables.string_rule_variable(label)(f)

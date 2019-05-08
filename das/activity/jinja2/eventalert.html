@@ -2,7 +2,7 @@
 
 <div style="width:980px;padding:8px;border:1px solid gray;">
     <div><strong>{{  event.title }}</strong></div>
-    <div><strong>Priority: {{ event.priority }}</strong></div>
+    <div><strong style="color:{{ event.priority }}">Priority: {{ event.priority }}</strong></div>
 </div>
 
 <div><p><strong>Event Details</strong></p>
@@ -11,4 +11,8 @@
     <tr><td>{{ key }}</td><td>{{ val }}</td></tr>
 {% endfor %}
     </table>
+</div>
+
+<div style="width:980px;padding:8px;border:1px solid gray;">
+    <div>Triggering alert-rule: <strong>{{ alert_rule  }}</strong></div>
 </div>
