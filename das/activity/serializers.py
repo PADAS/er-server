@@ -53,6 +53,7 @@ import utils.schema_utils as schema_utils
 from activity.models import EventRelationship
 import usercontent.serializers
 
+from activity.conditions import Conditions
 
 
 logger = logging.getLogger(__name__)
@@ -1487,7 +1488,6 @@ class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
 
         return super().validate(attrs)
 
-
 class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     '''
     Notice that 'notification_methods' and 'notification_method_ids' work together to provide clean read-write
@@ -1520,13 +1520,22 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
 
         try:
             jsonschema.validate(value, OneWeekSchedule.json_schema)
+            return value
         except jsonschema.ValidationError as ve:
             rpath = '/'.join([''] + [str(x) for x in ve.relative_path])
             error_message = f'JSON schema validation error at {rpath}. Value {ve.instance} failed {ve.validator} ' \
                 f'validation against {ve.validator_value}'
             raise rest_framework.serializers.ValidationError(error_message)
 
-        return value
+    def validate_conditions(self, value):
+        try:
+            Conditions(value).validate()
+            return value
+        except jsonschema.ValidationError as ve:
+            rpath = '/'.join([''] + [str(x) for x in ve.relative_path])
+            error_message = f'JSON schema validation error at {rpath}. Value {ve.instance} failed {ve.validator} ' \
+                f'validation against {ve.validator_value}'
+            raise rest_framework.serializers.ValidationError(error_message)
 
     def to_representation(self, instance):
 
