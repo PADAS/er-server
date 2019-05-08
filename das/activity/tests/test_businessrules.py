@@ -1,19 +1,13 @@
 from datetime import datetime, timedelta
 import pytz
-import json
 
 import jsonschema
 
-from django.http.request import HttpRequest
-
 from django.utils import timezone
 
-from django.contrib.gis.geos import Point
 from django.contrib.auth.models import Permission
 
-from django.test import TestCase
 from django.core.management import call_command
-import utils.schema_utils as schema_utils
 
 from core.tests import BaseAPITest
 from core.utils import NonHttpRequest
@@ -22,20 +16,17 @@ from accounts.models import PermissionSet
 from activity.serializers import EventSerializer, AlertRuleSerializer
 from activity.alerts_views import AlertRuleListView, NotificationMethodListView
 
-from business_rules import export_rule_data, run_all
+from business_rules import run_all
 
-from activity.businessrules import EventActions, EventVariables, _generate_aggregate_event_variables_class, render_event
-from activity.alertingservice import evaluate_event_on_alertrules
+from activity.alerting.businessrules import EventActions, EventVariables, _generate_aggregate_event_variables_class, render_event
+from activity.alerting.service import evaluate_event_on_alertrules
 from core.utils import OneWeekSchedule
-
-from typing import NamedTuple
 
 from accounts.models import User
 
-from activity.models import EventType, Event, EventCategory, AlertRule
+from activity.models import EventType, Event, AlertRule
 from activity.tasks import send_alert_to_user
-from utils import schema_utils
-from business_rules import actions, engine, fields, operators, variables, export_rule_data
+from business_rules import actions, fields, variables, export_rule_data
 
 power_user_permissions = [
     'security_read',

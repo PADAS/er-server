@@ -1,23 +1,16 @@
-from datetime import datetime, timedelta
-import pytz
-import inspect
-from typing import NamedTuple, Callable, Dict, Any
-
-import json
+from typing import NamedTuple, Any
 
 from core.utils import NonHttpRequest
 from activity.serializers import EventSerializer
 
 from utils import schema_utils
-from business_rules import actions, engine, fields, operators, variables, export_rule_data
+from business_rules import actions, fields, variables, export_rule_data
 
-from django.utils.dateparse import parse_duration
 from django.utils.translation import ugettext as _
 
 import logging
 
-from activity.models import EventType, Event
-from activity.variables import custom_select_multiple_rule_variable
+from activity.models import Event
 
 # Use string value of priority as value (ex. '0') to satisfy rules engine.
 priority_options = [dict(name=str(x), label=y) for x, y in Event.PRIORITY_CHOICES]

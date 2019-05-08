@@ -4,11 +4,11 @@ from celery_once import QueueOnce
 
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 from django.template.loader import render_to_string
-from activity.alertingservice import evaluate_event
+from activity.alerting.service import evaluate_event
 from activity.models import EventPhoto, Event, EventType, NotificationMethod, AlertRule
-from das_server import celery, mailer, settings
+from das_server import celery, mailer
 from reports.distribution import send_report
-from activity.businessrules import render_event
+from activity.alerting.businessrules import render_event
 
 logger = logging.getLogger(__name__)
 

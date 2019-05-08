@@ -4,10 +4,8 @@ import copy
 from collections import OrderedDict
 
 from core.serializers import ContentTypeField
-from core.utils import static_image_finder
 
 from choices.serializers import ChoiceField
-from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
 from django.urls import reverse
 from django.core.exceptions import PermissionDenied
@@ -17,7 +15,6 @@ from django.http import Http404
 import django.db
 
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import ForeignKey
 
 from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
@@ -33,7 +30,7 @@ from versatileimagefield.serializers import VersatileImageFieldSerializer
 import versatileimagefield.files
 
 # Make dictionaries from the IMAGE_SETS, to make lookups a little easier.
-from versatileimagefield.utils import get_resized_path, get_rendition_key_set, IMAGE_SETS
+from versatileimagefield.utils import IMAGE_SETS
 IMAGE_RENDITION_SETS = dict((k, dict(v)) for k, v in IMAGE_SETS.items())
 
 import jsonschema
@@ -44,16 +41,14 @@ import activity.models
 import utils
 from core.utils import OneWeekSchedule
 from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
-from observations.serializers import SubjectSerializer, SourceSerializer, get_subject_display
+from observations.serializers import SubjectSerializer, get_subject_display
 from observations.models import Subject
-from analyzers.serializers import SubjectAnalyzerResultSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 
 import utils.schema_utils as schema_utils
-from activity.models import EventRelationship
 import usercontent.serializers
 
-from activity.conditions import Conditions
+from activity.alerting.conditions import Conditions
 
 
 logger = logging.getLogger(__name__)

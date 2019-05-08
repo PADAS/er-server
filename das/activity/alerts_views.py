@@ -6,7 +6,7 @@ from activity.models import AlertRule, NotificationMethod, EventType
 from activity.serializers import EventTypeSerializer, AlertRuleSerializer, NotificationMethodSerializer
 
 from activity.permissions import EventCategoryPermissions, IsOwner
-from activity.businessrules import render_aggregate_event_variables
+from activity.alerting.businessrules import render_aggregate_event_variables
 
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool

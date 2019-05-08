@@ -6,12 +6,11 @@ import copy
 import mimetypes
 import logging
 import json
-import re
 from django.conf import settings
 from rest_framework import generics, status, response
 from django.http.response import HttpResponse
 
-from django.db.models import Prefetch, Q, F, Func
+from django.db.models import Prefetch
 from django.urls import reverse
 from django.template import Template, Context
 from django.utils import timezone
@@ -24,19 +23,17 @@ import versatileimagefield.files
 
 from activity.models import Event, EventNote, EventClass,\
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community,\
-    EventFilter, EventSource, EventProvider, AlertRule, NotificationMethod
+    EventFilter, EventSource, EventProvider
 
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
     EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer, \
-    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, AlertRuleSerializer, \
-    NotificationMethodSerializer
+    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer
 
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
-from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
-from activity.businessrules import render_aggregate_event_variables
+from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwner
 
 from rest_framework.permissions import IsAuthenticated
 from utils.drf import StandardResultsSetPagination
@@ -48,7 +45,7 @@ import accounts.models
 from observations.models import Subject
 
 
-from rest_framework import serializers, views, permissions
+from rest_framework import views
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
 
 import utils.schema_utils as schema_utils
@@ -719,9 +716,6 @@ def resolve_first(dicts, keys):
             if k in d:
                 return d[k]
                 break
-
-
-from usercontent.serializers import UserContentSerializer
 
 
 class EventFilesView(generics.ListCreateAPIView):

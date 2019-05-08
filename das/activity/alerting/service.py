@@ -8,7 +8,7 @@ from business_rules import run_all
 from accounts.models import User
 
 from activity.models import AlertRule
-from activity.businessrules import _generate_aggregate_event_variables_class, render_event, \
+from activity.alerting.businessrules import _generate_aggregate_event_variables_class, render_event, \
     EventActions
 
 logger = logging.getLogger(__name__)
