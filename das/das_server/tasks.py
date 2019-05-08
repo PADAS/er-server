@@ -105,7 +105,7 @@ def consolidate_all_child_alerts_into_parent(parent_key, child_events):
 
 @celery.app.task()
 def check_event_activity(event_id, queue_len):
-    logger.info('event mailer event_id: {}'.format(event_id))
+    logger.info('Event mailer for Event ID %s', event_id)
 
     redis_client = redis.from_url(
         settings.CELERY_BROKER_URL, decode_responses=True)
@@ -142,6 +142,8 @@ def queue_alert_for_all_users(event_id, revision_ids):
                 priorities.add(revision.data['priority'])
         except ObjectDoesNotExist:
             pass
+
+    logger.info('Sending Event Alert for Event %s for revisions (%s)', f'{event.serial_number}: {event.title}', revision_ids)
 
     # Get alert user list based on priority history
     user_list = get_alert_users(priorities)
