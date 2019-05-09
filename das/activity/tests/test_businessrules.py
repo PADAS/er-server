@@ -14,7 +14,7 @@ from core.utils import NonHttpRequest
 from accounts.models import PermissionSet
 
 from activity.serializers import EventSerializer, AlertRuleSerializer
-from activity.alerts_views import AlertRuleListView, NotificationMethodListView
+from activity.alerts_views import AlertRuleListView, NotificationMethodListView, NotificationMethodView
 
 from business_rules import run_all
 
@@ -227,6 +227,42 @@ class BusinessRulesTestCase(BaseAPITest):
 
     def test_event_serialization(self):
         pass
+
+    def test_adding_and_updating_notification_method(self):
+
+        email_1 = 'user1@tempuri.org'
+        email_2 = 'user2@tempuri.org'
+
+        # Create a notification method
+        notification_method = {
+            'contact': {
+                'method': 'email',
+                'value': email_1
+            },
+            'title':'Some notification method',
+            'is_active': True
+        }
+
+        request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
+        self.force_authenticate(request, self.power_user)
+        response = NotificationMethodListView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        notification_method_id = response.data["id"]
+        print(f'NotificationMethod.id: {notification_method_id}')
+
+        self.assertEqual(response.data['contact']['value'], email_1)
+
+        request = self.factory.patch(f'{self.api_base}/activity/notificationmethod/{notification_method_id}',
+                                     data={'contact': {'method': 'email', 'value': email_2}},
+                                     )
+        self.force_authenticate(request, self.power_user)
+        response = NotificationMethodView.as_view()(request, id=notification_method_id)
+        print(response.data)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(response.data['contact']['value'], email_2)
+
 
     def test_create_an_alert_rule(self):
 

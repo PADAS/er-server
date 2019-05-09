@@ -1467,21 +1467,28 @@ class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
         validated_data['value'] = contact['value']
         return super().create(validated_data)
 
-    def validate(self, attrs):
+    def validate_contact(self, value):
 
-        contact = attrs['contact']
-        if contact['method'] == 'sms':
+        if value['method'] == 'email':
             try:
-                PHONE_NUMBER_VALIDATOR(contact['value'])
-            except django.core.exceptions.ValidationError:
-                raise ValidationError({'contact.value': 'Must be a valid phone number when using contact.method=\'sms\''})
-        elif contact['method'] == 'email':
-            try:
-                EmailValidator()(contact['value'])
+                EmailValidator()(value['value'])
             except django.core.exceptions.ValidationError:
                 raise ValidationError({'contact.value': 'Must be a valid email address when using contact.method=\'email\''})
 
-        return super().validate(attrs)
+        elif value['method'] == 'sms':
+            try:
+                PHONE_NUMBER_VALIDATOR(value['value'])
+            except django.core.exceptions.ValidationError:
+                raise ValidationError({'contact.value': 'Must be a valid phone number when using contact.method=\'sms\''})
+
+        return value
+
+    def update(self, instance, validated_data):
+        contact = validated_data.pop('contact')
+        validated_data['method'] = contact['method']
+        validated_data['value'] = contact['value']
+        return super().update(instance, validated_data)
+
 
 class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     '''
@@ -1504,12 +1511,12 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     notification_method_ids = rest_framework.serializers.PrimaryKeyRelatedField(
         queryset=activity.models.NotificationMethod.objects.all(),
         many=True, write_only=False, source='notification_methods')
-    # notification_methods = NotificationMethodSerializer(many=True, read_only=True)
+    notification_methods = NotificationMethodSerializer(many=True, read_only=True)
 
     class Meta:
-        exclude = ('event_types', 'notification_methods',)
+        exclude = ('event_types',) # 'notification_methods',)
         model = activity.models.AlertRule
-        read_only_fields = ('id', 'owner_username')  # 'notification_methods',)
+        read_only_fields = ('id', 'owner_username', 'notification_methods',)
 
     def validate_schedule(self, value):
 
@@ -1528,7 +1535,7 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
             # Guardrail: If the request includes an empty array for either conditions-list, then delete it.
             for key in ('all','anyOf'):
                 if key in value and len(value[key]) < 1:
-                    del value['key']
+                    del value[key]
 
             Conditions(value).validate()
             return value
