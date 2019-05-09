@@ -50,8 +50,7 @@ def queue_event_alert(event_id):
     # If the timestamps are < 1 second apart, they were very likely made
     # together
     if abs(diff) < 1:
-        event_change_cooldown_period(
-            event_id, revision, details_revision)
+        event_change_cooldown_period(event_id, revision, details_revision)
     # If the changes are farther apart, take the later one only
     elif diff < 0:
         event_change_cooldown_period(event_id, None, details_revision)
@@ -68,6 +67,7 @@ def event_change_cooldown_period(event_id, event_revision=None, details_revision
     # We always want to alert for the parent event if there is one, so do some
     # queries to figure out the event hierarchy
     redis_client = redis.from_url(settings.CELERY_BROKER_URL)
+
     changed_event = Event.objects.get(id=event_id)
     parent_event = Event.objects.filter(
         out_relationship__to_event=changed_event,
@@ -79,18 +79,17 @@ def event_change_cooldown_period(event_id, event_revision=None, details_revision
     # Save all the revision ids under the parent event's kay in redis
     parent_key = REFRESH_USER_KEY.format(parent_event.id)
     consolidate_all_child_alerts_into_parent(parent_event, child_events)
+
     if event_revision is not None:
-        redis_client.rpush(parent_key,
-                           EVENT_REVISION_KEY.format(event_revision.id))
+        redis_client.rpush(parent_key, EVENT_REVISION_KEY.format(event_revision.id))
+
     if details_revision is not None:
-        redis_client.rpush(parent_key,
-                           DETAILS_REVISION_KEY.format(details_revision.id, details_revision.object_id))
+        redis_client.rpush(parent_key, DETAILS_REVISION_KEY.format(details_revision.id, details_revision.object_id))
 
     # In DELAY_PERIOD seconds, send an alert if there hasn't been any more
     # churn
     count = redis_client.llen(parent_key)
-    check_event_activity.apply_async(
-        args=(event_id, count), countdown=DELAY_PERIOD)
+    check_event_activity.apply_async(args=(event_id, count), countdown=DELAY_PERIOD)
 
 
 def consolidate_all_child_alerts_into_parent(parent_key, child_events):
@@ -107,8 +106,7 @@ def consolidate_all_child_alerts_into_parent(parent_key, child_events):
 def check_event_activity(event_id, queue_len):
     logger.info('Event mailer for Event ID %s', event_id)
 
-    redis_client = redis.from_url(
-        settings.CELERY_BROKER_URL, decode_responses=True)
+    redis_client = redis.from_url(settings.CELERY_BROKER_URL, decode_responses=True)
     key = REFRESH_USER_KEY.format(event_id)
 
     # quick check to see if it's worth acquiring a lock, we'll do a threadsafe
@@ -119,10 +117,9 @@ def check_event_activity(event_id, queue_len):
         with redis_utils.lock(redis_client, lock_key, LOCK_TIMEOUT) as l:
             if l and redis_client.llen(key) == queue_len:
                 try:
-                    logger.debug("sending alert for %s", event_id)
-                    queue_alert_for_all_users.delay(
-                        event_id, redis_client.lrange(key, 0, count))
-                    logger.debug("Finished sending alert for %s", event_id)
+                    logger.debug("Sending alert for event_id: %s", event_id)
+                    queue_alert_for_all_users.delay(event_id, redis_client.lrange(key, 0, count))
+                    logger.debug("Finished sending alert for event_id: %s", event_id)
                 finally:
                     redis_client.ltrim(key, count, -1)
 

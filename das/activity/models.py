@@ -1257,6 +1257,4 @@ class AlertRule(TimestampedModel):
         return bool(self.conditions)
 
 
-
-
-
+# class AlertLog(TimestampedModel):

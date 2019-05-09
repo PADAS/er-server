@@ -99,7 +99,7 @@ def render_event_alert_context(alert_rule, event, notification_method):
         }
     }
 
-    extract_event_data(event)
+    # extract_event_data(event)
 
     return report_context
 
@@ -107,9 +107,6 @@ def render_event_alert_context(alert_rule, event, notification_method):
 def create_email_subject(event):
     priority = event.priority_label
     title = event.title or event.event_type.display
-    # if title is None:
-    #     event_type = EventType.objects.get(id=event.event_type_id)
-    #     title = event_type.display
 
     return f"EarthRanger {priority} Alert: [{event.serial_number}] {title}"
 
