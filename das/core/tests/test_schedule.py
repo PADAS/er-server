@@ -7,10 +7,8 @@ class ScheduleTestCases(BaseAPITest):
     def test_schedule_schema(self):
         valid_document_1 = {
             "schedule_type": "week",
-            "periods": {
-                "monday": [["00:00", "23:00"]],
-                "tuesday": [["06:00", "11:00"], ["12:30", "18:30"]]
-            }
+            "monday": [["00:00", "23:00"]],
+            "tuesday": [["06:00", "11:00"], ["12:30", "18:30"]]
         }
 
         try:
@@ -21,11 +19,9 @@ class ScheduleTestCases(BaseAPITest):
             self.assertTrue(assumed_valid, msg='Incorrectly assumed a schema is valid.')
 
         invalid_document_1 = {
-            "periods": {
-                "monday": [["00:00", "23:00"]],
-                "wednesday": [["00:01", "11:00", "12:30"]],  # <-- invalid
-                "thurs": [["01:01", "12:30"]]
-            }
+            "monday": [["00:00", "23:00"]],
+            "wednesday": [["00:01", "11:00", "12:30"]],  # <-- invalid
+            "thurs": [["01:01", "12:30"]]
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid time-range tuple."):
@@ -33,20 +29,16 @@ class ScheduleTestCases(BaseAPITest):
             schedule = OneWeekSchedule(invalid_document_1)
 
         invalid_document_2 = {
-            "periods": {
-                "monday": [["00:00", "23:00"]],
-                "thurs": [["01:01", "12:30"]]  # <-- invalid
-            }
+            "monday": [["00:00", "23:00"]],
+            "thurs": [["01:01", "12:30"]]  # <-- invalid
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for disallowed additional property."):
             jsonschema.validate(invalid_document_2, OneWeekSchedule.json_schema)
 
         invalid_document_3 = {
-            "periods": {
-                "monday": [["00:00", "23:00"]],
-                "friday": [["01:01", "12:30"]]
-            },
+            "monday": [["00:00", "23:00"]],
+            "friday": [["01:01", "12:30"]],
             "somerandomkey": {'something': 1}  # <-- invalid
         }
 
@@ -55,10 +47,8 @@ class ScheduleTestCases(BaseAPITest):
 
         invalid_document_4 = {
             "schedule_type": "month",
-            "periods": {
-                "monday": [["00:00", "23:00"]],
-                "friday": [["01:01", "12:30"]]
-            }
+            "monday": [["00:00", "23:00"]],
+            "friday": [["01:01", "12:30"]]
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid schedule_type."):
@@ -66,10 +56,8 @@ class ScheduleTestCases(BaseAPITest):
 
         invalid_document_5 = {
             "schedule_type": "week",
-            "periods": {
-                "monday": [["00:70", "23:00"]], # <-- invalid
-                "thursday": [["02:02", "23:50"]]
-            }
+            "monday": [["00:70", "23:00"]], # <-- invalid
+            "thursday": [["02:02", "23:50"]]
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid value in time-range."):
