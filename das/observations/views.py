@@ -10,12 +10,10 @@ import csv
 from django.conf import settings
 from django.urls import reverse
 from django.core.serializers.json import DjangoJSONEncoder
-
 from django.utils.dateparse import parse_datetime
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
-
 from django.db.models import Prefetch, F, Q, FilteredRelation, Value
 from django.db.models.functions import Coalesce
 import rest_framework
@@ -26,6 +24,7 @@ from rest_framework.response import Response
 from django.http import Http404, HttpResponse
 from rest_framework import status, views
 from rest_framework.compat import coreapi, coreschema
+from rest_framework_gis.pagination import GeoJsonPagination
 
 import utils
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination
@@ -360,6 +359,11 @@ class SubjectsView(generics.ListCreateAPIView):
                 context[t] = dateparse(request.query_params.get(
                     t, None)) if request.query_params.get(t, None) else None
         return context
+
+
+class SubjectsGeoJsonView(SubjectsView):
+    serializer_class = serializers.SubjectGeoJsonSerializer
+    pagination_class = GeoJsonPagination
 
 
 class SubjectView(generics.RetrieveUpdateDestroyAPIView):

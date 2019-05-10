@@ -3,9 +3,6 @@ import traceback
 import copy
 from collections import OrderedDict
 
-from core.serializers import ContentTypeField
-from core.utils import static_image_finder
-
 from choices.serializers import ChoiceField
 from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
@@ -14,10 +11,8 @@ from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from django.http import Http404
 import django.db
-
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import ForeignKey
-
 from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
 import rest_framework.serializers
@@ -28,15 +23,17 @@ from rest_framework.exceptions import ValidationError, APIException
 from django.utils.encoding import force_text
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
+from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 import versatileimagefield.files
-
 # Make dictionaries from the IMAGE_SETS, to make lookups a little easier.
 from versatileimagefield.utils import get_resized_path, get_rendition_key_set, IMAGE_SETS
 IMAGE_RENDITION_SETS = dict((k, dict(v)) for k, v in IMAGE_SETS.items())
-
 import jsonschema
 import jsonschema.exceptions
+
+from core.serializers import ContentTypeField
+from core.utils import static_image_finder
 from utils.json import loads
 from utils.drf import PointValidator
 import activity.models
@@ -46,7 +43,6 @@ from observations.serializers import SubjectSerializer, SourceSerializer, get_su
 from observations.models import Subject
 from analyzers.serializers import SubjectAnalyzerResultSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
-
 import utils.schema_utils as schema_utils
 from activity.models import EventRelationship
 import usercontent.serializers
@@ -1280,16 +1276,57 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         return rep
 
 
+class EventGeoJsonSerializer(EventSerializer):
+    fields_to_copy = ('id', 'event_type', 'serial_number', 'time',
+                      'priority', 'priority_label', 'title', 'state',
+                      'event_details',
+                      'created_at', 'updated_at', 'event_category',
+                      'is_collection')
+
+    @classmethod
+    def many_init(cls, *args, **kwargs):
+        child_serializer = cls(*args, **kwargs)
+        list_kwargs = {'child': child_serializer}
+        list_kwargs.update(dict([
+            (key, value) for key, value in kwargs.items()
+            if key in rest_framework.serializers.LIST_SERIALIZER_KWARGS
+        ]))
+        meta = getattr(cls, 'Meta', None)
+        list_serializer_class = getattr(
+            meta, 'list_serializer_class', GeoFeatureModelListSerializer)
+        return list_serializer_class(*args, **list_kwargs)
+
+    def create(self, validated_data):
+        raise NotImplemented('Create Event using GeoJson not supported')
+
+    def to_representation(self, event):
+        rep = super().to_representation(event)
+        event_rep = rep.get('geojson')
+        if not event_rep:
+            if 'request' in self.context:
+                event_rep = make_feature(self.context['request'], event)
+        if not event_rep:
+            event_rep = utils.json.empty_geojson_feature()
+
+        properties = event_rep['properties']
+
+        for name in self.fields_to_copy:
+            if name in rep and name not in properties:
+                properties[name] = rep[name]
+
+        return event_rep
+
+
 def make_feature(request, event):
     is_point = isinstance(event.coordinates, Point)
     image_url = resolve_image_url(event)
     image_url = utils.add_base_url(request, image_url)
     feature = utils.json.empty_geojson_feature()
-    feature['geometry'] = {
-        'type': 'LineString' if not is_point else 'Point',
-        'coordinates': event.coordinates if not is_point else event.coordinates.tuple
-    }
-    feature['type'] = 'Feature'
+    if event.coordinates:
+        feature['geometry'] = {
+            'type': 'LineString' if not is_point else 'Point',
+            'coordinates': event.coordinates if not is_point else event.coordinates.tuple
+        }
     feature['properties'] = {
         'message': event.message,
         'datetime': event.time if isinstance(event.time,
