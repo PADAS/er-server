@@ -20,7 +20,6 @@ from rest_framework.response import Response
 import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
-from rest_framework_gis.pagination import GeoJsonPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers, views, permissions
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
@@ -36,7 +35,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
-from utils.drf import StandardResultsSetPagination
+from utils.drf import StandardResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import parse_bool, loads
 import utils
 import accounts.serializers
@@ -612,7 +611,7 @@ def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
 
 class EventsGeoJsonView(EventsView):
     serializer_class = EventGeoJsonSerializer
-    pagination_class = GeoJsonPagination
+    pagination_class = StandardResultsSetGeoJsonPagination
 
 
 class EventView(generics.RetrieveUpdateDestroyAPIView):

@@ -24,10 +24,9 @@ from rest_framework.response import Response
 from django.http import Http404, HttpResponse
 from rest_framework import status, views
 from rest_framework.compat import coreapi, coreschema
-from rest_framework_gis.pagination import GeoJsonPagination
 
 import utils
-from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination
+from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
@@ -363,7 +362,7 @@ class SubjectsView(generics.ListCreateAPIView):
 
 class SubjectsGeoJsonView(SubjectsView):
     serializer_class = serializers.SubjectGeoJsonSerializer
-    pagination_class = GeoJsonPagination
+    pagination_class = StandardResultsSetGeoJsonPagination
 
 
 class SubjectView(generics.RetrieveUpdateDestroyAPIView):
