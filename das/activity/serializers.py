@@ -1553,6 +1553,9 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
             'username': instance.owner.username
         }
 
+        rep['conditions'].setdefault('all', [])
+        rep['conditions'].setdefault('anyOf', [])
+
         rep['url'] = utils.add_base_url(self.context['request'],
                                         reverse('alert-view',
                                                 args=[instance.id, ]))
