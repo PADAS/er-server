@@ -55,64 +55,80 @@ class GenericSensorHandler:
     def process_observations(cls, observations_json, provider_key, sensor_type):
 
         errors = []
+        # TODO
+        obs_to_persist = []
         for an_observation in observations_json:
+            cls.process_one_observation(an_observation, provider_key, sensor_type, obs_to_persist, errors)
 
-            manufacturer_id = an_observation['manufacturer_id']
-            location = None
-            try:
-                location = an_observation['location']
-                lat = location.get('lat', None)
-                lon = location.get('lon', None)
-
-                # location = Point(x=float(lon), y=float(lat))
-                location = {'latitude': float(lat), 'longitude': float(lon)}
-            except:
-                location = None
-
-            subject_subtype = an_observation.get(
-                'subject_subtype', cls.DEFAULT_SUBJECT_SUBTYPE)
-            source_type = an_observation.get('source_type', provider_key)
-            model_name = an_observation.get('model_name', None) or '{}:{}'.format(
-                sensor_type, provider_key)
-            subject_name = an_observation.get('subject_name') or manufacturer_id
-            src = Source.objects.ensure_source(source_type,
-                                               provider=provider_key,
-                                               manufacturer_id=manufacturer_id,
-                                               model_name=model_name,
-                                               subject={
-                                                   'subject_subtype_id': subject_subtype,
-                                                   'name': subject_name
-                                               }
-                                               )
-            recorded_at = an_observation.get('recorded_at')
-            additional = an_observation.get('additional', {})
-            # Short-circuit if we already have this observation.
-            if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
-                logger.info("Processed duplicate observation %s",
-                            subject_subtype, extra={'obs.dup': provider_key})
-                errors.append({})
-                continue
-            observation = {
-                'location': location,
-                'recorded_at': recorded_at,
-                'source': str(src.id),
-                'additional': additional,
-            }
-            serializer = ObservationSerializer(data=observation)
-            if serializer.is_valid():
-                serializer.save()
-                logger.info("Added new observation %s", observation,
-                            extra={'obs.new': provider_key})
-                notify_new_tracks(src.id)
-                errors.append({})
-            else:
-                errors.append(serializer.errors())
+        # TODO:
+        #  1) Can we not construct serializers in 2 different places? this one does the bulk insert
+        #  2) Should bulk insert in batches rather than all at once here....
+        bulk_serializer = ObservationSerializer(data=obs_to_persist, many=True)
+        if bulk_serializer.is_valid():
+            bulk_serializer.save()
+        else:
+            return Response(data=bulk_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         for error in errors:
             if error:
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({}, status=status.HTTP_201_CREATED)
+
+    @classmethod
+    def process_one_observation(cls, an_observation, provider_key, sensor_type, obs_to_persist, errors):
+        manufacturer_id = an_observation['manufacturer_id']
+        location = an_observation['location']
+        lat = location.get('lat', None)
+        lon = location.get('lon', None)
+        # location = Point(x=float(lon), y=float(lat))
+        location = {'latitude': float(lat), 'longitude': float(lon)}
+
+        subject_subtype = an_observation.get(
+            'subject_subtype', cls.DEFAULT_SUBJECT_SUBTYPE)
+        source_type = an_observation.get('source_type', provider_key)
+        model_name = an_observation.get('model_name', None) or '{}:{}'.format(
+            sensor_type, provider_key)
+        subject_name = an_observation.get('subject_name') or manufacturer_id
+        src = Source.objects.ensure_source(source_type,
+                                           provider=provider_key,
+                                           manufacturer_id=manufacturer_id,
+                                           model_name=model_name,
+                                           subject={
+                                               'subject_subtype_id': subject_subtype,
+                                               'name': subject_name
+                                           }
+                                           )
+        recorded_at = an_observation.get('recorded_at')
+        additional = an_observation.get('additional', {})
+        observation = {
+            'location': location,
+            'recorded_at': recorded_at,
+            'source': str(src.id),
+            'additional': additional,
+        }
+
+        # TODO: lookup in list below is linear time!
+        # Short-circuit if we already have this observation.
+        if Observation.objects.filter(source=src, recorded_at=recorded_at).exists() or observation in obs_to_persist:
+            logger.info("Processed duplicate observation %s",
+                        subject_subtype, extra={'obs.dup': provider_key})
+            errors.append({})
+            return
+
+        # TODO: constructing serializers in 2 different places - this below validates each observation
+        validator = ObservationSerializer(data=observation)
+        if validator.is_valid():
+            obs_to_persist.append(observation)
+            # serializer.save()
+            logger.info("Added new observation %s", observation,
+                        extra={'obs.new': provider_key})
+
+            # TODO: will this still be the correct place to notify??
+            notify_new_tracks(src.id)
+            errors.append({})
+        else:
+            errors.append(validator.errors())
 
 
 class FollowltTrackerHandler:
