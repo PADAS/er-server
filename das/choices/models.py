@@ -43,7 +43,7 @@ class Choice(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     model = models.CharField(max_length=50)
     field = models.CharField(max_length=40)
-    value = models.CharField(max_length=40, blank=True)
+    value = models.CharField(max_length=100, blank=True)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     sub_choice_of = models.ManyToManyField('self', blank=True,

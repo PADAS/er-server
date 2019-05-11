@@ -13,10 +13,13 @@ static-values:
   storage-account-key: "MuyPpyKAYF9G9QSq2BOpBU6YwZ8kWJfPzCk1vel+qqV3Ptjg/AnFl6CtKDXlLRaTYh5e4G6WtZ9niVPTVPFGqw=="
   storage-base-path: "root-path"
   use-azure-storage: "true"
+  config-account: "dasconfigwestus"
+  config-container: "azure-dev"
 environment:
   das-static-ip: DAS_STATIC_IP
   azure-subscription-id: AZURE_SUBSCRIPTION_ID
 vault-lookups:
+  config-account-key: padas-app/main/dasconfigwestus
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
   bundle-crt: padas-app/main/bundle-crt

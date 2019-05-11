@@ -10,6 +10,7 @@ from django.conf import settings
 import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
+from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 
 from core.serializers import ContentTypeField
 from observations import models
@@ -100,14 +101,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     additional_fields = ('region', 'country', 'sex',
                          'species', 'additional')
 
-    def create(self, validated_data):
-
-        if 'request' in self.context:
-            request = self.context['request']
-            validated_data['owner'] = request.user
-
-        return models.Subject.objects.create_subject(**validated_data)
-
     class Meta:
         model = models.Subject
         read_only_fields = ('image_url', 'color', 'content_type')
@@ -189,6 +182,35 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         return models.Subject.objects.create_subject(**validated_data)
 
 
+class SubjectGeoJsonSerializer(SubjectSerializer):
+    @classmethod
+    def many_init(cls, *args, **kwargs):
+        child_serializer = cls(*args, **kwargs)
+        list_kwargs = {'child': child_serializer}
+        list_kwargs.update(dict([
+            (key, value) for key, value in kwargs.items()
+            if key in rest_framework.serializers.LIST_SERIALIZER_KWARGS
+        ]))
+        meta = getattr(cls, 'Meta', None)
+        list_serializer_class = getattr(
+            meta, 'list_serializer_class', GeoFeatureModelListSerializer)
+        return list_serializer_class(*args, **list_kwargs)
+
+    def create(self, validated_data):
+        raise NotImplemented('Create subject using GeoJson not supported')
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+
+        subject = rep.get('last_position', None)
+        if not subject:
+            subject = make_feature(
+                self.context['request'], None, instance,
+                time=None, image_url=rep['image_url']
+            )
+        return subject
+
+
 class SubjectStatusValues(NamedTuple):
     recorded_at: datetime
     location: Point
@@ -204,11 +226,12 @@ def resolve_status_values(subject):
     :return:
     '''
     if hasattr(subject, 'status_radio_state'):
-        return SubjectStatusValues(**dict((k, getattr(subject, f'status_{k}', None) ) for k in SubjectStatusValues._fields ))
+        return SubjectStatusValues(**dict((k, getattr(subject, f'status_{k}', None)) for k in SubjectStatusValues._fields))
     try:
         return models.SubjectStatus.objects.get_current_status(subject)
     except models.SubjectStatus.DoesNotExist:
-        raise ValueError(f'SubjectStatus does not exist for subject ID: {subject.id}')
+        raise ValueError(
+            f'SubjectStatus does not exist for subject ID: {subject.id}')
 
 
 class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
@@ -434,11 +457,8 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
     is_point = isinstance(coordinates, Point)
     image_url = add_base_url(request, image_url or subject.image_url)
     feature = {
-        'geometry': {
-            'type': 'LineString' if not is_point else 'Point',
-            'coordinates': coordinates if not is_point else coordinates.tuple
-        },
         'type': 'Feature',
+        'geometry': {},
         'properties': {
             'title': subject.name,
             'subject_type': subject.subject_subtype.subject_type.value,
@@ -446,6 +466,13 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
             'id': subject.id,
         },
     }
+
+    if coordinates:
+        feature['geometry'] = {
+            'type': 'LineString' if not is_point else 'Point',
+            'coordinates': coordinates if not is_point else coordinates.tuple
+        }
+
     properties = feature['properties']
     if hasattr(subject, 'color'):
         # see https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0

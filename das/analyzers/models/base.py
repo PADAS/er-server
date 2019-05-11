@@ -79,6 +79,8 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
     search_time_hours = models.FloatField(null=False, default=24.0,
                                           verbose_name='The period of data to retrieve from the database')
 
+    additional = JSONField(blank=True, default=dict)
+
     class Meta:
         abstract = True
         app_label = 'analyzers'

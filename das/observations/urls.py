@@ -33,6 +33,9 @@ urlpatterns = [
     url(r'^region/(?P<slug>[a-z0-9-]+)/subjects/?$',
         views.RegionSubjectsView.as_view()),
 
+    url(r'^subjects/geojson/?$', views.SubjectsGeoJsonView.as_view(),
+        name='subjects-geojson-view'),
+
     url(r'^subjects/?$', views.SubjectsView.as_view()),
     url(r'^subject/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.SubjectView.as_view(), name='subject-view'),

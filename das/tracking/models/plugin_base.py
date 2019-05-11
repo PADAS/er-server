@@ -26,6 +26,7 @@ from observations.models import Source, SourceProvider, get_default_source_provi
 from core.models import TimestampedModel
 
 import observations
+from utils import stats
 
 from tracking.pubsub_registry import notify_new_tracks
 
@@ -139,6 +140,11 @@ class SourcePlugin(TimestampedModel):
 
             if accumulator and accumulator.get('created', 0) > 0:
                 notify_new_tracks(str(self.source.id))
+
+            stats_count = accumulator.get('created', 0) if accumulator else 0
+            counter_name = '_'.join(('plugin', self.plugin._meta.label_lower, 'created'))
+            stats.increment(counter_name, value=stats_count)
+
             return result
 
     def maintenance(self, target=None):

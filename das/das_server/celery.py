@@ -101,6 +101,10 @@ app.conf.beat_schedule = {
     'observation-lag-report':{
         'task':  'reports.tasks.alert_lag_delay',
         'schedule': timedelta(minutes=30),
+    },
+    'silent-source-report': {
+        'task': 'reports.tasks.queue_silent_source_report',
+        'schedule': timedelta(minutes=60),
     }
 
 }

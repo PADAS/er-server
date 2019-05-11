@@ -64,7 +64,7 @@ class FeatureSetListJsonView(APIView):
     def get(self, request):
         def feature_types(featureset):
             for t in featureset.types.all():
-                yield dict(name=t.name, id=str(t.id))
+                yield dict(name=t.name, id=str(t.id), feature_count=t.feature_count)
 
         response_data = {'features': []}
         featuresets = FeatureSet.objects.all()

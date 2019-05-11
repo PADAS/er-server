@@ -1,0 +1,13 @@
+cluster-name: apn
+version-prefix: rel
+server-branch-name: release/1.65.1k8
+web-branch-name: release/1.65.1
+namespace: garamba
+iaas: azure
+iaas-zone: westeurope
+iaas-workspace: DAS-Dev
+cluster-spec: deployment/cluster-specs/azure.yaml
+das-static-ip: 137.117.199.183
+deployment-plan: integration
+deploy-recipe: standard-az.yaml
+deploy-params-environment: garamba

@@ -7,6 +7,7 @@ data:
   GRUMETI_DAS_SENSOR_ENDPOINT: "https://grumeti.pamdas.org/api/v1.0"
   LEWA_DAS_SENSOR_ENDPOINT: "https://lewa.pamdas.org/api/v1.0"
   BANGWEULU_DAS_SENSOR_ENDPOINT: "https://bangweulu.apn.pamdas.org/api/v1.0"
+  BANGWEULU_AZ_DAS_SENSOR_ENDPOINT: "https://bangweulu.pamdas.org/api/v1.0"
   NLUWANGWA_DAS_SENSOR_ENDPOINT: "https://northluangwa.fzs.pamdas.org/api/v1.0"
   SKYLINE_PROVIDER_DAS_TOKEN: "<<skyline-provider-das-token>>"
   SKYLINE_PROVIDER_CID: "<<skyline-provider-cid>>"

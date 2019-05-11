@@ -23,6 +23,8 @@ from core.forms_utils import JSONFieldFormMixin
 from accounts.models import User, PermissionSet
 from observations import kmlutils
 from choices.models import Choice
+from utils.admin import DefaultFilterMixin
+
 
 class PermissionSetAdminForm(forms.ModelForm):
     filter_horizontal = ('permissions', 'children')
@@ -93,21 +95,23 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
     phone = forms.CharField(required=False)
 
     # Additional JSON Fields
-    notes = forms.CharField(required=False, label='Notes')
+    notes = forms.CharField(
+        required=False, label='Notes', widget=forms.Textarea)
     expiry = forms.DateTimeField(required=False, label='Expiry',
                                  widget=AdminDateWidget())
-    mou_date_signed = forms.DateTimeField(
+    moudatesigned = forms.DateTimeField(
         required=False, label='MoU Date Signed', widget=AdminDateWidget())
-    mou_type = forms.CharField(required=False, label='MoU Type')
+    moutype = forms.CharField(required=False, label='MoU Type')
+    moufilename = forms.CharField(required=False, label='MoU Filename')
     tech = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
         verbose_name='Tech Choices', is_stacked=False), required=False)
-    organization = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
-        verbose_name='Organization Choices', is_stacked=False), required=False)
+    organization = forms.ChoiceField(required=False,
+                                     help_text='User Organization')
 
     @staticmethod
     def fetch_tech_choices():
         # Fetch all Tech choices from choices.Choice Model. For Ex: iOS, GE etc
-        tech_choices = {}
+        tech_choices = {'': ''}
         for tech in Choice.objects.filter(
                 model='accounts.user.User', field='tech').order_by('ordernum'):
             tech_choices[tech.value] = tech.display
@@ -116,7 +120,7 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
     @staticmethod
     def fetch_organization_choices():
         # Fetch all Organization choices from choices.Choice Model.
-        organization_choices = {}
+        organization_choices = {'': ''}
         for organization in Choice.objects.filter(
                 model='accounts.user.User', field='organization') \
                 .order_by('ordernum'):
@@ -135,7 +139,7 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
 
     class Meta:
         model = User
-        json_fields = ('notes', 'expiry', 'mou_date_signed', 'mou_type',
+        json_fields = ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
                        'organization', 'tech')
         fields = ('first_name', 'last_name', 'email', 'phone',
                   'is_email_alert', 'is_sms_alert', 'username') + json_fields
@@ -165,46 +169,29 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
     phone = forms.CharField(required=False)
 
     # Additional JSON Fields
-    notes = forms.CharField(required=False, label='Notes')
+    notes = forms.CharField(
+        required=False, label='Notes', widget=forms.Textarea)
     expiry = forms.DateTimeField(required=False, label='Expiry',
                                  widget=AdminDateWidget())
-    mou_date_signed = forms.DateTimeField(
+    moudatesigned = forms.DateTimeField(
         required=False, label='MoU Date Signed', widget=AdminDateWidget())
-    mou_type = forms.CharField(required=False, label='MoU Type')
+    moutype = forms.CharField(required=False, label='MoU Type')
+    moufilename = forms.CharField(required=False, label='MoU Filename')
     tech = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
         verbose_name='Tech Choices', is_stacked=False), required=False)
-    organization = forms.TypedMultipleChoiceField(widget=FilteredSelectMultiple(
-        verbose_name='Organization Choices', is_stacked=False), required=False)
-
-    @staticmethod
-    def fetch_tech_choices():
-        # Fetch all Tech choices from choices.Choice Model. For Ex: iOS, GE etc
-        tech_choices = {}
-        for tech in Choice.objects.filter(
-                model='accounts.user.User', field='tech').order_by('ordernum'):
-            tech_choices[tech.value] = tech.display
-        return tuple([(key, value) for key, value in tech_choices.items()])
-
-    @staticmethod
-    def fetch_organization_choices():
-        # Fetch all Organization choices from choices.Choice Model.
-        organization_choices = {}
-        for organization in Choice.objects.filter(
-                model='accounts.user.User', field='organization') \
-                .order_by('ordernum'):
-            organization_choices[organization.value] = organization.display
-        return tuple(
-            [(key, value) for key, value in organization_choices.items()])
+    organization = forms.ChoiceField(required=False,
+                                     help_text='User Organization')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['tech'].choices = self.fetch_tech_choices()
-        self.fields['organization'].choices = self.fetch_organization_choices()
+        self.fields['tech'].choices = CustomUserCreationForm.fetch_tech_choices()
+        self.fields['organization'].choices = CustomUserCreationForm.fetch_organization_choices()
 
     class Meta:
         model = User
-        json_fields = ('notes', 'expiry', 'mou_date_signed', 'mou_type',
+        json_fields = ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
                        'organization', 'tech')
+        json_date_fields = ('expiry', 'moudatesigned')
         fields = ('first_name', 'last_name', 'email', 'phone',
                   'is_email_alert', 'is_sms_alert', 'username') + json_fields
 
@@ -253,7 +240,7 @@ class KmkMasterLinkForm(forms.Form):
                        from_email, user.email, html_email_template_name)
 
 
-class UserAdmin(DjangoUserAdmin):
+class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
     ordering = ('last_name', 'first_name', 'username')
     fieldsets = (
         (None, {
@@ -263,7 +250,7 @@ class UserAdmin(DjangoUserAdmin):
                        'username', 'password')
         }),
         ('Additiona JSON Fields', {
-            'fields': ('notes', 'expiry', 'mou_date_signed', 'mou_type',
+            'fields': ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
                        'organization', 'tech')
         }),
         ('Additional Data', {
@@ -275,10 +262,10 @@ class UserAdmin(DjangoUserAdmin):
     )
 
     list_display = ('display_name', 'member_permission_sets',
-                    'all_permission_sets', 'is_email_alert', 'is_sms_alert')
-    list_editable = ('is_email_alert', 'is_sms_alert')
+                    'all_permission_sets', 'is_email_alert', 'is_sms_alert', 'is_active')
+    list_editable = ('is_email_alert', 'is_sms_alert', 'is_active')
     list_display_links = ('display_name', )
-    list_filter = ('is_staff', 'is_email_alert',
+    list_filter = ('is_active', 'is_staff', 'is_email_alert',
                    'is_sms_alert', 'permission_sets')
     filter_horizontal = ('permission_sets',)
     form = UserAdditionalForm
@@ -292,7 +279,7 @@ class UserAdmin(DjangoUserAdmin):
                        )
         }),
         ('Additional JSON Fields', {
-            'fields': ('notes', 'expiry', 'mou_date_signed', 'mou_type',
+            'fields': ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
                        'organization', 'tech')
         }),
         ('Additional JSON Data', {
@@ -308,6 +295,11 @@ class UserAdmin(DjangoUserAdmin):
                                        'is_superuser')}),
         (_('User Profiles'), {'fields': ('act_as_profiles',)}),
     )
+
+    def get_default_filters(self, request):
+        return {
+            'is_active__exact': 1,
+        }
 
     def display_name(self, instance):
         full_name = instance.get_full_name()

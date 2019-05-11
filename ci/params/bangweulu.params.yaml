@@ -1,12 +1,13 @@
 cluster-name: apn
-version-prefix: dev
-server-branch-name: develop
-web-branch-name: develop
+version-prefix: rel
+server-branch-name: release/1.65.1k8
+web-branch-name: release/1.65.1
 namespace: bangweulu
 iaas: azure
 iaas-zone: westeurope
 iaas-workspace: DAS-Dev
 cluster-spec: deployment/cluster-specs/azure.yaml
+das-static-ip: 40.114.230.34 
 deployment-plan: integration
 deploy-recipe: standard-az.yaml
 deploy-params-environment: bangweulu
