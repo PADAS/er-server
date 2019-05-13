@@ -28,34 +28,44 @@ DELAY_PERIOD = 5  # seconds
 
 @celery.app.task()
 def queue_event_alert(event_id):
+
+    event_id, event_revision, details_revision = resolve_event_revisions(event_id)
+    event_change_cooldown_period(event_id, event_revision, details_revision)
+
+
+def resolve_event_revisions(event_id):
+    '''
+    We end up in this code path in a few ways. Some data associated with the
+    event has changed, but it could be the event itself or the event_details
+    which contains the schema data. Or it could be both. It all depends on
+    what fields were changed in the event update.
+
+    To figure out what change(s) brought us here, we need to look at the
+    timestamps on the latest revisions to both the event and eventdetails
+    objects and see which one is newer.
+
+    :param event_id:
+    :return:
+    '''
     event = Event.objects.get(id=event_id)
     revision = event.revision.all_user().order_by('sequence').last()
     try:
         details_revision = event.event_details.order_by('updated_at').last(
         ).revision.all_user().order_by('sequence').last()
     except AttributeError:
-        event_change_cooldown_period(event_id, revision, None)
-        return
+        return event_id, revision, None
 
-    # We end up in this code path in a few ways. Some data associated with the
-    # event has changed, but it could be the event itself or the event_details
-    # which contains the schema data. Or it could be both. It all depends on
-    # what fields were changed in the event update.
-    #
-    # To figure out what change(s) brought us here, we need to look at the
-    # timestamps on the latest revisions to both the event and eventdetails
-    # objects and see which one is newer.
     diff = (revision.revision_at - details_revision.revision_at).total_seconds()
 
     # If the timestamps are < 1 second apart, they were very likely made
     # together
     if abs(diff) < 1:
-        event_change_cooldown_period(event_id, revision, details_revision)
+        return event_id, revision, details_revision
     # If the changes are farther apart, take the later one only
     elif diff < 0:
-        event_change_cooldown_period(event_id, None, details_revision)
+        return event_id, None, details_revision
     else:
-        event_change_cooldown_period(event_id, revision, None)
+        return event_id, revision, None
 
 
 def event_change_cooldown_period(event_id, event_revision=None, details_revision=None):
@@ -76,7 +86,7 @@ def event_change_cooldown_period(event_id, event_revision=None, details_revision
     child_events = Event.objects.filter(in_relationship__from_event=parent_event,
                                         in_relationship__type__value='contains')
 
-    # Save all the revision ids under the parent event's kay in redis
+    # Save all the revision ids under the parent event's key in redis
     parent_key = REFRESH_USER_KEY.format(parent_event.id)
     consolidate_all_child_alerts_into_parent(parent_event, child_events)
 

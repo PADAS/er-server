@@ -25,7 +25,7 @@ from core.utils import OneWeekSchedule
 from accounts.models import User
 
 from activity.models import EventType, Event, AlertRule
-from activity.tasks import send_alert_to_user
+from activity.tasks import send_alert_to_notificationmethod
 from business_rules import actions, fields, variables, export_rule_data
 
 power_user_permissions = [
@@ -356,6 +356,87 @@ class BusinessRulesTestCase(BaseAPITest):
         return periods
 
 
+    def test_for_confiscation_rep_with_select_multiple(self):
+
+        # Create a carcass event with some details
+        my_test_event_type = EventType.objects.get(value='confiscation_rep')
+
+        event_details = {
+            'confiscationrep_itemsconfiscated': {'name': 'Bush Meat', 'value': 'bushmeat'},
+            'confiscationrep_numberofitems': 3
+        }
+
+        event_data = dict(
+            state='active',
+            title='Test Event No. 1',
+            event_time=datetime.now(tz=pytz.utc),
+            provenance=Event.PC_STAFF,
+            event_type=my_test_event_type.value,
+            priority=Event.PRI_IMPORTANT,
+            location=dict(longitude=37.5123, latitude=1.4590),
+            event_details=event_details,
+            # related_subjects=[{'id': self.subject.id}, ],
+        )
+
+        request = NonHttpRequest()
+        request.user = self.power_user
+        ser = EventSerializer(data=event_data, context={'request': request})
+
+        if not ser.is_valid():
+            print(f'Event is not valid. Errors are: {ser.errors}')
+        else:
+            event = ser.create(ser.validated_data)
+            event = Event.objects.get(id=event.id)
+
+        eventdata = render_event(event, self.power_user)
+        # print(json.dumps(eventdata, indent=2, default=str))
+
+        # Create a notification method
+        notification_method = {
+            'contact': {
+                'method': 'sms',
+                'value': '+12062147021'
+            },
+            'title':'Some notification method',
+            'is_active': True
+        }
+
+        request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
+        self.force_authenticate(request, self.power_user)
+        response = NotificationMethodListView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        notification_method_id = response.data["id"]
+        # print(f'NotificationMethod.id: {notification_method_id}')
+
+        # Create an alert rule
+        alert_rule_1 = dict(
+            reportTypes=[my_test_event_type.value, ],
+            notification_method_ids=[notification_method_id, ],
+            conditions={"all": [{"name": "confiscationrep_itemsconfiscated", "value": ["bushmeat"],
+                                 "operator": "shares_at_least_one_element_with"},
+                                {"name": "confiscationrep_numberofitems", "value": 2, "operator": "greater_than_or_equal_to"},]}
+            ,
+            schedule=self._create_a_period_from_datetime(including_time=True)
+        )
+        alert_rules_list = []
+        for ar in [alert_rule_1,]:
+            request = NonHttpRequest()
+            request.user = self.power_user
+            ser = AlertRuleSerializer(data=ar, context={'request': request})
+            if not ser.is_valid():
+                print(f'AlertRule is not valid. Errors are: {ser.errors}')
+            else:
+                rule = ser.create(ser.validated_data)
+                rule = AlertRule.objects.get(id=rule.id)
+                alert_rules_list.append(rule)
+
+        self.assertEqual(len(AlertRule.objects.filter(event_types=event.event_type)), 1)
+
+        action_list = evaluate_event_on_alertrules(alert_rules_list, event)
+        self.assertEqual(len(action_list), 1)
+
+        print(action_list)
 
     def test_a_real_event_against_a_defined_alert_rule(self):
 
@@ -629,8 +710,8 @@ class BusinessRulesTestCase(BaseAPITest):
                 alert_rules_list.append(rule)
 
 
-        send_alert_to_user(alert_rule_id=str(rule.id), event_id=str(event.id),
-                           notification_method_id=str(notification_method_id))
+        send_alert_to_notificationmethod(alert_rule_id=str(rule.id), event_id=str(event.id),
+                                         notification_method_id=str(notification_method_id))
 
 
 

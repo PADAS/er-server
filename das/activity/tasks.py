@@ -46,9 +46,6 @@ def evaluate_alert_rules(self, event_id):
         # Resolve distinct list of active NotificationMethod objects for the given set of alert rule IDs.
         # TODO: revisit ordering by alert-rule to preserve precedencce
         alert_rule_ids = [action['alert_rule_id'] for action in action_list]
-        # notification_methods = NotificationMethod.objects.filter(is_active=True,
-        #                                   alert_rule__in=AlertRule.objects.filter(id__in=alert_rule_ids)) \
-        #     .distinct('id').annotate(alert_rule_id=F('alert_rule__id'))
 
         already_queued_nids = set() # accumulator for Notification Methods.
         for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by('ordernum', 'title'):
@@ -61,7 +58,7 @@ def evaluate_alert_rules(self, event_id):
                         'notification_method_id': str(notification_method.id)
                     }
 
-                    send_alert_to_user.apply_async(args=(), kwargs=kwargs)
+                    send_alert_to_notificationmethod.apply_async(args=(), kwargs=kwargs)
                 already_queued_nids.add(notification_method.id)
 
     except Exception as e:
@@ -69,7 +66,7 @@ def evaluate_alert_rules(self, event_id):
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
-def send_alert_to_user(alert_rule_id=None, event_id=None, notification_method_id=None):
+def send_alert_to_notificationmethod(alert_rule_id=None, event_id=None, notification_method_id=None):
 
     if any((x is None for x in (alert_rule_id, notification_method_id, event_id))):
         raise ValueError('Coding error.  I need keyword arguments.')
