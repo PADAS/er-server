@@ -4,10 +4,10 @@ import pytz
 from dateutil.parser import parse as parse_date
 from datetime import datetime, timezone
 
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.response import Response
 
-from rest_framework import serializers
+from django.db import transaction
 
 from observations.models import SubjectSource, Source, Observation
 from observations.serializers import ObservationSerializer
@@ -52,22 +52,32 @@ class GenericSensorHandler:
         return cls.process_observations(params.validated_data, provider_key, sensor_type)
 
     @classmethod
-    def process_observations(cls, observations_json, provider_key, sensor_type):
+    def process_observations(cls, observations_json, provider_key, sensor_type, batch_size=128):
 
-        errors = []
-        # TODO
-        obs_to_persist = []
-        for an_observation in observations_json:
-            cls.process_one_observation(an_observation, provider_key, sensor_type, obs_to_persist, errors)
+        obs_to_persist, errors, obs_cache = [], [], set()
 
-        # TODO:
-        #  1) Can we not construct serializers in 2 different places? this one does the bulk insert
-        #  2) Should bulk insert in batches rather than all at once here....
+        def generate_batches():
+            num_observations = len(observations_json)
+            for start_index in range(0, num_observations, batch_size):
+                yield observations_json[start_index: min(start_index+batch_size, num_observations)]
+
+        def notify_tracks_listeners():
+            src_ids = {src_id for (src_id, _) in obs_cache}
+            for src_id in src_ids:
+                notify_new_tracks(src_id)
+
+        for batch in generate_batches():
+            for an_observation in batch:
+                cls.process_one_observation(an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors)
+
+        # TODO: Can we not construct serializers in 2 different places? this one does the bulk insert
         bulk_serializer = ObservationSerializer(data=obs_to_persist, many=True)
         if bulk_serializer.is_valid():
             bulk_serializer.save()
         else:
-            return Response(data=bulk_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            errors.append(bulk_serializer.errors())
+
+        transaction.on_commit(notify_tracks_listeners())
 
         for error in errors:
             if error:
@@ -76,7 +86,7 @@ class GenericSensorHandler:
         return Response({}, status=status.HTTP_201_CREATED)
 
     @classmethod
-    def process_one_observation(cls, an_observation, provider_key, sensor_type, obs_to_persist, errors):
+    def process_one_observation(cls, an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors):
         manufacturer_id = an_observation['manufacturer_id']
         location = an_observation['location']
         lat = location.get('lat', None)
@@ -108,24 +118,21 @@ class GenericSensorHandler:
             'additional': additional,
         }
 
-        # TODO: lookup in list below is linear time!
+        obs_key = (str(src.id), recorded_at)
         # Short-circuit if we already have this observation.
-        if Observation.objects.filter(source=src, recorded_at=recorded_at).exists() or observation in obs_to_persist:
+        if obs_key in obs_cache or Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
             logger.info("Processed duplicate observation %s",
                         subject_subtype, extra={'obs.dup': provider_key})
             errors.append({})
             return
 
+        obs_cache.add(obs_key)
         # TODO: constructing serializers in 2 different places - this below validates each observation
         validator = ObservationSerializer(data=observation)
         if validator.is_valid():
             obs_to_persist.append(observation)
-            # serializer.save()
             logger.info("Added new observation %s", observation,
                         extra={'obs.new': provider_key})
-
-            # TODO: will this still be the correct place to notify??
-            notify_new_tracks(src.id)
             errors.append({})
         else:
             errors.append(validator.errors())
