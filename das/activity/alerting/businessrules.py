@@ -138,13 +138,26 @@ def create_new_func(key, return_type, label=None, optionslist=None):
         optionslist = sorted(optionslist, key=lambda x: x['label'])
         return variables.select_multiple_rule_variable(label, options=optionslist)(f)
 
-    def f(self):
-        return self.event.get('event_details', {}).get(key)
+    def string_f(self):
+        saved_value = self.event.get('event_details', {}).get(key, '')
+        return str(saved_value)
+
+    def numeric_f(self):
+        saved_value = self.event.get('event_details', {}).get(key, 0)
+
+        if isinstance(saved_value, (str,)):
+            if '.' in saved_value:
+                return float(saved_value)
+            else:
+                return int(saved_value)
+        else:
+            return saved_value
+
 
     if return_type == str:
-        return variables.string_rule_variable(label)(f)
+        return variables.string_rule_variable(label)(string_f)
     elif return_type in (int, float):
-        return variables.numeric_rule_variable(label)(f)
+        return variables.numeric_rule_variable(label)(numeric_f)
     else:
         raise NotImplementedError(f'Return-type {return_type} is not yet supported.')
 
