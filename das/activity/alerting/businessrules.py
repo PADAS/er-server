@@ -130,7 +130,10 @@ def create_new_func(key, return_type, label=None, optionslist=None):
 
         # For a multi-select option we return the Event's value as a member of a list.
         def f(self):
-            return [self.event['event_details'].get(key, {}).get('value'),]
+            try:
+                return [self.event['event_details'][key]['value'], ]
+            except KeyError:
+                return []
 
         optionslist = sorted(optionslist, key=lambda x: x['label'])
         return variables.select_multiple_rule_variable(label, options=optionslist)(f)

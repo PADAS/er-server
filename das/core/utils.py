@@ -6,6 +6,8 @@ import json
 
 import jsonschema
 
+from django.conf import settings
+
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.utils.dateparse import parse_duration
 from django.http.request import HttpRequest
@@ -175,5 +177,7 @@ class NonHttpRequest(HttpRequest):
     outside an actual request.
     '''
     def build_absolute_uri(self, url):
+        if hasattr(settings, 'UI_SITE_URL'):
+            return f'{settings.UI_SITE_URL}{url}'
         return url
 
