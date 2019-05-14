@@ -4,6 +4,7 @@ import urllib.parse
 import uuid
 
 from django.utils.translation import ugettext_lazy as _
+from django.db.models import ObjectDoesNotExist
 
 import utils.schema_utils
 from activity.models import Event
@@ -31,6 +32,7 @@ event_type_code_map = {
 
 logger = logging.getLogger(__name__)
 
+
 def resolve_event_revisions(event):
     '''
     We end up in this code path in a few ways. Some data associated with the
@@ -45,10 +47,10 @@ def resolve_event_revisions(event):
     :param event_id:
     :return:
     '''
-    revision = event.revision.all_user().order_by('sequence').last()
+    revision = event.revision.all_user().latest('revision_at')
     try:
-        details_revision = event.event_details.order_by('updated_at').last(
-        ).revision.all_user().order_by('sequence').last()
+        details_revision = event.event_details.latest('updated_at') \
+            .revision.all_user().latest('revision_at')
     except AttributeError:
         return revision, None
 
@@ -69,7 +71,6 @@ def resolve_event_revisions(event):
 event_type_code_map = dict((v, k)
                            for k, l in event_type_code_map.items() for v in l)
 
-
 def extract_details(schema, details, updated):
     '''
     TODO: Description
@@ -83,6 +84,7 @@ def extract_details(schema, details, updated):
 
     details_dictionary = details.data['event_details']
     schema = utils.schema_utils.get_rendered_schema(schema)
+
     properties = schema['properties']
     for k in sorted(details_dictionary.keys()):
         if k not in properties:
@@ -108,7 +110,6 @@ def extract_details(schema, details, updated):
                                                                                           _ in v if isinstance(_, dict) and _.get('name') is not None]))
 
 
-from django.db.models import ObjectDoesNotExist
 def get_revisions_for_event(event, revisions):
     '''
     Get the relevant revisions for the given Event.
@@ -162,6 +163,27 @@ def _get_updated_fields(event_revisions):
     return set(updated_fields)
 
 
+def get_revised_fields(event):
+    '''
+    For the given event, determine the fields that have been updated in the
+    latest revision. A new event should result in an empty set.
+    :param event:
+    :return: a set of field names.
+    '''
+
+    if event.revision.count() < 2:
+        return set()
+
+    current_revision = event.revision.latest('revised_at')
+
+    try:
+        previous_revision = current_revision.get_previous_by_revision_at(object_id=event.id)
+    except ObjectDoesNotExist:
+        return []
+    else:
+        return set(current_revision.data.keys())
+
+
 def _get_updated_fields_within_details(event, details_revisions):
     '''
     Resolve the Event details fields that have been updated.
@@ -210,21 +232,21 @@ def extract_event_data(event, user, revisions):
         _get_updated_fields_within_details(event, details_revisions))
 
     event_details = event.event_details.all().order_by('updated_at').last()
-    schema_fields_and_values = list(extract_details(
-        event.event_type.schema, event_details, updated_fields))
+    schema_fields_and_values = list(extract_details(event.event_type.schema, event_details, updated_fields))
 
     child_events = Event.objects.filter(in_relationship__from_event=event, in_relationship__type__value='contains')
+
     child_event_data = []
     for child_event in child_events:
-        child_event_data.append(
-            extract_event_data(child_event, user, revisions))
+        child_event_data.append(extract_event_data(child_event, user, revisions))
 
     model_fields_and_values = []
     serializer = EventSerializer()
     serializer.context['request'] = DummyRequest()
     serializer.context['request'].user = user
-    all_event_fields = serializer.to_representation(event)
-    for i, (key, value) in enumerate(all_event_fields.items()):
+    rendered_event = serializer.to_representation(event)
+
+    for i, (key, value) in enumerate(rendered_event.items()):
         update_indicator = '*' if key in updated_fields else '-'
         if key == 'title':
             display_value = value or 'No Title'

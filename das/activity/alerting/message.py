@@ -36,20 +36,30 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         raise ValueError(f'Cannot continue with event={event}, '
                          f'alert_rule={alert_rule}, notification_method={notification_method}')
 
-    report_context = render_event_alert_context(alert_rule, event, notification_method)
-
+    # Get Revisions
     event_revision, details_revision = resolve_event_revisions(event)
 
-    revisions = [
-        f'e;{event_revision.id}'
-    ]
+    # Calculate updated fields
+    updated_event_fields = get_revised_event_fields(event_revision)
+    updated_event_details_fields = get_revised_event_details_fields(details_revision)
+
+    report_context = render_event_alert_context(alert_rule, event, notification_method,
+                                                event_revisions=updated_event_fields,
+                                                event_details_revisions=updated_event_details_fields)
+
+    revisions = []
+
+    if event_revision:
+        revisions.append(f'e;{event_revision.id}')
     if details_revision:
         revisions.append(f'd;{details_revision.id};{details_revision.object_id}')
 
     deep_event_data = extract_event_data(event, notification_method.owner, revisions)
-    print(json.dumps(deep_event_data, indent=2, default=str))
-    print(json.dumps(report_context, indent=2, default=str))
+    print(f'Legacy data: {json.dumps(deep_event_data, indent=2, default=str)}')
+    print(f'Report context: {json.dumps(report_context, indent=2, default=str)}')
 
+    print(f'Update Event Fields: {json.dumps(updated_event_fields, indent=2, default=str)}')
+    print(f'Update Event Details Fields: {json.dumps(updated_event_details_fields, indent=2, default=str)}')
     email_body = render_to_string('eventalert.html', report_context)
 
     if notification_method.method == 'email':
@@ -78,7 +88,78 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
                      f" when processing event:{event_id} for notification: {notification_method.id}")
 
 
-def render_event_alert_context(alert_rule, event, notification_method):
+def get_revised_event_fields(event_revision):
+
+    if not event_revision:
+        return {}
+
+    try:
+        previous_version = event_revision.get_previous_by_revision_at(object_id=event_revision.object_id)
+    except ObjectDoesNotExist:
+        return {}
+    else:
+        current_data = event_revision.data
+        previous_data = previous_version.data
+        revision_changes = dict_changes(current_data, previous_data)
+        return revision_changes
+
+
+def get_revised_event_details_fields(event_details_revision):
+    '''
+
+    :param event_details_revision:
+    :return:
+    '''
+    if not event_details_revision:
+        return {}
+
+    try:
+        previous_version = event_details_revision.get_previous_by_revision_at(object_id=event_details_revision.object_id)
+    except ObjectDoesNotExist:
+        return {}
+    else:
+        print(f'Previous revision is: {previous_version}')
+
+        current_data = event_details_revision.data['data'].get('event_details')
+        previous_data = previous_version.data['data'].get('event_details')
+        revision_changes = dict_changes(current_data, previous_data)
+        return revision_changes
+
+#
+# def _comparator(this, that):
+#     if type(this) != type(that):
+#         return False
+#
+#     if isinstance(this, dict):
+#         return not any((repr(this[k]) != repr(that[k])) for k in this.keys())
+#     else:
+#         return this != that
+
+def dict_changes(current, previous, ignore_these=('sort_at', 'updated_at', 'created_at')):
+    '''
+    Given two dicts, determine which if any fields changed and report the change back in the form
+    {
+       'changed_key': {'old': <old-value>, 'new': <new-value' }
+    }
+    :param current:
+    :param previous:
+    :param ignore_these: a list of keys to ignore.
+    :return:
+    '''
+    # delta = dict(set(current.items()) - set(previous.items()))
+    # changes = dict((k, {'new': v, 'old': previous[k]}) for k, v in delta.items() if k not in ignore_these)
+
+    changes = dict((k, {'new': v, 'old': previous.get(k)}) for k, v in current.items() if k not in ignore_these \
+                   and v != previous.get(k))
+    return changes
+
+
+from activity.alerting.legacymailer import _get_title_from_schema
+
+
+def render_event_alert_context(alert_rule, event, notification_method,
+                               event_revisions=None,
+                               event_details_revisions=None):
     '''
     Render an alert context for the given parameters. Assume that the parameters are
     valid and that permissions have been respected.
@@ -93,6 +174,28 @@ def render_event_alert_context(alert_rule, event, notification_method):
 
     logger.debug('Rendered event: %s', json.dumps(eventdata, indent=2, default=str))
 
+    # Render display titles and values
+    schema = utils.schema_utils.get_rendered_schema(event.event_type.schema)
+
+    pretty_details = {}
+    for k, internal_value in eventdata['event_details'].items():
+        key_display = _get_title_from_schema(k, schema)
+        rendered_value = internal_value.get('name') if isinstance(internal_value, dict) else internal_value
+        pretty_details[k] = {'title': key_display,
+                             'value': rendered_value}
+        old_internal_value = event_details_revisions.get(k)
+        if old_internal_value:
+            old_internal_value = old_internal_value.get('old')
+            rendered_old_value = old_internal_value.get('name') \
+                if isinstance(old_internal_value, dict) else old_internal_value
+
+            pretty_details[k]['old_value'] = rendered_old_value
+
+        # updated_f = updated_event_details_fields.get(k)
+        # if updated_f is not None:
+        #     pretty_details[k]['old_value'] = updated_f.get('name'])
+
+
     report_context = {
         'message_subject': create_email_subject(event),
         'alert_rule': alert_rule.title,
@@ -101,6 +204,7 @@ def render_event_alert_context(alert_rule, event, notification_method):
             'priority': event.priority_label,
             'title': eventdata['title'],
             'details': eventdata['event_details'],
+            'pretty_details': pretty_details,
         }
     }
 

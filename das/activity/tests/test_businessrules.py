@@ -668,11 +668,19 @@ class BusinessRulesTestCase(BaseAPITest):
         ser = EventSerializer(data=event_data, context={'request': request})
 
         if not ser.is_valid():
-            print(f'Event is not valid. Errors are: {ser.errors}')
+            raise ValueError(f'Event is not valid. Errors are: {ser.errors}')
         else:
             event = ser.create(ser.validated_data)
             event = Event.objects.get(id=event.id)
 
+        print(f'Event Details: {event.event_details.latest("updated_at").data}')
+
+        ed = event.event_details.latest('updated_at')
+        ed.data['event_details']['carcassrep_sex'] = {'name': 'Female', 'value': 'female'}
+        ed.save()
+
+        event.state = 'resolved'
+        event.save()
         # Create a notification method
         notification_method = {
             'contact': {
@@ -709,10 +717,8 @@ class BusinessRulesTestCase(BaseAPITest):
                 rule = AlertRule.objects.get(id=rule.id)
                 alert_rules_list.append(rule)
 
-
         send_alert_to_notificationmethod(alert_rule_id=str(rule.id), event_id=str(event.id),
                                          notification_method_id=str(notification_method_id))
-
 
 
     def test_schedule_schema(self):

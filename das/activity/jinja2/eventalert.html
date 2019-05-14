@@ -14,6 +14,17 @@
     </table>
 </div>
 
+<div><p><strong>Pretty Event Details</strong></p>
+<table>
+{%  for key,val in event.pretty_details.items() %}
+    <tr><td>{{ val.title }}</td>
+        <td>{{ val.value }}</td>
+        <td><span style="text-decoration: line-through">{{  val.old_value|safe }}</span></td>
+    </tr>
+{% endfor %}
+    </table>
+</div>
+
 <div style="width:980px;padding:8px;border:1px solid gray;">
     <div>Triggering alert-rule: <strong>{{ alert_rule  }}</strong></div>
 </div>
