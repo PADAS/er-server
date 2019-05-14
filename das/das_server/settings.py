@@ -114,7 +114,7 @@ TEMPLATES = [
         'NAME': 'jinja2',
         'DIRS': [BASE_DIR, ],
         'APP_DIRS': True,
-        'OPTIONS': {'environment': 'jinja2.Environment', },
+        'OPTIONS': {'environment': 'das_server.jinja2.environment'},
     },
 ]
 

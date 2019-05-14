@@ -1533,7 +1533,7 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
         try:
 
             # Guardrail: If the request includes an empty array for either conditions-list, then delete it.
-            for key in ('all','any'):
+            for key in ('all', 'any'):
                 if key in value and len(value[key]) < 1:
                     del value[key]
 

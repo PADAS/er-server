@@ -1,22 +1,17 @@
-<h3>EarthRanger Event Alert</h3>
-<h2>{{ event.time.strftime('%b %d, %Y %H:%M (UTC)') }}</h2>
 
-<div style="width:980px;padding:8px;border:1px solid gray;">
-    <div><strong>{{  event.title }}</strong></div>
-    <div><strong style="color:{{ event.priority }}">Priority: {{ event.priority }}</strong></div>
+<h3>EarthRanger Alert</h3>
+
+
+<div style="width:800px;padding:8px;border:1px solid gray;">
+    <div><strong>{{ event.time.title }}: {{ localtime(event.time.value) }}</strong></div>
+    <div><strong>{{  event.title.value }}</strong></div>
+    <div><strong>{{  event.priority.title }}: </strong><strong style="{{ event.priority.style }}">{{ event.priority.value }}</strong></div>
 </div>
 
-<div><p><strong>Event Details</strong></p>
-<table>
-{%  for key,val in event.details.items() %}
-    <tr><td>{{ key }}</td><td>{{ val }}</td></tr>
-{% endfor %}
-    </table>
-</div>
 
 <div><p><strong>Pretty Event Details</strong></p>
 <table>
-{%  for key,val in event.pretty_details.items() %}
+{%  for key,val in pretty_details.items() %}
     <tr><td>{{ val.title }}</td>
         <td>{{ val.value }}</td>
         <td><span style="text-decoration: line-through">{{  val.old_value|safe }}</span></td>
@@ -25,6 +20,15 @@
     </table>
 </div>
 
-<div style="width:980px;padding:8px;border:1px solid gray;">
+<div style="width:800px;padding:8px;border:1px solid gray;">
     <div>Triggering alert-rule: <strong>{{ alert_rule  }}</strong></div>
+</div>
+
+
+<div><p><strong>Raw Event Details</strong></p>
+<table>
+{%  for key,val in raw_event_details.items() %}
+    <tr><td>{{ key }}</td><td>{{ val }}</td></tr>
+{% endfor %}
+    </table>
 </div>

@@ -62,6 +62,7 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
     print(f'Update Event Details Fields: {json.dumps(updated_event_details_fields, indent=2, default=str)}')
     email_body = render_to_string('eventalert.html', report_context)
 
+    print(email_body)
     if notification_method.method == 'email':
         logger.debug(f"Sending email alert {event_id} to {notification_method.value}")
         send_report(
@@ -156,6 +157,12 @@ def dict_changes(current, previous, ignore_these=('sort_at', 'updated_at', 'crea
 
 from activity.alerting.legacymailer import _get_title_from_schema
 
+priority_label_colors = {'Red': '#c00',
+                         'Amber': '#FFC300',
+                         'Green': '#1D8348'
+                         }
+
+priority_label_color_default = '#566573'
 
 def render_event_alert_context(alert_rule, event, notification_method,
                                event_revisions=None,
@@ -191,21 +198,19 @@ def render_event_alert_context(alert_rule, event, notification_method,
 
             pretty_details[k]['old_value'] = rendered_old_value
 
-        # updated_f = updated_event_details_fields.get(k)
-        # if updated_f is not None:
-        #     pretty_details[k]['old_value'] = updated_f.get('name'])
-
+    priority_color = priority_label_colors.get(event.priority_label, priority_label_color_default)
 
     report_context = {
         'message_subject': create_email_subject(event),
         'alert_rule': alert_rule.title,
         'event': {
-            'time': event.event_time,
-            'priority': event.priority_label,
-            'title': eventdata['title'],
-            'details': eventdata['event_details'],
-            'pretty_details': pretty_details,
-        }
+            'time': {'title': 'Event Time', 'value': event.event_time},
+            'priority': {'title': 'Priority', 'value': event.priority_label,
+                         'style': f'color:{priority_color}'},
+            'title': {'title': 'Title', 'value': eventdata['title']},
+        },
+        'raw_event_details': eventdata['event_details'],
+        'pretty_details': pretty_details,
     }
 
     # extract_event_data(event)

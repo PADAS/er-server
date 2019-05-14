@@ -1,32 +1,26 @@
 from datetime import datetime, timedelta
-import pytz
 
 import jsonschema
-
+import pytz
+from business_rules import actions, fields, variables, export_rule_data
+from business_rules import run_all
+from django.contrib.auth.models import Permission
+from django.core.management import call_command
+from django.template.loader import get_template
 from django.utils import timezone
 
-from django.contrib.auth.models import Permission
-
-from django.core.management import call_command
-
+from accounts.models import PermissionSet
+from accounts.models import User
+from activity.alerting.businessrules import EventActions, EventVariables, _generate_aggregate_event_variables_class, \
+    render_event
+from activity.alerting.service import evaluate_event_on_alertrules
+from activity.alerts_views import AlertRuleListView, NotificationMethodListView, NotificationMethodView
+from activity.models import EventType, Event, AlertRule
+from activity.serializers import EventSerializer, AlertRuleSerializer
+from activity.tasks import send_alert_to_notificationmethod
 from core.tests import BaseAPITest
 from core.utils import NonHttpRequest
-from accounts.models import PermissionSet
-
-from activity.serializers import EventSerializer, AlertRuleSerializer
-from activity.alerts_views import AlertRuleListView, NotificationMethodListView, NotificationMethodView
-
-from business_rules import run_all
-
-from activity.alerting.businessrules import EventActions, EventVariables, _generate_aggregate_event_variables_class, render_event
-from activity.alerting.service import evaluate_event_on_alertrules
 from core.utils import OneWeekSchedule
-
-from accounts.models import User
-
-from activity.models import EventType, Event, AlertRule
-from activity.tasks import send_alert_to_notificationmethod
-from business_rules import actions, fields, variables, export_rule_data
 
 power_user_permissions = [
     'security_read',
@@ -719,6 +713,12 @@ class BusinessRulesTestCase(BaseAPITest):
 
         send_alert_to_notificationmethod(alert_rule_id=str(rule.id), event_id=str(event.id),
                                          notification_method_id=str(notification_method_id))
+
+
+
+    def test_event_alert_template(self):
+
+        get_template('eventalert.html')
 
 
     def test_schedule_schema(self):
