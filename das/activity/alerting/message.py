@@ -43,6 +43,11 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
     updated_event_fields = get_revised_event_fields(event_revision)
     updated_event_details_fields = get_revised_event_details_fields(details_revision)
 
+    if 'priority' in updated_event_fields:
+        updated_event_fields['priority']['new'] = event.get_priority_display()
+        updated_event_fields['priority']['old'] = Event(priority=updated_event_fields['priority']['old'])\
+            .get_priority_display()
+
     report_context = render_event_alert_context(alert_rule, event, notification_method,
                                                 event_revisions=updated_event_fields,
                                                 event_details_revisions=updated_event_details_fields)
