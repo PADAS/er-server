@@ -1,40 +1,199 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
 
-<h3>EarthRanger Alert</h3>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ event.title.value }}</title>
+    <style type="text/css">
+        /* A simple css reset */
+        body,table,thead,tbody,tr,td,img {
+            padding: 0;
+            margin: 0;
+            border: none;
+            border-spacing: 0px;
+            border-collapse: collapse;
+            vertical-align: top;
+        }
+
+        /* Add some padding for small screens */
+        .wrapper {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .column {
+            padding: 10px 0px;
+        }
+
+        h1,h2,h3,h4,h5,h6,p {
+            margin: 0;
+            padding: 0;
+            padding-bottom: 20px;
+            line-height: 1.6;
+            font-family: 'Arial', sans-serif;
+        }
+
+        p,a,li, dl, dt, dd {
+            font-family: 'Arial', sans-serif;
+        }
+
+        img {
+            width: 100%;
+            display: block;
+        }
+
+        span.oldvalue {
+            text-decoration: line-through;
+            color: #808080;
+        }
+
+        .dcol1 {
+            width: 15em;
+            font-weight: bold;
+            bottom-padding: 2px;
+        }
+        .dcol2 {
+            width: 20em;
+            bottom-padding: 2px;
+        }
+        .dcol3 {
+            width: 20em;
+            bottom-padding: 2px;
+        }
+
+        @media only screen and (max-width: 820px) {
+
+            .wrapper .section {
+                width: 100%;
+            }
+
+            .wrapper .column {
+                width: 100%;
+                display: block;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+    <table width="100%">
+        <tbody>
+            <tr>
+                <td class="wrapper" width="800" align="center">
+                    <!-- Header image -->
+                    <table class="section header" cellpadding="0" cellspacing="0" width="800">
+                        <tr>
+                            <td class="column">
+                                <table>
+                                    <tbody>
+                                        <tr>
+                                            <td align="left">
+
+                                                <strong><a href="{{ site_url|safe }}">{{ site_name }}</a></strong>
+                                                <h2><span style="border: none; color: white; padding: 5px 15px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; border-radius: 4px; {{ event.priority.style }}">{{ event.serial_number.value|safe }}&nbsp;{{ event.title.value }}</span>&nbsp;<strike><span style="color:#808080;">{{  event.title.old_value|safe }}</span></strike></h2>
 
 
-<div style="width:800px;padding:8px;border:1px solid gray;">
-    <div><strong>{{ event.title.value }}</strong>  <span style="text-decoration: line-through">{{  event.title.old_value|safe }}</span></div>
-    <div><strong>{{ event.time.title }}: {{ localtime(event.time.value).strftime('%A %b %d, %Y %H:%M (%Z)') }}</strong></div>
-    <div><strong>{{ event.priority.title }}: </strong><strong style="{{ event.priority.style }}">{{ event.priority.value }}</strong><span style="text-decoration: line-through">{{  event.priority.old_value|safe }}</span></div>
-</div>
 
+                                                <table>
+                                                    <tr>
+                                                        <td class="dcol1">{{ event.time.title }}</td>
+                                                        <td class="dcol2">{{ localtime(event.time.value).strftime('%A %b %d, %Y %H:%M (%Z)') }}</td>
+                                                        <td class="dcol3"></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="dcol1">{{ event.priority.title }}</td>
+                                                        <td class="dcol2"><strong>{{ event.priority.value }}</strong></td>
+                                                        <td class="dcol3"><strike><span style="color:#808080;">{{ event.priority.old_value|safe }}</span></strike></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="dcol1">{{ event.location.title }}</td>
+                                                        <td class="dcol2">{{ event.location.value }}</td>
+                                                        {%  if event.location.longitude %}
+                                                            <td class="dcol3"><a style="padding-right:1em;text-decoration: none;color:#05c;" href="{{  event.location.href|safe }}">Google Maps</a>
+                                                            <a style="text-decoration: none;color:#05c;" href="http://maps.apple.com/?q={{ event.location.latitude }},{{ event.location.longitude }}">Apple Maps</a></td>
+                                                        {%  else %}
+                                                            <td class="dcol3"></td>
+                                                        {%  endif %}
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="dcol1">{{ event.reported_by.title }}</td>
+                                                        <td class="dcol2"><strong>{{ event.reported_by.value }}</strong></td>
+                                                        <td class="dcol3"></td>
+                                                    </tr>
+                                                </table>
 
-<div><p><strong>Pretty Event Details</strong></p>
-<table>
-    <tr>
-        <th>Title</th>
-        <th>Value</th>
-        <th>Previous Value</th>
-    </tr>
-{%  for key,val in pretty_details.items() %}
-    <tr>
-        <td>{{ val.title }}</td>
-        <td>{{ val.value }}</td>
-        <td><span style="text-decoration: line-through">{{  val.old_value|safe }}</span></td>
-    </tr>
-{% endfor %}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td class="column">
+                                <table>
+                                    <tbody>
+                                        <tr>
+                                            <td align="left">
+                                                <h3>Report Details</h3>
+                                                <table>
+                                                {%  for key,val in pretty_details.items() %}
+                                                    <tr>
+                                                        <td class="dcol1">{{ val.title }}</td>
+                                                        <td class="dcol2">{{ val.value }}</td>
+                                                        <td class="dcol3"><strike><span style="color:#808080;">{{  val.old_value|safe }}</span></strike></td>
+                                                    </tr>
+                                                {% endfor %}
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td class="column">
+                                <h3>Notes</h3>
+                                <table>
+                                    <tbody>
+                                    {%  for note in notes %}
+                                        <tr>
+                                            <td align="left">
+                                                <div><strong>{{ localtime(note.updated_at).strftime('%A %b %d, %Y %H:%M (%Z)') }}&nbsp;({{ note.username|safe }})</strong><p>{{ note.text|safe  }}</p></div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td class="column">
+                                <table>
+                                    <tbody>
+                                        <tr>
+                                            <td align="left">
+                                                <div>This email was sent by alert rule named: <strong>{{ alert_rule|safe }}</strong></div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                            </td>
+                        </tr>
+
+                    </table>
+
+                </td>
+            </tr>
+        </tbody>
     </table>
-</div>
+</body>
 
-<div style="width:800px;padding:8px;border:1px solid gray;">
-    <div>Triggering alert-rule: <strong>{{ alert_rule  }}</strong></div>
-</div>
-
-
-<div><p><strong>Raw Event Details</strong></p>
-<table>
-{%  for key,val in raw_event_details.items() %}
-    <tr><td>{{ key }}</td><td>{{ val }}</td></tr>
-{% endfor %}
-    </table>
-</div>
+</html>

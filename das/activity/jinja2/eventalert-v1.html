@@ -1,0 +1,32 @@
+
+<div style="width:800px;padding:8px;border:1px solid gray;">
+    <div><strong>{{ event.title.value }}</strong>  <span style="text-decoration: line-through;color:#909090;">{{  event.title.old_value|safe }}</span></div>
+    <div><strong>{{ event.time.title }}: {{ localtime(event.time.value).strftime('%A %b %d, %Y %H:%M (%Z)') }}</strong></div>
+    <div><strong>{{ event.priority.title }}: </strong><strong style="{{ event.priority.style }}">{{ event.priority.value }}</strong><span style="text-decoration: line-through;color: #909090;">{{  event.priority.old_value|safe }}</span></div>
+</div>
+
+
+<div><p><strong>Report Details</strong></p>
+<table>
+{%  for key,val in pretty_details.items() %}
+    <tr>
+        <td>{{ val.title }}</td>
+        <td>{{ val.value }}</td>
+        <td><span style="text-decoration: line-through;color:#909090;">{{  val.old_value|safe }}</span></td>
+    </tr>
+{% endfor %}
+    </table>
+</div>
+
+<div style="width:800px;padding:8px;border:1px solid gray;">
+    <div>Triggering alert-rule: <strong>{{ alert_rule  }}</strong></div>
+</div>
+
+
+<div><p><strong>Raw Event Details</strong></p>
+<table>
+{%  for key,val in raw_event_details.items() %}
+    <tr><td>{{ key }}</td><td>{{ val }}</td></tr>
+{% endfor %}
+    </table>
+</div>

@@ -52,15 +52,16 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
                                                 event_revisions=updated_event_fields,
                                                 event_details_revisions=updated_event_details_fields)
 
-    revisions = []
+    # revisions = []
 
-    if event_revision:
-        revisions.append(f'e;{event_revision.id}')
-    if details_revision:
-        revisions.append(f'd;{details_revision.id};{details_revision.object_id}')
+    # if event_revision:
+    #     revisions.append(f'e;{event_revision.id}')
+    # if details_revision:
+    #     revisions.append(f'd;{details_revision.id};{details_revision.object_id}')
 
-    deep_event_data = extract_event_data(event, notification_method.owner, revisions)
-    print(f'Legacy data: {json.dumps(deep_event_data, indent=2, default=str)}')
+    # deep_event_data = extract_event_data(event, notification_method.owner, revisions)
+    # print(f'Legacy data: {json.dumps(deep_event_data, indent=2, default=str)}')
+
     print(f'Report context: {json.dumps(report_context, indent=2, default=str)}')
 
     print(f'Update Event Fields: {json.dumps(updated_event_fields, indent=2, default=str)}')
@@ -131,15 +132,6 @@ def get_revised_event_details_fields(event_details_revision):
         revision_changes = dict_changes(current_data, previous_data)
         return revision_changes
 
-#
-# def _comparator(this, that):
-#     if type(this) != type(that):
-#         return False
-#
-#     if isinstance(this, dict):
-#         return not any((repr(this[k]) != repr(that[k])) for k in this.keys())
-#     else:
-#         return this != that
 
 def dict_changes(current, previous, ignore_these=('sort_at', 'updated_at', 'created_at')):
     '''
@@ -162,12 +154,12 @@ def dict_changes(current, previous, ignore_these=('sort_at', 'updated_at', 'crea
 
 from activity.alerting.legacymailer import _get_title_from_schema
 
-priority_label_colors = {'Red': '#c00',
-                         'Amber': '#FFC300',
-                         'Green': '#1D8348'
+priority_label_colors = {'Red': '#b00000',
+                         'Amber': '#d97900',
+                         'Green': '#00571c'
                          }
 
-priority_label_color_default = '#566573'
+priority_label_color_default = '#3E4349'
 
 def render_event_alert_context(alert_rule, event, notification_method,
                                event_revisions=None,
@@ -205,17 +197,47 @@ def render_event_alert_context(alert_rule, event, notification_method,
 
     priority_color = priority_label_colors.get(event.priority_label, priority_label_color_default)
 
+    if event.location:
+        location = {
+            'longitude': event.location.x,
+            'latitude': event.location.y,
+            'title': 'Location',
+            'value': f'lon: {event.location.x}, lat: {event.location.y}',
+            'href': f'http://www.google.com/maps/place/{event.location.y},{event.location.x}'
+        }
+    else:
+        location = {
+            'title': 'Location',
+            'value': 'n/a',
+        }
+
+    # Notes
+    notes_list = [
+        {'updated_at': n.updated_at,
+         'text': n.text,
+         'user': n.created_by_user.username if n.created_by_user else 'n/a'
+         }
+        for n in event.notes.all().order_by('-updated_at')
+
+    ]
+
     report_context = {
+        'site_name': settings.UI_SITE_NAME,
+        'site_url': settings.UI_SITE_URL,
         'message_subject': create_email_subject(event),
         'alert_rule': alert_rule.title,
         'event': {
+            'serial_number': {'title': 'Report ID', 'value': event.serial_number},
             'time': {'title': 'Event Time', 'value': event.event_time},
             'priority': {'title': 'Priority', 'value': event.priority_label,
-                         'style': f'color:{priority_color}'},
+                         'style': f'background-color:{priority_color}'},
             'title': {'title': 'Title', 'value': eventdata['title']},
+            'location': location,
+            'reported_by': {"title": "Reported By", "value": event.reported_by.name if event.reported_by else 'n/a' }
         },
         'raw_event_details': eventdata['event_details'],
         'pretty_details': pretty_details,
+        'notes': notes_list,
     }
 
     # extract_event_data(event)
@@ -227,6 +249,6 @@ def create_email_subject(event):
     priority = event.priority_label
     title = event.title or event.event_type.display
 
-    return f"EarthRanger {priority} Alert: [{event.serial_number}] {title}"
+    return f"EarthRanger {priority} Report {event.serial_number}: {title}"
 
 
