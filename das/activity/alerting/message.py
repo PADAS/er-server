@@ -215,7 +215,7 @@ def render_event_alert_context(alert_rule, event, notification_method,
     notes_list = [
         {'updated_at': n.updated_at,
          'text': n.text,
-         'user': n.created_by_user.username if n.created_by_user else 'n/a'
+         'username': n.created_by_user.username if n.created_by_user else 'n/a'
          }
         for n in event.notes.all().order_by('-updated_at')
 
@@ -239,8 +239,6 @@ def render_event_alert_context(alert_rule, event, notification_method,
         'pretty_details': pretty_details,
         'notes': notes_list,
     }
-
-    # extract_event_data(event)
 
     return report_context
 

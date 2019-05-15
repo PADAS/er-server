@@ -6,6 +6,8 @@ from activity.serializers import EventSerializer
 from utils import schema_utils
 from business_rules import actions, fields, variables, export_rule_data
 
+from activity.alerting.variables import case_insensitive_string_rule_variable
+
 from django.utils.translation import ugettext as _
 
 import logging
@@ -40,9 +42,9 @@ class EventVariables(variables.BaseVariables):
     def __init__(self, event):
         self.event = event
 
-    @variables.string_rule_variable(label=_('Title'))
+    @case_insensitive_string_rule_variable(label=_('Title'))
     def title(self):
-        return self.event.get('title')
+        return self.event.get('title') or self.event
 
     @variables.select_multiple_rule_variable(label=_('Priority'), options=priority_options)
     def priority(self):
@@ -153,9 +155,8 @@ def create_new_func(key, return_type, label=None, optionslist=None):
         else:
             return saved_value
 
-
     if return_type == str:
-        return variables.string_rule_variable(label)(string_f)
+        return case_insensitive_string_rule_variable(label)(string_f)
     elif return_type in (int, float):
         return variables.numeric_rule_variable(label)(numeric_f)
     else:

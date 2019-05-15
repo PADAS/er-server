@@ -91,7 +91,7 @@
                                         <tr>
                                             <td align="left">
 
-                                                <strong><a href="{{ site_url|safe }}">{{ site_name }}</a></strong>
+                                                <strong><a style="text-decoration: none;color: #0055cc;" href="{{ site_url|safe }}">{{ site_name }}</a></strong>
                                                 <h2><span style="border: none; color: white; padding: 5px 15px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; border-radius: 4px; {{ event.priority.style }}">{{ event.serial_number.value|safe }}&nbsp;{{ event.title.value }}</span>&nbsp;<strike><span style="color:#808080;">{{  event.title.old_value|safe }}</span></strike></h2>
 
 
@@ -163,7 +163,7 @@
                                     {%  for note in notes %}
                                         <tr>
                                             <td align="left">
-                                                <div><strong>{{ localtime(note.updated_at).strftime('%A %b %d, %Y %H:%M (%Z)') }}&nbsp;({{ note.username|safe }})</strong><p>{{ note.text|safe  }}</p></div>
+                                                <div><strong>{{ localtime(note.updated_at).strftime('%A %b %d, %Y %H:%M (%Z)') }}</strong>&nbsp;({{ note.username|safe }})<p>{{ note.text|safe  }}</p></div>
                                             </td>
                                         </tr>
                                     {% endfor %}

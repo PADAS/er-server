@@ -498,7 +498,7 @@ class BusinessRulesTestCase(BaseAPITest):
                     {
                         "name": "title",
                         "operator": "contains",
-                        "value": "Test Event No"
+                        "value": "test event"
                     },
                     {
                         "name": "priority",
