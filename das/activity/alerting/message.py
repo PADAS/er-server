@@ -4,7 +4,7 @@ import logging
 from django.conf import settings
 from django.db.models import ObjectDoesNotExist
 from django.template.loader import render_to_string
-
+from django.utils import timezone
 import utils
 from activity.alerting.businessrules import render_event
 from activity.models import Event, NotificationMethod, AlertRule
@@ -60,12 +60,14 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         logger.debug(f'Update Event Fields: {json.dumps(updated_event_fields, indent=2, default=str)}')
         logger.debug(f'Update Event Details Fields: {json.dumps(updated_event_details_fields, indent=2, default=str)}')
 
-    email_body = render_to_string('eventalert.html', report_context)
-
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug(f'Sending email body: {email_body}')
 
     if notification_method.method == 'email':
+
+        email_body = render_to_string('eventalert.html', report_context)
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f'Sending email body: {email_body}')
+
         logger.debug(f"Sending email alert {event_id} to {notification_method.value}")
         send_report(
             subject=report_context['message_subject'],
@@ -77,14 +79,11 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
 
     elif notification_method.method.lower() == 'sms':
         logger.debug(f"Sending sms alert {event_id} to {notification_method.value}")
-        parameters = {
-            'serial_number': event.serial_number,
-            'color': 'gray',
-            'title': event.title
-        }
-        sms_body = render_to_string('new_event_sms.txt', parameters).strip()
+        sms_body = render_to_string('eventalert.sms', report_context)
 
-        sms_body = f'EarthRanger Alert ({event.priority}): {event.serial_number} {event.title}'
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f'Sending sms body: {sms_body}')
+
         sendsms.api.send_sms(body=sms_body, from_phone='2062147021', to=[notification_method.value,])
         logger.info(f"Sent sms alert {event_id} to {notification_method.value}")
 
@@ -274,6 +273,9 @@ def render_event_alert_context(alert_rule, event, notification_method,
         reported_by = 'n/a'
 
     report_context = {
+        'alert': {
+            'time': {'title': 'Alert Time', 'value': timezone.now() },
+        },
         'site_name': settings.UI_SITE_NAME,
         'site_url': settings.UI_SITE_URL,
         'message_subject': create_email_subject(event),

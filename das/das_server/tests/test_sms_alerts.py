@@ -157,12 +157,12 @@ class TestEventView(TestCase):
     def time_to_string(self, time):
         return time.strftime('%A, %B %d, %Y at %H:%M')
 
-    def event_manipulation_wrapper(self, event_manipulation_callback):
-        mock_routing.enable_receiver()
-        ret = event_manipulation_callback()
-        mock_routing.disable_receiver()
-        mock_routing.simulate_five_second_wait()
-        return ret
+    # def event_manipulation_wrapper(self, event_manipulation_callback):
+    #     mock_routing.enable_receiver()
+    #     ret = event_manipulation_callback()
+    #     mock_routing.disable_receiver()
+    #     mock_routing.simulate_five_second_wait()
+    #     return ret
 
     # @patch.object(AccountsAbstractUser, 'send_sms')
     # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
@@ -207,149 +207,149 @@ class TestEventView(TestCase):
     #     assert mock_send_sms.call_count == 1
     #     assert mock_send_sms.call_args == mock.call(target_message)
 
-    @patch.object(AccountsAbstractUser, 'send_sms')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_create_event_and_incident(self, mock_get_alert_users, mock_task, mock_send_sms):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        def event_manipulations():
-            child = self.create_event(self.event_data)
-            parent = self.create_event(self.incident_data)
-            EventRelationship.objects.add_relationship(
-                parent, child, 'contains')
-            child.refresh_from_db()
-            parent.refresh_from_db()
-            return child, parent
-
-        result = self.event_manipulation_wrapper(event_manipulations)
-        child = result[0]
-        parent = result[1]
-
-        # Generate the target message
-        target_message = alert_targets.sms_message.format(
-            serial=parent.serial_number,
-            title=parent.title or 'No Title').strip()
-
-        assert mock_send_sms.call_count == 1
-        assert mock_send_sms.call_args == mock.call(target_message)
-
-    @patch.object(AccountsAbstractUser, 'send_sms')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_update_child_event(self, mock_get_alert_users, mock_task, mock_send_sms):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        def event_manipulations():
-            self.child_one.title = 'Now I have a new title'
-            self.child_one.save()
-
-        self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target message
-        target_message = alert_targets.sms_message.format(
-            serial=self.parent_one.serial_number,
-            title=self.parent_one.title or 'No Title').strip()
-
-        assert mock_send_sms.call_count == 1
-        assert mock_send_sms.call_args == mock.call(target_message)
-
-    @patch.object(AccountsAbstractUser, 'send_sms')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_update_parent_event(self, mock_get_alert_users, mock_task,
-                                 mock_send_sms):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        def event_manipulations():
-            self.parent_two.title = 'Now I have a new title'
-            self.parent_two.save()
-            self.parent_two.refresh_from_db()
-
-        self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target message
-        target_message = alert_targets.sms_message.format(
-            serial=self.parent_two.serial_number,
-            title=self.parent_two.title or 'No Title').strip()
-
-        assert mock_send_sms.call_count == 1
-        assert mock_send_sms.call_args == mock.call(target_message)
-
-    @patch.object(AccountsAbstractUser, 'send_sms')
-    @patch('das_server.celery.app.send_task',
-           side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_make_many_updates(self, mock_get_alert_users, mock_task,
-                               mock_send_sms):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        self.new_event = self.create_event(self.event_data)
-
-        def event_manipulations():
-            self.new_event.title = "Title update one"
-            self.new_event.save()
-            self.new_event.title = "Title update two"
-            self.new_event.save()
-            self.new_event.title = "Title update three"
-            self.new_event.save()
-            self.new_event.refresh_from_db()
-
-        self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target message
-        target_message = alert_targets.sms_message.format(
-            serial=self.new_event.serial_number,
-            title=self.new_event.title or 'No Title').strip()
-
-        assert mock_send_sms.call_count == 1
-        assert mock_send_sms.call_args == mock.call(target_message)
-
-    @patch.object(AccountsAbstractUser, 'send_sms')
-    @patch('das_server.celery.app.send_task',
-           side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_make_separate_updates(self, mock_get_alert_users, mock_task,
-                                   mock_send_sms):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        self.new_event = self.create_event(self.event_data)
-
-        def event_manipulations():
-            self.new_event.title = "Title update one"
-            self.new_event.save()
-            EventDetails.objects.create_event_details(
-                event=self.new_event, data=event_schema_data)
-            self.new_event.refresh_from_db()
-
-        self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target message
-        target_message = alert_targets.sms_message.format(
-            serial=self.new_event.serial_number,
-            title=self.new_event.title or 'No Title').strip()
-
-        assert mock_send_sms.call_count == 1
-        assert mock_send_sms.call_args == mock.call(target_message)
-
-        def event_manipulations_two():
-            self.new_event.title = "Title update two"
-            self.new_event.save()
-            EventDetails.objects.create_event_details(
-                event=self.new_event, data=modified_event_schema_data)
-            self.new_event.refresh_from_db()
-
-        self.event_manipulation_wrapper(event_manipulations_two)
-
-        # Generate the target message
-        target_message = alert_targets.sms_message.format(
-            serial=self.new_event.serial_number,
-            title=self.new_event.title or 'No Title',).strip()
-
-        assert mock_send_sms.call_count == 2
-        assert mock_send_sms.call_args == mock.call(target_message)
+    # @patch.object(AccountsAbstractUser, 'send_sms')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_create_event_and_incident(self, mock_get_alert_users, mock_task, mock_send_sms):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         child = self.create_event(self.event_data)
+    #         parent = self.create_event(self.incident_data)
+    #         EventRelationship.objects.add_relationship(
+    #             parent, child, 'contains')
+    #         child.refresh_from_db()
+    #         parent.refresh_from_db()
+    #         return child, parent
+    #
+    #     result = self.event_manipulation_wrapper(event_manipulations)
+    #     child = result[0]
+    #     parent = result[1]
+    #
+    #     # Generate the target message
+    #     target_message = alert_targets.sms_message.format(
+    #         serial=parent.serial_number,
+    #         title=parent.title or 'No Title').strip()
+    #
+    #     assert mock_send_sms.call_count == 1
+    #     assert mock_send_sms.call_args == mock.call(target_message)
+    #
+    # @patch.object(AccountsAbstractUser, 'send_sms')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_update_child_event(self, mock_get_alert_users, mock_task, mock_send_sms):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         self.child_one.title = 'Now I have a new title'
+    #         self.child_one.save()
+    #
+    #     self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target message
+    #     target_message = alert_targets.sms_message.format(
+    #         serial=self.parent_one.serial_number,
+    #         title=self.parent_one.title or 'No Title').strip()
+    #
+    #     assert mock_send_sms.call_count == 1
+    #     assert mock_send_sms.call_args == mock.call(target_message)
+    #
+    # @patch.object(AccountsAbstractUser, 'send_sms')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_update_parent_event(self, mock_get_alert_users, mock_task,
+    #                              mock_send_sms):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         self.parent_two.title = 'Now I have a new title'
+    #         self.parent_two.save()
+    #         self.parent_two.refresh_from_db()
+    #
+    #     self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target message
+    #     target_message = alert_targets.sms_message.format(
+    #         serial=self.parent_two.serial_number,
+    #         title=self.parent_two.title or 'No Title').strip()
+    #
+    #     assert mock_send_sms.call_count == 1
+    #     assert mock_send_sms.call_args == mock.call(target_message)
+    #
+    # @patch.object(AccountsAbstractUser, 'send_sms')
+    # @patch('das_server.celery.app.send_task',
+    #        side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_make_many_updates(self, mock_get_alert_users, mock_task,
+    #                            mock_send_sms):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     self.new_event = self.create_event(self.event_data)
+    #
+    #     def event_manipulations():
+    #         self.new_event.title = "Title update one"
+    #         self.new_event.save()
+    #         self.new_event.title = "Title update two"
+    #         self.new_event.save()
+    #         self.new_event.title = "Title update three"
+    #         self.new_event.save()
+    #         self.new_event.refresh_from_db()
+    #
+    #     self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target message
+    #     target_message = alert_targets.sms_message.format(
+    #         serial=self.new_event.serial_number,
+    #         title=self.new_event.title or 'No Title').strip()
+    #
+    #     assert mock_send_sms.call_count == 1
+    #     assert mock_send_sms.call_args == mock.call(target_message)
+    #
+    # @patch.object(AccountsAbstractUser, 'send_sms')
+    # @patch('das_server.celery.app.send_task',
+    #        side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_make_separate_updates(self, mock_get_alert_users, mock_task,
+    #                                mock_send_sms):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     self.new_event = self.create_event(self.event_data)
+    #
+    #     def event_manipulations():
+    #         self.new_event.title = "Title update one"
+    #         self.new_event.save()
+    #         EventDetails.objects.create_event_details(
+    #             event=self.new_event, data=event_schema_data)
+    #         self.new_event.refresh_from_db()
+    #
+    #     self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target message
+    #     target_message = alert_targets.sms_message.format(
+    #         serial=self.new_event.serial_number,
+    #         title=self.new_event.title or 'No Title').strip()
+    #
+    #     assert mock_send_sms.call_count == 1
+    #     assert mock_send_sms.call_args == mock.call(target_message)
+    #
+    #     def event_manipulations_two():
+    #         self.new_event.title = "Title update two"
+    #         self.new_event.save()
+    #         EventDetails.objects.create_event_details(
+    #             event=self.new_event, data=modified_event_schema_data)
+    #         self.new_event.refresh_from_db()
+    #
+    #     self.event_manipulation_wrapper(event_manipulations_two)
+    #
+    #     # Generate the target message
+    #     target_message = alert_targets.sms_message.format(
+    #         serial=self.new_event.serial_number,
+    #         title=self.new_event.title or 'No Title',).strip()
+    #
+    #     assert mock_send_sms.call_count == 2
+    #     assert mock_send_sms.call_args == mock.call(target_message)
