@@ -444,7 +444,7 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = activity.models.EventType
-        read_only_fields = ('value', 'display', 'ordernum',
+        read_only_fields = ('id', 'value', 'display', 'ordernum',
                             'is_collection', 'category', 'icon_id', 'default_priority',)
         fields = read_only_fields
 
