@@ -551,7 +551,7 @@ jobs:
   - put: image-web-develop
     params: {
       build: git-web,
-      dockerfile: git-web/docker/Dockerfile-develop,
+      dockerfile: git-web/docker/Dockerfile-alerts,
       tag: web-version/version,
       tag_as_latest: ((tag-as-latest)),
     }
