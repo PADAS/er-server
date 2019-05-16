@@ -2,7 +2,7 @@ project-id: padas-app
 version-prefix: dev
 cluster-name: integration
 server-branch-name: develop
-web-branch-name: develop
+web-branch-name: feature/DAS-3443
 tag-as-latest: false
 das-static-ip: 35.197.23.193
 deploy-params-environment: integration
