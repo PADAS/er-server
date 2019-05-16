@@ -3,7 +3,7 @@ from activity.models import Event
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 
-import das_server.tasks as tasks
+# import das_server.tasks as tasks
 import time
 
 
@@ -25,7 +25,7 @@ def mock_event_post_save(sender, instance, created, **kwargs):
     global receiver_enabled
     if receiver_enabled:
         print("---MOCK EVENT POST SAVE---")
-        tasks.queue_event_alert(str(instance.pk))
+        # tasks.queue_event_alert(str(instance.pk))
 
 
 pending_calls_to_check_event_activity = []
