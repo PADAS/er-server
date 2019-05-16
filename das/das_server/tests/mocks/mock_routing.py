@@ -43,15 +43,15 @@ def mock_send_task(name, args=None, kwargs=None, countdown=None,
     if name == 'das_server.tasks.check_event_activity':
         global pending_calls_to_check_event_activity
         pending_calls_to_check_event_activity.append((args[0], args[1]))
-    elif name == 'das_server.tasks.queue_alert_for_all_users':
-        tasks.queue_alert_for_all_users(args[0], args[1])
-    elif name == 'das_server.tasks.send_alert_to_specific_user':
-        tasks.send_alert_to_specific_user(args[0], args[1], args[2])
+    # elif name == 'das_server.tasks.queue_alert_for_all_users':
+    #     tasks.queue_alert_for_all_users(args[0], args[1])
+    # elif name == 'das_server.tasks.send_alert_to_specific_user':
+    #     tasks.send_alert_to_specific_user(args[0], args[1], args[2])
 
 
 def simulate_five_second_wait():
     global pending_calls_to_check_event_activity
     time.sleep(2)
-    for args in pending_calls_to_check_event_activity:
-        tasks.check_event_activity(args[0], args[1])
+    # for args in pending_calls_to_check_event_activity:
+    #     tasks.check_event_activity(args[0], args[1])
     pending_calls_to_check_event_activity = []
