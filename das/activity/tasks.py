@@ -1,16 +1,12 @@
 import logging
 
 from celery_once import QueueOnce
-
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
-from django.template.loader import render_to_string
-from activity.alerting.service import evaluate_event
-from activity.alerting.message import send_event_alert
 
-from activity.models import EventPhoto, Event, EventType, NotificationMethod, AlertRule
-from das_server import celery, mailer
-from reports.distribution import send_report
-from activity.alerting.businessrules import render_event
+from activity.alerting.message import send_event_alert
+from activity.alerting.service import evaluate_event
+from activity.models import EventPhoto, Event, AlertRule
+from das_server import celery
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +28,8 @@ def warm_eventphotos(self, event_photo_id):
         logger.exception('Failed when warming images for event_photo_id {}'.format(event_photo_id))
 
 
-@celery.app.task(bind=True)
-def evaluate_alert_rules(self, event_id):
+@celery.app.task(base=QueueOnce, once={'graceful': True, })
+def evaluate_alert_rules(event_id):
 
     try:
         logger.info('Evaluating Event %s for alerting.', event_id)
@@ -44,7 +40,7 @@ def evaluate_alert_rules(self, event_id):
         # Now we can iterate over them to accumulate the notification methods that should be targeted.
 
         # Resolve distinct list of active NotificationMethod objects for the given set of alert rule IDs.
-        # TODO: revisit ordering by alert-rule to preserve precedencce
+        # TODO: revisit ordering by alert-rule to preserve precedence
         alert_rule_ids = [action['alert_rule_id'] for action in action_list]
 
         already_queued_nids = set() # accumulator for Notification Methods.

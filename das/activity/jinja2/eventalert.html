@@ -179,7 +179,7 @@
                                     <tbody>
                                         <tr>
                                             <td align="left">
-                                                <div>This email was sent by alert rule named: <strong>{{ alert_rule|safe }}</strong></div>
+                                                <div>This email was sent by alert rule named: <strong>{{ alert_rule if alert_rule else '<unnamed>' }}</strong></div>
                                             </td>
                                         </tr>
                                     </tbody>

@@ -44,7 +44,7 @@ class EventVariables(variables.BaseVariables):
 
     @case_insensitive_string_rule_variable(label=_('Title'))
     def title(self):
-        return self.event.get('title') or self.event
+        return self.event.get('title')
 
     @variables.select_multiple_rule_variable(label=_('Priority'), options=priority_options)
     def priority(self):
@@ -290,4 +290,5 @@ def render_event(event, user):
     # This is a covenience function to render an Event
     request = NonHttpRequest()
     request.user = user
+
     return EventSerializer(event, context={'request': request,}).data

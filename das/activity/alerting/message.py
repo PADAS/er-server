@@ -1,13 +1,16 @@
 import json
 import logging
 
+from django.conf import settings
+from django.db.models import ObjectDoesNotExist
 from django.template.loader import render_to_string
 
+import utils
 from activity.alerting.businessrules import render_event
-from activity.alerting.legacymailer import *
 from activity.models import Event, NotificationMethod, AlertRule
-from das_server import mailer
 from reports.distribution import send_report
+
+import sendsms.api
 
 logger = logging.getLogger(__name__)
 
@@ -52,23 +55,16 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
                                                 event_revisions=updated_event_fields,
                                                 event_details_revisions=updated_event_details_fields)
 
-    # revisions = []
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(f'Report context: {json.dumps(report_context, indent=2, default=str)}')
+        logger.debug(f'Update Event Fields: {json.dumps(updated_event_fields, indent=2, default=str)}')
+        logger.debug(f'Update Event Details Fields: {json.dumps(updated_event_details_fields, indent=2, default=str)}')
 
-    # if event_revision:
-    #     revisions.append(f'e;{event_revision.id}')
-    # if details_revision:
-    #     revisions.append(f'd;{details_revision.id};{details_revision.object_id}')
-
-    # deep_event_data = extract_event_data(event, notification_method.owner, revisions)
-    # print(f'Legacy data: {json.dumps(deep_event_data, indent=2, default=str)}')
-
-    print(f'Report context: {json.dumps(report_context, indent=2, default=str)}')
-
-    print(f'Update Event Fields: {json.dumps(updated_event_fields, indent=2, default=str)}')
-    print(f'Update Event Details Fields: {json.dumps(updated_event_details_fields, indent=2, default=str)}')
     email_body = render_to_string('eventalert.html', report_context)
 
-    print(email_body)
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(f'Sending email body: {email_body}')
+
     if notification_method.method == 'email':
         logger.debug(f"Sending email alert {event_id} to {notification_method.value}")
         send_report(
@@ -86,13 +82,49 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
             'color': 'gray',
             'title': event.title
         }
-        msg = render_to_string('new_event_sms.txt', parameters).strip()
-        mailer.send_sms(msg, notification_method.value)
+        sms_body = render_to_string('new_event_sms.txt', parameters).strip()
+
+        sms_body = f'EarthRanger Alert ({event.priority}): {event.serial_number} {event.title}'
+        sendsms.api.send_sms(body=sms_body, from_phone='2062147021', to=[notification_method.value,])
         logger.info(f"Sent sms alert {event_id} to {notification_method.value}")
 
     else:
         logger.error(f"Unsupported NotifcationMethod ({notification_method.method})"
                      f" when processing event:{event_id} for notification: {notification_method.id}")
+
+
+def resolve_event_revisions(event):
+    '''
+    We end up in this code path in a few ways. Some data associated with the
+    event has changed, but it could be the event itself or the event_details
+    which contains the schema data. Or it could be both. It all depends on
+    what fields were changed in the event update.
+
+    To figure out what change(s) brought us here, we need to look at the
+    timestamps on the latest revisions to both the event and eventdetails
+    objects and see which one is newer.
+
+    :param event_id:
+    :return:
+    '''
+    revision = event.revision.all_user().latest('revision_at')
+    try:
+        details_revision = event.event_details.latest('updated_at') \
+            .revision.all_user().latest('revision_at')
+    except AttributeError:
+        return revision, None
+
+    diff = (revision.revision_at - details_revision.revision_at).total_seconds()
+
+    # If the timestamps are < 1 second apart, they were very likely made
+    # together
+    if abs(diff) < 1:
+        return revision, details_revision
+    # If the changes are farther apart, take the later one only
+    elif diff < 0:
+        return None, details_revision
+    else:
+        return revision, None
 
 
 def get_revised_event_fields(event_revision):
@@ -125,8 +157,6 @@ def get_revised_event_details_fields(event_details_revision):
     except ObjectDoesNotExist:
         return {}
     else:
-        print(f'Previous revision is: {previous_version}')
-
         current_data = event_details_revision.data['data'].get('event_details')
         previous_data = previous_version.data['data'].get('event_details')
         revision_changes = dict_changes(current_data, previous_data)
@@ -152,7 +182,19 @@ def dict_changes(current, previous, ignore_these=('sort_at', 'updated_at', 'crea
     return changes
 
 
-from activity.alerting.legacymailer import _get_title_from_schema
+def _get_title_from_schema(key, schema):
+
+    properties = schema['properties']
+    if key in properties and 'title' in properties[key]:
+        return properties[key]['title']
+
+    definitions = schema.get('definitions', [])
+
+    for definition_dictionary in [x for x in definitions if isinstance(x, dict)]:
+        if definition_dictionary['key'] == key:
+            return definition_dictionary['title']
+
+    return None
 
 priority_label_colors = {'Red': '#b00000',
                          'Amber': '#d97900',
@@ -221,6 +263,16 @@ def render_event_alert_context(alert_rule, event, notification_method,
 
     ]
 
+    # Resolve a nice display for "Reported By"
+    reported_by = event.reported_by
+
+    if hasattr(reported_by, 'get_full_name'):
+        reported_by = reported_by.get_full_name()
+    elif hasattr(reported_by, 'name'):
+        reported_by = reported_by.name
+    else:
+        reported_by = 'n/a'
+
     report_context = {
         'site_name': settings.UI_SITE_NAME,
         'site_url': settings.UI_SITE_URL,
@@ -233,7 +285,7 @@ def render_event_alert_context(alert_rule, event, notification_method,
                          'style': f'background-color:{priority_color}'},
             'title': {'title': 'Title', 'value': eventdata['title']},
             'location': location,
-            'reported_by': {"title": "Reported By", "value": event.reported_by.name if event.reported_by else 'n/a' }
+            'reported_by': {"title": "Reported By", "value": reported_by }
         },
         'raw_event_details': eventdata['event_details'],
         'pretty_details': pretty_details,
