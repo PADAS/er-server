@@ -15,8 +15,8 @@ from unittest.mock import patch
 from unittest import mock
 from mockredis import mock_redis_client
 
-import das_server.tests.mocks.mock_routing as mock_routing
-import das_server.tests.alert_targets as alert_targets
+# import das_server.tests.mocks.mock_routing as mock_routing
+# import das_server.tests.alert_targets as alert_targets
 
 User = django.contrib.auth.get_user_model()
 ET_OTHER = 'other'
@@ -164,48 +164,48 @@ class TestEventView(TestCase):
         mock_routing.simulate_five_second_wait()
         return ret
 
-    @patch.object(AccountsAbstractUser, 'send_sms')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_create_new_standalone_event(self, mock_get_alert_users, mock_task, mock_send_sms):
+    # @patch.object(AccountsAbstractUser, 'send_sms')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_create_new_standalone_event(self, mock_get_alert_users, mock_task, mock_send_sms):
+    #
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         new_event = self.create_event(self.event_data)
+    #         new_event.refresh_from_db()
+    #         return new_event
+    #
+    #     new_event = self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target message
+    #     target_message = alert_targets.sms_message.format(
+    #         serial=new_event.serial_number,
+    #         title=new_event.title or 'No Title').strip()
+    #
+    #     mock_send_sms.assert_called_once_with(target_message)
 
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        def event_manipulations():
-            new_event = self.create_event(self.event_data)
-            new_event.refresh_from_db()
-            return new_event
-
-        new_event = self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target message
-        target_message = alert_targets.sms_message.format(
-            serial=new_event.serial_number,
-            title=new_event.title or 'No Title').strip()
-
-        mock_send_sms.assert_called_once_with(target_message)
-
-    @patch.object(AccountsAbstractUser, 'send_sms')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_update_existing_event(self, mock_get_alert_users, mock_task, mock_send_sms):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        def event_manipulations():
-            EventDetails.objects.create_event_details(
-                event=self.standalone_event, data=event_schema_data)
-
-        self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target message
-        target_message = alert_targets.sms_message.format(
-            serial=self.standalone_event.serial_number,
-            title=self.standalone_event.title or 'No Title').strip()
-
-        assert mock_send_sms.call_count == 1
-        assert mock_send_sms.call_args == mock.call(target_message)
+    # @patch.object(AccountsAbstractUser, 'send_sms')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_update_existing_event(self, mock_get_alert_users, mock_task, mock_send_sms):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         EventDetails.objects.create_event_details(
+    #             event=self.standalone_event, data=event_schema_data)
+    #
+    #     self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target message
+    #     target_message = alert_targets.sms_message.format(
+    #         serial=self.standalone_event.serial_number,
+    #         title=self.standalone_event.title or 'No Title').strip()
+    #
+    #     assert mock_send_sms.call_count == 1
+    #     assert mock_send_sms.call_args == mock.call(target_message)
 
     @patch.object(AccountsAbstractUser, 'send_sms')
     @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
