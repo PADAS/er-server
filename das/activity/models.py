@@ -1,16 +1,11 @@
-import uuid
 import datetime
-import pytz
 import logging
-from operator import itemgetter, attrgetter
 import re
+import uuid
+from operator import itemgetter, attrgetter
 
 import django.utils
-from django.utils import dateparse
-from django.db import transaction
-from django.db.models import Prefetch, Q, F, Func
-from django.db.models.signals import post_save
-from django.core.exceptions import ValidationError
+import pytz
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -19,19 +14,23 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import Q, F, Func
+from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import dateparse
 from django.utils import timezone
-from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
+from django.utils.translation import ugettext_lazy as _
 from versatileimagefield.fields import VersatileImageField
 
-from utils.html import clean_user_text
-from core.models import TimestampedModel
-import usercontent.models
-from observations.models import Subject
 from accounts.models.permissionset import PermissionSet
-from revision.manager import Revision, RevisionMixin
+from core.models import TimestampedModel
 from core.utils import static_image_finder
+from observations.models import Subject
+from revision.manager import Revision, RevisionMixin
+from utils.html import clean_user_text
 
 logger = logging.getLogger(__name__)
 
@@ -1256,5 +1255,33 @@ class AlertRule(TimestampedModel):
     def is_conditional(self):
         return bool(self.conditions)
 
+    @property
+    def display_title(self):
+        if self.title: return self.title
 
-# class AlertLog(TimestampedModel):
+        n = self.event_types.count()
+        if n > 1:
+            return f'Alert ({ n } report types)'
+
+        return f'{self.event_types.first().display} Reports'
+
+
+class EventNotificationLogManager(models.Manager):
+    pass
+
+
+# class EventNotificationLog(TimestampedModel):
+#
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     alert_rule = models.ForeignKey(AlertRule, on_delete=models.SET_NULL)
+#
+#     event = models.ForeignKey(Event, on_delete=models.SET_NULL)
+#     event_sequence = models.IntegerField()
+#     event_details_sequence = models.IntegerField()
+#
+#     additional = models.JSONFIeld(default=dict, blank=True)
+#
+#     # Manager
+#     objects = EventNotificationLogManager()
+
+

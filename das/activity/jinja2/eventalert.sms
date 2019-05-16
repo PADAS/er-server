@@ -1,4 +1,5 @@
-EarthRanger Alert ({{ event.priority.title }}: {{ event.priority.value }}\n
-{{ event.serial_number.value }} {{ event.title.value }}\n
-{{ alert.time.title }}: {{ localtime(alert.time.value).strftime('%A %b %d, %Y %H:%M (%Z)') }}\n
+EarthRanger
+{{ event.priority.title }}: {{ event.priority.value }}
+{{ event.serial_number.value }}: {{ event.title.value }}
+{{ alert.time.title }}: {{ localtime(alert.time.value).strftime('%A %b %d, %Y %H:%M (%Z)') }}
 {{ site_url }}

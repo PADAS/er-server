@@ -279,7 +279,7 @@ def render_event_alert_context(alert_rule, event, notification_method,
         'site_name': settings.UI_SITE_NAME,
         'site_url': settings.UI_SITE_URL,
         'message_subject': create_email_subject(event),
-        'alert_rule': alert_rule.title,
+        'alert_rule': alert_rule.display_title,
         'event': {
             'serial_number': {'title': 'Report ID', 'value': event.serial_number},
             'time': {'title': 'Event Time', 'value': event.event_time},
