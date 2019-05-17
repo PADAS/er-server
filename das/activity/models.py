@@ -701,6 +701,13 @@ class Event(RevisionMixin, TimestampedModel):
     sort_at = models.DateTimeField(blank=True)
 
     @property
+    def display_title(self):
+        if self.title:
+            return self.title
+
+        return self.event_type.display
+
+    @property
     def priority_label(self):
         return self.get_priority_display()
 

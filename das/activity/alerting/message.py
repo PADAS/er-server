@@ -272,6 +272,16 @@ def render_event_alert_context(alert_rule, event, notification_method,
     else:
         reported_by = 'n/a'
 
+    # State
+    state = {'title': 'State', 'value': event.state.title()}
+    if 'state' in event_revisions and 'old' in event_revisions['state']:
+        state['old_value'] = event_revisions['state'].get('old', '').title()
+
+    # Priority
+    priority = {'title': 'Priority', 'value': event.priority_label, 'style': f'background-color:{priority_color}'}
+    if 'priority' in event_revisions and 'old' in event_revisions['priority']:
+        priority['old_vallue'] = event_revisions['priority'].get('old')
+
     report_context = {
         'alert': {
             'time': {'title': 'Alert Time', 'value': timezone.now() },
@@ -281,11 +291,12 @@ def render_event_alert_context(alert_rule, event, notification_method,
         'message_subject': create_email_subject(event),
         'alert_rule': alert_rule.display_title,
         'event': {
+            'state': state,
+            'resolved': event.state == 'resolved',
             'serial_number': {'title': 'Report ID', 'value': event.serial_number},
             'time': {'title': 'Event Time', 'value': event.event_time},
-            'priority': {'title': 'Priority', 'value': event.priority_label,
-                         'style': f'background-color:{priority_color}'},
-            'title': {'title': 'Title', 'value': eventdata['title']},
+            'priority': priority,
+            'title': {'title': 'Title', 'value': event.display_title},
             'location': location,
             'reported_by': {"title": "Reported By", "value": reported_by }
         },
@@ -300,7 +311,8 @@ def render_event_alert_context(alert_rule, event, notification_method,
 def create_email_subject(event):
     priority = event.priority_label
     title = event.title or event.event_type.display
+    resolved = 'Resolved ' if event.state == 'resolved' else ''
 
-    return f"EarthRanger {priority} Report {event.serial_number}: {title}"
+    return f"{resolved}EarthRanger {priority} Report {event.serial_number}: {title}"
 
 

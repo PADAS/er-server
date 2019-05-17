@@ -94,7 +94,9 @@
                                                 <strong><a style="text-decoration: none;color: #0055cc;" href="{{ site_url|safe }}">{{ site_name }}</a></strong>
                                                 <h2><span style="border: none; color: white; padding: 5px 15px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; border-radius: 4px; {{ event.priority.style }}">{{ event.serial_number.value|safe }}&nbsp;{{ event.title.value }}</span>&nbsp;<strike><span style="color:#808080;">{{  event.title.old_value|safe }}</span></strike></h2>
 
-
+                                                {% if event.state.resolved %}
+                                                    <h2>{{ event.state.value.title() }}</h2>
+                                                {%  endif %}
 
                                                 <table>
                                                     <tr>
@@ -107,7 +109,12 @@
                                                         <td class="dcol2"><strong>{{ event.priority.value }}</strong></td>
                                                         <td class="dcol3"><strike><span style="color:#808080;">{{ event.priority.old_value|safe }}</span></strike></td>
                                                     </tr>
-                                                    <tr>
+                                                     <tr>
+                                                        <td class="dcol1">{{ event.state.title }}</td>
+                                                        <td class="dcol2"><strong>{{ event.state.value }}</strong></td>
+                                                        <td class="dcol3"><strike><span style="color:#808080;">{{ event.state.old_value|safe }}</span></strike></td>
+                                                    </tr>
+                                                   <tr>
                                                         <td class="dcol1">{{ event.location.title }}</td>
                                                         <td class="dcol2">{{ event.location.value }}</td>
                                                         {%  if event.location.longitude %}
@@ -155,6 +162,7 @@
                             </td>
                         </tr>
 
+                    {%  if notes %}
                         <tr>
                             <td class="column">
                                 <h3>Notes</h3>
@@ -172,7 +180,7 @@
 
                             </td>
                         </tr>
-
+                    {% endif %}
                         <tr>
                             <td class="column">
                                 <table>
