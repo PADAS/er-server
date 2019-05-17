@@ -91,8 +91,9 @@
                                         <tr>
                                             <td align="left">
 
-                                                <strong><a style="text-decoration: none;color: #0055cc;" href="{{ site_url|safe }}">{{ site_name }}</a></strong>
                                                 <h2><span style="border: none; color: white; padding: 5px 15px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; border-radius: 4px; {{ event.priority.style }}">{{ event.serial_number.value|safe }}&nbsp;{{ event.title.value }}</span>&nbsp;<strike><span style="color:#808080;">{{  event.title.old_value|safe }}</span></strike></h2>
+
+                                                <p>See more details at <strong><a style="text-decoration: none;color: #0055cc;" href="{{ site_url|safe }}">{{ site_name }}</a></strong></p>
 
                                                 {% if event.state.resolved %}
                                                     <h2>{{ event.state.value.title() }}</h2>
@@ -117,7 +118,7 @@
                                                    <tr>
                                                         <td class="dcol1">{{ event.location.title }}</td>
                                                         <td class="dcol2">{{ event.location.value }}</td>
-                                                        {%  if event.location.longitude %}
+                                                        {%  if event.location.longitude and event.location.latitude %}
                                                             <td class="dcol3"><a style="padding-right:1em;text-decoration: none;color:#05c;" href="{{  event.location.href|safe }}">Google Maps</a>
                                                             <a style="text-decoration: none;color:#05c;" href="http://maps.apple.com/?q={{ event.location.latitude }},{{ event.location.longitude }}">Apple Maps</a></td>
                                                         {%  else %}
@@ -149,7 +150,7 @@
                                                 {%  for key,val in pretty_details.items() %}
                                                     <tr>
                                                         <td class="dcol1">{{ val.title }}</td>
-                                                        <td class="dcol2">{{ val.value }}</td>
+                                                        <td class="dcol2">{{ val.value if val.value else '-' }}</td>
                                                         <td class="dcol3"><strike><span style="color:#808080;">{{  val.old_value|safe }}</span></strike></td>
                                                     </tr>
                                                 {% endfor %}
