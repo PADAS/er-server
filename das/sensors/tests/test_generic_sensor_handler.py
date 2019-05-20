@@ -83,7 +83,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         obs_list = [x for x in self._generate_observations(300, distinct=True)]
         response = self._post_data(json.dumps(obs_list))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(300, Observation.objects.all().count())
+        self.assertEqual(300, Observation.objects.count())
 
     def test_post_two_different_ids(self):
         response = self._post_data(json.dumps(self.one_observation))
@@ -95,6 +95,14 @@ class GenericSensorHandlerTest(BaseAPITest):
         response = self._post_data(json.dumps(local_obs))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(2, Observation.objects.filter(source__provider=self.test_sourceprovider).count())
+
+    def test_post_one_request_two_srcs(self):
+        Source.objects.create(source_type=self.source_type, provider=self.test_sourceprovider, manufacturer_id='mfg_id')
+        new_obs = dict(self.one_observation)
+        new_obs.update(manufacturer_id='mfg_id')
+        response = self._post_data(json.dumps([self.one_observation, new_obs]))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(2, Observation.objects.count())
 
     def _generate_observations(self, n=10, distinct=False):
         for i in range(n):
