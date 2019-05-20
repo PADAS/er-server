@@ -60,6 +60,10 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
                                                 event_updated_fields=updated_event_fields,
                                                 event_details_updated_fields=updated_event_details_fields)
 
+    if not report_context:
+        logger.info(f'No report context for event {event.serial_number} and notification_method {notification_method_id}')
+        return
+
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug(f'Report context: {json.dumps(report_context, indent=2, default=str)}')
         logger.debug(f'Update Event Fields: {json.dumps(updated_event_fields, indent=2, default=str)}')
@@ -226,6 +230,9 @@ def render_event_alert_context(alert_rule, event, notification_method,
     '''
     eventdata = render_event(event, notification_method.owner)
 
+    if not eventdata:
+        return None
+
     eventdata['title'] = eventdata['title'] or event.title
 
     logger.debug('Rendered event: %s', json.dumps(eventdata, indent=2, default=str))
@@ -322,8 +329,6 @@ def render_event_alert_context(alert_rule, event, notification_method,
         'pretty_details': pretty_details,
         'notes': notes_list,
     }
-
-    report_context['report_context'] = json.dumps(report_context, indent=2, default=str)
 
     return report_context
 

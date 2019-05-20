@@ -7,6 +7,7 @@ from utils import schema_utils
 from business_rules import actions, fields, variables, export_rule_data
 
 from activity.alerting.variables import case_insensitive_string_rule_variable
+from activity.permissions import EventCategoryPermissions
 
 from django.utils.translation import ugettext as _
 
@@ -286,9 +287,15 @@ def render_aggregate_event_variables(event_types, only_common_factors=False):
     return rules
 
 
-def render_event(event, user):
+def render_event(event, user, method='GET'):
     # This is a covenience function to render an Event
     request = NonHttpRequest()
+    request.method = method
     request.user = user
 
-    return EventSerializer(event, context={'request': request,}).data
+    if EventCategoryPermissions().has_object_permission(request, None, event):
+        return EventSerializer(event, context={'request': request,}).data
+    else:
+        logger.info(f'Permission denied when rendering event {event.serial_number} for user {user}.')
+        return None
+
