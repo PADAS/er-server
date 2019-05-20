@@ -1,10 +1,14 @@
 import json
 import logging
+from datetime import datetime, timedelta
+import pytz
 
 from django.conf import settings
 from django.db.models import ObjectDoesNotExist
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.translation import ugettext_lazy as _
+
 import utils
 from activity.alerting.businessrules import render_event
 from activity.models import Event, NotificationMethod, AlertRule
@@ -48,18 +52,18 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
 
     if 'priority' in updated_event_fields:
         updated_event_fields['priority']['new'] = event.get_priority_display()
-        updated_event_fields['priority']['old'] = Event(priority=updated_event_fields['priority']['old'])\
+        updated_event_fields['priority']['old'] = Event(priority=updated_event_fields['priority']['old']) \
             .get_priority_display()
 
     report_context = render_event_alert_context(alert_rule, event, notification_method,
-                                                event_revisions=updated_event_fields,
-                                                event_details_revisions=updated_event_details_fields)
+                                                event_revision=event_revision,
+                                                event_updated_fields=updated_event_fields,
+                                                event_details_updated_fields=updated_event_details_fields)
 
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug(f'Report context: {json.dumps(report_context, indent=2, default=str)}')
         logger.debug(f'Update Event Fields: {json.dumps(updated_event_fields, indent=2, default=str)}')
         logger.debug(f'Update Event Details Fields: {json.dumps(updated_event_details_fields, indent=2, default=str)}')
-
 
     if notification_method.method == 'email':
 
@@ -84,7 +88,7 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f'Sending sms body: {sms_body}')
 
-        sendsms.api.send_sms(body=sms_body, from_phone='2062147021', to=[notification_method.value,])
+        sendsms.api.send_sms(body=sms_body, from_phone='2062147021', to=[notification_method.value, ])
         logger.info(f"Sent sms alert {event_id} to {notification_method.value}")
 
     else:
@@ -127,7 +131,6 @@ def resolve_event_revisions(event):
 
 
 def get_revised_event_fields(event_revision):
-
     if not event_revision:
         return {}
 
@@ -152,7 +155,8 @@ def get_revised_event_details_fields(event_details_revision):
         return {}
 
     try:
-        previous_version = event_details_revision.get_previous_by_revision_at(object_id=event_details_revision.object_id)
+        previous_version = event_details_revision.get_previous_by_revision_at(
+            object_id=event_details_revision.object_id)
     except ObjectDoesNotExist:
         return {}
     else:
@@ -182,7 +186,6 @@ def dict_changes(current, previous, ignore_these=('sort_at', 'updated_at', 'crea
 
 
 def _get_title_from_schema(key, schema):
-
     properties = schema['properties']
     if key in properties and 'title' in properties[key]:
         return properties[key]['title']
@@ -195,16 +198,24 @@ def _get_title_from_schema(key, schema):
 
     return None
 
-priority_label_colors = {'Red': '#b00000',
-                         'Amber': '#d97900',
-                         'Green': '#00571c'
-                         }
+
+priority_label_colors = {
+    'Red': '#b00000',
+    'Amber': '#d97900',
+    'Green': '#00571c'
+}
 
 priority_label_color_default = '#3E4349'
 
+
+def coerce_state_value(val):
+    return _('Resolved') if val == 'resolved' else _('Active')
+
+
 def render_event_alert_context(alert_rule, event, notification_method,
-                               event_revisions=None,
-                               event_details_revisions=None):
+                               event_revision=None,
+                               event_updated_fields=None,
+                               event_details_updated_fields=None):
     '''
     Render an alert context for the given parameters. Assume that the parameters are
     valid and that permissions have been respected.
@@ -228,7 +239,7 @@ def render_event_alert_context(alert_rule, event, notification_method,
         rendered_value = internal_value.get('name') if isinstance(internal_value, dict) else internal_value
         pretty_details[k] = {'title': key_display,
                              'value': rendered_value}
-        old_internal_value = event_details_revisions.get(k)
+        old_internal_value = event_details_updated_fields.get(k)
         if old_internal_value:
             old_internal_value = old_internal_value.get('old')
             rendered_old_value = old_internal_value.get('name') \
@@ -253,14 +264,17 @@ def render_event_alert_context(alert_rule, event, notification_method,
         }
 
     # Notes
+    current_time = datetime.now(tz=pytz.utc)
     notes_list = [
         {'updated_at': n.updated_at,
          'text': n.text,
-         'username': n.created_by_user.username if n.created_by_user else 'n/a'
+         'username': n.created_by_user.username if n.created_by_user else 'n/a',
+         'recently_updated': abs((event.updated_at - n.updated_at).total_seconds()) <= 2
          }
         for n in event.notes.all().order_by('-updated_at')
-
     ]
+
+
 
     # Resolve a nice display for "Reported By"
     reported_by = event.reported_by
@@ -273,24 +287,28 @@ def render_event_alert_context(alert_rule, event, notification_method,
         reported_by = 'n/a'
 
     # State
-    state = {'title': 'State', 'value': event.state.title()}
-    if 'state' in event_revisions and 'old' in event_revisions['state']:
-        state['old_value'] = event_revisions['state'].get('old', '').title()
+    state = {'title': 'State', 'value': coerce_state_value(event.state)}
+    if 'state' in event_updated_fields and 'old' in event_updated_fields['state']:
+        state['old_value'] = coerce_state_value(event_updated_fields['state'].get('old', ''))
 
     # Priority
     priority = {'title': 'Priority', 'value': event.priority_label, 'style': f'background-color:{priority_color}'}
-    if 'priority' in event_revisions and 'old' in event_revisions['priority']:
-        priority['old_vallue'] = event_revisions['priority'].get('old')
+    if 'priority' in event_updated_fields and 'old' in event_updated_fields['priority']:
+        priority['old_value'] = event_updated_fields['priority'].get('old')
+
+    revision_action = event_revision.action if event_revision else 'updated'
+    message_subject = ' '.join((create_email_subject(event), f'({revision_action})'))
 
     report_context = {
         'alert': {
-            'time': {'title': 'Alert Time', 'value': timezone.now() },
+            'time': {'title': 'Alert Time', 'value': timezone.now()},
         },
         'site_name': settings.UI_SITE_NAME,
         'site_url': settings.UI_SITE_URL,
-        'message_subject': create_email_subject(event),
+        'message_subject': message_subject,
         'alert_rule': alert_rule.display_title,
         'event': {
+            'revision_action': revision_action,
             'state': state,
             'resolved': event.state == 'resolved',
             'serial_number': {'title': 'Report ID', 'value': event.serial_number},
@@ -298,12 +316,14 @@ def render_event_alert_context(alert_rule, event, notification_method,
             'priority': priority,
             'title': {'title': 'Title', 'value': event.display_title},
             'location': location,
-            'reported_by': {"title": "Reported By", "value": reported_by }
+            'reported_by': {"title": "Reported By", "value": reported_by}
         },
         'raw_event_details': eventdata['event_details'],
         'pretty_details': pretty_details,
         'notes': notes_list,
     }
+
+    report_context['report_context'] = json.dumps(report_context, indent=2, default=str)
 
     return report_context
 
@@ -311,8 +331,5 @@ def render_event_alert_context(alert_rule, event, notification_method,
 def create_email_subject(event):
     priority = event.priority_label
     title = event.title or event.event_type.display
-    resolved = 'Resolved ' if event.state == 'resolved' else ''
-
-    return f"{resolved}EarthRanger {priority} Report {event.serial_number}: {title}"
-
-
+    # resolved = 'Resolved ' if event.state == 'resolved' else ''
+    return f"EarthRanger {priority} Report {event.serial_number}: {title}"
