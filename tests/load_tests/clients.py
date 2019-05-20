@@ -101,6 +101,7 @@ class OAuthClient(HttpSession):
     def request(self, method, url, name=None, catch_response=False, **kwargs):
         headers = kwargs.get('headers', {})
         headers['Authorization'] = f'Bearer {self.oauth_token}'
+        kwargs['headers'] = headers
 
         super().request(method, url, name=name, catch_response=catch_response, **kwargs)
 
@@ -108,7 +109,9 @@ class OAuthClient(HttpSession):
 class APIClient:
     def __init__(self, host, port, scheme, oauth_token):
         url = f"{scheme}://{host}:{port}/api/v1.0/"
+        web_url = f"{scheme}://{host}:{port}"
         self.http = OAuthClient(base_url=url, oauth_token=oauth_token)
+        self.web = HttpSession(base_url=web_url)
         self.rtsocket = RTSocketIOClient(host, port, scheme, oauth_token)
 
     def connect(self):
@@ -125,6 +128,10 @@ class APIClient:
 
     def send_bbox_filter(self, bbox=None):
         self.rtsocket.send_bbox_filter(bbox)
+
+    def web_request(self, method, url, name=None, catch_response=False, **kwargs):
+        self.web.request(method, url, name=None,
+                         catch_response=False, **kwargs)
 
     def request(self, method, url, name=None, catch_response=False, **kwargs):
         self.http.request(method, url, name=None,
