@@ -217,344 +217,344 @@ class TestEventView(TestCase):
         mock_routing.simulate_five_second_wait()
         return ret
 
-    @patch.object(AccountsAbstractUser, 'email_user')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_create_new_standalone_event(self, mock_get_alert_users, mock_task, mock_send_email):
+    # @patch.object(AccountsAbstractUser, 'email_user')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_create_new_standalone_event(self, mock_get_alert_users, mock_task, mock_send_email):
+    #
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         new_event = self.create_event(self.event_data)
+    #         new_event.refresh_from_db()
+    #         return new_event
+    #
+    #     new_event = self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target email fields
+    #     target_body = alert_targets.standalone_event_create.format(
+    #         serial=new_event.serial_number,
+    #         title=new_event.title or 'No Title',
+    #         time=self.time_to_string(new_event.time),
+    #         icon_id=new_event.icon_id).strip()
+    #     target_subject = alert_targets.target_subject.format(
+    #         serial=new_event.serial_number,
+    #         title=new_event.title)
+    #
+    #     # Make sure the mocks were called the correct number of times with the
+    #     # correct values
+    #     self.assertEqual(mock_get_alert_users.call_count, 1)
+    #     self.assertEqual(mock_send_email.call_args, mock.call(
+    #         target_subject, target_body, alert_targets.target_from_address))
 
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
+    # @patch.object(AccountsAbstractUser, 'email_user')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_update_existing_event(self, mock_get_alert_users, mock_task, mock_send_email):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         EventDetails.objects.create_event_details(
+    #             event=self.standalone_event, data=event_schema_data)
+    #
+    #     self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target email fields
+    #     target_body = alert_targets.standalone_event_update.format(
+    #         serial=self.standalone_event.serial_number,
+    #         title=self.standalone_event.title or 'No Title',
+    #         time=self.time_to_string(self.standalone_event.time),
+    #         icon_id=self.standalone_event.icon_id).strip()
+    #     target_subject = alert_targets.target_subject.format(
+    #         serial=self.standalone_event.serial_number,
+    #         title=self.standalone_event.title)
+    #
+    #     # Make sure the mocks were called the correct number of times with the
+    #     # correct values
+    #     self.assertEqual(mock_get_alert_users.call_count, 1)
+    #     self.assertEqual(mock_send_email.call_args, mock.call(target_subject, target_body,
+    #                                                           alert_targets.target_from_address))
 
-        def event_manipulations():
-            new_event = self.create_event(self.event_data)
-            new_event.refresh_from_db()
-            return new_event
+    # @patch.object(AccountsAbstractUser, 'email_user')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_create_event_and_incident(self, mock_get_alert_users, mock_task, mock_send_email):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         child = self.create_event(self.event_data)
+    #         parent = self.create_event(self.incident_data)
+    #         EventRelationship.objects.add_relationship(
+    #             parent, child, 'contains')
+    #         child.refresh_from_db()
+    #         parent.refresh_from_db()
+    #         return child, parent
+    #
+    #     result = self.event_manipulation_wrapper(event_manipulations)
+    #     child = result[0]
+    #     parent = result[1]
+    #
+    #     # Generate the target email fields
+    #     target_body = alert_targets.new_parent_new_child.format(
+    #         parent_serial=parent.serial_number,
+    #         parent_title=parent.title or 'No Title',
+    #         parent_time=self.time_to_string(parent.time),
+    #         parent_icon_id=parent.icon_id,
+    #         child_serial=child.serial_number,
+    #         child_title=child.title or 'No Title',
+    #         child_time=self.time_to_string(child.time),
+    #         child_icon_id = child.icon_id).strip()
+    #     target_subject = alert_targets.target_subject.format(
+    #         serial=parent.serial_number,
+    #         title=parent.title)
+    #
+    #     self.assertEqual(mock_get_alert_users.call_count, 1)
+    #     self.assertEqual(mock_send_email.call_args, mock.call(
+    #         target_subject, target_body, alert_targets.target_from_address))
 
-        new_event = self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target email fields
-        target_body = alert_targets.standalone_event_create.format(
-            serial=new_event.serial_number,
-            title=new_event.title or 'No Title',
-            time=self.time_to_string(new_event.time),
-            icon_id=new_event.icon_id).strip()
-        target_subject = alert_targets.target_subject.format(
-            serial=new_event.serial_number,
-            title=new_event.title)
-
-        # Make sure the mocks were called the correct number of times with the
-        # correct values
-        self.assertEqual(mock_get_alert_users.call_count, 1)
-        self.assertEqual(mock_send_email.call_args, mock.call(
-            target_subject, target_body, alert_targets.target_from_address))
-
-    @patch.object(AccountsAbstractUser, 'email_user')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_update_existing_event(self, mock_get_alert_users, mock_task, mock_send_email):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        def event_manipulations():
-            EventDetails.objects.create_event_details(
-                event=self.standalone_event, data=event_schema_data)
-
-        self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target email fields
-        target_body = alert_targets.standalone_event_update.format(
-            serial=self.standalone_event.serial_number,
-            title=self.standalone_event.title or 'No Title',
-            time=self.time_to_string(self.standalone_event.time),
-            icon_id=self.standalone_event.icon_id).strip()
-        target_subject = alert_targets.target_subject.format(
-            serial=self.standalone_event.serial_number,
-            title=self.standalone_event.title)
-
-        # Make sure the mocks were called the correct number of times with the
-        # correct values
-        self.assertEqual(mock_get_alert_users.call_count, 1)
-        self.assertEqual(mock_send_email.call_args, mock.call(target_subject, target_body,
-                                                              alert_targets.target_from_address))
-
-    @patch.object(AccountsAbstractUser, 'email_user')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_create_event_and_incident(self, mock_get_alert_users, mock_task, mock_send_email):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        def event_manipulations():
-            child = self.create_event(self.event_data)
-            parent = self.create_event(self.incident_data)
-            EventRelationship.objects.add_relationship(
-                parent, child, 'contains')
-            child.refresh_from_db()
-            parent.refresh_from_db()
-            return child, parent
-
-        result = self.event_manipulation_wrapper(event_manipulations)
-        child = result[0]
-        parent = result[1]
-
-        # Generate the target email fields
-        target_body = alert_targets.new_parent_new_child.format(
-            parent_serial=parent.serial_number,
-            parent_title=parent.title or 'No Title',
-            parent_time=self.time_to_string(parent.time),
-            parent_icon_id=parent.icon_id,
-            child_serial=child.serial_number,
-            child_title=child.title or 'No Title',
-            child_time=self.time_to_string(child.time),
-            child_icon_id = child.icon_id).strip()
-        target_subject = alert_targets.target_subject.format(
-            serial=parent.serial_number,
-            title=parent.title)
-
-        self.assertEqual(mock_get_alert_users.call_count, 1)
-        self.assertEqual(mock_send_email.call_args, mock.call(
-            target_subject, target_body, alert_targets.target_from_address))
-
-    @patch.object(AccountsAbstractUser, 'email_user')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_update_child_event(self, mock_get_alert_users, mock_task, mock_send_email):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        def event_manipulations():
-            self.child_one.title = 'Now I have a new title'
-            self.child_one.save()
-
-        self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target email fields
-        target_body = alert_targets.unchanged_parent_updated_child.format(
-            parent_serial=self.parent_one.serial_number,
-            parent_title=self.parent_one.title or 'No Title',
-            parent_time=self.time_to_string(self.parent_one.time),
-            parent_icon_id=self.parent_one.icon_id,
-            child_serial=self.child_one.serial_number,
-            child_title=self.child_one.title or 'No Title',
-            child_time=self.time_to_string(self.child_one.time),
-            child_icon_id=self.child_one.icon_id).strip()
-        target_subject = alert_targets.target_subject.format(
-            serial=self.parent_one.serial_number,
-            title=self.parent_one.title)
-
-        self.assertEqual(mock_get_alert_users.call_count, 1)
-        self.assertEqual(mock_send_email.call_args, mock.call(
-            target_subject, target_body, alert_targets.target_from_address))
-
-    @patch.object(AccountsAbstractUser, 'email_user')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_update_parent_event(self, mock_get_alert_users, mock_task,
-                                 mock_send_email):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        def event_manipulations():
-            self.parent_two.title = 'Now I have a new title'
-            self.parent_two.save()
-            self.parent_two.refresh_from_db()
-
-        self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target email fields
-        target_body = alert_targets.updated_parent_unchanged_child.format(
-            parent_serial=self.parent_two.serial_number,
-            parent_title=self.parent_two.title or 'No Title',
-            parent_time=self.time_to_string(self.parent_two.time),
-            parent_icon_id=self.parent_two.icon_id,
-            child_serial=self.child_two.serial_number,
-            child_title=self.child_two.title or 'No Title',
-            child_time=self.time_to_string(self.child_two.time),
-            child_icon_id=self.child_two.icon_id).strip()
-        target_subject = alert_targets.target_subject.format(
-            serial=self.parent_two.serial_number,
-            title=self.parent_two.title)
-
-        self.assertEqual(mock_get_alert_users.call_count, 1)
-        self.assertEqual(mock_send_email.call_args, mock.call(
-            target_subject, target_body, alert_targets.target_from_address))
-
-    @patch.object(AccountsAbstractUser, 'email_user')
-    @patch('das_server.celery.app.send_task',
-           side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_make_many_updates(self, mock_get_alert_users, mock_task,
-                               mock_send_email):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        self.new_event = self.create_event(self.event_data)
-
-        def event_manipulations():
-            self.new_event.title = "Title update one"
-            self.new_event.save()
-            self.new_event.title = "Title update two"
-            self.new_event.save()
-            self.new_event.title = "Title update three"
-            self.new_event.save()
-            self.new_event.refresh_from_db()
-
-        self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target email fields
-        target_body = alert_targets.multi_update_event.format(
-            serial=self.new_event.serial_number,
-            title=self.new_event.title or 'No Title',
-            time=self.time_to_string(self.new_event.time),
-            icon_id=self.new_event.icon_id).strip()
-
-
-        target_subject = alert_targets.target_subject.format(
-            serial=self.new_event.serial_number,
-            title=self.new_event.title)
-
-        self.assertEqual(mock_get_alert_users.call_count, 1)
-        self.assertEqual(mock_send_email.call_args, mock.call(
-            target_subject, target_body, alert_targets.target_from_address))
-
-    @patch.object(AccountsAbstractUser, 'email_user')
-    @patch('das_server.celery.app.send_task',
-           side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_make_separate_updates(self, mock_get_alert_users, mock_task,
-                                   mock_send_email):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        self.new_event = self.create_event(self.event_data)
-
-        def event_manipulations():
-            self.new_event.title = "Title update one"
-            self.new_event.save()
-            EventDetails.objects.create_event_details(
-                event=self.new_event, data=event_schema_data)
-            self.new_event.refresh_from_db()
-
-        self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target email fields
-        target_body = alert_targets.separate_update_event_one.format(
-            serial=self.new_event.serial_number,
-            title=self.new_event.title or 'No Title',
-            time=self.time_to_string(self.new_event.time),
-            icon_id=self.new_event.icon_id).strip()
-        target_subject = alert_targets.target_subject.format(
-            serial=self.new_event.serial_number,
-            title=self.new_event.title)
-
-        self.assertEqual(mock_get_alert_users.call_count, 1)
-        self.assertEqual(mock_send_email.call_args, mock.call(
-            target_subject, target_body, alert_targets.target_from_address))
-
-        def event_manipulations_two():
-            self.new_event.title = "Title update two"
-            self.new_event.save()
-            EventDetails.objects.create_event_details(
-                event=self.new_event, data=modified_event_schema_data)
-            self.new_event.refresh_from_db()
-
-        self.event_manipulation_wrapper(event_manipulations_two)
-
-        # Generate the target email fields
-        target_body = alert_targets.separate_update_event_two.format(
-            serial=self.new_event.serial_number,
-            title=self.new_event.title or 'No Title',
-            time=self.time_to_string(self.new_event.time),
-            icon_id=self.new_event.icon_id).strip()
-        target_subject = alert_targets.target_subject.format(
-            serial=self.new_event.serial_number,
-            title=self.new_event.title)
-
-        self.assertEqual(mock_send_email.call_args, mock.call(
-            target_subject, target_body, alert_targets.target_from_address))
-
-    @patch.object(AccountsAbstractUser, 'email_user')
-    @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_single_alert_with_deep_link(self, mock_get_alert_users, mock_task, mock_send_email):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        def event_manipulations():
-            self.new_event = self.create_event(self.event_data)
-            EventRelatedSubject.objects.create(
-                event=self.new_event, subject=self.ranger_one)
-            self.new_event.refresh_from_db()
-
-        self.event_manipulation_wrapper(event_manipulations)
-
-        # Generate the target email fields
-        target_body = alert_targets.standalone_deep_link.format(
-            serial=self.new_event.serial_number,
-            title=self.new_event.title or 'No Title',
-            time_deeplink_format=self.time_to_deeplink_string(
-                self.new_event.time),
-            time=self.time_to_string(self.new_event.time),
-            icon_id=self.new_event.icon_id).strip()
-        target_subject = alert_targets.target_subject.format(
-            serial=self.new_event.serial_number,
-            title=self.new_event.title)
-
-        self.assertEqual(mock_get_alert_users.call_count, 1)
-        # self.assertEqual(mock_send_email.call_args, mock.call(
-        #     target_subject, target_body, alert_targets.target_from_address))
-
-    @patch.object(AccountsAbstractUser, 'email_user')
-    @patch('das_server.celery.app.send_task',
-           side_effect=mock_routing.mock_send_task)
-    @patch('das_server.tasks.get_alert_users')
-    def test_nested_alert_with_deep_link(self, mock_get_alert_users,
-                                         mock_task,
-                                         mock_send_email):
-        # Configure mocks
-        mock_get_alert_users.return_value = [self.user]
-
-        def event_manipulations():
-            child = self.create_event(self.event_data)
-            parent = self.create_event(self.incident_data)
-            EventRelationship.objects.add_relationship(
-                parent, child, 'contains')
-            child.refresh_from_db()
-            parent.refresh_from_db()
-            return child, parent
-
-        result = self.event_manipulation_wrapper(event_manipulations)
-        child = result[0]
-        parent = result[1]
-
-        # Generate the target email fields
-        target_body = alert_targets.nested_deep_link.format(
-            parent_serial=parent.serial_number,
-            parent_title=parent.title or 'No Title',
-            parent_time=self.time_to_string(parent.time),
-            parent_icon_id=parent.icon_id,
-            child_serial=child.serial_number,
-            child_title=child.title or 'No Title',
-            time_deeplink_format=self.time_to_deeplink_string(child.time),
-            child_time=self.time_to_string(child.time),
-            child_icon_id = child.icon_id).strip()
-        target_subject = alert_targets.target_subject.format(
-            serial=parent.serial_number,
-            title=parent.title)
-
-        self.assertEqual(mock_get_alert_users.call_count, 1)
-        # self.assertEqual(mock_send_email.call_args, mock.call(
-        #     target_subject, target_body, alert_targets.target_from_address))
-
-    def _unidiff_output(self, expected, actual):
-        """
-        Helper function. Returns a string containing the unified diff of two multiline strings.
-        """
-
-        import difflib
-        expected = expected.splitlines(1)
-        actual = actual.splitlines(1)
-
-        diff = difflib.unified_diff(expected, actual)
-
-        return ''.join(diff)
+    # @patch.object(AccountsAbstractUser, 'email_user')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_update_child_event(self, mock_get_alert_users, mock_task, mock_send_email):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         self.child_one.title = 'Now I have a new title'
+    #         self.child_one.save()
+    #
+    #     self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target email fields
+    #     target_body = alert_targets.unchanged_parent_updated_child.format(
+    #         parent_serial=self.parent_one.serial_number,
+    #         parent_title=self.parent_one.title or 'No Title',
+    #         parent_time=self.time_to_string(self.parent_one.time),
+    #         parent_icon_id=self.parent_one.icon_id,
+    #         child_serial=self.child_one.serial_number,
+    #         child_title=self.child_one.title or 'No Title',
+    #         child_time=self.time_to_string(self.child_one.time),
+    #         child_icon_id=self.child_one.icon_id).strip()
+    #     target_subject = alert_targets.target_subject.format(
+    #         serial=self.parent_one.serial_number,
+    #         title=self.parent_one.title)
+    #
+    #     self.assertEqual(mock_get_alert_users.call_count, 1)
+    #     self.assertEqual(mock_send_email.call_args, mock.call(
+    #         target_subject, target_body, alert_targets.target_from_address))
+    #
+    # @patch.object(AccountsAbstractUser, 'email_user')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_update_parent_event(self, mock_get_alert_users, mock_task,
+    #                              mock_send_email):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         self.parent_two.title = 'Now I have a new title'
+    #         self.parent_two.save()
+    #         self.parent_two.refresh_from_db()
+    #
+    #     self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target email fields
+    #     target_body = alert_targets.updated_parent_unchanged_child.format(
+    #         parent_serial=self.parent_two.serial_number,
+    #         parent_title=self.parent_two.title or 'No Title',
+    #         parent_time=self.time_to_string(self.parent_two.time),
+    #         parent_icon_id=self.parent_two.icon_id,
+    #         child_serial=self.child_two.serial_number,
+    #         child_title=self.child_two.title or 'No Title',
+    #         child_time=self.time_to_string(self.child_two.time),
+    #         child_icon_id=self.child_two.icon_id).strip()
+    #     target_subject = alert_targets.target_subject.format(
+    #         serial=self.parent_two.serial_number,
+    #         title=self.parent_two.title)
+    #
+    #     self.assertEqual(mock_get_alert_users.call_count, 1)
+    #     self.assertEqual(mock_send_email.call_args, mock.call(
+    #         target_subject, target_body, alert_targets.target_from_address))
+    #
+    # @patch.object(AccountsAbstractUser, 'email_user')
+    # @patch('das_server.celery.app.send_task',
+    #        side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_make_many_updates(self, mock_get_alert_users, mock_task,
+    #                            mock_send_email):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     self.new_event = self.create_event(self.event_data)
+    #
+    #     def event_manipulations():
+    #         self.new_event.title = "Title update one"
+    #         self.new_event.save()
+    #         self.new_event.title = "Title update two"
+    #         self.new_event.save()
+    #         self.new_event.title = "Title update three"
+    #         self.new_event.save()
+    #         self.new_event.refresh_from_db()
+    #
+    #     self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target email fields
+    #     target_body = alert_targets.multi_update_event.format(
+    #         serial=self.new_event.serial_number,
+    #         title=self.new_event.title or 'No Title',
+    #         time=self.time_to_string(self.new_event.time),
+    #         icon_id=self.new_event.icon_id).strip()
+    #
+    #
+    #     target_subject = alert_targets.target_subject.format(
+    #         serial=self.new_event.serial_number,
+    #         title=self.new_event.title)
+    #
+    #     self.assertEqual(mock_get_alert_users.call_count, 1)
+    #     self.assertEqual(mock_send_email.call_args, mock.call(
+    #         target_subject, target_body, alert_targets.target_from_address))
+    #
+    # @patch.object(AccountsAbstractUser, 'email_user')
+    # @patch('das_server.celery.app.send_task',
+    #        side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_make_separate_updates(self, mock_get_alert_users, mock_task,
+    #                                mock_send_email):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     self.new_event = self.create_event(self.event_data)
+    #
+    #     def event_manipulations():
+    #         self.new_event.title = "Title update one"
+    #         self.new_event.save()
+    #         EventDetails.objects.create_event_details(
+    #             event=self.new_event, data=event_schema_data)
+    #         self.new_event.refresh_from_db()
+    #
+    #     self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target email fields
+    #     target_body = alert_targets.separate_update_event_one.format(
+    #         serial=self.new_event.serial_number,
+    #         title=self.new_event.title or 'No Title',
+    #         time=self.time_to_string(self.new_event.time),
+    #         icon_id=self.new_event.icon_id).strip()
+    #     target_subject = alert_targets.target_subject.format(
+    #         serial=self.new_event.serial_number,
+    #         title=self.new_event.title)
+    #
+    #     self.assertEqual(mock_get_alert_users.call_count, 1)
+    #     self.assertEqual(mock_send_email.call_args, mock.call(
+    #         target_subject, target_body, alert_targets.target_from_address))
+    #
+    #     def event_manipulations_two():
+    #         self.new_event.title = "Title update two"
+    #         self.new_event.save()
+    #         EventDetails.objects.create_event_details(
+    #             event=self.new_event, data=modified_event_schema_data)
+    #         self.new_event.refresh_from_db()
+    #
+    #     self.event_manipulation_wrapper(event_manipulations_two)
+    #
+    #     # Generate the target email fields
+    #     target_body = alert_targets.separate_update_event_two.format(
+    #         serial=self.new_event.serial_number,
+    #         title=self.new_event.title or 'No Title',
+    #         time=self.time_to_string(self.new_event.time),
+    #         icon_id=self.new_event.icon_id).strip()
+    #     target_subject = alert_targets.target_subject.format(
+    #         serial=self.new_event.serial_number,
+    #         title=self.new_event.title)
+    #
+    #     self.assertEqual(mock_send_email.call_args, mock.call(
+    #         target_subject, target_body, alert_targets.target_from_address))
+    #
+    # @patch.object(AccountsAbstractUser, 'email_user')
+    # @patch('das_server.celery.app.send_task', side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_single_alert_with_deep_link(self, mock_get_alert_users, mock_task, mock_send_email):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         self.new_event = self.create_event(self.event_data)
+    #         EventRelatedSubject.objects.create(
+    #             event=self.new_event, subject=self.ranger_one)
+    #         self.new_event.refresh_from_db()
+    #
+    #     self.event_manipulation_wrapper(event_manipulations)
+    #
+    #     # Generate the target email fields
+    #     target_body = alert_targets.standalone_deep_link.format(
+    #         serial=self.new_event.serial_number,
+    #         title=self.new_event.title or 'No Title',
+    #         time_deeplink_format=self.time_to_deeplink_string(
+    #             self.new_event.time),
+    #         time=self.time_to_string(self.new_event.time),
+    #         icon_id=self.new_event.icon_id).strip()
+    #     target_subject = alert_targets.target_subject.format(
+    #         serial=self.new_event.serial_number,
+    #         title=self.new_event.title)
+    #
+    #     self.assertEqual(mock_get_alert_users.call_count, 1)
+    #     # self.assertEqual(mock_send_email.call_args, mock.call(
+    #     #     target_subject, target_body, alert_targets.target_from_address))
+    #
+    # @patch.object(AccountsAbstractUser, 'email_user')
+    # @patch('das_server.celery.app.send_task',
+    #        side_effect=mock_routing.mock_send_task)
+    # @patch('das_server.tasks.get_alert_users')
+    # def test_nested_alert_with_deep_link(self, mock_get_alert_users,
+    #                                      mock_task,
+    #                                      mock_send_email):
+    #     # Configure mocks
+    #     mock_get_alert_users.return_value = [self.user]
+    #
+    #     def event_manipulations():
+    #         child = self.create_event(self.event_data)
+    #         parent = self.create_event(self.incident_data)
+    #         EventRelationship.objects.add_relationship(
+    #             parent, child, 'contains')
+    #         child.refresh_from_db()
+    #         parent.refresh_from_db()
+    #         return child, parent
+    #
+    #     result = self.event_manipulation_wrapper(event_manipulations)
+    #     child = result[0]
+    #     parent = result[1]
+    #
+    #     # Generate the target email fields
+    #     target_body = alert_targets.nested_deep_link.format(
+    #         parent_serial=parent.serial_number,
+    #         parent_title=parent.title or 'No Title',
+    #         parent_time=self.time_to_string(parent.time),
+    #         parent_icon_id=parent.icon_id,
+    #         child_serial=child.serial_number,
+    #         child_title=child.title or 'No Title',
+    #         time_deeplink_format=self.time_to_deeplink_string(child.time),
+    #         child_time=self.time_to_string(child.time),
+    #         child_icon_id = child.icon_id).strip()
+    #     target_subject = alert_targets.target_subject.format(
+    #         serial=parent.serial_number,
+    #         title=parent.title)
+    #
+    #     self.assertEqual(mock_get_alert_users.call_count, 1)
+    #     # self.assertEqual(mock_send_email.call_args, mock.call(
+    #     #     target_subject, target_body, alert_targets.target_from_address))
+    #
+    # def _unidiff_output(self, expected, actual):
+    #     """
+    #     Helper function. Returns a string containing the unified diff of two multiline strings.
+    #     """
+    #
+    #     import difflib
+    #     expected = expected.splitlines(1)
+    #     actual = actual.splitlines(1)
+    #
+    #     diff = difflib.unified_diff(expected, actual)
+    #
+    #     return ''.join(diff)

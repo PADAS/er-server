@@ -1,12 +1,11 @@
 import logging
 
-from django.db.models.signals import post_save, post_delete
 from django.db import transaction
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
+from activity.models import Event, EventPhoto
 from das_server import celery
-
-from activity.models import Event, EventNote, EventPhoto
 from das_server import pubsub
 
 logger = logging.getLogger(__name__)
@@ -19,6 +18,11 @@ def event_post_save(sender, instance, created, **kwargs):
     transaction.on_commit(lambda: pubsub.publish(
         {'event_id': str(instance.pk)},
         'das.event.new' if created else 'das.event.update'))
+
+    transaction.on_commit(lambda:
+                          celery.app.send_task(
+                              'activity.tasks.evaluate_alert_rules', args=(str(instance.id),))
+                          )
 
 
 @receiver(post_delete, sender=Event)

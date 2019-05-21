@@ -3,11 +3,12 @@ import traceback
 import copy
 from collections import OrderedDict
 
+from core.serializers import ContentTypeField
 from choices.serializers import ChoiceField
-from django.utils.encoding import force_text
 from django.contrib.gis.geos import Point
 from django.urls import reverse
 from django.core.exceptions import PermissionDenied
+from django.core.validators import EmailValidator, RegexValidator
 from django.contrib.auth import get_user_model
 from django.http import Http404
 import django.db
@@ -27,7 +28,7 @@ from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 import versatileimagefield.files
 # Make dictionaries from the IMAGE_SETS, to make lookups a little easier.
-from versatileimagefield.utils import get_resized_path, get_rendition_key_set, IMAGE_SETS
+from versatileimagefield.utils import IMAGE_SETS
 IMAGE_RENDITION_SETS = dict((k, dict(v)) for k, v in IMAGE_SETS.items())
 import jsonschema
 import jsonschema.exceptions
@@ -38,14 +39,15 @@ from utils.json import loads
 from utils.drf import PointValidator
 import activity.models
 import utils
+from core.utils import OneWeekSchedule
 from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
-from observations.serializers import SubjectSerializer, SourceSerializer, get_subject_display
+from observations.serializers import SubjectSerializer, get_subject_display
 from observations.models import Subject
-from analyzers.serializers import SubjectAnalyzerResultSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 import utils.schema_utils as schema_utils
-from activity.models import EventRelationship
 import usercontent.serializers
+
+from activity.alerting.conditions import Conditions
 
 
 logger = logging.getLogger(__name__)
@@ -1468,3 +1470,147 @@ class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
                                                 args=[obj.id, ]))
 
         return rep
+
+
+PHONE_NUMBER_VALIDATOR = RegexValidator(regex=r'^\+?1?[-\d]{9,15}$', message="Not a valid phone number.")
+
+
+class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
+
+    owner = rest_framework.serializers.HiddenField(default=rest_framework.serializers.CurrentUserDefault())
+
+    contact = rest_framework.serializers.DictField()
+
+    class Meta:
+        model = activity.models.NotificationMethod
+        read_only_fields = ('id', 'owner',)
+        fields = ('title', 'contact', 'is_active',) + read_only_fields
+
+    def to_representation(self, instance):
+
+        instance.contact = {'method': instance.method,
+                            'value': instance.value}
+        rep = super().to_representation(instance)
+
+        rep['owner'] = {
+            'username': instance.owner.username
+        }
+
+        rep['url'] = utils.add_base_url(self.context['request'],
+                                        reverse('notificationmethod-view',
+                                                args=[instance.id, ]))
+        return rep
+
+    def create(self, validated_data):
+        contact = validated_data.pop('contact')
+        validated_data['method'] = contact['method']
+        validated_data['value'] = contact['value']
+        return super().create(validated_data)
+
+    def validate_contact(self, value):
+
+        if value['method'] == 'email':
+            try:
+                EmailValidator()(value['value'])
+            except django.core.exceptions.ValidationError:
+                raise ValidationError({'contact.value': 'Must be a valid email address when using contact.method=\'email\''})
+
+        elif value['method'] == 'sms':
+            try:
+                PHONE_NUMBER_VALIDATOR(value['value'])
+            except django.core.exceptions.ValidationError:
+                raise ValidationError({'contact.value': 'Must be a valid phone number when using contact.method=\'sms\''})
+
+        return value
+
+    def update(self, instance, validated_data):
+        contact = validated_data.pop('contact')
+        validated_data['method'] = contact['method']
+        validated_data['value'] = contact['value']
+        return super().update(instance, validated_data)
+
+
+class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
+    '''
+    Notice that 'notification_methods' and 'notification_method_ids' work together to provide clean read-write
+    capabilities in this serializer.
+
+    See: https://stackoverflow.com/questions/29950956/drf-simple-foreign-key-assignment-with-nested-serializers
+    '''
+
+    reportTypes = rest_framework.serializers.SlugRelatedField(
+        queryset=activity.models.EventType.objects.all(),
+        many=True, write_only=False,
+        slug_field='value', source='event_types')
+
+    conditions = rest_framework.serializers.JSONField(required=False, default=dict)
+    schedule = rest_framework.serializers.JSONField(required=False, default=dict)
+
+    owner = rest_framework.serializers.HiddenField(default=rest_framework.serializers.CurrentUserDefault())
+
+    notification_method_ids = rest_framework.serializers.PrimaryKeyRelatedField(
+        queryset=activity.models.NotificationMethod.objects.all(),
+        many=True, write_only=False, source='notification_methods')
+    notification_methods = NotificationMethodSerializer(many=True, read_only=True)
+
+    class Meta:
+        exclude = ('event_types',) # 'notification_methods',)
+        model = activity.models.AlertRule
+        read_only_fields = ('id', 'owner_username', 'notification_methods',)
+
+    def validate_schedule(self, value):
+
+        try:
+            jsonschema.validate(value, OneWeekSchedule.json_schema)
+            return value
+        except jsonschema.ValidationError as ve:
+            rpath = '/'.join([''] + [str(x) for x in ve.relative_path])
+            error_message = f'JSON schema validation error at {rpath}. Value {ve.instance} failed {ve.validator} ' \
+                f'validation against {ve.validator_value}'
+            raise rest_framework.serializers.ValidationError(error_message)
+
+    def validate_conditions(self, value):
+        try:
+
+            # Guardrail: If the request includes an empty array for either conditions-list, then delete it.
+            for key in ('all', 'any'):
+                if key in value and len(value[key]) < 1:
+                    del value[key]
+
+            Conditions(value).validate()
+            return value
+
+        except jsonschema.ValidationError as ve:
+            rpath = '/'.join([''] + [str(x) for x in ve.relative_path])
+            error_message = f'JSON schema validation error at {rpath}. Value {ve.instance} failed {ve.validator} ' \
+                f'validation against {ve.validator_value}'
+            raise rest_framework.serializers.ValidationError(error_message)
+
+    def to_representation(self, instance):
+
+        rep = super().to_representation(instance)
+        rep['owner'] = {
+            'username': instance.owner.username
+        }
+
+        rep['conditions'].setdefault('all', [])
+        rep['conditions'].setdefault('any', [])
+
+        rep['url'] = utils.add_base_url(self.context['request'],
+                                        reverse('alert-view',
+                                                args=[instance.id, ]))
+
+        return rep
+
+    def update(self, instance, validated_data):
+
+        notification_method_ids = validated_data.pop('notification_method_ids', None)
+
+        if notification_method_ids:
+            instance.notification_methods.clear()
+            instance.notification_methods.add(*notification_method_ids)
+
+        return super().update(instance, validated_data)
+
+
+
