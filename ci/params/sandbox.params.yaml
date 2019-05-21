@@ -7,4 +7,7 @@ namespace: sandbox
 iaas: gcp
 das-static-ip: 104.196.227.146
 iaas-workspace: padas-app
+deploy-params-environment: production
 deployment-plan: integration
+initial-server-version: "1.69.0"
+initial-web-version: "1.69.0"
