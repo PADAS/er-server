@@ -1214,6 +1214,13 @@ class EventsourceEvent(TimestampedModel):
 class NotificationMethodManager(models.Manager):
     pass
 
+
+NOTIFICATION_METHOD_CHOICES = (
+    ('email', _('Email')),
+    ('sms', _('SMS')),
+)
+
+
 class NotificationMethod(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -1224,7 +1231,7 @@ class NotificationMethod(TimestampedModel):
 
     title = models.CharField(max_length=100, blank=True)
 
-    method = models.CharField(default='email', max_length=20, choices=(('email', _('Email')), ('sms', _('SMS')),))
+    method = models.CharField(default='email', max_length=20, choices=NOTIFICATION_METHOD_CHOICES)
     value = models.CharField(default='', max_length=100, help_text=_('A phone number or email address.'))
 
     is_active = models.BooleanField(default=True, help_text=_('Whether messages should be sent to this method.'))
@@ -1273,22 +1280,28 @@ class AlertRule(TimestampedModel):
         return f'{self.event_types.first().display} Reports'
 
 
-class EventNotificationLogManager(models.Manager):
+class EventNotificationManager(models.Manager):
     pass
 
 
-# class EventNotificationLog(TimestampedModel):
-#
-#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-#     alert_rule = models.ForeignKey(AlertRule, on_delete=models.SET_NULL)
-#
-#     event = models.ForeignKey(Event, on_delete=models.SET_NULL)
-#     event_sequence = models.IntegerField()
-#     event_details_sequence = models.IntegerField()
-#
-#     additional = models.JSONFIeld(default=dict, blank=True)
-#
-#     # Manager
-#     objects = EventNotificationLogManager()
+class EventNotification(TimestampedModel):
+
+    id = models.BigAutoField(primary_key=True)
+
+    method = models.CharField(default='email', max_length=20, choices=NOTIFICATION_METHOD_CHOICES)
+    value = models.CharField(default='', max_length=100, help_text=_('A phone number or email address.'))
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='event_notifications', related_query_name='event_notification')
+
+    event = models.ForeignKey(Event, null=True, on_delete=models.SET_NULL)
+
+    objects = EventNotificationManager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['event'])
+        ]
 
 

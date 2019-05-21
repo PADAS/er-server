@@ -100,8 +100,10 @@
                                         <tr>
                                             <td align="left">
 
-                                                <h3><span>{{ event.serial_number.value }}&nbsp;{{ event.title.value }} ({{ event.revision_action.title() }})</span>&nbsp;<strike><span style="color:#808080;">{{  event.title.old_value if event.title.old_value else '' }}</span></strike></h3>
-
+                                                <p>
+                                                <span style="font-size:1.5em;font-weight:bold;">{{ event.serial_number.value }}&nbsp;{{ event.title.value }}</span>&nbsp;
+                                                    &nbsp;<strike><span style="color:#808080;font-size:1.5em;">{{  event.title.old_value if event.title.old_value else '' }}</span></strike>
+                                                    <br /><strong>{{ event.revision_action.title() }}:</strong> {{ localtime(alert.time.value).strftime('%A %b %d, %Y %H:%M (%Z)') }}</p>
                                                 <p>See more details in <strong><a style="text-decoration: none;color: #0055cc;" href="{{ site_url }}">{{ site_name }}</a></strong></p>
 
                                                 {% if event.state.resolved %}

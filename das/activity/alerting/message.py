@@ -11,7 +11,7 @@ from django.utils.translation import ugettext_lazy as _
 
 import utils
 from activity.alerting.businessrules import render_event
-from activity.models import Event, NotificationMethod, AlertRule
+from activity.models import Event, NotificationMethod, AlertRule, EventNotification
 from reports.distribution import send_report
 
 import sendsms.api
@@ -85,6 +85,10 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         )
         logger.info(f"Sent email alert {event_id} to {notification_method.value}")
 
+        EventNotification.objects.create(event=event, method=notification_method.method,
+                                         value=notification_method.value,
+                                         owner=notification_method.owner)
+
     elif notification_method.method.lower() == 'sms':
         logger.debug(f"Sending sms alert {event_id} to {notification_method.value}")
         sms_body = render_to_string('eventalert.sms', report_context)
@@ -92,8 +96,12 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f'Sending sms body: {sms_body}')
 
-        sendsms.api.send_sms(body=sms_body, from_phone='2062147021', to=[notification_method.value, ])
+        sendsms.api.send_sms(body=sms_body, from_phone='', to=[notification_method.value, ])
         logger.info(f"Sent sms alert {event_id} to {notification_method.value}")
+
+        EventNotification.objects.create(event=event, method=notification_method.method,
+                                         value=notification_method.value,
+                                         owner=notification_method.owner)
 
     else:
         logger.error(f"Unsupported NotifcationMethod ({notification_method.method})"
