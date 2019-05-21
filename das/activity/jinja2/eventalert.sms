@@ -1,0 +1,5 @@
+EarthRanger
+{{ event.priority.title }}: {{ event.priority.value }}
+{{ event.serial_number.value }}: {{ event.title.value }}
+{{ alert.time.title }}: {{ localtime(alert.time.value).strftime('%A %b %d, %Y %H:%M (%Z)') }}
+{{ site_url }}

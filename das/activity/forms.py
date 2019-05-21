@@ -14,6 +14,24 @@ from core.forms_utils import JSONFieldFormMixin
 from activity.models import EventProvider
 
 
+
+class MonospaceTextWidget(forms.Textarea):
+    template_name = 'admin/activity/monospace_textarea.html'
+
+    def __init__(self, attrs=None):
+        # Use slightly better defaults than HTML's 20x2 box
+        default_attrs = {'cols': '50', 'rows': '100'}
+        if attrs:
+            default_attrs.update(attrs)
+        super().__init__(default_attrs)
+
+    class Media:
+        css = {
+            'all': ('css/monospace_textarea.css',),
+        }
+
+
+
 class SchemaWidget(forms.Textarea):
     template_name = 'admin/activity/eventtype/schema_textarea.html'
 
@@ -82,6 +100,13 @@ class EventTypeForm(forms.ModelForm):
                            label='Icon Override',
                            widget=IconKeyInput(image_list_fn=get_event_icon_select_list))
 
+
+class AlertRuleForm(forms.ModelForm):
+    conditions = forms.CharField(widget=MonospaceTextWidget(
+        attrs={'rows': 30, 'cols': 100}))
+
+    schedule = forms.CharField(widget=MonospaceTextWidget(
+        attrs={'rows': 30, 'cols': 100}))
 
 from django.forms import TextInput
 

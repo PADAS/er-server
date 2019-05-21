@@ -1,5 +1,5 @@
 from django.conf.urls import url, include
-from activity import views
+from activity import views, alerts_views
 
 urlpatterns = [
     url(r'^events/?$', views.EventsView.as_view()),
@@ -18,6 +18,25 @@ urlpatterns = [
     url(r'^events/categories/?$', views.EventCategoriesView.as_view()),
     url(r'^events/classfactors/?$', views.EventClassFactorsView.as_view()),
     url(r'^events/alerts/targets/?$', views.EventAlertTargetsListView.as_view()),
+
+    url(r'^alerts/conditions/?$', alerts_views.EventAlertConditionsListView.as_view(), name='alerts-conditions-view'),
+
+    url(r'^notificationmethods/?$',
+        alerts_views.NotificationMethodListView.as_view(),
+        name='notificationmethod-list-view'),
+
+    url(r'^notificationmethod/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
+        alerts_views.NotificationMethodView.as_view(),
+        name='notificationmethod-view'),
+
+    url(r'^alerts/?$',
+        alerts_views.AlertRuleListView.as_view(),
+        name='alert-list-view'),
+
+    url(r'^alert/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
+        alerts_views.AlertRuleView.as_view(),
+        name='alert-view'),
+
     url(r'^event/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.EventView.as_view(), name='event-view'),
     url(r'^eventfilters/?$',
