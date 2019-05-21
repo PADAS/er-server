@@ -1,14 +1,10 @@
 project-id: padas-app
 cluster-name: partners
-version-prefix: 1.62.1
-initial-server-version: "1.62.1"
-initial-web-version: "1.62.1"
+version-prefix: dev
 server-branch-name: develop
 web-branch-name: develop
 namespace: sandbox
 iaas: gcp
 das-static-ip: 104.196.227.146
 iaas-workspace: padas-app
-cluster-spec: deployment/cluster-specs/gcp.yaml
 deployment-plan: integration
-deploy-recipe: standard.yaml
