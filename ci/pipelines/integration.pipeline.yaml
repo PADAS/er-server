@@ -71,6 +71,13 @@ resources:
     branch: ((web-branch-name))
     private_key: ((das-web-github))
 
+- name: git-react-admin
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-react-admin.git
+    branch: master
+    private_key: ((das-react-admin-github))
+
 - name: web-version
   type: semver
   source:
@@ -122,6 +129,13 @@ resources:
     uri: git@github.com:PADAS/das-smartconnect-provider.git
     branch: ((smartconnect-provider-branch-name))
     private_key: ((das-smartconnect-provider-github))
+
+- name: git-capturs-provider
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-capturs-provider.git
+    branch: ((capturs-provider-branch-name))
+    private_key: ((das-capturs-provider-github))
 
 - name: smartconnect-version
   type: semver
@@ -235,6 +249,14 @@ resources:
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/develop
 
+- name: image-react-admin
+  type: docker-image-with-file-build-args
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/web/react-admin
+
 - name: image-web-app
   type: docker-image-with-file-build-args
   source:
@@ -275,6 +297,14 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/etl/smartconnect-provider
+
+- name: image-capturs-provider
+  type: docker-image-with-file-build-args
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/etl/capturs-provider
 
 - name: image-spot-provider
   type: docker-image-with-file-build-args
@@ -566,6 +596,28 @@ jobs:
             :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
+- name: docker-build-react-admin
+  max_in_flight: 1
+  plan:
+  - get: git-react-admin
+    trigger: true
+  - put: image-react-admin
+    params: {
+      build: git-react-admin,
+      dockerfile: git-react-admin/Dockerfile.prod,
+      tag: git-react-admin/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
 - name: docker-build-web-app
   max_in_flight: 1
   serial: true
@@ -583,7 +635,7 @@ jobs:
   - put: image-web-app
     params: {
       build: git-web,
-      dockerfile: git-web/docker/Dockerfile-app,
+      dockerfile: git-web/docker/Dockerfile-alerts,
       tag:  web-version/version,
       tag_as_latest: ((tag-as-latest)),
     }
@@ -683,6 +735,7 @@ jobs:
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-quadratex-provider
+  max_in_flight: 1
   plan:
   - get: git-quadratex-provider
     trigger: true
@@ -714,6 +767,27 @@ jobs:
     params: {
       build: git-smartconnect-provider,
       tag: smartconnect-version/version,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-capturs-provider
+  max_in_flight: 1
+  plan:
+  - get: git-capturs-provider
+    trigger: true
+  - put: image-capturs-provider
+    params: {
+      build: git-capturs-provider,
+      tag: git-capturs-provider/sha,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
@@ -758,6 +832,8 @@ jobs:
         passed: [docker-build-quadratex-provider]
       - get: git-smartconnect-provider
         passed: [docker-build-smartconnect-provider]
+      - get: git-capturs-provider
+        passed: [docker-build-capturs-provider]
       - get: image-server-api
         passed: [docker-build-server]
         trigger: true

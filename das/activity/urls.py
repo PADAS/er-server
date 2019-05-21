@@ -3,6 +3,7 @@ from activity import views, alerts_views
 
 urlpatterns = [
     url(r'^events/?$', views.EventsView.as_view()),
+    url(r'^events/geojson/?$', views.EventsGeoJsonView.as_view()),
     url(r'^events/export/?$', views.EventsExportView.as_view(
         content_type='text/csv',
         template_engine='jinja2',

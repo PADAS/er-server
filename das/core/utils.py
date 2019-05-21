@@ -17,6 +17,7 @@ class StaticImageFinder(object):
     image_caches = {}
     IMAGE_TYPES = ('svg', 'png', 'jpg')
     StaticImage = namedtuple('StaticImage', ('exists', 'path'))
+    static_paths = ('{0}', 'sprite-src/{0}')
     web_path = '/static/{0}'
     file_format = '{key}.{type}'
 
@@ -32,10 +33,12 @@ class StaticImageFinder(object):
                 continue
             for t in image_types:
                 file = self.file_format.format(**dict(key=key, type=t))
-                if staticfiles_storage.exists(file):
-                    path = self.web_path.format(file)
-                    image_cache[key] = self.StaticImage(True, path)
-                    return path
+                for static_path in self.static_paths:
+                    static_file = static_path.format(file)
+                    if staticfiles_storage.exists(static_file):
+                        path = self.web_path.format(static_file)
+                        image_cache[key] = self.StaticImage(True, path)
+                        return path
             image_cache[key] = self.StaticImage(False, None)
 
 

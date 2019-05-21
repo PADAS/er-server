@@ -1,24 +1,30 @@
 import platform
 from collections import OrderedDict
 from datetime import timedelta, datetime
-import dateutil.parser as dateparser
 import copy
 import mimetypes
 import logging
 import json
 from django.conf import settings
-from rest_framework import generics, status, response
-from django.http.response import HttpResponse
 
 from django.db.models import Prefetch
+import re
+
+import dateutil.parser as dateparser
+import pytz
+from rest_framework import generics, status, response
+from django.http.response import HttpResponse
+from django.db.models import Prefetch, Q, F, Func
 from django.urls import reverse
 from django.template import Template, Context
 from django.utils import timezone
 from rest_framework.response import Response
-
 import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import serializers, views, permissions
+from django.views.generic.base import TemplateResponseMixin, ContextMixin
 
 
 from activity.models import Event, EventNote, EventClass,\
@@ -29,26 +35,23 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
     EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer, \
-    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer
-
+    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, EventGeoJsonSerializer
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
-from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwner
 
 from rest_framework.permissions import IsAuthenticated
-from utils.drf import StandardResultsSetPagination
+from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
+from utils.drf import StandardResultsSetPagination, StandardResultsSetGeoJsonPagination
+
 from utils.json import parse_bool, loads
 import utils
-import pytz
 import accounts.serializers
 import accounts.models
 from observations.models import Subject
-
-
 from rest_framework import views
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
-
 import utils.schema_utils as schema_utils
+
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +201,9 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
         schema['schema']['id'] = utils.add_base_url(request, reverse(
             'event-schema-eventtype', args=[eventtype.value, ]))
+        schema['schema']['icon_id'] = eventtype.icon_id
+        schema['schema']['image_url'] = utils.add_base_url(
+            request, eventtype.image_url)
 
         return generics.views.Response(schema)
 
@@ -613,6 +619,11 @@ class EventsView(generics.ListCreateAPIView):
 def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
     instance = view_instance.get_object()
     return str(hash(instance.updated_at))
+
+
+class EventsGeoJsonView(EventsView):
+    serializer_class = EventGeoJsonSerializer
+    pagination_class = StandardResultsSetGeoJsonPagination
 
 
 class EventView(generics.RetrieveUpdateDestroyAPIView):

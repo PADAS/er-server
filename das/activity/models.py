@@ -189,6 +189,7 @@ PRI_URGENT = 300
 PRI_IMPORTANT = 200
 PRI_REFERENCE = 100
 PRI_NONE = 0
+PRI_BLACK = -1
 
 PRIORITY_CHOICES = (
     (PRI_NONE, 'None'),
@@ -257,6 +258,10 @@ class EventType(TimestampedModel):
     @property
     def icon_id(self):
         return self.icon if self.icon else self.value
+
+    @property
+    def image_url(self):
+        return Event.marker_icon(self.icon_id, PRI_BLACK, Event.SC_NEW)
 
 
 def parse_date_range(val):
@@ -744,6 +749,7 @@ class Event(RevisionMixin, TimestampedModel):
             yield Event.image_basename(no_suffix, priority, state)
             yield '{0}-{1}'.format(no_suffix, 'black')
         yield '{0}-{1}'.format(event_type_value, 'black')
+        yield '{0}'.format(event_type_value)
         yield Event.image_basename('generic', priority, state)
         yield 'generic-black'
 

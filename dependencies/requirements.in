@@ -14,7 +14,7 @@ simplejson==3.13.2
 pytz==2017.3
 python-dateutil==2.6.1
 requests==2.21.0
-python-engineio==2.0.2
+python-engineio==3.5.1
 celery==4.1.0
 celery_once==1.2.0
 kombu==4.1.0
@@ -32,7 +32,7 @@ gunicorn==19.7.1
 eventlet==0.21.0
 gevent==1.2.2
 
-Django==2.0.10
+Django==2.0.13
 django-ses==0.8.4
 djangorestframework==3.7.7
 drf-extensions==0.3.1
@@ -54,6 +54,7 @@ django-storages==1.7.1
 django-tagulous==0.12.0
 django-versatileimagefield==1.8.1
 django-redis==4.10.0
+djangorestframework-gis==0.14.0
 
 #oauth
 oauthlib==3.0.1
