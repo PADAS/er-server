@@ -55,9 +55,10 @@ class EventVariables(variables.BaseVariables):
     def state(self):
         return [self.event.get('state'),]
 
-    @variables.select_multiple_rule_variable(label=_('State Change'), options=state_change_options)
-    def state_change(self):
-        return [getattr(self.event, 'state_change', None), ]
+    # TODO: Implement state-change logic.
+    # @variables.select_multiple_rule_variable(label=_('State Change'), options=state_change_options)
+    # def state_change(self):
+    #     return [getattr(self.event, 'state_change', None), ]
 
 
 class EventActions(actions.BaseActions):
