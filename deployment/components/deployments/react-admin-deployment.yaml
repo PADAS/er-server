@@ -1,0 +1,28 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  namespace: <<namespace>>
+  name: react-admin
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: react-admin
+    spec:
+      imagePullSecrets:
+        - name: gcr-secret
+      containers:
+      - name: das-react-admin
+        image: gcr.io/padas-app/web/react-admin:<<git-react-admin/sha>>
+        resources:
+          requests:
+            cpu: "75m"
+        ports:
+        - containerPort: 3000
+        env:
+        - name: APIENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: APIENDPOINT
+

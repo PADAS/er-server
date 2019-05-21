@@ -874,6 +874,10 @@ jobs:
         passed: [docker-build-web-app]
         trigger: true
         params: {skip_download: true}
+      - get: image-react-admin
+        passed: [docker-build-react-admin]
+        trigger: true
+        params: {skip_download: true}
     - aggregate:
       - task: ensure-disks-exist
         config:
