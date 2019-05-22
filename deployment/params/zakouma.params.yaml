@@ -1,0 +1,30 @@
+static-values:
+  web-service-name: "web"
+  node-exporter-version: v0.16.0
+  monitoring-version: "0.0.15"
+  iaas-workspace: "DAS-Dev"
+  log_url: "logs.pamdas.org:5044"
+  # app cfg params
+  db-host-name: "das-postgres-apn.postgres.database.azure.com"
+  db-name: "zakouma"
+  db-user: "zakouma@das-postgres-apn"
+  config-account-name: "dasconfigwesteurope"
+  config-container: "zakouma"
+  storage-account-name: "zakouma89c7680d"
+  storage-container: "assets"
+  storage-base-path: "root-path"
+  use-azure-storage: "true"
+environment:
+  das-static-ip: DAS_STATIC_IP
+  azure-subscription-id: AZURE_SUBSCRIPTION_ID
+vault-lookups:
+  bundle-crt: padas-app/main/bundle-crt
+  pamdas-org-ssl-key: padas-app/main/pamdas-org-ssl-key
+  pamdas-org-ssl-cert: padas-app/main/pamdas-org-ssl-cert
+  pamdas-org-ssl-ca: padas-app/main/pamdas-org-ssl-ca
+  # app cfg secrets
+  db-password: padas-app/main/partner/apn/site/zakouma/azurerm-postgresql-server-site-password
+  config-account-key: padas-app/main/dasconfigwesteurope-access-key
+  storage-account-key: padas-app/main/partner/site/zakouma/azurerm-storage-account-primary-access-key
+  alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
+  email-password: padas-app/main/email-password

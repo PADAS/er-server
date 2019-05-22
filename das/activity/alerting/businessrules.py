@@ -232,7 +232,10 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
             if only_common_factors and k not in keyset_intersection:
                 continue
 
-            rule_return_type = translate_schema_type_to_type(v)
+            try:
+                rule_return_type = translate_schema_type_to_type(v)
+            except NotImplementedError:
+                continue
 
             newattr = RuleVariableSpec(attrname=k, return_type=rule_return_type,
                                        label=v.get('title', k), optionslist=generate_option_list(v))
