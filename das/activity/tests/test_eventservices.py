@@ -9,7 +9,7 @@ import django.contrib.auth
 from django.test import TestCase
 from django.core.management import call_command
 from activity.models import Event
-from das_server import mailer
+from activity.alerting.legacymailer import build_deep_link_for_subject
 from activity.serializers import EventSerializer
 
 from observations.models import Subject
@@ -92,7 +92,7 @@ class TestEventServices(TestCase):
         event = Event.objects.get(id=event.id)
 
         # Request a link
-        link = mailer.build_deep_link_for_subject(event, elephant,)
+        link = build_deep_link_for_subject(event, elephant,)
 
         # Validate the link's schema
         sch, data = link.split('?')
