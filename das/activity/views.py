@@ -36,7 +36,7 @@ from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
 from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
 from utils.drf import StandardResultsSetPagination, StandardResultsSetGeoJsonPagination
-from utils.json import parse_bool, loads
+from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
 import utils
 import accounts.serializers
 import accounts.models
@@ -615,6 +615,7 @@ def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
 class EventsGeoJsonView(EventsView):
     serializer_class = EventGeoJsonSerializer
     pagination_class = StandardResultsSetGeoJsonPagination
+    renderer_classes = (ExtendedGEOJSONRenderer,)
 
 
 class EventView(generics.RetrieveUpdateDestroyAPIView):
