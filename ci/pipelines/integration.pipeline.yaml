@@ -632,6 +632,9 @@ jobs:
       params: {skip_download: true}
     - get: web-version
       passed: [docker-build-web-develop]
+    - get: image-react-admin
+      trigger: true
+      params: {skip_download: true}
   - put: image-web-app
     params: {
       build: git-web,
@@ -872,10 +875,6 @@ jobs:
         params: {skip_download: true}
       - get: image-web-app
         passed: [docker-build-web-app]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-react-admin
-        passed: [docker-build-react-admin]
         trigger: true
         params: {skip_download: true}
     - aggregate:
