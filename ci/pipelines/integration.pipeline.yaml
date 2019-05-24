@@ -633,8 +633,8 @@ jobs:
     - get: web-version
       passed: [docker-build-web-develop]
     - get: image-react-admin
+      version: latest
       trigger: true
-      params: {skip_download: true}
   - put: image-web-app
     params: {
       build: git-web,
