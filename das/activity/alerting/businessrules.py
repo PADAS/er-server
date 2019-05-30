@@ -77,7 +77,7 @@ class RuleVariableSpec(NamedTuple):
     attrname: str
     return_type: Any
     label: str
-    optionslist: list
+    optionsdict: dict = dict
 
 
 _WHITELISTED_OPERATORS = {
@@ -119,13 +119,13 @@ def whitelist_operators(vtypename, operators):
         yield from operators
 
 
-def create_new_func(key, return_type, label=None, optionslist=None):
+def create_new_func(key, return_type, label=None, options_dict=None):
     '''
     Create a wrapped function for the given key and return-type.
     :param key: This identifies the key for the Event.details value. It is also used as the function's attribute name.
     :param return_type: The function's return-type -- it determines which business-rules decorator to use.
     :param label: The human friendly name for this variable.
-    :param optionslist: None or a list of `{name: n, label: l}` dicts, derived from enumNames if available.
+    :param options_dict: None or a list of `{name: n, label: l}` dicts, derived from enumNames if available.
     :return: A getter function that's decorated with an appropriate business-rules @variables decorator.
     '''
     label = label or key.replace('_', ' ').title()
@@ -139,8 +139,9 @@ def create_new_func(key, return_type, label=None, optionslist=None):
             except KeyError:
                 return []
 
-        optionslist = sorted(optionslist, key=lambda x: x['label'])
-        return variables.select_multiple_rule_variable(label, options=optionslist)(f)
+        options_list = list({'name': k, 'label': v} for k, v in options_dict.items())
+        options_list = sorted(options_list, key=lambda x: x['label'])
+        return variables.select_multiple_rule_variable(label, options=options_list)(f)
 
     def string_f(self):
         saved_value = self.event.get('event_details', {}).get(key, '')
@@ -184,15 +185,23 @@ def translate_schema_type_to_type(option):
         raise NotImplementedError(f'I don\'t support type \'{option["type"]}\' yet.')
 
 
-def generate_option_list(schema_option):
+def accumulate_options(schema_option, accumulator=None):
     '''
     Transform an Event-Type choice list from `enumNames` to business-rules friendly list.
     :param schema_option:
     :return:
     '''
-    if 'enumNames' in schema_option:
-        return [{'name': k, 'label': v} for k, v in schema_option['enumNames'].items()]
-    return []
+
+    if 'enumNames' not in schema_option:
+        return accumulator or {}
+
+    elif accumulator is not None:
+        for k, v in schema_option['enumNames'].items():
+            if k not in accumulator:
+                accumulator['k'] = v
+        return accumulator
+    else:
+        return dict((k, v) for k, v in schema_option['enumNames'].items())
 
 
 def _generate_aggregate_event_variables_class(event_types, only_common_factors=False):
@@ -237,21 +246,23 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
             except NotImplementedError:
                 continue
 
-            newattr = RuleVariableSpec(attrname=k, return_type=rule_return_type,
-                                       label=v.get('title', k), optionslist=generate_option_list(v))
-
-            attr = attributes_accumulator.get(k, None)
-            if attr:
-                if attr.return_type == newattr.return_type:
-                    attr.optionslist.extend(generate_option_list(v))
+            existing_attr = attributes_accumulator.get(k, None)
+            if existing_attr:
+                dummy = accumulate_options(v)
+                print(f'{event_type_value}.{k} options = {list(dummy.keys())}')
+                if existing_attr.return_type == rule_return_type:
+                    accumulate_options(v, existing_attr.optionsdict)
                 else:
                     logger.warning('Name collision on %s with different return types.', k)
             else:
+
+                newattr = RuleVariableSpec(attrname=k, return_type=rule_return_type,
+                                           label=v.get('title', k), optionsdict=accumulate_options(v))
                 attributes_accumulator[k] = newattr
 
             applies_to_map.setdefault(k, []).append(event_type_value)
 
-    attrs = dict((x.attrname, create_new_func(x.attrname, x.return_type, label=x.label, optionslist=x.optionslist))
+    attrs = dict((x.attrname, create_new_func(x.attrname, x.return_type, label=x.label, options_dict=x.optionsdict))
                  for x in attributes_accumulator.values())
 
     # Invent a class name
