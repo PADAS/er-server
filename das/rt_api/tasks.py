@@ -31,8 +31,6 @@ from observations.models import SocketClient
 
 logger = logging.getLogger(__name__)
 
-queue_client = redis.from_url(settings.CELERY_BROKER_URL)
-
 
 def get_context():
     return {'request': DummyRequest(uri='', http_method='GET')}
@@ -291,24 +289,22 @@ def check_redis_queues():
     to elasticsearch via a log message
     """
     logger.info('Checking redis connectivity')
-    conn = queue_client.client_list()
-    conn_count = len(conn)
+    conns = client.get_all_connections()
+    conn_count = len(conns)
     logger.info({'redis.conn.count': conn_count})
-
 
     realtime_session_count = client.get_session_count()
 
     # realtime queues
     # TODO - encapsulte the queries into a rt_api.queue_client
-    rt_p1 = queue_client.llen('realtime_p1')
-    rt_p2 = queue_client.llen('realtime_p2')
-    rt_p3 = queue_client.llen('realtime_p3')
+    rt_p1 = client.list_len('realtime_p1')
+    rt_p2 = client.list_len('realtime_p2')
+    rt_p3 = client.list_len('realtime_p3')
     logger.info({'rt.realtime.p1': rt_p1})
     logger.info({'rt.realtime.p2': rt_p2})
     logger.info({'rt.realtime.p3': rt_p3})
 
     logger.info({'rt.realtime.client_count': realtime_session_count})
-
 
     for key, value in [
         ('redis_connection_count', conn_count),
@@ -319,7 +315,7 @@ def check_redis_queues():
         ]:
         update_gauge(metric=key, value=value, tags=['realtime',])
 
-    memory_info = queue_client.info('memory')
+    memory_info = client.info('memory')
 
     val = -1
     try:

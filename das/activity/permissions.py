@@ -100,7 +100,7 @@ class IsOwnerOrReadOnly(BasePermission):
         return obj.owner == request.user
 
 
-class IsOwner(BasePermission):
+class IsOwner(IsAuthenticated):
     """
     Custom permission to only allow owners of an object to see or edit its attributes.
     """

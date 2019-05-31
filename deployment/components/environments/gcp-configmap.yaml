@@ -13,5 +13,8 @@ data:
   STORAGE_CONTAINER: ""
   STORAGE_ACCOUNT_KEY: ""
   STORAGE_BASE_PATH: ""
+  CONFIG_CONTAINER: "<<config-container>>"
+  CONFIG_ACCOUNT_KEY: "<<config-account-key>>"
+  CONFIG_ACCOUNT: "<<config-account>>"
   USE_AZURE_STORAGE: "false"
 

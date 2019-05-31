@@ -29,7 +29,7 @@ class SuperUserSessionAuthentication(SessionAuthentication):
         user = getattr(request, 'user', None)
 
         # Unauthenticated, CSRF validation not required
-        if not user or not user.is_active or not user.is_superuser:
+        if not user or not user.is_active: # or not user.is_superuser:
             return None
 
         # self.enforce_csrf(request)

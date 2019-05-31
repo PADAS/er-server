@@ -6,8 +6,8 @@ RUN apt-get update && apt-get install -y vim
 
 ADD ./nginx.conf /etc/nginx/
 ADD ./default.conf /etc/nginx/sites-available/default.conf
+ADD ./dev.conf /etc/nginx/sites-available/dev.conf
 RUN mkdir -p /etc/nginx/sites-enabled
-RUN ln -s /etc/nginx/sites-available/default.conf /etc/nginx/sites-enabled/
 
 ADD ./bundle.crt /etc/ssl/
 ADD ./pamdas.org-private-key.pem /etc/ssl/
