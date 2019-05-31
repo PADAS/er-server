@@ -202,13 +202,7 @@ def _get_title_from_schema(key, schema):
     if key in properties and 'title' in properties[key]:
         return properties[key]['title']
 
-    definitions = schema.get('definitions', [])
-
-    for definition_dictionary in [x for x in definitions if isinstance(x, dict)]:
-        if definition_dictionary['key'] == key:
-            return definition_dictionary['title']
-
-    return None
+    return key.replace('_', ' ').title()
 
 
 priority_label_colors = {
@@ -222,6 +216,16 @@ priority_label_color_default = '#3E4349'
 
 def coerce_state_value(val):
     return _('Resolved') if val == 'resolved' else _('Active')
+
+
+def render_pretty_value(internal_value):
+
+    if isinstance(internal_value, dict):
+        return internal_value.get('name')
+    if isinstance(internal_value, (list, tuple)):
+        return ', '.join(str(item.get('name')) for item in internal_value if 'name' in item)
+
+    return str(internal_value)
 
 
 def render_event_alert_context(alert_rule, event, notification_method,
@@ -250,17 +254,18 @@ def render_event_alert_context(alert_rule, event, notification_method,
 
     pretty_details = {}
     for k, internal_value in eventdata['event_details'].items():
+
         key_display = _get_title_from_schema(k, schema)
-        rendered_value = internal_value.get('name') if isinstance(internal_value, dict) else internal_value
+
         pretty_details[k] = {'title': key_display,
-                             'value': rendered_value}
+                             'value': render_pretty_value(internal_value)
+                             }
+
         old_internal_value = event_details_updated_fields.get(k)
+
         if old_internal_value:
             old_internal_value = old_internal_value.get('old')
-            rendered_old_value = old_internal_value.get('name') \
-                if isinstance(old_internal_value, dict) else old_internal_value
-
-            pretty_details[k]['old_value'] = rendered_old_value
+            pretty_details[k]['old_value'] = render_pretty_value(old_internal_value)
 
     priority_color = priority_label_colors.get(event.priority_label, priority_label_color_default)
 
