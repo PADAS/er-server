@@ -192,7 +192,7 @@ PRI_NONE = 0
 PRI_BLACK = -1
 
 PRIORITY_CHOICES = (
-    (PRI_NONE, 'None'),
+    (PRI_NONE, 'Gray'),
     (PRI_REFERENCE, 'Green'),
     (PRI_IMPORTANT, 'Amber'),
     (PRI_URGENT, 'Red')
