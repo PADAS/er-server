@@ -110,7 +110,7 @@ def ensure_environmental_event_types():
 
     for et in [EnvironmentalValueEventType, EnvironmentalAllClearEventType]:
         EventType.objects.get_or_create(value=et.value, category=ec,
-                                        defaults=dict(display=et.display, schema=et.schema))
+                                        defaults=dict(display=et.display, schema=json.dumps(et.schema, ident=2, default=str)))
 
 
 class EnvironmentalAnalyzer(SubjectAnalyzer):
