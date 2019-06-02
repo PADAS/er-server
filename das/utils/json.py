@@ -89,6 +89,16 @@ class ExtendedJSONEncoder(simplejson.JSONEncoder):
         return simplejson.JSONEncoder.default(self, o)
 
 
+class ExtendedGEOJSONRenderer(JSONRenderer):
+    """
+    Don't wrap the return with a data and status block.
+    """
+    encoder_class = ExtendedJSONEncoder
+
+    def render(self, data, *args, **kwargs):
+        return super().render(data, *args, **kwargs)
+
+
 class ExtendedJSONRenderer(JSONRenderer):
     encoder_class = ExtendedJSONEncoder
 

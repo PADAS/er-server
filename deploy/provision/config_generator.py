@@ -18,9 +18,7 @@ class TerraformExtractor:
     # the appropriate partner or site name to find the values
     # of the keys in the terraform output
     TF_PARTNER_INFRA_FIELDS = {
-        'storage_account_name': 'STORAGE_ACCOUNT',
-        'storage_container_name': 'STORAGE_CONTAINER',
-        'storage_account_primary_access_key_vault_path': 'STORAGE_ACCOUNT_KEY',
+        # 'storage_account_primary_access_key_vault_path': 'STORAGE_ACCOUNT_KEY',
         'db_server_fqdn': 'DB_HOST',
     }
 
@@ -28,18 +26,22 @@ class TerraformExtractor:
         'db_name': 'DB_NAME',
         'db_name': 'DB_USER',
         'db_login_password_vault_path': 'DB_PASSWORD',
+        'storage_account_name': 'STORAGE_ACCOUNT',
+        'storage_container_name': 'STORAGE_CONTAINER',
+        'storage_account_primary_access_key_vault_path': 'STORAGE_ACCOUNT_PRIMARY_ACCESS_KEY_VAULT_PATH',
     }
 
     @classmethod
-    def extract_infra_keys(cls, cluster, site, json_file):
-        with open(args.tcfg) as json_file:
-            terra_data = json.load(json_file)
-        partner_fields = cls.extract_config_keys(args.partner, cls.TF_PARTNER_INFRA_FIELDS, terra_data)
-        site_fields = cls.extract_config_keys(args.site, cls.TF_SITE_INFRA_FIELDS, terra_data)
+    def extract_infra_keys(cls, partner, site, terraform_state_json):
+        with open(terraform_state_json) as json_file:
+            terraform_state = json.load(json_file)
+        partner_fields = cls.extract_config_keys(partner, cls.TF_PARTNER_INFRA_FIELDS, terraform_state)
+        site_fields = cls.extract_config_keys(site, cls.TF_SITE_INFRA_FIELDS, terraform_state)
         return {**partner_fields, **site_fields}
 
     @staticmethod
     def extract_config_keys(prefix, infra_dict, tf_dict):
+
         env_dict = {}
         for key in infra_dict.keys():
             infra_key = '{}_{}'.format(prefix, key)

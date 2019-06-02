@@ -11,6 +11,7 @@ from rest_framework.views import exception_handler
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission
 from rest_framework import serializers
+from rest_framework_gis.pagination import GeoJsonPagination
 
 
 logger = logging.getLogger('django.request')
@@ -72,6 +73,10 @@ class OptionalResultsSetPagination(PageNumberPagination):
 class StandardResultsSetPagination(OptionalResultsSetPagination):
     page_size = 25
     max_page_size = 100
+
+
+class StandardResultsSetGeoJsonPagination(GeoJsonPagination):
+    page_size = 25
 
 
 class PointValidator:

@@ -1,16 +1,11 @@
-import uuid
 import datetime
-import pytz
 import logging
-from operator import itemgetter, attrgetter
 import re
+import uuid
+from operator import itemgetter, attrgetter
 
 import django.utils
-from django.utils import dateparse
-from django.db import transaction
-from django.db.models import Prefetch, Q, F, Func
-from django.db.models.signals import post_save
-from django.core.exceptions import ValidationError
+import pytz
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -19,19 +14,23 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import Q, F, Func
+from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import dateparse
 from django.utils import timezone
-from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
+from django.utils.translation import ugettext_lazy as _
 from versatileimagefield.fields import VersatileImageField
 
-from utils.html import clean_user_text
-from core.models import TimestampedModel
-import usercontent.models
-from observations.models import Subject
 from accounts.models.permissionset import PermissionSet
-from revision.manager import Revision, RevisionMixin
+from core.models import TimestampedModel
 from core.utils import static_image_finder
+from observations.models import Subject
+from revision.manager import Revision, RevisionMixin
+from utils.html import clean_user_text
 
 logger = logging.getLogger(__name__)
 
@@ -179,14 +178,21 @@ class EventTypeFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_is_collection(self, value):
         return self.filter_field('is_collection', value)
 
+    def by_event_type(self, event_types):
+        if isinstance(event_types, str):
+            values = [x.strip() for x in event_types.split(',')]
+        return self.filter(value__in=values)
+
+
 
 PRI_URGENT = 300
 PRI_IMPORTANT = 200
 PRI_REFERENCE = 100
 PRI_NONE = 0
+PRI_BLACK = -1
 
 PRIORITY_CHOICES = (
-    (PRI_NONE, 'None'),
+    (PRI_NONE, 'Gray'),
     (PRI_REFERENCE, 'Green'),
     (PRI_IMPORTANT, 'Amber'),
     (PRI_URGENT, 'Red')
@@ -252,6 +258,10 @@ class EventType(TimestampedModel):
     @property
     def icon_id(self):
         return self.icon if self.icon else self.value
+
+    @property
+    def image_url(self):
+        return Event.marker_icon(self.icon_id, PRI_BLACK, Event.SC_NEW)
 
 
 def parse_date_range(val):
@@ -696,6 +706,13 @@ class Event(RevisionMixin, TimestampedModel):
     sort_at = models.DateTimeField(blank=True)
 
     @property
+    def display_title(self):
+        if self.title:
+            return self.title
+
+        return self.event_type.display
+
+    @property
     def priority_label(self):
         return self.get_priority_display()
 
@@ -732,6 +749,7 @@ class Event(RevisionMixin, TimestampedModel):
             yield Event.image_basename(no_suffix, priority, state)
             yield '{0}-{1}'.format(no_suffix, 'black')
         yield '{0}-{1}'.format(event_type_value, 'black')
+        yield '{0}'.format(event_type_value)
         yield Event.image_basename('generic', priority, state)
         yield 'generic-black'
 
@@ -1197,3 +1215,99 @@ class EventsourceEvent(TimestampedModel):
         # if something is wrong:
         #     raise ValidationError(
         #         {'a-field': ValidationError(_('There is an error.'), code='invalid')})
+
+
+class NotificationMethodManager(models.Manager):
+    pass
+
+
+NOTIFICATION_METHOD_CHOICES = (
+    ('email', _('Email')),
+    ('sms', _('SMS')),
+)
+
+
+class NotificationMethod(TimestampedModel):
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='notification_methods', related_query_name='notification_method')
+
+    title = models.CharField(max_length=100, blank=True)
+
+    method = models.CharField(default='email', max_length=20, choices=NOTIFICATION_METHOD_CHOICES)
+    value = models.CharField(default='', max_length=100, help_text=_('A phone number or email address.'))
+
+    is_active = models.BooleanField(default=True, help_text=_('Whether messages should be sent to this method.'))
+    objects = NotificationMethodManager()
+
+
+class AlertRuleManager(models.Manager):
+    pass
+
+
+class AlertRule(TimestampedModel):
+
+    objects = AlertRuleManager()
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='alert_rules', related_query_name='alert_rule')
+
+    title = models.CharField(max_length=100, blank=True, help_text=_('A user friendly name for this alert.'))
+    ordernum = models.SmallIntegerField(blank=True, null=True, default=0)
+
+    conditions = JSONField(default=dict, blank=True)
+    schedule = JSONField(default=dict, blank=True)
+
+    notification_methods = models.ManyToManyField(NotificationMethod, related_name='alert_rules',
+                                                  related_query_name='alert_rule',)
+
+    event_types = models.ManyToManyField(EventType, related_name='alert_rules', related_query_name='alert_rule',)
+
+    is_active = models.BooleanField(default=True,)
+
+    @property
+    def is_conditional(self):
+        return bool(self.conditions)
+
+    @property
+    def display_title(self):
+        if self.title: return self.title
+
+        n = self.event_types.count()
+        if n > 1:
+            return f'Alert ({ n } report types)'
+
+        return f'{self.event_types.first().display} Reports'
+
+
+class EventNotificationManager(models.Manager):
+    pass
+
+
+class EventNotification(TimestampedModel):
+
+    id = models.BigAutoField(primary_key=True)
+
+    method = models.CharField(default='email', max_length=20, choices=NOTIFICATION_METHOD_CHOICES)
+    value = models.CharField(default='', max_length=100, help_text=_('A phone number or email address.'))
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='event_notifications', related_query_name='event_notification')
+
+    event = models.ForeignKey(Event, null=True, on_delete=models.SET_NULL)
+
+    objects = EventNotificationManager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['event'])
+        ]
+
+

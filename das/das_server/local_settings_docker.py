@@ -36,7 +36,7 @@ TIME_ZONE = env.str('TIME_ZONE', 'US/Pacific')
 SERVER_FQDN = env.str('FQDN', '')
 ALLOWED_HOSTS = ['localhost:9000', SERVER_FQDN,'localhost','*']
 # TODO - Make this default to False
-CORS_ORIGIN_ALLOW_ALL = env.bool('CORS_ORIGIN_ALLOW_ALL', False)
+CORS_ORIGIN_ALLOW_ALL = env.bool('CORS_ORIGIN_ALLOW_ALL', True)
 
 CORS_ORIGIN_WHITELIST = (
         'localhost:9000','http://localhost:9000', SERVER_FQDN, f'https://{SERVER_FQDN}', f'http://{SERVER_FQDN}'

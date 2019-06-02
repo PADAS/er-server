@@ -13,8 +13,10 @@ services:
       - api
       - rt-api
       - web
+      - reactapp
     ports:
       - 8000:8000
+      - '35729:35729'
 
   api:
     image: gcr.io/padas-app/api

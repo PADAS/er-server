@@ -40,6 +40,13 @@ SAMPLES = [
     }
 ]
 
+NO_LOCATION_SAMPLES = [
+    {'EXIF': """""",
+     'provider_name': 'jenga',
+     'image_name': '2019-05-20_151152.jpg'
+     },
+]
+
 
 class CameraTrapTest(BaseAPITest):
     user_const = dict(last_name='last', first_name='first')
@@ -106,6 +113,13 @@ class CameraTrapTest(BaseAPITest):
                 'location': json.dumps({'latitude': -2.08187,
                                         'longitude': 34.49477}),
                 'camera_description': 'Camera Description'
+                }
+        for sample in SAMPLES:
+            response = self.post_cam_image(sample, data)
+            self.assertEqual(response.status_code, 201)
+
+    def test_post_image_with_no_location(self):
+        data = {'camera_name': 'With Data',
                 }
         for sample in SAMPLES:
             response = self.post_cam_image(sample, data)

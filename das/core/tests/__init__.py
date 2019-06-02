@@ -40,3 +40,4 @@ class BaseAPITest(TestCase):
         )
 
         force_authenticate(request, user=request.user, token=tok)
+

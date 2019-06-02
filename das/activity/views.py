@@ -5,11 +5,13 @@ import copy
 import mimetypes
 import logging
 import json
+from django.conf import settings
+
+from django.db.models import Prefetch
 import re
 
 import dateutil.parser as dateparser
 import pytz
-from django.conf import settings
 from rest_framework import generics, status, response
 from django.http.response import HttpResponse
 from django.db.models import Prefetch, Q, F, Func
@@ -20,14 +22,15 @@ from rest_framework.response import Response
 import rest_framework.exceptions
 from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
-from rest_framework_gis.pagination import GeoJsonPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers, views, permissions
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
 
+
 from activity.models import Event, EventNote, EventClass,\
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community,\
     EventFilter, EventSource, EventProvider
+
 from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventJSONSchema, EventStateSerializer,\
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
@@ -35,13 +38,17 @@ from activity.serializers import EventSerializer, EventNoteSerializer,\
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, EventGeoJsonSerializer
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
+
+from rest_framework.permissions import IsAuthenticated
 from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
-from utils.drf import StandardResultsSetPagination
-from utils.json import parse_bool, loads
+from utils.drf import StandardResultsSetPagination, StandardResultsSetGeoJsonPagination
+from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
 import utils
 import accounts.serializers
 import accounts.models
 from observations.models import Subject
+from rest_framework import views
+from django.views.generic.base import TemplateResponseMixin, ContextMixin
 import utils.schema_utils as schema_utils
 
 
@@ -193,6 +200,9 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
         schema['schema']['id'] = utils.add_base_url(request, reverse(
             'event-schema-eventtype', args=[eventtype.value, ]))
+        schema['schema']['icon_id'] = eventtype.icon_id
+        schema['schema']['image_url'] = utils.add_base_url(
+            request, eventtype.image_url)
 
         return generics.views.Response(schema)
 
@@ -612,7 +622,8 @@ def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
 
 class EventsGeoJsonView(EventsView):
     serializer_class = EventGeoJsonSerializer
-    pagination_class = GeoJsonPagination
+    pagination_class = StandardResultsSetGeoJsonPagination
+    renderer_classes = (ExtendedGEOJSONRenderer,)
 
 
 class EventView(generics.RetrieveUpdateDestroyAPIView):
@@ -716,9 +727,6 @@ def resolve_first(dicts, keys):
             if k in d:
                 return d[k]
                 break
-
-
-from usercontent.serializers import UserContentSerializer
 
 
 class EventFilesView(generics.ListCreateAPIView):
@@ -906,3 +914,91 @@ class EventAlertTargetsListView(generics.ListAPIView):
             return get_alert_users(priority)
 
         return accounts.models.User.objects.none()
+
+
+# # Views for Advanced Alert Functionality.
+# class EventAlertConditionsListView(generics.ListAPIView):
+#
+#     permission_classes = (EventCategoryPermissions,)
+#     serializer_class = EventTypeSerializer
+#
+#     queryset = EventType.objects.all()
+#
+#     def get_queryset(self):
+#         qs = super().get_queryset()
+#
+#         event_types = self.request.query_params.get('event_type', '')
+#         if event_types:
+#             qs = qs.by_event_type(event_types)
+#         return qs
+#
+#     def get(self, *args, **kwargs):
+#
+#         only_common_factors = parse_bool(self.request.query_params.get('only_common_factors', False))
+#         rules = render_aggregate_eventvariables(self.get_queryset(), only_common_factors=only_common_factors)
+#
+#         return response.Response(rules, status=status.HTTP_200_OK)
+#
+#
+# class AlertRuleListView(generics.ListCreateAPIView):
+#
+#     permission_classes = (IsOwner,)
+#     serializer_class = AlertRuleSerializer
+#
+#     def get_queryset(self):
+#         return AlertRule.objects.filter(owner=self.request.user).order_by('ordernum', 'display')
+#
+#     def perform_create(self, serializer):
+#         serializer.save(owner=self.request.user)
+#
+#
+# class AlertRuleView(generics.RetrieveUpdateDestroyAPIView):
+#
+#     permission_class = (IsOwner,)
+#     serializer_class = AlertRuleSerializer
+#     pagination_class = StandardResultsSetPagination
+#
+#     queryset = AlertRule.objects.all()
+#
+#     lookup_field = 'id'
+#
+#     def get_queryset(self):
+#         return AlertRule.objects.filter(owner=self.request.user)
+#
+#     def get(self, request, *args, **kwargs):
+#         obj = self.get_object()
+#         if obj:
+#             self.check_object_permissions(self.request, obj)
+#         return super().get(request, *args, **kwargs)
+#
+#
+# class NotificationMethodListView(generics.ListCreateAPIView):
+#
+#     permission_classes = (IsOwner,)
+#     serializer_class = NotificationMethodSerializer
+#     pagination_class = StandardResultsSetPagination
+#
+#     def get_queryset(self):
+#         return NotificationMethod.objects.filter(owner=self.request.user).order_by('method')
+#
+#     def perform_create(self, serializer):
+#         serializer.save(owner=self.request.user)
+#
+#
+# class NotificationMethodView(generics.RetrieveUpdateDestroyAPIView):
+#
+#     permission_class = (IsOwner,)
+#     serializer_class = NotificationMethodSerializer
+#
+#     queryset = NotificationMethod.objects.all()
+#
+#     lookup_field = 'id'
+#
+#     def get_queryset(self):
+#         return NotificationMethod.objects.filter(owner=self.request.user)
+#
+#     def get(self, request, *args, **kwargs):
+#         obj = self.get_object()
+#         if obj:
+#             self.check_object_permissions(self.request, obj)
+#         return super().get(request, *args, **kwargs)

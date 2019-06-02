@@ -1,5 +1,5 @@
 project-id: padas-app
-vp-tools-container-version: "1.0.409"
+vp-tools-container-version: "1.0.478"
 
 #Infrastructure
 iaas: gcp
@@ -31,6 +31,7 @@ server-branch-name: develop
 web-branch-name: develop
 tag-as-latest: false
 smartconnect-provider-branch-name: develop
+capturs-provider-branch-name: develop
 skyline-provider-branch-name: develop
 quadratex-provider-branch-name: develop
 spot-provider-branch-name: develop

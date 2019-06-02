@@ -125,8 +125,16 @@ def get_client(sid):
             return result
 
 
+def info(param):
+    return redis_client.info(param)
+
+
 def is_client(sid):
     return redis_client.hexists(CLIENT_LIST_KEY, str(sid))
+
+
+def list_len(key):
+    return redis_client.llen(key)
 
 
 def remove_client(sid):

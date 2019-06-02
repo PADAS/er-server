@@ -4,10 +4,10 @@ import pytz
 from dateutil.parser import parse as parse_date
 from datetime import datetime, timezone
 
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.response import Response
 
-from rest_framework import serializers
+from django.db import transaction
 
 from observations.models import SubjectSource, Source, Observation
 from observations.serializers import ObservationSerializer
@@ -33,7 +33,7 @@ class SensorPostParameters(serializers.Serializer):
     additional = serializers.DictField(default={})
 
 
-class GenericSensorHandler():
+class GenericSensorHandler:
 
     DEFAULT_SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
@@ -41,32 +41,65 @@ class GenericSensorHandler():
     @classmethod
     def post(cls, request, sensor_type, provider_key):
 
-        params = SensorPostParameters(data=request.data)
+        observations_json = request.data
+        if isinstance(observations_json, dict):
+            observations_json = [observations_json]
+
+        params = SensorPostParameters(data=observations_json, many=True)
         if not params.is_valid():
             return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        params = params.validated_data
-        manufacturer_id = params['manufacturer_id']
-        location = None
-        try:
-            location = params['location']
-            lat = location.get('lat', None)
-            lon = location.get('lon', None)
+        return cls.process_observations(params.validated_data, provider_key, sensor_type)
 
-            # location = Point(x=float(lon), y=float(lat))
-            location = {'latitude': float(lat), 'longitude': float(lon)}
-        except:
-            location = None
+    @classmethod
+    def process_observations(cls, observations_json, provider_key, sensor_type, batch_size=128):
 
-        subject_subtype = params.get(
+        obs_to_persist, errors, obs_cache = [], [], set()
+
+        def generate_batches():
+            num_observations = len(observations_json)
+            for start_index in range(0, num_observations, batch_size):
+                yield observations_json[start_index: min(start_index+batch_size, num_observations)]
+
+        def notify_tracks_listeners():
+            src_ids = {src_id for (src_id, _) in obs_cache}
+            for src_id in src_ids:
+                notify_new_tracks(src_id)
+
+        for batch in generate_batches():
+            for an_observation in batch:
+                cls.process_one_observation(an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors)
+
+        # TODO: Can we not construct serializers in 2 different places? this one does the bulk insert
+        bulk_serializer = ObservationSerializer(data=obs_to_persist, many=True)
+        if bulk_serializer.is_valid():
+            bulk_serializer.save()
+        else:
+            errors.append(bulk_serializer.errors())
+
+        transaction.on_commit(notify_tracks_listeners())
+
+        for error in errors:
+            if error:
+                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({}, status=status.HTTP_201_CREATED)
+
+    @classmethod
+    def process_one_observation(cls, an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors):
+        manufacturer_id = an_observation['manufacturer_id']
+        location = an_observation['location']
+        lat = location.get('lat', None)
+        lon = location.get('lon', None)
+        # location = Point(x=float(lon), y=float(lat))
+        location = {'latitude': float(lat), 'longitude': float(lon)}
+
+        subject_subtype = an_observation.get(
             'subject_subtype', cls.DEFAULT_SUBJECT_SUBTYPE)
-
-        source_type = params.get('source_type', provider_key)
-        model_name = params.get('model_name', None) or '{}:{}'.format(
+        source_type = an_observation.get('source_type', provider_key)
+        model_name = an_observation.get('model_name', None) or '{}:{}'.format(
             sensor_type, provider_key)
-
-        subject_name = params.get('subject_name') or manufacturer_id
-
+        subject_name = an_observation.get('subject_name') or manufacturer_id
         src = Source.objects.ensure_source(source_type,
                                            provider=provider_key,
                                            manufacturer_id=manufacturer_id,
@@ -76,16 +109,8 @@ class GenericSensorHandler():
                                                'name': subject_name
                                            }
                                            )
-
-        recorded_at = params.get('recorded_at')
-        additional = params.get('additional', {})
-
-        # Short-circuit if we already have this observation.
-        if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
-            logger.info("Processed duplicate observation %s",
-                        subject_subtype, extra={'obs.dup': provider_key})
-            return Response({}, status=status.HTTP_201_CREATED)
-
+        recorded_at = an_observation.get('recorded_at')
+        additional = an_observation.get('additional', {})
         observation = {
             'location': location,
             'recorded_at': recorded_at,
@@ -93,15 +118,24 @@ class GenericSensorHandler():
             'additional': additional,
         }
 
-        serializer = ObservationSerializer(data=observation)
-        if serializer.is_valid():
-            serializer.save()
+        obs_key = (str(src.id), recorded_at)
+        # Short-circuit if we already have this observation.
+        if obs_key in obs_cache or Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
+            logger.info("Processed duplicate observation %s",
+                        subject_subtype, extra={'obs.dup': provider_key})
+            errors.append({})
+            return
+
+        obs_cache.add(obs_key)
+        # TODO: constructing serializers in 2 different places - this below validates each observation
+        validator = ObservationSerializer(data=observation)
+        if validator.is_valid():
+            obs_to_persist.append(observation)
             logger.info("Added new observation %s", observation,
                         extra={'obs.new': provider_key})
-            notify_new_tracks(src.id)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            errors.append({})
+        else:
+            errors.append(validator.errors())
 
 
 class FollowltTrackerHandler:

@@ -4,6 +4,7 @@ FROM gcr.io/padas-app/app:${app_tag}
 RUN pip3 install django-extensions
 RUN pip3 install jupyter
 RUN pip3 install joblib
+RUN pip3 install business-rules
 
 ADD ./notebook_settings.py /var/www/app/das_server/notebook_settings.py
 ADD ./jupyter_notebook_config.json /root/.jupyter/jupyter_notebook_config.json
