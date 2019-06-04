@@ -16,6 +16,7 @@ static-values:
   sms_token: ""
   config-account: "dasconfigwestus"
   config-container: "dev-az"
+  django-toolbar: "false"
 environment:
   namespace: NAMESPACE
   infra-namespace: INFRA_NAMESPACE

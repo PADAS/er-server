@@ -17,4 +17,5 @@ data:
   CONFIG_ACCOUNT_KEY: "<<config-account-key>>"
   CONFIG_ACCOUNT: "<<config-account>>"
   USE_AZURE_STORAGE: "<<use-azure-storage>>"
+  DJANGO_TOOLBAR: "<<django-toolbar>>"
 
