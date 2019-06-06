@@ -1,0 +1,9 @@
+version: 1
+update_configs:
+  - package_manager: "python"
+    directory: "/dependencies"
+    update_schedule: "weekly"
+    target_branch: "develop"
+    default_reviewers:
+      - "chrisjvulcan"
+      - "chrisdoehring"
