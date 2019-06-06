@@ -3,6 +3,7 @@ import copy
 from django.shortcuts import render_to_response
 from django.conf import settings
 from django.db import connection
+from django.utils import timezone
 from django.template import RequestContext
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
@@ -35,7 +36,16 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     show_stationary_subjects_on_map = rest_framework.serializers.BooleanField(
         read_only=True)
 
+    daily_report_enabled = rest_framework.serializers.BooleanField(
+        read_only=True)
+
+    alerts_enabled = rest_framework.serializers.BooleanField(
+        read_only=True)
+
     services = rest_framework.serializers.ListField(read_only=True)
+
+    server_timezone_name = rest_framework.serializers.CharField(read_only=True)
+    server_timezone = rest_framework.serializers.CharField(read_only=True)
 
 
 class StatusView(generics.RetrieveAPIView):
@@ -55,6 +65,11 @@ class StatusView(generics.RetrieveAPIView):
         resp['show_track_days'] = settings.SHOW_TRACK_DAYS
         resp['event_search_enabled'] = True
         resp['show_stationary_subjects_on_map'] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
+        resp['daily_report_enabled'] = settings.DAILY_REPORT_ENABLED
+        resp['alerts_enabled'] = settings.ALERTS_ENABLED
+
+        resp['server_timezone_name'] = timezone.get_current_timezone_name()
+        resp['server_timezone'] = timezone.localtime().strftime('%Z')
 
         if self.get_support_settings():
             resp['eus_settings'] = self.get_support_settings()

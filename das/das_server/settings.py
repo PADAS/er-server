@@ -501,3 +501,6 @@ def whitenoise_headers_func(headers, path, url):
 
 
 WHITENOISE_ADD_HEADERS_FUNCTION = whitenoise_headers_func
+
+DAILY_REPORT_ENABLED = False
+ALERTS_ENABLED = False
