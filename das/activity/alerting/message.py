@@ -274,8 +274,8 @@ def render_event_alert_context(alert_rule, event, notification_method,
             'longitude': event.location.x,
             'latitude': event.location.y,
             'title': 'Location',
-            'value': f'lon: {event.location.x}, lat: {event.location.y}',
-            'href': f'http://www.google.com/maps/place/{event.location.y},{event.location.x}'
+            'value': f'lon: {event.location.x:.3f}, lat: {event.location.y:.3f}',
+            'href': f'http://www.google.com/maps/place/{event.location.y:.4f},{event.location.x:.4f}'
         }
     else:
         location = {
