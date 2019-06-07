@@ -34,3 +34,6 @@ vault-lookups:
   ndoki-smartconnect-provider-das-token: padas-app/sites/ndoki/smartconnect-provider-das-token
   nginx-utility-ssl-key: padas-app/main/es-ssl-key
   elastic-basic-auth-password: padas-app/main/es-basic-auth-password
+  nl-capturs-das-token: padas-app/sites/nluwangwa/capturs-das-token
+  nl-capturs-uid: padas-app/sites/nluwangwa/capturs-uid
+  nl-capturs-token: padas-app/sites/nluwangwa/capturs-token
