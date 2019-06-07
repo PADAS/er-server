@@ -22,6 +22,7 @@ data:
   NLUWANGWA_CAPTURS_UID: "<<nl-capturs-uid>>"
   NLUWANGWA_CAPTURS_TOKEN: "<<nl-capturs-token>>"
   NLUWANGWA_CAPTURS_DAS_TOKEN: "<<nl-capturs-das-token>>"
+  NLUWANGWA_CAPTURS_SRC_PROVIDER: "nl-capturs"
   SANDBOX_DAS_SENSOR_ENDPOINT: "https://sandbox.pamdas.org/api/v1.0"
   SANDBOX_SPOT_PROVIDER_DAS_TOKEN: "puw6LF5CvxggtZ3ufpCAUFal33NWwG"
   SANDBOX_SPOT_SOURCE_GROUP: "2eef1244be764b778848b1c9b9ffd2d1"
