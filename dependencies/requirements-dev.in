@@ -3,13 +3,13 @@
 
 # Use django-extensions to support shell_plus, which allows for running a Django app jupyter notebook.
 django-extensions==2.1.6
-pre-commit==0.16.0
+pre-commit==0.17.0
 mockredispy==2.9.3
 ptvsd==3.2.1
 pytest==4.4.1
 pytest-django==3.4.5
 pytest-pythonpath==0.7.3
 xmlunittest==0.5.0
-pip-tools==3.6.1
+pip-tools==3.8.0
 django-debug-toolbar==1.11
 websocket-client==0.56.0
