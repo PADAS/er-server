@@ -11,6 +11,8 @@ from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.utils.dateparse import parse_duration
 from django.http.request import HttpRequest
+import pytz
+from django.utils import timezone
 
 
 class StaticImageFinder(object):
@@ -86,15 +88,24 @@ class OneWeekSchedule(Schedule):
         if self.schedule_definition:
             self.validate_schedule_document()
 
+        self.schedule_periods = self.schedule_definition.get('periods', {})
+
+        if 'timezone' in self.schedule_definition:
+            self.schedule_timezone = pytz.timezone(self.schedule_definition['timezone'])
+        else:
+            self.schedule_timezone = timezone.get_current_timezone()
+
     def __contains__(self, value):
 
-        if not bool(self.schedule_definition):
+        if not bool(self.schedule_periods):
             return True
+
+        value = value.astimezone(self.schedule_timezone)
 
         # Truncate the timestamp to our finest granularity.
         value = value.replace(second=0, microsecond=0)
 
-        relevant_periods = self.schedule_definition.get(self.days_of_week[value.isoweekday()])
+        relevant_periods = self.schedule_periods.get(self.days_of_week[value.isoweekday()])
         if relevant_periods:
             return self.test_timestamp(value, relevant_periods)
         return False
@@ -163,13 +174,27 @@ class OneWeekSchedule(Schedule):
                 "enum": ["week"],
                 "title": "The kind of schedule this document represents. Currently only 'week' is supported."
             },
-            "monday": {"$ref": "#/definitions/dayofweek"},
-            "tuesday": {"$ref": "#/definitions/dayofweek"},
-            "wednesday": {"$ref": "#/definitions/dayofweek"},
-            "thursday": {"$ref": "#/definitions/dayofweek"},
-            "friday": {"$ref": "#/definitions/dayofweek"},
-            "saturday": {"$ref": "#/definitions/dayofweek"},
-            "sunday": {"$ref": "#/definitions/dayofweek"},
+            "periods": {
+                "$id": "#/properties/schedule/periods",
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "monday": {"$ref": "#/definitions/dayofweek"},
+                    "tuesday": {"$ref": "#/definitions/dayofweek"},
+                    "wednesday": {"$ref": "#/definitions/dayofweek"},
+                    "thursday": {"$ref": "#/definitions/dayofweek"},
+                    "friday": {"$ref": "#/definitions/dayofweek"},
+                    "saturday": {"$ref": "#/definitions/dayofweek"},
+                    "sunday": {"$ref": "#/definitions/dayofweek"}
+                }
+
+            },
+            "timezone": {
+                "$id": "#/properties/timezone",
+                "type": "string",
+                "title": "The name of the timezone within which the schedule will be evaluated.",
+                "enum": list(pytz.all_timezones_set)
+            }
         }
     }
 
