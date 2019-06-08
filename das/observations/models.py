@@ -279,6 +279,28 @@ class ObservationManager(models.Manager):
         Observation.objects.filter(id__in=id_list).update(
             exclusion_flags=F('exclusion_flags').bitand(~flags))
 
+    def get_subject_source_observation_values(self, subject_source, since=None, until=None, limit=None, filter_flag=0):
+
+        queryset = Observation.objects.filter(source__subjectsource=subject_source,
+                                              source__subjectsource__assigned_range__contains=F(
+                                                  'recorded_at'),
+                                              exclusion_flags=filter_flag)
+
+        if since and until:
+            queryset = queryset.filter(Q(recorded_at__range=(since, until)))
+        elif since:
+            queryset = queryset.filter(Q(recorded_at__gte=since))
+        elif until:
+            queryset = queryset.filter(Q(recorded_at__lte=until))
+
+        queryset = queryset.exclude(location=EMPTY_POINT)
+        queryset = queryset.order_by('-recorded_at')
+
+        if limit:
+            queryset = queryset[:limit]
+
+        return queryset
+
     def add_observation(self, observation):
         '''
         Add an observation for the given source.
