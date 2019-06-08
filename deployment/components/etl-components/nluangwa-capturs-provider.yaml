@@ -15,6 +15,11 @@ spec:
           - name: spot-provider-etl
             image: gcr.io/padas-app/etl/captur:latest
             env:
+            - name: SOURCE_PROVIDER
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-configmap
+                  key: NLUWANGWA_CAPTURS_SRC_PROVIDER
             - name: DAS_ENDPOINT
               valueFrom:
                 configMapKeyRef:
