@@ -5,6 +5,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+SMS_MESSAGE_LENGTH_LIMIT = 500  # Some sensible value
 
 class TwilioSmsBackend(BaseSmsBackend):
     from twilio.rest import Client
@@ -35,7 +36,7 @@ class TwilioSmsBackend(BaseSmsBackend):
                     client.messages.create(
                         to=to,
                         from_=self.TWILIO_FROM_NUMBER,
-                        body=message.body[0:122]  # Trial account restriction
+                        body=message.body[:SMS_MESSAGE_LENGTH_LIMIT]
                     )
                 except:
                     if not self.fail_silently:

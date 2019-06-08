@@ -14,6 +14,7 @@ from django.http import Http404
 import django.db
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import ForeignKey
+from django.utils import timezone
 from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
 import rest_framework.serializers
@@ -1562,6 +1563,12 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
 
         try:
             jsonschema.validate(value, OneWeekSchedule.json_schema)
+
+            if not 'timezone' in value:
+                value['timezone'] = timezone.get_current_timezone_name()
+            else:
+                pytz.timezone(value['timezone'])
+
             return value
         except jsonschema.ValidationError as ve:
             rpath = '/'.join([''] + [str(x) for x in ve.relative_path])
