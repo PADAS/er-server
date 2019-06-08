@@ -195,11 +195,13 @@ class BusinessRulesTestCase(BaseAPITest):
 
     def test_schedule_mask(self):
 
-        periods = {
-            'sunday': [['08:00', '12:00'], ['13:00', '18:30']]
+        schedule = {
+            'periods': {
+                'sunday': [['08:00', '12:00'], ['13:00', '18:30']]
+            }
         }
 
-        schedule = OneWeekSchedule(periods)
+        schedule = OneWeekSchedule(schedule)
         d1 = datetime.now(tz=pytz.timezone('America/Los_Angeles'))
 
         # Find the most recent Monday.
@@ -283,8 +285,10 @@ class BusinessRulesTestCase(BaseAPITest):
             'notification_method_ids': [notification_method_id, ],
             'reportTypes': ['carcass_rep', ],
             'schedule': {
-                "monday": [("08:00", "12:00"), ("13:00", "17:30")],
-                "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
+                "periods": {
+                    "monday": [("08:00", "12:00"), ("13:00", "17:30")],
+                    "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
+                }
             },
             'conditions': {
                 "all": [
@@ -347,7 +351,7 @@ class BusinessRulesTestCase(BaseAPITest):
             day_key: [[h1, h2]]
         }
 
-        return periods
+        return {"periods": periods}
 
 
     def test_for_confiscation_rep_with_select_multiple(self):
@@ -724,8 +728,10 @@ class BusinessRulesTestCase(BaseAPITest):
     def test_schedule_schema(self):
         valid_document_1 = {
             "schedule_type": "week",
-            "monday": [["00:00", "23:00"]],
-            "tuesday": [["06:00", "11:00"], ["12:30", "18:30"]]
+            "periods": {
+                "monday": [["00:00", "23:00"]],
+                "tuesday": [["06:00", "11:00"], ["12:30", "18:30"]]
+            }
         }
 
         try:
@@ -736,9 +742,11 @@ class BusinessRulesTestCase(BaseAPITest):
             self.assertTrue(assumed_valid, msg='Incorrectly assumed a schema is valid.')
 
         invalid_document_1 = {
-            "monday": [["00:00", "23:00"]],
-            "wednesday": [["00:01", "11:00", "12:30"]], # <-- invalid
-            "thurs": [["01:01", "12:30"]]
+            "periods": {
+                "monday": [["00:00", "23:00"]],
+                "wednesday": [["00:01", "11:00", "12:30"]], # <-- invalid
+                "thursday": [["01:01", "12:30"]]
+            }
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid time-range tuple."):
@@ -746,17 +754,21 @@ class BusinessRulesTestCase(BaseAPITest):
             schedule = OneWeekSchedule(invalid_document_1)
 
         invalid_document_2 = {
-            "monday": [["00:00", "23:00"]],
-            "thurs": [["01:01", "12:30"]] # <-- invalid
+            "periods": {
+                "monday": [["00:00", "23:00"]],
+                "thurs": [["01:01", "12:30"]] # <-- invalid
+            }
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for disallowed additional property."):
             jsonschema.validate(invalid_document_2, OneWeekSchedule.json_schema)
 
         invalid_document_3 = {
-            "monday": [["00:00", "23:00"]],
-            "friday": [["01:01", "12:30"]],
-            "somerandomkey": { 'something': 1} # <-- invalid
+            "periods": {
+                "monday": [["00:00", "23:00"]],
+                "friday": [["01:01", "12:30"]],
+                "somerandomkey": { 'something': 1} # <-- invalid
+            }
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for disallowed additional property."):
@@ -764,8 +776,10 @@ class BusinessRulesTestCase(BaseAPITest):
 
         invalid_document_4 = {
             "schedule_type": "month",
-            "monday": [["00:00", "23:00"]],
-            "friday": [["01:01", "12:30"]]
+            "periods": {
+                "monday": [["00:00", "23:00"]],
+                "friday": [["01:01", "12:30"]]
+            }
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid schedule_type."):

@@ -1,0 +1,43 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  namespace: <<namespace>>
+  name: nluangwa-capturs-provider-etl
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          imagePullSecrets:
+          - name: gcr-secret
+          containers:
+          - name: spot-provider-etl
+            image: gcr.io/padas-app/etl/captur:latest
+            env:
+            - name: SOURCE_PROVIDER
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-configmap
+                  key: NLUWANGWA_CAPTURS_SRC_PROVIDER
+            - name: DAS_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-configmap
+                  key: NLUWANGWA_DAS_SENSOR_ENDPOINT
+            - name: DAS_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-configmap
+                  key: NLUWANGWA_CAPTURS_DAS_TOKEN
+            - name: C_UID
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-configmap
+                  key: NLUWANGWA_CAPTURS_UID
+            - name: C_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-configmap
+                  key: NLUWANGWA_CAPTURS_TOKEN
+          restartPolicy: Never
