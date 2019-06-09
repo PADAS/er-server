@@ -280,8 +280,8 @@ class ObservationManager(models.Manager):
             exclusion_flags=F('exclusion_flags').bitand(~flags))
 
     def get_subject_source_observation_values(self, subject_source, since=None, until=None, limit=None, filter_flag=0):
-
-        queryset = Observation.objects.filter(source__subjectsource=subject_source,
+        values = ('recorded_at', 'location')
+        queryset = Observation.objects.filter(source__subjectsource__in=subject_source,
                                               source__subjectsource__assigned_range__contains=F(
                                                   'recorded_at'),
                                               exclusion_flags=filter_flag)
@@ -299,7 +299,7 @@ class ObservationManager(models.Manager):
         if limit:
             queryset = queryset[:limit]
 
-        return queryset
+        return queryset.values(*values)
 
     def add_observation(self, observation):
         '''
