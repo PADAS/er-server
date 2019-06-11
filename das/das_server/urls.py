@@ -25,6 +25,7 @@ from das_server import views
 from das_server.admin import dasadmin_site
 
 urlpatterns = [
+    url('', views.StatusView.as_view()),
     url(r'^api/v1.0/status/?$', views.StatusView.as_view()),
     url(r'^api/v1.0/', include('accounts.urls')),
     url(r'^api/v1.0/', include('observations.urls')),
