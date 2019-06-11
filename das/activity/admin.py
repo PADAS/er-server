@@ -29,7 +29,8 @@ class EventAdmin(admin.OSMGeoAdmin):
                     'title', 'location', 'attributes',)
     readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
     search_fields = ('title', 'serial_number')
-    list_filter = ('event_type',)
+    list_filter = ('state', 'event_type', )
+    actions = ('resolve_event',)
     inlines = [
         EventDetailsInline,
         # EventRelationshipInline,
@@ -44,6 +45,11 @@ class EventAdmin(admin.OSMGeoAdmin):
             'fields': ('state', 'priority', 'location', 'id', 'created_at', 'updated_at',)
         })
     )
+
+    def resolve_event(self, request, queryset):
+        queryset.update(state=models.Event.SC_RESOLVED)
+
+    resolve_event.short_description = "Resolve Selected Events(Reports)"
 
 
 @admin.register(models.Community)
