@@ -3,6 +3,8 @@ import traceback
 import copy
 from collections import OrderedDict
 
+import pytz
+
 from core.serializers import ContentTypeField
 from choices.serializers import ChoiceField
 from django.contrib.gis.geos import Point
@@ -1531,6 +1533,13 @@ class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+def _default_schedule():
+    return {
+        'timezone': timezone.get_current_timezone_name(),
+        'periods': {}
+    }
+
+
 class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     '''
     Notice that 'notification_methods' and 'notification_method_ids' work together to provide clean read-write
@@ -1545,7 +1554,7 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
         slug_field='value', source='event_types')
 
     conditions = rest_framework.serializers.JSONField(required=False, default=dict)
-    schedule = rest_framework.serializers.JSONField(required=False, default=dict)
+    schedule = rest_framework.serializers.JSONField(required=False, default=_default_schedule)
 
     owner = rest_framework.serializers.HiddenField(default=rest_framework.serializers.CurrentUserDefault())
 
