@@ -107,3 +107,19 @@ EUS_SETTINGS = {
     'email': env.str('EUS_EMAIL', 'eus_test@pamdas.org'),
     'organization': env.str('EUS_ORG', 'pamdas.org')
 }
+
+# Django Debug Toolbar Settings enabled if DEV=True
+if DEV:
+    INSTALLED_APPS += ('debug_toolbar',)
+
+    DEBUG_TOOLBAR_APP = 'debug_toolbar.middleware.DebugToolbarMiddleware'
+    if 'debug_toolbar' in INSTALLED_APPS and DEBUG_TOOLBAR_APP not in MIDDLEWARE:
+        DEBUG = DEV = True
+        atindex = MIDDLEWARE.index('django.contrib.sessions.middleware.SessionMiddleware') + 1
+        MIDDLEWARE = list(MIDDLEWARE)
+        MIDDLEWARE.insert(atindex, DEBUG_TOOLBAR_APP)
+        MIDDLEWARE = tuple(MIDDLEWARE)
+
+    DEBUG_TOOLBAR_CONFIG = {
+        "SHOW_TOOLBAR_CALLBACK": lambda x: True,
+    }
