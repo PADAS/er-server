@@ -75,7 +75,8 @@ EXPORT_KML_ENABLED = True
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        # 'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'ENGINE': 'core.databases.postgis',
         'NAME': env.str('DB_NAME', 'das'),
         'USER': env.str('DB_USER','das'),
         'HOST': env.str('DB_HOST', 'postgis'),
