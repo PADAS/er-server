@@ -6,7 +6,6 @@
 #
 --find-links ./wheelhouse
 
-
 adal==1.2.1
 affine==2.2.2
 amqp==2.4.2
@@ -149,7 +148,7 @@ drf-extensions==0.5.0
 earthengine-api==0.1.175
 et-xmlfile==1.0.1
 eventlet==0.25.0
-fiona==1.8.6
+fiona==1.7.11
 future==0.17.1
 gdal==2.2.3
 geographiclib==1.49
