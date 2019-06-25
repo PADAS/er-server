@@ -258,7 +258,7 @@ class AlertRuleAdmin(admin.ModelAdmin):
         ('Notifications',
          {
              "classes": ('wide',),
-             'fields': ('notification_methods',),
+             'fields': ('notification_methods', 'event_types',),
          }
          ),
         ('Advanced',
