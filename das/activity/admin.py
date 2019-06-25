@@ -243,9 +243,30 @@ class EventRelationshipAdmin(admin.ModelAdmin):
 
 @admin.register(models.AlertRule)
 class AlertRuleAdmin(admin.ModelAdmin):
-    readonly_fields = ('id',)
+    readonly_fields = ('id', )#'conditions', 'schedule',)
     list_display = ('owner_username', 'title', 'is_active', 'ordernum',)
     form = AlertRuleForm
+    list_filter = ('owner', 'is_active',)
+    search_fields = ('title',)
+    list_editable = ('is_active',)
+
+    fieldsets = (
+        (None, {
+            'fields': ('owner', 'title', 'is_active', 'ordernum', )
+        }
+        ),
+        ('Notifications',
+         {
+             "classes": ('wide',),
+             'fields': ('notification_methods', 'event_types',),
+         }
+         ),
+        ('Advanced',
+         {"classes": ('collapse',),
+          'fields': ('conditions', 'schedule', 'id',)
+          }
+         )
+    )
 
     def owner_username(self, instance):
         return instance.owner.username
