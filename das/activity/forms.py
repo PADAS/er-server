@@ -14,7 +14,7 @@ import json
 import jsonschema
 from core.utils import OneWeekSchedule
 from activity.alerting.conditions import Conditions
-from activity.models import EventProvider, NotificationMethod
+from activity.models import EventProvider, NotificationMethod, EventType
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +129,13 @@ class AlertRuleForm(forms.ModelForm):
         required=False,
         widget=FilteredSelectMultiple(
             verbose_name=_('Notification Methods'),
+            is_stacked=False))
+
+    event_types = forms.ModelMultipleChoiceField(
+        queryset=EventType.objects.all(),
+        required=False,
+        widget=FilteredSelectMultiple(
+            verbose_name=_('Event Types'),
             is_stacked=False))
 
     def clean_conditions(self):
