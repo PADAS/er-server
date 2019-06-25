@@ -1,18 +1,22 @@
+import logging
 import os
 
-from django.contrib.staticfiles.storage import staticfiles_storage
-
 from django import forms
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.forms.widgets import Widget
 from django.utils.translation import ugettext_lazy as _
-
-import logging
-logger = logging.getLogger(__name__)
+from django.forms import TextInput
+from django.contrib.admin.widgets import FilteredSelectMultiple
 
 from core.forms_utils import JSONFieldFormMixin
 
-from activity.models import EventProvider
+import json
+import jsonschema
+from core.utils import OneWeekSchedule
+from activity.alerting.conditions import Conditions
+from activity.models import EventProvider, NotificationMethod
 
+logger = logging.getLogger(__name__)
 
 
 class MonospaceTextWidget(forms.Textarea):
@@ -20,7 +24,7 @@ class MonospaceTextWidget(forms.Textarea):
 
     def __init__(self, attrs=None):
         # Use slightly better defaults than HTML's 20x2 box
-        default_attrs = {'cols': '50', 'rows': '100'}
+        default_attrs = {'cols': '70', 'rows': '30'}
         if attrs:
             default_attrs.update(attrs)
         super().__init__(default_attrs)
@@ -29,7 +33,6 @@ class MonospaceTextWidget(forms.Textarea):
         css = {
             'all': ('css/monospace_textarea.css',),
         }
-
 
 
 class SchemaWidget(forms.Textarea):
@@ -101,14 +104,63 @@ class EventTypeForm(forms.ModelForm):
                            widget=IconKeyInput(image_list_fn=get_event_icon_select_list))
 
 
+class NotificationMethodSelectField(forms.ModelMultipleChoiceField):
+
+    def label_from_instance(self, obj):
+        return f'owner > {obj.owner.username} | {obj.method} : {obj.value}'
+
+
 class AlertRuleForm(forms.ModelForm):
-    conditions = forms.CharField(widget=MonospaceTextWidget(
-        attrs={'rows': 30, 'cols': 100}))
 
-    schedule = forms.CharField(widget=MonospaceTextWidget(
-        attrs={'rows': 30, 'cols': 100}))
+    def get_initial_for_field(self, field, field_name):
+        value = super().get_initial_for_field(field, field_name)
 
-from django.forms import TextInput
+        if field_name in ('conditions', 'schedule',):
+            try:
+                return json.dumps(value, indent=2)
+            except json.JSONDecodeError as ex:
+                logger.exception('Failed to read value for field AlertRule.%s.', field_name)
+        return value
+
+    conditions = forms.CharField(widget=MonospaceTextWidget)
+    schedule = forms.CharField(widget=MonospaceTextWidget)
+
+    notification_methods = NotificationMethodSelectField(
+        queryset=NotificationMethod.objects.all(),
+        required=False,
+        widget=FilteredSelectMultiple(
+            verbose_name=_('Notification Methods'),
+            is_stacked=False))
+
+    def clean_conditions(self):
+
+        value = self.clean_jsonfield('conditions')
+        try:
+            Conditions(value)
+            return value
+        except jsonschema.ValidationError as ve:
+            rpath = '/'.join([''] + [str(x) for x in ve.relative_path])
+            error_message = f'JSON schema validation error at {rpath}. Value {ve.instance} failed {ve.validator} ' \
+                f'validation against {ve.validator_value}'
+            raise forms.ValidationError(error_message)
+
+    def clean_schedule(self):
+        value = self.clean_jsonfield('schedule')
+        try:
+            OneWeekSchedule(value)
+            return value
+        except jsonschema.ValidationError as ve:
+            rpath = '/'.join([''] + [str(x) for x in ve.relative_path])
+            error_message = f'JSON schema validation error at {rpath}. Value {ve.instance} failed {ve.validator} ' \
+                f'validation against {ve.validator_value}'
+            raise forms.ValidationError(error_message)
+
+    def clean_jsonfield(self, key):
+        value = self.cleaned_data[key]
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError as ex:
+            raise forms.ValidationError(str(ex))
 
 
 class EventProviderForm(JSONFieldFormMixin, forms.ModelForm):

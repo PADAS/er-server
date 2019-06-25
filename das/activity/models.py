@@ -1243,6 +1243,9 @@ class NotificationMethod(TimestampedModel):
     is_active = models.BooleanField(default=True, help_text=_('Whether messages should be sent to this method.'))
     objects = NotificationMethodManager()
 
+    def __str__(self):
+        return f'{self.owner.username}, {self.method}, {self.value}'
+
 
 class AlertRuleManager(models.Manager):
     pass
