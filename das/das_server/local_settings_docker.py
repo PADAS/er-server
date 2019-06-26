@@ -109,6 +109,8 @@ EUS_SETTINGS = {
     'organization': env.str('EUS_ORG', 'pamdas.org')
 }
 
+ALERTS_ENABLED = env.bool('ALERTS_ENABLED', True)
+
 # Django Debug Toolbar Settings enabled if DEV=True
 if DEV:
     INSTALLED_APPS += ('debug_toolbar',)
