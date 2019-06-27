@@ -264,12 +264,7 @@ def generate_details(event, schema):
                    'order': definition_order.get(k, 99)}
 
 
-def get_details_and_display_values(event, schema):
-    try:
-        event_details = event.event_details.first().data.get('event_details', {})
-    except AttributeError:
-        return {}
-
+def get_display_values_for_event_details(event_details, schema):
     ret = {}
     for k, v in event_details.items():
         resolved_details = detail_resolver(schema, k, v)
@@ -279,6 +274,14 @@ def get_details_and_display_values(event, schema):
                 resolved_details[0]: resolved_details[1]
             })
     return ret
+
+
+def get_details_and_display_values(event, schema):
+    try:
+        event_details = event.event_details.first().data.get('event_details', {})
+        return get_display_values_for_event_details(event_details, schema)
+    except AttributeError:
+        return {}
 
 
 def get_rendered_schema(schema):

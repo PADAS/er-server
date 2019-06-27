@@ -332,6 +332,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         reported_by_map = generate_reported_by_lookup()
 
+        # TODO: Resolve how we can annotate with an array-aggregation for parents' IDs.
         parent_event_subquery = EventRelationship.objects.filter(to_event_id=OuterRef('id'))
 
         for event in self.get_queryset() \
@@ -341,7 +342,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 .annotate(parent_event_id=Subquery(parent_event_subquery.values('from_event_id')[:1])) \
                 .values( 'id', 'serial_number', 'priority', 'state',
                         'title', 'event_type_id', 'event_type__value', 'event_type__display',
-                        'event_type__schema', 'event_details', 'notes_count', 'full_notes',
+                        'event_type__schema', 'event_details__data', 'notes_count', 'full_notes',
                         'parent_event_id', 'location', 'event_time', 'reported_by_id',
                          'related_subjects_count'):
 
@@ -358,7 +359,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 try:
                     current_schema = renderer(event['event_type__schema'])
                     current_schema_order = \
-                        schema_utils.definition_key_order_as_dict(renderer(event['event_type__schema']))
+                        schema_utils.definition_key_order_as_dict(current_schema)
 
                     for key, order in current_schema_order.items():
                         if not isinstance(key, int):
@@ -382,7 +383,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             # First, get the event details (schema data) in the correct order
             # for the headers above
-            details = schema_utils.get_details_and_display_values(event, current_schema)
+            details = schema_utils.get_display_values_for_event_details(
+                event['event_details__data'].get('event_details', {}), current_schema)
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
@@ -390,9 +392,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 schema_data[key] = self.escape_string(details.get(key, ''))
                 schema_data[item_display_name] = self.escape_string(details.get(item_display_name, ''))
 
-
             # Now assemble the data we want to write to the csv
-            event_time = event['event_time'].astimezone(current_tz)
             event_data = {
                 'serial': event['serial_number'],
                 'event_type': event['event_type__display'],
@@ -400,7 +400,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'title': self.escape_string(event['title']),
                 'priority': Event.PRIORITY_LABELS_MAP.get(event['priority'], ''),
                 'priority_internal': event['priority'],
-                'reported_at': event['event_time'].strftime('%Y-%m-%d %H:%M'),
+                'reported_at': event['event_time'].astimezone(current_tz).strftime('%Y-%m-%d %H:%M'),
                 'lat': event['location'].y if event['location'] is not None else '',
                 'lon': event['location'].x if event['location'] is not None else '',
                 'num_notes': event['notes_count'],
@@ -411,15 +411,14 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'details': schema_data
             }
 
+            # Use cached reported_by map
             reported_by_values = reported_by_map.get(str(event['reported_by_id']))
-
             if reported_by_values:
                 event_data['reported_by'] = reported_by_values['display']
                 event_data['reported_by_internal'] = reported_by_values['value']
             else:
                 event_data['reported_by'] = ''
                 event_data['reported_by_internal'] = ''
-
 
             current_event_type_data['events'].append(event_data)
 
