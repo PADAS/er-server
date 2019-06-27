@@ -1561,7 +1561,7 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     notification_method_ids = rest_framework.serializers.PrimaryKeyRelatedField(
         queryset=activity.models.NotificationMethod.objects.all(),
         many=True, write_only=False, source='notification_methods')
-    notification_methods = NotificationMethodSerializer(many=True, read_only=True)
+    # notification_methods = NotificationMethodSerializer(many=True, read_only=True)
 
     class Meta:
         exclude = ('event_types',) # 'notification_methods',)
