@@ -10,6 +10,10 @@ data:
   API_HOST: api
   API_PORT: "8000"
   EMAIL_PASSWORD: <<email-password>>
+  EMAIL_HOST_USER: "AKIAJLH5VZD6IQWTWPQQ"
+  EMAIL_HOST: "email-smtp.us-west-2.amazonaws.com"
+  DEFAULT_FROM_EMAIL: "notifications.integration@pamdas.org"
+  FROM_EMAIL: "notifications.integration@pamdas.org"
   WEB_SERVICE_NAME: <<web-service-name>>
   BUNDLE_CRT: "<<bundle-crt>>"
   PAMDAS_ORG_PRIVATE_KEY_PEM: "<<pamdas-org-ssl-key>>"
