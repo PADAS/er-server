@@ -713,7 +713,7 @@ jobs:
   plan:
   - get: git-web-react
     trigger: true
-  - put: image-web-react
+  - put: image-web-react-app
     params: {
       build: git-web-react,
       dockerfile: git-web-react/Dockerfile.prod,
@@ -749,8 +749,8 @@ jobs:
       version: latest
       trigger: true
     - get: image-web-react-app
-        version: latest
-        trigger: true
+      version: latest
+      trigger: true
   - put: image-web-app
     params: {
       build: git-web,
