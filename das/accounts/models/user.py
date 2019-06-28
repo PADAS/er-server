@@ -205,6 +205,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
                      to=[self.phone], **kwargs)
 
     _mou_expiry_date = None
+    _mou_expiry_date_is_set = False
     @property
     def mou_expiry_date(self):
         '''
@@ -216,7 +217,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         TODO: Consider whether an invalid 'mou_expiry' string should raise an error.
         '''
 
-        if self._mou_expiry_date:
+        if self._mou_expiry_date_is_set:
             return self._mou_expiry_date
 
         try:
@@ -230,8 +231,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         except (ValueError, OverflowError) as ex:
             logger.warning('Error parsing mou_expiry_date string "%s" for user %s', mou_expiry_date, self.username)
         finally:
-            if self._mou_expiry_date is None:
-                self._mou_expiry_date = datetime.max.replace(tzinfo=pytz.utc)
+            self._mou_expiry_date_is_set = True
 
         return self._mou_expiry_date
 

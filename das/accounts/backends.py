@@ -100,7 +100,7 @@ class AccountsModelBackend(ModelBackend):
     #     user = super().authenticate(request, username, password, **kwargs)
 
     def user_can_authenticate(self, user):
-        if user.mou_expiry_date < datetime.now(tz=pytz.utc):
+        if user.mou_expiry_date and user.mou_expiry_date < datetime.now(tz=pytz.utc):
             return False
 
         return super().user_can_authenticate(user)
