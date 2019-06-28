@@ -71,6 +71,13 @@ resources:
     branch: ((web-branch-name))
     private_key: ((das-web-github))
 
+- name: git-web-react
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das-web-react.git
+    branch: ((web-react-branch-name))
+    private_key: ((das-web-react-github))
+
 - name: git-react-admin
   type: versioned-git-resource
   source:
@@ -87,6 +94,16 @@ resources:
     file: ((version-prefix)).web.version
     private_key: ((das-versions-github))
     initial_version: ((initial-web-version))
+
+- name: web-react-version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.versions.git
+    branch: master
+    file: ((version-prefix)).web.react.version
+    private_key: ((das-versions-github))
+    initial_version: ((initial-web-react-version))
 
 - name: git-spot-provider
   type: versioned-git-resource
@@ -249,6 +266,15 @@ resources:
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/develop
 
+- name: image-web-react-develop
+  type: docker-image-with-file-build-args
+  source:
+    tag: $(cat<git-web-react/sha)
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/web-react/develop
+
 - name: image-react-admin
   type: docker-image-with-file-build-args
   source:
@@ -264,6 +290,14 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/web/app
+
+- name: image-web-react-app
+  type: docker-image-with-file-build-args
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/web-react/app
 
 # etl providers
 - name: image-skyline-provider
@@ -586,7 +620,63 @@ jobs:
       - name: git-web
       run:
         dir: git-web
-        path: ls
+        path: docker/test.sh
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-web-react-develop
+  max_in_flight: 1
+  plan:
+  - get: git-web-react
+    trigger: true
+  - put: web-react-version
+    params:
+      pre: ((version-prefix))
+  - put: image-web-react-develop
+    params: {
+      build: git-web-react,
+      dockerfile: git-web-react/Dockerfile.dev,
+      tag: web-react-version/version,
+      tag_as_latest: ((tag-as-latest)),
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: test-web-react-unit
+  serial: true
+  plan:
+  - aggregate:
+    - get: git-web-react
+      trigger: true
+      passed: [docker-build-web-react-develop]
+    - get: image-web-react-develop
+      trigger: true
+      passed: [docker-build-web-react-develop]
+      params: {
+        save: true
+      }
+  - task: test
+    image: image-web-react-develop
+    config:
+      platform: linux
+      inputs:
+      - name: git-web-react
+      run:
+        dir: git-web-react
+        path: test.sh
     on_failure:
       do:
       - put: slack-alert
@@ -618,6 +708,29 @@ jobs:
             :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
+- name: docker-build-web-react-app
+  max_in_flight: 1
+  plan:
+  - get: git-web-react
+    trigger: true
+  - put: image-web-react
+    params: {
+      build: git-web-react,
+      dockerfile: git-web-react/Dockerfile.prod,
+      tag: git-web-react/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+
 - name: docker-build-web-app
   max_in_flight: 1
   serial: true
@@ -635,6 +748,9 @@ jobs:
     - get: image-react-admin
       version: latest
       trigger: true
+    - get: image-web-react-app
+        version: latest
+        trigger: true
   - put: image-web-app
     params: {
       build: git-web,
