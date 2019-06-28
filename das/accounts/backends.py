@@ -1,7 +1,5 @@
 import logging
 import uuid
-from datetime import datetime
-import pytz
 
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import Permission
@@ -11,6 +9,7 @@ from oauth2_provider.contrib.rest_framework.authentication import OAuth2Authenti
 from oauth2_provider.backends import OAuth2Backend
 
 from accounts.models import User
+
 
 logger = logging.getLogger('django.request')
 
@@ -95,15 +94,6 @@ class AccountsModelBackend(ModelBackend):
 
     Inspired by Django-Guardian
     """
-
-    # def authenticate(self, request, username=None, password=None, **kwargs):
-    #     user = super().authenticate(request, username, password, **kwargs)
-
-    def user_can_authenticate(self, user):
-        if user.mou_expiry_date < datetime.now(tz=pytz.utc):
-            return False
-
-        return super().user_can_authenticate(user)
 
     def get_user(self, user_id):
         return super().get_user(user_id)
