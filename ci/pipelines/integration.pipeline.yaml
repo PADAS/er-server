@@ -620,7 +620,7 @@ jobs:
       - name: git-web
       run:
         dir: git-web
-        path: docker/test.sh
+        path: ls
     on_failure:
       do:
       - put: slack-alert
@@ -676,7 +676,7 @@ jobs:
       - name: git-web-react
       run:
         dir: git-web-react
-        path: test.sh
+        path: ls
     on_failure:
       do:
       - put: slack-alert
@@ -711,13 +711,21 @@ jobs:
 - name: docker-build-web-react-app
   max_in_flight: 1
   plan:
-  - get: git-web-react
-    trigger: true
+  - aggregate:
+    - get: git-web-react
+      passed: [test-web-react-unit]
+      trigger: true
+    - get: image-web-react-develop
+      trigger: true
+      passed: [test-web-react-unit]
+      params: {skip_download: true}
+    - get: web-react-version
+      passed: [docker-build-web-react-develop]
   - put: image-web-react-app
     params: {
       build: git-web-react,
       dockerfile: git-web-react/Dockerfile.prod,
-      tag: git-web-react/sha,
+      tag: web-react-version/version,
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
@@ -743,13 +751,19 @@ jobs:
       trigger: true
       passed: [test-web-unit]
       params: {skip_download: true}
+    - get: image-web-react-develop
+      trigger: true
+      passed: [test-web-react-unit]
+      params: {skip_download: true}
     - get: web-version
       passed: [docker-build-web-develop]
+    - get: web-react-version
+      passed: [docker-build-web-react-develop]
     - get: image-react-admin
       version: latest
       trigger: true
     - get: image-web-react-app
-      version: latest
+      version: web-react-version/version
       trigger: true
   - put: image-web-app
     params: {
