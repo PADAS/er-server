@@ -333,7 +333,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         reported_by_map = generate_reported_by_lookup()
 
         # TODO: Resolve how we can annotate with an array-aggregation for parents' IDs.
-        parent_event_subquery = EventRelationship.objects.filter(to_event_id=OuterRef('id'))
+        parent_event_subquery = EventRelationship.objects.filter(to_event_id=OuterRef('id')).order_by('created_at')
 
         for event in self.get_queryset() \
                 .annotate(notes_count=Count('note')) \
@@ -447,8 +447,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
     def render_to_response(self, context, **response_kwargs):
 
         response = super().render_to_response(context, **response_kwargs)
-        response['Content-Disposition'] = 'attachment; filename={}'.format(
-            context['report_filename'])
+        response['Content-Disposition'] = f'attachment; filename={context["report_filename"]}'
         response['x-das-download-filename'] = context['report_filename']
         return response
 
@@ -457,7 +456,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         current_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = current_tz.localize(datetime.utcnow())
         context = {
-            'report_filename': 'Event Export {}.csv'.format(timestamp.strftime('%Y-%m-%d')),
+            'report_filename': f'Event Export {timestamp.strftime("%Y-%m-%d")}.csv',
             'report_time': timestamp.strftime(REPORT_TIME_FORMAT),
             'event_types': self.get_event_export_list()
         }

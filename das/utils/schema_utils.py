@@ -209,18 +209,18 @@ def extractor(schema_item, definition, value):
         key, val = extract_from_dict_or_string(schema_item, value)
 
     if 'title' in schema_item:
-        return (schema_item['title'], val, key)
+        return schema_item['title'], val, key
     else:
         for definition_item in definition:
             if isinstance(definition_item, dict):
-                if 'key' not in definition:
+                if 'key' not in definition_item:
                     logger.warning(f'key not found in definition {definition}')
                     continue
                 if 'key' not in schema_item:
                     logger.warning(f'key not found in schema_item {schema_item}')
                     continue
                 if definition_item['key'] == schema_item['key']:
-                    return (definition_item['title'], val, key)
+                    return definition_item.get('title'), val, key
 
 
 def definition_key_order(schema):
@@ -268,9 +268,12 @@ def get_display_values_for_event_details(event_details, schema):
     ret = {}
     for k, v in event_details.items():
         resolved_details = detail_resolver(schema, k, v)
+
+        logger.debug(f'Resolved details for {k} {v} = {resolved_details}')
         if resolved_details:
+            title, display, value = resolved_details
             ret.update({
-                k:  resolved_details[2],
+                k: resolved_details[2],
                 resolved_details[0]: resolved_details[1]
             })
     return ret
