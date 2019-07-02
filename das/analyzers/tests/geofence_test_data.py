@@ -431,3 +431,685 @@ JOLIE_TRACK = [
     "longitude": 10.451
   }
 ]
+
+
+DAS4022_TRACKS = [
+{
+    "recorded_at": "2019-06-09T03:30:21+00:00",
+    "latitude": -2.007108,
+    "longitude": 34.64523
+  },
+  {
+    "recorded_at": "2019-06-09T03:00:19+00:00",
+    "latitude": -2.005027,
+    "longitude": 34.6455
+  },
+  {
+    "recorded_at": "2019-06-09T02:30:14+00:00",
+    "latitude": -2.002923,
+    "longitude": 34.64616
+  },
+  {
+    "recorded_at": "2019-06-09T02:00:24+00:00",
+    "latitude": -2.001173,
+    "longitude": 34.64214
+  },
+  {
+    "recorded_at": "2019-06-09T01:30:24+00:00",
+    "latitude": -1.999058,
+    "longitude": 34.64088
+  },
+  {
+    "recorded_at": "2019-06-09T01:00:13+00:00",
+    "latitude": -1.997177,
+    "longitude": 34.64019
+  },
+  {
+    "recorded_at": "2019-06-09T00:30:14+00:00",
+    "latitude": -1.992731,
+    "longitude": 34.64339
+  },
+  {
+    "recorded_at": "2019-06-09T00:00:12+00:00",
+    "latitude": -1.990911,
+    "longitude": 34.64458
+  },
+  {
+    "recorded_at": "2019-06-08T23:30:13+00:00",
+    "latitude": -1.990348,
+    "longitude": 34.64462
+  },
+  {
+    "recorded_at": "2019-06-08T22:30:15+00:00",
+    "latitude": -1.990396,
+    "longitude": 34.64227
+  },
+  {
+    "recorded_at": "2019-06-08T22:00:12+00:00",
+    "latitude": -1.988877,
+    "longitude": 34.64116
+  },
+  {
+    "recorded_at": "2019-06-08T21:30:29+00:00",
+    "latitude": -1.987667,
+    "longitude": 34.64044
+  },
+  {
+    "recorded_at": "2019-06-08T21:00:26+00:00",
+    "latitude": -1.985083,
+    "longitude": 34.64067
+  },
+  {
+    "recorded_at": "2019-06-08T20:30:16+00:00",
+    "latitude": -1.984885,
+    "longitude": 34.64125
+  },
+  {
+    "recorded_at": "2019-06-08T20:00:13+00:00",
+    "latitude": -1.984962,
+    "longitude": 34.64139
+  },
+  {
+    "recorded_at": "2019-06-08T19:30:13+00:00",
+    "latitude": -1.98488,
+    "longitude": 34.64152
+  },
+  {
+    "recorded_at": "2019-06-08T19:00:12+00:00",
+    "latitude": -1.985043,
+    "longitude": 34.6417
+  },
+  {
+    "recorded_at": "2019-06-08T18:30:14+00:00",
+    "latitude": -1.990115,
+    "longitude": 34.64649
+  },
+  {
+    "recorded_at": "2019-06-08T18:00:12+00:00",
+    "latitude": -1.990798,
+    "longitude": 34.64146
+  },
+  {
+    "recorded_at": "2019-06-08T17:30:24+00:00",
+    "latitude": -1.998143,
+    "longitude": 34.64767
+  },
+  {
+    "recorded_at": "2019-06-08T17:00:10+00:00",
+    "latitude": -2.000495,
+    "longitude": 34.64764
+  },
+  {
+    "recorded_at": "2019-06-08T16:31:09+00:00",
+    "latitude": -2.002382,
+    "longitude": 34.64752
+  },
+  {
+    "recorded_at": "2019-06-08T16:00:12+00:00",
+    "latitude": -2.004187,
+    "longitude": 34.64683
+  },
+  {
+    "recorded_at": "2019-06-08T15:30:22+00:00",
+    "latitude": -2.008941,
+    "longitude": 34.64393
+  },
+  {
+    "recorded_at": "2019-06-08T15:00:12+00:00",
+    "latitude": -2.008311,
+    "longitude": 34.63998
+  },
+  {
+    "recorded_at": "2019-06-08T14:30:15+00:00",
+    "latitude": -2.008008,
+    "longitude": 34.6351
+  },
+  {
+    "recorded_at": "2019-06-08T14:00:12+00:00",
+    "latitude": -2.006057,
+    "longitude": 34.62934
+  },
+  {
+    "recorded_at": "2019-06-08T13:30:13+00:00",
+    "latitude": -2.001542,
+    "longitude": 34.62659
+  },
+  {
+    "recorded_at": "2019-06-08T13:00:12+00:00",
+    "latitude": -1.998768,
+    "longitude": 34.62413
+  },
+  {
+    "recorded_at": "2019-06-08T12:30:14+00:00",
+    "latitude": -1.997308,
+    "longitude": 34.62401
+  },
+  {
+    "recorded_at": "2019-06-08T12:00:41+00:00",
+    "latitude": -1.996412,
+    "longitude": 34.62281
+  },
+  {
+    "recorded_at": "2019-06-08T11:30:13+00:00",
+    "latitude": -1.995647,
+    "longitude": 34.62289
+  },
+  {
+    "recorded_at": "2019-06-08T11:00:22+00:00",
+    "latitude": -1.995632,
+    "longitude": 34.62255
+  },
+  {
+    "recorded_at": "2019-06-08T10:30:20+00:00",
+    "latitude": -1.995043,
+    "longitude": 34.62116
+  },
+  {
+    "recorded_at": "2019-06-08T10:00:41+00:00",
+    "latitude": -1.9951,
+    "longitude": 34.62102
+  },
+  {
+    "recorded_at": "2019-06-08T09:30:13+00:00",
+    "latitude": -1.995102,
+    "longitude": 34.62095
+  },
+  {
+    "recorded_at": "2019-06-08T09:00:24+00:00",
+    "latitude": -1.995136,
+    "longitude": 34.62092
+  },
+  {
+    "recorded_at": "2019-06-08T08:30:12+00:00",
+    "latitude": -1.9952,
+    "longitude": 34.62089
+  },
+  {
+    "recorded_at": "2019-06-08T08:00:13+00:00",
+    "latitude": -1.995612,
+    "longitude": 34.62207
+  },
+
+
+]
+KIMBIZWA_TRACKS = [
+  {
+    "recorded_at": "2019-06-09T23:30:35+00:00",
+    "latitude": -1.90567,
+    "longitude": 34.77718
+  },
+  {
+    "recorded_at": "2019-06-09T23:00:28+00:00",
+    "latitude": -1.913592,
+    "longitude": 34.77566
+  },
+  {
+    "recorded_at": "2019-06-09T22:30:23+00:00",
+    "latitude": -1.92196,
+    "longitude": 34.76801
+  },
+  {
+    "recorded_at": "2019-06-09T22:00:14+00:00",
+    "latitude": -1.923227,
+    "longitude": 34.75812
+  },
+  {
+    "recorded_at": "2019-06-09T21:30:23+00:00",
+    "latitude": -1.923735,
+    "longitude": 34.75824
+  },
+  {
+    "recorded_at": "2019-06-09T21:00:14+00:00",
+    "latitude": -1.930676,
+    "longitude": 34.75423
+  },
+  {
+    "recorded_at": "2019-06-09T20:30:23+00:00",
+    "latitude": -1.935295,
+    "longitude": 34.7422
+  },
+  {
+    "recorded_at": "2019-06-09T20:00:23+00:00",
+    "latitude": -1.935616,
+    "longitude": 34.73832
+  },
+  {
+    "recorded_at": "2019-06-09T19:30:12+00:00",
+    "latitude": -1.9351,
+    "longitude": 34.73817
+  },
+  {
+    "recorded_at": "2019-06-09T19:00:13+00:00",
+    "latitude": -1.935865,
+    "longitude": 34.73355
+  },
+  {
+    "recorded_at": "2019-06-09T18:30:41+00:00",
+    "latitude": -1.93731,
+    "longitude": 34.72545
+  },
+  {
+    "recorded_at": "2019-06-09T18:00:23+00:00",
+    "latitude": -1.939025,
+    "longitude": 34.71878
+  },
+  {
+    "recorded_at": "2019-06-09T17:30:15+00:00",
+    "latitude": -1.942017,
+    "longitude": 34.71814
+  },
+  {
+    "recorded_at": "2019-06-09T17:00:19+00:00",
+    "latitude": -1.943245,
+    "longitude": 34.71973
+  },
+  {
+    "recorded_at": "2019-06-09T16:30:16+00:00",
+    "latitude": -1.951235,
+    "longitude": 34.71626
+  },
+  {
+    "recorded_at": "2019-06-09T16:00:14+00:00",
+    "latitude": -1.957665,
+    "longitude": 34.71315
+  },
+  {
+    "recorded_at": "2019-06-09T15:30:12+00:00",
+    "latitude": -1.962335,
+    "longitude": 34.7095
+  },
+  {
+    "recorded_at": "2019-06-09T15:00:13+00:00",
+    "latitude": -1.966065,
+    "longitude": 34.70816
+  },
+  {
+    "recorded_at": "2019-06-09T14:31:05+00:00",
+    "latitude": -1.968475,
+    "longitude": 34.70975
+  },
+  {
+    "recorded_at": "2019-06-09T14:00:12+00:00",
+    "latitude": -1.970777,
+    "longitude": 34.7058
+  },
+  {
+    "recorded_at": "2019-06-09T13:30:26+00:00",
+    "latitude": -1.9733,
+    "longitude": 34.7047
+  },
+  {
+    "recorded_at": "2019-06-09T13:00:25+00:00",
+    "latitude": -1.975283,
+    "longitude": 34.70509
+  },
+  {
+    "recorded_at": "2019-06-09T12:30:24+00:00",
+    "latitude": -1.975223,
+    "longitude": 34.70517
+  },
+  {
+    "recorded_at": "2019-06-09T12:00:13+00:00",
+    "latitude": -1.975485,
+    "longitude": 34.70518
+  },
+  {
+    "recorded_at": "2019-06-09T11:30:16+00:00",
+    "latitude": -1.975555,
+    "longitude": 34.7051
+  },
+  {
+    "recorded_at": "2019-06-09T11:00:13+00:00",
+    "latitude": -1.976233,
+    "longitude": 34.70511
+  },
+  {
+    "recorded_at": "2019-06-09T10:30:12+00:00",
+    "latitude": -1.976745,
+    "longitude": 34.70535
+  },
+  {
+    "recorded_at": "2019-06-09T10:00:14+00:00",
+    "latitude": -1.98182,
+    "longitude": 34.70472
+  },
+  {
+    "recorded_at": "2019-06-09T09:30:12+00:00",
+    "latitude": -1.985977,
+    "longitude": 34.70376
+  },
+  {
+    "recorded_at": "2019-06-09T09:00:41+00:00",
+    "latitude": -1.986947,
+    "longitude": 34.7023
+  },
+  {
+    "recorded_at": "2019-06-09T08:30:12+00:00",
+    "latitude": -1.98881,
+    "longitude": 34.69659
+  },
+  {
+    "recorded_at": "2019-06-09T08:00:19+00:00",
+    "latitude": -1.99451,
+    "longitude": 34.68947
+  },
+  {
+    "recorded_at": "2019-06-09T07:30:11+00:00",
+    "latitude": -2.003475,
+    "longitude": 34.68517
+  },
+  {
+    "recorded_at": "2019-06-09T07:00:14+00:00",
+    "latitude": -2.01385,
+    "longitude": 34.6796
+  },
+  {
+    "recorded_at": "2019-06-09T06:30:12+00:00",
+    "latitude": -2.016098,
+    "longitude": 34.66854
+  },
+  {
+    "recorded_at": "2019-06-09T06:00:15+00:00",
+    "latitude": -2.018013,
+    "longitude": 34.66372
+  },
+  {
+    "recorded_at": "2019-06-09T05:30:13+00:00",
+    "latitude": -2.014465,
+    "longitude": 34.65578
+  },
+  {
+    "recorded_at": "2019-06-09T05:00:13+00:00",
+    "latitude": -2.010645,
+    "longitude": 34.6507
+  },
+  {
+    "recorded_at": "2019-06-09T04:30:18+00:00",
+    "latitude": -2.01056,
+    "longitude": 34.65059
+  },
+  {
+    "recorded_at": "2019-06-09T04:00:41+00:00",
+    "latitude": -2.010583,
+    "longitude": 34.65063
+  },
+
+
+  {
+    "recorded_at": "2019-06-09T03:30:21+00:00",
+    "latitude": -2.007108,
+    "longitude": 34.64523
+  },
+  {
+    "recorded_at": "2019-06-09T03:00:19+00:00",
+    "latitude": -2.005027,
+    "longitude": 34.6455
+  },
+  {
+    "recorded_at": "2019-06-09T02:30:14+00:00",
+    "latitude": -2.002923,
+    "longitude": 34.64616
+  },
+  {
+    "recorded_at": "2019-06-09T02:00:24+00:00",
+    "latitude": -2.001173,
+    "longitude": 34.64214
+  },
+  {
+    "recorded_at": "2019-06-09T01:30:24+00:00",
+    "latitude": -1.999058,
+    "longitude": 34.64088
+  },
+  {
+    "recorded_at": "2019-06-09T01:00:13+00:00",
+    "latitude": -1.997177,
+    "longitude": 34.64019
+  },
+  {
+    "recorded_at": "2019-06-09T00:30:14+00:00",
+    "latitude": -1.992731,
+    "longitude": 34.64339
+  },
+  {
+    "recorded_at": "2019-06-09T00:00:12+00:00",
+    "latitude": -1.990911,
+    "longitude": 34.64458
+  },
+  {
+    "recorded_at": "2019-06-08T23:30:13+00:00",
+    "latitude": -1.990348,
+    "longitude": 34.64462
+  },
+  {
+    "recorded_at": "2019-06-08T22:30:15+00:00",
+    "latitude": -1.990396,
+    "longitude": 34.64227
+  },
+  {
+    "recorded_at": "2019-06-08T22:00:12+00:00",
+    "latitude": -1.988877,
+    "longitude": 34.64116
+  },
+  {
+    "recorded_at": "2019-06-08T21:30:29+00:00",
+    "latitude": -1.987667,
+    "longitude": 34.64044
+  },
+  {
+    "recorded_at": "2019-06-08T21:00:26+00:00",
+    "latitude": -1.985083,
+    "longitude": 34.64067
+  },
+  {
+    "recorded_at": "2019-06-08T20:30:16+00:00",
+    "latitude": -1.984885,
+    "longitude": 34.64125
+  },
+  {
+    "recorded_at": "2019-06-08T20:00:13+00:00",
+    "latitude": -1.984962,
+    "longitude": 34.64139
+  },
+  {
+    "recorded_at": "2019-06-08T19:30:13+00:00",
+    "latitude": -1.98488,
+    "longitude": 34.64152
+  },
+  {
+    "recorded_at": "2019-06-08T19:00:12+00:00",
+    "latitude": -1.985043,
+    "longitude": 34.6417
+  },
+  {
+    "recorded_at": "2019-06-08T18:30:14+00:00",
+    "latitude": -1.990115,
+    "longitude": 34.64649
+  },
+  {
+    "recorded_at": "2019-06-08T18:00:12+00:00",
+    "latitude": -1.990798,
+    "longitude": 34.64146
+  },
+  {
+    "recorded_at": "2019-06-08T17:30:24+00:00",
+    "latitude": -1.998143,
+    "longitude": 34.64767
+  },
+  {
+    "recorded_at": "2019-06-08T17:00:10+00:00",
+    "latitude": -2.000495,
+    "longitude": 34.64764
+  },
+  {
+    "recorded_at": "2019-06-08T16:31:09+00:00",
+    "latitude": -2.002382,
+    "longitude": 34.64752
+  },
+  {
+    "recorded_at": "2019-06-08T16:00:12+00:00",
+    "latitude": -2.004187,
+    "longitude": 34.64683
+  },
+  {
+    "recorded_at": "2019-06-08T15:30:22+00:00",
+    "latitude": -2.008941,
+    "longitude": 34.64393
+  },
+  {
+    "recorded_at": "2019-06-08T15:00:12+00:00",
+    "latitude": -2.008311,
+    "longitude": 34.63998
+  },
+  {
+    "recorded_at": "2019-06-08T14:30:15+00:00",
+    "latitude": -2.008008,
+    "longitude": 34.6351
+  },
+  {
+    "recorded_at": "2019-06-08T14:00:12+00:00",
+    "latitude": -2.006057,
+    "longitude": 34.62934
+  },
+  {
+    "recorded_at": "2019-06-08T13:30:13+00:00",
+    "latitude": -2.001542,
+    "longitude": 34.62659
+  },
+  {
+    "recorded_at": "2019-06-08T13:00:12+00:00",
+    "latitude": -1.998768,
+    "longitude": 34.62413
+  },
+  {
+    "recorded_at": "2019-06-08T12:30:14+00:00",
+    "latitude": -1.997308,
+    "longitude": 34.62401
+  },
+  {
+    "recorded_at": "2019-06-08T12:00:41+00:00",
+    "latitude": -1.996412,
+    "longitude": 34.62281
+  },
+  {
+    "recorded_at": "2019-06-08T11:30:13+00:00",
+    "latitude": -1.995647,
+    "longitude": 34.62289
+  },
+  {
+    "recorded_at": "2019-06-08T11:00:22+00:00",
+    "latitude": -1.995632,
+    "longitude": 34.62255
+  },
+  {
+    "recorded_at": "2019-06-08T10:30:20+00:00",
+    "latitude": -1.995043,
+    "longitude": 34.62116
+  },
+  {
+    "recorded_at": "2019-06-08T10:00:41+00:00",
+    "latitude": -1.9951,
+    "longitude": 34.62102
+  },
+  {
+    "recorded_at": "2019-06-08T09:30:13+00:00",
+    "latitude": -1.995102,
+    "longitude": 34.62095
+  },
+  {
+    "recorded_at": "2019-06-08T09:00:24+00:00",
+    "latitude": -1.995136,
+    "longitude": 34.62092
+  },
+  {
+    "recorded_at": "2019-06-08T08:30:12+00:00",
+    "latitude": -1.9952,
+    "longitude": 34.62089
+  },
+  {
+    "recorded_at": "2019-06-08T08:00:13+00:00",
+    "latitude": -1.995612,
+    "longitude": 34.62207
+  },
+
+
+  {
+    "recorded_at": "2019-06-08T07:30:12+00:00",
+    "latitude": -1.995298,
+    "longitude": 34.62344
+  },
+  {
+    "recorded_at": "2019-06-08T07:00:12+00:00",
+    "latitude": -1.995416,
+    "longitude": 34.62327
+  },
+  {
+    "recorded_at": "2019-06-08T06:30:13+00:00",
+    "latitude": -1.996627,
+    "longitude": 34.62171
+  },
+  {
+    "recorded_at": "2019-06-08T06:00:41+00:00",
+    "latitude": -1.99752,
+    "longitude": 34.62139
+  },
+  {
+    "recorded_at": "2019-06-08T05:30:12+00:00",
+    "latitude": -1.997577,
+    "longitude": 34.62064
+  },
+  {
+    "recorded_at": "2019-06-08T05:00:26+00:00",
+    "latitude": -1.997558,
+    "longitude": 34.62069
+  },
+  {
+    "recorded_at": "2019-06-08T04:30:14+00:00",
+    "latitude": -1.9973,
+    "longitude": 34.62049
+  },
+  {
+    "recorded_at": "2019-06-08T04:00:15+00:00",
+    "latitude": -1.997135,
+    "longitude": 34.62056
+  },
+  {
+    "recorded_at": "2019-06-08T03:30:18+00:00",
+    "latitude": -1.996567,
+    "longitude": 34.6211
+  },
+  {
+    "recorded_at": "2019-06-08T03:00:13+00:00",
+    "latitude": -1.996536,
+    "longitude": 34.6211
+  },
+  {
+    "recorded_at": "2019-06-08T02:30:15+00:00",
+    "latitude": -1.996625,
+    "longitude": 34.62116
+  },
+  {
+    "recorded_at": "2019-06-08T02:00:13+00:00",
+    "latitude": -1.996605,
+    "longitude": 34.62146
+  },
+  {
+    "recorded_at": "2019-06-08T01:30:34+00:00",
+    "latitude": -1.994977,
+    "longitude": 34.62664
+  },
+  {
+    "recorded_at": "2019-06-08T01:00:13+00:00",
+    "latitude": -1.991518,
+    "longitude": 34.63308
+  },
+  {
+    "recorded_at": "2019-06-08T00:30:13+00:00",
+    "latitude": -1.990391,
+    "longitude": 34.634
+  },
+  {
+    "recorded_at": "2019-06-08T00:00:12+00:00",
+    "latitude": -1.98583,
+    "longitude": 34.64005
+  }
+]
