@@ -59,7 +59,7 @@ class TestGeofenceAnalyzer(TestCase):
               title: EventType Geofencing
               type: object
             '''
-        return json.dumps(yaml.load(schema_yaml))
+        return json.dumps(yaml.load(schema_yaml, Loader=yaml.SafeLoader))
 
     def setUp(self):
 
@@ -80,62 +80,49 @@ class TestGeofenceAnalyzer(TestCase):
     def test_geofencing_integration(self):
 
         # Create models (Subject, SubjectSource and Source)
-        sub = Subject.objects.create(
-            name='Jolie', subject_subtype_id='elephant')
+        sub = Subject.objects.create(name='Jolie', subject_subtype_id='elephant')
         source = Source.objects.create(manufacturer_id='006')
-        SubjectSource.objects.create(
-            subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
+        SubjectSource.objects.create(subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
-        SubjectTrackSegmentFilter.objects.create(
-            subject_subtype_id='elephant', speed_KmHr=7.0)
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id='elephant', speed_KmHr=7.0)
 
-        sg = SubjectGroup.objects.create(
-            name='geofence_subject_analyzer_group1', )
+        sg = SubjectGroup.objects.create(name='geofence_subject_analyzer_group1', )
         sg.subjects.add(sub)
         sg.save()
 
         # Create a SpatialFeatureGroupStatic group with the 'Moukabala-Doudou'
         # geofence
-        geofences = SpatialFeature.objects.filter(
-            name__iexact='Moukalaba-Doudou')
-        logger.info('Geofence count: %s' % str(len(geofences)))
-        gf_grp = SpatialFeatureGroupStatic.objects.create(
-            name='Gabon Geofences', )
+        geofences = SpatialFeature.objects.filter(name__iexact='Moukalaba-Doudou')
+        logger.info('Geofence count: %s' % len(geofences))
+        gf_grp = SpatialFeatureGroupStatic.objects.create(name='Gabon Geofences', )
         gf_grp.features.add(*geofences)
         gf_grp.save()
 
-        # load the observations into the database
         test_observations = [parse_recorded_at(x) for x in JOLIE_TRACK]
-        relocs_len = len(test_observations)
+        test_observations = list(time_shift(test_observations))
 
         # Create the Geofence Analyzer Config object
-        GeofenceAnalyzerConfig.objects.create(
-            subject_group=sg, critical_geofence_group=gf_grp, search_time_hours=175200.0)
+        GeofenceAnalyzerConfig.objects.create(subject_group=sg, critical_geofence_group=gf_grp, search_time_hours=24.0)
 
-        # Iterate through the observations adding another point to the
-        # trajectory on each loop
-        for i in range(0, relocs_len):
-            try:
-                store_observations(
-                    test_observations[i:i + 1], timeshift=False, source=source)
-                analyze_subject(str(sub.id))
-            except InsufficientDataAnalyzerException:
-                pass
+        for idx in range(0, len(test_observations) - 2):
+            # Store the entire list of observations.
+            store_observations(test_observations[idx:idx+1], timeshift=False, source=source)
+            analyze_subject(str(sub.id))
 
         results = SubjectAnalyzerResult.objects.filter(subject=sub)
 
         for result in results:
-            print('Geofence Result: %s' % result)
+            print(f'Geofence Result: {result}')
 
-        self.assertTrue(len(results) == 6)
+        self.assertEqual(len(results), 1)
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
 
         for e in Event.objects.all():
             for ed in e.event_details.all():
-                print('Event Details: %s' % ed.data)
+                print(f'Event Details: {ed.data}')
 
     def test_geofencing_logic(self):
         """ Test functioning of the geofence algorithm logic"""
@@ -161,18 +148,15 @@ class TestGeofenceAnalyzer(TestCase):
         # geofence
         geofences = SpatialFeature.objects.filter(
             name__iexact='Ol Donyo Farm 2')
-        logger.info('Geofence count: %s' % str(len(geofences)))
-        gf_grp = SpatialFeatureGroupStatic.objects.create(
-            name='Mara Geofences',)
+        logger.info('Geofence count: %s', len(geofences))
+        gf_grp = SpatialFeatureGroupStatic.objects.create(name='Mara Geofences',)
         gf_grp.features.add(*geofences)
         gf_grp.save()
 
         # Create a containment regions grp
-        contain_rgns = SpatialFeature.objects.filter(
-            name='Pardamat Conservancy')
+        contain_rgns = SpatialFeature.objects.filter(name='Pardamat Conservancy')
         logger.info('Containment region count: %s' % str(len(contain_rgns)))
-        cr_grp = SpatialFeatureGroupStatic.objects.create(
-            name='Geofence Containment Regions',)
+        cr_grp = SpatialFeatureGroupStatic.objects.create(name='Geofence Containment Regions',)
         cr_grp.features.add(*contain_rgns)
         cr_grp.save()
 
