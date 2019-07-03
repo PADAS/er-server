@@ -4,6 +4,9 @@ update_configs:
     directory: "/dependencies"
     update_schedule: "weekly"
     target_branch: "develop"
+    allowed_updates:
+      - match:
+        update_type: "security"
     default_reviewers:
       - "chrisjvulcan"
       - "chrisdoehring"
