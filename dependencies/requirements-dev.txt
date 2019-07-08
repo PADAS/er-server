@@ -24,7 +24,7 @@ packaging==19.0           # via pytest
 pip-tools==3.8.0
 pluggy==0.12.0            # via pytest
 pre-commit==0.17.0
-ptvsd==3.2.1
+ptvsd==4.2.10
 py==1.5.3                 # via pytest
 pyparsing==2.4.0          # via packaging
 pytest-django==3.4.5
