@@ -77,7 +77,7 @@ class GenericSensorHandler:
         else:
             errors.append(bulk_serializer.errors())
 
-        transaction.on_commit(notify_tracks_listeners())
+        transaction.on_commit(notify_tracks_listeners)
 
         for error in errors:
             if error:
