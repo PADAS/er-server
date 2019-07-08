@@ -8,3 +8,4 @@ from analyzers.models.low_speed import LowSpeedPercentileAnalyzerConfig
 from analyzers.models.low_speed import LowSpeedWilcoxAnalyzerConfig
 from analyzers.models.speed_profile import SubjectSpeedProfile
 from analyzers.models.speed_profile import SpeedDistro
+from analyzers.models.gfw import GlobalForestWatchSubscription

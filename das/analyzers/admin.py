@@ -1,8 +1,8 @@
 from django.contrib import admin
-from django.contrib.admin import ModelAdmin
-from django.conf import settings
+
 import analyzers.models as models
-from analyzers.forms import EnvironmentalAnalyzerAdminForm
+from analyzers.forms import EnvironmentalAnalyzerAdminForm, GlobalForestWatchSubscriptionForm
+
 
 @admin.register(models.ObservationAnnotator)
 class ObservationAnnotatorAdmin(admin.ModelAdmin):
@@ -203,3 +203,8 @@ class SubjectSpeedProfileAdmin(admin.ModelAdmin):
 @admin.register(models.SpeedDistro)
 class SpeedDistroAdmin(admin.ModelAdmin):
     pass
+
+
+@admin.register(models.GlobalForestWatchSubscription)
+class GlobalForestWatchAdmin(admin.ModelAdmin):
+    form = GlobalForestWatchSubscriptionForm
