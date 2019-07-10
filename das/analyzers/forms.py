@@ -11,6 +11,7 @@ from rest_framework import status
 from analyzers.environmental import EnvironmentalSubjectAnalyzerConfig
 from analyzers.models.gfw import GlobalForestWatchSubscription
 from core.forms_utils import JSONFieldFormMixin, FixedWidthFontTextArea
+from sensors.gfw_alert_handler import GFWAlertHandler
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +31,15 @@ class EnvironmentalAnalyzerAdminForm(JSONFieldFormMixin, forms.ModelForm):
 
 
 class GlobalForestWatchSubscriptionForm(forms.ModelForm):
+    webhook_base_url = f'{settings.UI_SITE_URL}/api/v1.0/sensors/{GFWAlertHandler.SENSOR_TYPE}'
+
     class Meta:
         model = GlobalForestWatchSubscription
         fields = '__all__'
 
     def save(self, commit=True):
         # TODO: how is this commit flag used?? seems to be set as false when save is called.
-        # print('GlobalForestWatchSubscriptionForm SAVE ENTERED')
+        # logger.debug('GlobalForestWatchSubscriptionForm SAVE ENTERED')
         m = super(GlobalForestWatchSubscriptionForm, self).save(commit=False)
 
         spatial_features = m.spatial_feature_group.features.all()
@@ -47,7 +50,9 @@ class GlobalForestWatchSubscriptionForm(forms.ModelForm):
 
         # subscribe for new or update subscription. subscribe_alerts in subscription_manager.py
         if not m.subscription_id:
-            print('will create new subscription')
+            logger.debug('will create new subscription')
+
+            # geostore creation will probably move out of here...
             if not m.geostore_id:
                 rsp = requests.post(url=f'{settings.GFW_API_ROOT}/geostore', json={'geojson': feature_collection})
                 if rsp.status_code == status.HTTP_200_OK:
@@ -59,8 +64,13 @@ class GlobalForestWatchSubscriptionForm(forms.ModelForm):
                                 headers={'Authorization': f'Bearer {settings.GFW_AUTH_TOKEN}'},
                                 json=subscribe_json)
 
+            if rsp.status_code == status.HTTP_200_OK:
+                m.subscription_id = json.loads(rsp.text)['data']['id']
+                logger.info(f'subscription successful. id: {m.subscription_id}')
+
         else:
-            print('need to modify subscription')
+            # TODO
+            logger.info('need to modify subscription')
 
         # TODO:
         if commit:
@@ -69,20 +79,17 @@ class GlobalForestWatchSubscriptionForm(forms.ModelForm):
         return m
 
     def _build_subscribe_msg(self, model):
-        subs = dict()
-        subs.update([
+        subsciption = dict()
+        subsciption.update([
             ('name', model.name),
             ('application', 'gfw'),
             ('language', 'en')
         ])
 
-        subs['datasets'] = ["glad-alerts", "terrai-alerts", "viirs-active-fires"],
-        subs['resource'] = {'type': 'URL',
-                            'content': 'https://gfw-alerts-dev.pamdas.org/alert'}
-        subs['params'] = {'geostore': model.geostore_id}
+        subsciption['datasets'] = ["glad-alerts", "terrai-alerts", "viirs-active-fires"],
+        subsciption['resource'] = {
+            'type': 'URL',
+            'content': f'{self.webhook_base_url}/{model.id.hex}/status?auth={settings.ER_APP_AUTH_TOKEN}'}
+        subsciption['params'] = {'geostore': model.geostore_id}
 
-        return subs
-
-
-
-
+        return subsciption

@@ -10,9 +10,11 @@ from utils.drf import AllowAnyGet
 from sensors.handlers import GsatHandler, GenericSensorHandler,\
     DasRadioAgentHandler, SkylineVehicleTrackerHandler, FollowltTrackerHandler,  TractVehicleHandler, SigFoxPushHandler
 from sensors.camera_trap import CameraTrapSensorHandler
+from sensors.gfw_alert_handler import GFWAlertHandler
 from observations.serializers import ObservationSerializer
 
 from utils.stats import increment
+
 
 class SensorObservation(generics.GenericAPIView):
 
@@ -61,6 +63,8 @@ class SensorObservation(generics.GenericAPIView):
             return SigFoxPushHandler.post(request, sensor_type=sensor_type,
                                                provider_key=provider_key)
 
+        elif sensor_type == GFWAlertHandler.SENSOR_TYPE:
+            return GFWAlertHandler.post(request, subscription_id=provider_key)
         else:
             return GenericSensorHandler.post(request, sensor_type=sensor_type, 
                                                 provider_key=provider_key)

@@ -208,3 +208,4 @@ class SpeedDistroAdmin(admin.ModelAdmin):
 @admin.register(models.GlobalForestWatchSubscription)
 class GlobalForestWatchAdmin(admin.ModelAdmin):
     form = GlobalForestWatchSubscriptionForm
+    readonly_fields = ('subscription_id', 'geostore_id',)
