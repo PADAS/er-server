@@ -24,4 +24,8 @@ class GlobalForestWatchSubscription (TimestampedModel):
     additional = JSONField(default=dict, help_text='JSON data for subscriptions', blank=True)
     # alert_types, geostore_id, gfw_subscription_id, subscription_name, webhook url
 
+    class Meta:
+        verbose_name = 'Global Forest Watch Subscription'
+        verbose_name_plural = 'Global Forest Watch Subscriptions'
+
 # requestbin, ngrok

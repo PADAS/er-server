@@ -11,6 +11,7 @@ from rest_framework import status
 from analyzers.environmental import EnvironmentalSubjectAnalyzerConfig
 from analyzers.models.gfw import GlobalForestWatchSubscription
 from core.forms_utils import JSONFieldFormMixin, FixedWidthFontTextArea
+from django.urls import reverse
 from sensors.gfw_alert_handler import GFWAlertHandler
 
 logger = logging.getLogger(__name__)
@@ -30,12 +31,35 @@ class EnvironmentalAnalyzerAdminForm(JSONFieldFormMixin, forms.ModelForm):
         fields = ('additional',) + json_fields
 
 
-class GlobalForestWatchSubscriptionForm(forms.ModelForm):
-    webhook_base_url = f'{settings.UI_SITE_URL}/api/v1.0/sensors/{GFWAlertHandler.SENSOR_TYPE}'
+class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
 
     class Meta:
         model = GlobalForestWatchSubscription
+
         fields = '__all__'
+        json_fields = ('alert_types', 'gfw_auth_token')
+
+    # webhook_base_url = '/'.join((settings.UI_SITE_URL,
+    #                              reverse('sensor-observation-view',
+    #                                      kwargs={
+    #                                          'sensor_type': GFWAlertHandler.SENSOR_TYPE,
+    #                                          'provider_key': GFWAlertHandler.PROVIDER_KEY
+    #                                      }
+    #                                      )))
+
+    webhook_base_url = '/'.join((settings.UI_SITE_URL,
+                                 'api/v1.0/sensors',
+                                             GFWAlertHandler.SENSOR_TYPE,
+                                            GFWAlertHandler.PROVIDER_KEY,
+                                 'status'))
+
+    alert_types = forms.MultipleChoiceField(choices=(
+        ('glad-alerts', _('Deforestation alerts (GLAD) / weekly / 30m')),
+        ('terrai-alerts', _('Deforestation alerts (Terra-i) / monthly / 250m')),
+        ('viirs-active-fires', _('Fire Alerts (VIIRS) / daily / 375m')),
+    ))
+
+    gfw_auth_token = forms.CharField(max_length=300, help_text=_('Authorization token for Global Forest Watch API.'))
 
     def save(self, commit=True):
         # TODO: how is this commit flag used?? seems to be set as false when save is called.

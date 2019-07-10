@@ -209,3 +209,20 @@ class SpeedDistroAdmin(admin.ModelAdmin):
 class GlobalForestWatchAdmin(admin.ModelAdmin):
     form = GlobalForestWatchSubscriptionForm
     readonly_fields = ('subscription_id', 'geostore_id',)
+
+    list_display = ('name', 'subscription_id',)
+
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('name', 'spatial_feature_group')
+        }),
+        ('Global Forest Watch API Properties', {
+            'classes': ('wide',),
+            'fields': ('alert_types', 'subscription_id', 'geostore_id', 'gfw_auth_token',)
+        }),
+        ('Advanced Attributes', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('id', 'additional')
+        })
+    )

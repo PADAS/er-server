@@ -1,0 +1,33 @@
+{
+    "_meta": {
+        "hash": {
+            "sha256": "5f836e1bae25172a87adf89303bccda04cfcca772777e14f3e1d27cfff060bf7"
+        },
+        "pipfile-spec": 6,
+        "requires": {
+            "python_version": "3.6"
+        },
+        "sources": [
+            {
+                "name": "pypi",
+                "url": "https://pypi.org/simple",
+                "verify_ssl": true
+            }
+        ]
+    },
+    "default": {
+        "fastkml": {
+            "git": "https://github.com/PADAS/fastkml.git",
+            "ref": "7922b3f38c4cef4a513a599e899bfb10576d8bd3"
+        },
+        "jsonschema": {
+            "git": "https://github.com/Julian/jsonschema.git",
+            "ref": "d0f2ef740b306dd966a947e2677d0c2ab065fc1f"
+        },
+        "python-socketio": {
+            "git": "https://github.com/PADAS/python-socketio.git",
+            "ref": "21a5171ce9a4442a9abbf1745e438b6130b3f97f"
+        }
+    },
+    "develop": {}
+}

@@ -91,6 +91,7 @@ class GFWAlertParameters(serializers.Serializer):
 
 class GFWAlertHandler:
     SENSOR_TYPE = 'gfw-alert'
+    PROVIDER_KEY = 'gfw'
 
     @classmethod
     def post(cls, request, subscription_id):
