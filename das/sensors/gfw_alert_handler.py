@@ -1,8 +1,14 @@
 import uuid
 import logging
+import pytz
+
+from copy import deepcopy
+from datetime import datetime
 
 from rest_framework import status, serializers
 from rest_framework.response import Response
+
+from functional import seq
 
 from analyzers.models.gfw import GlobalForestWatchSubscription
 from analyzers.gfw_alert_schema import ensure_gfw_event_type
@@ -10,6 +16,7 @@ from activity.serializers import EventSerializer
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
 
 # All alerts include the following information:
 # {
@@ -91,48 +98,70 @@ class GFWAlertHandler:
         # this sub_id exisits in db: 10fa8e36718644fd8dd8ef7d101b1e28
 
         try:
-            subscription_uuid = uuid.UUID(hex=subscription_id)
+            if GlobalForestWatchSubscription.objects.get(pk=uuid.UUID(hex=subscription_id)) is None:
+                return Response(data={'message': f'Subscription id {subscription_id} not found'},
+                                status=status.HTTP_404_NOT_FOUND)
         except ValueError:
             logger.exception(f'{subscription_id} is not formatted as a UUID')
             return Response(data={'message': f'Subscription id {subscription_id} is not formatted correctly'},
-                            status= status.HTTP_400_BAD_REQUEST)
+                            status=status.HTTP_400_BAD_REQUEST)
 
         deserialized = GFWAlertParameters(data=request.data)
         if not deserialized.is_valid():
             return Response(data=deserialized.errors,
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # write to db if we can lookup subscription_id in the model. else not found...
-        if GlobalForestWatchSubscription.objects.get(pk=subscription_uuid) is not None:
-            layer_slug = deserialized.validated_data.get('layerSlug')
-            if layer_slug in ['viirs-active-fires', 'glad-alerts', 'terrai-alerts']:
-                event_dict = dict(event_type='gfw_alert',
-                                  event_title='Global Forest Watch Alert')
+        layer_slug = deserialized.validated_data.get('layerSlug')
+        # TODO: list og slugs shouldn't be hardcoded
+        if layer_slug in ['viirs-active-fires', 'glad-alerts', 'terrai-alerts']:
+            event_dict = dict(event_type='gfw_alert',
+                              event_title='Global Forest Watch Alert')
 
-                ensure_gfw_event_type()
+            ensure_gfw_event_type()
 
-                # location = {'latitude': deserialized.validated_data.get((''))}
-                event_dict['gfw_alert_type'] = layer_slug
-                event_dict['alert_url'] = deserialized.validated_data.get('alert_link')
-                event_dict['subscription_name'] = deserialized.validated_data.get('alert_name')
-                event_dict['selected_area'] = deserialized.validated_data.get('selected_area')
-                event_dict['subscriptions_url'] = deserialized.validated_data.get('subscriptions_url')
-                event_dict['unsubscribe_url'] = deserialized.validated_data.get('unsubscribe_url')
+            event_dict['gfw_alert_type'] = layer_slug
+            event_dict['alert_url'] = deserialized.validated_data.get('alert_link')
+            event_dict['subscription_name'] = deserialized.validated_data.get('alert_name')
+            event_dict['selected_area'] = deserialized.validated_data.get('selected_area')
+            event_dict['subscriptions_url'] = deserialized.validated_data.get('subscriptions_url')
+            event_dict['unsubscribe_url'] = deserialized.validated_data.get('unsubscribe_url')
 
-                return cls.create_events(request, event_dict, deserialized.validated_data)
+            return cls.create_events(request, event_dict, deserialized.validated_data)
 
-        else:
-            return Response(data={'message': f'Subscription id {subscription_id} not found'},
-                            status=status.HTTP_404_NOT_FOUND)
+        return Response(data=dict(message=f'Unknown layerSlug: {layer_slug}'),
+                        status=status.HTTP_400_BAD_REQUEST)
 
     @classmethod
-    def create_events(cls, request, event_dict, validated_data):
-        alerts = validated_data.get('alerts')
+    def create_events(cls, request, common_fields, validated_data):
 
-        evt_serializer = EventSerializer(data=event_dict, context={'request': request})
-        if not evt_serializer.is_valid():
-            return Response(data=evt_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        def create_alert_event(alert_sample):
+            deserialized_sample = AlertSample(data=alert_sample)
+            if not deserialized_sample.is_valid():
+                return deserialized_sample.errors()
 
-        event = evt_serializer.create(evt_serializer.validated_data)
-        return Response(data={'message': f'Alert processed, id: {event.id}'},
-                        status=status.HTTP_201_CREATED)
+            event_fields = deepcopy(common_fields)
+            event_fields['location'] = {
+                'latitude': deserialized_sample.validated_data.get('latitude'),
+                'longitude': deserialized_sample.validated_data.get('longitude')}
+            event_fields['time'] = datetime.combine(date=deserialized_sample.validated_data.get('acq_date'),
+                                                    time=deserialized_sample.validated_data.get('acq_time'),
+                                                    tzinfo=pytz.UTC)
+
+            evt_serializer = EventSerializer(data=event_fields, context={'request': request})
+            if not evt_serializer.is_valid():
+                return evt_serializer.errors()
+
+            evt_serializer.create(evt_serializer.validated_data)
+            return {}
+
+        errors = seq(validated_data.get('alerts')). \
+            map(create_alert_event). \
+            filter(lambda x: len(list(x)) > 0). \
+            to_list()
+
+        if len(errors) > 0:
+            return Response(data=errors,
+                            status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(data=dict(message='Alert processed'),
+                            status=status.HTTP_201_CREATED)
