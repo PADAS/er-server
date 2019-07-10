@@ -99,18 +99,20 @@ class GFWAlertHandler:
         # this sub_id exisits in db: 10fa8e36718644fd8dd8ef7d101b1e28
 
         try:
-            if GlobalForestWatchSubscription.objects.get(pk=uuid.UUID(hex=subscription_id)) is None:
-                return Response(data={'message': f'Subscription id {subscription_id} not found'},
-                                status=status.HTTP_404_NOT_FOUND)
+            GlobalForestWatchSubscription.objects.get(pk=uuid.UUID(hex=subscription_id))
+        except GlobalForestWatchSubscription.DoesNotExist:
+            logger.exception(f'{subscription_id} is not a valid subscription id in the DB')
+            return Response(status=status.HTTP_404_NOT_FOUND,
+                            data={'message': f'Subscription id {subscription_id} not found'})
         except ValueError:
             logger.exception(f'{subscription_id} is not formatted as a UUID')
-            return Response(data={'message': f'Subscription id {subscription_id} is not formatted correctly'},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_400_BAD_REQUEST,
+                            data={'message': f'Subscription id {subscription_id} is not formatted correctly'})
 
         deserialized = GFWAlertParameters(data=request.data)
         if not deserialized.is_valid():
-            return Response(data=deserialized.errors,
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_400_BAD_REQUEST,
+                            data=deserialized.errors)
 
         layer_slug = deserialized.validated_data.get('layerSlug')
         # TODO: list og slugs shouldn't be hardcoded
@@ -129,8 +131,8 @@ class GFWAlertHandler:
 
             return cls.create_events(request, event_dict, deserialized.validated_data)
 
-        return Response(data=dict(message=f'Unknown layerSlug: {layer_slug}'),
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_400_BAD_REQUEST,
+                        data=dict(message=f'Unknown layerSlug: {layer_slug}'))
 
     @classmethod
     def create_events(cls, request, common_fields, validated_data):
@@ -161,8 +163,8 @@ class GFWAlertHandler:
             to_list()
 
         if len(errors) > 0:
-            return Response(data=errors,
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_400_BAD_REQUEST,
+                            data=errors)
         else:
-            return Response(data=dict(message='Alert processed'),
-                            status=status.HTTP_201_CREATED)
+            return Response(status=status.HTTP_201_CREATED,
+                             data=dict(message='Alert processed'))

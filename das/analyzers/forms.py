@@ -64,43 +64,44 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
     def save(self, commit=True):
         # TODO: how is this commit flag used?? seems to be set as false when save is called.
         # logger.debug('GlobalForestWatchSubscriptionForm SAVE ENTERED')
-        m = super(GlobalForestWatchSubscriptionForm, self).save(commit=False)
+        if self.is_valid():
+            m = super(GlobalForestWatchSubscriptionForm, self).save(commit=False)
 
-        spatial_features = m.spatial_feature_group.features.all()
+            spatial_features = m.spatial_feature_group.features.all()
 
-        feature_collection = geojson.FeatureCollection([
-            geojson.Feature(geometry=geojson.loads(f.feature_geometry.geojson)) for f in spatial_features
-        ])
+            feature_collection = geojson.FeatureCollection([
+                geojson.Feature(geometry=geojson.loads(f.feature_geometry.geojson)) for f in spatial_features
+            ])
 
-        # subscribe for new or update subscription. subscribe_alerts in subscription_manager.py
-        if not m.subscription_id:
-            logger.debug('will create new subscription')
+            # subscribe for new or update subscription. subscribe_alerts in subscription_manager.py
+            if not m.subscription_id:
+                logger.debug('will create new subscription')
 
-            # geostore creation will probably move out of here...
-            if not m.geostore_id:
-                rsp = requests.post(url=f'{settings.GFW_API_ROOT}/geostore', json={'geojson': feature_collection})
+                # geostore creation will probably move out of here...
+                if not m.geostore_id:
+                    rsp = requests.post(url=f'{settings.GFW_API_ROOT}/geostore', json={'geojson': feature_collection})
+                    if rsp.status_code == status.HTTP_200_OK:
+                        geostore_rsp = json.loads(rsp.text)
+                        m.geostore_id = geostore_rsp['data']['id']
+
+                subscribe_json = self._build_subscribe_msg(m)
+                rsp = requests.post(url=f'{settings.GFW_API_ROOT}/subscriptions',
+                                    headers={'Authorization': f'Bearer {settings.GFW_AUTH_TOKEN}'},
+                                    json=subscribe_json)
+
                 if rsp.status_code == status.HTTP_200_OK:
-                    geostore_rsp = json.loads(rsp.text)
-                    m.geostore_id = geostore_rsp['data']['id']
+                    m.subscription_id = json.loads(rsp.text)['data']['id']
+                    logger.info(f'subscription successful. id: {m.subscription_id}')
 
-            subscribe_json = self._build_subscribe_msg(m)
-            rsp = requests.post(url=f'{settings.GFW_API_ROOT}/subscriptions',
-                                headers={'Authorization': f'Bearer {settings.GFW_AUTH_TOKEN}'},
-                                json=subscribe_json)
+            else:
+                # TODO
+                logger.info('need to modify subscription')
 
-            if rsp.status_code == status.HTTP_200_OK:
-                m.subscription_id = json.loads(rsp.text)['data']['id']
-                logger.info(f'subscription successful. id: {m.subscription_id}')
+            # TODO:
+            if commit:
+                m.save()
 
-        else:
-            # TODO
-            logger.info('need to modify subscription')
-
-        # TODO:
-        if commit:
-            m.save()
-
-        return m
+            return m
 
     def _build_subscribe_msg(self, model):
         subsciption = dict()
