@@ -115,19 +115,20 @@ class GFWAlertHandler:
                             data=deserialized.errors)
 
         layer_slug = deserialized.validated_data.get('layerSlug')
-        # TODO: list og slugs shouldn't be hardcoded
         if layer_slug in ['viirs-active-fires', 'glad-alerts', 'terrai-alerts']:
+            event_details_dict = dict()
             event_dict = dict(event_type='gfw_alert',
-                              event_title='Global Forest Watch Alert')
+                              event_title='Global Forest Watch Alert',
+                              event_details=event_details_dict)
 
             ensure_gfw_event_type()
 
-            event_dict['gfw_alert_type'] = layer_slug
-            event_dict['alert_url'] = deserialized.validated_data.get('alert_link')
-            event_dict['subscription_name'] = deserialized.validated_data.get('alert_name')
-            event_dict['selected_area'] = deserialized.validated_data.get('selected_area')
-            event_dict['subscriptions_url'] = deserialized.validated_data.get('subscriptions_url')
-            event_dict['unsubscribe_url'] = deserialized.validated_data.get('unsubscribe_url')
+            event_details_dict.update(gfw_alert_type=layer_slug)
+            event_details_dict.update(alert_url=deserialized.validated_data.get('alert_link'))
+            event_details_dict.update(subscription_name=deserialized.validated_data.get('alert_name'))
+            event_details_dict.update(selected_area=deserialized.validated_data.get('selected_area'))
+            event_details_dict.update(subscriptions_url=deserialized.validated_data.get('subscriptions_url'))
+            event_details_dict.update(unsubscribe_url=deserialized.validated_data.get('unsubscribe_url'))
 
             return cls.create_events(request, event_dict, deserialized.validated_data)
 

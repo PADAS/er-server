@@ -215,7 +215,7 @@ class GlobalForestWatchAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('name', 'spatial_feature_group', 'owner', )
+            'fields': ('name', 'owner', )
         }),
         ('Global Forest Watch API Properties', {
             'classes': ('wide',),
@@ -224,5 +224,8 @@ class GlobalForestWatchAdmin(admin.ModelAdmin):
         ('Advanced Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('id', 'additional')
+        }),
+        ('Geographical Area', {
+            'fields': ('subscription_geometry',)
         })
     )
