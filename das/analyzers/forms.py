@@ -39,20 +39,6 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
         fields = '__all__'
         json_fields = ('alert_types', 'gfw_auth_token')
 
-    # webhook_base_url = '/'.join((settings.UI_SITE_URL,
-    #                              reverse('sensor-observation-view',
-    #                                      kwargs={
-    #                                          'sensor_type': GFWAlertHandler.SENSOR_TYPE,
-    #                                          'provider_key': GFWAlertHandler.PROVIDER_KEY
-    #                                      }
-    #                                      )))
-
-    webhook_base_url = '/'.join((settings.UI_SITE_URL,
-                                 'api/v1.0/sensors',
-                                             GFWAlertHandler.SENSOR_TYPE,
-                                            GFWAlertHandler.PROVIDER_KEY,
-                                 'status'))
-
     alert_types = forms.MultipleChoiceField(choices=(
         ('glad-alerts', _('Deforestation alerts (GLAD) / weekly / 30m')),
         ('terrai-alerts', _('Deforestation alerts (Terra-i) / monthly / 250m')),
