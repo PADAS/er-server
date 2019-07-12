@@ -1,14 +1,11 @@
 import logging
 
 from django import forms
-from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 
 from analyzers.environmental import EnvironmentalSubjectAnalyzerConfig
 from analyzers.models.gfw import GlobalForestWatchSubscription
 from core.forms_utils import JSONFieldFormMixin, FixedWidthFontTextArea
-from django.urls import reverse
-from sensors.gfw_alert_handler import GFWAlertHandler
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +14,9 @@ class EnvironmentalAnalyzerAdminForm(JSONFieldFormMixin, forms.ModelForm):
 
     earth_engine_json_key = forms.CharField(label='Earth Engine JSON Key',
                                             widget=FixedWidthFontTextArea(attrs={'cols': '100', 'rows': '30'}),
-                                     required=False,
-                                     help_text=_(
-                                         'Paste the contents of your Earth Engine JSON key here.'))
+                                            required=False,
+                                            help_text=_(
+                                                'Paste the contents of your Earth Engine JSON key here.'))
 
     class Meta:
         model = EnvironmentalSubjectAnalyzerConfig

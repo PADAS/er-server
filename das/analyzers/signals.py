@@ -17,6 +17,7 @@ def subscription_pre_save(sender, instance, **kwargs):
         old_instance = sender.objects.get(pk=instance.pk)
         instance.subscription_geometry_pre_save = old_instance.subscription_geometry
     except sender.DoesNotExist:
+        # a new record being created if we get here, so this shld be fine
         instance.subscription_geometry_pre_save = instance.subscription_geometry
         pass
 

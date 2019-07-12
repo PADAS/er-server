@@ -96,18 +96,6 @@ class GFWAlertHandler:
     @classmethod
     def post(cls, request, subscription_id):
         logger.info(f'GFW-ALERT for {subscription_id}')
-        # this sub_id exisits in db: 10fa8e36718644fd8dd8ef7d101b1e28
-
-        try:
-            GlobalForestWatchSubscription.objects.get(pk=uuid.UUID(hex=subscription_id))
-        except GlobalForestWatchSubscription.DoesNotExist:
-            logger.exception(f'{subscription_id} is not a valid subscription id in the DB')
-            return Response(status=status.HTTP_404_NOT_FOUND,
-                            data={'message': f'Subscription id {subscription_id} not found'})
-        except ValueError:
-            logger.exception(f'{subscription_id} is not formatted as a UUID')
-            return Response(status=status.HTTP_400_BAD_REQUEST,
-                            data={'message': f'Subscription id {subscription_id} is not formatted correctly'})
 
         deserialized = GFWAlertParameters(data=request.data)
         if not deserialized.is_valid():
