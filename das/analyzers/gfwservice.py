@@ -2,9 +2,9 @@ import json
 import logging
 from datetime import datetime, timedelta
 
-import geojson
 import pytz
 import requests
+import geojson
 from django.conf import settings
 from django.urls import reverse
 from oauth2_provider.models import Application, generate_client_secret
@@ -20,6 +20,8 @@ GFW_OAUTH_APPLICATION_ID = 'gfw-application'
 from oauth2_provider.models import AccessToken
 
 logger = logging.getLogger(__name__)
+subscriptions_endpoint = f'{settings.GFW_API_ROOT}/subscriptions'
+geostore_endpoint = f'{settings.GFW_API_ROOT}/geostore'
 
 
 def get_webhook_base_url(provider_key=GFWAlertHandler.PROVIDER_KEY):
@@ -72,37 +74,26 @@ def get_gfw_access_token(user, ttl_days=5*365):
         logger.error(
             'There exists no Oauth2 Application with client_id %s', GFW_OAUTH_APPLICATION_ID)
     else:
-        access_token = AccessToken.objects.filter(user=user,
-                                                  application=app,
-                                                  scope='write',
-                                                  expires__gt=datetime.now(tz=pytz.utc)+timedelta(days=365)).latest('expires')
-
-        if not access_token:
+        try:
+            access_token = AccessToken.objects.filter(user=user,
+                                                      application=app,
+                                                      scope='write',
+                                                      expires__gt=datetime.now(tz=pytz.utc)+timedelta(days=365)).latest('expires')
+        except AccessToken.DoesNotExist:
+            logger.info('Valid access token not found, will create new token')
             access_token = AccessToken.objects.create(
-                user=user, application=app, scope='write', expires__gt=datetime.now(tz=pytz.utc),
+                user=user, application=app, scope='write',
                 expires=datetime.now(tz=pytz.utc) + timedelta(days=ttl_days), token=generate_token())
 
         return access_token
 
 
 def create_subscription(model_instance):
-    spatial_features = model_instance.spatial_feature_group.features.all()
-
-    feature_collection = geojson.FeatureCollection([
-        geojson.Feature(geometry=geojson.loads(f.feature_geometry.geojson)) for f in spatial_features
-    ])
-
-    # geostore creation will move out of here...
-    if not model_instance.geostore_id:
-        rsp = requests.post(url=f'{settings.GFW_API_ROOT}/geostore', json={'geojson': feature_collection})
-        if rsp.status_code == status.HTTP_200_OK:
-            geostore_rsp = json.loads(rsp.text)
-            model_instance.geostore_id = geostore_rsp['data']['id']
-
+    _update_geostore(model_instance)
     subscribe_json = _build_subscribe_msg(model_instance)
     gfw_auth_token = model_instance.additional['gfw_auth_token']
     logger.info(f'SUBS JSON {subscribe_json}')
-    rsp = requests.post(url=f'{settings.GFW_API_ROOT}/subscriptions',
+    rsp = requests.post(url=subscriptions_endpoint,
                         headers={'Authorization': f'Bearer {gfw_auth_token}'},
                         json=subscribe_json,
                         timeout=5)
@@ -112,15 +103,57 @@ def create_subscription(model_instance):
     if rsp.status_code == status.HTTP_200_OK:
         model_instance.subscription_id = json.loads(rsp.text)['data']['id']
         logger.info(f'subscription successful. id: {model_instance.subscription_id}')
+    else:
+        logger.error(f'create_subscription failed with code {rsp.status_code} msg: {rsp.text}')
 
 
-def fetch_subscription(model_instance): pass
+def fetch_subscription(model_instance):
+    gfw_auth_token = model_instance.additional['gfw_auth_token']
+    rsp = requests.get(url=f'{subscriptions_endpoint}/{model_instance.subscription_id}',
+                       headers={'Authorization': f'Bearer {gfw_auth_token}'})
+    if rsp.status_code != status.HTTP_200_OK:
+        logger.error(f'fetch_subscription failed with code {rsp.status_code} msg: {rsp.text}')
 
 
-def update_subscription(model_instance): pass
+def update_subscription(model_instance):
+    if not model_instance.subscription_geometry_pre_save.equals_exact(model_instance.subscription_geometry, 1.0):
+        logger.info(f'GEOMETRY CHANGED. updating geostore')
+        _update_geostore(model_instance)
+    else:
+        logger.info(f'GEOMETRY NOT CHANGED')
+
+    subscribe_json = _build_subscribe_msg(model_instance)
+    gfw_auth_token = model_instance.additional['gfw_auth_token']
+    rsp = requests.patch(url=f'{subscriptions_endpoint}/{model_instance.subscription_id}',
+                         headers={'Authorization': f'Bearer {gfw_auth_token}'},
+                         json=subscribe_json,
+                         timeout=5)
+
+    if rsp.status_code == status.HTTP_200_OK:
+        logger.info(f'update subscription successful. {rsp.text}')
+    else:
+        logger.error(f'update_subscription failed with code {rsp.status_code} msg: {rsp.text}')
 
 
-def delete_subscription(model_instance): pass
+def delete_subscription(model_instance):
+    gfw_auth_token = model_instance.additional['gfw_auth_token']
+    rsp = requests.get(url=f'{subscriptions_endpoint}/{model_instance.subscription_id}/unsubscribe',
+                       headers={'Authorization': f'Bearer {gfw_auth_token}'})
+    if rsp.status_code == status.HTTP_200_OK:
+        logger.info(f'delete subscription successful. {rsp.text}')
+    else:
+        logger.error(f'delete_subscription failed with code {rsp.status_code} msg: {rsp.text}')
+
+
+def _update_geostore(model_instance):
+    json_dict = dict(geojson=geojson.loads(model_instance.subscription_geometry.geojson))
+    rsp = requests.post(url=f'{settings.GFW_API_ROOT}/geostore',
+                        json=json_dict)
+    if rsp.status_code == status.HTTP_200_OK:
+        geostore_rsp = json.loads(rsp.text)
+        model_instance.geostore_id = geostore_rsp['data']['id']
+    else:
+        logger.error(f'_update_geostore failed with code {rsp.status_code} msg: {rsp.text}')
 
 
 def _build_subscribe_msg(model):
@@ -134,7 +167,7 @@ def _build_subscribe_msg(model):
     subsciption['datasets'] = model.additional['alert_types'],
     subsciption['resource'] = {
         'type': 'URL',
-        'content': f'{get_webhook_base_url()}/{model.id.hex}/status?auth={settings.ER_APP_AUTH_TOKEN}'}
+        'content': f'{get_webhook_base_url()}/?auth={get_gfw_access_token(get_gfw_user())}'}
     subsciption['params'] = {'geostore': model.geostore_id}
 
     return subsciption

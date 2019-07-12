@@ -215,7 +215,7 @@ class GlobalForestWatchAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('name', 'owner', )
+            'fields': ('name', )
         }),
         ('Global Forest Watch API Properties', {
             'classes': ('wide',),
