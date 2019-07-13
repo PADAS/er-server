@@ -19,6 +19,8 @@ GFW_OAUTH_APPLICATION_ID = 'gfw-application'
 
 from oauth2_provider.models import AccessToken
 
+DEFAULT_REQUESTS_TIMEOUT_SECS = 5
+
 logger = logging.getLogger(__name__)
 subscriptions_endpoint = f'{settings.GFW_API_ROOT}/subscriptions'
 geostore_endpoint = f'{settings.GFW_API_ROOT}/geostore'
@@ -96,7 +98,7 @@ def create_subscription(model_instance):
     rsp = requests.post(url=subscriptions_endpoint,
                         headers={'Authorization': f'Bearer {gfw_auth_token}'},
                         json=subscribe_json,
-                        timeout=5)
+                        timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
 
     logger.info(f'subscription response: {rsp} \n {rsp.text}')
 
@@ -110,7 +112,8 @@ def create_subscription(model_instance):
 def fetch_subscription(model_instance):
     gfw_auth_token = model_instance.additional['gfw_auth_token']
     rsp = requests.get(url=f'{subscriptions_endpoint}/{model_instance.subscription_id}',
-                       headers={'Authorization': f'Bearer {gfw_auth_token}'})
+                       headers={'Authorization': f'Bearer {gfw_auth_token}'},
+                       timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
     if rsp.status_code != status.HTTP_200_OK:
         logger.error(f'fetch_subscription failed with code {rsp.status_code} msg: {rsp.text}')
 
@@ -127,7 +130,7 @@ def update_subscription(model_instance):
     rsp = requests.patch(url=f'{subscriptions_endpoint}/{model_instance.subscription_id}',
                          headers={'Authorization': f'Bearer {gfw_auth_token}'},
                          json=subscribe_json,
-                         timeout=5)
+                         timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
 
     if rsp.status_code == status.HTTP_200_OK:
         logger.info(f'update subscription successful. {rsp.text}')
@@ -138,7 +141,9 @@ def update_subscription(model_instance):
 def delete_subscription(model_instance):
     gfw_auth_token = model_instance.additional['gfw_auth_token']
     rsp = requests.get(url=f'{subscriptions_endpoint}/{model_instance.subscription_id}/unsubscribe',
-                       headers={'Authorization': f'Bearer {gfw_auth_token}'})
+                       headers={'Authorization': f'Bearer {gfw_auth_token}'},
+                       timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
+
     if rsp.status_code == status.HTTP_200_OK:
         logger.info(f'delete subscription successful. {rsp.text}')
     else:
@@ -148,7 +153,8 @@ def delete_subscription(model_instance):
 def _update_geostore(model_instance):
     json_dict = dict(geojson=geojson.loads(model_instance.subscription_geometry.geojson))
     rsp = requests.post(url=f'{settings.GFW_API_ROOT}/geostore',
-                        json=json_dict)
+                        json=json_dict,
+                        timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
     if rsp.status_code == status.HTTP_200_OK:
         geostore_rsp = json.loads(rsp.text)
         model_instance.geostore_id = geostore_rsp['data']['id']

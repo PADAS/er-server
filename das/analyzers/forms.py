@@ -41,14 +41,14 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
     gfw_auth_token = forms.CharField(widget=forms.Textarea,
                                      help_text=_('Authorization token for Global Forest Watch API.'))
 
-    def save(self, commit=True):
-        # TODO: how is this commit flag used?? seems to be set as false when save is called.
-        # logger.debug('GlobalForestWatchSubscriptionForm SAVE ENTERED')
-        if self.is_valid():
-            m = super(GlobalForestWatchSubscriptionForm, self).save(commit=False)
-
-            # TODO:
-            if commit:
-                m.save()
-
-            return m
+    # def save(self, commit=True):
+    #     # TODO: how is this commit flag used?? seems to be set as false when save is called.
+    #     # logger.debug('GlobalForestWatchSubscriptionForm SAVE ENTERED')
+    #     if self.is_valid():
+    #         # m = super(GlobalForestWatchSubscriptionForm, self).save()
+    #
+    #         # TODO:
+    #         if commit:
+    #             m.save()
+    #
+    #         return m
