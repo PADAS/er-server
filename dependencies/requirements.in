@@ -98,3 +98,5 @@ datadog==0.27.0
 whitenoise==4.1.2
 
 django-debug-toolbar==1.11
+
+PyFunctional==1.2.0
