@@ -100,7 +100,7 @@ class GFWAlertHandler:
 
         layer_slug = deserialized.validated_data.get('layerSlug')
 
-        event_type_value = GFW_EVENT_TYPES_MAP.get('layer_slug')
+        event_type_value = GFW_EVENT_TYPES_MAP.get(layer_slug)
         if event_type_value:
             ensure_gfw_event_types()
 
@@ -142,6 +142,7 @@ class GFWAlertHandler:
                 return evt_serializer.errors()
 
             evt_serializer.create(evt_serializer.validated_data)
+            return {}
 
         errors = seq(validated_data.get('alerts')). \
             map(create_alert_event). \

@@ -26,16 +26,16 @@ GENERIC_GFW_ALERT_SCHEMA = {
 }
 
 GFWGladEventTypeSpec = EventTypeSpec(value='gfw_glad_alert',
-                                  display='Global Forest Watch GLAD Tree-Loss Alert',
-                                  schema=GENERIC_GFW_ALERT_SCHEMA)
+                                     display='Global Forest Watch GLAD Tree-Loss Alert',
+                                     schema=GENERIC_GFW_ALERT_SCHEMA)
 
 GFWTerraiAlertEventTypeSpec = EventTypeSpec(value='gfw_terrai_alert',
-                                  display='Global Forest Watch Terra-i Tree-Loss Alert',
-                                  schema=GENERIC_GFW_ALERT_SCHEMA)
+                                            display='Global Forest Watch Terra-i Tree-Loss Alert',
+                                            schema=GENERIC_GFW_ALERT_SCHEMA)
 
 GFWActiveFireAlertEventTypeSpec = EventTypeSpec(value='gfw_activefire_alert',
-                                  display='Global Forest Watch Active Fire Alert',
-                                  schema=GENERIC_GFW_ALERT_SCHEMA)
+                                                display='Global Forest Watch Active Fire Alert',
+                                                schema=GENERIC_GFW_ALERT_SCHEMA)
 
 # Map GFW Layer-Slug to an EarthRanger event-type.
 GFW_EVENT_TYPES_MAP = {
