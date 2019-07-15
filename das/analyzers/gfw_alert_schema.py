@@ -3,60 +3,55 @@ import json
 from activity.models import EventType, EventCategory
 from analyzers.environmental import EventTypeSpec
 
-GFW_ALERT_SCHEMA = {
+GENERIC_GFW_ALERT_SCHEMA = {
     "schema": {
         "$schema": "http://json-schema.org/draft-04/schema#",
-        "title": "EventType Data",
+        "title": "Event Type Global Forest Watch Alert",
         "type": "object",
         "properties": {
-            "gfw_alert_type": {
-                "type": "string",
-                "title": "Type of GFW alert"
-            },
             "subscription_name": {
                 "type": "string",
-                "title": "Name of subscription as specfied at GFW"
+                "title": "Name of subscription with Global Forest Watch"
             },
-            "selected_area": {
-                "type": "string",
-                "title": "Area in meters"
-            },
-            "subscriptions_url": {
-                "type": "string",
-                "title": "URL for user subscriptions"
-            },
-            "alert_url": {
+            "alert_link": {
                 "type": "string",
                 "title": "URL of the map for this alert"
-            },
-            "unsubscribe_url": {
-                "type": "string",
-                "title": "URL to unsubscribe for these alerts"
             },
         },
     },
     "definition": [
-        "gfw_alert_type",
         "subscription_name",
-        "selected_area",
-        "subscriptions_url",
-        "alert_url",
-        "unsubscribe_url"
+        "alert_link"
     ]
 }
 
-GFWAlertEventType = EventTypeSpec(value='gfw_alert',
-                                  display='Global Forest Watch Alert',
-                                  schema=GFW_ALERT_SCHEMA)
+GFWGladEventTypeSpec = EventTypeSpec(value='gfw_glad_alert',
+                                  display='Global Forest Watch GLAD Tree-Loss Alert',
+                                  schema=GENERIC_GFW_ALERT_SCHEMA)
 
+GFWTerraiAlertEventTypeSpec = EventTypeSpec(value='gfw_terrai_alert',
+                                  display='Global Forest Watch Terra-i Tree-Loss Alert',
+                                  schema=GENERIC_GFW_ALERT_SCHEMA)
 
-def ensure_gfw_event_type():
+GFWActiveFireAlertEventTypeSpec = EventTypeSpec(value='gfw_activefire_alert',
+                                  display='Global Forest Watch Active Fire Alert',
+                                  schema=GENERIC_GFW_ALERT_SCHEMA)
+
+# Map GFW Layer-Slug to an EarthRanger event-type.
+GFW_EVENT_TYPES_MAP = {
+    'viirs-active-fires': GFWActiveFireAlertEventTypeSpec.value,
+    'glad-alerts': GFWGladEventTypeSpec.value,
+    'terrai-alerts': GFWTerraiAlertEventTypeSpec.value
+}
+
+def ensure_gfw_event_types():
     ec, created = EventCategory.objects.get_or_create(
         value='analyzer_event', defaults=dict(display='Analyzer Events'))
 
-    EventType.objects.get_or_create(value=GFWAlertEventType.value,
-                                    category=ec,
-                                    defaults=dict(display=GFWAlertEventType.display,
-                                                  schema=json.dumps(GFWAlertEventType.schema,
-                                                                    indent=2,
-                                                                    default=str)))
+    for event_type_spec in (GFWGladEventTypeSpec, GFWTerraiAlertEventTypeSpec, GFWActiveFireAlertEventTypeSpec):
+        EventType.objects.get_or_create(value=event_type_spec.value,
+                                        category=ec,
+                                        defaults=dict(display=event_type_spec.display,
+                                                      schema=json.dumps(event_type_spec.schema,
+                                                                        indent=2,
+                                                                        default=str)))

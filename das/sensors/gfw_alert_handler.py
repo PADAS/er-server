@@ -1,18 +1,15 @@
-import uuid
 import logging
-import pytz
-
 from copy import deepcopy
 from datetime import datetime
 
+import pytz
+from django.utils.translation import ugettext_lazy as _
+from functional import seq
 from rest_framework import status, serializers
 from rest_framework.response import Response
 
-from functional import seq
-
-from analyzers.models.gfw import GlobalForestWatchSubscription
-from analyzers.gfw_alert_schema import ensure_gfw_event_type
 from activity.serializers import EventSerializer
+from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -95,28 +92,29 @@ class GFWAlertHandler:
 
     @classmethod
     def post(cls, request, subscription_id):
-        logger.info(f'GFW-ALERT for {subscription_id}')
+        logger.info('Handle GFW Alert', extra={'subscription_id': subscription_id})
 
         deserialized = GFWAlertParameters(data=request.data)
         if not deserialized.is_valid():
-            return Response(status=status.HTTP_400_BAD_REQUEST,
-                            data=deserialized.errors)
+            return Response(status=status.HTTP_400_BAD_REQUEST, data=deserialized.errors)
 
         layer_slug = deserialized.validated_data.get('layerSlug')
-        if layer_slug in ['viirs-active-fires', 'glad-alerts', 'terrai-alerts']:
-            event_details_dict = dict()
-            event_dict = dict(event_type='gfw_alert',
-                              event_title='Global Forest Watch Alert',
-                              event_details=event_details_dict)
 
-            ensure_gfw_event_type()
+        event_type_value = GFW_EVENT_TYPES_MAP.get('layer_slug')
+        if event_type_value:
+            ensure_gfw_event_types()
 
-            event_details_dict.update(gfw_alert_type=layer_slug)
-            event_details_dict.update(alert_url=deserialized.validated_data.get('alert_link'))
-            event_details_dict.update(subscription_name=deserialized.validated_data.get('alert_name'))
-            event_details_dict.update(selected_area=deserialized.validated_data.get('selected_area'))
-            event_details_dict.update(subscriptions_url=deserialized.validated_data.get('subscriptions_url'))
-            event_details_dict.update(unsubscribe_url=deserialized.validated_data.get('unsubscribe_url'))
+            event_details_dict = {
+                'gfw_alert_type': layer_slug,
+                'alert_link': deserialized.validated_data.get('alert_link'),
+                'subscription_name': deserialized.validated_data.get('alert_name')
+            }
+
+            event_dict = {
+                'event_type': event_type_value,
+                'event_title': _('Global Forest Watch Alert'),
+                'event_details': event_details_dict
+            }
 
             return cls.create_events(request, event_dict, deserialized.validated_data)
 
@@ -144,7 +142,6 @@ class GFWAlertHandler:
                 return evt_serializer.errors()
 
             evt_serializer.create(evt_serializer.validated_data)
-            return {}
 
         errors = seq(validated_data.get('alerts')). \
             map(create_alert_event). \
@@ -152,8 +149,6 @@ class GFWAlertHandler:
             to_list()
 
         if len(errors) > 0:
-            return Response(status=status.HTTP_400_BAD_REQUEST,
-                            data=errors)
+            return Response(status=status.HTTP_400_BAD_REQUEST, data=errors)
         else:
-            return Response(status=status.HTTP_201_CREATED,
-                             data=dict(message='Alert processed'))
+            return Response(status=status.HTTP_201_CREATED, data=dict(message='Alert processed'))

@@ -163,18 +163,18 @@ def _update_geostore(model_instance):
 
 
 def _build_subscribe_msg(model):
-    subsciption = dict()
-    subsciption.update([
-        ('name', model.name),
-        ('application', 'gfw'),
-        ('language', 'en')
-    ])
 
-    subsciption['datasets'] = model.additional['alert_types'],
-    subsciption['resource'] = {
-        'type': 'URL',
-        'content': f'{get_webhook_base_url()}/?auth={get_gfw_access_token(get_gfw_user())}'}
-    subsciption['params'] = {'geostore': model.geostore_id}
+    subscription = {
+        'name': model.name,
+        'application': 'gfw',
+        'language': 'en',
+        'datasets': model.additional['alert_types'],
+        'resource': {
+            'type': 'URL',
+            'content': f'{get_webhook_base_url()}/?auth={get_gfw_access_token(get_gfw_user())}'
+        },
+        'params': {'geostore': model.geostore_id}
+    }
 
-    return subsciption
+    return subscription
 
