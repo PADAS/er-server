@@ -223,19 +223,35 @@ def extractor(schema_item, definition, value):
                     return definition_item.get('title'), val, key
 
 
-def definition_key_order(schema):
+def generate_index(start_at=0, incr=1):
+    while True:
+        yield start_at
+        start_at = start_at + incr
+
+
+def definition_keys(form_definition: list, index_values=None):
     '''
     Calculate map of key to order, as indicated in schema.definition.
+
+    It supports fieldsets by recursion.
     '''
-    for i, k in enumerate(schema.get('definition', [])):
+
+    index_values = index_values or generate_index()
+    
+    for k in form_definition:
         if isinstance(k, str):
-            yield (k, i)
-        elif isinstance(k, dict) and 'key' in k:
-            yield (k['key'], i)
+            yield (k, next(index_values))
+
+        elif isinstance(k, dict):
+            if 'key' in k:
+                yield (k['key'], next(index_values))
+
+            elif 'items' in k and isinstance(k['items'], list):
+                yield from definition_keys(k['items'], index_values=index_values)
 
 
 def definition_key_order_as_dict(schema):
-    return OrderedDict(definition_key_order(schema))
+    return OrderedDict(definition_keys(schema.get('definition', [])))
 
 
 def detail_resolver(schema, key, value):
@@ -253,7 +269,7 @@ def detail_resolver(schema, key, value):
 def generate_details(event, schema):
     event_details = event.event_details.first().data.get('event_details', {})
 
-    definition_order = dict(definition_key_order(schema))
+    definition_order = dict(definition_keys(schema.get('definition', [])))
 
     for k, v in event_details.items():
         resolved_details = detail_resolver(schema, k, v)

@@ -74,6 +74,49 @@ class TestReportUtils(TestCase):
         ]
     }
 
+    rendered_schema_2 = {
+        "schema": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "title": "Animal Carcass Report (carcass_rep)",
+            "type": "object",
+            "properties": {
+                "carcassrep_species": {
+                    "type": "string",
+                    "title": "Line 3: Species",
+                    "enum": ["zebra"],
+                    "enumNames": {"zebra": "Zebra"}
+                },
+                "carcassrep_trophystatus": {
+                    "type": "string",
+                    "title": "Line 7: Trophy Status",
+                    "enum": [],
+                    "enumNames": {}
+                }
+            }
+        },
+        "definition": [
+            'field_1',
+            {"type": "fieldset",
+             "htmlClass": "col-lg-12",
+             "items":
+                 [
+                     "fieldset_1_item_1",
+                     "fieldset_1_item_2"
+                 ]
+             },
+            {"type": "fieldset",
+             "htmlClass": "col-lg-12",
+             "items":
+                 [
+                     "fieldset_2_item_1",
+                     "fieldset_2_item_2"
+                 ]
+             }
+        ]
+    }
+
+    definition_order_dict_schema_2 = OrderedDict([('field_1', 0), ('fieldset_1_item_1', 1), ('fieldset_1_item_2', 2), ('fieldset_2_item_1', 3), ('fieldset_2_item_2', 4)])
+    # definition_order_dict_schema_2 = OrderedDict([('field_1', 0), ('fieldset_1_item_1', 1), ('fieldset_1_item_2', 2), ('fieldset_2_item_1', 1), ('fieldset_2_item_2', 2)])
     def setUp(self):
         super().setUp()
 
@@ -101,13 +144,20 @@ class TestReportUtils(TestCase):
         self.assertTrue(result)
 
     def test_definition_key_order(self):
-        result = schema_utils.definition_key_order(self.rendered_schema_1)
+        result = schema_utils.definition_keys(self.rendered_schema_1.get('definition', []))
         self.assertEquals(list(result), self.definition_order_schema_1)
 
     def test_definition_key_order_as_dict(self):
         result = schema_utils.definition_key_order_as_dict(
             self.rendered_schema_1)
         self.assertEquals(result, self.definition_order_dict_schema_1)
+
+    def test_definition_key_parsing_with_fieldsets(self):
+        result = schema_utils.definition_key_order_as_dict(
+            self.rendered_schema_2)
+
+        print(result)
+        self.assertEquals(result, self.definition_order_dict_schema_2)
 
     def test_lookup_type_query(self):
 
