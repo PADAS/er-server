@@ -1,4 +1,5 @@
 from django.contrib import admin
+import django.contrib.gis.admin as gis_admin
 
 import analyzers.models as models
 from analyzers.forms import EnvironmentalAnalyzerAdminForm, GlobalForestWatchSubscriptionForm
@@ -206,7 +207,10 @@ class SpeedDistroAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.GlobalForestWatchSubscription)
-class GlobalForestWatchAdmin(admin.ModelAdmin):
+class GlobalForestWatchAdmin(gis_admin.OSMGeoAdmin):
+    wms_layer = 'terrain,overlay'
+    wms_url = 'http://tiles.maps.eox.at/wms/'
+
     form = GlobalForestWatchSubscriptionForm
     readonly_fields = ('subscription_id', 'geostore_id',)
 
