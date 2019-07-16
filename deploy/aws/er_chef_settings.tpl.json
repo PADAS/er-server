@@ -6,7 +6,7 @@
     "default_attributes": {
         "application_version": {
             "das": {
-                "web": "1.70.1-rc.15"
+                "web": "${build_version}"
             }
         },
         "das": {
@@ -51,7 +51,7 @@
                 "value": "443"
             },
             "redis": {
-                "host": "{redis_host}",
+                "host": "${redis_host}",
                 "install_local": false
             },
             "timezone": "${timezone}",
@@ -61,7 +61,7 @@
             "eus_settings":{
                 "type": "zendesk",
                 "name": "${zendesk_name}",
-                "email": "${zendesk_email",
+                "email": "${zendesk_email}",
                 "organization": "${zendesk_organization}" 
             },
             "filebeat": {
