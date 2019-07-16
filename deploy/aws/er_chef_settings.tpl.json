@@ -1,0 +1,81 @@
+{
+    "name": "${site}",
+    "description": "Environment file for use in the ${site} environment",
+    "chef_type": "environment",
+    "json_class": "Chef::Environment",
+    "default_attributes": {
+        "application_version": {
+            "das": {
+                "web": "1.70.1-rc.15"
+            }
+        },
+        "das": {
+            "builds": {
+                "s3_bucket": "${s3_bucket}"
+            },
+            "db": {
+                "primary": "${db_host}",
+                "name": "${db_name}"
+            },
+            "domain": {
+                "ip": "localhost",
+                "fqdn": "${site}.pamdas.org",
+                "fqdn_ssl": "https://${site}.pamdas.org",
+                "api_base_domain": "https://${site}.pamdas.org",
+                "ga": "UA-128569083-1"
+            },
+            "domains": {
+                "cors_origins": "localhost:9000','http://localhost:9000','${site}.pamdas.org','https://${site}.pamdas.org','http://${site}.pamdas.org",
+                "csrf_origins": "localhost:9000','${site}.pamdas.org",
+                "allowed_hosts": "localhost:9000','${site}.pamdas.org','localhost','*"
+            },
+            "email": {
+                "notification": "notifications.${site}@pamdas.org",
+                "info": "info.${site}@pamdas.org",
+                "host_user": "notifications.${site}@pamdas.org"
+            },
+            "users": { 
+                "login_user": "ubuntu"
+            },
+            "postgresql": {
+                "password": "${db_password}",
+                "user": "${db_user}"
+            },
+            "settings": {
+                "default_file_storage": "storages.backends.s3boto.S3BotoStorage",
+                "aws_storage_bucket_name": "${media_uploads}",
+                "aws_s3_host": "${media_uploads_region}"
+            },
+            "ssl_header": {
+                "key": "HTTP_X_FORWARDED_PORT",
+                "value": "443"
+            },
+            "redis": {
+                "host": "{redis_host}",
+                "install_local": false
+            },
+            "timezone": "${timezone}",
+            "ssh_sync": {
+                "install": true
+            },
+            "eus_settings":{
+                "type": "zendesk",
+                "name": "${zendesk_name}",
+                "email": "${zendesk_email",
+                "organization": "${zendesk_organization}" 
+            },
+            "filebeat": {
+                "process_logs": true
+            },
+            "track": {
+                "days": ${track_days}
+            },
+            "kml_settings": {
+                "kml_feed_title": "${kml_feed_title}"
+	        },
+            "subjects": {
+                "show_stationary_subjects_on_map": "${show_stationary_subjects_on_map}"
+            }
+        }
+    }
+}
