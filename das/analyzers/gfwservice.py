@@ -1,10 +1,11 @@
+import functools
 import json
 import logging
 from datetime import datetime, timedelta
 
+import geojson
 import pytz
 import requests
-import geojson
 from django.conf import settings
 from django.urls import reverse
 from oauth2_provider.models import Application, generate_client_secret
@@ -95,26 +96,36 @@ def create_subscription(model_instance):
     subscribe_json = _build_subscribe_msg(model_instance)
     gfw_auth_token = model_instance.additional['gfw_auth_token']
     logger.info(f'SUBS JSON {subscribe_json}')
-    rsp = requests.post(url=subscriptions_endpoint,
-                        headers={'Authorization': f'Bearer {gfw_auth_token}'},
-                        json=subscribe_json,
-                        timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
 
-    logger.info(f'subscription response: {rsp} \n {rsp.text}')
+    @exception_wrapper
+    def f():
+        return requests.post(
+            url=subscriptions_endpoint,
+            headers={'Authorization': f'Bearer {gfw_auth_token}'},
+            json=subscribe_json,
+            timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
 
-    if rsp.status_code == status.HTTP_200_OK:
+    rsp = f()
+
+    if rsp and rsp.status_code == status.HTTP_200_OK:
         model_instance.subscription_id = json.loads(rsp.text)['data']['id']
+        logger.info(f'subscription response: {rsp} \n {rsp.text}')
         logger.info(f'subscription successful. id: {model_instance.subscription_id}')
-    else:
-        logger.error(f'create_subscription failed with code {rsp.status_code} msg: {rsp.text}')
 
 
 def fetch_subscription(model_instance):
     gfw_auth_token = model_instance.additional['gfw_auth_token']
-    rsp = requests.get(url=f'{subscriptions_endpoint}/{model_instance.subscription_id}',
-                       headers={'Authorization': f'Bearer {gfw_auth_token}'},
-                       timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
-    if rsp.status_code != status.HTTP_200_OK:
+
+    @exception_wrapper
+    def f():
+        return requests.get(
+            url=f'{subscriptions_endpoint}/{model_instance.subscription_id}',
+            headers={'Authorization': f'Bearer {gfw_auth_token}'},
+            timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
+
+    rsp = f()
+
+    if rsp and rsp.status_code != status.HTTP_200_OK:
         logger.error(f'fetch_subscription failed with code {rsp.status_code} msg: {rsp.text}')
 
 
@@ -127,39 +138,69 @@ def update_subscription(model_instance):
 
     subscribe_json = _build_subscribe_msg(model_instance)
     gfw_auth_token = model_instance.additional['gfw_auth_token']
-    rsp = requests.patch(url=f'{subscriptions_endpoint}/{model_instance.subscription_id}',
-                         headers={'Authorization': f'Bearer {gfw_auth_token}'},
-                         json=subscribe_json,
-                         timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
 
-    if rsp.status_code == status.HTTP_200_OK:
-        logger.info(f'update subscription successful. {rsp.text}')
+    if not model_instance.subscription_id:
+        # this will happen if create_subscription failed for some reason
+        @exception_wrapper
+        def f():
+            return requests.post(
+                url=subscriptions_endpoint,
+                headers={'Authorization': f'Bearer {gfw_auth_token}'},
+                json=subscribe_json,
+                timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
     else:
-        logger.error(f'update_subscription failed with code {rsp.status_code} msg: {rsp.text}')
+        @exception_wrapper
+        def f():
+            return requests.patch(
+                url=f'{subscriptions_endpoint}/{model_instance.subscription_id}',
+                headers={'Authorization': f'Bearer {gfw_auth_token}'},
+                json=subscribe_json,
+                timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
+
+    rsp = f()
+
+    if rsp and rsp.status_code == status.HTTP_200_OK:
+        logger.info(f'update subscription successful. {rsp.text}')
+        model_instance.subscription_id = json.loads(rsp.text)['data']['id']
+    else:
+        logger.error(f'update_subscription failed with code {rsp}')
 
 
 def delete_subscription(model_instance):
     gfw_auth_token = model_instance.additional['gfw_auth_token']
-    rsp = requests.get(url=f'{subscriptions_endpoint}/{model_instance.subscription_id}/unsubscribe',
-                       headers={'Authorization': f'Bearer {gfw_auth_token}'},
-                       timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
 
-    if rsp.status_code == status.HTTP_200_OK:
+    @exception_wrapper
+    def f():
+        return requests.get(
+            url=f'{subscriptions_endpoint}/{model_instance.subscription_id}/unsubscribe',
+            headers={'Authorization': f'Bearer {gfw_auth_token}'},
+            timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
+
+    rsp = f()
+
+    if rsp and rsp.status_code == status.HTTP_200_OK:
         logger.info(f'delete subscription successful. {rsp.text}')
     else:
-        logger.error(f'delete_subscription failed with code {rsp.status_code} msg: {rsp.text}')
+        logger.error(f'delete_subscription failed with code {rsp}')
 
 
 def _update_geostore(model_instance):
     json_dict = dict(geojson=geojson.loads(model_instance.subscription_geometry.geojson))
-    rsp = requests.post(url=f'{settings.GFW_API_ROOT}/geostore',
-                        json=json_dict,
-                        timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
-    if rsp.status_code == status.HTTP_200_OK:
+
+    @exception_wrapper
+    def f():
+        return requests.post(
+            url=f'{settings.GFW_API_ROOT}/geostore',
+            json=json_dict,
+            timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
+
+    rsp = f()
+
+    if rsp and rsp.status_code == status.HTTP_200_OK:
         geostore_rsp = json.loads(rsp.text)
         model_instance.geostore_id = geostore_rsp['data']['id']
     else:
-        logger.error(f'_update_geostore failed with code {rsp.status_code} msg: {rsp.text}')
+        logger.error(f'_update_geostore failed with code {rsp}')
 
 
 def _build_subscribe_msg(model):
@@ -178,3 +219,15 @@ def _build_subscribe_msg(model):
 
     return subscription
 
+
+def exception_wrapper(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            response = func(*args, **kwargs)
+        except Exception as ex:
+            response = None
+            logger.error(f'Exception {ex} raised in {func}')
+        return response
+
+    return wrapper
