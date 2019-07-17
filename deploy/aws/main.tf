@@ -1,13 +1,14 @@
 /*
+Create a <site>.tfvars file for the site/workspace in the sites directory
 terraform init
 
 terraform workspace select <partner>-<site>
     or
 terraform workspace new <partner>-<site>
 
-terraform plan -var 'site=<site>' -var 'partner=prod'
+terraform plan -var-file="<site>.tfvars"
 
-terraform apply -var 'site=<site>' -var 'partner=prod'
+terraform apply -var-file="sites/<site>.tfvars"
 */
 
 provider "aws" {
@@ -112,7 +113,7 @@ resource "aws_route53_record" "www" {
 }
 
 resource "aws_elasticache_replication_group" "redis" {
-  replication_group_id          = "${var.site}-das-redis"
+  replication_group_id          = substr("${var.site}-das-redis", 0, 20)
   replication_group_description = "das redis server"
   automatic_failover_enabled    = true
   node_type                     = "cache.t2.micro"
