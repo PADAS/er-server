@@ -51,7 +51,7 @@ class AWETelemetryClient(object):
 
         if response and response.status_code == 200:
             result = json.loads(response.text)
-            if result and result['status'] == 200:
+            if result and result['status'] == 200 and result.get('data'):
                 yield from result['data']
         else:
             msg = 'Failed to get data from AWE Telementry API.'
@@ -102,7 +102,6 @@ class AWETelemetryPlugin(TrackingPlugin):
     service_url = models.CharField(max_length=50,
                                    help_text='The API endpoint for the AWE Telemetry/AWT service.')
 
-
     source_plugin_reverse_relation = 'awetelementryplugin'
 
     source_plugins = GenericRelation(
@@ -124,7 +123,7 @@ class AWETelemetryPlugin(TrackingPlugin):
             st = parse_date(self.cursor_data['latest_timestamp'])
         except Exception as e:
             st = pytz.utc.localize(datetime.utcnow()) - \
-                self.DEFAULT_START_OFFSET
+                 self.DEFAULT_START_OFFSET
 
         lt = st
         self.logger.debug('Fetching data for collar_id %s',
@@ -145,6 +144,16 @@ class AWETelemetryPlugin(TrackingPlugin):
             id, subject_name = (s.strip() for _ in range(2))
         return id, subject_name
 
+    side_data_keys = (
+        ('altitude', 'ALT'),
+        ('direction', 'DIRECTION'),
+        ('ext_temp', 'EXT_TEMP'),
+        ('hdop', 'HDOP'),
+        ('speed', 'SPEED'),
+        ('temp', 'TEMP'),
+        ('activity', 'ACTIVITY'),
+    )
+
     def _transform(self, source, fix):
 
         # DATE and TIME are naive UTC.
@@ -153,18 +162,11 @@ class AWETelemetryPlugin(TrackingPlugin):
 
         id, subject_name = self._split_id(fix['ID'])
 
-        side_data = {'altitude': int(fix['ALT']),
-                     'direction': int(fix['DIRECTION']),
-                     'ext_temp': float(fix['EXT_TEMP']),
-                     'hdop': int(fix['HDOP']),
-                     'speed': float(fix['SPEED']),
-                     'temp': float(fix['TEMP']),
-                     'acitivty': fix['ACTIVITY'],
-                     'subject_name': subject_name,
-                     }
+        side_data = dict((k1, fix.get(k2)) for k1, k2 in self.side_data_keys if k2 in fix)
+        side_data['subject_name'] = subject_name
 
-        return Obs(source=source, recorded_at=recorded_at, latitude=float(fix['LAT']), longitude=float(fix['LON']),
-                   additional=side_data)
+        return Obs(source=source, recorded_at=recorded_at, latitude=float(fix.get('LAT', 0.0)),
+                   longitude=float(fix.get('LON', 0.0)), additional=side_data)
 
     def _maintenance(self):
         self._sync_unit_info()
@@ -187,7 +189,7 @@ class AWETelemetryPlugin(TrackingPlugin):
             latest = client.latest()
             for item in latest:
 
-                model_name = (self.name)
+                model_name = self.name
                 manufacturer_id, subject_name = self._split_id(item['ID'])
 
                 src = Source.objects.ensure_source(source_type=self.DEFAULT_SOURCE_TYPE,
