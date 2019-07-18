@@ -747,8 +747,14 @@ class SubjectManager(models.Manager):
 
     def create_subject(self, **kwargs):
         # all subjects are added to the default subject group
+        subject_groups = kwargs.pop('subject_groups', []) or []
         subject = super().create(**kwargs)
         subject.groups.set((SubjectGroup.objects.get_default(),))
+        for group in subject_groups:
+            if not isinstance(group, SubjectGroup):
+                group, created = SubjectGroup.objects.get_or_create(name=group)
+            subject.groups.add(group)
+
         return subject
 
     def get_subjects_from_observation_id(self, observation_id, values=None):
