@@ -26,6 +26,8 @@ class SensorPostParameters(serializers.Serializer):
     manufacturer_id = serializers.CharField()
 
     subject_name = serializers.CharField(default=None)
+    subject_groups = serializers.ListField(
+        child=serializers.CharField(), allow_empty=True, default=list)
     subject_type = serializers.CharField(default=None)  # Legacy key
     subject_subtype = serializers.CharField(default=None)
     model_name = serializers.CharField(default=None)
@@ -59,7 +61,7 @@ class GenericSensorHandler:
         def generate_batches():
             num_observations = len(observations_json)
             for start_index in range(0, num_observations, batch_size):
-                yield observations_json[start_index: min(start_index+batch_size, num_observations)]
+                yield observations_json[start_index: min(start_index + batch_size, num_observations)]
 
         def notify_tracks_listeners():
             src_ids = {src_id for (src_id, _) in obs_cache}
@@ -68,9 +70,11 @@ class GenericSensorHandler:
 
         for batch in generate_batches():
             for an_observation in batch:
-                cls.process_one_observation(an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors)
+                cls.process_one_observation(
+                    an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors)
 
-        # TODO: Can we not construct serializers in 2 different places? this one does the bulk insert
+        # TODO: Can we not construct serializers in 2 different places? this
+        # one does the bulk insert
         bulk_serializer = ObservationSerializer(data=obs_to_persist, many=True)
         if bulk_serializer.is_valid():
             bulk_serializer.save()
@@ -93,9 +97,8 @@ class GenericSensorHandler:
         lon = location.get('lon', None)
         # location = Point(x=float(lon), y=float(lat))
         location = {'latitude': float(lat), 'longitude': float(lon)}
-
         subject_subtype = an_observation.get(
-            'subject_subtype', cls.DEFAULT_SUBJECT_SUBTYPE)
+            'subject_subtype') or cls.DEFAULT_SUBJECT_SUBTYPE
         source_type = an_observation.get('source_type', provider_key)
         model_name = an_observation.get('model_name', None) or '{}:{}'.format(
             sensor_type, provider_key)
@@ -106,7 +109,8 @@ class GenericSensorHandler:
                                            model_name=model_name,
                                            subject={
                                                'subject_subtype_id': subject_subtype,
-                                               'name': subject_name
+                                               'name': subject_name,
+                                               'subject_groups': an_observation.get('subject_groups')
                                            }
                                            )
         recorded_at = an_observation.get('recorded_at')
@@ -127,7 +131,8 @@ class GenericSensorHandler:
             return
 
         obs_cache.add(obs_key)
-        # TODO: constructing serializers in 2 different places - this below validates each observation
+        # TODO: constructing serializers in 2 different places - this below
+        # validates each observation
         validator = ObservationSerializer(data=observation)
         if validator.is_valid():
             obs_to_persist.append(observation)
@@ -232,10 +237,12 @@ class DraObservationSerializer(serializers.Serializer):
     manufacturer_id = serializers.CharField()
     source_type = serializers.CharField(default=None)
     subject_name = serializers.CharField(default=None)
+    subject_groups = serializers.ListField(
+        child=serializers.CharField(), allow_empty=True, default=[])
     recorded_at = serializers.DateTimeField()
     location = LocationDictSerializer()
 
-    subject_subtype = serializers.CharField(required=False, default='ranger')
+    subject_subtype = serializers.CharField(required=False)
     # model_name = serializers.CharField(default=None)
     additional = RadioAdditionalSerializer()
 
@@ -297,14 +304,17 @@ class DasRadioAgentHandler:
 
         model_name = '{}:{}'.format(cls.SENSOR_TYPE, provider_key)
         manufacturer_id = postdata['manufacturer_id']
+        subject_subtype = postdata.get(
+            'subject_subtype') or cls.DEFAULT_SUBJECT_SUBTYPE
 
         src = Source.objects.ensure_source(source_type=cls.SOURCE_TYPE,
                                            provider=provider_key,
                                            manufacturer_id=manufacturer_id,
                                            model_name=model_name,
                                            subject={
-                                               'subject_subtype_id': cls.DEFAULT_SUBJECT_SUBTYPE,
-                                               'name': manufacturer_id
+                                               'subject_subtype_id': subject_subtype,
+                                               'name': manufacturer_id,
+                                               'subject_groups': postdata.get('subject_groups')
                                            }
                                            )
 
@@ -615,10 +625,11 @@ class SigFoxPushHandler():
         params = SigFoxCallback(data=request.data)
 
         logger.info("Sigfox observation %s",
-                        request.data, extra={'obs.new': request.data})
+                    request.data, extra={'obs.new': request.data})
 
         if not params.is_valid():
-            resp = Response(data={'status': 404, 'message': params.errors}, status=status.HTTP_400_BAD_REQUEST)
+            resp = Response(
+                data={'status': 404, 'message': params.errors}, status=status.HTTP_400_BAD_REQUEST)
         else:
             unix_epoch = params['time']
             obs_date_utc = datetime.fromtimestamp(unix_epoch, timezone.utc)
@@ -629,13 +640,11 @@ class SigFoxPushHandler():
             }
 
             src, created = Source.objects.ensure_source(cls.SOURCE_TYPE,
-                                                    provider=provider_key,
-                                                    manufacturer_id=device_id,
-                                                    model_name = '{}:{}'.format(cls.SENSOR_TYPE, provider_key))  
+                                                        provider=provider_key,
+                                                        manufacturer_id=device_id,
+                                                        model_name='{}:{}'.format(cls.SENSOR_TYPE, provider_key))
 
-        status_ok = {'status': 200, 'message': 'success', 'handler': 'sigfox-push'}
+        status_ok = {'status': 200, 'message': 'success',
+                     'handler': 'sigfox-push'}
 
         return Response(data=status_ok, status=status.HTTP_201_OK)
-
-
-
