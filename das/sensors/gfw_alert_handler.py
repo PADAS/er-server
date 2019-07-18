@@ -11,7 +11,7 @@ from functional import seq
 from rest_framework import status, serializers
 from rest_framework.response import Response
 
-from activity.models import Event, EventType
+from activity.models import Event
 from activity.serializers import EventSerializer
 from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP
 
@@ -199,11 +199,10 @@ class GFWAlertHandler:
         def persist_event(event_fields):
             # check for duplicates before serializing
             location = Point(event_fields['location']['longitude'], event_fields['location']['latitude'])
-            event_type_obj = EventType.objects.get(value=event_fields['event_type'])
 
             if Event.objects.filter(location=location,
                                     event_time=event_fields['time'],
-                                    event_type_id=event_type_obj.id).exists():
+                                    event_type__value__exact=event_fields['event_type']).exists():
                 logger.warning('Event already exists - ignoring duplicate event')
             else:
                 evt_serializer = EventSerializer(data=event_fields, context={'request': request})
