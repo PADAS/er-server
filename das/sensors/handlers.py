@@ -27,7 +27,7 @@ class SensorPostParameters(serializers.Serializer):
 
     subject_name = serializers.CharField(default=None)
     subject_groups = serializers.ListField(
-        child=serializers.CharField(), allow_empty=True, default=[])
+        child=serializers.CharField(), allow_empty=True, default=list)
     subject_type = serializers.CharField(default=None)  # Legacy key
     subject_subtype = serializers.CharField(default=None)
     model_name = serializers.CharField(default=None)
