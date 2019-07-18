@@ -95,6 +95,26 @@ spec:
             configMapKeyRef:
               name: default-configmap
               key: EMAIL_PASSWORD
+        - name: EMAIL_HOST_USER
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: EMAIL_HOST_USER
+        - name: EMAIL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: EMAIL_HOST
+        - name: FROM_EMAIL
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: FROM_EMAIL
+        - name: DEFAULT_FROM_EMAIL
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: DEFAULT_FROM_EMAIL
       - image: prom/statsd-exporter:v0.8.1
         name: statsd-exporter
         args: ["--statsd.listen-udp=127.0.0.1:8125"]

@@ -67,6 +67,7 @@ INSTALLED_APPS = (
 )
 
 MIDDLEWARE = (
+    'utils.middleware.RequestDataMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',

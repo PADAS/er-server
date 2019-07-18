@@ -3,13 +3,15 @@ import copy
 import datetime
 
 from django.utils import timezone
+from django.db import transaction
+
 from rest_framework import status
 from django.utils import lorem_ipsum
 
 from core.tests import BaseAPITest
 from sensors.views import SensorObservation
 from observations.models import Subject, SourceProvider, Source, Observation, SubjectGroup, SubjectSubType
-
+from unittest import mock
 
 class GenericSensorHandlerTest(BaseAPITest):
     source_type = 'tracking-collar'
@@ -39,6 +41,23 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         self.api_path = '/'.join((self.api_base, 'sensors',
                                   self.sensor_type, self.provider, 'status'))
+
+    def run_transaction_hooks(self):
+        """
+        Mock transaction hooks to validate code for delayed on_commit functions.
+        :return: None
+
+        This supports validating a fix for https://vulcan.atlassian.net/browse/DAS-4052 whereby we didn't catch
+        an invalid call to an on_commit handler. This Mock allows us "execute" our transaction on_commit code but
+        without using TransactionTestCase which can be prohibitively slow.
+        """
+        for db_name in reversed(self._databases_names()):
+            with mock.patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
+                            lambda a: False):
+                transaction.get_connection(using=db_name).run_and_clear_commit_hooks()
+
+    def tearDown(self):
+        self.run_transaction_hooks()
 
     def test_badrequest_manufacturer_id_missing(self):
         local_obs = dict(self.one_observation)

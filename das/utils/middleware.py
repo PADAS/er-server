@@ -1,8 +1,12 @@
 import logging
 import time
 
-from django.conf import settings
-from utils import stats
+import inspect
+
+from threading import local
+
+request_data = local()
+
 
 class RequestLoggingMiddleware(object):
     logger = logging.getLogger('django.request')
@@ -77,3 +81,18 @@ class RequestLoggingMiddleware(object):
         # stats.increment_for_view(request.resolver_match.view_name)
 
         return response
+
+
+class RequestDataMiddleware(object):
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        request_data.view_name = None
+        return response
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        module = inspect.getmodule(view_func).__name__
+        request_data.view_name = f'{module}.{view_func.__name__}'

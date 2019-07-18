@@ -10,11 +10,19 @@ from django.conf import settings
 from django.db.models import Prefetch
 import re
 
+from django.db.models import CharField, Value
+from django.db.models.functions import Concat, Cast
+
 import dateutil.parser as dateparser
 import pytz
 from rest_framework import generics, status, response
 from django.http.response import HttpResponse
-from django.db.models import Prefetch, Q, F, Func
+from django.db.models import Prefetch, Q, F, Func, Count
+from django.db.models.functions import FirstValue
+from django.contrib.postgres.aggregates import StringAgg, JSONBAgg
+from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
+
+
 from django.urls import reverse
 from django.template import Template, Context
 from django.utils import timezone
@@ -26,6 +34,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers, views, permissions
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
 
+from accounts.models import User
 
 from activity.models import Event, EventNote, EventClass,\
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community,\
@@ -277,6 +286,22 @@ class EventCountView(generics.ListAPIView):
         return generics.views.Response(data)
 
 
+def generate_reported_by_lookup():
+    user_qs = User.objects.all() \
+         .annotate(internal_id=Cast('id', CharField()), value=F('username'), kind=Value('user', output_field=CharField()), display_value=Concat('first_name', Value(' '), 'last_name'))\
+                   .values_list('internal_id', 'value', 'kind', 'display_value')
+    community_qs = Community.objects.all() \
+         .annotate(internal_id=Cast('id', CharField()), value=F('name'), kind=Value('community', output_field=CharField()), display_value=F('name')) \
+                .values_list('internal_id', 'value', 'kind', 'display_value')
+    reported_by_qs = Subject.objects.all() \
+         .annotate(internal_id=Cast('id', CharField()), value=Cast('id', CharField()), kind=Value('subject', output_field=CharField()), display_value=F('name')) \
+                .values_list('internal_id', 'value', 'kind', 'display_value')
+
+    reported_by_list = reported_by_qs.union(user_qs, community_qs)
+
+    reported_by_map = dict((x[0], {'value': x[1], 'kind': x[2], 'display': x[3]}) for x in reported_by_list)
+    return reported_by_map
+
 class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
     permission_classes = (EventCategoryPermissions,)
@@ -305,34 +330,46 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         custom_headers = []
         combined_headers = []
 
-        for event in self.get_queryset():
-            if event.event_type_id != current_event_type_data['id']:
-                event_type = EventType.objects.get(id=event.event_type_id)
+        reported_by_map = generate_reported_by_lookup()
+
+        # TODO: Resolve how we can annotate with an array-aggregation for parents' IDs.
+        parent_event_subquery = EventRelationship.objects.filter(to_event_id=OuterRef('id')).order_by('created_at')
+
+        for event in self.get_queryset() \
+                .annotate(notes_count=Count('note')) \
+                .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
+                .annotate(related_subjects_count=Count('related_subjects')) \
+                .annotate(parent_event_id=Subquery(parent_event_subquery.values('from_event_id')[:1])) \
+                .values( 'id', 'serial_number', 'priority', 'state',
+                        'title', 'event_type_id', 'event_type__value', 'event_type__display',
+                        'event_type__schema', 'event_details__data', 'notes_count', 'full_notes',
+                        'parent_event_id', 'location', 'event_time', 'reported_by_id',
+                         'related_subjects_count'):
+
+            if event['event_type_id'] != current_event_type_data['id']:
 
                 current_event_type_data = {
-                    'id': event_type.id,
-                    'display': event_type.display,
-                    'value': event_type.value,
+                    'id': event['event_type_id'],
+                    'display': event['event_type__display'],
+                    'value': event['event_type__value'],
                     'events': [],
                     'headers': copy.deepcopy(default_headers)
                 }
 
                 try:
-                    current_schema = renderer(event.event_type.schema)
-                    current_schema_order = schema_utils.definition_key_order_as_dict(
-                        renderer(event.event_type.schema))
+                    current_schema = renderer(event['event_type__schema'])
+                    current_schema_order = \
+                        schema_utils.definition_key_order_as_dict(current_schema)
 
                     for key, order in current_schema_order.items():
                         if not isinstance(key, int):
-                            display_value = schema_utils.get_display_value_header_for_key(
-                                current_schema, key)
-                            current_event_type_data['headers'].append(
-                                self.escape_string(key))
-                            current_event_type_data['headers'].append(
-                                self.escape_string(display_value))
+                            display_value = schema_utils.get_display_value_header_for_key(current_schema, key)
+                            current_event_type_data['headers'].append(self.escape_string(key))
+                            current_event_type_data['headers'].append(self.escape_string(display_value))
 
                             if key not in custom_headers:
                                 custom_headers.append(key)
+
                             if display_value not in custom_headers:
                                 custom_headers.append(display_value)
 
@@ -346,61 +383,45 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             # First, get the event details (schema data) in the correct order
             # for the headers above
-            details = schema_utils.get_details_and_display_values(event,
-                                                                  current_schema)
+            if event['event_details__data']:
+                details = schema_utils.get_display_values_for_event_details(
+                    event['event_details__data'].get('event_details', {}), current_schema)
+            else:
+                details = {}
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
-                item_display_name = schema_utils.get_display_value_header_for_key(
-                    current_schema, key)
+                item_display_name = schema_utils.get_display_value_header_for_key(current_schema, key)
                 schema_data[key] = self.escape_string(details.get(key, ''))
-                schema_data[item_display_name] = self.escape_string(
-                    details.get(item_display_name, ''))
-
-            parent_event = Event.objects.filter(
-                out_relationship__to_event=event,
-                out_relationship__type__value='contains').first()
-            if parent_event is not None:
-                parent_event = str(parent_event.serial_number)
-            else:
-                parent_event = ''
+                schema_data[item_display_name] = self.escape_string(details.get(item_display_name, ''))
 
             # Now assemble the data we want to write to the csv
-            event_time = event.time.astimezone(current_tz)
             event_data = {
-                'serial': event.serial_number,
-                'event_type': event_type.display,
-                'event_type_internal': event_type.value,
-                'title': self.escape_string(event.title),
-                'priority': event.priority_label,
-                'priority_internal': event.priority,
-                'reported_at': event_time.strftime('%Y-%m-%d %H:%M'),
-                'lat': event.location.y if event.location is not None else '',
-                'lon': event.location.x if event.location is not None else '',
-                'num_notes': event.notes.count(),
-                'notes': self.escape_string('\n'.join([note.text for note in event.notes.all()])),
-                'num_attach': event.related_subjects.count(),
-                'parent_id': parent_event,
-                'status': 'Resolved' if event.state == Event.SC_RESOLVED else 'Active',
+                'serial': event['serial_number'],
+                'event_type': event['event_type__display'],
+                'event_type_internal': event['event_type__value'],
+                'title': self.escape_string(event['title']),
+                'priority': Event.PRIORITY_LABELS_MAP.get(event['priority'], ''),
+                'priority_internal': event['priority'],
+                'reported_at': event['event_time'].astimezone(current_tz).strftime('%Y-%m-%d %H:%M'),
+                'lat': event['location'].y if event['location'] is not None else '',
+                'lon': event['location'].x if event['location'] is not None else '',
+                'num_notes': event['notes_count'],
+                'notes': self.escape_string(event['full_notes']),
+                'num_attach': event['related_subjects_count'],
+                'parent_id': event['parent_event_id'],
+                'status': 'Resolved' if event['state'] == Event.SC_RESOLVED else 'Active',
                 'details': schema_data
             }
 
-            # Reported by depends on what sort of entity reported the event
-            if event.reported_by is None:
+            # Use cached reported_by map
+            reported_by_values = reported_by_map.get(str(event['reported_by_id']))
+            if reported_by_values:
+                event_data['reported_by'] = reported_by_values['display']
+                event_data['reported_by_internal'] = reported_by_values['value']
+            else:
                 event_data['reported_by'] = ''
                 event_data['reported_by_internal'] = ''
-            elif isinstance(event.reported_by, Subject):
-                event_data['reported_by'] = self.escape_string(
-                    event.reported_by.name)
-                event_data['reported_by_internal'] = event.reported_by.id
-            elif isinstance(event.reported_by, Community):
-                event_data['reported_by'] = event.reported_by.name
-                event_data['reported_by_internal'] = event.reported_by.name
-            else:
-                full_name = '{0} {1}'.format(
-                    event.reported_by.first_name, event.reported_by.last_name)
-                event_data['reported_by'] = self.escape_string(full_name)
-                event_data['reported_by_internal'] = event.reported_by.username
 
             current_event_type_data['events'].append(event_data)
 
@@ -423,13 +444,13 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
     def get(self, request, *args, **kwargs):
         context = self.get_context_data(**kwargs)
+
         return self.render_to_response(context)
 
     def render_to_response(self, context, **response_kwargs):
 
         response = super().render_to_response(context, **response_kwargs)
-        response['Content-Disposition'] = 'attachment; filename={}'.format(
-            context['report_filename'])
+        response['Content-Disposition'] = f'attachment; filename={context["report_filename"]}'
         response['x-das-download-filename'] = context['report_filename']
         return response
 
@@ -438,7 +459,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         current_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = current_tz.localize(datetime.utcnow())
         context = {
-            'report_filename': 'Event Export {}.csv'.format(timestamp.strftime('%Y-%m-%d')),
+            'report_filename': f'Event Export {timestamp.strftime("%Y-%m-%d")}.csv',
             'report_time': timestamp.strftime(REPORT_TIME_FORMAT),
             'event_types': self.get_event_export_list()
         }
@@ -449,7 +470,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         # TODO: Update to allow passing last_days constraint.
 
-        queryset = Event.objects.all()
+        queryset = Event.objects.all().prefetch_related('event_type')
 
         query_params = self.request.query_params
         bbox = query_params.get('bbox', None)

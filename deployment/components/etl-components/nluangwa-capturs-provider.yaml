@@ -13,7 +13,7 @@ spec:
           - name: gcr-secret
           containers:
           - name: spot-provider-etl
-            image: gcr.io/padas-app/etl/captur:latest
+            image: gcr.io/padas-app/etl/capturs-provider:latest
             env:
             - name: SOURCE_PROVIDER
               valueFrom:

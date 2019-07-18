@@ -15,7 +15,7 @@ class VectronicsPlugin(TrackingPlugin):
     """
     Get Data from Vectronics API
     """
-    DEFAULT_URL = "https://wombat.vectronic-wildlife.com:9443/"
+    DEFAULT_URL = "https://api.vectronic-wildlife.com/v2/"
     DEFAULT_SOURCE_TYPE = "collar/"
     DEFAULT_DATA_SOURCE = "gps"
     DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
@@ -28,7 +28,6 @@ class VectronicsPlugin(TrackingPlugin):
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
         related_query_name=source_plugin_reverse_relation, related_name='+')
-
 
     @staticmethod
     def parse_date(date_string):
@@ -56,9 +55,12 @@ class VectronicsPlugin(TrackingPlugin):
 
         url = (self.DEFAULT_URL + self.DEFAULT_SOURCE_TYPE + str(collar_id) +
                '/' + self.DEFAULT_DATA_SOURCE + '?collarkey={0}'.format(
-                    collar_key) + '&after={0}'.format(latest_timestamp))
+            collar_key) + '&afterScts={0}'.format(latest_timestamp))
         try:
-            response = requests.get(url, timeout=self.DEFAULT_TIMEOUT)
+            self.logger.info(
+                "SSL Verify is turned off for Vectronics API calls")
+            response = requests.get(
+                url, timeout=self.DEFAULT_TIMEOUT, verify=False)
             if response.status_code != 200:
                 raise DasPluginFetchError("Non 200 response.")
             return json.loads(response.text)
