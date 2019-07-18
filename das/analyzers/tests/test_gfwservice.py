@@ -24,8 +24,6 @@ class GFWServiceTest(BaseAPITest):
 
     def tearDown(self):
         seq(self.subscription_ids_to_delete).for_each(self._unsubscribe)
-        # todo: filter for/delete only those subs that are in the sub_ids_to_delete list
-        GlobalForestWatchSubscription.objects.all().delete()
 
     def test_create_geostore(self):
         rsp = self._post_data(GEOSTORE_ENDPOINT, {'geojson': gfw_test_data.DRC_POLYGON})
@@ -66,6 +64,7 @@ class GFWServiceTest(BaseAPITest):
         self.assertEqual(gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA['datasets'],
                          rsp_payload['attributes']['datasets'])
 
+    # TODO: test for bad auth token
     def _generate_model_objects(self):
         sub_configs = [gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA,
                        gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA,

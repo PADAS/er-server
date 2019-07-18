@@ -5,6 +5,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from analyzers.environmental import EnvironmentalSubjectAnalyzerConfig
 from analyzers.models.gfw import GlobalForestWatchSubscription
+from analyzers.gfwservice import create_subscription, update_subscription
 from core.forms_utils import JSONFieldFormMixin, FixedWidthFontTextArea
 
 logger = logging.getLogger(__name__)
@@ -41,11 +42,50 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
     gfw_auth_token = forms.CharField(widget=forms.Textarea,
                                      help_text=_('Authorization token for Global Forest Watch API.'))
 
+    def clean(self):
+        # raise forms.ValidationError('raise an ERROR!')
+        res = super().clean()
+
+        # logger.info(f'Form.save called pk  {self.instance.pk} id {self.instance.id} created_at
+        # {self.instance.created_at} name {self.instance.name}')
+        if len(self.errors) == 0:
+            # form data is good, do gfw operations
+            model_info = self.get_gfw_info(self.cleaned_data)
+            if GlobalForestWatchSubscription.objects.filter(pk=self.instance.pk).exists():
+                model = GlobalForestWatchSubscription.objects.get(pk=self.instance.pk)
+                model_info['geostore_id'] = model.geostore_id
+                model_info['subscription_id'] = model.subscription_id
+                geometry_changed = 'subscription_geometry' in self.changed_data
+                service_response = update_subscription(model_info, geometry_changed)
+            else:
+                service_response = create_subscription(model_info)
+
+            status_code = service_response.get('status_code')
+            if status_code == 200:
+                data = service_response.get('data')
+                self.instance.subscription_id = data['subscription_id']
+                self.instance.geostore_id = data['geostore_id']
+            else:
+                err_text = service_response.get('text')
+                raise forms.ValidationError(f'Error code: {status_code} message: {err_text}')
+
+        return res
+
+    def get_gfw_info(self, cleaned_data):
+        return {
+            'name': cleaned_data.get('name'),
+            'subscription_id': cleaned_data.get('subscription_id'),
+            'geostore_id': cleaned_data.get('geostore_id'),
+            'gfw_auth_token': cleaned_data['gfw_auth_token'],
+            'alert_types': cleaned_data['alert_types'],
+            'subscription_geometry': cleaned_data['subscription_geometry'],
+        }
+
     # def save(self, commit=True):
     #     # TODO: how is this commit flag used?? seems to be set as false when save is called.
     #     # logger.debug('GlobalForestWatchSubscriptionForm SAVE ENTERED')
     #     if self.is_valid():
-    #         # m = super(GlobalForestWatchSubscriptionForm, self).save()
+    #         m = super(GlobalForestWatchSubscriptionForm, self).save()
     #
     #         # TODO:
     #         if commit:
