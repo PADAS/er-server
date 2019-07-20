@@ -20,7 +20,7 @@ GFW_OAUTH_APPLICATION_ID = 'gfw-application'
 
 from oauth2_provider.models import AccessToken
 
-DEFAULT_REQUESTS_TIMEOUT_SECS = 5
+DEFAULT_REQUESTS_TIMEOUT_SECS = (2, 5)
 SERVICE_ERROR_CODE = 500
 
 logger = logging.getLogger(__name__)
@@ -92,16 +92,16 @@ def get_gfw_access_token(user, ttl_days=5*365):
         return access_token
 
 
-def create_subscription(model_instance):
-    geostore_id = _get_geostore_id(model_instance)
-    subscribe_json = _make_subscribe_msg(model_instance['name'],
-                                         model_instance['alert_types'],
+def create_subscription(gfw_info):
+    geostore_id = _get_geostore_id(gfw_info)
+    subscribe_json = _make_subscribe_msg(gfw_info['name'],
+                                         gfw_info['alert_types'],
                                          geostore_id)
     logger.info(f'SUBS JSON {subscribe_json}')
 
     try:
         rsp = requests.post(url=subscriptions_endpoint,
-                            headers={'Authorization': f'Bearer {model_instance["gfw_auth_token"]}'},
+                            headers={'Authorization': f'Bearer {gfw_info["gfw_auth_token"]}'},
                             json=subscribe_json,
                             timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
     except Exception as ex:
@@ -122,10 +122,10 @@ def create_subscription(model_instance):
             return _make_service_response(rsp.status_code, rsp.text)
 
 
-def fetch_subscription_json(model_instance):
+def fetch_subscription_json(gfw_info):
     try:
-        rsp = requests.get(url=f'{subscriptions_endpoint}/{model_instance.subscription_id}',
-                           headers={'Authorization': f'Bearer {model_instance["gfw_auth_token"]}'},
+        rsp = requests.get(url=f'{subscriptions_endpoint}/{gfw_info.subscription_id}',
+                           headers={'Authorization': f'Bearer {gfw_info["gfw_auth_token"]}'},
                            timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
 
     except Exception as ex:
@@ -144,28 +144,28 @@ def fetch_subscription_json(model_instance):
             return _make_service_response(rsp.status_code, rsp.text)
 
 
-def update_subscription(model_instance, geometry_changed):
-    geostore_id = model_instance.get('geostore_id')
+def update_subscription(gfw_info, geometry_changed):
+    geostore_id = gfw_info.get('geostore_id')
     if not geostore_id or geometry_changed:
         logger.info(f'GEOMETRY CHANGED. updating geostore {geometry_changed}')
-        geostore_id = _get_geostore_id(model_instance)
+        geostore_id = _get_geostore_id(gfw_info)
 
-    subscribe_json = _make_subscribe_msg(model_instance['name'],
-                                         model_instance['alert_types'],
+    subscribe_json = _make_subscribe_msg(gfw_info['name'],
+                                         gfw_info['alert_types'],
                                          geostore_id)
 
-    if not model_instance['subscription_id']:
+    if not gfw_info['subscription_id']:
         # this will happen if create_subscription failed for some reason
         method = 'POST'
         url = subscriptions_endpoint
     else:
         method = 'PATCH'
-        url = f'{subscriptions_endpoint}/{model_instance["subscription_id"]}'
+        url = f'{subscriptions_endpoint}/{gfw_info["subscription_id"]}'
 
     try:
         rsp = requests.request(method=method,
                                url=url,
-                               headers={'Authorization': f'Bearer {model_instance["gfw_auth_token"]}'},
+                               headers={'Authorization': f'Bearer {gfw_info["gfw_auth_token"]}'},
                                json=subscribe_json,
                                timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
     except Exception as ex:
@@ -186,11 +186,11 @@ def update_subscription(model_instance, geometry_changed):
             return _make_service_response(rsp.status_code, rsp.text)
 
 
-def delete_subscription(model_instance):
+def delete_subscription(model):
     try:
         rsp = requests.get(
-            url=f'{subscriptions_endpoint}/{model_instance.subscription_id}/unsubscribe',
-            headers={'Authorization': f'Bearer {model_instance["gfw_auth_token"]}'},
+            url=f'{subscriptions_endpoint}/{model.subscription_id}/unsubscribe',
+            headers={'Authorization': f'Bearer {model["gfw_auth_token"]}'},
             timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
     except Exception as ex:
         logger.exception(f'Exception {ex} raised in delete_subscription')
@@ -206,8 +206,8 @@ def delete_subscription(model_instance):
             return _make_service_response(rsp.status_code, rsp.text)
 
 
-def _get_geostore_id(model_instance):
-    json_dict = dict(geojson=geojson.loads(model_instance['subscription_geometry'].geojson))
+def _get_geostore_id(gfw_info):
+    json_dict = dict(geojson=geojson.loads(gfw_info['subscription_geometry'].geojson))
 
     try:
         rsp = requests.post(
