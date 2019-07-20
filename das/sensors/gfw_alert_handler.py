@@ -1,19 +1,19 @@
-import json
 import logging
 from copy import deepcopy
 from datetime import datetime
 
 import pytz
-import requests
 from django.contrib.gis.geos import Point
+from django.http.request import HttpRequest
 from django.utils.translation import ugettext_lazy as _
-from functional import seq
 from rest_framework import status, serializers
 from rest_framework.response import Response
 
-from activity.models import Event
+from accounts.models import User
 from activity.serializers import EventSerializer
-from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP
+from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP, GFWActiveFireAlertEventTypeSpec
+from das_server import celery
+from activity.models import Event
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -177,67 +177,65 @@ class GFWAlertHandler:
                                                     time=deserialized_sample.validated_data.get('acq_time'),
                                                     tzinfo=pytz.UTC)
 
-            return persist_event(event_fields)
+            return cls.persist_event(event_fields, request)
 
-        def create_alert_from_download(downloaded_sample):
-            deserialized_sample = AlertSampleDownloaded(data=downloaded_sample)
-            if not deserialized_sample.is_valid():
-                return deserialized_sample.errors()
-
-            julian_day = deserialized_sample.validated_data.get('julian_day')
-            year = deserialized_sample.validated_data.get('year')
-            event_fields = deepcopy(common_fields)
-            event_fields['location'] = {
-                'latitude': deserialized_sample.validated_data.get('lat'),
-                'longitude': deserialized_sample.validated_data.get('long')}
-            event_fields['time'] = pytz.utc.localize(
-                datetime.strptime(f'{julian_day}{year}', '%j%Y'))
-            # TODO: where should the 'confidence' field be saved?
-
-            return persist_event(event_fields)
-
-        def persist_event(event_fields):
-            # check for duplicates before serializing
-            location = Point(event_fields['location']['longitude'], event_fields['location']['latitude'])
-
-            if Event.objects.filter(location=location,
-                                    event_time=event_fields['time'],
-                                    event_type__value__exact=event_fields['event_type']).exists():
-                logger.warning('Event already exists - ignoring duplicate event')
-            else:
-                evt_serializer = EventSerializer(data=event_fields, context={'request': request})
-                if not evt_serializer.is_valid():
-                    return evt_serializer.errors()
-
-                evt_serializer.create(evt_serializer.validated_data)
-            return {}
-
-        errors = []
         download_urls = validated_data.get('downloadUrls')
         if download_urls is not None:
-            try:
-                # TODO: should this be offloaded to a separate thread
-                rsp = requests.get(url=download_urls.get('json'))
-                if rsp and rsp.status_code == status.HTTP_200_OK:
-                    payload = json.loads(rsp.text)['data']
+            result = celery.app.send_task('sensors.tasks.download_gfw_alerts', args=(download_urls.get('json'),
+                                                                                     common_fields,
+                                                                                     str(request.user.id)))
+            logger.debug(f'celery submit result: {result}')
 
-                    errors.extend(
-                        seq(payload).
-                            map(create_alert_from_download).
-                            filter(lambda x: len(list(x)) > 0).
-                            to_list()
-                    )
-            except Exception:
-                logger.warning('Exception occurred while downloading alert data. Ignoring')
+        errors = [create_alert_event(alert) for alert in validated_data.get('alerts')]
+        logger.info(errors)
+        errors = filter(lambda x: len(list(x)) > 0, errors)
 
-        errors.extend(
-            seq(validated_data.get('alerts')).
-                map(create_alert_event).
-                filter(lambda x: len(list(x)) > 0).
-                to_list()
-        )
-
-        if len(errors) > 0:
+        if len(list(errors)) > 0:
             return Response(status=status.HTTP_400_BAD_REQUEST, data=errors)
         else:
             return Response(status=status.HTTP_201_CREATED, data=dict(message='Alert processed'))
+
+    @classmethod
+    def create_event_from_downloadedalert(cls, downloaded_sample, common_event_fields, user_id):
+        request = HttpRequest()
+        request.user = User.objects.get(id=user_id)
+
+        logger.debug(f'user lookup {request.user}')
+
+        deserialized_sample = AlertSampleDownloaded(data=downloaded_sample)
+        if not deserialized_sample.is_valid():
+            return deserialized_sample.errors()
+
+        julian_day = deserialized_sample.validated_data.get('julian_day')
+        year = deserialized_sample.validated_data.get('year')
+        event_fields = deepcopy(common_event_fields)
+        event_fields['location'] = {
+            'latitude': deserialized_sample.validated_data.get('lat'),
+            'longitude': deserialized_sample.validated_data.get('long')}
+        event_fields['time'] = pytz.utc.localize(
+            datetime.strptime(f'{julian_day}{year}', '%j%Y'))
+        # TODO: where should the 'confidence' field be saved?
+
+        return cls.persist_event(event_fields, request)
+
+    @classmethod
+    def persist_event(cls, event_fields, request):
+        # check for duplicates before serializing
+        location = Point(event_fields['location']['longitude'], event_fields['location']['latitude'])
+
+        if Event.objects.filter(location=location,
+                                event_time=event_fields['time'],
+                                event_type__value__exact=event_fields['event_type']).exists():
+            logger.warning('Event already exists - ignoring duplicate event')
+        else:
+            if event_fields['event_type'] == GFWActiveFireAlertEventTypeSpec.value:
+                event_fields['icon_id'] = 'fire_rep'
+            else:
+                event_fields['icon_id'] = 'deforestation_rep'
+
+            evt_serializer = EventSerializer(data=event_fields, context={'request': request})
+            if not evt_serializer.is_valid():
+                return evt_serializer.errors()
+
+            evt_serializer.create(evt_serializer.validated_data)
+        return {}
