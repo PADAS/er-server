@@ -19,7 +19,8 @@ class GFWAlertHandlerTest(BaseAPITest):
     def test_glad(self):
         response = self._post_data(json.dumps(GLAD_ALERT))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(len(GLAD_ALERT_DOWNLOADED_DATA['data']),
+        # note: this doesn't test downloads done by celery task...
+        self.assertEqual(len(GLAD_ALERT['alerts']),
                          Event.objects.all().count())
 
     def test_virrs(self):
@@ -35,7 +36,8 @@ class GFWAlertHandlerTest(BaseAPITest):
                          Event.objects.all().count())
 
     def test_glad_with_duplicates(self):
-        num_events_expected = len(GLAD_ALERT_DOWNLOADED_DATA['data'])
+        # note: see note in test_glad
+        num_events_expected = len(GLAD_ALERT['alerts'])
 
         response = self._post_data(json.dumps(GLAD_ALERT))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

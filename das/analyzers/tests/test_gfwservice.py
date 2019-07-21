@@ -5,7 +5,7 @@ from django.contrib.gis.geos import GEOSGeometry
 from functional import seq
 from rest_framework import status
 
-from analyzers.models.gfw import GlobalForestWatchSubscription
+from analyzers import gfwservice
 from analyzers.tests import gfw_test_data
 from core.tests import BaseAPITest
 
@@ -26,79 +26,99 @@ class GFWServiceTest(BaseAPITest):
         seq(self.subscription_ids_to_delete).for_each(self._unsubscribe)
 
     def test_create_geostore(self):
-        rsp = self._post_data(GEOSTORE_ENDPOINT, {'geojson': gfw_test_data.DRC_POLYGON})
-        self.assertIsNotNone(rsp)
-        self.assertEqual(rsp.status_code, status.HTTP_200_OK)
-        self.assertEqual(json.loads(rsp.text)['data']['id'], gfw_test_data.DRC_GEOSTORE_ID)
+        id = gfwservice._get_geostore_id({'subscription_geometry': GEOSGeometry(json.dumps(gfw_test_data.DRC_POLYGON))})
+        self.assertIsNotNone(id)
+        self.assertEqual(id, gfw_test_data.DRC_GEOSTORE_ID)
 
     def test_create_subscriptions(self):
-        test_models = [x for x in self._generate_model_objects()]
+        test_models = [x for x in self._generate_gfw_info_objects()]
 
-        seq(test_models).for_each(self._verify_subscription)
+        seq(test_models).for_each(self._create_and_verify_subscription)
 
     def test_get_subscription(self):
-        model = self._make_model_object(gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA)
-        model.save()
-        self._verify_subscription(model)
+        gfw_info = self._get_gfw_info(gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA)
+        self._create_and_verify_subscription(gfw_info)
 
     def test_update_subscription(self):
-        model = self._make_model_object(gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA)
-        model.save()
+        gfw_info = self._get_gfw_info(gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA)
+        original_sub_id = self._create_and_verify_subscription(gfw_info)
 
-        self._verify_subscription(model)
-        sub_id = model.subscription_id
+        gfw_info = self._get_gfw_info(gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA)
+        gfw_info['subscription_id'] = original_sub_id
+        rsp = gfwservice.update_subscription(gfw_info, False)
 
-        model.additional = {'alert_types': gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA['datasets'],
-                            'gfw_auth_token': gfw_test_data.GFW_AUTH_TOKEN}
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.get('status_code'), 200)
+        self.assertEqual(rsp.get('text'), 'Success')
 
-        model.save()
+        data = rsp.get('data')
+        self.assertIsNotNone(data)
+        updated_sub_id = data.get('subscription_id')
+        self.assertIsNotNone(updated_sub_id)
+        self.assertIsNotNone(data.get('geostore_id'))
 
-        self.assertEqual(model.subscription_id, sub_id)  # shouldn't have created a new subscription_id
+        self.assertEqual(updated_sub_id, original_sub_id)  # shouldn't have created a new subscription_id
 
-        rsp = self._get_data(dest_url=f'{SUBSCRIPTION_ENDPOINT}/{model.subscription_id}',
+        rsp = self._get_data(dest_url=f'{SUBSCRIPTION_ENDPOINT}/{updated_sub_id}',
                              headers=AUTH_HEADER)
 
         self.assertIsNotNone(rsp)
         self.assertEqual(rsp.status_code, status.HTTP_200_OK)
         rsp_payload = json.loads(rsp.text)['data']
+        # datasets should have been updated
         self.assertEqual(gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA['datasets'],
                          rsp_payload['attributes']['datasets'])
 
-    # TODO: test for bad auth token
-    def _generate_model_objects(self):
-        sub_configs = [gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA,
-                       gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA,
-                       gfw_test_data.TERRAI_ALERT_SUBSCRIPTION_DATA,
-                       gfw_test_data.ALL_ALERTS_SUBSCRIPTION_DATA,
-                       ]
-        for cfg in sub_configs:
-            model = self._make_model_object(cfg)
-            model.save()
-            yield model
+    def test_with_bad_auth(self):
+        gfw_info = self._get_gfw_info(gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA)
+        gfw_info.update(gfw_auth_token='bad auth token')
+        rsp = gfwservice.create_subscription(gfw_info)
 
-    def _make_model_object(self, cfg):
-        additional = {'alert_types': cfg['datasets'],
-                      'gfw_auth_token': gfw_test_data.GFW_AUTH_TOKEN}
-        return GlobalForestWatchSubscription(name=cfg['name'],
-                                             additional=additional,
-                                             subscription_geometry=GEOSGeometry(
-                                                 json.dumps(gfw_test_data.DRC_POLYGON)))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.get('status_code'), 500)  # GFW's create endpoint returns 500 when auth token is bad
+        self.assertEqual(rsp.get('text'), "Unexpected error")
 
-    def _verify_subscription(self, model):
-        self.assertIsNotNone(model.id)
-        self.assertIsNotNone(model.subscription_id)
-        self.assertIsNotNone(model.geostore_id)
+    def _generate_gfw_info_objects(self):
+        subscription_configs = [gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA,
+                                gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA,
+                                gfw_test_data.TERRAI_ALERT_SUBSCRIPTION_DATA,
+                                gfw_test_data.ALL_ALERTS_SUBSCRIPTION_DATA,
+                                ]
+        for cfg in subscription_configs:
+            gfw_info = self._get_gfw_info(cfg)
+            yield gfw_info
 
-        self.subscription_ids_to_delete.append(model.subscription_id)
+    def _get_gfw_info(self, cfg):
+        return {
+            'name': cfg.get('name'),
+            'geostore_id': gfw_test_data.DRC_GEOSTORE_ID,
+            'gfw_auth_token': gfw_test_data.GFW_AUTH_TOKEN,
+            'alert_types': cfg['datasets'],
+            'subscription_geometry': GEOSGeometry(
+                json.dumps(gfw_test_data.DRC_POLYGON)),
+        }
 
-        persisted_instance = GlobalForestWatchSubscription.objects.get(pk=model.id)
-        self.assertIsNotNone(persisted_instance)
+    def _create_and_verify_subscription(self, gfw_info):
+        rsp = gfwservice.create_subscription(gfw_info)
 
-        rsp = self._get_data(dest_url=f'{SUBSCRIPTION_ENDPOINT}/{persisted_instance.subscription_id}',
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.get('status_code'), 200)
+        self.assertEqual(rsp.get('text'), 'Success')
+
+        data = rsp.get('data')
+        self.assertIsNotNone(data)
+        sub_id = data.get('subscription_id')
+        self.assertIsNotNone(sub_id)
+        self.assertIsNotNone(data.get('geostore_id'))
+
+        self.subscription_ids_to_delete.append(sub_id)
+
+        rsp = self._get_data(dest_url=f'{SUBSCRIPTION_ENDPOINT}/{sub_id}',
                              headers=AUTH_HEADER)
 
         self.assertIsNotNone(rsp)
         self.assertEqual(rsp.status_code, status.HTTP_200_OK)
+        return sub_id
 
     def _unsubscribe(self, sub_id):
         rsp = requests.get(url=f'{SUBSCRIPTION_ENDPOINT}/{sub_id}/unsubscribe', headers=AUTH_HEADER)

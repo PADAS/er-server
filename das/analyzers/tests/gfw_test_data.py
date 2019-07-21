@@ -104,7 +104,32 @@ GLAD_ALERT = {
         "json": "http://production-api.globalforestwatch.org/glad-alerts/download/?period=2019-07-01,2019-07-02&gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&geostore=a8c46db68bc4b6f7f881f38ce61a8bcb&format=json"
     },
     "alert_count": 63,
-    "alerts": [],
+    "alerts": [{
+        "acq_date": "2019-06-24",
+        "acq_time": "11:30",
+        "latitude": -2.55704,
+        "longitude": 23.26341
+    }, {
+        "acq_date": "2019-06-24",
+        "acq_time": "11:30",
+        "latitude": -2.52684,
+        "longitude": 23.30476
+    }, {
+        "acq_date": "2019-06-24",
+        "acq_time": "11:30",
+        "latitude": -2.51183,
+        "longitude": 23.29754
+    }, {
+        "acq_date": "2019-06-24",
+        "acq_time": "11:30",
+        "latitude": -2.52429,
+        "longitude": 23.3015
+    }, {
+        "acq_date": "2019-06-24",
+        "acq_time": "11:30",
+        "latitude": -2.50933,
+        "longitude": 23.29426
+    }],
     "layerSlug": "glad-alerts",
     "alert_name": "DRC-DEV subscription",
     "selected_area": "Custom Area",
