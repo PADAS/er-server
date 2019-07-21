@@ -27,8 +27,8 @@ def time_shift(items, time_key='recorded_at', start_time=None):
         return
 
     # Determine timespan of 'items'.
-    minimum_time = reduce((lambda x, y: x if x < y else y), [_[time_key] for _ in items])
-    maximum_time = reduce((lambda x, y: x if x > y else y), [_[time_key] for _ in items])
+    minimum_time = min([ x[time_key] for x in items])
+    maximum_time = max([ x[time_key] for x in items])
     actual_start = minimum_time
 
     fake_start = start_time or pytz.utc.localize(datetime.utcnow()) - (maximum_time - minimum_time)

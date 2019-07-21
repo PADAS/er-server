@@ -9,3 +9,4 @@ paths:
 - etl-components/sandbox-spot-provider.yaml
 - etl-components/olpejeta-sigfox-provider.yaml
 - etl-components/bangweulu-quadratex-provider.yaml
+- etl-components/nluangwa-capturs-provider.yaml

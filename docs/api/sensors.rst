@@ -49,10 +49,93 @@ In the URL of the api, is referenced a provider_key. This is authored in the "So
             "manufacturer_id": "radio_sn_1",
             "subject_name": "Ranger Alpha",
             "subject_subtype": "ranger",
-            "model_name": "Hytera PD782",
-            "source_type": "",
+            "model_name": "Radio Model 1",
+            "source_type": "gps-radio",
             "additional": {"gps_error": ".05"}
         }
+
+
+
+Generic Sensor API
+-----------------------------
+
+The Generic Sensor API supports a basic method for posting observation data. To do this requires the following:
+
+* A unique name for the device (which appears in the UI to identify the tracked asset).
+* The radio type, to indicate whether it is a `gps-radio` or other `tracking-device`.
+* A unique device ID, preferably a serial number or other unique external identifier.
+
+Any additional data to be stored with the observation may be sent as well. For example some devices record the ambient temperature which we do not have a discrete field to store this value.
+
+Provider_key
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+A provider_key is included in the POST url. This is authored with DAS's administration UI in the "Source Providers" area. This must be created before posting observations to this API. *See above for an example of adding a Source provider in the Django admin.*
+
+.. http:post:: /sensors/generic/(string:provider_key)/status
+
+   Post lat/lon positional data from a GPS tracking device. This is a generic API for posting positional data.
+   Include the unique device id in the data.
+
+   **Example Post**:
+
+   Post a single Observation.
+
+   .. code-block:: json
+
+        {
+            "location": {"lat": 31, "lon": 2},
+            "recorded_at": "2019-01-04T16:18:44.056439",
+            "manufacturer_id": "radio_sn_1",
+            "subject_name": "Ranger Alpha",
+            "subject_subtype": "ranger",
+            "model_name": "Radio Model 1",
+            "source_type": "tracking-device",
+            "additional": {"gps_error": ".05"}
+        }
+
+   **Example request with multiple observations**
+
+   You can post an array of observations as show below. *The structure of each observation is the same as above.* Using this method we suggest sending as many as 100 observations per request.
+
+   .. code-block:: json
+
+        [
+            {
+                "location": {"lat": 37, "lon": -2},
+                "recorded_at": "2019-05-17T06:41:32.439023",
+                "manufacturer_id": "radio_sn_1",
+                "subject_name": "Ranger Alpha",
+                "subject_subtype": "ranger",
+                "model_name": "Radio Model 1",
+                "source_type": "tracking-device",
+                "additional": {"gps_error": ".21"}
+            },
+            {
+                "location": {"lat": 36, "lon": -3},
+                "recorded_at": "2019-05-17T06:41:32.910902",
+                "manufacturer_id": "radio_sn_2",
+                "subject_name": "Ranger Beta",
+                "subject_subtype": "ranger",
+                "model_name": "Radio Model 1",
+                "source_type": "tracking-device",
+                "additional": {"temperature": 19, "gps_error": ".16"}
+            }
+        ]
+
+   :param provider_key: this maps to the provider name
+
+   :reqheader Authorization: Bearer <auth token>
+   :reqheader Accept: application/json
+
+   :reqjson string subject_name: the name that appears in DAS for this sensor. default is the manufacturer_id
+   :reqjson string subject_subtype: the default is 'ranger', subtypes are defined in your site's administrative pages at this path: /admin/observations/subjectsubtype/
+   :reqjson string source_type: the default is the provider_key, possible values are [tracking-device, trap, seismic, firms, gps-radio]
+   :reqjson string model_name: the default is to concatenate "sensor_type:provider_key"
+   :reqjson string recorded_at: iso time at gps location
+   :reqjson string manufacturer_id: serial number or other unique sensor value
+   :reqjson string subject_name: the name that appears in DAS for this sensor. default is the manufacturer_id
+   :reqjson obj additional: json key value pairs of unstructured information stored with observation
+
 
 DAS Radio Agent API
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

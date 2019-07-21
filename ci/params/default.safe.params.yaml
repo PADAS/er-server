@@ -29,6 +29,7 @@ use-azure-storage: "false"
 #Build
 server-branch-name: develop
 web-branch-name: develop
+web-react-branch-name: develop
 tag-as-latest: false
 smartconnect-provider-branch-name: develop
 capturs-provider-branch-name: develop
@@ -40,6 +41,7 @@ sigfox-provider-branch-name: develop
 version-prefix: "not-set"
 initial-server-version: "0.0.0"
 initial-web-version: "0.0.0"
+initial-web-react-version: "0.0.0"
 initial-smartconnect-version: "0.0.0"
 
 #Application

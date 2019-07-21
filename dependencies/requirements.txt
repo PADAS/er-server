@@ -116,6 +116,7 @@ cython==0.29.10
 datadog==0.29.3
 decorator==4.4.0          # via datadog
 django-cors-headers==2.1.0
+django-debug-toolbar==1.11
 django-environ==0.4.5
 django-extra-fields==0.9
 django-js-asset==1.2.2    # via django-mptt

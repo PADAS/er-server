@@ -1022,11 +1022,14 @@ class EventHeaderSerializer(EventSerializerMixin, rest_framework.serializers.Mod
     '''
 
     event_type = EventTypeRelatedField(required=False)
+    updated_at = DateTimeField(
+        source='sort_at', required=False, read_only=True)
 
     class Meta:
         model = activity.models.Event
         fields = ('id', 'message', 'time', 'end_time',
-                  'serial_number', 'priority', 'event_type', 'icon_id',)
+                  'serial_number', 'priority', 'event_type', 'icon_id',
+                  'created_at', 'updated_at', 'title', 'state')
 
     def to_representation(self, event):
         rep = super().to_representation(event)
@@ -1475,12 +1478,14 @@ class EventSourceSerializer(rest_framework.serializers.ModelSerializer):
         return rep
 
 
-PHONE_NUMBER_VALIDATOR = RegexValidator(regex=r'^\+?1?[-\d]{9,15}$', message="Not a valid phone number.")
+PHONE_NUMBER_VALIDATOR = RegexValidator(
+    regex=r'^\+?1?[-\d]{9,15}$', message="Not a valid phone number.")
 
 
 class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
 
-    owner = rest_framework.serializers.HiddenField(default=rest_framework.serializers.CurrentUserDefault())
+    owner = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault())
 
     contact = rest_framework.serializers.DictField()
 
@@ -1516,13 +1521,15 @@ class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
             try:
                 EmailValidator()(value['value'])
             except django.core.exceptions.ValidationError:
-                raise ValidationError({'contact.value': 'Must be a valid email address when using contact.method=\'email\''})
+                raise ValidationError(
+                    {'contact.value': 'Must be a valid email address when using contact.method=\'email\''})
 
         elif value['method'] == 'sms':
             try:
                 PHONE_NUMBER_VALIDATOR(value['value'])
             except django.core.exceptions.ValidationError:
-                raise ValidationError({'contact.value': 'Must be a valid phone number when using contact.method=\'sms\''})
+                raise ValidationError(
+                    {'contact.value': 'Must be a valid phone number when using contact.method=\'sms\''})
 
         return value
 
@@ -1553,20 +1560,23 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
         many=True, write_only=False,
         slug_field='value', source='event_types')
 
-    conditions = rest_framework.serializers.JSONField(required=False, default=dict)
-    schedule = rest_framework.serializers.JSONField(required=False, default=_default_schedule)
+    conditions = rest_framework.serializers.JSONField(
+        required=False, default=dict)
+    schedule = rest_framework.serializers.JSONField(
+        required=False, default=_default_schedule)
 
-    owner = rest_framework.serializers.HiddenField(default=rest_framework.serializers.CurrentUserDefault())
+    owner = rest_framework.serializers.HiddenField(
+        default=rest_framework.serializers.CurrentUserDefault())
 
     notification_method_ids = rest_framework.serializers.PrimaryKeyRelatedField(
         queryset=activity.models.NotificationMethod.objects.all(),
         many=True, write_only=False, source='notification_methods')
-    notification_methods = NotificationMethodSerializer(many=True, read_only=True)
+    # notification_methods = NotificationMethodSerializer(many=True, read_only=True)
 
     class Meta:
-        exclude = ('event_types',) # 'notification_methods',)
+        exclude = ('event_types', 'notification_methods',)
         model = activity.models.AlertRule
-        read_only_fields = ('id', 'owner_username', 'notification_methods',)
+        read_only_fields = ('id', 'owner_username',)
 
     def validate_schedule(self, value):
 
@@ -1588,7 +1598,8 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     def validate_conditions(self, value):
         try:
 
-            # Guardrail: If the request includes an empty array for either conditions-list, then delete it.
+            # Guardrail: If the request includes an empty array for either
+            # conditions-list, then delete it.
             for key in ('all', 'any'):
                 if key in value and len(value[key]) < 1:
                     del value[key]
@@ -1620,13 +1631,11 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
 
-        notification_method_ids = validated_data.pop('notification_method_ids', None)
+        notification_method_ids = validated_data.pop(
+            'notification_method_ids', None)
 
         if notification_method_ids:
             instance.notification_methods.clear()
             instance.notification_methods.add(*notification_method_ids)
 
         return super().update(instance, validated_data)
-
-
-

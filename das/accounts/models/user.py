@@ -1,6 +1,8 @@
 import pytz
 import uuid
 import logging
+from datetime import datetime
+import pytz
 import dateutil.parser
 
 from django.contrib import auth
@@ -202,6 +204,8 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         api.send_sms(body=message, from_phone=from_phone,
                      to=[self.phone], **kwargs)
 
+    _mou_expiry_date = None
+    _mou_expiry_date_is_set = False
     @property
     def mou_expiry_date(self):
         '''
@@ -212,16 +216,24 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
 
         TODO: Consider whether an invalid 'mou_expiry' string should raise an error.
         '''
-        mou_expiry_date = self.additional.get('expiry', None)
 
-        if mou_expiry_date is not None:
-            try:
-                return pytz.utc.localize(dateutil.parser.parse(mou_expiry_date))
-            except (ValueError, OverflowError) as ex:
-                logger.warning('Error parsing mou_expiry_date string \'%s\' for user %s',
-                               mou_expiry_date, self.username)
+        if self._mou_expiry_date_is_set:
+            return self._mou_expiry_date
 
-        return None
+        try:
+            mou_expiry_date = self.additional.get('expiry', None)
+
+            if mou_expiry_date:
+                logger.info(f'Parsing mou_expiry_date: {mou_expiry_date}')
+                value = dateutil.parser.parse(mou_expiry_date)
+                self._mou_expiry_date = value
+
+        except (ValueError, OverflowError) as ex:
+            logger.warning('Error parsing mou_expiry_date string "%s" for user %s', mou_expiry_date, self.username)
+        finally:
+            self._mou_expiry_date_is_set = True
+
+        return self._mou_expiry_date
 
 
 class User(AccountsAbstractUser):

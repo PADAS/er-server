@@ -24,6 +24,10 @@ environment:
 vault-lookups:
   alerts-slack-url: padas-app/main/slack-webhook-url-alertmanager
   email-password: padas-app/main/email-password
+  email-username: padas-app/main/email-username
+  email-host: padas-app/main/email-host
+  email-from: padas-app/main/email-from
+  email-default-from: padas-app/main/email-default-from
   bundle-crt: padas-app/main/bundle-crt
   pamdas-org-ssl-key: padas-app/main/pamdas-org-ssl-key
   pamdas-org-ssl-cert: padas-app/main/pamdas-org-ssl-cert

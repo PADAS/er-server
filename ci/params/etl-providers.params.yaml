@@ -6,6 +6,7 @@ sigfox-provider-branch-name: develop
 skyline-provider-branch-name: develop
 quadratex-provider-branch-name: develop
 tracktrace-provider-branch-name: develop
+capturs-provider-branch-name: develop
 deploy-params-environment: etl-providers
 deploy-recipe: etl-providers.yaml
 tag-as-latest: false

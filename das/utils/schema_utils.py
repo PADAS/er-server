@@ -209,33 +209,49 @@ def extractor(schema_item, definition, value):
         key, val = extract_from_dict_or_string(schema_item, value)
 
     if 'title' in schema_item:
-        return (schema_item['title'], val, key)
+        return schema_item['title'], val, key
     else:
         for definition_item in definition:
             if isinstance(definition_item, dict):
-                if 'key' not in definition:
+                if 'key' not in definition_item:
                     logger.warning(f'key not found in definition {definition}')
                     continue
                 if 'key' not in schema_item:
                     logger.warning(f'key not found in schema_item {schema_item}')
                     continue
                 if definition_item['key'] == schema_item['key']:
-                    return (definition_item['title'], val, key)
+                    return definition_item.get('title'), val, key
 
 
-def definition_key_order(schema):
+def generate_index(start_at=0, incr=1):
+    while True:
+        yield start_at
+        start_at = start_at + incr
+
+
+def definition_keys(form_definition: list, index_values=None):
     '''
     Calculate map of key to order, as indicated in schema.definition.
+
+    It supports fieldsets by recursion.
     '''
-    for i, k in enumerate(schema.get('definition', [])):
+
+    index_values = index_values or generate_index()
+    
+    for k in form_definition:
         if isinstance(k, str):
-            yield (k, i)
-        elif isinstance(k, dict) and 'key' in k:
-            yield (k['key'], i)
+            yield (k, next(index_values))
+
+        elif isinstance(k, dict):
+            if 'key' in k:
+                yield (k['key'], next(index_values))
+
+            elif 'items' in k and isinstance(k['items'], list):
+                yield from definition_keys(k['items'], index_values=index_values)
 
 
 def definition_key_order_as_dict(schema):
-    return OrderedDict(definition_key_order(schema))
+    return OrderedDict(definition_keys(schema.get('definition', [])))
 
 
 def detail_resolver(schema, key, value):
@@ -253,7 +269,7 @@ def detail_resolver(schema, key, value):
 def generate_details(event, schema):
     event_details = event.event_details.first().data.get('event_details', {})
 
-    definition_order = dict(definition_key_order(schema))
+    definition_order = dict(definition_keys(schema.get('definition', [])))
 
     for k, v in event_details.items():
         resolved_details = detail_resolver(schema, k, v)
@@ -264,21 +280,27 @@ def generate_details(event, schema):
                    'order': definition_order.get(k, 99)}
 
 
-def get_details_and_display_values(event, schema):
-    try:
-        event_details = event.event_details.first().data.get('event_details', {})
-    except AttributeError:
-        return {}
-
+def get_display_values_for_event_details(event_details, schema):
     ret = {}
     for k, v in event_details.items():
         resolved_details = detail_resolver(schema, k, v)
+
+        logger.debug(f'Resolved details for {k} {v} = {resolved_details}')
         if resolved_details:
+            title, display, value = resolved_details
             ret.update({
-                k:  resolved_details[2],
+                k: resolved_details[2],
                 resolved_details[0]: resolved_details[1]
             })
     return ret
+
+
+def get_details_and_display_values(event, schema):
+    try:
+        event_details = event.event_details.first().data.get('event_details', {})
+        return get_display_values_for_event_details(event_details, schema)
+    except AttributeError:
+        return {}
 
 
 def get_rendered_schema(schema):

@@ -4,7 +4,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point as DjangoPoint
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from mapping.models import SpatialFeature
-from activity.models import Event
+from activity.models import Event, EventType
 from analyzers.utils import save_analyzer_event
 from analyzers.models import SubjectAnalyzerResult, GeofenceAnalyzerConfig, WARNING, CRITICAL
 from analyzers.models.base import EVENT_PRIORITY_MAP
@@ -14,6 +14,9 @@ import logging
 
 from osgeo import ogr
 logger = logging.getLogger(__name__)
+
+
+geofence_eventtype_natural_key = 'geofence_break'
 
 
 class GeofenceAnalyzer(SubjectAnalyzer):
@@ -70,11 +73,12 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         Default set of observation is fetched from the database, based on this analyzer's configuration.
         :return: a queryset of Observations
         """
+        logger.info('Using default observations for subject %s', self.subject)
         # observations get passed back in temporally descending order
         if self.config.search_time_hours <= 0:
             return list(self.subject.observations()[:2])
         else:
-            return list(self.subject.observations(last_hours=self.config.search_time_hours)[:2])
+            return list(self.subject.observations(last_hours=self.config.search_time_hours))
 
     def analyze_trajectory(self, traj=None):
         """
@@ -89,8 +93,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         _analysis_params = self._create_geofence_analysis_param()
 
         # Generate a list of crossings
-        cross_results = pymet.geofence.GeofenceAnalysis.calc_crossings(
-            _analysis_params, [traj])
+        cross_results = pymet.geofence.GeofenceAnalysis.calc_crossings(_analysis_params, [traj])
 
         das_analyzer_results = []
         for cross in cross_results.geofence_crossings:
@@ -109,17 +112,14 @@ class GeofenceAnalyzer(SubjectAnalyzer):
             # Define the geometry to be the latest fix geometry
             result.geometry_collection = DjangoGeoColl([DjangoPoint(cross.est_cross_fix.geopoint.ogr_geometry.GetX(),
                                                                     cross.est_cross_fix.geopoint.ogr_geometry.GetY())])
+
             # Set the event status level
-            if cross.warn_level == 'WARNING':
-                result.level = WARNING
-            else:
-                result.level = CRITICAL
+            result.level = WARNING if cross.warn_level == 'WARNING' else CRITICAL
 
             # Get the geofence name and final containing region names to form
             # the analyzer result message
             vf_name = SpatialFeature.objects.get(pk=cross.geofence_id).name
-            result.title = self.subject.name + \
-                str(_(' crossed ')) + vf_name + '.'
+            result.title = f'{self.subject.name} {_("crossed")} {vf_name}.'
 
             contain_names = ','.join([SpatialFeature.objects.get(pk=contain_id).name
                                       for contain_id in cross.end_region_ids])
@@ -145,42 +145,48 @@ class GeofenceAnalyzer(SubjectAnalyzer):
 
     def save_analyzer_result(self, last_result=None, this_result=None):
 
-        if this_result is not None:
-            # Save if result is critical or warning
-            if this_result.level in (CRITICAL, WARNING):
-                this_result.save()
+        # Suppress saving a new result if it will duplicate the last result.
+        if not this_result or last_result and last_result.estimated_time == this_result.estimated_time:
+            logger.info('Calculated a duplicate result, so not saving it.')
+            return
+
+        if this_result.level in (CRITICAL, WARNING):
+            this_result.save()
 
     def create_analyzer_event(self, last_result=None, this_result=None):
 
-        # no data to create an event so exit
-        if not this_result:
+        if not this_result or this_result.level not in (CRITICAL, WARNING):
             return
 
-        event_data = None
+        try:
+            Event.objects.get(related_subjects=self.subject,
+                              event_type=EventType.objects.get(value=geofence_eventtype_natural_key),
+                              event_time=this_result.estimated_time,
+                              location=this_result.geometry_collection[0])
 
-        event_details = {'name': self.subject.name}
-        event_details.update(this_result.values)
+            logger.info('This event is already recorded, so skipping it now.')
+            return
+        except Event.DoesNotExist:
 
-        # Create a dict() location to satisfy our EventSerializer.
-        event_location_value = {
-            'longitude': this_result.geometry_collection[0].x,
-            'latitude': this_result.geometry_collection[0].y
-        }
+            event_priority = EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT)
 
-        # Notify if result is critical or warning
-        if this_result.level in (CRITICAL, WARNING):
+            event_details = {'name': self.subject.name}
+            event_details.update(this_result.values)
+
+            # Create a dict() location to satisfy our EventSerializer.
+            event_location_value = {
+                'longitude': this_result.geometry_collection[0].x,
+                'latitude': this_result.geometry_collection[0].y
+            }
             event_data = dict(
                 title=this_result.title,
                 time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='geofence_break',
-                priority=EVENT_PRIORITY_MAP.get(
-                    this_result.level, Event.PRI_URGENT),
+                event_type=geofence_eventtype_natural_key,
+                priority=event_priority,
                 location=event_location_value,
                 event_details=event_details,
                 related_subjects=[{'id': self.subject.id}, ],
-
             )
 
-        if event_data:
             return save_analyzer_event(event_data)

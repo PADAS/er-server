@@ -1,12 +1,11 @@
 from django.contrib.gis import admin
-import activity.models as models
 from django.contrib.staticfiles.templatetags.staticfiles import static
-from django.forms import Textarea
-from django.contrib.admin.widgets import AdminFileWidget
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
-from core.admin import InlineExtraDynamicMixin
 
+import activity.models as models
+from activity.forms import EventTypeForm
+from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
 
 
@@ -62,23 +61,6 @@ class EventRelatedSubject(admin.ModelAdmin):
     ordering = ('event__id', 'subject')
 
 
-# class AdminImageWidget(AdminFileWidget):
-#     def render(self, name, value, attrs=None):
-#         output = []
-#         if value and getattr(value, "url", None):
-#             image_url = value.url
-#             file_name=str(value)
-#             output.append(u' <a href="%s" target="_blank"><img src="%s" alt="%s" /></a> %s ' % \
-#                 (image_url, image_url, file_name, _('Change:')))
-#         output.append(super(AdminImageWidget, self).render(name, value, attrs))
-#         return mark_safe(u''.join(output))
-
-
-from activity.forms import EventTypeForm
-
-from django.http.response import HttpResponseRedirect
-
-
 @admin.register(models.EventType)
 class EventTypeAdmin(admin.ModelAdmin):
 
@@ -124,20 +106,6 @@ class EventTypeAdmin(admin.ModelAdmin):
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
         return form
-
-
-@admin.register(models.EventClass)
-class EventClassAdmin(admin.ModelAdmin):
-    def formfield_for_dbfield(self, db_field, **kwargs):
-        formfield = super().formfield_for_dbfield(db_field, **kwargs)
-        if db_field.name == 'display':
-            formfield.widget = Textarea(attrs=formfield.widget.attrs)
-        return formfield
-
-
-@admin.register(models.EventFactor)
-class EventFactorAdmin(admin.ModelAdmin):
-    pass
 
 
 @admin.register(models.EventSource)
@@ -210,18 +178,6 @@ class EventCategoryAdmin(admin.ModelAdmin):
     pass
 
 
-@admin.register(models.EventClassFactor)
-class EventClassFactorAdmin(admin.ModelAdmin):
-    list_display = ('class_display', 'factor_display', 'priority')
-    ordering = ('eventclass__ordernum', 'eventfactor__ordernum')
-
-    def class_display(self, instance):
-        return instance.eventclass.display
-
-    def factor_display(self, instance):
-        return instance.eventfactor.display
-
-
 @admin.register(models.EventRelationshipType)
 class EventRelationshipTypeAdmin(admin.ModelAdmin):
     list_display = ('value',)
@@ -243,9 +199,30 @@ class EventRelationshipAdmin(admin.ModelAdmin):
 
 @admin.register(models.AlertRule)
 class AlertRuleAdmin(admin.ModelAdmin):
-    readonly_fields = ('id',)
+    readonly_fields = ('id', )  # 'conditions', 'schedule',)
     list_display = ('owner_username', 'title', 'is_active', 'ordernum',)
     form = AlertRuleForm
+    list_filter = ('owner', 'is_active',)
+    search_fields = ('title',)
+    list_editable = ('is_active',)
+
+    fieldsets = (
+        (None, {
+            'fields': ('owner', 'title', 'is_active', 'ordernum', )
+        }
+        ),
+        ('Notifications',
+         {
+             "classes": ('wide',),
+             'fields': ('notification_methods', 'event_types',),
+         }
+         ),
+        ('Advanced',
+         {"classes": ('collapse',),
+          'fields': ('conditions', 'schedule', 'id',)
+          }
+         )
+    )
 
     def owner_username(self, instance):
         return instance.owner.username
