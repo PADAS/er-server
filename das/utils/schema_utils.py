@@ -42,12 +42,30 @@ def get_replacement_fields_in_schema(schema):
 
 
 def get_dynamic_choices(field_details, as_string=True):
-    dynamic_choice = DynamicChoice.objects.filter(
-        id=field_details['field']).first()
+
+    return_val = _get_dynamic_choices(field_details)
+    return json.dumps(return_val) if as_string else return_val
+
+
+def _get_dynamic_choices(field_details):
+
+    dynamic_choice = DynamicChoice.objects.filter(id=field_details['field']).first()
+
+    # Short-circuit if there aren't any DynamicChoices found for this field.
+    if dynamic_choice is None:
+        return []
+
+    try:
+        choice_criteria = json.loads(dynamic_choice.criteria)
+    except json.decoder.JSONDecodeError as jde:
+        logger.exception('Error decoding criteria for dynamic choice %s. Criteria is: %s', str(dynamic_choice.id),
+                         dynamic_choice.criteria)
+        return []
+
     model_to_filter = apps.get_model(dynamic_choice.model_name)
 
     options = OrderedDict()
-    for row in model_to_filter.objects.filter(*json.loads(dynamic_choice.criteria)).order_by(dynamic_choice.display_col):
+    for row in model_to_filter.objects.filter(*choice_criteria).order_by(dynamic_choice.display_col):
         value = getattr(row, dynamic_choice.value_col, None)
         display = getattr(row, dynamic_choice.display_col, None)
         options[str(value)] = str(display)
@@ -55,17 +73,9 @@ def get_dynamic_choices(field_details, as_string=True):
     if field_details['type'] == 'names':
         return_val = options
     elif field_details['type'] == 'map':
-        return_val = []
-        for k, v in options.items():
-            return_val.append({
-                'value': k,
-                'name': v
-            })
+        return_val = list([{'value': k, 'name': v} for k, v in options.items()])
     else:
         return_val = list(options.keys())
-
-    if as_string:
-        return json.dumps(return_val)
 
     return return_val
 

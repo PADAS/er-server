@@ -201,7 +201,13 @@ def accumulate_options(schema_option, accumulator=None):
                 accumulator['k'] = v
         return accumulator
     else:
-        return dict((k, v) for k, v in schema_option['enumNames'].items())
+        try:
+            return dict((k, v) for k, v in schema_option['enumNames'].items())
+        except AttributeError as ae:
+            logger.exception('Failed to parse options for schema_option. I expected a dictionary but got %s',
+                             schema_option)
+
+    return {}
 
 
 def _generate_aggregate_event_variables_class(event_types, only_common_factors=False):
