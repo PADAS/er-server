@@ -33,7 +33,7 @@ class Map(TimestampedModel):
     A Map defines the center location, zoom level
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=255, unique=True)
     attributes = JSONField(default=dict, blank=True)
     center = models.PointField(srid=4326)
     zoom = models.IntegerField()
@@ -52,7 +52,7 @@ class TileLayer(TimestampedModel):
     External
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=255, unique=True)
     attributes = JSONField(default=dict, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
@@ -78,7 +78,7 @@ class FeatureType(TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=255, unique=True)
     presentation = JSONField(default=dict, blank=True)
     objects = FeatureTypeManager()
 
@@ -108,7 +108,7 @@ class FeatureSet(TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=255, unique=True)
     types = models.ManyToManyField(to=FeatureType, related_name='featuresets')
 
     description = models.TextField(null=True, blank=True)
@@ -128,7 +128,7 @@ class Feature(TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=80)
+    name = models.CharField(max_length=255)
     type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
 
     description = models.TextField(null=True, blank=True)
@@ -136,7 +136,7 @@ class Feature(TimestampedModel):
     # attributes for presentation
     presentation = JSONField(default=dict, blank=True)
     fields = JSONField(default=dict, blank=True)
-    external_id = models.CharField(max_length=80, blank=True, null=True)
+    external_id = models.CharField(max_length=255, blank=True, null=True)
 
     # the feature set with which this feature is being grouped.
     # todo:  evaluate whether many-to-many might be a better approach or stick
@@ -407,7 +407,7 @@ class DisplayCategory(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=255, unique=True)
 
     objects = DisplayCategoryManager()
 
@@ -432,7 +432,7 @@ class SpatialFeatureGroup(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
 
     objects = SpatialFeatureGroupManager()
@@ -469,7 +469,7 @@ class SpatialFeatureType(models.Model):
     objects = SpatialFeatureTypeManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=255)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
@@ -482,7 +482,7 @@ class SpatialFeatureType(models.Model):
     # JSON Field for defining the basic presentation of the feature
     presentation = JSONField(default=dict, blank=True)
     provenance = JSONField(default=dict, blank=True)
-    external_id = models.CharField(max_length=100, unique=True, blank=True,
+    external_id = models.CharField(max_length=255, unique=True, blank=True,
                                    null=True)
     external_source = models.CharField(max_length=25, blank=True)
 
@@ -526,11 +526,11 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     feature_type = models.ForeignKey(
         SpatialFeatureType, on_delete=models.PROTECT)
 
-    name = models.CharField(max_length=50, blank=True)
+    name = models.CharField(max_length=255, blank=True)
     # A shorter name used for cartographic display
     short_name = models.CharField(max_length=25, blank=True)
     # for ste, this is the ste_guid
-    external_id = models.CharField(max_length=100, unique=True, blank=True,
+    external_id = models.CharField(max_length=255, unique=True, blank=True,
                                    null=True)
     external_source = models.CharField(max_length=25, blank=True)
 
@@ -584,7 +584,7 @@ class SpatialFile(TimestampedModel):
     specific geometry type [polygon, line, point]
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=25, blank=True)
+    name = models.CharField(max_length=255, blank=True)
     description = models.CharField(max_length=100, blank=True)
     data = models.FileField(storage=TempStorage(), blank=True)
     feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
