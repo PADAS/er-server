@@ -140,28 +140,6 @@ GLAD_ALERT = {
     "alert_date_end": "2019-07-02"
 }
 
-TERRAI_ALERT = {
-    "layerSlug": "terrai-alerts",
-    "alert_name": "Brazil Alerts",
-    "selected_area": "ISO Code: BRA",
-    "unsubscribe_url": "http://www.globalforestwatch.org/unsubscribe_url",
-    "subscriptions_url": "http://www.globalforestwatch.org/my_gfw/subscriptions",
-    "alert_link": "http://www.globalforestwatch.org/map/3/15.00/27.00/ALL/grayscale/terrailoss?tab=analysis-tab&begin=2017-01-20&end=2017-08-21",
-    "alert_date_begin": "2017-01-20",
-    "alert_date_end": "2017-08-21",
-    "alert_count": 9035,
-    "alerts": [{
-        "acq_date": "2017-08-20",
-        "acq_time": "04:24",
-        "latitude": -22.50847,
-        "longitude": -44.10447
-    }],
-    "downloadUrls": {
-        "csv": "http://www.globalforestwatch.org/alerts.csv",
-        "json": "http://www.globalforestwatch.org/alerts.json"
-    }
-}
-
 GLAD_ALERT_DOWNLOADED_DATA = {
     "data": [{
         "lat": -1.3626250000000302,

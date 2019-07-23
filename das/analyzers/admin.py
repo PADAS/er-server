@@ -223,7 +223,7 @@ class GlobalForestWatchAdmin(gis_admin.OSMGeoAdmin):
         }),
         ('Global Forest Watch API Properties', {
             'classes': ('wide',),
-            'fields': ('alert_types', 'subscription_id', 'geostore_id', 'gfw_auth_token',)
+            'fields': ('alert_types', 'subscription_id', 'geostore_id',)
         }),
         ('Advanced Attributes', {
             'classes': ('wide', 'collapse'),

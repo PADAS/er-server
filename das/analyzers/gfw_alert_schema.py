@@ -29,10 +29,6 @@ GFWGladEventTypeSpec = EventTypeSpec(value='gfw_glad_alert',
                                      display='Global Forest Watch GLAD Tree-Loss Alert',
                                      schema=GENERIC_GFW_ALERT_SCHEMA)
 
-GFWTerraiAlertEventTypeSpec = EventTypeSpec(value='gfw_terrai_alert',
-                                            display='Global Forest Watch Terra-i Tree-Loss Alert',
-                                            schema=GENERIC_GFW_ALERT_SCHEMA)
-
 GFWActiveFireAlertEventTypeSpec = EventTypeSpec(value='gfw_activefire_alert',
                                                 display='Global Forest Watch Active Fire Alert',
                                                 schema=GENERIC_GFW_ALERT_SCHEMA)
@@ -41,14 +37,14 @@ GFWActiveFireAlertEventTypeSpec = EventTypeSpec(value='gfw_activefire_alert',
 GFW_EVENT_TYPES_MAP = {
     'viirs-active-fires': GFWActiveFireAlertEventTypeSpec.value,
     'glad-alerts': GFWGladEventTypeSpec.value,
-    'terrai-alerts': GFWTerraiAlertEventTypeSpec.value
 }
+
 
 def ensure_gfw_event_types():
     ec, created = EventCategory.objects.get_or_create(
         value='analyzer_event', defaults=dict(display='Analyzer Events'))
 
-    for event_type_spec in (GFWGladEventTypeSpec, GFWTerraiAlertEventTypeSpec, GFWActiveFireAlertEventTypeSpec):
+    for event_type_spec in (GFWGladEventTypeSpec, GFWActiveFireAlertEventTypeSpec):
         EventType.objects.get_or_create(value=event_type_spec.value,
                                         category=ec,
                                         defaults=dict(display=event_type_spec.display,

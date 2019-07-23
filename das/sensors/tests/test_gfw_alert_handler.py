@@ -3,7 +3,7 @@ import json
 from rest_framework import status
 
 from activity.models import Event
-from analyzers.tests.gfw_test_data import VIIRS_FIRE_ALERT, GLAD_ALERT, TERRAI_ALERT, GLAD_ALERT_DOWNLOADED_DATA
+from analyzers.tests.gfw_test_data import VIIRS_FIRE_ALERT, GLAD_ALERT
 from core.tests import BaseAPITest
 from sensors.views import SensorObservation
 
@@ -29,12 +29,6 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(len(VIIRS_FIRE_ALERT['alerts']),
                          Event.objects.all().count())
 
-    def test_terrai(self):
-        response = self._post_data(json.dumps(TERRAI_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(len(TERRAI_ALERT['alerts']),
-                         Event.objects.all().count())
-
     def test_glad_with_duplicates(self):
         # note: see note in test_glad
         num_events_expected = len(GLAD_ALERT['alerts'])
@@ -46,20 +40,6 @@ class GFWAlertHandlerTest(BaseAPITest):
 
         # create again, total events in db shouldn't change
         response = self._post_data(json.dumps(GLAD_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(num_events_expected,
-                         Event.objects.all().count())
-
-    def test_terrai_with_duplicates(self):
-        num_events_expected = len(TERRAI_ALERT['alerts'])
-
-        response = self._post_data(json.dumps(TERRAI_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(num_events_expected,
-                         Event.objects.all().count())
-
-        # create again, total events in db shouldn't change
-        response = self._post_data(json.dumps(TERRAI_ALERT))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(num_events_expected,
                          Event.objects.all().count())

@@ -31,23 +31,16 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
         model = GlobalForestWatchSubscription
 
         fields = '__all__'
-        json_fields = ('alert_types', 'gfw_auth_token')
+        json_fields = ('alert_types',)
 
     alert_types = forms.MultipleChoiceField(choices=(
         ('glad-alerts', _('Deforestation alerts (GLAD) / weekly / 30m')),
-        ('terrai-alerts', _('Deforestation alerts (Terra-i) / monthly / 250m')),
         ('viirs-active-fires', _('Fire Alerts (VIIRS) / daily / 375m')),
     ))
 
-    gfw_auth_token = forms.CharField(widget=forms.Textarea,
-                                     help_text=_('Authorization token for Global Forest Watch API.'))
-
     def clean(self):
-        # raise forms.ValidationError('raise an ERROR!')
         res = super().clean()
 
-        # logger.info(f'Form.save called pk  {self.instance.pk} id {self.instance.id} created_at
-        # {self.instance.created_at} name {self.instance.name}')
         if len(self.errors) == 0:
             # form data is good, do gfw operations
             model_info = self.get_gfw_info(self.cleaned_data)
@@ -76,19 +69,6 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
             'name': cleaned_data.get('name'),
             'subscription_id': cleaned_data.get('subscription_id'),
             'geostore_id': cleaned_data.get('geostore_id'),
-            'gfw_auth_token': cleaned_data['gfw_auth_token'],
             'alert_types': cleaned_data['alert_types'],
             'subscription_geometry': cleaned_data['subscription_geometry'],
         }
-
-    # def save(self, commit=True):
-    #     # TODO: how is this commit flag used?? seems to be set as false when save is called.
-    #     # logger.debug('GlobalForestWatchSubscriptionForm SAVE ENTERED')
-    #     if self.is_valid():
-    #         m = super(GlobalForestWatchSubscriptionForm, self).save()
-    #
-    #         # TODO:
-    #         if commit:
-    #             m.save()
-    #
-    #         return m

@@ -12,7 +12,7 @@ from core.tests import BaseAPITest
 GFW_API_ROOT = 'https://production-api.globalforestwatch.org/v1'
 SUBSCRIPTION_ENDPOINT = f'{GFW_API_ROOT}/subscriptions'
 GEOSTORE_ENDPOINT = f'{GFW_API_ROOT}/geostore'
-AUTH_HEADER = {'Authorization': f'Bearer {gfw_test_data.GFW_AUTH_TOKEN}'}
+AUTH_HEADER = {'Authorization': f'Bearer {gfwservice.get_gfw_auth_token()}'}
 
 
 class GFWServiceTest(BaseAPITest):
@@ -68,15 +68,6 @@ class GFWServiceTest(BaseAPITest):
         # datasets should have been updated
         self.assertEqual(gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA['datasets'],
                          rsp_payload['attributes']['datasets'])
-
-    def test_with_bad_auth(self):
-        gfw_info = self._get_gfw_info(gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA)
-        gfw_info.update(gfw_auth_token='bad auth token')
-        rsp = gfwservice.create_subscription(gfw_info)
-
-        self.assertIsNotNone(rsp)
-        self.assertEqual(rsp.get('status_code'), 500)  # GFW's create endpoint returns 500 when auth token is bad
-        self.assertEqual(rsp.get('text'), "Unexpected error")
 
     def _generate_gfw_info_objects(self):
         subscription_configs = [gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA,
