@@ -206,3 +206,4 @@ das/das_server/local_settings_dev-ste*
 das/das_server/das_ste_extensions_settings.py
 Pipfile
 Pipfile.lock
+das/das_server/.env
