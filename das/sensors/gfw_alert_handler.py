@@ -132,7 +132,7 @@ class GFWAlertHandler:
 
     @classmethod
     def post(cls, request, subscription_id):
-        logger.info('Handle GFW Alert', extra={'subscription_id': subscription_id})
+        logger.debug('Handle GFW Alert', extra={'subscription_id': subscription_id})
 
         deserialized = GFWAlertParameters(data=request.data)
         if not deserialized.is_valid():
@@ -187,7 +187,6 @@ class GFWAlertHandler:
             logger.debug(f'celery submit result: {result}')
 
         errors = [create_alert_event(alert) for alert in validated_data.get('alerts')]
-        logger.info(errors)
         errors = filter(lambda x: len(list(x)) > 0, errors)
 
         if len(list(errors)) > 0:

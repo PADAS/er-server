@@ -118,7 +118,7 @@ def create_subscription(gfw_info):
         subscribe_json = _make_subscribe_msg(gfw_info['name'],
                                              gfw_info['alert_types'],
                                              geostore_id)
-        logger.info(f'subscription JSON {subscribe_json}')
+        logger.debug(f'subscription JSON {subscribe_json}')
 
         try:
             rsp = requests.post(url=subscriptions_endpoint,
@@ -133,7 +133,7 @@ def create_subscription(gfw_info):
         else:
             if rsp and rsp.status_code == status.HTTP_200_OK:
                 sub_id = json.loads(rsp.text).get('data', {}).get('id')
-                logger.info(f'create subscription successful. {rsp.text}')
+                logger.debug(f'create subscription successful. {rsp.text}')
                 return _make_service_response(rsp.status_code,
                                               'Success',
                                               dict(subscription_id=sub_id,
@@ -161,7 +161,7 @@ def fetch_subscription_json(gfw_info):
                                           f'{getattr(ex, "message", "")}')
         else:
             if rsp and rsp.status_code == status.HTTP_200_OK:
-                logger.info(f'fetch subscription successful. {rsp.text}')
+                logger.debug(f'fetch subscription successful. {rsp.text}')
                 _make_service_response(rsp.status_code,
                                        'Success',
                                        dict(json=json.loads(rsp.text).get('data', {})))
@@ -178,7 +178,7 @@ def update_subscription(gfw_info, geometry_changed):
     if token:
         geostore_id = gfw_info.get('geostore_id')
         if not geostore_id or geometry_changed:
-            logger.info(f'geometry changed. updating geostore {geometry_changed}')
+            logger.debug(f'geometry changed. updating geostore {geometry_changed}')
             geostore_id = _get_geostore_id(gfw_info)
 
         subscribe_json = _make_subscribe_msg(gfw_info['name'],
@@ -206,7 +206,7 @@ def update_subscription(gfw_info, geometry_changed):
                                           f'{getattr(ex, "message", "")}')
         else:
             if rsp and rsp.status_code == status.HTTP_200_OK:
-                logger.info(f'update subscription successful. {rsp.text}')
+                logger.debug(f'update subscription successful. {rsp.text}')
                 sub_id = json.loads(rsp.text).get('data', {}).get('id')
                 return _make_service_response(rsp.status_code,
                                               'Success',
@@ -235,7 +235,7 @@ def delete_subscription(model):
                                           f'{getattr(ex, "message", "")}')
         else:
             if rsp and rsp.status_code == status.HTTP_200_OK:
-                logger.info(f'delete subscription successful. {rsp.text}')
+                logger.debug(f'delete subscription successful. {rsp.text}')
                 return _make_service_response(rsp.status_code, 'Success')
             else:
                 logger.error(f'delete_subscription failed with code {rsp}')
