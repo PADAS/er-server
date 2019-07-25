@@ -8,9 +8,10 @@ from utils.json import JSONTextParser
 
 from utils.drf import AllowAnyGet
 from sensors.handlers import GsatHandler, GenericSensorHandler,\
-    DasRadioAgentHandler, SkylineVehicleTrackerHandler, FollowltTrackerHandler,  TractVehicleHandler, SigFoxPushHandler
+    DasRadioAgentHandler, SkylineVehicleTrackerHandler, FollowltTrackerHandler,  TractVehicleHandler, \
+    SigFoxPushHandler, GFWAlertHandler
+
 from sensors.camera_trap import CameraTrapSensorHandler
-from sensors.gfw_alert_handler import GFWAlertHandler
 from observations.serializers import ObservationSerializer
 
 from utils.stats import increment
@@ -64,7 +65,7 @@ class SensorObservation(generics.GenericAPIView):
                                                provider_key=provider_key)
 
         elif sensor_type == GFWAlertHandler.SENSOR_TYPE:
-            return GFWAlertHandler.post(request, subscription_id=provider_key)
+            return GFWAlertHandler.post(request, provider_key=provider_key)
         else:
             return GenericSensorHandler.post(request, sensor_type=sensor_type, 
                                                 provider_key=provider_key)

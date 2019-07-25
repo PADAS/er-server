@@ -2,17 +2,16 @@ import json
 
 import requests
 from django.contrib.gis.geos import GEOSGeometry
-from functional import seq
 from rest_framework import status
 
-from analyzers import gfwservice
+from analyzers import gfw_outbound
 from analyzers.tests import gfw_test_data
 from core.tests import BaseAPITest
 
 GFW_API_ROOT = 'https://production-api.globalforestwatch.org/v1'
 SUBSCRIPTION_ENDPOINT = f'{GFW_API_ROOT}/subscriptions'
 GEOSTORE_ENDPOINT = f'{GFW_API_ROOT}/geostore'
-AUTH_HEADER = {'Authorization': f'Bearer {gfwservice.get_gfw_auth_token()}'}
+AUTH_HEADER = {'Authorization': f'Bearer {gfw_outbound.get_gfw_auth_token()}'}
 
 
 class GFWServiceTest(BaseAPITest):
@@ -23,17 +22,17 @@ class GFWServiceTest(BaseAPITest):
         self.subscription_ids_to_delete = []
 
     def tearDown(self):
-        seq(self.subscription_ids_to_delete).for_each(self._unsubscribe)
+        [self._unsubscribe(sub_id) for sub_id in self.subscription_ids_to_delete]
 
     def test_create_geostore(self):
-        id = gfwservice._get_geostore_id({'subscription_geometry': GEOSGeometry(json.dumps(gfw_test_data.DRC_POLYGON))})
+        id = gfw_outbound._get_geostore_id({'subscription_geometry': GEOSGeometry(json.dumps(gfw_test_data.DRC_POLYGON))})
         self.assertIsNotNone(id)
         self.assertEqual(id, gfw_test_data.DRC_GEOSTORE_ID)
 
     def test_create_subscriptions(self):
         test_models = [x for x in self._generate_gfw_info_objects()]
 
-        seq(test_models).for_each(self._create_and_verify_subscription)
+        [self._create_and_verify_subscription(info) for info in test_models]
 
     def test_get_subscription(self):
         gfw_info = self._get_gfw_info(gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA)
@@ -45,7 +44,7 @@ class GFWServiceTest(BaseAPITest):
 
         gfw_info = self._get_gfw_info(gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA)
         gfw_info['subscription_id'] = original_sub_id
-        rsp = gfwservice.update_subscription(gfw_info, False)
+        rsp = gfw_outbound.update_subscription(gfw_info, False)
 
         self.assertIsNotNone(rsp)
         self.assertEqual(rsp.get('status_code'), 200)
@@ -90,7 +89,7 @@ class GFWServiceTest(BaseAPITest):
         }
 
     def _create_and_verify_subscription(self, gfw_info):
-        rsp = gfwservice.create_subscription(gfw_info)
+        rsp = gfw_outbound.create_subscription(gfw_info)
 
         self.assertIsNotNone(rsp)
         self.assertEqual(rsp.get('status_code'), 200)

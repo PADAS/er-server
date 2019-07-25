@@ -17,21 +17,28 @@ GENERIC_GFW_ALERT_SCHEMA = {
                 "type": "string",
                 "title": "URL of the map for this alert"
             },
+            "confidence": {
+                "type": "string",
+                "title": "Confidence level of alert"
+            }
         },
     },
     "definition": [
         "subscription_name",
-        "alert_link"
+        "alert_link",
+        "confidence"
     ]
 }
 
 GFWGladEventTypeSpec = EventTypeSpec(value='gfw_glad_alert',
                                      display='Global Forest Watch GLAD Tree-Loss Alert',
-                                     schema=GENERIC_GFW_ALERT_SCHEMA)
+                                     schema=GENERIC_GFW_ALERT_SCHEMA,
+                                     icon='deforestation_rep')
 
 GFWActiveFireAlertEventTypeSpec = EventTypeSpec(value='gfw_activefire_alert',
                                                 display='Global Forest Watch Active Fire Alert',
-                                                schema=GENERIC_GFW_ALERT_SCHEMA)
+                                                schema=GENERIC_GFW_ALERT_SCHEMA,
+                                                icon='fire_rep')
 
 # Map GFW Layer-Slug to an EarthRanger event-type.
 GFW_EVENT_TYPES_MAP = {
@@ -48,6 +55,7 @@ def ensure_gfw_event_types():
         EventType.objects.get_or_create(value=event_type_spec.value,
                                         category=ec,
                                         defaults=dict(display=event_type_spec.display,
+                                                      icon=event_type_spec.icon,
                                                       schema=json.dumps(event_type_spec.schema,
                                                                         indent=2,
                                                                         default=str)))

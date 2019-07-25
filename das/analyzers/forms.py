@@ -5,7 +5,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from analyzers.environmental import EnvironmentalSubjectAnalyzerConfig
 from analyzers.models.gfw import GlobalForestWatchSubscription
-from analyzers.gfwservice import create_subscription, update_subscription
+from analyzers.gfw_outbound import create_subscription, update_subscription
 from core.forms_utils import JSONFieldFormMixin, FixedWidthFontTextArea
 
 logger = logging.getLogger(__name__)

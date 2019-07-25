@@ -1,12 +1,16 @@
+import json
 import logging
 
+import requests
 from celery_once import QueueOnce
+from rest_framework import status
 
+from analyzers import gfw_inbound
 from analyzers.exceptions import InsufficientDataAnalyzerException
-from das_server import celery
-from observations.models import Subject, SubjectSource
-from analyzers.models import ObservationAnnotator
 from analyzers.finder import get_subject_analyzers
+from analyzers.models import ObservationAnnotator
+from das_server import celery
+from observations.models import Subject
 
 logger = logging.getLogger(__name__)
 
@@ -117,3 +121,18 @@ def handle_observation(observation_id):
         # See 'handle_subject' and it's use of QueueOnce to do the squashing.
         if get_active_subject(subject_id):
             handle_subject.apply_async(args=(subject_id,), countdown=60)
+
+
+@celery.app.task()
+def download_gfw_alerts(download_url, common_event_fields, user_id):
+    try:
+        logger.debug('downloading from: %s', download_url)
+        rsp = requests.get(url=download_url, timeout=(2, 5))
+    except Exception as ex:
+        logger.warning('Exception occurred while downloading alert data. Ignoring')
+        logger.exception(ex)
+
+    else:
+        if rsp and rsp.status_code == status.HTTP_200_OK:
+            gfw_inbound.process_downloaded_alerts(json.loads(rsp.text).get('data', []),
+                                                  common_event_fields, user_id)

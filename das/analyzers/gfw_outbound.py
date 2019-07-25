@@ -13,15 +13,14 @@ from oauthlib.common import generate_token
 from rest_framework import status
 
 from accounts.models import User
-from sensors.gfw_alert_handler import GFWAlertHandler
-
-DEFAULT_GFW_PROVIDER_KEY = 'gfw'
-GFW_OAUTH_APPLICATION_ID = 'gfw-application'
+from sensors.handlers import GFWAlertHandler
 
 from oauth2_provider.models import AccessToken
 
 DEFAULT_REQUESTS_TIMEOUT_SECS = (2, 5)
 SERVICE_ERROR_CODE = 500
+DEFAULT_GFW_PROVIDER_KEY = 'gfw'
+GFW_OAUTH_APPLICATION_ID = 'gfw-application'
 
 logger = logging.getLogger(__name__)
 subscriptions_endpoint = f'{settings.GFW_API_ROOT}/subscriptions'
@@ -102,7 +101,7 @@ def get_gfw_auth_token():
                                            json={'email': gfw_credentials.get('username'),
                                                  'password': gfw_credentials.get('password')})
         except Exception as ex:
-            logger.exception(f'Exception {ex} raised when logging in')
+            logger.exception('Exception %s raised when logging in', ex)
             token = None
         else:
             if login_response and login_response.status_code == status.HTTP_200_OK:
@@ -118,7 +117,7 @@ def create_subscription(gfw_info):
         subscribe_json = _make_subscribe_msg(gfw_info['name'],
                                              gfw_info['alert_types'],
                                              geostore_id)
-        logger.debug(f'subscription JSON {subscribe_json}')
+        logger.debug('subscription JSON %s', subscribe_json)
 
         try:
             rsp = requests.post(url=subscriptions_endpoint,
@@ -126,20 +125,20 @@ def create_subscription(gfw_info):
                                 json=subscribe_json,
                                 timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
         except Exception as ex:
-            logger.exception(f'Exception {ex} raised in create_subscription')
+            logger.exception('Exception %s raised in create_subscription', ex)
             return _make_service_response(SERVICE_ERROR_CODE,
                                           f'Error communicating with Global Forest Watch service. '
                                           f'{getattr(ex, "message", "")}')
         else:
             if rsp and rsp.status_code == status.HTTP_200_OK:
                 sub_id = json.loads(rsp.text).get('data', {}).get('id')
-                logger.debug(f'create subscription successful. {rsp.text}')
+                logger.debug('create subscription successful. %s', rsp.text)
                 return _make_service_response(rsp.status_code,
                                               'Success',
                                               dict(subscription_id=sub_id,
                                                    geostore_id=geostore_id))
             else:
-                logger.error(f'create_subscription failed with code {rsp}')
+                logger.error('create_subscription failed with code %s', rsp)
                 return _make_service_response(rsp.status_code, rsp.text)
     else:
         return _make_service_response(SERVICE_ERROR_CODE,
@@ -155,18 +154,18 @@ def fetch_subscription_json(gfw_info):
                                timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
 
         except Exception as ex:
-            logger.exception(f'Exception {ex} raised in fetch_subscription')
+            logger.exception('Exception %s raised in fetch_subscription', ex)
             return _make_service_response(SERVICE_ERROR_CODE,
                                           f'Error communicating with Global Forest Watch service. '
                                           f'{getattr(ex, "message", "")}')
         else:
             if rsp and rsp.status_code == status.HTTP_200_OK:
-                logger.debug(f'fetch subscription successful. {rsp.text}')
+                logger.debug('fetch subscription successful. %s', rsp.text)
                 _make_service_response(rsp.status_code,
                                        'Success',
                                        dict(json=json.loads(rsp.text).get('data', {})))
             else:
-                logger.error(f'fetch_subscription failed with code {rsp}')
+                logger.error('fetch_subscription failed with code %s', rsp)
                 return _make_service_response(rsp.status_code, rsp.text)
     else:
         return _make_service_response(SERVICE_ERROR_CODE,
@@ -178,7 +177,7 @@ def update_subscription(gfw_info, geometry_changed):
     if token:
         geostore_id = gfw_info.get('geostore_id')
         if not geostore_id or geometry_changed:
-            logger.debug(f'geometry changed. updating geostore {geometry_changed}')
+            logger.debug('geometry changed. updating geostore %s', str(geometry_changed))
             geostore_id = _get_geostore_id(gfw_info)
 
         subscribe_json = _make_subscribe_msg(gfw_info['name'],
@@ -200,20 +199,20 @@ def update_subscription(gfw_info, geometry_changed):
                                    json=subscribe_json,
                                    timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
         except Exception as ex:
-            logger.exception(f'Exception {ex} raised in update_subscription')
+            logger.exception('Exception %s raised in update_subscription', ex)
             return _make_service_response(SERVICE_ERROR_CODE,
                                           f'Error communicating with Global Forest Watch service. '
                                           f'{getattr(ex, "message", "")}')
         else:
             if rsp and rsp.status_code == status.HTTP_200_OK:
-                logger.debug(f'update subscription successful. {rsp.text}')
+                logger.debug('update subscription successful. %s', rsp.text)
                 sub_id = json.loads(rsp.text).get('data', {}).get('id')
                 return _make_service_response(rsp.status_code,
                                               'Success',
                                               dict(subscription_id=sub_id,
                                                    geostore_id=geostore_id))
             else:
-                logger.error(f'update_subscription failed with code {rsp}')
+                logger.error('update_subscription failed with code %s', rsp)
                 return _make_service_response(rsp.status_code, rsp.text)
 
     else:
@@ -229,16 +228,16 @@ def delete_subscription(model):
                                headers={'Authorization': f'Bearer {token}'},
                                timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
         except Exception as ex:
-            logger.exception(f'Exception {ex} raised in delete_subscription')
+            logger.exception('Exception %s raised in delete_subscription', ex)
             return _make_service_response(SERVICE_ERROR_CODE,
                                           f'Error communicating with Global Forest Watch service. '
                                           f'{getattr(ex, "message", "")}')
         else:
             if rsp and rsp.status_code == status.HTTP_200_OK:
-                logger.debug(f'delete subscription successful. {rsp.text}')
+                logger.debug('delete subscription successful. %s', rsp.text)
                 return _make_service_response(rsp.status_code, 'Success')
             else:
-                logger.error(f'delete_subscription failed with code {rsp}')
+                logger.error('delete_subscription failed with code %s', rsp)
                 return _make_service_response(rsp.status_code, rsp.text)
     else:
         return _make_service_response(SERVICE_ERROR_CODE,
@@ -253,7 +252,7 @@ def _get_geostore_id(gfw_info):
                             json=json_dict,
                             timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
     except Exception as ex:
-        logger.exception(f'Exception {ex} raised in get_geostore_id')
+        logger.exception('Exception %s raised in get_geostore_id', ex)
         return _make_service_response(SERVICE_ERROR_CODE,
                                       f'Error communicating with Global Forest Watch service. '
                                       f'{getattr(ex, "message", "")}')
@@ -261,7 +260,7 @@ def _get_geostore_id(gfw_info):
         if rsp and rsp.status_code == status.HTTP_200_OK:
             return json.loads(rsp.text).get('data', {}).get('id')
         else:
-            logger.error(f'_update_geostore failed with code {rsp}')
+            logger.error('_update_geostore failed with code %s', rsp)
             return _make_service_response(rsp.status_code, rsp.text)
 
 
@@ -295,7 +294,6 @@ def exception_wrapper(func):
         try:
             response = func(*args, **kwargs)
         except Exception as ex:
-            logger.error(f'Exception {ex} raised in {func}')
             response = _make_service_response(SERVICE_ERROR_CODE,
                                               f'Error communicating with Global Forest Watch service {func} raised {ex}')
 

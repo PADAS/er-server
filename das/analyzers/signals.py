@@ -3,7 +3,7 @@ import logging
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
-from .gfwservice import delete_subscription
+from .gfw_outbound import delete_subscription
 from .models import GlobalForestWatchSubscription
 
 logger = logging.getLogger(__name__)
