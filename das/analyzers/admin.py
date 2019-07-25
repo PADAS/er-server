@@ -1,8 +1,9 @@
 from django.contrib import admin
-from django.contrib.admin import ModelAdmin
-from django.conf import settings
+import django.contrib.gis.admin as gis_admin
+
 import analyzers.models as models
-from analyzers.forms import EnvironmentalAnalyzerAdminForm
+from analyzers.forms import EnvironmentalAnalyzerAdminForm, GlobalForestWatchSubscriptionForm
+
 
 @admin.register(models.ObservationAnnotator)
 class ObservationAnnotatorAdmin(admin.ModelAdmin):
@@ -203,3 +204,32 @@ class SubjectSpeedProfileAdmin(admin.ModelAdmin):
 @admin.register(models.SpeedDistro)
 class SpeedDistroAdmin(admin.ModelAdmin):
     pass
+
+
+@admin.register(models.GlobalForestWatchSubscription)
+class GlobalForestWatchAdmin(gis_admin.OSMGeoAdmin):
+    wms_layer = 'terrain,overlay'
+    wms_url = 'http://tiles.maps.eox.at/wms/'
+
+    form = GlobalForestWatchSubscriptionForm
+    readonly_fields = ('subscription_id', 'geostore_id',)
+
+    list_display = ('name', 'subscription_id',)
+
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('name', )
+        }),
+        ('Global Forest Watch API Properties', {
+            'classes': ('wide',),
+            'fields': ('alert_types', 'subscription_id', 'geostore_id',)
+        }),
+        ('Advanced Attributes', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('id', 'additional')
+        }),
+        ('Geographical Area', {
+            'fields': ('subscription_geometry',)
+        })
+    )

@@ -16,6 +16,7 @@ from observations.models import update_subject_status_from_post
 from tracking.pubsub_registry import notify_new_tracks
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter,\
     FollowltObservation, TractAdapter, TractVehicleData
+from analyzers import gfw_inbound
 
 logger = logging.getLogger(__name__)
 
@@ -648,3 +649,12 @@ class SigFoxPushHandler():
                      'handler': 'sigfox-push'}
 
         return Response(data=status_ok, status=status.HTTP_201_OK)
+
+
+class GFWAlertHandler:
+    SENSOR_TYPE = 'gfw-alert'
+    PROVIDER_KEY = 'gfw'
+
+    @classmethod
+    def post(cls, request, provider_key):
+        return gfw_inbound.process_handler_post(request)

@@ -505,3 +505,9 @@ WHITENOISE_ADD_HEADERS_FUNCTION = whitenoise_headers_func
 
 DAILY_REPORT_ENABLED = False
 ALERTS_ENABLED = False
+
+GFW_API_ROOT = 'https://production-api.globalforestwatch.org/v1'
+GFW_CREDENTIALS = {
+    'username': 'support@pamdas.org',
+    'password': 'ns2S#@Bh3V&W2eR17Ru8'
+}

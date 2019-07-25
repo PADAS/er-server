@@ -50,6 +50,8 @@ class EventTypeSpec(NamedTuple):
     value: str
     display: str
     schema: dict = None
+    icon: str = None
+
 
 ENVIRONMENTAL_VALUE_SCHEMA = {
                 "schema":
