@@ -1,0 +1,11 @@
+project-id: padas-app
+cluster-name: partners
+version-prefix: dev
+server-branch-name: develop
+web-branch-name: develop
+namespace: playground
+iaas: gcp
+das-static-ip: 34.83.12.110
+iaas-workspace: padas-app
+deployment-plan: integration
+
