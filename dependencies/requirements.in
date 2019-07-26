@@ -9,81 +9,81 @@
 # to install requirements using pip
 # pip install -r requirements.txt -r requirements-pinned.txt --find-links wheelhouse
 #
-psycopg2==2.7.3.2
-simplejson==3.13.2
-pytz==2017.3
-python-dateutil==2.6.1
-requests==2.21.0
-python-engineio==3.5.1
-celery==4.1.0
+psycopg2-binary==2.8.3
+simplejson==3.16.0
+pytz==2019.1
+python-dateutil==2.8.0
+requests==2.22.0
+python-engineio==3.8.2
+celery==4.2.1
 celery_once==1.2.0
-kombu==4.1.0
-redis==2.10.6
+kombu==4.2.1
+redis==3.2.1
 six==1.11.0
 bleach==2.1.2
-python-json-logger==0.1.8
-twilio==6.10.0
+python-json-logger==0.1.11
+twilio==6.29.1
 piexif==1.0.13
-simplekml==1.3.0
+simplekml==1.3.1
 pycryptodome==3.7.0
 
-greenlet==0.4.12
-gunicorn==19.7.1
-eventlet==0.21.0
-gevent==1.2.2
+greenlet==0.4.15
+gunicorn==19.9.0
+eventlet==0.25.0
+gevent==1.4.0
 
 Django==2.0.13
-django-ses==0.8.4
-djangorestframework==3.7.7
-drf-extensions==0.3.1
+django-ses==0.8.10
+djangorestframework==3.10.1
+drf-extensions==0.5.0
 #https://github.com/mypebble/django-pgviews
-django-pgviews==0.5.3
-django-model-utils==3.0.0
+django-pgviews==0.5.5
+django-model-utils==3.2.0
 #see https://github.com/ottoyiu/django-cors-headers
-django-cors-headers==2.1.0
+django-cors-headers==2.5.3
 django-environ==0.4.5
-django-oauth-toolkit==1.0.0
-django-rest-swagger==2.1.2
-django-leaflet==0.23.0
-django-sendsms
-django-mptt==0.9.0
-django-treebeard==4.2.0
+django-oauth-toolkit==1.2.0
+django-rest-swagger==2.2.0
+django-leaflet==0.24.0
+django-sendsms==0.3.1
+django-mptt==0.10.0
+django-treebeard==4.3
 django-extra-fields==0.9
-django-readonly-field==1.0.2
+django-readonly-field==1.0.5
 django-storages==1.7.1
-django-tagulous==0.12.0
-django-versatileimagefield==1.8.1
+django-tagulous==0.14.0
+django-versatileimagefield==1.10
 django-redis==4.10.0
 djangorestframework-gis==0.14.0
 
 #oauth
-oauthlib==3.0.1
+oauthlib==3.0.2
 
-numpy==1.16.3
+numpy==1.16.4
 
 GDAL==2.2.3
 pyproj==1.9.5.1
 geopy==1.11.0
 Fiona==1.7.11
-cython==0.27.3
+cython==0.29.10
 geopandas==0.4.1
 shapely==1.6.3
 
 
 # 2017-06-16, switch to boto3 (from boto==2.46.1)
-boto3==1.5.9
-PyYAML==3.12
+boto3==1.9.191
+PyYAML==5.1.1
 
 # Docx and Docx Template are used for generating reports as Word documents.
-Jinja2==2.10
+Jinja2==2.10.1
 docxtpl==0.4.6
 python-docx==0.8.6
-lxml==4.1.1
+lxml==4.3.4
 openpyxl==2.5.4
 
 #pymet and requirements that pymet is not pinning
-rasterio==1.0.22
-geojson==2.3.0
+rasterio==1.0.23
+geojson==2.4.1
 pymet==0.1.22
 oauth2client==4.1.3
 
@@ -93,8 +93,8 @@ azure==4.0.0
 business-rules==1.0.1
 
 # Using datadog library for its statsd module
-datadog==0.27.0
+datadog==0.29.3
 
-whitenoise==4.1.2
+whitenoise==4.1.3
 
 django-debug-toolbar==1.11
