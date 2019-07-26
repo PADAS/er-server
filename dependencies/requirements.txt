@@ -181,7 +181,7 @@ openpyxl==2.5.4
 pandas==0.24.2            # via geopandas, pymet
 piexif==1.0.13
 pillow==4.3.0             # via django-versatileimagefield
-psycopg2==2.8.3
+psycopg2-binary==2.8.3
 pyasn1-modules==0.2.5     # via google-auth, oauth2client
 pyasn1==0.4.5             # via oauth2client, pyasn1-modules, rsa
 pycparser==2.19           # via cffi

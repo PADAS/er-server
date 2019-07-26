@@ -9,7 +9,7 @@
 # to install requirements using pip
 # pip install -r requirements.txt -r requirements-pinned.txt --find-links wheelhouse
 #
-psycopg2==2.8.3
+psycopg2-binary==2.8.3
 simplejson==3.16.0
 pytz==2019.1
 python-dateutil==2.8.0
