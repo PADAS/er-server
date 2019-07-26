@@ -36,7 +36,7 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
     alert_types = forms.MultipleChoiceField(choices=(
         ('glad-alerts', _('Deforestation alerts (GLAD) / weekly / 30m')),
         ('viirs-active-fires', _('Fire Alerts (VIIRS) / daily / 375m')),
-    ))
+    ), help_text='Click to select one, SHIFT+click to select both')
 
     def clean(self):
         res = super().clean()

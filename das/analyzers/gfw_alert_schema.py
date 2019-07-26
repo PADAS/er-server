@@ -15,7 +15,8 @@ GENERIC_GFW_ALERT_SCHEMA = {
             },
             "alert_link": {
                 "type": "string",
-                "title": "URL of the map for this alert"
+                "title": "URL of the map for this alert",
+                "format": "uri"
             },
             "confidence": {
                 "type": "string",
@@ -31,12 +32,12 @@ GENERIC_GFW_ALERT_SCHEMA = {
 }
 
 GFWGladEventTypeSpec = EventTypeSpec(value='gfw_glad_alert',
-                                     display='Global Forest Watch GLAD Tree-Loss Alert',
+                                     display='GLAD Tree-Loss Alert (GFW)',
                                      schema=GENERIC_GFW_ALERT_SCHEMA,
                                      icon='deforestation_rep')
 
 GFWActiveFireAlertEventTypeSpec = EventTypeSpec(value='gfw_activefire_alert',
-                                                display='Global Forest Watch Active Fire Alert',
+                                                display='Active Fire Alert (GFW)',
                                                 schema=GENERIC_GFW_ALERT_SCHEMA,
                                                 icon='fire_rep')
 
