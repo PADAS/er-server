@@ -554,7 +554,7 @@ class EventsView(generics.ListCreateAPIView):
 
     def get_queryset(self):
 
-        queryset = Event.objects.all_sort()
+        queryset = Event.objects.all_sort().prefetch_related('eventsource_event_refs')
 
         query_params = self.request.query_params
         bbox = query_params.get('bbox', None)

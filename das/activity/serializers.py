@@ -1248,7 +1248,20 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     def to_representation(self, event):
         self.fields.pop('eventsource', None)
+
         rep = super().to_representation(event)
+
+        try:
+            eventsource = event.eventsource_event_refs.first().eventsource
+        except:
+            pass
+        else:
+            rep['external_source'] = {
+                "url": eventsource.eventprovider.additional.get('external_event_url'),
+                "text": eventsource.eventprovider.display,
+                "icon_url": eventsource.eventprovider.additional.get('icon_url')
+            }
+
         if 'request' in self.context:
             request = self.context['request']
 
