@@ -397,3 +397,58 @@ def get_display_value_header_for_key(schema, key):
     if key in schema['schema']['properties'] and 'title' in schema['schema']['properties'][key]:
         return schema['schema']['properties'][key]['title']
     return find_display_value_for_key_in_definition(schema, key) or format_key_for_title(key)
+
+
+def generate_schema_from_document(doc):
+    '''
+    Generate a JSON schema from the given document.
+    :param doc:
+    :return: A valid json schema
+    '''
+    def new_schema_property(k, v):
+        title = ' '.join(k.split('_')).title()
+        propertytype = 'number' if isinstance(v, (int, float)) else 'string'
+        return k, {'type': propertytype, 'title': title}
+
+    schema_properties = dict(new_schema_property(k, v) for k, v in doc.items())
+
+    schema_def = {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "Auto-generated schema, from incoming data.",
+        "type": "object",
+        'properties': schema_properties
+    }
+    return schema_def
+
+
+def generate_form_definition_from_doc(doc):
+    return sorted(doc.keys())
+
+
+def generate_event_type_schema_from_doc(doc):
+    '''
+    This function can be used to create a generic EventType.schema that's fitted to the given doc.
+
+    Our EventType.schema attribute is meant to contain a document that includes a 'schema' and a 'definition'.
+    The schema is a json schema (or a template that generates a valid json schema).
+    The definition attribute is a list of attributes that may include rendering directives.
+
+    :param doc:
+    :return:
+    '''
+    schema = generate_schema_from_document(doc)
+    form_def = generate_form_definition_from_doc(doc)
+
+    return {'schema': schema, 'definition': form_def}
+
+
+def should_auto_generate(schema_string):
+
+    try:
+        schema_doc = json.loads(schema_string)
+    except json.JSONDecodeError:
+        pass
+    else:
+        if schema_doc.get('auto-generate', False):
+            return True
+    return False

@@ -47,7 +47,7 @@
   cursor: pointer;
   display: flex;
   flex-flow: column;
-  height: 6rem;
+  height: 5rem;
   justify-content: center;
   margin-bottom: 3rem;
   width: 12rem;
@@ -56,14 +56,15 @@
 
 #icon_key_text li:hover {
   border: 1px solid red;
+  background-color: #f0f0f0;
 }
 
 #icon_key_text img {
   cursor: pointer;
-  min-height: 4rem;
-  min-width: 4rem;
-  max-height: 6rem;
-  max-width: 6rem;
+  min-height: 2rem;
+  min-width: 2rem;
+  max-height: 4rem;
+  max-width: 4rem;
 }
 
 

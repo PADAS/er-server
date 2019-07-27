@@ -92,7 +92,7 @@ def get_event_icon_select_list(dirname='sprite-src'):
         }
         for item in staticfiles_storage.listdir(dirname)[1]
     ]
-    return icon_list
+    return sorted(icon_list, key=lambda icon: icon['key'])
 
 
 class EventTypeForm(forms.ModelForm):
