@@ -6,7 +6,7 @@ terraform workspace select <partner>-<site>
     or
 terraform workspace new <partner>-<site>
 
-terraform plan -var-file="<site>.tfvars"
+terraform plan -var-file="sites/<site>.tfvars"
 
 terraform apply -var-file="sites/<site>.tfvars"
 */
