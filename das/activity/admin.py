@@ -70,6 +70,8 @@ class EventTypeAdmin(admin.ModelAdmin):
     list_display = ('display', 'value', 'ordernum',
                     'category', 'is_collection', '_default_priority_display', '_icon_display', 'default_state')
     list_editable = ('ordernum', 'default_state',)
+    list_display_links = ('display',)
+    search_fields = ('display', 'value',)
 
     fieldsets = (
         (None, {

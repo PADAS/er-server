@@ -1,43 +1,41 @@
+import copy
 import logging
 import traceback
-import copy
 from collections import OrderedDict
 
-import pytz
-
-from core.serializers import ContentTypeField
-from choices.serializers import ChoiceField
-from django.contrib.gis.geos import Point
-from django.urls import reverse
-from django.core.exceptions import PermissionDenied
-from django.core.validators import EmailValidator, RegexValidator
-from django.contrib.auth import get_user_model
-from django.http import Http404
 import django.db
-from django.contrib.contenttypes.models import ContentType
-from django.db.models import ForeignKey
-from django.utils import timezone
-from drf_extra_fields.geo_fields import PointField
 import drf_extra_fields.geo_fields
+import pytz
 import rest_framework.serializers
 import rest_framework.status
-from rest_framework.metadata import BaseMetadata
-from rest_framework.fields import DateTimeField
-from rest_framework.exceptions import ValidationError, APIException
+import versatileimagefield.files
+from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.gis.geos import Point
+from django.core.exceptions import PermissionDenied
+from django.core.validators import EmailValidator, RegexValidator
+from django.http import Http404
+from django.urls import reverse
+from django.utils import timezone
 from django.utils.encoding import force_text
+from drf_extra_fields.geo_fields import PointField
+from rest_framework.exceptions import ValidationError, APIException
+from rest_framework.fields import DateTimeField
+from rest_framework.metadata import BaseMetadata
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
-import versatileimagefield.files
 # Make dictionaries from the IMAGE_SETS, to make lookups a little easier.
 from versatileimagefield.utils import IMAGE_SETS
+
+from choices.serializers import ChoiceField
+
 IMAGE_RENDITION_SETS = dict((k, dict(v)) for k, v in IMAGE_SETS.items())
 import jsonschema
 import jsonschema.exceptions
-
+import json
 from core.serializers import ContentTypeField
-from core.utils import static_image_finder
 from utils.json import loads
 from utils.drf import PointValidator
 import activity.models
@@ -767,8 +765,12 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         if not schema:
             return super().to_internal_value(data)
 
-        replacement_fields = schema_utils.get_replacement_fields_in_schema(
-            schema)
+        # Auto-generate a schema if appropriate.
+        if schema_utils.should_auto_generate(schema):
+            schema = schema_utils.generate_event_type_schema_from_doc(data)
+            activity.models.EventType.objects.filter(id=event_type.id).update(schema=json.dumps(schema, indent=2))
+
+        replacement_fields = schema_utils.get_replacement_fields_in_schema(schema)
 
         parameters = {}
         for replacement_field in replacement_fields:
