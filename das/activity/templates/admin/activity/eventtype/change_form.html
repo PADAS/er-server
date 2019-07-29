@@ -41,9 +41,12 @@
           ]
         };
 
+    var auto_generate_schema = {
+        "auto-generate": true,
+        "message": "This schema definition will be automatically generated when new report data is recorded."
+    };
 
-
-    document.getElementById("btn_use_generic_schema").addEventListener('click',
+    /*document.getElementById("btn_use_generic_schema").addEventListener('click',
     function() {
 
         var ans = true;
@@ -57,7 +60,22 @@
         }
 
     });
+*/
 
+    document.getElementById("btn_set_schema_to_auto_generate").addEventListener('click',
+    function() {
+
+        var ans = true;
+
+        if (document.getElementById('id_schema').value.length > 0) {
+            ans = confirm('This will set the Event Type schema to be automatically generated to fit the first matching event. Are you sure you want to do this?');
+        }
+        if (ans == true) {
+            var ta = document.getElementById('id_schema');
+            ta.value = JSON.stringify(auto_generate_schema, undefined, 4);
+        }
+
+    });
 
 </script>
 
