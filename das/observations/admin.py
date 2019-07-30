@@ -698,7 +698,7 @@ class RegionAdmin(admin.ModelAdmin):
 class SubjectGroupChangeForm(forms.ModelForm):
     filter_horizontal = ('children', 'permission_sets', 'subjects')
     active_subjects = forms.ModelMultipleChoiceField(
-        queryset=models.Subject.objects.by_is_active(True),
+        queryset=models.Subject.objects.order_by('name').by_is_active(True),
         required=False,
         widget=FilteredSelectMultiple(
             verbose_name=_('Subjects'),
