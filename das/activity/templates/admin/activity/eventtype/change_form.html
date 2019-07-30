@@ -43,7 +43,43 @@
 
     var auto_generate_schema = {
         "auto-generate": true,
-        "message": "This schema definition will be automatically generated when new report data is recorded."
+        "message": "This schema definition will be automatically generated when new report data is recorded.",
+          "schema": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "title": "EventType Data",
+            "type": "object",
+            "readonly": true,
+            "properties": {
+              "attributes": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "title": "Key",
+                      "type": "string",
+                      "readonly": true
+                    },
+                    "val": {
+                      "title": "Value",
+                      "type": "string",
+                      "readonly": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "definition": [
+            {
+              "key": "attributes",
+              "items": [
+                "attributes[].key",
+                "attributes[].val"
+              ]
+            }
+          ]
     };
 
     /*document.getElementById("btn_use_generic_schema").addEventListener('click',

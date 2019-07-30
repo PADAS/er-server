@@ -207,6 +207,9 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         else:
             schema = loads(eventtype.schema, object_pairs_hook=OrderedDict)
 
+        if 'schema' not in schema:
+            return generics.views.Response(None)
+
         schema['schema']['id'] = utils.add_base_url(request, reverse(
             'event-schema-eventtype', args=[eventtype.value, ]))
         schema['schema']['icon_id'] = eventtype.icon_id
