@@ -1,10 +1,9 @@
-
-import eventlet
 import utils.json as json
 import logging
 
 from das_server import pubsub, celery
-from observations.models import Subject, SubjectStatus
+from observations.models import Subject
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -87,4 +86,8 @@ def start(realtime_server):
             logger.info('Adding subbscription for "%s"', subscription['name'])
         pubsub.subscribe(subscriptions)
 
-    eventlet.spawn_n(pubsub_listener)
+    logger.info("Starting pubsub listener threads.")
+    for x in range(5):
+        logger.info("Starting pubsub listener thread (%s).", x)
+        threading.Thread(target=pubsub_listener, name=f'pubsub-listener-{x}', args=()).start()
+
