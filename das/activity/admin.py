@@ -2,6 +2,9 @@ from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
+from django.contrib import messages
+from django.template.defaultfilters import escape
+from django.urls import reverse
 
 import activity.models as models
 from activity.forms import EventTypeForm
@@ -109,6 +112,33 @@ class EventTypeAdmin(admin.ModelAdmin):
         form = super().get_form(request, obj, **kwargs)
         return form
 
+    def get_event_source_link(self, object_id):
+
+        try:
+            eventsource = models.EventSource.objects.get(event_type_id=object_id)
+        except models.EventSource.DoesNotExist:
+            return None
+        else:
+            return {
+                'href': reverse(f'admin:{eventsource._meta.app_label}_{eventsource._meta.model_name}_change',
+                    args=(eventsource.id,)),
+                'display': eventsource.display
+            }
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+
+        extra_context = extra_context or {}
+        extra_context['eventsource_ref'] = self.get_event_source_link(object_id)
+
+        # if extra_context['eventsource_ref'] is not None:
+        #     messages.add_message(request, messages.WARNING, "This Event Type is linked to an External Source. See the notice below for more details.")
+
+        return super().change_view(request, object_id, form_url=form_url, extra_context=extra_context)
+
+
+    def add_view(self, request, form_url='', extra_context=None):
+        return super().add_view(request, form_url=form_url, extra_context=extra_context)
+
 
 @admin.register(models.EventSource)
 class EventSourceAdmin(admin.ModelAdmin):
@@ -124,6 +154,31 @@ class EventSourceAdmin(admin.ModelAdmin):
             'classes': ('wide', 'collapse',)
         })
     )
+
+    def get_event_type_ref(self, object_id):
+
+        try:
+            eventsource = models.EventSource.objects.get(id=object_id)
+            event_type = eventsource.event_type
+        except models.EventSource.DoesNotExist:
+            pass
+        else:
+            if event_type is not None:
+                return {
+                    'href': reverse(f'admin:{event_type._meta.app_label}_{event_type._meta.model_name}_change',
+                                    args=(event_type.id,)),
+                    'display': event_type.display
+                }
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+
+        extra_context = extra_context or {}
+        extra_context['eventtype_ref'] = self.get_event_type_ref(object_id)
+
+        # if extra_context['eventsource_ref'] is not None:
+        #     messages.add_message(request, messages.WARNING, "This Event Type is linked to an External Source. See the notice below for more details.")
+
+        return super().change_view(request, object_id, form_url=form_url, extra_context=extra_context)
 
 
 class EventSourceInline(InlineExtraDynamicMixin, admin.TabularInline):
