@@ -120,6 +120,11 @@ class TypeOfIllegalActivityAdmin(admin.ModelAdmin):
     pass
 
 
+@admin.register(models.IllegalActivity)
+class IllegalActivityAdmin(admin.ModelAdmin):
+    pass
+
+
 @admin.register(models.SnareAge)
 class SnareAgeAdmin(admin.ModelAdmin):
     pass

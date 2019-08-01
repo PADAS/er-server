@@ -115,7 +115,7 @@ data "template_file" "site_json" {
     db_user                         = postgresql_role.db_role.name
     db_password                     = random_string.db_password.result
     media_uploads                   = aws_s3_bucket.media-uploads.bucket
-    media_uploads_region            = aws_s3_bucket.media-uploads.region
+    media_uploads_region            = "s3.${aws_s3_bucket.media-uploads.region}.amazonaws.com"
     redis_host                      = aws_elasticache_replication_group.redis.primary_endpoint_address
     timezone                        = var.timezone
     zendesk_email                   = var.zendesk_email
