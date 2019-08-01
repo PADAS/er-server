@@ -24,6 +24,7 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
+import django.contrib.gis.admin as gis_admin
 
 import observations.models as models
 import observations.forms
@@ -242,7 +243,10 @@ class LargeTablePaginator(Paginator):
 
 
 @admin.register(models.Observation)
-class ObservationAdmin(ExportCsvMixin, admin.ModelAdmin):
+class ObservationAdmin(ExportCsvMixin, gis_admin.OSMGeoAdmin):
+    wms_layer = 'terrain,overlay'
+    wms_url = 'http://tiles.maps.eox.at/wms/'
+
     list_display = ('subject_link', '_manufacturer_id', 'recorded_at', 'created_at',
                     '_longitude', '_latitude', '_state', '_event_action')
     date_hierarchy = 'recorded_at'
@@ -838,7 +842,10 @@ class SourceTypeFilter(admin.SimpleListFilter):
 
 
 @admin.register(models.SubjectStatus)
-class SubjectStatusAdmin(admin.ModelAdmin):
+class SubjectStatusAdmin(gis_admin.OSMGeoAdmin):
+    wms_layer = 'terrain,overlay'
+    wms_url = 'http://tiles.maps.eox.at/wms/'
+
     search_fields = (
         'subject__name', 'subject__subjectsource__source__manufacturer_id')
     ordering = ('-recorded_at',)

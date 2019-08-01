@@ -278,7 +278,7 @@ class SubjectsView(generics.ListCreateAPIView):
     """
     serializer_class = serializers.SubjectSerializer
     permission_classes = (StandardObjectPermissions,)
-    filter_backends = (SubjectObjectPermissionsFilter,)
+    #filter_backends = (SubjectObjectPermissionsFilter,)
     pagination_class = OptionalResultsSetPagination
 
     TRACK_QPARAMS = ('tracks_limit',)
@@ -287,6 +287,7 @@ class SubjectsView(generics.ListCreateAPIView):
     schema = SubjectsViewSchema()
 
     def get_queryset(self):
+        self.subject_linked_sources = {}
         min_age = get_minimum_allowed_age(self.request.user) or 0
         queryset = models.Subject.objects \
             .annotate_with_subjectstatus(delay_hours=min_age * 24)
@@ -337,13 +338,34 @@ class SubjectsView(generics.ListCreateAPIView):
             else:
                 queryset = queryset.by_updated_since(updated_since)
 
-        return queryset
+        combined_queryset = queryset
+        # Fetch all the Subjects whose access is gained through Source Group
+        # permissions.
+        source_groups = models.SourceGroup.objects.filter(
+            permission_sets__in=self.request.user.get_all_permission_sets())
+        for source_group in source_groups:
+            sources = source_group.get_all_sources()
+            for source in sources:
+                subjects = models.Subject.objects.filter(
+                    subjectsource__source=source)
+                combined_queryset = combined_queryset.distinct() | \
+                    subjects.distinct()
+
+                # Send all allowed Sources of each Subject to serializer for
+                # latest_location finding.
+                if not self.request.user.is_superuser:
+                    for subject in subjects:
+                        self.subject_linked_sources.setdefault(
+                            subject.name, set()).add(source)
+
+        return combined_queryset
 
     def get_serializer_context(self):
         request = self.request
         context = super().get_serializer_context()
         context['render_last_location'] = True
         context['tracks'] = False
+        context['subject_linked_sources'] = self.subject_linked_sources
 
         if request and parse_bool(request.query_params.get('tracks', None)):
             context['tracks'] = True
@@ -516,6 +538,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
     serializer_class = serializers.SubjectTrackSerializer
 
     def get_queryset(self):
+        self.subject_linked_sources = []
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
         queryset = models.Subject.objects.all()
@@ -525,7 +548,26 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
     def check_object_permissions(self, request, obj):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, obj):
-            raise PermissionDenied
+            source_groups = models.SourceGroup.objects.filter(
+                permission_sets__in=request.user.get_all_permission_sets())
+            all_allowed_sources = []
+            for source_group in source_groups:
+                all_allowed_sources.extend(source_group.get_all_sources())
+
+            # Check if Subject's current source
+            subject_sources = models.SubjectSource.objects.get_subject_sources(
+                obj)
+            sources = models.Source.objects.filter(
+                pk__in=subject_sources.values('source'))
+
+            pass_flag = False
+            for source in sources:
+                if source in all_allowed_sources:
+                    self.subject_linked_sources.append(source)
+                    pass_flag = True
+
+            if not pass_flag:
+                raise PermissionDenied
 
     def get_object(self):
         try:
@@ -545,6 +587,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         context['tracks_since'] = self.request.query_params.get('since', None)
         context['tracks_until'] = self.request.query_params.get('until', None)
+        context['subject_linked_sources'] = self.subject_linked_sources
 
         for key in ('tracks_since', 'tracks_until'):
             context[key] = dateparse(context[key]) if context[key] else None

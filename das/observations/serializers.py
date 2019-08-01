@@ -16,6 +16,7 @@ from core.serializers import ContentTypeField
 from observations import models
 from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age
 import utils.json
+from utils.json import zeroout_microseconds
 from utils import add_base_url
 
 
@@ -142,26 +143,81 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     minimum_allowed_age = None
 
             if minimum_allowed_age is not None and maximum_allowed_age is not None:
-
                 default_window_cutoff = pytz.utc.localize(
                     datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
 
                 statusvalues = resolve_status_values(instance)
-                rep['tracks_available'] = statusvalues.recorded_at and statusvalues.recorded_at > default_window_cutoff
 
-                # TODO: These values might be more appropriate in the
-                # geeojson properties.
-                rep['last_position_status'] = {
-                    'last_voice_call_start_at': statusvalues.last_voice_call_start_at,
-                    'radio_state_at': statusvalues.radio_state_at,
-                    'radio_state': statusvalues.radio_state
-                }
+                # Get last_position details from latest accessible source
+                # according to SourceGroup permissions.
+                linked_sources = self.context.get(
+                    'subject_linked_sources', {}).get(instance.name)
+                if linked_sources:
+                    # Fetch latest & oldest Observations available to plot
+                    # latest_position & tracks_range.
+                    latest_subject_source = models.SubjectSource.objects.filter(
+                        source__in=linked_sources,
+                        subject=instance).order_by('-assigned_range').first()
+                    oldest_subject_source = models.SubjectSource.objects.filter(
+                        source__in=linked_sources,
+                        subject=instance).order_by('assigned_range').first()
+                    if latest_subject_source and oldest_subject_source:
+                        latest_observation = models.Observation.objects.filter(
+                            source__subjectsource=latest_subject_source,
+                            recorded_at__range=[
+                                latest_subject_source.safe_assigned_range.lower,
+                                latest_subject_source.safe_assigned_range.upper
+                            ]).order_by('-recorded_at').first()
 
-                rep['last_position_date'] = statusvalues.recorded_at
-                rep['last_position'] = make_feature(
-                    self.context['request'], statusvalues.location, instance,
-                    time=statusvalues.recorded_at, image_url=rep['image_url']
-                )
+                        oldest_observation = models.Observation.objects.filter(
+                            source__subjectsource=oldest_subject_source,
+                            recorded_at__range=[
+                                oldest_subject_source.safe_assigned_range.lower,
+                                oldest_subject_source.safe_assigned_range.upper
+                            ]).order_by('recorded_at').first()
+
+                        rep[
+                            'tracks_available'] = statusvalues.recorded_at and statusvalues.recorded_at > default_window_cutoff
+                        if latest_observation and oldest_observation:
+                            additional = latest_observation.additional
+                            if not isinstance(additional, dict):
+                                additional = {}
+                            # Construct a response with latest_location
+                            # details.
+                            rep['tracks_available'] = True
+                            rep['last_position_status'] = {
+                                'last_voice_call_start_at': additional.get(
+                                    'last_voice_call_start_at'),
+                                'radio_state_at': additional.get(
+                                    'radio_state_at'),
+                                'radio_state': additional.get('radio_state'),
+                            }
+                            rep['last_position_date'] = \
+                                latest_observation.recorded_at
+                            rep['last_position'] = make_feature(
+                                self.context['request'],
+                                latest_observation.location, instance,
+                                time=latest_observation.recorded_at,
+                                image_url=rep['image_url'])
+                else:
+                    # If no linked_sources are available then fetch
+                    # latest_position from SubjectStatus as usual.
+
+                    rep['tracks_available'] = statusvalues.recorded_at and statusvalues.recorded_at > default_window_cutoff
+
+                    # TODO: These values might be more appropriate in the
+                    # geeojson properties.
+                    rep['last_position_status'] = {
+                        'last_voice_call_start_at': statusvalues.last_voice_call_start_at,
+                        'radio_state_at': statusvalues.radio_state_at,
+                        'radio_state': statusvalues.radio_state
+                    }
+
+                    rep['last_position_date'] = statusvalues.recorded_at
+                    rep['last_position'] = make_feature(
+                        self.context['request'], statusvalues.location, instance,
+                        time=statusvalues.recorded_at, image_url=rep['image_url']
+                    )
 
         if 'request' in self.context:
             request = self.context['request']
@@ -332,8 +388,34 @@ class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
         tracks_until = self.context.get('tracks_until', None)
         tracks_limit = self.context.get('tracks_limit', None)
 
-        coordinates, times = subject.get_track(
-            user, tracks_since, tracks_until, tracks_limit)
+        subject_linked_sources = self.context.get(
+            'subject_linked_sources', None)
+
+        if subject_linked_sources:
+            coordinates = []
+            times = []
+            EMPTY_POINT = Point(0, 0)
+            # Fetch Observations only from the linked sources to limit view
+            # on a Source level
+            for source in subject_linked_sources:
+                subject_source = models.SubjectSource.objects.get(
+                    source=source,
+                    subject=subject)
+                lower = subject_source.safe_assigned_range.lower
+                upper = subject_source.safe_assigned_range.upper
+                queryset = models.Observation.objects.filter(
+                    source__subjectsource__subject=subject,
+                    source__subjectsource__source=source,
+                    recorded_at__range=[lower, upper])
+                queryset = queryset.exclude(location=EMPTY_POINT)
+                # queryset = list(queryset)
+                for observation in queryset:
+                    coordinates.append(observation.location.coords)
+                    times.append(zeroout_microseconds(
+                        observation.recorded_at))
+        else:
+            coordinates, times = subject.get_track(
+                user, tracks_since, tracks_until, tracks_limit)
 
         feature = make_feature(self.context['request'],
                                coordinates, subject,
