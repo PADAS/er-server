@@ -540,7 +540,7 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
     image_url = add_base_url(request, image_url or subject.image_url)
     feature = {
         'type': 'Feature',
-        'geometry': {},
+        'geometry': None,
         'properties': {
             'title': subject.name,
             'subject_type': subject.subject_subtype.subject_type.value,
