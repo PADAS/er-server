@@ -768,7 +768,9 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         # Auto-generate a schema if appropriate.
         if schema_utils.should_auto_generate(schema):
             schema = schema_utils.generate_event_type_schema_from_doc(data)
-            activity.models.EventType.objects.filter(id=event_type.id).update(schema=json.dumps(schema, indent=2))
+            # Downstream code is expecting a template (as a string).
+            schema = json.dumps(schema, indent=2)
+            activity.models.EventType.objects.filter(id=event_type.id).update(schema=schema)
 
         replacement_fields = schema_utils.get_replacement_fields_in_schema(schema)
 
