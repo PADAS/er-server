@@ -212,7 +212,8 @@ class EventProviderAdmin(admin.ModelAdmin):
         ('Particulars',
          {
              "classes": ('wide',),
-             'fields': ('provider_api', 'provider_username', 'provider_password', 'provider_token',),
+             'fields': ('provider_api', 'provider_username', 'provider_password', 'provider_token',
+                        'icon_url', 'external_event_url',),
          }
          ),
         ('Advanced',

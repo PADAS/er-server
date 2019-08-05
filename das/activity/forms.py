@@ -181,8 +181,12 @@ class EventProviderForm(JSONFieldFormMixin, forms.ModelForm):
                                      required=False,
                                      help_text=_('If you were given an authorization token for the external data source, enter it here.'))
 
+    icon_url = forms.CharField(label='Provider Icon URL', required=False, widget=TextInput(attrs={'size': '100'}))
+    external_event_url = forms.CharField(label='Provider Link', required=False, widget=TextInput(attrs={'size': '100'}))
+
     class Meta:
         model = EventProvider
         json_fields = ('provider_api', 'provider_username',
-                       'provider_password', 'provider_token')
+                       'provider_password', 'provider_token',
+                       'icon_url', 'external_event_url',)
         fields = ('additional',) + json_fields
