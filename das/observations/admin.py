@@ -710,7 +710,7 @@ class SubjectGroupChangeForm(forms.ModelForm):
         )
     )
     inactive_subjects = forms.ModelMultipleChoiceField(
-        queryset=models.Subject.objects.by_is_active(False),
+        queryset=models.Subject.objects.order_by('name').by_is_active(False),
         required=False,
         widget=FilteredSelectMultiple(
             verbose_name=_('Inactive Subjects'),

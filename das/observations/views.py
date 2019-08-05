@@ -1188,7 +1188,7 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                     'region': subject.additional.get('region', ''),
                     'active': subject.is_active,
                     'country': subject.additional.get('country', ''),
-                    'subtype': subject.subject_subtype.value,
+                    'subtype': subject.subject_subtype.display,
                     'groups': subject_groups},)
 
                 if subject.source_additional is not None:
