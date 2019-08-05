@@ -1,29 +1,27 @@
+import django.contrib.auth.models
+from django import forms
+from django.conf.urls import url
+from django.contrib import admin
+from django.contrib.admin.widgets import AdminDateWidget
+from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin as DjangoGroupAdmin
+from django.contrib.auth.forms import PasswordResetForm, UserCreationForm, \
+    UserChangeForm
+from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import PermissionDenied
 from django.core.mail import EmailMultiAlternatives
-from django.conf.urls import url
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
-from django.contrib import admin
-from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.contrib.auth.forms import PasswordResetForm, UserCreationForm,\
-    UserChangeForm
-from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin as DjangoGroupAdmin
 from django.template import loader
-from django.utils.html import format_html
-from django.utils.translation import ugettext_lazy as _
 from django.utils.crypto import get_random_string
-from django.contrib.sites.shortcuts import get_current_site
-from django import forms
-from django.contrib.admin.widgets import AdminDateWidget
-from utils.html import make_html_list
-import django.contrib.auth.models
+from django.utils.translation import ugettext_lazy as _
 
-
-from core.forms_utils import JSONFieldFormMixin
 from accounts.models import User, PermissionSet
-from observations import kmlutils
 from choices.models import Choice
+from core.forms_utils import JSONFieldFormMixin
+from observations import kmlutils
 from utils.admin import DefaultFilterMixin
+from utils.html import make_html_list
 
 
 class PermissionSetAdminForm(forms.ModelForm):
@@ -88,6 +86,23 @@ class PermissionSetAdmin(DjangoGroupAdmin):
     all_users.allow_tags = True
 
 
+ROLE_CHOICES = [('', 'Select One'),
+                ('community-liaison-officer', _('Community Liaison Officer')),
+                ('community-manager', _('Community Manager')),
+                ('ecologist-scientist', _('Ecologist / Scientist')),
+                ('ecology-manager', _('Ecology Manager')),
+                ('gis-engineer', _('GIS Engineer')),
+                ('hwc-liaison', _('HWC Liaison')),
+                ('hwc-officer', _('HWC Officer')),
+                ('it-admin-tech-support', _('IT Admin / Tech Support')),
+                ('operations-coordinator', _('Operations Coordinator')),
+                ('operations-manager', _('Operations Manager')),
+                ('protected-area-manager', _('Protected Area Manager')),
+                ('security-manager', _('Security Manager')),
+                ('tech-partner', _('Tech Partner')),
+                ]
+
+
 class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
     first_name = forms.CharField(required=False)
     last_name = forms.CharField(required=False)
@@ -107,6 +122,8 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
         verbose_name='Tech Choices', is_stacked=False), required=False)
     organization = forms.ChoiceField(required=False,
                                      help_text='User Organization')
+    role = forms.ChoiceField(required=False, label="Role",
+                             choices=ROLE_CHOICES)
 
     @staticmethod
     def fetch_tech_choices():
@@ -140,7 +157,7 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
     class Meta:
         model = User
         json_fields = ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
-                       'organization', 'tech')
+                       'organization', 'tech', 'role')
         fields = ('first_name', 'last_name', 'email', 'phone',
                   'is_email_alert', 'is_sms_alert', 'username') + json_fields
 
@@ -179,6 +196,8 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
         verbose_name='Tech Choices', is_stacked=False), required=False)
     organization = forms.ChoiceField(required=False,
                                      help_text='User Organization')
+    role = forms.ChoiceField(required=False, label="Role",
+                             choices=ROLE_CHOICES)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -188,7 +207,7 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
     class Meta:
         model = User
         json_fields = ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
-                       'organization', 'tech')
+                       'organization', 'tech', 'role')
         json_date_fields = ('expiry', 'moudatesigned')
         fields = ('first_name', 'last_name', 'email', 'phone',
                   'is_email_alert', 'is_sms_alert', 'username') + json_fields
@@ -249,7 +268,7 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         }),
         ('Additiona JSON Fields', {
             'fields': ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
-                       'organization', 'tech')
+                       'organization', 'tech', 'role')
         }),
         ('Additional Data', {
             'fields': ['additional']}
@@ -278,7 +297,7 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         }),
         ('Additional JSON Fields', {
             'fields': ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
-                       'organization', 'tech')
+                       'organization', 'tech', 'role',)
         }),
         ('Additional JSON Data', {
             'fields': ['additional']
