@@ -624,7 +624,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
             .annotate_with_subjectstatus(delay_hours=min_age_days * 24)\
             .select_related('subject_subtype__subject_type')
         if active is not None:
-            queryset = queryset.by_is_active(active=active)
+            queryset = queryset.by_is_active(active=active).order_by('name')
 
         if include_from_subgroups:
             """Including descendant group subjects"""
