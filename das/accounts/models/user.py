@@ -236,7 +236,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         return self._mou_expiry_date
 
     def get_role(self):
-        return self.additional['role'] or ''
+        return self.additional.get('role') or ''
 
 
 class User(AccountsAbstractUser):
