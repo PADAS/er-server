@@ -181,8 +181,11 @@ class EventProviderForm(JSONFieldFormMixin, forms.ModelForm):
                                      required=False,
                                      help_text=_('If you were given an authorization token for the external data source, enter it here.'))
 
-    icon_url = forms.CharField(label='Provider Icon URL', required=False, widget=TextInput(attrs={'size': '100'}))
-    external_event_url = forms.CharField(label='Provider Link', required=False, widget=TextInput(attrs={'size': '100'}))
+    icon_url = forms.CharField(label='Provider Icon URL', required=False, widget=TextInput(attrs={'size': '100'}),
+                            help_text=_('A URL for an Icon to use with this Event Provider.'),
+                            initial='/static/smart-logo.svg')
+    external_event_url = forms.CharField(label='Provider Link', required=False, widget=TextInput(attrs={'size': '100'}),
+                                         help_text=_('A web link to the user interface for this Event Provider\'s data'))
 
     class Meta:
         model = EventProvider
