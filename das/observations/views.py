@@ -1,41 +1,36 @@
-import logging
+import csv
 import datetime
+import json
+import logging
+import re
+
 import dateutil.parser
 import pytz
-from io import BytesIO
-import re
-import json
-import csv
-
-from django.conf import settings
-from django.urls import reverse
-from django.core.serializers.json import DjangoJSONEncoder
-from django.utils.dateparse import parse_datetime
-from django.template.loader import render_to_string
-from django.utils import timezone
-from django.utils.translation import ugettext_lazy as _
-from django.db.models import Prefetch, F, Q, FilteredRelation, Value
-from django.db.models.functions import Coalesce
 import rest_framework
-from rest_framework import generics, mixins, status
+from django.conf import settings
+from django.core.serializers.json import DjangoJSONEncoder
+from django.db.models import F, Q, FilteredRelation
+from django.http import Http404, HttpResponse
+from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from rest_framework import generics
+from rest_framework import status
+from rest_framework.compat import coreapi, coreschema
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
-from django.http import Http404, HttpResponse
-from rest_framework import status, views
-from rest_framework.compat import coreapi, coreschema
-
-import utils
-from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
-from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
-from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
-from observations.permissions import StandardObjectPermissions
-from observations import models
-from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS
 
 import observations.serializers as serializers
-
+import utils
 from observations import kmlutils
+from observations import models
+from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
+from observations.permissions import StandardObjectPermissions
+from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS
+from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
+from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +172,7 @@ class RegionSubjectsView(generics.ListAPIView):
         return subjects
 
 
-from observations.utils import get_minimum_allowed_age, get_maximum_allowed_age
+from observations.utils import get_minimum_allowed_age
 
 
 class SubjectsViewSchema(rest_framework.schemas.AutoSchema):
@@ -1155,7 +1150,7 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
             tz_offset) if format != 'json' else 'data_stops'
         headers = ['chronofile', 'collar_type', 'collar_id', 'active',
                    'frequency', 'animal_id', 'name', 'species',
-                   data_starts, data_stops,
+                   'subtype', 'groups', data_starts, data_stops,
                    'date_off_or_removed', 'comments',
                    'predicted_expiry', 'rgb', 'sex', 'gmt', 'data_status',
                    'data_starts_source', 'data_stops_source',
@@ -1182,6 +1177,9 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
             source_details = {}
             try:
                 # Collect Subject details.
+                subject_groups = ','.join(
+                    [grp.name for grp in models.SubjectGroup.objects.filter(subjects=subject)])
+
                 source_details.update({
                     'name': subject.name,
                     'species': subject.additional.get('species', ''),
@@ -1189,7 +1187,9 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                     'sex': subject.additional.get('sex', ''),
                     'region': subject.additional.get('region', ''),
                     'active': subject.is_active,
-                    'country': subject.additional.get('country', '')})
+                    'country': subject.additional.get('country', ''),
+                    'subtype': subject.subject_subtype.display,
+                    'groups': subject_groups},)
 
                 if subject.source_additional is not None:
                     # Collect Source details.
