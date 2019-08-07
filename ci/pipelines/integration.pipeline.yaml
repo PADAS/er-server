@@ -82,7 +82,7 @@ resources:
   type: versioned-git-resource
   source:
     uri: git@github.com:PADAS/das-react-admin.git
-    branch: master
+    branch: ((web-react-admin-branch-name))
     private_key: ((das-react-admin-github))
 
 - name: web-version

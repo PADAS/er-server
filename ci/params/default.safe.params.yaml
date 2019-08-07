@@ -30,6 +30,7 @@ use-azure-storage: "false"
 server-branch-name: develop
 web-branch-name: develop
 web-react-branch-name: develop
+web-react-admin-branch-name: master
 tag-as-latest: false
 smartconnect-provider-branch-name: develop
 capturs-provider-branch-name: develop
