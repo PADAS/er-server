@@ -36,19 +36,45 @@ class PermissionSetAdminForm(forms.ModelForm):
         )
     )
 
+    inherit_from = forms.ModelMultipleChoiceField(
+        label='Inherit From',
+        queryset=PermissionSet.objects.all(),
+        required=False,
+        widget=FilteredSelectMultiple(
+            verbose_name=_('Permission Sets'),
+            is_stacked=False
+        )
+    )
+
+    # descendants = forms.ModelMultipleChoiceField(
+    #     label='Parents',
+    #     queryset=PermissionSet.objects.all(),
+    #     required=False,
+    #     widget=FilteredSelectMultiple(
+    #         verbose_name=_('Parents'),
+    #         is_stacked=False
+    #     )
+    # )
+
     class Meta:
         model = PermissionSet
-        fields = ('name', 'permissions', 'children', 'user_set')
+        fields = ('name', 'permissions', 'children', 'user_set', 'inherit_from',
+                  # 'descendants',
+                  )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         if self.instance and self.instance.pk:
             self.fields['user_set'].initial = self.instance.user_set.all()
+            self.fields['inherit_from'].initial = self.instance._parents.all()
+            # self.fields['descendants'].initial = self.instance.children.all()
 
     def _save_m2m(self):
         users = self.cleaned_data['user_set']
+        inherit_from = self.cleaned_data['inherit_from']
         self.instance.user_set.set(users)
+        self.instance._parents.set(inherit_from)
         return super()._save_m2m()
 
 
@@ -59,7 +85,8 @@ class PermissionSetAdmin(DjangoGroupAdmin):
     filter_horizontal = ('permissions', 'children')
     fieldsets = (
         (None, {
-            'fields': ('name', 'permissions',
+            'fields': ('name', 'permissions', 'inherit_from',
+                       # 'descendants',
                        )}
          ),
         (_('Members'), {
