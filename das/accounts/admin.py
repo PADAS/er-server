@@ -36,7 +36,7 @@ class PermissionSetAdminForm(forms.ModelForm):
         )
     )
 
-    inherit_from = forms.ModelMultipleChoiceField(
+    acquire_from = forms.ModelMultipleChoiceField(
         label='Permission Sets',
         queryset=PermissionSet.objects.all().order_by('name'),
         required=False,
@@ -48,7 +48,7 @@ class PermissionSetAdminForm(forms.ModelForm):
 
     class Meta:
         model = PermissionSet
-        fields = ('name', 'permissions', 'children', 'user_set', 'inherit_from',
+        fields = ('name', 'permissions', 'children', 'user_set', 'acquire_from',
                   )
 
     def __init__(self, *args, **kwargs):
@@ -56,11 +56,11 @@ class PermissionSetAdminForm(forms.ModelForm):
 
         if self.instance and self.instance.pk:
             self.fields['user_set'].initial = self.instance.user_set.all()
-            self.fields['inherit_from'].initial = self.instance._parents.all()
+            self.fields['acquire_from'].initial = self.instance._parents.all()
 
     def _save_m2m(self):
         users = self.cleaned_data['user_set']
-        inherit_from = self.cleaned_data['inherit_from']
+        inherit_from = self.cleaned_data['acquire_from']
         self.instance.user_set.set(users)
         self.instance._parents.set(inherit_from)
         return super()._save_m2m()
@@ -76,8 +76,8 @@ class PermissionSetAdmin(DjangoGroupAdmin):
             'fields': ('name', 'permissions',
                        )}
          ),
-        (_('Inherit permissions from'), {
-          'fields': ('inherit_from', )
+        (_('Acquire permissions from'), {
+          'fields': ('acquire_from', )
         }),
         (_('Grant permissions to'), {
             'fields': ('children', 'user_set')}),
