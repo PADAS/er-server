@@ -37,8 +37,8 @@ class PermissionSetAdminForm(forms.ModelForm):
     )
 
     inherit_from = forms.ModelMultipleChoiceField(
-        label='Inherit From',
-        queryset=PermissionSet.objects.all(),
+        label='Permission Sets',
+        queryset=PermissionSet.objects.all().order_by('name'),
         required=False,
         widget=FilteredSelectMultiple(
             verbose_name=_('Permission Sets'),
@@ -46,20 +46,9 @@ class PermissionSetAdminForm(forms.ModelForm):
         )
     )
 
-    # descendants = forms.ModelMultipleChoiceField(
-    #     label='Parents',
-    #     queryset=PermissionSet.objects.all(),
-    #     required=False,
-    #     widget=FilteredSelectMultiple(
-    #         verbose_name=_('Parents'),
-    #         is_stacked=False
-    #     )
-    # )
-
     class Meta:
         model = PermissionSet
         fields = ('name', 'permissions', 'children', 'user_set', 'inherit_from',
-                  # 'descendants',
                   )
 
     def __init__(self, *args, **kwargs):
@@ -68,7 +57,6 @@ class PermissionSetAdminForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.fields['user_set'].initial = self.instance.user_set.all()
             self.fields['inherit_from'].initial = self.instance._parents.all()
-            # self.fields['descendants'].initial = self.instance.children.all()
 
     def _save_m2m(self):
         users = self.cleaned_data['user_set']
@@ -85,17 +73,19 @@ class PermissionSetAdmin(DjangoGroupAdmin):
     filter_horizontal = ('permissions', 'children')
     fieldsets = (
         (None, {
-            'fields': ('name', 'permissions', 'inherit_from',
-                       # 'descendants',
+            'fields': ('name', 'permissions',
                        )}
          ),
-        (_('Members'), {
+        (_('Inherit permissions from'), {
+          'fields': ('inherit_from', )
+        }),
+        (_('Grant permissions to'), {
             'fields': ('children', 'user_set')}),
     )
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == 'children':
-            db_field.verbose_name = 'permission sets'
+            db_field.verbose_name = 'Permission Sets'
         return super().formfield_for_dbfield(db_field, **kwargs)
 
     def all_permissions(self, instance):
