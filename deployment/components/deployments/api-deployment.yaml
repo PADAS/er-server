@@ -109,10 +109,10 @@ spec:
               name: default-configmap
               key: DEFAULT_FROM_EMAIL
         - name: KML_EXPORT
-            valueFrom:
-              configMapKeyRef:
-                name: site-configmap
-                key: KML_EXPORT
+          valueFrom:
+            configMapKeyRef:
+              name: site-configmap
+              key: KML_EXPORT
       - image: prom/statsd-exporter:v0.8.1
         name: statsd-exporter
         args: ["--statsd.listen-udp=127.0.0.1:8125"]
