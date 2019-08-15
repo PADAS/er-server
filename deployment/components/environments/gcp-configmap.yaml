@@ -18,4 +18,5 @@ data:
   CONFIG_ACCOUNT: "<<config-account>>"
   USE_AZURE_STORAGE: "false"
   DJANGO_TOOLBAR: "<<django-toolbar>>"
+  KML_EXPORT: "true"
 
