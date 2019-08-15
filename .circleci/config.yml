@@ -1,0 +1,52 @@
+version: 2.1
+commands:
+  #add_deploy_key_for_common_terraform_modules:
+  #  steps:
+  #    - add_ssh_keys:
+  #        fingerprints:
+  #          - ''
+executors:
+  default:
+    docker:
+      - image: 'circleci/buildpack-deps:stretch'
+jobs:
+  terraform_plan:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - 'checkout'
+        #- 'add_deploy_key_for_common_terraform_modules'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && make terraform_init init_args="-input=false"'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && make terraform_plan plan_args="-input=false -out=tfplan"'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*.*'
+            - '*'
+  terraform_apply:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - attach_workspace:
+          at: './'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && make terraform_apply apply_args="-input=false tfplan"'
+workflows:
+  version: 2
+  terraform:
+    jobs:
+      - terraform_plan: {}
+      - review_plan:
+          filters:
+            branches:
+              only: 'develop'
+          requires:
+            - 'terraform_plan'
+          type: 'approval'
+      - terraform_apply:
+          filters:
+            branches:
+              only: 'develop'
+          requires:
+            - 'review_plan'
