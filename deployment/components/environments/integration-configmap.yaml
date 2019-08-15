@@ -19,3 +19,5 @@ data:
   CONFIG_ACCOUNT_KEY: "<<config-account-key>>"
   CONFIG_ACCOUNT: "<<config-account>>"
   USE_AZURE_STORAGE: "false"
+  KML_EXPORT: "true"
+  
