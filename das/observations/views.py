@@ -286,6 +286,9 @@ class SubjectsView(generics.ListCreateAPIView):
 
     schema = SubjectsViewSchema()
 
+    # Ensure this attribute is present with a sensible default for any child classes.
+    subject_linked_sources = {}
+
     def get_queryset(self):
         self.subject_linked_sources = {}
         min_age = get_minimum_allowed_age(self.request.user) or 0
