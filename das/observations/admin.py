@@ -1004,7 +1004,7 @@ class SubjectSummaryAdmin(admin.ModelAdmin):
         return response
 
 
-# @admin.register(models.SubjectPositionSummary)
+@admin.register(models.SubjectPositionSummary)
 class SubjectPositionSummaryAdmin(admin.ModelAdmin):
     change_list_template = 'admin/subject_position_change_list.html'
     date_hierarchy = 'recorded_at'

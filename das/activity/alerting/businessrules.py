@@ -262,6 +262,7 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
                     logger.warning('Name collision on %s with different return types.', k)
             else:
 
+                print(f'et:{event_type_value}, {k}, {rule_return_type}, {v}')
                 newattr = RuleVariableSpec(attrname=k, return_type=rule_return_type,
                                            label=v.get('title', k), optionsdict=accumulate_options(v))
                 attributes_accumulator[k] = newattr

@@ -228,8 +228,16 @@ class EventProviderAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventsourceEvent)
 class EventsourceEventAdmin(admin.ModelAdmin):
-    pass
+    date_hierarchy = 'created_at'
 
+    list_display = ('event_serial_number',)
+    def event_serial_number(self, obj):
+        return obj.event.serial_number
+    event_serial_number.short_description = 'Event Serial No.'
+
+    def eventsource_display(self, obj):
+        return obj.eventsource.display
+    eventsource_display.short_description = 'Event Source'
 
 @admin.register(models.EventCategory)
 class EventCategoryAdmin(admin.ModelAdmin):
