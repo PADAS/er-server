@@ -326,9 +326,9 @@ def check_redis_queues():
     update_gauge('redis_memory_gauge', val)
 
     logger.info('redis_memory_use', extra={
-        'used_memory': memory_info.get('used_memory', -1),
-        'maxmemory': memory_info.get('maxmemory', -1),
-        'total_system_memory': memory_info.get('total_system_memory', -1),
+        'used_memory': memory_info['used_memory'],
+        'maxmemory': memory_info['maxmemory'],
+        'total_system_memory': memory_info['total_system_memory'],
         'memory_gauge': val,
     })
 
