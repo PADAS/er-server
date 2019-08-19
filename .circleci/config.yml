@@ -63,7 +63,7 @@ workflows:
   build_base:
     jobs:
       - docker_build:
-          filter:
+          filters:
             branches:
-              only: shim-for-circleci-docker
+              only: 'shim-for-circleci-docker'
 
