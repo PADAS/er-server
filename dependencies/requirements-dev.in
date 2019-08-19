@@ -13,5 +13,5 @@ xmlunittest==0.5.0
 pip-tools==4.0.0
 django-debug-toolbar==1.11
 websocket-client==0.56.0
-coverage==4.5.3
+coverage==4.5.4
 django-jenkins==0.110.0
