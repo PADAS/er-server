@@ -35,3 +35,11 @@ terraform_apply: ## invoke (bundled) Terraform apply | [apply_args="..."]
 	@ git diff --cached --quiet --exit-code || (printf "%s\n" "there are uncommitted changes... it is not wise to run terraform apply" >&2; exit 1)
 	@ export PATH="$(vulcan_path)/$(uname_s):$${PATH}" && terraform apply $(apply_args)
 	@ printf "\n\033[1;4;5;31;107m%s\033[0m\n" "make sure to git push any commits back to origin" >&2
+
+base_image_name := gcr.io/padas-app/deleteme/circleci-das-base
+version ?= beta-$(shell date +%s)
+
+.PHONY: build_and_push
+build_and_push: ## Master branch and beta branch: Build the Docker image and push to Google Container Repository with unique tag ids
+	cd circleci-docker/base && docker build --tag $(base_image_name):$(version) .
+	docker push $(base_image_name):$(version)
