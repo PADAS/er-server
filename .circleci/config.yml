@@ -60,10 +60,10 @@ workflows:
           requires:
             - 'review_plan'
 
-    build_base:
-      jobs:
-        - docker_build:
-            filter:
-              branches:
-                only: shim-for-circleci-docker
+  build_base:
+    jobs:
+      - docker_build:
+          filter:
+            branches:
+              only: shim-for-circleci-docker
 
