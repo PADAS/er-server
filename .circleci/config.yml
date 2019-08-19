@@ -32,6 +32,15 @@ jobs:
       - attach_workspace:
           at: './'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_apply apply_args="-input=false tfplan"'
+  docker_build:
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - docker_login
+      - checkout
+      - run: make build_and_push version=$CIRCLE_BRANCH
 workflows:
   version: 2
   terraform:
@@ -50,3 +59,11 @@ workflows:
               only: 'develop'
           requires:
             - 'review_plan'
+
+    build_base:
+      jobs:
+        - docker_build:
+            filter:
+              branches:
+                only: shim-for-circleci-docker
+
