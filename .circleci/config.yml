@@ -48,7 +48,13 @@ workflows:
   version: 2
   build_and_terraform:
     jobs:
-      - terraform_plan: {}
+      - docker_build:
+          filters:
+            branches:
+              only: 'shim-for-circleci-docker'
+      - terraform_plan:
+          requires:
+            - 'docker_build'
       - review_plan:
           filters:
             branches:
@@ -62,10 +68,4 @@ workflows:
               only: 'develop'
           requires:
             - 'review_plan'
-      - docker_build:
-          filters:
-            branches:
-              only: 'shim-for-circleci-docker'
-
-
 
