@@ -16,5 +16,5 @@ help: ## show this help
 
 .PHONY: base_build_and_push
 base_build_and_push: ## Develop branch: Build the Docker base image and push to Google Container Repository with unique tag ids
-	cd base && docker build --tag $(base_image_name):$(version) .
+	cd ../ && docker build  -f circleci-docker/base/Dockerfile --tag $(base_image_name):$(version) .
 	docker push $(base_image_name):$(version)
