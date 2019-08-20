@@ -8,7 +8,7 @@
 
       <Document>
 
-          <name>{{ name }} (points)</name>
+          <name>{{ name }} (points and tracks)</name>
           <visibility>1</visibility>
           <Style id="p-style">
               <IconStyle>
@@ -21,6 +21,10 @@
               <LabelStyle>
                   <scale>0</scale>
               </LabelStyle>
+              <LineStyle>
+                  <color>{{track_color}}</color>
+                  <width>0.4</width>
+              </LineStyle>
 
           </Style>
 
@@ -34,50 +38,30 @@
               <when>{{observation.recorded_at.strftime('%Y-%m-%dT%H:%M:%SZ')}}</when>
             </TimeStamp>
             <styleUrl>p-style</styleUrl>
-            <Point>
-              <coordinates>
-                  {{observation.location.x }}, {{ observation.location.y }}, 0
-              </coordinates>
-            </Point>
+
+            <MultiGeometry>
+                <Point>
+                  <coordinates>
+                      {{observation.location.x }}, {{ observation.location.y }}, 0
+                  </coordinates>
+                </Point>
+
+                {% if loop.previtem is defined -%}
+                    <LineString>
+                        <extrude>1</extrude>
+                        <tessellate>1</tessellate>
+                        <coordinates>
+                            {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},0
+                        </coordinates>
+                    </LineString>
+                {% endif %}
+          </MultiGeometry>
+
           </Placemark>
           {% endif %}
           {% endfor %}
 
       </Document>
-
-
-      <Document>
-          <name>{{ name }} (tracks)</name>
-          <visibility>1</visibility>
-          <Style id="t-linestyle">
-              <LineStyle>
-                  <color>{{track_color}}</color>
-                  <width>0.4</width>
-              </LineStyle>
-          </Style>
-
-          {% for observation in observations | sort(attribute='recorded_at') -%}
-          {% if loop.previtem is defined -%}
-              <Placemark id="t-{{ loop.index }}">
-                <name>{{observation.location.x }}, {{ observation.location.y }}</name>
-                <styleUrl>t-linestyle</styleUrl>
-                <TimeStamp>
-                  <when>{{observation.recorded_at.strftime('%Y-%m-%dT%H:%M:%SZ')}}</when>
-                </TimeStamp>
-                <LineString>
-                  <extrude>1</extrude>
-                  <tessellate>1</tessellate>
-                  <coordinates>
-                      {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},0
-                  </coordinates>
-                </LineString>
-              </Placemark>
-          {% endif %}
-          {% endfor %}
-
-      </Document>
-
-
 
 
       <Document>
