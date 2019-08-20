@@ -56,21 +56,24 @@
               </LineStyle>
           </Style>
 
-          <Placemark id="track">
-            <name/>
-            <styleUrl>t-linestyle</styleUrl>
-            <LineString>
-              <extrude>1</extrude>
-              <tessellate>1</tessellate>
-              <coordinates>
-              {% for observation in observations | sort(attribute='recorded_at') -%}
-              {% if loop.previtem is defined -%}
-                  {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},0
-              {% endif %}
-              {% endfor %}
-              </coordinates>
-            </LineString>
-          </Placemark>
+          {% for observation in observations | sort(attribute='recorded_at') -%}
+          {% if loop.previtem is defined -%}
+              <Placemark id="t-{{ loop.index }}">
+                <name>{{observation.location.x }}, {{ observation.location.y }}</name>
+                <styleUrl>t-linestyle</styleUrl>
+                <TimeStamp>
+                  <when>{{observation.recorded_at.strftime('%Y-%m-%dT%H:%M:%SZ')}}</when>
+                </TimeStamp>
+                <LineString>
+                  <extrude>1</extrude>
+                  <tessellate>1</tessellate>
+                  <coordinates>
+                      {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},0
+                  </coordinates>
+                </LineString>
+              </Placemark>
+          {% endif %}
+          {% endfor %}
 
       </Document>
 
