@@ -29,7 +29,6 @@
           </Style>
 
           {% for observation in observations | sort(attribute='recorded_at') %}
-          {% if loop.nextitem is defined %}
           <Placemark id="p-{{ loop.index }}">
             <Snippet>{{observation.recorded_at}}</Snippet>
             <name>{{observation.location.x }}, {{ observation.location.y }}</name>
@@ -58,7 +57,6 @@
           </MultiGeometry>
 
           </Placemark>
-          {% endif %}
           {% endfor %}
 
       </Document>
