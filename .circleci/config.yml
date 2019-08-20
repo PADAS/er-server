@@ -1,5 +1,8 @@
 version: 2.1
 commands:
+  docker_login:
+    steps:
+      - run: echo "$GCR_PUSH_KEY" | docker login --username _json_key --password-stdin https://gcr.io
   #add_deploy_key_for_common_terraform_modules:
   #  steps:
   #    - add_ssh_keys:
@@ -32,11 +35,26 @@ jobs:
       - attach_workspace:
           at: './'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_apply apply_args="-input=false tfplan"'
+  docker_build:
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - docker_login
+      - checkout
+      - run: 'cd circleci-docker && make base_build_and_push version=$CIRCLE_BRANCH'
 workflows:
   version: 2
-  terraform:
+  build_and_terraform:
     jobs:
-      - terraform_plan: {}
+      - docker_build:
+          filters:
+            branches:
+              only: 'shim-for-circleci-docker'
+      - terraform_plan:
+          requires:
+            - 'docker_build'
       - review_plan:
           filters:
             branches:
@@ -50,3 +68,4 @@ workflows:
               only: 'develop'
           requires:
             - 'review_plan'
+
