@@ -1,0 +1,12 @@
+project-id: padas-app
+version-prefix: dev
+cluster-name: integration
+server-branch-name: councourse_pipeline_updates
+web-branch-name: develop
+namespace: circleci
+web-react-admin-branch-name: master
+tag-as-latest: true
+#das-static-ip: 35.197.23.193
+deploy-params-environment: integration
+deploy-recipe: standard-integration.yaml
+iaas-workspace: "padas-app"
