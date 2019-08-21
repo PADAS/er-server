@@ -1,5 +1,5 @@
 ARG base_tag=latest
-FROM gcr.io/padas-app/base:${base_tag}
+FROM gcr.io/padas-app/deleteme/circleci-image-server-base:${base_tag}
 
 ARG version=""
 
