@@ -5,6 +5,16 @@ resources:
 #
 ################################################################################
 # git resources
+# CircleCI Input
+- name: shared-services-circleci-input
+  type: docker-image
+  source:
+    email: "user@example.com"
+    username: "_json_key"
+    password: ((padas-app-container-registry-push))
+    tag: master
+    repository: gcr.io/padas-app/deleteme/circleci-build
+
 - name: server-version
   type: semver
   source:
@@ -400,6 +410,20 @@ resource_types:
 jobs:
 - name: docker-build-server-base
   max_in_flight: 1
+  plan:
+    - get: shadow-docker-path
+      trigger: true
+    - get: shared-services-circleci-input
+      trigger: true
+    - put: shared-services-concourse-output
+      params: {
+        build: git-server-base,
+        dockerfile: git-server-base/docker/base/Dockerfile,
+        tag: server-base-version/version,
+        tag_as_latest: ((tag-as-latest))
+        build_args:
+          TAG: master
+      }
   plan:
   - get: git-server-base
     params:
