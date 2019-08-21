@@ -71,12 +71,8 @@ class KmlSubjectViewTest(BaseAPITest):
         timestamps = []
         kml_subject = list(kml_object.features())
         kml_subject_details = list(kml_subject[0].features())
-        observation_details = None
-        for point_type in kml_subject_details:
-            if 'points' in point_type.name:
-                observation_details = point_type
-                break
-        observations = list(observation_details.features())
+
+        observations = list(kml_subject_details[0].features())
         for observation in observations:
             timestamps.append(observation.timeStamp)
         return timestamps
