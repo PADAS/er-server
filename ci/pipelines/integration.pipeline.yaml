@@ -164,25 +164,14 @@ resources:
     private_key: ((das-versions-github))
     initial_version: ((initial-smartconnect-version))
 
-# CircleCI Input
-- name: circleci-das-base-image 
-  type: docker-image
+#base docker resources
+- name: image-server-base
+  type: docker-image-with-file-build-args
   source:
-    email: "user@example.com"
-    username: "_json_key"
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
-    tag: shim-for-circleci-docker
-    repository: gcr.io/padas-app/deleteme/circleci-das-base
-
-- name: circleci-image-server-base
-  type: docker-image
-  source:
-    email: "user@example.com"
-    username: "_json_key"
-    password: ((padas-app-container-registry-push))
-    tag: concourse_pipeline_updates
-    repository: gcr.io/padas-app/deleteme/circleci-image-server-base
-            
+    repository: gcr.io/padas-app/base
 
 - name: image-server-app
   type: docker-image-with-file-build-args
@@ -415,28 +404,28 @@ jobs:
   - get: git-server-base
     params:
         submodules: none
-  - get: circleci-das-base-image
     trigger: true
+    params:
+      submodules: none
   - put: server-base-version
     params:
       pre: ((version-prefix))
-  - put: circleci-image-server-base
+  - put: image-server-base
     params: {
       build: git-server-base,
       dockerfile: git-server-base/docker/base/Dockerfile,
       tag: server-base-version/version,
-      tag_as_latest: ((tag-as-latest)),
-      build_args: {TAG: shim-for-circleci-docker}
+      tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
-#      on_failure:
-#        do:
-#        - put: slack-alert
-#          params:
-#            channel: ((slack-notification-channel))
-#            text: |
-#              :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
-#              $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
 - name: docker-build-server-app
   max_in_flight: 1
@@ -446,7 +435,7 @@ jobs:
       params:
         submodules: none
       passed: [docker-build-server-base]
-    - get: circleci-image-server-base
+    - get: image-server-base
       passed: [docker-build-server-base]
       trigger: true
       params: {
