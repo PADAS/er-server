@@ -5,7 +5,7 @@ SHELL := /usr/bin/env sh
 
 .DEFAULT_GOAL := help
 
-base_image_name := gcr.io/padas-app/deleteme/circleci-das-base
+base_image_name := gcr.io/padas-app/circleci/das-base
 version ?= beta-$(shell date +%s)
 
 .PHONY: help
