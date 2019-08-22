@@ -43,7 +43,7 @@ jobs:
           docker_layer_caching: true
       - docker_login
       - checkout
-      - run: 'cd circleci-docker && make base_build_and_push version=$CIRCLE_BRANCH'
+      - run: 'cd circleci-docker && make base_build_and_push version=latest'
 workflows:
   version: 2
   build_and_terraform:
@@ -51,7 +51,9 @@ workflows:
       - docker_build:
           filters:
             branches:
-              only: 'shim-for-circleci-docker'
+              only:
+                - concourse_pipeline_updates
+                - develop
       - terraform_plan:
           requires:
             - 'docker_build'
