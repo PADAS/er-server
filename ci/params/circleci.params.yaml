@@ -6,7 +6,7 @@ web-branch-name: develop
 namespace: circleci
 web-react-admin-branch-name: master
 tag-as-latest: true
-#das-static-ip: 35.197.23.193
+das-static-ip: 34.83.76.186
 deploy-params-environment: integration
 deploy-recipe: standard-integration.yaml
 iaas-workspace: "padas-app"
