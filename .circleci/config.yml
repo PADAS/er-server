@@ -52,7 +52,6 @@ workflows:
           filters:
             branches:
               only:
-                - concourse_pipeline_updates
                 - develop
       - terraform_plan:
           requires:
