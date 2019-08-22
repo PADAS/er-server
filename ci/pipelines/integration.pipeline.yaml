@@ -415,6 +415,7 @@ jobs:
       build: git-server-base,
       dockerfile: git-server-base/docker/base/Dockerfile,
       tag: server-base-version/version,
+      build_args: {BASE_IMAGE_TAG: latest}
       tag_as_latest: ((tag-as-latest))
     }
     get_params: {skip_download: true}
