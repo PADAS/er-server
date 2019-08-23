@@ -10,3 +10,6 @@ EXPOSE 5400
 
 ENV VERSION=${version}
 
+WORKDIR /var/www/app
+CMD start_api_server.sh
+
