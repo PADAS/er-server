@@ -173,6 +173,15 @@ resources:
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/base
 
+- name: circleci-das-base-image
+  type: docker-image
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/circleci/das-base
+    tag: latest
+
 - name: image-server-app
   type: docker-image-with-file-build-args
   source:
@@ -403,10 +412,10 @@ jobs:
   plan:
   - get: git-server-base
     params:
-        submodules: none
-    trigger: true
-    params:
       submodules: none
+    trigger: false
+  - get: circleci-das-base-image
+    trigger: true
   - put: server-base-version
     params:
       pre: ((version-prefix))
