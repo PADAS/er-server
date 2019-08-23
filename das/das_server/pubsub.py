@@ -89,9 +89,11 @@ def subscribe(subscription_list, loop_forever=True):
 
         with nested(*consumers):
             while True:
-                conn.drain_events()
-                if not loop_forever:
-                    break
+                try:
+                    conn.drain_events(timeout=5)
+                except socket.timeout:
+                    if not loop_forever:
+                        break
 
 
 def installed_apps_subscriptions(submodule='pubsub_registry',
