@@ -3,6 +3,7 @@ version-prefix: dev
 cluster-name: integration
 server-branch-name: develop
 web-branch-name: develop
+web-react-admin-branch-name: master
 tag-as-latest: true
 das-static-ip: 35.197.23.193
 deploy-params-environment: integration

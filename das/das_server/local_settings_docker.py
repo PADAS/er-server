@@ -71,7 +71,7 @@ NOTIFY_HIGH_PRIORITY_EVENT = 'high_priority_alerts'
 NOTIFY_MEDIUM_PRIORITY_EVENT = 'medium_priority_alerts'
 NOTIFY_LOW_PRIORITY_EVENT = 'low_priority_alerts'
 
-EXPORT_KML_ENABLED = True
+EXPORT_KML_ENABLED = env.bool('KML_EXPORT', True)
 
 DATABASES = {
     'default': {

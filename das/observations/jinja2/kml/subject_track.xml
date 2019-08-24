@@ -8,7 +8,7 @@
 
       <Document>
 
-          <name>{{ name }} (points)</name>
+          <name>{{ name }} ({{ observations[0].recorded_at.strftime('%Y-%m-%d %H:%M:%SZ') }})</name>
           <visibility>1</visibility>
           <Style id="p-style">
               <IconStyle>
@@ -21,65 +21,12 @@
               <LabelStyle>
                   <scale>0</scale>
               </LabelStyle>
-
-          </Style>
-
-          {% for observation in observations | sort(attribute='recorded_at') %}
-          {% if loop.nextitem is defined %}
-          <Placemark id="p-{{ loop.index }}">
-            <Snippet>{{observation.recorded_at}}</Snippet>
-            <name>{{observation.location.x }}, {{ observation.location.y }}</name>
-            <description>{{observation.recorded_at}}</description>
-            <TimeStamp>
-              <when>{{observation.recorded_at.strftime('%Y-%m-%dT%H:%M:%SZ')}}</when>
-            </TimeStamp>
-            <styleUrl>p-style</styleUrl>
-            <Point>
-              <coordinates>
-                  {{observation.location.x }}, {{ observation.location.y }}, 0
-              </coordinates>
-            </Point>
-          </Placemark>
-          {% endif %}
-          {% endfor %}
-
-      </Document>
-
-
-      <Document>
-          <name>{{ name }} (tracks)</name>
-          <visibility>1</visibility>
-          <Style id="t-linestyle">
               <LineStyle>
                   <color>{{track_color}}</color>
                   <width>0.4</width>
               </LineStyle>
+
           </Style>
-
-          <Placemark id="track">
-            <name/>
-            <styleUrl>t-linestyle</styleUrl>
-            <LineString>
-              <extrude>1</extrude>
-              <tessellate>1</tessellate>
-              <coordinates>
-              {% for observation in observations | sort(attribute='recorded_at') -%}
-              {% if loop.previtem is defined -%}
-                  {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},0
-              {% endif %}
-              {% endfor %}
-              </coordinates>
-            </LineString>
-          </Placemark>
-
-      </Document>
-
-
-
-
-      <Document>
-          <name>{{name}} (last position)</name>
-          <visibility>1</visibility>
           <Style id="finalpoint_hover">
             <IconStyle>
               <scale>1</scale>
@@ -124,6 +71,7 @@
               <styleUrl>#finalpoint_hover</styleUrl>
             </Pair>
           </StyleMap>
+
           <Placemark id="">
             <Snippet/>
             <name>Last Position: {{observations[0].recorded_at}}</name>
@@ -147,7 +95,40 @@
               </coordinates>
             </Point>
           </Placemark>
-    </Document>
+
+          {% for observation in observations | sort(attribute='recorded_at') %}
+          <Placemark id="p-{{ loop.index }}">
+            <Snippet>{{observation.recorded_at.strftime('%Y-%m-%d %H:%M:%SZ') }}</Snippet>
+            <name>{{observation.location.x }}, {{ observation.location.y }}</name>
+            <description>{{ observation.recorded_at.strftime('%Y-%m-%d %H:%M:%SZ') }}</description>
+            <TimeStamp>
+              <when>{{observation.recorded_at.strftime('%Y-%m-%d %H:%M:%SZ')}}</when>
+            </TimeStamp>
+            <styleUrl>p-style</styleUrl>
+
+            <MultiGeometry>
+                <Point>
+                  <coordinates>
+                      {{observation.location.x }}, {{ observation.location.y }}, 0
+                  </coordinates>
+                </Point>
+
+                {% if loop.previtem is defined -%}
+                    <LineString>
+                        <extrude>1</extrude>
+                        <tessellate>1</tessellate>
+                        <coordinates>
+                            {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},0
+                        </coordinates>
+                    </LineString>
+                {% endif %}
+          </MultiGeometry>
+
+          </Placemark>
+          {% endfor %}
+
+      </Document>
+
   {% else %}
   <Placemark id="">
       <name>No track data available</name>

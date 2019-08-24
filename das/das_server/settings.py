@@ -176,6 +176,11 @@ REST_FRAMEWORK = {
             'in': 'header',
         }
     },
+
+    # Django REST Framework 3.10 defaults to OpenAPI Schema Generation, but we still have minor dependencies on
+    # CoreAPI. We set this value to pin ourselves to CoreAPI temporarily until we make updates for OpenAPI.
+    # For more info, see: https://www.django-rest-framework.org/community/3.10-announcement/#continuing-to-use-coreapi
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema'
 }
 
 AUTHENTICATION_BACKENDS = (

@@ -278,14 +278,14 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
     ordering = ('last_name', 'first_name', 'username')
     fieldsets = (
         (None, {
-            'fields': ('first_name', 'last_name',
+            'fields': ('first_name', 'last_name', 'role',
                        'email', 'phone',
                        'is_email_alert', 'is_sms_alert',
                        'username', 'password')
         }),
-        ('Additiona JSON Fields', {
+        ('Additional JSON Fields', {
             'fields': ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
-                       'organization', 'tech', 'role')
+                       'organization', 'tech',)
         }),
         ('Additional Data', {
             'fields': ['additional']}
@@ -306,7 +306,7 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
     add_form = CustomUserCreationForm
     add_fieldsets = (
         (None, {
-            'fields': ('first_name', 'last_name',
+            'fields': ('first_name', 'last_name', 'role',
                        'email', 'phone',
                        'is_email_alert', 'is_sms_alert',
                        'username'
@@ -314,7 +314,7 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         }),
         ('Additional JSON Fields', {
             'fields': ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
-                       'organization', 'tech', 'role',)
+                       'organization', 'tech',)
         }),
         ('Additional JSON Data', {
             'fields': ['additional']
