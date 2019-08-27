@@ -32,3 +32,4 @@ data:
   KARINGANI_DAS_SENSOR_ENDPOINT: "https://karingani.pamdas.org/api/v1.0"
   KARINGANI_SPOT_PROVIDER_DAS_TOKEN: "<<karingani-spot-das-token>>"
   KARINGANI_SPOT_SOURCE_GROUP: "13e2593dc457413985d247e10bbcd892"
+  KARINGANI_SPOT_SOURCE_PROVIDER: "kgr-spot-air1"

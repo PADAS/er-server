@@ -31,5 +31,8 @@ spec:
                   name: etl-configmap
                   key: KARINGANI_SPOT_SOURCE_GROUP
             - name: SOURCE_PROVIDER
-              value: "kgr-spot-air1"
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-configmap
+                  key: KARINGANI_SPOT_SOURCE_PROVIDER
           restartPolicy: Never
