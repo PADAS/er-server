@@ -10,3 +10,4 @@ paths:
 - etl-components/olpejeta-sigfox-provider.yaml
 - etl-components/bangweulu-quadratex-provider.yaml
 - etl-components/nluangwa-capturs-provider.yaml
+- etl-components/karingani-spot-provider.yaml

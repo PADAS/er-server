@@ -1,0 +1,35 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  namespace: <<namespace>>
+  name: karingani-spot-provider-etl
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          imagePullSecrets:
+          - name: gcr-secret
+          containers:
+          - name: karingani-spot-provider-etl
+            image: gcr.io/padas-app/etl/spot-provider:latest
+            env:
+            - name: DAS_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-configmap
+                  key: KARINGANI_DAS_SENSOR_ENDPOINT
+            - name: DAS_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-configmap
+                  key: KARINGANI_SPOT_PROVIDER_DAS_TOKEN
+            - name: SOURCE_GROUP
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-configmap
+                  key: KARINGANI_SPOT_SOURCE_GROUP
+            - name: SOURCE_PROVIDER
+              value: "kgr-spot-air1"
+          restartPolicy: Never
