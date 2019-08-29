@@ -22,7 +22,6 @@ from django.db.models.functions import FirstValue
 from django.contrib.postgres.aggregates import StringAgg, JSONBAgg
 from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
 
-
 from django.urls import reverse
 from django.template import Template, Context
 from django.utils import timezone
@@ -36,21 +35,26 @@ from django.views.generic.base import TemplateResponseMixin, ContextMixin
 
 from accounts.models import User
 
-from activity.models import Event, EventNote, EventClass,\
-    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community,\
+from activity.models import Event, EventNote, EventClass, \
+    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, \
+    EventFile, Community, \
     EventFilter, EventSource, EventProvider
 
-from activity.serializers import EventSerializer, EventNoteSerializer,\
-    EventJSONSchema, EventStateSerializer,\
-    EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
-    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer, \
-    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, EventGeoJsonSerializer
+from activity.serializers import EventSerializer, EventNoteSerializer, \
+    EventJSONSchema, EventStateSerializer, \
+    EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer, \
+    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, \
+    EventFileSerializer, \
+    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
+    EventGeoJsonSerializer
 from activity.alerts import get_alert_users
 from activity.filters import EventObjectPermissionsFilter
 
 from rest_framework.permissions import IsAuthenticated
-from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
-from utils.drf import StandardResultsSetPagination, StandardResultsSetGeoJsonPagination
+from activity.permissions import EventCategoryPermissions, \
+    EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
+from utils.drf import StandardResultsSetPagination, \
+    StandardResultsSetGeoJsonPagination
 from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
 import utils
 import accounts.serializers
@@ -59,7 +63,6 @@ from observations.models import Subject
 from rest_framework import views
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
 import utils.schema_utils as schema_utils
-
 
 logger = logging.getLogger(__name__)
 
@@ -126,13 +129,13 @@ class EventProvidersView(generics.ListCreateAPIView):
     permission_classes = (IsOwner,)
 
     def get_queryset(self):
-        return EventProvider.objects.filter(owner=self.request.user, is_active=True).order_by('display')
+        return EventProvider.objects.filter(owner=self.request.user,
+                                            is_active=True).order_by('display')
 
 
 class EventSourcesView(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
-
         request.data['eventprovider'] = kwargs['eventprovider_id']
         return super().post(request, *args, **kwargs)
 
@@ -227,10 +230,9 @@ from activity.search import get_event_search_schema
 
 class EventFilterSchemaView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
-
         schema = get_event_search_schema()
         schema['schema']['id'] = utils.add_base_url(
-            request, reverse('eventfilter-schema-view',))
+            request, reverse('eventfilter-schema-view', ))
 
         return generics.views.Response(schema)
 
@@ -291,24 +293,31 @@ class EventCountView(generics.ListAPIView):
 
 def generate_reported_by_lookup():
     user_qs = User.objects.all() \
-        .annotate(internal_id=Cast('id', CharField()), value=F('username'), kind=Value('user', output_field=CharField()), display_value=Concat('first_name', Value(' '), 'last_name'))\
+        .annotate(internal_id=Cast('id', CharField()), value=F('username'),
+                  kind=Value('user', output_field=CharField()),
+                  display_value=Concat('first_name', Value(' '), 'last_name')) \
         .values_list('internal_id', 'value', 'kind', 'display_value')
     community_qs = Community.objects.all() \
-        .annotate(internal_id=Cast('id', CharField()), value=F('name'), kind=Value('community', output_field=CharField()), display_value=F('name')) \
+        .annotate(internal_id=Cast('id', CharField()), value=F('name'),
+                  kind=Value('community', output_field=CharField()),
+                  display_value=F('name')) \
         .values_list('internal_id', 'value', 'kind', 'display_value')
     reported_by_qs = Subject.objects.all() \
-        .annotate(internal_id=Cast('id', CharField()), value=Cast('id', CharField()), kind=Value('subject', output_field=CharField()), display_value=F('name')) \
+        .annotate(internal_id=Cast('id', CharField()),
+                  value=Cast('id', CharField()),
+                  kind=Value('subject', output_field=CharField()),
+                  display_value=F('name')) \
         .values_list('internal_id', 'value', 'kind', 'display_value')
 
     reported_by_list = reported_by_qs.union(user_qs, community_qs)
 
     reported_by_map = dict(
-        (x[0], {'value': x[1], 'kind': x[2], 'display': x[3]}) for x in reported_by_list)
+        (x[0], {'value': x[1], 'kind': x[2], 'display': x[3]}) for x in
+        reported_by_list)
     return reported_by_map
 
 
 class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
-
     permission_classes = (EventCategoryPermissions,)
 
     def get_event_export_list(self):
@@ -328,9 +337,9 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         default_headers = [
             'Report Type', 'Report Type Internal Value', 'Report Id', 'Title',
             'Priority', 'Priority Internal Value', 'Status', 'Reported By',
-                        'Reported By Internal Value', reported_at, 'Latitude', 'Longitude',
-                        'Number of Notes', 'Notes', 'Number of Related Subjects',
-                        'Collection Report Id', 'CUSTOM FIELDS BEGIN HERE'
+            'Reported By Internal Value', reported_at, 'Latitude', 'Longitude',
+            'Number of Notes', 'Notes', 'Number of Related Subjects',
+            'Collection Report Id', 'CUSTOM FIELDS BEGIN HERE'
         ]
         custom_headers = []
         combined_headers = []
@@ -343,15 +352,19 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             to_event_id=OuterRef('id')).order_by('created_at')
 
         for event in self.get_queryset() \
-                .annotate(notes_count=Count('note')) \
-                .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
-                .annotate(related_subjects_count=Count('related_subjects')) \
-                .annotate(parent_event_title=Subquery(parent_event_subquery.values('from_event_title')[:1])) \
-                .values('id', 'serial_number', 'priority', 'state',
-                        'title', 'event_type_id', 'event_type__value', 'event_type__display',
-                        'event_type__schema', 'event_details__data', 'notes_count', 'full_notes',
-                        'parent_event_title', 'location', 'event_time', 'reported_by_id',
-                        'related_subjects_count'):
+            .annotate(notes_count=Count('note')) \
+            .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
+            .annotate(related_subjects_count=Count('related_subjects')) \
+            .annotate(parent_event_id=Subquery(
+                parent_event_subquery.values('from_event_id')[:1])) \
+            .values('id', 'serial_number', 'priority', 'state',
+                    'title', 'event_type_id', 'event_type__value',
+                    'event_type__display',
+                    'event_type__schema', 'event_details__data', 'notes_count',
+                    'full_notes',
+                    'parent_event_id', 'location', 'event_time',
+                    'reported_by_id',
+                    'related_subjects_count'):
 
             if event['event_type_id'] != current_event_type_data['id']:
 
@@ -396,7 +409,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             # for the headers above
             if event['event_details__data']:
                 details = schema_utils.get_display_values_for_event_details(
-                    event['event_details__data'].get('event_details', {}), current_schema)
+                    event['event_details__data'].get('event_details', {}),
+                    current_schema)
             else:
                 details = {}
 
@@ -414,16 +428,21 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'event_type': event['event_type__display'],
                 'event_type_internal': event['event_type__value'],
                 'title': self.escape_string(event['title']),
-                'priority': Event.PRIORITY_LABELS_MAP.get(event['priority'], ''),
+                'priority': Event.PRIORITY_LABELS_MAP.get(event['priority'],
+                                                          ''),
                 'priority_internal': event['priority'],
-                'reported_at': event['event_time'].astimezone(current_tz).strftime('%Y-%m-%d %H:%M'),
-                'lat': event['location'].y if event['location'] is not None else '',
-                'lon': event['location'].x if event['location'] is not None else '',
+                'reported_at': event['event_time'].astimezone(
+                    current_tz).strftime('%Y-%m-%d %H:%M'),
+                'lat': event['location'].y if event[
+                    'location'] is not None else '',
+                'lon': event['location'].x if event[
+                    'location'] is not None else '',
                 'num_notes': event['notes_count'],
                 'notes': self.escape_string(event['full_notes']),
                 'num_attach': event['related_subjects_count'],
-                'parent_title': event['parent_event_title'],
-                'status': 'Resolved' if event['state'] == Event.SC_RESOLVED else 'Active',
+                'parent_id': event['parent_event_id'],
+                'status': 'Resolved' if event[
+                    'state'] == Event.SC_RESOLVED else 'Active',
                 'details': schema_data
             }
 
@@ -432,7 +451,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 str(event['reported_by_id']))
             if reported_by_values:
                 event_data['reported_by'] = reported_by_values['display']
-                event_data['reported_by_internal'] = reported_by_values['display']
+                event_data['reported_by_internal'] = reported_by_values[
+                    'display']
             else:
                 event_data['reported_by'] = ''
                 event_data['reported_by_internal'] = ''
@@ -444,7 +464,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             combined_headers.extend(custom_headers)
         return {
             'event_export_data': event_export_data,
-            'combined_headers': [header.replace(' ', '_') for header in combined_headers],
+            'combined_headers': [header.replace(' ', '_') for header in
+                                 combined_headers],
             'custom_headers': custom_headers
         }
 
@@ -464,7 +485,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
     def render_to_response(self, context, **response_kwargs):
 
         response = super().render_to_response(context, **response_kwargs)
-        response['Content-Disposition'] = f'attachment; filename={context["report_filename"]}'
+        response[
+            'Content-Disposition'] = f'attachment; filename={context["report_filename"]}'
         response['x-das-download-filename'] = context['report_filename']
         return response
 
@@ -554,8 +576,9 @@ class EventsView(generics.ListCreateAPIView):
         except AttributeError:
             include_for_posts = False
 
-        context['include_related_events'] = parse_bool(query_params.get('include_related_events',
-                                                                        include_for_posts))
+        context['include_related_events'] = parse_bool(
+            query_params.get('include_related_events',
+                             include_for_posts))
         context['include_notes'] = parse_bool(
             query_params.get('include_notes', include_for_posts))
 
@@ -568,7 +591,8 @@ class EventsView(generics.ListCreateAPIView):
 
     def get_queryset(self):
 
-        queryset = Event.objects.all_sort().prefetch_related('eventsource_event_refs')
+        queryset = Event.objects.all_sort().prefetch_related(
+            'eventsource_event_refs')
 
         query_params = self.request.query_params
         bbox = query_params.get('bbox', None)
@@ -779,7 +803,8 @@ class EventFilesView(generics.ListCreateAPIView):
         if 'filecontent.file' not in request.data:
             try:
                 # Ajax request.
-                request.data['filecontent.file'] = request.stream.FILES['filecontent.file']
+                request.data['filecontent.file'] = request.stream.FILES[
+                    'filecontent.file']
             except KeyError:
                 pass
 
@@ -793,7 +818,8 @@ class EventFilesView(generics.ListCreateAPIView):
         self.perform_create(serializer)
 
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(serializer.data, status=status.HTTP_201_CREATED,
+                        headers=headers)
 
     def get_queryset(self):
         event = generics.get_object_or_404(Event.objects.all(),
@@ -806,7 +832,6 @@ from usercontent.serializers import get_stored_filename
 
 
 class EventFileView(generics.RetrieveUpdateDestroyAPIView):
-
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventFileSerializer
 
@@ -839,22 +864,26 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
         if content_type in USERCONTENT_FORCE_DOWNLOAD:
             content_type = 'application/octet-stream'
 
-        if isinstance(instance.usercontent.file, (versatileimagefield.files.VersatileImageFieldFile,)):
-            filename = get_stored_filename(instance.usercontent.file, rendition_set='default',
+        if isinstance(instance.usercontent.file,
+                      (versatileimagefield.files.VersatileImageFieldFile,)):
+            filename = get_stored_filename(instance.usercontent.file,
+                                           rendition_set='default',
                                            rendition_key=desired_image_size)
             try:
                 response_file = instance.usercontent.file.field.storage.open(
                     filename)
             except OSError as oe:
                 logger.warning(
-                    'Failed attempt to open file %s. Will default to original file version.', filename)
+                    'Failed attempt to open file %s. Will default to original file version.',
+                    filename)
                 response_file = instance.usercontent.file
 
             response = HttpResponse(response_file, content_type=content_type)
         else:
             response = HttpResponse(
                 instance.usercontent.file, content_type=content_type)
-            response['Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename
+            response[
+                'Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename
 
         return response
 
@@ -869,24 +898,26 @@ class EventRelationshipsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
 
     def create(self, request, *args, **kwargs):
-
         type = request.data.get('type')
 
         from_event = generics.get_object_or_404(Event.objects.all(),
                                                 pk=self.kwargs['from_event_id'])
 
         to_event = generics.get_object_or_404(Event.objects.all(),
-                                              pk=request.data.get('to_event_id'))
+                                              pk=request.data.get(
+                                                  'to_event_id'))
 
-        relation = EventRelationship.objects.add_relationship(from_event=from_event, to_event=to_event,
-                                                              type=type,)
+        relation = EventRelationship.objects.add_relationship(
+            from_event=from_event, to_event=to_event,
+            type=type, )
 
         serializer = self.get_serializer(relation)
         headers = self.get_success_headers(serializer.data)
-        return response.Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return response.Response(serializer.data,
+                                 status=status.HTTP_201_CREATED,
+                                 headers=headers)
 
     def get_queryset(self):
-
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['from_event_id'])
 
@@ -910,7 +941,6 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
         return relationships
 
     def delete(self, request, *args, **kwargs):
-
         from_event = generics.get_object_or_404(Event.objects.all(),
                                                 pk=self.kwargs['from_event_id'])
 
@@ -937,7 +967,6 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class EventAlertTargetsListView(generics.ListAPIView):
-
     permission_classes = (EventCategoryPermissions,)
     serializer_class = accounts.serializers.UserDisplaySerializer
 
@@ -949,7 +978,6 @@ class EventAlertTargetsListView(generics.ListAPIView):
             return get_alert_users(priority)
 
         return accounts.models.User.objects.none()
-
 
 # # Views for Advanced Alert Functionality.
 # class EventAlertConditionsListView(generics.ListAPIView):

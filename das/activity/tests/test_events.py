@@ -29,14 +29,14 @@ from drf_extra_fields.geo_fields import PointField
 from core.tests import BaseAPITest
 from choices.models import Choice
 from accounts.models import PermissionSet
-from activity.models import Event, EventAttachment, EventType, EventCategory,\
-    EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, EventSource, EventProvider, parse_date_range
+from activity.models import Event, EventAttachment, EventType, EventCategory, \
+    EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, \
+    EventSource, EventProvider, parse_date_range
 from activity import views
 from observations.models import Subject
 from accounts.serializers import UserDisplaySerializer
 from observations.serializers import SubjectSerializer
 from utils.html import clean_user_text
-
 
 logger = logging.getLogger(__name__)
 
@@ -51,14 +51,18 @@ ET_LOGISTICS = 'all_posts'
 # All perms user has... all perms
 all_permissions = [
     'security_create', 'security_read', 'security_update', 'security_delete',
-    'monitoring_create', 'monitoring_read', 'monitoring_update', 'monitoring_delete',
-    'logistics_create', 'logistics_read', 'logistics_update', 'logistics_delete']
+    'monitoring_create', 'monitoring_read', 'monitoring_update',
+    'monitoring_delete',
+    'logistics_create', 'logistics_read', 'logistics_update',
+    'logistics_delete']
 # Power user has all access to logistics and monitoring events, but can only
 # read security events
 power_user_permissions = [
     'security_read',
-    'monitoring_create', 'monitoring_read', 'monitoring_update', 'monitoring_delete',
-    'logistics_create', 'logistics_read', 'logistics_update', 'logistics_delete']
+    'monitoring_create', 'monitoring_read', 'monitoring_update',
+    'monitoring_delete',
+    'logistics_create', 'logistics_read', 'logistics_update',
+    'logistics_delete']
 # Radio room users can create any type of event, view/update monitoring and
 # logistics events, and delete nothing
 radio_room_user_permissions = [
@@ -89,7 +93,9 @@ class TestEventView(BaseAPITest):
         call_command('loaddata', 'test_events_schema')
 
         self.no_perms_user = User.objects.create_user('no_perms_user',
-                                                      'das_no_perms@vulcan.com', 'noperms', **self.user_const)
+                                                      'das_no_perms@vulcan.com',
+                                                      'noperms',
+                                                      **self.user_const)
         self.guest_user = User.objects.create_user(
             'guest_user', 'das_guest_user@vulcan.com', 'guest_user',
             **self.user_const)
@@ -113,8 +119,9 @@ class TestEventView(BaseAPITest):
 
         self.notes_line1_prefix = 'note1 text'
         self.notes_line2_prefix = 'note2 text'
-        self.notes = [{'text': self.notes_line1_prefix + lorem_ipsum.paragraph()},
-                      {'text': self.notes_line2_prefix + lorem_ipsum.paragraph()}]
+        self.notes = [
+            {'text': self.notes_line1_prefix + lorem_ipsum.paragraph()},
+            {'text': self.notes_line2_prefix + lorem_ipsum.paragraph()}]
         self.event_data = dict(
             message=lorem_ipsum.paragraph(),
             time=DateTimeField().to_representation(timezone.now()),
@@ -172,7 +179,8 @@ class TestEventView(BaseAPITest):
         for u in (self.eventsource_user_no1, self.eventsource_user_no2):
             u.permission_sets.add(self.radio_room_user_permissionset)
 
-        self.user_rep = UserDisplaySerializer().to_representation(self.guest_user)
+        self.user_rep = UserDisplaySerializer().to_representation(
+            self.guest_user)
 
         self.temporary_folder = tempfile.mkdtemp()
 
@@ -198,7 +206,8 @@ class TestEventView(BaseAPITest):
             notes = data['notes']
             del data['notes']
 
-        data['created_by_user'] = created_by_user if created_by_user else self.radio_room_user
+        data[
+            'created_by_user'] = created_by_user if created_by_user else self.radio_room_user
 
         event = Event.objects.create_event(**data)
         if notes:
@@ -223,7 +232,8 @@ class TestEventView(BaseAPITest):
         request = self.factory.get(self.api_base + '/event/')
         self.force_authenticate(request, self.all_perms_user)
 
-        response = views.EventView.as_view()(request, id=str(self.sample_event.id))
+        response = views.EventView.as_view()(request,
+                                             id=str(self.sample_event.id))
         self.assertEqual(response.status_code, 200)
         response_data = response.data
         response_data = {k: response_data[k] for k in self.event_data.keys()}
@@ -303,7 +313,8 @@ class TestEventView(BaseAPITest):
     def test_add_note(self):
         note_data = {'text': lorem_ipsum.paragraph()}
         request = self.factory.post(self.api_base
-                                    + '/event/{0}/notes'.format(self.sample_event.id),
+                                    + '/event/{0}/notes'.format(
+                                        self.sample_event.id),
                                     note_data)
         self.force_authenticate(request, self.all_perms_user)
 
@@ -333,7 +344,8 @@ class TestEventView(BaseAPITest):
         note_data = {'text': note_text, 'id': note_id}
         event_data = {'notes': [note_data, ]}
         request = self.factory.patch(self.api_base
-                                     + '/event/{0}'.format(self.sample_event.id),
+                                     + '/event/{0}'.format(
+                                         self.sample_event.id),
                                      event_data)
         self.force_authenticate(request, self.all_perms_user)
 
@@ -348,7 +360,8 @@ class TestEventView(BaseAPITest):
         note_data = {'text': lorem_ipsum.paragraph()}
         event_data = {'notes': [note_data, ]}
         request = self.factory.patch(self.api_base
-                                     + '/event/{0}'.format(self.sample_event.id),
+                                     + '/event/{0}'.format(
+                                         self.sample_event.id),
                                      event_data)
         self.force_authenticate(request, self.all_perms_user)
 
@@ -357,7 +370,8 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         response_notes = response.data['notes']
         self.assertTrue(len(list(
-            filter(lambda note: note['text'] == note_data['text'], response_notes))) == 1)
+            filter(lambda note: note['text'] == note_data['text'],
+                   response_notes))) == 1)
 
     def test_update_message_succeed(self):
         event = self.create_event(self.event_data)
@@ -616,7 +630,8 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         self.assertEqual(response.status_code, 200)
         self.assertFalse(
-            ['failed' for r in response_data['results'] if len(r['is_contained_in'])])
+            ['failed' for r in response_data['results'] if
+             len(r['is_contained_in'])])
 
     def test_event_type_category(self):
         request = self.factory.get(
@@ -787,7 +802,8 @@ class TestEventView(BaseAPITest):
         report_id = response.data['id']
         rel_data = {'to_event_id': report_id, 'type': 'contains'}
         request = self.factory.post(
-            self.api_base + '/event/' + collection_id + '/relationships', rel_data)
+            self.api_base + '/event/' + collection_id + '/relationships',
+            rel_data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventRelationshipsView.as_view()(
             request, from_event_id=collection_id)
@@ -825,7 +841,8 @@ class TestEventView(BaseAPITest):
     def test_edit_event_title(self):
         event = self.create_event(self.event_data)
         TITLE = ''.join([random.choice(string.ascii_letters +
-                                       string.digits + string.punctuation) for x in range(30)])
+                                       string.digits + string.punctuation) for x
+                         in range(30)])
         update_data = {'title': TITLE}
 
         request = self.factory.patch(
@@ -880,7 +897,8 @@ class TestEventView(BaseAPITest):
             template_name='event_export_template.html')(request)
 
     def test_export_csv(self):
-        carcass_data = json.loads("""{"event_type":"carcass_rep","priority":200,"event_details":{"carcassrep_species":"elephant","carcassrep_sex":"male","carcassrep_ageofanimal":"adult","carcassrep_ageofcarcass":"fresh","carcassrep_trophystatus":"intact","carcassrep_causeofdeath":"naturaldisease"},"location":{"latitude":"0.28118","longitude":"37.38544"}}""")
+        carcass_data = json.loads(
+            """{"event_type":"carcass_rep","priority":200,"event_details":{"carcassrep_species":"elephant","carcassrep_sex":"male","carcassrep_ageofanimal":"adult","carcassrep_ageofcarcass":"fresh","carcassrep_trophystatus":"intact","carcassrep_causeofdeath":"naturaldisease"},"location":{"latitude":"0.28118","longitude":"37.38544"}}""")
 
         request = self.factory.post(self.api_base + '/events/', carcass_data)
         self.force_authenticate(request, self.all_perms_user)
@@ -902,8 +920,52 @@ class TestEventView(BaseAPITest):
         self.assertTrue(self.notes_line2_prefix in response.rendered_content)
         self.assertFalse('""' in response.rendered_content)
 
+    def test_reported_by_and_reported_by_internal_id_in_exported_csv_are_same(
+            self):
+
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = UserDisplaySerializer(
+        ).to_representation(self.all_perms_user)
+        event_data['provenance'] = Event.PC_STAFF
+        event_data['event_type'] = ET_SECURITY
+        event_data['message'] = ''
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        url = """/activity/events/export"""
+
+        request = self.factory.get(
+            self.api_base + url)
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = self._export_template_response(request)
+
+        self.assertEqual(response.status_code, 200)
+
+        def convert_rendered_csv_to_dict(content):
+            lines = response.rendered_content.split("\n")
+            keys = lines[0].split(",")
+
+            dict_list = []
+            d = {}
+            for line in lines[1:]:
+                values = line.split(",")
+                d = {k: v for k, v in zip(keys, values)}
+                dict_list.append(d)
+            return dict_list
+
+        events_array = convert_rendered_csv_to_dict(response.rendered_content)
+        for event in events_array:
+            self.assertEqual(event['Reported_By'],
+                             event['Reported_By_Internal_Value'])
+
     def test_export_csv_with_filter(self):
-        carcass_data = json.loads("""{"event_details":{"sectionArea":["bbbe77a9-f829-47dd-8a6f-bca76920f706","957a8bfa-ad0d-4b94-bc86-983cab105910"],"team":[],"conservancy":"346f5449-52b0-4b52-9d10-b44b8aa313a6","beginning_of_incident":"2017-10-13 12:00","end_of_incident":"2017-10-14 12:00","details":"interesting details","results_and_findings":"very interesting results and findings","species":"ad26adde-1261-4133-8d3f-a22d12ceae1f","sex":"Male","causeOfDeath":"ab468ffc-9745-4c71-a19d-c34b8c9c3b18"},"event_type":"carcass_rep","priority":200,"title":"Carcass","location":{"latitude":47.65636923655089,"longitude":-122.30770111083983}}""")
+        carcass_data = json.loads(
+            """{"event_details":{"sectionArea":["bbbe77a9-f829-47dd-8a6f-bca76920f706","957a8bfa-ad0d-4b94-bc86-983cab105910"],"team":[],"conservancy":"346f5449-52b0-4b52-9d10-b44b8aa313a6","beginning_of_incident":"2017-10-13 12:00","end_of_incident":"2017-10-14 12:00","details":"interesting details","results_and_findings":"very interesting results and findings","species":"ad26adde-1261-4133-8d3f-a22d12ceae1f","sex":"Male","causeOfDeath":"ab468ffc-9745-4c71-a19d-c34b8c9c3b18"},"event_type":"carcass_rep","priority":200,"title":"Carcass","location":{"latitude":47.65636923655089,"longitude":-122.30770111083983}}""")
         request = self.factory.post(self.api_base + '/events/', carcass_data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
@@ -1103,7 +1165,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.get(f'{self.api_base}/activity/eventproviders')
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventProvidersView.as_view()(request,)
+        response = views.EventProvidersView.as_view()(request, )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['count'], 0)
 
@@ -1118,7 +1180,8 @@ class TestEventView(BaseAPITest):
 
         eventprovider_data.update({'is_active': True})
         result_eventprovider = {
-            k: response.data['results'][0][k] for k in eventprovider_data.keys()}
+            k: response.data['results'][0][k] for k in
+            eventprovider_data.keys()}
         self.assertEqual(response.data['results']
                          [0]['id'], str(eventprovider.id))
 
@@ -1132,8 +1195,9 @@ class TestEventView(BaseAPITest):
             'display': 'DAS: Carcass',
             'additional': {'version': 0},
         }
-        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
-                                    eventsource_data)
+        request = self.factory.post(
+            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+            eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         response = views.EventSourcesView.as_view()(
@@ -1154,8 +1218,9 @@ class TestEventView(BaseAPITest):
             'display': 'DAS: Carcass',
             'additional': {'version': 0},
         }
-        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
-                                    eventsource_data)
+        request = self.factory.post(
+            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+            eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         response = views.EventSourcesView.as_view()(
@@ -1170,8 +1235,10 @@ class TestEventView(BaseAPITest):
             f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsource/{external_event_type}')
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventSourceView.as_view()(request, eventprovider_id=str(
-            eventprovider.id), external_event_type=external_event_type)
+        response = views.EventSourceView.as_view()(request,
+                                                   eventprovider_id=str(
+                                                       eventprovider.id),
+                                                   external_event_type=external_event_type)
 
         self.assertEqual(response.status_code, 200)
 
@@ -1185,8 +1252,9 @@ class TestEventView(BaseAPITest):
             'display': 'DAS: Carcass',
             'additional': {'version': 0},
         }
-        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
-                                    eventsource_data)
+        request = self.factory.post(
+            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+            eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         response = views.EventSourcesView.as_view()(
@@ -1194,8 +1262,9 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         response_data = response.data
 
-        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
-                                    eventsource_data)
+        request = self.factory.post(
+            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+            eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         response = views.EventSourcesView.as_view()(
@@ -1214,8 +1283,9 @@ class TestEventView(BaseAPITest):
             'event_type': 'carcass_rep',
             'additional': {'version': 0},
         }
-        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
-                                    eventsource_data)
+        request = self.factory.post(
+            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+            eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         # Create event source.
@@ -1249,7 +1319,8 @@ class TestEventView(BaseAPITest):
             'additional': {'version': 0},
         }
         request = self.factory.post(
-            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources', eventsource_data)
+            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+            eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         # Create event source.
@@ -1285,23 +1356,27 @@ class TestEventView(BaseAPITest):
         }
 
         request = self.factory.post(
-            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources', eventsource_data)
+            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+            eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         # Create event source.
         response = views.EventSourcesView.as_view()(request,
-                                                    eventprovider_id=str(eventprovider.id))
+                                                    eventprovider_id=str(
+                                                        eventprovider.id))
         self.assertEqual(response.status_code, 201)
 
         eventsource_id = response.data['id']
 
         # Establish category and event-type to associate with the source.
         event_category = EventCategory.objects.create(
-            value='sample-event-category', display='Some display',)
+            value='sample-event-category', display='Some display', )
 
         event_type = EventType.objects.create(value='some-generic-event-type',
-                                              display='Some event-type', category=event_category,
-                                              default_priority=0, default_state='resolved')
+                                              display='Some event-type',
+                                              category=event_category,
+                                              default_priority=0,
+                                              default_state='resolved')
 
         # Manual step here: Associate the new generic event type to the
         # EventSource
@@ -1333,7 +1408,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.post(f'{self.api_base}/events', event_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventsView.as_view()(request,)
+        response = views.EventsView.as_view()(request, )
         self.assertEqual(response.status_code, 201)
 
         eselist = EventsourceEvent.objects.filter(
@@ -1367,7 +1442,8 @@ class TestEventView(BaseAPITest):
         }
 
         request = self.factory.post(
-            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources', eventsource_data)
+            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+            eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         # Create event source.
@@ -1398,7 +1474,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.post(f'{self.api_base}/events', event_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventsView.as_view()(request,)
+        response = views.EventsView.as_view()(request, )
         self.assertEqual(response.status_code, 201)
 
         eselist = EventsourceEvent.objects.filter(
@@ -1414,7 +1490,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.post(f'{self.api_base}/events', event_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventsView.as_view()(request,)
+        response = views.EventsView.as_view()(request, )
         self.assertEqual(response.status_code, 409)
 
     def test_cannot_see_another_users_eventprovider(self):
@@ -1429,20 +1505,21 @@ class TestEventView(BaseAPITest):
 
         request = self.factory.get(f'{self.api_base}/activity/eventproviders')
         self.force_authenticate(request, self.eventsource_user_no1)
-        response = views.EventProvidersView.as_view()(request,)
+        response = views.EventProvidersView.as_view()(request, )
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results']
                          [0]['id'], str(eventprovider_no1.id))
 
         request = self.factory.get(f'{self.api_base}/activity/eventproviders')
         self.force_authenticate(request, self.eventsource_user_no2)
-        response = views.EventProvidersView.as_view()(request,)
+        response = views.EventProvidersView.as_view()(request, )
         self.assertEqual(len(response.data['results']), 1)
 
         self.assertEqual(response.data['results']
                          [0]['id'], str(eventprovider_no2.id))
 
-    def test_add_identical_external_event_id_with_different_event_providers(self):
+    def test_add_identical_external_event_id_with_different_event_providers(
+            self):
         '''
         Ensure uniqueness constraint is applied to EventSource + External Event Id.
         '''
@@ -1461,8 +1538,9 @@ class TestEventView(BaseAPITest):
         }
 
         # Create event source for provider No. 1
-        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider_no1.id)}/eventsources',
-                                    eventsource_data)
+        request = self.factory.post(
+            f'{self.api_base}/activity/eventprovider/{str(eventprovider_no1.id)}/eventsources',
+            eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
         response = views.EventSourcesView.as_view()(
             request, eventprovider_id=str(eventprovider_no1.id))
@@ -1470,8 +1548,9 @@ class TestEventView(BaseAPITest):
         esid_no1 = response.data['id']
 
         # Create event source for provider No. 2
-        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider_no2.id)}/eventsources',
-                                    eventsource_data)
+        request = self.factory.post(
+            f'{self.api_base}/activity/eventprovider/{str(eventprovider_no2.id)}/eventsources',
+            eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
         response = views.EventSourcesView.as_view()(
             request, eventprovider_id=str(eventprovider_no2.id))
@@ -1485,15 +1564,19 @@ class TestEventView(BaseAPITest):
         event_category = EventCategory.objects.create(
             value='sample-event-category', display='Some display', )
 
-        event_type_no1 = EventType.objects.create(value='eventsource_no1_event_type',
-                                                  display='eventsource_no1_event_type', category=event_category)
+        event_type_no1 = EventType.objects.create(
+            value='eventsource_no1_event_type',
+            display='eventsource_no1_event_type', category=event_category)
         EventSource.objects.filter(eventprovider_id=str(
-            eventprovider_no1.id), id=esid_no1).update(event_type=event_type_no1)
+            eventprovider_no1.id), id=esid_no1).update(
+            event_type=event_type_no1)
 
-        event_type_no2 = EventType.objects.create(value='eventsource_no2_event_type',
-                                                  display='eventsource_no2_event_type', category=event_category)
+        event_type_no2 = EventType.objects.create(
+            value='eventsource_no2_event_type',
+            display='eventsource_no2_event_type', category=event_category)
         EventSource.objects.filter(eventprovider_id=str(
-            eventprovider_no2.id), id=esid_no2).update(event_type=event_type_no2)
+            eventprovider_no2.id), id=esid_no2).update(
+            event_type=event_type_no2)
 
         # Carry on with the tests.
 
@@ -1519,7 +1602,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.post(f'{self.api_base}/events', event_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventsView.as_view()(request,)
+        response = views.EventsView.as_view()(request, )
         self.assertEqual(response.status_code, 201)
 
         # Add an event for event source No. 2, and use the same
@@ -1545,7 +1628,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.post(f'{self.api_base}/events', event_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
-        response = views.EventsView.as_view()(request,)
+        response = views.EventsView.as_view()(request, )
         self.assertEqual(response.status_code, 201)
 
     def test_add_event_with_external_event_type_and_no_permissions(self):
@@ -1560,8 +1643,9 @@ class TestEventView(BaseAPITest):
             'additional': {'version': 0},
         }
 
-        request = self.factory.post(f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
-                                    eventsource_data)
+        request = self.factory.post(
+            f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
+            eventsource_data)
         self.force_authenticate(request, self.eventsource_user_no1)
 
         # Create event source.
@@ -1588,7 +1672,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.post(f'{self.api_base}/events', event_data)
         self.force_authenticate(request, self.eventsource_user_no2)
 
-        response = views.EventsView.as_view()(request,)
+        response = views.EventsView.as_view()(request, )
 
         # Expect 400 Bad Request, because the given external_event_type will
         # not be found for this user.
