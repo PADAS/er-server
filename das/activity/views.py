@@ -291,19 +291,21 @@ class EventCountView(generics.ListAPIView):
 
 def generate_reported_by_lookup():
     user_qs = User.objects.all() \
-         .annotate(internal_id=Cast('id', CharField()), value=F('username'), kind=Value('user', output_field=CharField()), display_value=Concat('first_name', Value(' '), 'last_name'))\
-                   .values_list('internal_id', 'value', 'kind', 'display_value')
+        .annotate(internal_id=Cast('id', CharField()), value=F('username'), kind=Value('user', output_field=CharField()), display_value=Concat('first_name', Value(' '), 'last_name'))\
+        .values_list('internal_id', 'value', 'kind', 'display_value')
     community_qs = Community.objects.all() \
-         .annotate(internal_id=Cast('id', CharField()), value=F('name'), kind=Value('community', output_field=CharField()), display_value=F('name')) \
-                .values_list('internal_id', 'value', 'kind', 'display_value')
+        .annotate(internal_id=Cast('id', CharField()), value=F('name'), kind=Value('community', output_field=CharField()), display_value=F('name')) \
+        .values_list('internal_id', 'value', 'kind', 'display_value')
     reported_by_qs = Subject.objects.all() \
-         .annotate(internal_id=Cast('id', CharField()), value=Cast('id', CharField()), kind=Value('subject', output_field=CharField()), display_value=F('name')) \
-                .values_list('internal_id', 'value', 'kind', 'display_value')
+        .annotate(internal_id=Cast('id', CharField()), value=Cast('id', CharField()), kind=Value('subject', output_field=CharField()), display_value=F('name')) \
+        .values_list('internal_id', 'value', 'kind', 'display_value')
 
     reported_by_list = reported_by_qs.union(user_qs, community_qs)
 
-    reported_by_map = dict((x[0], {'value': x[1], 'kind': x[2], 'display': x[3]}) for x in reported_by_list)
+    reported_by_map = dict(
+        (x[0], {'value': x[1], 'kind': x[2], 'display': x[3]}) for x in reported_by_list)
     return reported_by_map
+
 
 class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
@@ -335,19 +337,21 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         reported_by_map = generate_reported_by_lookup()
 
-        # TODO: Resolve how we can annotate with an array-aggregation for parents' IDs.
-        parent_event_subquery = EventRelationship.objects.filter(to_event_id=OuterRef('id')).order_by('created_at')
+        # TODO: Resolve how we can annotate with an array-aggregation for
+        # parents' IDs.
+        parent_event_subquery = EventRelationship.objects.filter(
+            to_event_id=OuterRef('id')).order_by('created_at')
 
         for event in self.get_queryset() \
                 .annotate(notes_count=Count('note')) \
                 .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
                 .annotate(related_subjects_count=Count('related_subjects')) \
-                .annotate(parent_event_id=Subquery(parent_event_subquery.values('from_event_id')[:1])) \
-                .values( 'id', 'serial_number', 'priority', 'state',
+                .annotate(parent_event_title=Subquery(parent_event_subquery.values('from_event_title')[:1])) \
+                .values('id', 'serial_number', 'priority', 'state',
                         'title', 'event_type_id', 'event_type__value', 'event_type__display',
                         'event_type__schema', 'event_details__data', 'notes_count', 'full_notes',
-                        'parent_event_id', 'location', 'event_time', 'reported_by_id',
-                         'related_subjects_count'):
+                        'parent_event_title', 'location', 'event_time', 'reported_by_id',
+                        'related_subjects_count'):
 
             if event['event_type_id'] != current_event_type_data['id']:
 
@@ -362,13 +366,17 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 try:
                     current_schema = renderer(event['event_type__schema'])
                     current_schema_order = \
-                        schema_utils.definition_key_order_as_dict(current_schema)
+                        schema_utils.definition_key_order_as_dict(
+                            current_schema)
 
                     for key, order in current_schema_order.items():
                         if not isinstance(key, int):
-                            display_value = schema_utils.get_display_value_header_for_key(current_schema, key)
-                            current_event_type_data['headers'].append(self.escape_string(key))
-                            current_event_type_data['headers'].append(self.escape_string(display_value))
+                            display_value = schema_utils.get_display_value_header_for_key(
+                                current_schema, key)
+                            current_event_type_data['headers'].append(
+                                self.escape_string(key))
+                            current_event_type_data['headers'].append(
+                                self.escape_string(display_value))
 
                             if key not in custom_headers:
                                 custom_headers.append(key)
@@ -394,9 +402,11 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
-                item_display_name = schema_utils.get_display_value_header_for_key(current_schema, key)
+                item_display_name = schema_utils.get_display_value_header_for_key(
+                    current_schema, key)
                 schema_data[key] = self.escape_string(details.get(key, ''))
-                schema_data[item_display_name] = self.escape_string(details.get(item_display_name, ''))
+                schema_data[item_display_name] = self.escape_string(
+                    details.get(item_display_name, ''))
 
             # Now assemble the data we want to write to the csv
             event_data = {
@@ -412,16 +422,17 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'num_notes': event['notes_count'],
                 'notes': self.escape_string(event['full_notes']),
                 'num_attach': event['related_subjects_count'],
-                'parent_id': event['parent_event_id'],
+                'parent_title': event['parent_event_title'],
                 'status': 'Resolved' if event['state'] == Event.SC_RESOLVED else 'Active',
                 'details': schema_data
             }
 
             # Use cached reported_by map
-            reported_by_values = reported_by_map.get(str(event['reported_by_id']))
+            reported_by_values = reported_by_map.get(
+                str(event['reported_by_id']))
             if reported_by_values:
                 event_data['reported_by'] = reported_by_values['display']
-                event_data['reported_by_internal'] = reported_by_values['value']
+                event_data['reported_by_internal'] = reported_by_values['display']
             else:
                 event_data['reported_by'] = ''
                 event_data['reported_by_internal'] = ''
