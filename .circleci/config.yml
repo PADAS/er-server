@@ -44,6 +44,7 @@ jobs:
       - docker_login
       - checkout
       - run: 'cd circleci-docker && make base_build_and_push version=latest'
+      - run: 'cd circleci-docker && make earthranger_api_build_and_push version=latest'
 workflows:
   version: 2
   build_and_terraform:
@@ -53,6 +54,7 @@ workflows:
             branches:
               only:
                 - develop
+                - consolidate-docker-images
       - terraform_plan:
           requires:
             - 'docker_build'
