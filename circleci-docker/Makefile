@@ -23,5 +23,5 @@ earthranger_api_image_name := gcr.io/padas-app/circleci/earthranger-api
 
 .PHONY: earthranger_api_build_and_push
 earthranger_api_build_and_push: ## Develop branch: Build the Docker EarthRanger API image and push to Google Container Repository with unique tag ids
-	cd ../ && docker build  -f circleci-docker/Dockerfile --tag $(earthranger_api_image_name):$(version) .
+	cd ../ && docker build  -f circleci-docker/Dockerfile --tag $(earthranger_api_image_name):$(version) ../docker
 	docker push $(earthranger_api_image_name):$(version)
