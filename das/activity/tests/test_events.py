@@ -920,6 +920,18 @@ class TestEventView(BaseAPITest):
         self.assertTrue(self.notes_line2_prefix in response.rendered_content)
         self.assertFalse('""' in response.rendered_content)
 
+    def convert_rendered_csv_to_dict(self, content):
+        lines = content.split("\n")
+        keys = lines[0].split(",")
+
+        dict_list = []
+        d = {}
+        for line in lines[1:]:
+            values = line.split(",")
+            d = {k: v for k, v in zip(keys, values)}
+            dict_list.append(d)
+        return dict_list
+
     def test_reported_by_and_reported_by_internal_id_in_exported_csv_are_same(
             self):
 
@@ -946,22 +958,73 @@ class TestEventView(BaseAPITest):
 
         self.assertEqual(response.status_code, 200)
 
-        def convert_rendered_csv_to_dict(content):
-            lines = response.rendered_content.split("\n")
-            keys = lines[0].split(",")
-
-            dict_list = []
-            d = {}
-            for line in lines[1:]:
-                values = line.split(",")
-                d = {k: v for k, v in zip(keys, values)}
-                dict_list.append(d)
-            return dict_list
-
-        events_array = convert_rendered_csv_to_dict(response.rendered_content)
+        events_array = self.convert_rendered_csv_to_dict(
+            response.rendered_content)
         for event in events_array:
             self.assertEqual(event['Reported_By'],
                              event['Reported_By_Internal_Value'])
+
+    def test_collection_report_id_exported_as_parent_event_title(self):
+        collection_event_data = copy.deepcopy(self.event_data)
+        collection_event_data['reported_by'] = self.user_rep
+        collection_event_data["message"] = ""
+        collection_event_data['provenance'] = Event.PC_STAFF
+        collection_event_data['title'] = "Testing Collection Report ID"
+        collection_event_data['event_type'] = 'incident_collection'
+        request = self.factory.post(
+            self.api_base + '/events/', collection_event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        response_data = {k: response_data[k]
+                         for k in collection_event_data.keys()}
+        self.assertDictEqual(response_data, collection_event_data)
+
+        collection_id = response.data['id']
+
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        event_data["message"] = ""
+        event_data['provenance'] = Event.PC_STAFF
+        event_data['event_type'] = ET_LOGISTICS
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        response_data = {k: response_data[k] for k in event_data.keys()}
+        self.assertDictEqual(response_data, event_data)
+
+        report_id = response.data['id']
+        rel_data = {'to_event_id': report_id, 'type': 'contains'}
+        request = self.factory.post(
+            self.api_base + '/event/' + collection_id + '/relationships',
+            rel_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventRelationshipsView.as_view()(
+            request, from_event_id=collection_id)
+        logger.debug(response.data)
+        self.assertEqual(response.status_code, 201)
+
+        url = """/activity/events/export"""
+
+        request = self.factory.get(
+            self.api_base + url)
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = self._export_template_response(request)
+
+        self.assertEqual(response.status_code, 200)
+
+        events_report = self.convert_rendered_csv_to_dict(
+            response.rendered_content)
+        # get the last event
+        event = events_report[-1]
+        self.assertEqual(event['Collection_Report_Id'],
+                         collection_event_data['title'])
 
     def test_export_csv_with_filter(self):
         carcass_data = json.loads(

@@ -355,14 +355,14 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             .annotate(notes_count=Count('note')) \
             .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
             .annotate(related_subjects_count=Count('related_subjects')) \
-            .annotate(parent_event_id=Subquery(
-                parent_event_subquery.values('from_event_id')[:1])) \
+            .annotate(parent_event_title=Subquery(
+                parent_event_subquery.values('from_event__title')[:1])) \
             .values('id', 'serial_number', 'priority', 'state',
                     'title', 'event_type_id', 'event_type__value',
                     'event_type__display',
                     'event_type__schema', 'event_details__data', 'notes_count',
                     'full_notes',
-                    'parent_event_id', 'location', 'event_time',
+                    'parent_event_title', 'location', 'event_time',
                     'reported_by_id',
                     'related_subjects_count'):
 
@@ -440,7 +440,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'num_notes': event['notes_count'],
                 'notes': self.escape_string(event['full_notes']),
                 'num_attach': event['related_subjects_count'],
-                'parent_id': event['parent_event_id'],
+                'parent_id': event['parent_event_title'],
                 'status': 'Resolved' if event[
                     'state'] == Event.SC_RESOLVED else 'Active',
                 'details': schema_data
