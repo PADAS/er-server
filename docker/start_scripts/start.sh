@@ -1,2 +1,3 @@
 #!/bin/sh
-exec start_scripts/run_service.sh
+echo "running $SERVICE_NAME"
+exec "start_scripts/start_${SERVICE_NAME}.sh"
