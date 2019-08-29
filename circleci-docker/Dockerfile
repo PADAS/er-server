@@ -40,7 +40,6 @@ RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/depen
 #RUN pip3 install django-debug-toolbar
 
 RUN mkdir -p /var/www/app && mkdir -p /startup
-ADD ./docker/base/start.sh /var/www/app/start.sh
 ADD ./docker/base/wait_for.sh /startup/wait_for.sh
 
 ARG app_tag=latest
@@ -48,8 +47,8 @@ FROM gcr.io/padas-app/base:${app_tag}
 
 ARG version=""
 
-ADD ./start_scripts/start*.sh /var/www/app/start_scripts/
-ADD ./start_scripts/start.sh /var/www/app/start.sh
+ADD ./docker/start_scripts/start*.sh /var/www/app/start_scripts/
+ADD ./docker/start_scripts/start.sh /var/www/app/start.sh
 
 EXPOSE 8000
 EXPOSE 5400
