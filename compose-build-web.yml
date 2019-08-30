@@ -26,6 +26,15 @@ services:
 #    volumes:
 #      - $PWD/../das-web:/var/www/app
 
+  mock_api:
+    container_name: das_mock_api
+    build:
+      context: $PWD/../das-react-admin/mock-api/
+      dockerfile: Dockerfile.dev
+#    volumes:
+#      - /app/node_modules
+#      - ./mock-api:/app
+
   reactapp:
     container_name: das_reactapp
     env_file: .reactapp.env

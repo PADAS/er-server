@@ -2,43 +2,57 @@ version: "3.2"
 
 services:
 
-#  api:
-#    volumes:
-#      - ./das:/var/www/app
-#      - ./dependencies:/workspace/dependencies
-#    ports:
-#      - 5400:5400
-#      - 9100:8000
-#
-#  rt-api:
-#    volumes:
-#      - ./das:/var/www/app
-#      - ./dependencies:/workspace/dependencies
-#
-#  mql:
-#    volumes:
-#      - ./das:/var/www/app
-#      - ./dependencies:/workspace/dependencies
-#
-#  worker:
-#    volumes:
-#      - ./das:/var/www/app
-#      - ./dependencies:/workspace/dependencies
-#
-#  worker-rt:
-#    volumes:
-#      - ./das:/var/www/app
-#      - ./dependencies:/workspace/dependencies
-#
-#  worker-analyzer:
-#    volumes:
-#      - ./das:/var/www/app
-#      - ./dependencies:/workspace/dependencies
-#
-#  beat:
-#    volumes:
-#      - ./das:/var/www/app
-#      - ./dependencies:/workspace/dependencies
+  api:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+      - ./docker/API/start.sh:/var/www/app/start.sh
+    ports:
+      - 5400:5400
+      - 9100:8000
+
+  rt-api:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+      - ./docker/RT_API/start.sh:/var/www/app/start.sh
+
+  mql:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+      - ./docker/MQL/start.sh:/var/www/app/start.sh
+
+  worker:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+      - ./docker/Worker/start.sh:/var/www/app/start.sh
+
+  worker-rt:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+      - ./docker/Worker_RT/start.sh:/var/www/app/start.sh
+
+  worker-analyzer:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+      - ./docker/Worker_Analyzer/start.sh:/var/www/app/start.sh
+
+  beat:
+    volumes:
+      - ./das:/var/www/app
+      - ./dependencies:/workspace/dependencies
+      - ./docker/base/wait_for.sh:/startup/wait_for.sh
+      - ./docker/Beat/start.sh:/var/www/app/start.sh
 
   postgis:
     volumes:
