@@ -9,11 +9,11 @@ services:
   nginx:
     image: gcr.io/padas-app/nginx
     container_name: das_nginx
-#    links:
-#      - api
-#      - rt-api
-#      - web
-#      - reactapp
+    links:
+      - api
+      - rt-api
+      - web
+      - reactapp
     ports:
       - 8000:8000
       - '35729:35729'
@@ -36,74 +36,86 @@ services:
       timeout: 1s
       retries: 5
 
-#  rt-api:
-#    image: gcr.io/padas-app/rt_api
-#    container_name: das_rt_api
-#    env_file: .env
-#    links:
-#      - postgis
-#      - redis
-#    depends_on:
-#      - api
-#
-#  mql:
-#    image: gcr.io/padas-app/mql
-#    container_name: das_mql
-#    env_file: .env
-#    links:
-#      - postgis
-#      - redis
-#    depends_on:
-#      - rt-api
-#
-#  worker:
-#    image: gcr.io/padas-app/worker
-#    container_name: das_worker
-#    env_file: .env
-#    links:
-#      - postgis
-#      - redis
-#    depends_on:
-#      - rt-api
-#    volumes:
-#      - user-uploads:/user-uploads
-#      - www-static:/var/www/static
-#
-#  worker-rt:
-#    image: gcr.io/padas-app/worker-rt
-#    container_name: das_worker_rt
-#    env_file: .env
-#    links:
-#      - postgis
-#      - redis
-#    depends_on:
-#      - rt-api
-#    volumes:
-#      - user-uploads:/user-uploads
-#      - www-static:/var/www/static
-#
-#  worker-analyzer:
-#    image: gcr.io/padas-app/worker-analyzer
-#    container_name: das_worker_analyzer
-#    env_file: .env
-#    links:
-#      - postgis
-#      - redis
-#    depends_on:
-#      - rt-api
-#    volumes:
-#      - user-uploads:/user-uploads
-#      - www-static:/var/www/static
-#
-#  beat:
-#    image: gcr.io/padas-app/beat
-#    container_name: das_beat
-#    env_file: .env
-#    links:
-#      - postgis
-#      - redis
-#    depends_on:
-#      - rt-api
+  rt-api:
+    image: gcr.io/padas-app/circleci/earthranger-api
+    container_name: das_rt_api
+    env_file: .env
+    environment:
+      - SERVICE_NAME=realtime_server
+    links:
+      - postgis
+      - redis
+    depends_on:
+      - api
+
+  mql:
+    image: gcr.io/padas-app/circleci/earthranger-api
+    container_name: das_mql
+    env_file: .env
+    environment:
+      - SERVICE_NAME=mql_server
+    links:
+      - postgis
+      - redis
+    depends_on:
+      - rt-api
+
+  worker:
+    image: gcr.io/padas-app/circleci/earthranger-api
+    container_name: das_worker
+    env_file: .env
+    environment:
+      - SERVICE_NAME=default_worker
+    links:
+      - postgis
+      - redis
+    depends_on:
+      - rt-api
+    volumes:
+      - user-uploads:/user-uploads
+      - www-static:/var/www/static
+
+  worker-rt:
+    image: gcr.io/padas-app/circleci/earthranger-api
+    container_name: das_worker_rt
+    env_file: .env
+    environment:
+      - SERVICE_NAME=realtime_worker
+    links:
+      - postgis
+      - redis
+    depends_on:
+      - rt-api
+    volumes:
+      - user-uploads:/user-uploads
+      - www-static:/var/www/static
+
+  worker-analyzer:
+    image: gcr.io/padas-app/circleci/earthranger-api
+    container_name: das_worker_analyzer
+    env_file: .env
+    environment:
+      - SERVICE_NAME=analyzer_worker
+    links:
+      - postgis
+      - redis
+    depends_on:
+      - rt-api
+    volumes:
+      - user-uploads:/user-uploads
+      - www-static:/var/www/static
+
+  beat:
+    image: gcr.io/padas-app/circleci/earthranger-api
+    container_name: das_beat
+    env_file: .env
+    environment:
+      - SERVICE_NAME=beat_service
+    links:
+      - postgis
+      - redis
+    depends_on:
+      - rt-api
 
   postgis:
     image: gcr.io/padas-app/postgis
