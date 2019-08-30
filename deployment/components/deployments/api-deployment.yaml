@@ -14,7 +14,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/api:<<server-version>>
+      - image: gcr.io/padas-app/circleci/earthranger-api:<<server-version>>
         name: das-api
         resources:
           requests:
@@ -53,6 +53,8 @@ spec:
             configMapKeyRef:
               name: site-configmap
               key: USE_AZURE_STORAGE
+        - name: SERVICE_NAME
+          value: "api_server"
         - name: STORAGE_ACCOUNT
           valueFrom:
             configMapKeyRef:
