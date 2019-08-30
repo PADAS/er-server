@@ -39,8 +39,7 @@ jobs:
     docker:
       - image: circleci/buildpack-deps:stretch
     steps:
-      - setup_remote_docker:
-          docker_layer_caching: true
+      - setup_remote_docker
       - docker_login
       - checkout
       - run: 'cd circleci-docker && make base_build_and_push version=latest'
