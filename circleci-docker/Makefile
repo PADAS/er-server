@@ -17,8 +17,7 @@ earthranger_api_image_name := gcr.io/padas-app/circleci/earthranger-api
 earthranger_api_build_and_push: commit_sha ?=
 earthranger_api_build_and_push: ## Develop branch: Build the Docker EarthRanger API image and push to Google Container Repository with unique tag ids
 	#TODO: raise error if commit_sha is not provided
-	version=$(shell cat ../VERSION)
-	tag=$(version)_$(commit_sha)
+	tag=$(shell cat ../VERSION)_$(commit_sha)
 	echo $(tag)
 	cd ../ && docker build  -f circleci-docker/Dockerfile --tag $(earthranger_api_image_name):$(tag) .
 	docker push $(earthranger_api_image_name):$(tag)
