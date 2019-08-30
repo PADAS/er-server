@@ -44,6 +44,8 @@ ADD ./docker/base/wait_for.sh /startup/wait_for.sh
 
 ARG version=""
 
+ADD ./das /var/www/app
+
 ADD ./docker/start_scripts/start*.sh /var/www/app/start_scripts/
 ADD ./docker/start_scripts/start.sh /var/www/app/start.sh
 
