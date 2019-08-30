@@ -293,8 +293,12 @@ OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600 * 48}
 ASYNC_MODE = 'eventlet'
 
 # override these if your libraries are in a different place
-GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'
-GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
+# GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'
+# GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
+
+GEOS_LIBRARY_PATH = '/Library/Frameworks/GEOS.framework/GEOS'
+GDAL_LIBRARY_PATH = '/Library/Frameworks/GDAL.framework/GDAL'
+
 
 CACHES = {
     'default': {
