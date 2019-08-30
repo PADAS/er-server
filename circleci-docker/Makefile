@@ -14,8 +14,8 @@ help: ## show this help
 earthranger_api_image_name := gcr.io/padas-app/circleci/earthranger-api
 
 .PHONY: earthranger_api_build_and_push
-earthranger_api_build_and_push: ## Develop branch: Build the Docker EarthRanger API image and push to Google Container Repository with unique tag ids
 earthranger_api_build_and_push: commit_sha ?=
+earthranger_api_build_and_push: ## Develop branch: Build the Docker EarthRanger API image and push to Google Container Repository with unique tag ids
 	#TODO: raise error if commit_sha is not provided
 	version=$(cat ../VERSION)
 	tag=$(version)_$(commit_sha)
