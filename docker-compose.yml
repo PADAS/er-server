@@ -19,9 +19,11 @@ services:
       - '35729:35729'
 
   api:
-    image: gcr.io/padas-app/api
+    image: gcr.io/padas-app/circleci/earthranger-api
     container_name: das_api
     env_file: .env
+    environment:
+      - SERVICE_NAME=api_server
     links:
       - postgis
       - redis
@@ -35,9 +37,11 @@ services:
       retries: 5
 
   rt-api:
-    image: gcr.io/padas-app/rt_api
+    image: gcr.io/padas-app/circleci/earthranger-api
     container_name: das_rt_api
     env_file: .env
+    environment:
+      - SERVICE_NAME=realtime_server
     links:
       - postgis
       - redis
@@ -45,9 +49,11 @@ services:
       - api
 
   mql:
-    image: gcr.io/padas-app/mql
+    image: gcr.io/padas-app/circleci/earthranger-api
     container_name: das_mql
     env_file: .env
+    environment:
+      - SERVICE_NAME=mql_server
     links:
       - postgis
       - redis
@@ -55,9 +61,11 @@ services:
       - rt-api
 
   worker:
-    image: gcr.io/padas-app/worker
+    image: gcr.io/padas-app/circleci/earthranger-api
     container_name: das_worker
     env_file: .env
+    environment:
+      - SERVICE_NAME=default_worker
     links:
       - postgis
       - redis
@@ -68,9 +76,11 @@ services:
       - www-static:/var/www/static
 
   worker-rt:
-    image: gcr.io/padas-app/worker-rt
+    image: gcr.io/padas-app/circleci/earthranger-api
     container_name: das_worker_rt
     env_file: .env
+    environment:
+      - SERVICE_NAME=realtime_worker
     links:
       - postgis
       - redis
@@ -81,9 +91,11 @@ services:
       - www-static:/var/www/static
 
   worker-analyzer:
-    image: gcr.io/padas-app/worker-analyzer
+    image: gcr.io/padas-app/circleci/earthranger-api
     container_name: das_worker_analyzer
     env_file: .env
+    environment:
+      - SERVICE_NAME=analyzer_worker
     links:
       - postgis
       - redis
@@ -94,9 +106,11 @@ services:
       - www-static:/var/www/static
 
   beat:
-    image: gcr.io/padas-app/beat
+    image: gcr.io/padas-app/circleci/earthranger-api
     container_name: das_beat
     env_file: .env
+    environment:
+      - SERVICE_NAME=beat_service
     links:
       - postgis
       - redis
