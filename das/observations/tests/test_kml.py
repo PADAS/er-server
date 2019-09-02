@@ -3,11 +3,12 @@ import io
 import json
 import re
 import zipfile
+from unittest import mock
 from urllib.parse import urlencode
 
 import pytz
 from core.tests import BaseAPITest
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.contrib.auth.models import Permission
 from django.urls import reverse, resolve
 from lxml import etree
@@ -18,6 +19,11 @@ from observations.models import Subject, Source, SubjectSource, SubjectGroup, Re
 from observations.views import KmlSubjectView, KmlSubjectsView, KmlRootView
 from observations.kmlutils import get_kml_access_token
 from tracking.models.plugin_base import Obs
+
+
+def mock_now():
+    now = datetime.now()
+    return pytz.utc.localize(now - timedelta(weeks=55))
 
 
 class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
@@ -278,23 +284,63 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         # inactive
         self.assertEqual(len(urls), 1)
 
+    @mock.patch('django.utils.timezone.now', mock_now)
     def test_filter_by_dates(self):
         # create 2 new elephants backdate to last year - mock timezone.now()
 
-        # first assert that number of subjects is equal to 5
+        Subject.objects.create_subject(
+            id='d2ed403e-9419-41aa-8fa9-45a70e5ce2e0', name='Elephant 4',
+            subject_subtype_id='elephant',
+            additional={'region': 'Region 1', 'country': 'USA',
+                        'rgb': '220,30,30'})
+        Subject.objects.create_subject(
+            id='c25e17d0-0337-4f0c-9274-25e5ae4da7c0', name='Elephant 5',
+            subject_subtype_id='elephant',
+            additional={'region': 'Region 1', 'country': 'USA'})
 
-        # pass filters to the root kml view; elephants before last year
+        start_date = pytz.utc.localize(datetime.now() - timedelta(weeks=60))
+        end_date = pytz.utc.localize(datetime.now() - timedelta(weeks=50))
 
-        # pull returned url from xml
+        url = reverse('subjects-kml-root-view')
+        url += '?{}'.format(urlencode({'start': start_date.strftime("%Y-%m-%d"),
+                                       'end': end_date.strftime("%Y-%m-%d")}))
 
-        # use that url and resolve
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
 
-        # assert that the subjects kml View is hit
+        response = KmlRootView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
+        with kmz.open('document.kml') as response_kml_bytes:
+            response_kml = response_kml_bytes.read()
+        response_kml_str = response_kml.decode('utf-8')
+        urls = re.findall(
+            r'http://testserver[\'"]?([^\'" <]+)', response_kml_str)
+        subjects_url = urls[0].replace("amp;", "")
+        # remove the query params to test if the right view is called
+        base_url = subjects_url.split("?")[0]
+        # assert that the link passed in the root url redirects to the
+        # KmlSubjectsView
+        found = resolve(base_url)
+        self.assertEqual(found.url_name, "subjects-kml-view")
 
-        # get the response from that view
+        request = self.factory.get(self.api_base + subjects_url)
+        self.force_authenticate(request, self.user)
+        response = KmlSubjectsView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
+        with kmz.open('document.kml') as response_kml_bytes:
+            response_kml = response_kml_bytes.read()
+        response_kml_str = response_kml.decode('utf-8')
+        urls = re.findall(r'http://testserver[\'"]?([^\'" <]+)',
+                          response_kml_str)
 
-        # assert that the number of subjects is 2
-        self.fail("Not implemented")
+        expected_subjects = Subject.objects.filter(
+            created_at__range=[start_date, end_date]).count()
+
+        self.assertEqual(len(urls), expected_subjects)
 
     def test_filter_with_wrong_date_format(self):
         self.fail('not implemented')

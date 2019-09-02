@@ -767,14 +767,24 @@ class KmlSubjectsView(generics.GenericAPIView):
 
     def get_queryset(self):
         is_active = self.request.GET.get('active')
+        start_date = self.request.GET.get('start')
+        end_date = self.request.GET.get('end')
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         # To include inactive subjects in KmlSubject report
         queryset = models.Subject.objects.all()  # .by_is_active()
         if is_active == 'true':
             queryset = queryset.filter(is_active=True)
 
-        queryset = queryset.by_user_subjects(self.request.user) \
-            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
+        if start_date and end_date:
+            queryset = queryset.filter(
+                created_at__range=[start_date, end_date])
+        elif start_date:
+            queryset = queryset.filter(created_at__gte=start_date)
+        elif end_date:
+            queryset = queryset.filter(created_at__lte=end_date)
+        else:
+            queryset = queryset.by_user_subjects(self.request.user) \
+                .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
         return queryset
 
     def build_link_for_subject(self, subject):
