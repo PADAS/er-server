@@ -286,7 +286,8 @@ class SubjectsView(generics.ListCreateAPIView):
 
     schema = SubjectsViewSchema()
 
-    # Ensure this attribute is present with a sensible default for any child classes.
+    # Ensure this attribute is present with a sensible default for any child
+    # classes.
     subject_linked_sources = {}
 
     def get_queryset(self):
@@ -732,10 +733,13 @@ class KmlRootView(generics.GenericAPIView):
 
     def build_link_for_user(self):
         token = kmlutils.get_kml_access_token(self.request.user, )
+        start_date = self.request.GET.get('start', 'start')
+        end_date = self.request.GET.get('end', 'end')
+        include_active = self.request.GET.get('active', 'active')
         return utils.add_base_url(self.request,
                                   '?'.join((
                                       reverse('subjects-kml-view'),
-                                      'auth={}'.format(token))
+                                      'auth={}&start={}&end={}&active={}'.format(token, start_date, end_date, include_active))
                                   )
                                   )
 
@@ -762,9 +766,13 @@ class KmlSubjectsView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def get_queryset(self):
+        is_active = self.request.GET.get('active')
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         # To include inactive subjects in KmlSubject report
         queryset = models.Subject.objects.all()  # .by_is_active()
+        if is_active == 'true':
+            queryset = queryset.filter(is_active=True)
+
         queryset = queryset.by_user_subjects(self.request.user) \
             .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
         return queryset
