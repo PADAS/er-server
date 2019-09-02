@@ -204,6 +204,9 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
                            ] = schema_utils.get_table_choices(schema_field)
+            elif schema_field['lookup'] == 'oneOf':
+                parameters[schema_field['tag']
+                           ] = schema_utils.get_oneOf_choices(schema_field)
 
         if len(parameters) > 0:
             template = Template(eventtype.schema)

@@ -108,6 +108,21 @@ def get_enum_choices(field_details, as_string=True):
     return return_val
 
 
+def get_oneOf_choices(field_details, as_string=True):
+
+    options = OrderedDict()
+    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
+        options[choice.value] = choice.icon
+    if field_details['type'] == 'names':
+            return_val = options
+    else:
+        return_val = list(options.keys())
+    if as_string:
+        return json.dumps(return_val)
+
+    return return_val
+
+
 def get_table_choices(field_details, as_string=True):
 
     options = OrderedDict()

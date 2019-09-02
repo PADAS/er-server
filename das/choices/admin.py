@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 
 import choices.models as models
+from choices.forms import ChoiceForm
 import urllib.parse as urlparse
 from urllib.parse import urlencode, quote
 
@@ -22,6 +23,8 @@ def submit_row(context):
     if ctx['opts'].model_name == 'choice':
         ctx.update({'addchoices': True})
     return ctx
+from django.utils.safestring import mark_safe
+
 
 
 @admin.register(models.Choice)
@@ -30,12 +33,14 @@ class ChoiceAdmin(admin.ModelAdmin):
     delete_confirmation_template = "admin/soft_delete_confirmation.html"
     delete_selected_confirmation_template = "admin/soft_delete_selected_confirmation.html"
 
+    form = ChoiceForm
     actions = ('disable_choices', )
     ordering = ('model', 'field', 'ordernum', 'display')
     list_display = ('model', 'field', 'value', 'display', 'ordernum',
-                    'is_active')
+                    '_icon_display', 'is_active')
     list_display_links = ('model', 'field')
     search_fields = ('model', 'field', 'value', 'display')
+    list_filter = ('field', )
     list_editable = ('value', 'display', 'ordernum')
     exclude = ('delete_on', 'is_active')
 
@@ -199,6 +204,12 @@ class DisableChoiceAdmin(admin.ModelAdmin):
         if change and obj.is_active:
             obj.delete_on = None
         super().save_model(request, obj, form, change)
+
+    def _icon_display(self, obj):
+
+        url = models.Choice.marker_icon(obj.icon_id)
+        return mark_safe(
+            f'<img src="{url}" style="height:2.5em; filter:opacity(0.8)" />')
 
 
 @admin.register(models.DynamicChoice)
