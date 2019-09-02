@@ -769,6 +769,18 @@ class KmlSubjectsView(generics.GenericAPIView):
         is_active = self.request.GET.get('active')
         start_date = self.request.GET.get('start')
         end_date = self.request.GET.get('end')
+
+        # verify date in YYYY-mm-dd
+        try:
+            datetime.datetime.strptime(start_date, '%Y-%m-%d')
+        except ValueError:
+            start_date = None
+
+        try:
+            datetime.datetime.strptime(end_date, '%Y-%m-%d')
+        except ValueError:
+            end_date = None
+
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         # To include inactive subjects in KmlSubject report
         queryset = models.Subject.objects.all()  # .by_is_active()

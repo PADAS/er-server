@@ -341,6 +341,3 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
             created_at__range=[start_date, end_date]).count()
 
         self.assertEqual(len(urls), expected_subjects)
-
-    def test_filter_with_wrong_date_format(self):
-        self.fail('not implemented')
