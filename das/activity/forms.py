@@ -120,9 +120,10 @@ class EventTypeForm(forms.ModelForm):
     schema = forms.CharField(widget=SchemaWidget(
         attrs={'rows': 30, 'cols': 100}), validators=[validate_schema_is_well_formed])
 
-    icon = forms.CharField(required=False,
-                           label='Icon Override',
-                           widget=IconKeyInput(image_list_fn=get_event_icon_select_list))
+    icon = forms.CharField(
+        required=False,
+        label='Icon Override',
+        widget=IconKeyInput(image_list_fn=get_icon_select_list))
 
     class Meta:
         model = EventType

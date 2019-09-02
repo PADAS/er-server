@@ -210,6 +210,12 @@ class DisableChoiceAdmin(admin.ModelAdmin):
             obj.delete_on = None
         super().save_model(request, obj, form, change)
 
+    def _icon_display(self, obj):
+
+        url = models.Choice.marker_icon(obj.icon_id)
+        return mark_safe(
+            f'<img src="{url}" style="height:2.5em; filter:opacity(0.8)" />')
+
 
 @admin.register(models.DynamicChoice)
 class DynamicChoiceAdmin(admin.ModelAdmin):
