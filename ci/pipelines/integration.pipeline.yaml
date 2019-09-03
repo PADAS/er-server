@@ -318,6 +318,9 @@ jobs:
         submodules: none
       trigger: true
     - get: earthranger-api-image
+    - put: server-base-version
+      params:
+        pre: ((version-prefix))
     - put: concourse-earthranger-api-shim
       params: {
         build: git-earthranger-api,
