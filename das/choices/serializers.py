@@ -7,3 +7,6 @@ class ChoiceField(serializers.ChoiceField):
         if not self.grouped_choices:
             return {}
         return self.grouped_choices
+
+class ChoiceIconZipSerializer(serializers.Serializer):
+    icon = serializers.CharField(max_length=100, allow_null=True)
