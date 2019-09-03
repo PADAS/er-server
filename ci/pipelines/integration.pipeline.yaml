@@ -15,6 +15,13 @@ resources:
       - das/ste
     private_key: ((das-github))
 
+- name: git-earthranger-api
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    private_key: ((das-github))
+
 - name: git-deployment
   type: versioned-git-resource
   source:
@@ -124,8 +131,16 @@ resources:
     private_key: ((das-versions-github))
     initial_version: ((initial-smartconnect-version))
 
+- name: concourse-earthranger-api-shim
+  type: docker-image-with-file-build-args
+  source:
+    email: ((gcr-io-email))
+    username: ((gcr-io-username))
+    password: ((padas-app-container-registry-push))
+    repository: gcr.io/padas-app/deleteme/concourse-earthranger-api
+
 # EarthRanger API Image Resources
-- name: earthrange-api-image
+- name: earthranger-api-image
   type: docker-image
   source:
     email: ((gcr-io-email))
@@ -293,6 +308,791 @@ resource_types:
 #
 ################################################################################
 jobs:
+- name: docker-build-server-base
+  max_in_flight: 1
+  plan:
+  - get: git-earthranger-api
+    params:
+      submodules: none
+    trigger: true
+  - get: earthranger-api-image
+    check_every: 1m
+
+  - put: server-base-version
+    params:
+      pre: ((version-prefix))
+  - put: concourse-earthranger-api-shim
+    params: {
+      build: git-earthranger-api,
+      dockerfile: git-earthranger-api/docker/Dockerfile,
+      tag: earthranger-api-image/tag,
+      tag_as_latest: ((tag-as-latest)),
+      build_args: {BASE_IMAGE_TAG: earthranger-api-image/tag }
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+# Web Jobs
+- name: docker-build-web-develop
+  max_in_flight: 1
+  plan:
+  - get: git-web
+    trigger: true
+  - put: web-version
+    params:
+      pre: ((version-prefix))
+  - put: image-web-develop
+    params: {
+      build: git-web,
+      dockerfile: git-web/docker/Dockerfile-develop,
+      tag: web-version/version,
+      tag_as_latest: ((tag-as-latest)),
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: test-web-unit
+  serial: true
+  plan:
+  - aggregate:
+    - get: git-web
+      trigger: true
+      passed: [docker-build-web-develop]
+    - get: image-web-develop
+      trigger: true
+      passed: [docker-build-web-develop]
+      params: {
+        save: true
+      }
+  - task: test
+    image: image-web-develop
+    config:
+      platform: linux
+      inputs:
+      - name: git-web
+      run:
+        dir: git-web
+        path: ls
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-web-react-develop
+  max_in_flight: 1
+  plan:
+  - get: git-web-react
+    trigger: true
+  - put: web-react-version
+    params:
+      pre: ((version-prefix))
+  - put: image-web-react-develop
+    params: {
+      build: git-web-react,
+      dockerfile: git-web-react/Dockerfile.dev,
+      tag: web-react-version/version,
+      tag_as_latest: ((tag-as-latest)),
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: test-web-react-unit
+  serial: true
+  plan:
+  - aggregate:
+    - get: git-web-react
+      trigger: true
+      passed: [docker-build-web-react-develop]
+    - get: image-web-react-develop
+      trigger: true
+      passed: [docker-build-web-react-develop]
+      params: {
+        save: true
+      }
+  - task: test
+    image: image-web-react-develop
+    config:
+      platform: linux
+      inputs:
+      - name: git-web-react
+      run:
+        dir: git-web-react
+        path: ls
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-react-admin
+  max_in_flight: 1
+  plan:
+  - get: git-react-admin
+    trigger: true
+  - put: image-react-admin
+    params: {
+      build: git-react-admin,
+      dockerfile: git-react-admin/Dockerfile.prod,
+      tag: git-react-admin/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-web-react-app
+  max_in_flight: 1
+  plan:
+  - aggregate:
+    - get: git-web-react
+      passed: [test-web-react-unit]
+      trigger: true
+    - get: image-web-react-develop
+      trigger: true
+      passed: [test-web-react-unit]
+      params: {skip_download: true}
+    - get: web-react-version
+      passed: [docker-build-web-react-develop]
+  - put: image-web-react-app
+    params:
+      build: git-web-react
+      dockerfile: git-web-react/Dockerfile.prod
+      tag: web-react-version/version
+      tag_as_latest: ((tag-as-latest))
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+
+- name: docker-build-web-app
+  max_in_flight: 1
+  serial: true
+  plan:
+  - aggregate:
+    - get: git-web
+      passed: [test-web-unit]
+      trigger: true
+    - get: image-web-develop
+      trigger: true
+      passed: [test-web-unit]
+      params: {skip_download: true}
+    - get: image-web-react-develop
+      trigger: true
+      passed: [test-web-react-unit]
+      params: {skip_download: true}
+    - get: web-version
+      passed: [docker-build-web-develop]
+    - get: web-react-version
+      passed: [docker-build-web-react-develop]
+    - get: image-react-admin
+      version: latest
+      trigger: true
+    - get: image-web-react-app
+      version: web-react-version/version
+      trigger: true
+  - put: image-web-app
+    params:
+      build: git-web
+      dockerfile: git-web/docker/Dockerfile-alerts
+      tag:  web-version/version
+      tag_as_latest: ((tag-as-latest))
+      build_args:
+        from_file:
+          WEB_REACT_VERSION: web-react-version/version
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+# ETL Jobs
+- name: docker-build-skyline-provider
+  max_in_flight: 1
+  plan:
+  - get: git-skyline-provider
+    trigger: true
+  - put: image-skyline-provider
+    params: {
+      build: git-skyline-provider,
+      tag: git-skyline-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-spot-provider
+  max_in_flight: 1
+  plan:
+  - get: git-spot-provider
+    trigger: true
+  - put: image-spot-provider
+    params: {
+      build: git-spot-provider,
+      tag: git-spot-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-sigfox-provider
+  max_in_flight: 1
+  plan:
+  - get: git-sigfox-provider
+    trigger: true
+  - put: image-sigfox-provider
+    params: {
+      build: git-sigfox-provider,
+      tag: git-sigfox-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-tracktrace-provider
+  max_in_flight: 1
+  plan:
+  - get: git-tracktrace-provider
+    trigger: true
+  - put: image-tracktrace-provider
+    params: {
+      build: git-tracktrace-provider,
+      tag: git-tracktrace-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-quadratex-provider
+  max_in_flight: 1
+  plan:
+  - get: git-quadratex-provider
+    trigger: true
+  - put: image-quadratex-provider
+    params: {
+      build: git-quadratex-provider,
+      tag: git-quadratex-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-smartconnect-provider
+  max_in_flight: 1
+  plan:
+  - get: git-smartconnect-provider
+    trigger: true
+  - put: smartconnect-version
+    params:
+      pre: ((version-prefix))
+  - put: image-smartconnect-provider
+    params: {
+      build: git-smartconnect-provider,
+      tag: smartconnect-version/version,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: docker-build-capturs-provider
+  max_in_flight: 1
+  plan:
+  - get: git-capturs-provider
+    trigger: true
+  - put: image-capturs-provider
+    params: {
+      build: git-capturs-provider,
+      tag: git-capturs-provider/sha,
+      tag_as_latest: ((tag-as-latest))
+    }
+    get_params: {skip_download: true}
+    on_failure:
+      do:
+      - put: slack-alert
+        params:
+          channel: ((slack-notification-channel))
+          text: |
+            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+- name: deploy-to-k8s
+  max_in_flight: 1
+  plan:
+    - aggregate:
+      - get: server-version
+        passed: [docker-build-server]
+      - get: web-version
+        passed: [docker-build-web-develop]
+      - get: smartconnect-version
+        passed: [docker-build-smartconnect-provider]
+      - get: git-web
+        passed: [docker-build-web-app]
+      - get: git-server
+        passed: [docker-build-server]
+        params:
+          submodules: none
+      - get: git-deployment
+        params:
+          submodules: none
+        trigger: true
+      - get: git-skyline-provider
+        passed: [docker-build-skyline-provider]
+      - get: git-spot-provider
+        passed: [docker-build-spot-provider]
+      - get: git-sigfox-provider
+        passed: [docker-build-sigfox-provider]
+      - get: git-tracktrace-provider
+        passed: [docker-build-tracktrace-provider]
+      - get: git-quadratex-provider
+        passed: [docker-build-quadratex-provider]
+      - get: git-smartconnect-provider
+        passed: [docker-build-smartconnect-provider]
+      - get: git-capturs-provider
+        passed: [docker-build-capturs-provider]
+      - get: image-nginx
+        passed: [docker-build-server]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-postgis
+        passed: [docker-build-server]
+        trigger: true
+        params: {skip_download: true}
+      - get: image-web-app
+        passed: [docker-build-web-app]
+        trigger: true
+        params: {skip_download: true}
+    - aggregate:
+      - task: ensure-disks-exist
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
+          inputs:
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+            USERNAME: ((creator)),
+            ELASTIC_URL: ((elastic-url)),
+            BUILD_PIPELINE_NAME: ((pipeline-name)),
+            AZURE_TENANT_ID: ((azure-tenant-id)),
+            AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+            AZURE_CLIENT_ID: ((azure-client-id)),
+            AZURE_CLIENT_SECRET: ((azure-client-secret)),
+            LOGSTASH_URL: ((logstash-url))
+          }
+          run:
+            path: /bin/bash
+            args:
+            - vcloud
+            - disks
+            - create
+            - git-deployment/((disks-spec))
+            - --prefix=((cluster-name))-((namespace))
+            - --zone=((iaas-zone))
+            - --iaas=((iaas))
+            - --workspace=((iaas-workspace))
+            - --type=ssd
+      - task: ensure-infra-disks-exist
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
+          inputs:
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+            USERNAME: ((creator)),
+            ELASTIC_URL: ((elastic-url)),
+            BUILD_PIPELINE_NAME: ((pipeline-name)),
+            AZURE_TENANT_ID: ((azure-tenant-id)),
+            AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+            AZURE_CLIENT_ID: ((azure-client-id)),
+            AZURE_CLIENT_SECRET: ((azure-client-secret)),
+            LOGSTASH_URL: ((logstash-url))
+          }
+          run:
+            path: /bin/bash
+            args:
+            - vcloud
+            - disks
+            - create
+            - git-deployment/((infra-disks-spec))
+            - --prefix=((cluster-name))-((infra-namespace))
+            - --zone=((iaas-zone))
+            - --iaas=((iaas))
+            - --workspace=((iaas-workspace))
+            - --type=ssd
+      - task: ensure-cluster-exists
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
+          inputs:
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            CLUSTER_NAME: ((cluster-name)),
+            IAAS: ((iaas)),
+            ZONE: ((iaas-zone)),
+            WORKSPACE: ((iaas-workspace)),
+            SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url)),
+            AZURE_TENANT_ID: ((azure-tenant-id)),
+            AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+            AZURE_CLIENT_ID: ((azure-client-id)),
+            AZURE_CLIENT_SECRET: ((azure-client-secret)),
+            LOGSTASH_URL: ((logstash-url))
+          }
+          run:
+            path: /bin/bash
+            args:
+            - vcloud
+            - clusters
+            - create
+            - git-deployment/((cluster-spec))
+            - --name=((cluster-name))
+            - --zone=((iaas-zone))
+            - --iaas=((iaas))
+            - --workspace=((iaas-workspace))
+      - task: create-deployment-plan
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
+          inputs:
+          - name: server-version
+          - name: web-version
+          - name: smartconnect-version
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url)),
+            VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+            LOGSTASH_URL: ((logstash-url))
+          }
+          run:
+            path: /bin/bash
+            args:
+            - vcloud
+            - deployment-plans
+            - create
+            - git-deployment/deployment/default-deployment-plan-spec.yaml
+            - --series=((cluster-name))
+    - do:
+      - task: deploy
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {
+              repository: gcr.io/ss-infrastructure-public/platform/tools,
+              tag: ((vp-tools-container-version)),
+            }
+          inputs:
+          - name: git-deployment
+          params: {
+            PROJECT: padas-app,
+            CLUSTER_NAME: ((cluster-name)),
+            IAAS: ((iaas)),
+            ZONE: ((iaas-zone)),
+            WORKSPACE: ((iaas-workspace)),
+            SERVICE_ACCOUNT_KEY: ((padas-app-cluster-admin)),
+            USERNAME: ((creator)),
+            VAULT_TOKEN: ((vault-automation-token)),
+            VAULT_ADDR: ((vault-address)),
+            ELASTIC_URL: ((elastic-url)),
+            VCLOUD_SERVICE_URL: ((vcloud-service-url)),
+            DAS_STATIC_IP: ((das-static-ip)),
+            AZURE_TENANT_ID: ((azure-tenant-id)),
+            AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+            AZURE_CLIENT_ID: ((azure-client-id)),
+            AZURE_CLIENT_SECRET: ((azure-client-secret)),
+            LOGSTASH_URL: ((logstash-url)),
+            NAMESPACE: ((namespace)),
+            INFRA_NAMESPACE: ((infra-namespace))
+          }
+          run:
+            path: /bin/bash
+            args:
+            - -ec
+            - |
+              echo "Finalizing the PV definitions to be used for this IAAS"
+              find . -name "*.yaml.$IAAS" -exec bash -c 'mv "$1" "${1%.yaml.$IAAS}".yaml' - '{}' \;
+              find . -type f -name '*.yaml\.*' -exec rm {} +
+
+              vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/default.params.yaml git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((cluster-name)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
+      on_failure:
+        do:
+        - put: slack-alert
+          params:
+            channel: ((slack-notification-channel))
+            text: |
+              :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
+              $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
+
+#########################
+# Destructive Jobs
+#########################
+
+- name: destroy-resources
+  disable_manual_trigger: true
+  serial: true
+  plan:
+  - do:
+    - get: git-deployment
+      params:
+        submodules: none
+    - task: delete-cluster
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
+          }
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
+          LOGSTASH_URL: ((logstash-url)),
+          DELETE_CLUSTER: "no"
+        }
+        run:
+          path: /bin/bash
+          args:
+          - -ec
+          - |
+            if [ "$DELETE_CLUSTER" == "yes" ]; then
+              echo "Deleting cluster. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name))"
+              vcloud clusters delete -i ((iaas)) -w ((iaas-workspace)) -z ((iaas-zone)) -n ((cluster-name)) -f || true
+            else
+              echo "Skipping cluster deletion"
+            fi
+    - task: delete-namespace
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
+          }
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
+          LOGSTASH_URL: ((logstash-url)),
+          DELETE_CLUSTER: "no"
+        }
+        run:
+          path: /bin/bash
+          args:
+          - -ec
+          - |
+            if [ "$DELETE_CLUSTER" == "yes" ]; then
+              echo "Skipping namespace deletion"
+            else
+              echo "Deleting namespace. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)), Namespace ((namespace))"
+              vcloud clusters delete-namespace -i ((iaas)) -w ((iaas-workspace)) -z ((iaas-zone)) -n ((cluster-name)) --namespace ((namespace)) || true
+            fi
+    - task: delete-disks
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
+          }
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
+          LOGSTASH_URL: ((logstash-url))
+        }
+        run:
+          path: /bin/bash
+          args:
+          - -ec
+          - |
+            echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)) Namespace ((namespace))"
+            vcloud disks delete git-deployment/((disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((namespace)) -z=((iaas-zone)) -f || true
+    - task: delete-infra-disks
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {
+            repository: gcr.io/ss-infrastructure-public/platform/tools,
+            tag: ((vp-tools-container-version)),
+          }
+        inputs:
+        - name: git-deployment
+        params: {
+          PROJECT: padas-app,
+          SERVICE_ACCOUNT_KEY: ((padas-app-boshprovisioner)),
+          USERNAME: ((creator)),
+          VAULT_TOKEN: ((vault-automation-token)),
+          VAULT_ADDR: ((vault-address)),
+          ELASTIC_URL: ((elastic-url)),
+          BUILD_PIPELINE_NAME: ((pipeline-name)),
+          AZURE_TENANT_ID: ((azure-tenant-id)),
+          AZURE_SUBSCRIPTION_ID: ((azure-subscription-id)),
+          AZURE_CLIENT_ID: ((azure-client-id)),
+          AZURE_CLIENT_SECRET: ((azure-client-secret)),
+          LOGSTASH_URL: ((logstash-url)),
+          DELETE_CLUSTER: "no"
+        }
+        run:
+          path: /bin/bash
+          args:
+          - -ec
+          - |
+            if [ "$DELETE_CLUSTER" == "yes" ]; then
+              echo "Deleting Disks. Project [$PROJECT], Workspace ((iaas-workspace)), Zone ((iaas-zone)), K8s Cluster ((cluster-name)) Namespace ((namespace))"
+              vcloud disks delete git-deployment/((infra-disks-spec)) -i ((iaas)) --project $PROJECT -w ((iaas-workspace)) -p=((cluster-name))-((infra-namespace)) -z=((iaas-zone)) -f || true
+            else
+              echo "Skipping infra disk deletion"
+            fi
 
 # Web Jobs
 - name: docker-build-web-develop
