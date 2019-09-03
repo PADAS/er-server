@@ -147,6 +147,7 @@ resources:
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
     repository: gcr.io/padas-app/circleci/earthranger-api
+    tag: "1.77.1_6f3cb1092788be699d3350a42147385c0741415e"
 
 # docker resource images not dependent on base / app
 - name: image-postgis
@@ -315,11 +316,6 @@ jobs:
       submodules: none
     trigger: true
   - get: earthranger-api-image
-    params: {
-      tag: "1.77.1_6f3cb1092788be699d3350a42147385c0741415e"
-    }
-    check_every: 1m
-
   - put: server-base-version
     params:
       pre: ((version-prefix))
