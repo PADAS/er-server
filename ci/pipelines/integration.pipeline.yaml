@@ -704,7 +704,7 @@ jobs:
         passed: [docker-build-smartconnect-provider]
       - get: git-web
         passed: [docker-build-web-app]
-      - get: git-server
+      - get: git-earthranger-api
         passed: [docker-earthranger-api-shim]
         params:
           submodules: none
@@ -1460,7 +1460,7 @@ jobs:
         passed: [docker-build-smartconnect-provider]
       - get: git-web
         passed: [docker-build-web-app]
-      - get: git-server
+      - get: git-earthranger-api
         passed: [docker-earthranger-api-shim]
         params:
           submodules: none

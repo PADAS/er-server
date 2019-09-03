@@ -1,4 +1,4 @@
 artifacts:
   web-version: web-version/version
-  server-version: server-version/version
+  server-version: "1.77.1_6f3cb1092788be699d3350a42147385c0741415e"
   smartconnect-version: smartconnect-version/version
