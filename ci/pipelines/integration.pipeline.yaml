@@ -6,6 +6,16 @@ resources:
 ################################################################################
 # git resources
 
+- name: server-base-version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:PADAS/das.versions.git
+    branch: master
+    file: ((version-prefix)).server.base.version
+    private_key: ((das-versions-github))
+    initial_version: ((initial-server-version))
+
 - name: git-earthranger-api
   type: versioned-git-resource
   source:
@@ -312,21 +322,21 @@ jobs:
       params: {
         build: git-earthranger-api,
         dockerfile: git-earthranger-api/docker/Dockerfile,
-        tag: "1.77.1_6f3cb1092788be699d3350a42147385c0741415e",
+        tag: server-base-version/version,
         tag_as_latest: ((tag-as-latest)),
-        build_args: {BASE_IMAGE_TAG: "1.77.1_6f3cb1092788be699d3350a42147385c0741415e"}
+        build_args: {BASE_IMAGE_TAG: latest}
       }
       get_params: {skip_download: true}
     - put: image-postgis
       params:
         build: git-server/docker/PostGIS
-        tag: "1.77.1_6f3cb1092788be699d3350a42147385c0741415e"
+        tag: server-base-version/version,
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-nginx
       params:
         build: git-server/docker/Nginx
-        tag: "1.77.1_6f3cb1092788be699d3350a42147385c0741415e"
+        tag: server-base-version/version,
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     on_failure:
