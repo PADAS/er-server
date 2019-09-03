@@ -308,7 +308,7 @@ resource_types:
 #
 ################################################################################
 jobs:
-- name: docker-build-server-base
+- name: docker-earthranger-api-shim
   max_in_flight: 1
   plan:
   - get: git-earthranger-api
@@ -316,9 +316,6 @@ jobs:
       submodules: none
     trigger: true
   - get: earthranger-api-image
-  - put: server-base-version
-    params:
-      pre: ((version-prefix))
   - put: concourse-earthranger-api-shim
     params: {
       build: git-earthranger-api,
@@ -701,16 +698,14 @@ jobs:
   max_in_flight: 1
   plan:
     - aggregate:
-      - get: server-version
-        passed: [docker-build-server]
-      - get: web-version
+     - get: web-version
         passed: [docker-build-web-develop]
       - get: smartconnect-version
         passed: [docker-build-smartconnect-provider]
       - get: git-web
         passed: [docker-build-web-app]
       - get: git-server
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
         params:
           submodules: none
       - get: git-deployment
@@ -732,11 +727,11 @@ jobs:
       - get: git-capturs-provider
         passed: [docker-build-capturs-provider]
       - get: image-nginx
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
         trigger: true
         params: {skip_download: true}
       - get: image-postgis
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
         trigger: true
         params: {skip_download: true}
       - get: image-web-app
@@ -1458,7 +1453,7 @@ jobs:
   plan:
     - aggregate:
       - get: server-version
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
       - get: web-version
         passed: [docker-build-web-develop]
       - get: smartconnect-version
@@ -1466,7 +1461,7 @@ jobs:
       - get: git-web
         passed: [docker-build-web-app]
       - get: git-server
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
         params:
           submodules: none
       - get: git-deployment
@@ -1488,11 +1483,11 @@ jobs:
       - get: git-capturs-provider
         passed: [docker-build-capturs-provider]
       - get: image-nginx
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
         trigger: true
         params: {skip_download: true}
       - get: image-postgis
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
         trigger: true
         params: {skip_download: true}
       - get: image-web-app
