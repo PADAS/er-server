@@ -312,21 +312,21 @@ jobs:
       params: {
         build: git-earthranger-api,
         dockerfile: git-earthranger-api/docker/Dockerfile,
-        tag: earthranger-api-image/tag,
+        tag: "1.77.1_6f3cb1092788be699d3350a42147385c0741415e",
         tag_as_latest: ((tag-as-latest)),
-        build_args: {BASE_IMAGE_TAG: earthranger-api-image/tag }
+        build_args: {BASE_IMAGE_TAG: "1.77.1_6f3cb1092788be699d3350a42147385c0741415e"}
       }
       get_params: {skip_download: true}
     - put: image-postgis
       params:
         build: git-server/docker/PostGIS
-        tag: earthranger-api-image/tag
-        tag_as_latest: ((tag-as-latest))
+        tag: "1.77.1_6f3cb1092788be699d3350a42147385c0741415e",
+        tag_as_latest: ((tag-as-latest)),
       get_params: {skip_download: true}
     - put: image-nginx
       params:
         build: git-server/docker/Nginx
-        tag: earthranger-api-image/tag
+        tag: "1.77.1_6f3cb1092788be699d3350a42147385c0741415e",
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     on_failure:
