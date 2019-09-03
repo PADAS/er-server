@@ -698,7 +698,7 @@ jobs:
   max_in_flight: 1
   plan:
     - aggregate:
-     - get: web-version
+      - get: web-version
         passed: [docker-build-web-develop]
       - get: smartconnect-version
         passed: [docker-build-smartconnect-provider]
