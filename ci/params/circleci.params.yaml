@@ -1,7 +1,7 @@
 project-id: padas-app
 version-prefix: dev
 cluster-name: integration
-server-branch-name: develop
+server-branch-name: consolidate-docker-images-step2
 web-branch-name: develop
 namespace: circleci
 web-react-admin-branch-name: master
