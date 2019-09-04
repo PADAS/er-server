@@ -53,6 +53,7 @@ workflows:
             branches:
               only:
                 - develop
+                - consolidate-docker-images-step2
       - terraform_plan:
           requires:
             - 'docker_build'
