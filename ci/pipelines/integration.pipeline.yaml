@@ -333,13 +333,13 @@ jobs:
     get_params: {skip_download: true}
   - put: image-postgis
     params:
-      build: git-server/docker/PostGIS
+      build: git-earthranger-api/docker/PostGIS
       tag: server-base-version/version
       tag_as_latest: ((tag-as-latest))
     get_params: {skip_download: true}
   - put: image-nginx
     params:
-      build: git-server/docker/Nginx
+      build: git-earthranger-api/docker/Nginx
       tag: server-base-version/version
       tag_as_latest: ((tag-as-latest))
     get_params: {skip_download: true}
