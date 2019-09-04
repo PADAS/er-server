@@ -1,3 +1,4 @@
+from observations.utils import get_minimum_allowed_age
 import csv
 import datetime
 import json
@@ -18,7 +19,7 @@ from django.utils.dateparse import parse_datetime
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import APIException
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 
@@ -170,9 +171,6 @@ class RegionSubjectsView(generics.ListAPIView):
         subjects = models.Subject.objects.by_region(
             region).annotate_with_subject_status()
         return subjects
-
-
-from observations.utils import get_minimum_allowed_age
 
 
 class SubjectsViewSchema(rest_framework.schemas.AutoSchema):
@@ -386,6 +384,11 @@ class SubjectsGeoJsonView(SubjectsView):
     renderer_classes = (ExtendedGEOJSONRenderer,)
 
 
+class Unauthorized(APIException):
+    status_code = 200
+    default_detail = {"data": []}
+
+
 class SubjectView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.SubjectSerializer
@@ -395,8 +398,7 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
-            raise PermissionDenied
-
+            raise Unauthorized
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         queryset = models.Subject.objects.all()
         queryset = queryset.annotate_with_subjectstatus(

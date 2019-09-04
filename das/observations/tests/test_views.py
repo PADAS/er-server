@@ -164,7 +164,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         response = views.SubjectSourcesView.as_view()(request, id=str(self.ele.id))
         self.assertEqual(response.status_code, 403)
 
-    def xtest_return_all_observation_for_subject(self):
+    def test_return_all_observation_for_subject(self):
         request = self.factory.get(API_BASE + '/subject/')
         self.force_authenticate(request, self.realtime_view_user)
 
@@ -173,8 +173,13 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.assertTrue('last_position_date' in response.data)
         self.assertEqual(self.ob_today.recorded_at,
                          response.data['last_position_date'])
-        self.assertEqual(self.ob_yesterday.recorded_at,
-                         response.data['tracks_range'][0])
+
+    def test_unauthorised_observation_viewing_of_subject(self):
+        request = self.factory.get(API_BASE + '/subject/')
+        self.force_authenticate(request, self.no_view_user)
+        response = views.SubjectView.as_view()(request, id=str(self.ele.id))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data'], [])
 
     def test_user_return_subject_sources(self):
         request = self.factory.get(
