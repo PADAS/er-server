@@ -1,4 +1,4 @@
 artifacts:
   web-version: web-version/version
-  server-version: server-version/version
+  server-base-version: server-base-version/version
   smartconnect-version: smartconnect-version/version
