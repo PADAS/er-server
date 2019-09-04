@@ -42,7 +42,6 @@ jobs:
       - setup_remote_docker
       - docker_login
       - checkout
-      - run: 'cd circleci-docker && make base_build_and_push tag=latest'
       - run: 'cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH'
 workflows:
   version: 2
