@@ -316,8 +316,9 @@ jobs:
     - get: git-earthranger-api
       params:
         submodules: none
-      trigger: true
+      trigger: false
     - get: earthranger-api-image
+      trigger: true
     - put: server-base-version
       params:
         pre: ((version-prefix))
