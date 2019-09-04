@@ -324,24 +324,24 @@ jobs:
         pre: ((version-prefix))
     - get: server-base-version
     - put: concourse-earthranger-api-shim
-      params: {
-        build: git-earthranger-api,
-        dockerfile: git-earthranger-api/docker/Dockerfile,
-        tag: server-base-version/version,
-        tag_as_latest: ((tag-as-latest)),
+      params:
+        build: git-earthranger-api
+        dockerfile: git-earthranger-api/docker/Dockerfile
+        tag: server-base-version/version
+        tag_as_latest: ((tag-as-latest))
         build_args: {BASE_IMAGE_TAG: latest}
-      }
+
       get_params: {skip_download: true}
     - put: image-postgis
       params:
         build: git-server/docker/PostGIS
-        tag: server-base-version/version,
+        tag: server-base-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     - put: image-nginx
       params:
         build: git-server/docker/Nginx
-        tag: server-base-version/version,
+        tag: server-base-version/version
         tag_as_latest: ((tag-as-latest))
       get_params: {skip_download: true}
     on_failure:
