@@ -53,7 +53,7 @@ workflows:
             branches:
               only:
                 - develop
-                - consolidate-docker-images-step1
+                - TRELLO_2925-version-tagging
       - terraform_plan:
           requires:
             - 'docker_build'
