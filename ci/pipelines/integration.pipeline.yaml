@@ -312,7 +312,6 @@ jobs:
 - name: docker-earthranger-api-shim
   max_in_flight: 1
   plan:
-  - aggregate:
     - get: git-earthranger-api
       params:
         submodules: none
