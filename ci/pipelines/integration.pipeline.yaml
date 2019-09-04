@@ -322,6 +322,7 @@ jobs:
     - put: server-base-version
       params:
         pre: ((version-prefix))
+    - get: server-base-version
     - put: concourse-earthranger-api-shim
       params: {
         build: git-earthranger-api,
