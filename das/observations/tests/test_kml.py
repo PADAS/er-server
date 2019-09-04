@@ -143,7 +143,6 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
             response_kml = response_kml_bytes.read()
 
         root = self.assertXmlDocument(response_kml)
-        print(response_kml.decode('utf-8'))
         self.assertXmlNamespace(root, None, 'http://www.opengis.net/kml/2.2')
 
     def test_export_single_subject(self):

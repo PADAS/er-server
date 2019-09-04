@@ -773,12 +773,12 @@ class KmlSubjectsView(generics.GenericAPIView):
         # verify date in YYYY-mm-dd
         try:
             datetime.datetime.strptime(start_date, '%Y-%m-%d')
-        except ValueError:
+        except Exception as e:
             start_date = None
 
         try:
             datetime.datetime.strptime(end_date, '%Y-%m-%d')
-        except ValueError:
+        except Exception as e:
             end_date = None
 
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
