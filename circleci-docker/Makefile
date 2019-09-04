@@ -6,7 +6,7 @@ SHELL := /usr/bin/env sh
 .DEFAULT_GOAL := help
 
 base_image_name := gcr.io/padas-app/circleci/das-base
-tag ?= teg-not-provided-$(shell date +%s)
+tag ?= tag-not-provided-$(shell date +%s)
 
 .PHONY: help
 help: ## show this help
