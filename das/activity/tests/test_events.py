@@ -9,6 +9,7 @@ import string
 import random
 import io
 from datetime import datetime, timedelta
+from unittest import mock
 
 import pytz
 
@@ -23,6 +24,7 @@ from django.core.management import call_command
 from django.urls import reverse
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.staticfiles import finders
+from kombu import Connection
 from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
@@ -77,6 +79,10 @@ eventsource_user_permissions = [
 guest_user_permissions = ['logistics_read']
 
 reported_by_permission_set_id = 'b5057387-9f6c-4685-8ec1-46ad29684eea'
+
+
+def fake_get_pool():
+    return Connection("memory://").Pool(20)
 
 
 class TestEventView(BaseAPITest):
@@ -971,6 +977,7 @@ class TestEventView(BaseAPITest):
             self.assertTrue(
                 permission_list[0] in permissionset_list[0].permissions.all())
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_all_perms_user_permissions(self):
         results = self.do_all_operations_on_all_event_types(
             self.all_perms_user)
@@ -978,6 +985,7 @@ class TestEventView(BaseAPITest):
         for k, v in results.items():
             self.assertTrue(v, 'All perms user failed {0}'.format(k))
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_power_user_permissions(self):
         results = self.do_all_operations_on_all_event_types(self.power_user)
 
