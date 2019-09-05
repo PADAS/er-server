@@ -875,7 +875,7 @@ jobs:
               tag: ((vp-tools-container-version)),
             }
           inputs:
-          - name: server-base-version
+          - name: server-version
           - name: web-version
           - name: smartconnect-version
           - name: git-deployment
