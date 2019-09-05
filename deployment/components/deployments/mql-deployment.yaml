@@ -14,7 +14,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/circleci/earthranger-api:<<server-version>>
+      - image: gcr.io/padas-app/deleteme/concourse-earthranger-api:<<server-version>>
         name: das-mql
         resources:
           requests:
