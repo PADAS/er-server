@@ -14,7 +14,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/circleci/earthranger-api:<<server-base-version>>
+      - image: gcr.io/padas-app/circleci/earthranger-api:<<server-version>>
         name: das-worker-rt
         resources:
           requests:
