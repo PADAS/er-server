@@ -6,7 +6,7 @@ resources:
 ################################################################################
 # git resources
 
-- name: server-base-version
+- name: server-version
   type: semver
   source:
     driver: git
@@ -318,14 +318,14 @@ jobs:
     trigger: false
   - get: earthranger-api-image
     trigger: true
-  - put: server-base-version
+  - put: server-version
     params:
       pre: ((version-prefix))
   - put: concourse-earthranger-api-shim
     params:
       build: git-earthranger-api
       dockerfile: git-earthranger-api/docker/Dockerfile
-      tag: server-base-version/version
+      tag: server-version/version
       tag_as_latest: ((tag-as-latest))
       build_args: {BASE_IMAGE_TAG: latest}
 
@@ -333,13 +333,13 @@ jobs:
   - put: image-postgis
     params:
       build: git-earthranger-api/docker/PostGIS
-      tag: server-base-version/version
+      tag: server-version/version
       tag_as_latest: ((tag-as-latest))
     get_params: {skip_download: true}
   - put: image-nginx
     params:
       build: git-earthranger-api/docker/Nginx
-      tag: server-base-version/version
+      tag: server-version/version
       tag_as_latest: ((tag-as-latest))
     get_params: {skip_download: true}
   on_failure:
