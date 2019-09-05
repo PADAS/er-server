@@ -327,8 +327,9 @@ jobs:
       dockerfile: git-earthranger-api/docker/Dockerfile
       tag: server-version/version
       tag_as_latest: ((tag-as-latest))
-      build_args: {BASE_IMAGE_TAG: latest}
-
+      build_args:
+         from_file:
+           app_tag: server-version/version
     get_params: {skip_download: true}
   - put: image-postgis
     params:
