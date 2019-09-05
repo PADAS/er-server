@@ -328,8 +328,7 @@ jobs:
       tag: server-version/version
       tag_as_latest: ((tag-as-latest))
       build_args:
-         from_file:
-           app_tag: server-version/version
+        {app_tag: ((server-branch-name))}
     get_params: {skip_download: true}
   - put: image-postgis
     params:
