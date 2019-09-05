@@ -735,11 +735,11 @@ class KmlRootView(generics.GenericAPIView):
         token = kmlutils.get_kml_access_token(self.request.user, )
         start_date = self.request.GET.get('start', 'start')
         end_date = self.request.GET.get('end', 'end')
-        include_active = self.request.GET.get('active', 'active')
+        include_active = self.request.GET.get('include_inactive', 'active')
         return utils.add_base_url(self.request,
                                   '?'.join((
                                       reverse('subjects-kml-view'),
-                                      'auth={}&start={}&end={}&active={}'.format(token, start_date, end_date, include_active))
+                                      'auth={}&start={}&end={}&include_inactive={}'.format(token, start_date, end_date, include_active))
                                   )
                                   )
 
@@ -766,7 +766,7 @@ class KmlSubjectsView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def get_queryset(self):
-        is_active = self.request.GET.get('active')
+        include_inactive = self.request.GET.get('include_inactive')
         start_date = self.request.GET.get('start')
         end_date = self.request.GET.get('end')
 
@@ -782,10 +782,9 @@ class KmlSubjectsView(generics.GenericAPIView):
             end_date = None
 
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        # To include inactive subjects in KmlSubject report
-        queryset = models.Subject.objects.all()  # .by_is_active()
-        if is_active == 'true':
-            queryset = queryset.filter(is_active=True)
+        queryset = models.Subject.objects.filter(is_active=True)
+        if include_inactive == 'true':
+            queryset = models.Subject.objects.all()
 
         if start_date and end_date:
             queryset = queryset.filter(
