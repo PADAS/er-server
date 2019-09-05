@@ -715,6 +715,8 @@ jobs:
   max_in_flight: 1
   plan:
     - aggregate:
+      - get: server-version
+        passed: [docker-earthranger-api-shim]
       - get: web-version
         passed: [docker-build-web-develop]
       - get: smartconnect-version
