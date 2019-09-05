@@ -216,7 +216,7 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         kml_filters = {
             'start': '2017-06-12',
             'end': '2019-06-12',
-            'include_inactive': 'false'
+            'include_inactive': 'true'
         }
         url += '?{}'.format(urlencode(kml_filters))
 
