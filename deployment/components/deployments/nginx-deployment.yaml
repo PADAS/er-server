@@ -12,7 +12,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/nginx:<<server-base-version>>
+      - image: gcr.io/padas-app/nginx:<<server-version>>
         name: das-nginx
         resources:
           requests:
