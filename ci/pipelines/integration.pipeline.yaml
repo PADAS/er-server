@@ -716,6 +716,8 @@ jobs:
   max_in_flight: 1
   plan:
     - aggregate:
+      - get: concourse-earthranger-api-shim
+        passed: [docker-earthranger-api-shim]
       - get: server-version
         passed: [docker-earthranger-api-shim]
       - get: web-version
