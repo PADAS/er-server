@@ -1,23 +1,27 @@
-import logging
-import http.client
-from typing import NamedTuple
-import time
 import copy
 import datetime
+import http.client
+import json
+import logging
+import time
 from datetime import timedelta
+from typing import NamedTuple
 
-from django.contrib.gis.db import models
-from django.contrib.contenttypes.fields import GenericRelation
-from django.utils.translation import ugettext_lazy as _
-from dateutil.parser import parse as parse_date
 import pytz
+from dateutil.parser import parse as parse_date
+from django.contrib.contenttypes.fields import GenericRelation
+from django.contrib.gis.db import models
+from django.utils.translation import ugettext_lazy as _
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError, SourcePlugin
 from observations.models import Observation
+from tracking.models.plugin_base import (DasPluginFetchError, Obs,
+                                         SourcePlugin, TrackingPlugin)
+import requests
 
 
 class STObservation(NamedTuple):
     collar_id: str
+    record_index: int
     longitude: float
     latitude: float
     recorded_at: datetime.datetime
@@ -31,6 +35,7 @@ class STObservation(NamedTuple):
 
 class STAlert(NamedTuple):
     collar_id: str
+    record_index: int
     longitude: float
     latitude: float
     recorded_at: datetime.datetime
@@ -60,54 +65,55 @@ ALERT_EVENT_TYPE_MAP = {
 
 class SavannaClient(object):
 
-    def __init__(self, host=None, username=None, password=None):
+    def __init__(self, host=None, username=None, password=None, record_index=0):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self.username = username
         self.password = password
         self.host = host
+        self.record_index = record_index
 
     @staticmethod
     def str2date(d, replace_tzinfo=pytz.utc):
         '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
         return parse_date(d).replace(tzinfo=replace_tzinfo)
 
-    def fetch_observations(self, collar_id, start_time, end_time=None):
-        '''
-        Fetch observations from Savannah data-source for a particular collar.
-        :param collar_id: collar_id from trackingmaster record.
-        :param start_time: unix timestamp for earliest data to fetch.
-        :param end_time: <not used>
-        :return: generator, yielding individual records.
-        '''
-
-        self.logger.info(
-            'Fetching from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
-        conn = http.client.HTTPConnection(self.host, timeout=15)
-
+    def make_request(self, collar_id, request):
+        """ Make request to savannah api with multiple request types """
         payload = dict(uid=self.username, pwd=self.password,
-                       unixtime=str(start_time), collar=collar_id)
+                       request=request, collar=collar_id, record_index=self.record_index)
 
         payload = ['='.join((k, v)) for k, v in payload.items()]
         payload = '&'.join(payload)
-
         headers = {'accept': "*/*",
-                   'content-type': 'application/x-www-form-urlencoded'
-                   }
+                        'content-type': 'application/x-www-form-urlencoded'}
+        return requests.post(self.host + "/savannah_data/data_request", data=payload, headers=headers)
 
-        conn.request("POST", "/savannah/get_data.asp", payload, headers)
+    def select_data(self, collar_id, record):
 
-        res = conn.getresponse()
-        saveline = None
-        if res.status == http.client.OK:
+        """ Select and order data received from savannah api """
+        return [collar_id, record["record_index"], record["longitude"], record["latitude"],
+                record["record_time"], record["speed"], record["heading"], record["temperature"],
+                record["h_accuracy"], record["hdop"], record["battery"]]
+
+    def fetch_observations(self, collar_id):
+        '''
+        Fetch observations from Savannah data-source for a particular collar.
+        :param collar_id: collar_id from trackingmaster record.
+        :return: generator, yielding individual records.
+        '''
+        logger.info(
+            'Fetching from SavannahTracking for collar_id: %s', collar_id)
+        res = self.make_request(collar_id, "data_download")
+        if res.status_code == 200:
             self.logger.info(
-                'Fetch OK from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
-
-            for line in res:
+                'Fetch OK from SavannahTracking for collar_id: %s', collar_id)
+            all_records = json.loads(res.text)["records"]
+            for line in all_records:
                 try:
                     if line != saveline:  # We occassionally see duplicate records in results.
-                        yield self.parse_line(STObservation, line.decode('utf-8').strip())
+                        yield self.parse_line(STObservation, self.select_data(collar_id, line))
                 except Exception as e:
                     self.logger.exception(
                         'Failed to parse line for collar_id: %s, line: [%s]', collar_id, line)
@@ -117,50 +123,34 @@ class SavannaClient(object):
                                                                                                           res.status)
             self.logger.error(msg)
             raise DasPluginFetchError(msg)
+        yield from self.fetch_alerts(collar_id)
 
-        yield from self.fetch_alerts(collar_id, start_time=start_time, end_time=end_time)
-
-    def fetch_alerts(self, collar_id, start_time, end_time=None):
+    def fetch_alerts(self, collar_id):
 
         # Get Savannah collar alarms.
         self.logger.info('Getting Savannah collar alarms for collar_id: '
                          '{}'.format(collar_id))
-        connection = http.client.HTTPConnection(self.host, timeout=15)
-        connection.request(
-            "GET", "/savannah/get_alerts.asp?uid={}&pwd={}&start_time={}&"
-                   "end_time={}&collar={}".format(
-                       self.username, self.password, start_time, str(
-                           time.time()),
-                       collar_id)
-        )
+        alerts_response = self.make_request(collar_id, "exceptions_download")
+        if alerts_response.status_code == 200:
+            alerts = json.loads(alerts_response.text)["records"]
 
-        alerts_response = connection.getresponse()
-        if alerts_response.status == 200:
-            alerts = alerts_response.read()
-            alerts = alerts.decode('utf-8').strip()
-            # Split response and set device_alert type according to event_type
-            for alert in alerts.split('\r\n'):
-                alert = alert.split(',')
-                alert_data = alert[:-1]
-                alert_type = alert[-1]
+            # Set device_alert type according to event_type
+            for alert in alerts:
+                alert_type = alert["exception_type"]
                 event_type_info = ALERT_EVENT_TYPE_MAP.get(
-                    alert_type, None)
+                    alert_type.title(), None)
 
                 if not event_type_info:
                     self.logger.info(f'Unsupported ST alert type {alert_type}')
                     continue
 
                 device_alert = event_type_info['event_type']
+                alert = self.select_data(collar_id, alert)
 
-                # Check if alert api is returning hdop, battery or not
-                # If not, assign value as zero
-                while len(STObservation._fields) - len(alert_data) > 0:
-                    alert_data.append('')
-
-                # Atlast push device_alert and is_alert
-                alert_data.append(device_alert)
-                alert_data.append('true')
-                yield self.parse_line(STAlert, ','.join(alert_data))
+                # At last push device_alert and is_alert
+                alert.append(device_alert)
+                alert.append('true')
+                yield self.parse_line(STAlert, alert)
 
     @classmethod
     def parse_line(cls, observation_class, s):
@@ -171,7 +161,7 @@ class SavannaClient(object):
         :return:
         '''
         dt = ((cls.str2date(i) if c == datetime.datetime else c(i)) if i != '' else None
-              for c, i in zip(observation_class._field_types.values(), s.split(',')))
+              for c, i in zip(observation_class._field_types.values(), s))
         dt = observation_class(*dt)
         return dt
 
@@ -219,7 +209,9 @@ class SavannahPlugin(TrackingPlugin):
                           source.manufacturer_id)
 
         now = pytz.utc.localize(datetime.datetime.utcnow())
-        for fix in client.fetch_observations(source.manufacturer_id, start_time=st):
+        for fix in client.fetch_observations(source.manufacturer_id):
+            self.cursor_data["record_index"] = fix.record_index
+
             if fix.recorded_at > now:
                 self.logger.warning(
                     'Savannah plugin encountered a fix from the future: {0}'.format(fix))
