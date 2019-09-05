@@ -12,7 +12,7 @@ resources:
     driver: git
     uri: git@github.com:PADAS/das.versions.git
     branch: master
-    file: ((version-prefix)).server.base.version
+    file: ((version-prefix)).server.version
     private_key: ((das-versions-github))
     initial_version: ((initial-server-version))
 
