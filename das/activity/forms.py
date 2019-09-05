@@ -15,7 +15,8 @@ import jsonschema
 from core.utils import OneWeekSchedule
 from activity.alerting.conditions import Conditions
 from activity.models import EventProvider, NotificationMethod, EventType
-from utils.schema_utils import get_schema_renderer_method
+from utils.schema_utils import get_schema_renderer_method, \
+    validate_rendered_schema_is_wellformed
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +115,14 @@ class EventTypeForm(forms.ModelForm):
             _ = get_schema_renderer_method()(schema)
         except NameError:
             raise forms.ValidationError(SCHEMA_ERROR_INCORRECT_RENDER_TAG)
+
         except Exception:
             raise forms.ValidationError(SCHEMA_ERROR_JSON_DECODE_ERROR)
+        else:
+            try:
+                validate_rendered_schema_is_wellformed(schema)
+            except ValueError as e:
+                raise forms.ValidationError(str(e))
 
     class Meta:
         model = EventType
