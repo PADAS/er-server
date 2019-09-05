@@ -162,7 +162,10 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.force_authenticate(request, self.no_view_user)
 
         response = views.SubjectSourcesView.as_view()(request, id=str(self.ele.id))
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertTrue(isinstance(response.data['data'], list))
+        self.assertEqual(len(response.data['data']), 0)
 
     def test_return_all_observation_for_subject(self):
         request = self.factory.get(API_BASE + '/subject/')

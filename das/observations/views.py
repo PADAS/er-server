@@ -19,7 +19,7 @@ from django.utils.dateparse import parse_datetime
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, PermissionDenied
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 
