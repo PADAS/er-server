@@ -8,6 +8,8 @@ from django.utils.translation import ugettext_lazy as _
 from django.forms import TextInput
 from django.contrib.admin.widgets import FilteredSelectMultiple
 
+from activity.exceptions import SchemaValidationError, \
+    SCHEMA_ERROR_INCORRECT_RENDER_TAG, SCHEMA_ERROR_JSON_DECODE_ERROR
 from core.forms_utils import JSONFieldFormMixin
 
 import json
@@ -19,10 +21,6 @@ from utils.schema_utils import get_schema_renderer_method, \
     validate_rendered_schema_is_wellformed
 
 logger = logging.getLogger(__name__)
-
-SCHEMA_ERROR_INCORRECT_RENDER_TAG = "Incorrect event render tag, tag should " \
-                                    "be in the form 'xxx___xxx___xxx'"
-SCHEMA_ERROR_JSON_DECODE_ERROR = "Schema can not be decoded"
 
 
 class MonospaceTextWidget(forms.Textarea):
@@ -115,13 +113,12 @@ class EventTypeForm(forms.ModelForm):
             _ = get_schema_renderer_method()(schema)
         except NameError:
             raise forms.ValidationError(SCHEMA_ERROR_INCORRECT_RENDER_TAG)
-
         except Exception:
             raise forms.ValidationError(SCHEMA_ERROR_JSON_DECODE_ERROR)
         else:
             try:
                 validate_rendered_schema_is_wellformed(schema)
-            except ValueError as e:
+            except SchemaValidationError as e:
                 raise forms.ValidationError(str(e))
 
     class Meta:

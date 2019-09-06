@@ -9,6 +9,9 @@ from django.apps import apps
 from django.template import Template, Context
 from django.template.base import VariableNode
 
+from activity.exceptions import SchemaValidationError, \
+    SCHEMA_ERROR_EMPTY_PROPERTY, \
+    SCHEMA_ERROR_MISMATCHED_PROPERTIES_IN_DEFINITION
 from choices.models import Choice, DynamicChoice
 from utils.memoize import memoize
 
@@ -465,5 +468,14 @@ def validate_rendered_schema_is_wellformed(schema):
 
     for prop in properties.values():
         if not all([x in prop.keys() for x in ["type", "title"]]):
-            raise ValueError(
-                "Each property must contain at minimum a type and a title")
+            raise SchemaValidationError(SCHEMA_ERROR_EMPTY_PROPERTY)
+
+    definition = schema.get('definition', [])
+    keys = []
+    for dfn in definition:
+        if 'key' in dfn.keys():
+            keys.append(dfn['key'])
+
+    if sorted(keys) != sorted(list(properties.keys())):
+        raise SchemaValidationError(
+            SCHEMA_ERROR_MISMATCHED_PROPERTIES_IN_DEFINITION)
