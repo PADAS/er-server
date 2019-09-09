@@ -138,7 +138,7 @@ resources:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/deleteme/concourse-earthranger-api
+    repository: gcr.io/padas-app/concourse-shim/concourse-earthranger-api
 
 # EarthRanger API Image Resources
 - name: earthranger-api-image
