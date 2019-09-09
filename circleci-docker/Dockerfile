@@ -61,7 +61,6 @@ ENV DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
 
 ENV SERVICE_NAME=api_server
 
-
 WORKDIR /var/www/app
 
 ENTRYPOINT ["/var/www/app/start.sh"]
