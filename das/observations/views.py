@@ -733,8 +733,8 @@ class KmlRootView(generics.GenericAPIView):
 
     def build_link_for_user(self):
         token = kmlutils.get_kml_access_token(self.request.user, )
-        start_date = self.request.GET.get('start', 'start')
-        end_date = self.request.GET.get('end', 'end')
+        start_date = self.request.GET.get('start', '')
+        end_date = self.request.GET.get('end', '')
         include_active = self.request.GET.get('include_inactive', 'active')
         return utils.add_base_url(self.request,
                                   '?'.join((
