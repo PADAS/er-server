@@ -5,7 +5,7 @@ from activity.models import AlertRule, NotificationMethod, EventType
 
 from activity.serializers import EventTypeSerializer, AlertRuleSerializer, NotificationMethodSerializer
 
-from activity.permissions import EventCategoryPermissions, IsOwner
+from activity.permissions import EventCategoryPermissions, IsOwner, HasAlertRulePermissions
 from activity.alerting.businessrules import render_aggregate_event_variables
 
 from utils.drf import StandardResultsSetPagination
@@ -39,8 +39,7 @@ class EventAlertConditionsListView(generics.ListAPIView):
 
 
 class AlertRuleListView(generics.ListCreateAPIView):
-
-    permission_classes = (IsOwner,)
+    permission_classes = (HasAlertRulePermissions,)
     serializer_class = AlertRuleSerializer
 
     def get_queryset(self):
@@ -52,7 +51,7 @@ class AlertRuleListView(generics.ListCreateAPIView):
 
 class AlertRuleView(generics.RetrieveUpdateDestroyAPIView):
 
-    permission_class = (IsOwner,)
+    permission_classes = (HasAlertRulePermissions,)
     serializer_class = AlertRuleSerializer
     pagination_class = StandardResultsSetPagination
 

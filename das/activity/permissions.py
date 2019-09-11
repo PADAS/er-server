@@ -1,5 +1,10 @@
-from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions, BasePermission, SAFE_METHODS
+from rest_framework.permissions import (SAFE_METHODS, BasePermission,
+                                        DjangoModelPermissions,
+                                        IsAuthenticated)
+
+from activity.alerts import has_alerts_permissionset
 from activity.models import EventType
+from observations.views import Unauthorized
 
 
 class EventObjectPermissions(DjangoModelPermissions):
@@ -125,3 +130,24 @@ class IsEventProviderOwnerPermission(BasePermission):
 
         eventprovider = getattr(obj, self.relation_field, None)
         return eventprovider is not None and eventprovider.owner == request.user
+
+
+class HasAlertRulePermissions(IsOwner):
+    """
+    Custom permission to allow only users with alert rule permissions to create, edit or delete alert rules.
+    """
+    def has_permission(self, request, view):
+
+        if request.method in ['OPTIONS', 'HEAD']:
+            super().has_permission(request, view)
+
+        if request.user.is_authenticated:
+            permitted = has_alerts_permissionset(request.user)
+            if permitted:
+                return True
+            elif request.method == 'GET':
+                raise Unauthorized
+            else:
+                return False
+
+        return super().has_permission(request, view)

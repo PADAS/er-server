@@ -1,5 +1,8 @@
+import django.contrib.auth
 from django.conf import settings
-from accounts.models import User
+from django.contrib.contenttypes.models import ContentType
+
+from accounts.models import PermissionSet, User
 from activity.models import Event
 
 notify_high_priority_event = getattr(
@@ -38,3 +41,39 @@ def get_alert_users(priority):
                                is_email_alert=True,
                                is_active=True
                                ).distinct().order_by('username')
+
+
+def create_alerts_permissionset():
+    '''
+    Adds the proper permission and permissionset that dentify the users who can
+    view, create, update and delete alerts.
+    '''
+    User = django.contrib.auth.get_user_model()
+    content_type = ContentType.objects.get_for_model(User)
+
+    permissions = {
+        "read_alertrule": "Can view alert rule",
+        "add_alertrule": "Can add alert",
+        "change_alertrule": "Can change alert rule",
+        "delete_alertrule": "Can delete alert rule"
+    }
+
+    permission_set = PermissionSet.objects.create(
+                name='Alert Rule Permissions')
+
+    for codename, name in permissions.items():
+        perm, created = django.contrib.auth.models.Permission.objects.get_or_create(
+            codename=codename,
+            content_type=content_type,
+            name=name
+        )
+        permission_set.permissions.add(perm)
+
+
+def has_alerts_permissionset(user):
+    '''
+    Check if user has `Alert Rule Permissions` permissionset
+    '''
+    return "Alert Rule Permissions" in [
+                permission.name for permission in
+                user.get_all_permission_sets()]

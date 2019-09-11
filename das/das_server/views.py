@@ -8,6 +8,7 @@ from django.template import RequestContext
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 import rest_framework.serializers
+from activity.alerts import has_alerts_permissionset
 
 from das_server import __version__
 
@@ -66,8 +67,12 @@ class StatusView(generics.RetrieveAPIView):
         resp['event_search_enabled'] = True
         resp['show_stationary_subjects_on_map'] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
         resp['daily_report_enabled'] = settings.DAILY_REPORT_ENABLED
-        resp['alerts_enabled'] = settings.ALERTS_ENABLED
 
+        has_alerts_permissions = has_alerts_permissionset(self.request.user)
+
+        alerts_enabled = True if has_alerts_permissions else False
+        
+        resp['alerts_enabled'] = alerts_enabled
         resp['server_timezone_name'] = timezone.get_current_timezone_name()
         resp['server_timezone'] = timezone.localtime().strftime('%Z')
 
