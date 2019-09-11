@@ -5,6 +5,7 @@ from django.core import checks, exceptions
 from django.db.models.fields import BLANK_CHOICE_DASH
 from django.utils.functional import lazy, curry
 from django.utils.translation import ugettext_lazy as _
+from django.utils import timezone
 
 
 class ChoiceQuerySet(models.QuerySet):
@@ -29,6 +30,15 @@ class ChoiceQuerySet(models.QuerySet):
             parent_model, parent_field).filter(value=parent_value)
         return self.filter(sub_choice_of=parent)
 
+    def get_active_choices(self):
+        return self.filter(delete_on__isnull=True)
+
+    def get_inactive_choices(self):
+        return self.filter(delete_on__isnull=False)
+
+    def disable_choices(self):
+        return self.update(delete_on=timezone.now())
+
 
 class DynamicChoice(models.Model):
     id = models.CharField(max_length=100, primary_key=True)
@@ -39,7 +49,18 @@ class DynamicChoice(models.Model):
                                    verbose_name='Display column')
 
 
-class Choice(models.Model):
+class SoftDeleteModel(models.Model):
+    delete_on = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+    def delete(self):
+        self.delete_on = timezone.now()
+        self.save()
+
+
+class Choice(SoftDeleteModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     model = models.CharField(max_length=50)
     field = models.CharField(max_length=40)

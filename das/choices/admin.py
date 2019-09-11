@@ -1,17 +1,97 @@
 import logging
 
 from django.contrib import admin
+from django.contrib import messages
+from django.utils.translation import gettext as _
+from django.urls import reverse
+from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
+from django.http import HttpResponseRedirect
 
 import choices.models as models
+
+# IS_POPUP_VAR = '_popup'
 
 
 @admin.register(models.Choice)
 class ChoiceAdmin(admin.ModelAdmin):
+    actions = ('disable_choices',)
     ordering = ('model', 'field', 'ordernum', 'display')
     list_display = ('model', 'field', 'value', 'display', 'ordernum')
     list_display_links = ('model', 'field')
     search_fields = ('model', 'field', 'value', 'display')
     list_editable = ('value', 'display', 'ordernum')
+    exclude =('delete_on',)
+
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        queryset = queryset.get_active_choices()
+        if not self.has_change_permission(request):
+            queryset = queryset.none()
+        return queryset
+
+    # def delete_queryset(self, request, queryset):
+    #     # override this method to customize the deletion process
+    #     # for "delete selected objects"
+    #     pass
+
+
+    def response_delete(self, request, obj_display, obj_id):
+        """
+        Determine the HttpResponse for the delete_view stage.
+        """
+        opts = self.model._meta
+
+        # if IS_POPUP_VAR in request.POST:
+        #     popup_response_data = json.dumps({
+        #         'action': 'delete',
+        #         'value': str(obj_id),
+        #     })
+        #     return TemplateResponse(
+        #         request, self.popup_response_template or [
+        #             'admin/%s/%s/popup_response.html' %
+        #             (opts.app_label, opts.model_name),
+        #             'admin/%s/popup_response.html' % opts.app_label,
+        #             'admin/popup_response.html',
+        #         ], {
+        #             'popup_response_data': popup_response_data,
+        #         })
+
+        self.message_user(
+            request,
+            _('The %(name)s "%(obj)s" was deactivated.') % {
+                'name': opts.verbose_name,
+                'obj': obj_display,
+            },
+            messages.WARNING,
+        )
+
+        if self.has_change_permission(request, None):
+            post_url = reverse(
+                'admin:%s_%s_changelist' % (opts.app_label, opts.model_name),
+                current_app=self.admin_site.name,
+            )
+            preserved_filters = self.get_preserved_filters(request)
+            post_url = add_preserved_filters(
+                {
+                    'preserved_filters': preserved_filters,
+                    'opts': opts
+                }, post_url)
+        else:
+            post_url = reverse('admin:index', current_app=self.admin_site.name)
+        return HttpResponseRedirect(post_url)
+
+
+    def disable_choices(self, request, queryset):
+        fmt = 'Successfully disabled {0} {1}.'
+        self.message_user(
+            request, fmt.format(len(queryset), self.opts.verbose_name),
+            messages.WARNING)
+        return queryset.disable_choices()
+
+    disable_choices.short_description = "disable selected choices"
+
+
 
 
 @admin.register(models.DynamicChoice)
