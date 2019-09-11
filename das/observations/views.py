@@ -800,12 +800,13 @@ class KmlSubjectsView(generics.GenericAPIView):
 
     def build_link_for_subject(self, subject):
         token = kmlutils.get_kml_access_token(self.request.user)
-
+        start_date = self.request.GET.get('start', 'start')
+        end_date = self.request.GET.get('end', 'end')
         return utils.add_base_url(self.request,
                                   '?'.join((
                                       reverse('subject-kml-view',
                                               args=[subject['id']]),
-                                      'auth={}'.format(token))
+                                      'auth={}&start={}&end={}'.format(token, start_date, end_date))
                                   )
                                   )
 
