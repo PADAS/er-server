@@ -146,6 +146,7 @@ class TestEventView(BaseAPITest):
 
         self.all_perms_permissionset = PermissionSet.objects.create(
             name='all_perms_set')
+
         for perm in all_permissions:
             logger.info('permission: %s', perm)
             self.all_perms_permissionset.permissions.add(
@@ -258,6 +259,13 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
+
+    def test_get_new_event_without_event_write_permissions(self):
+        request = self.factory.get(self.api_base + '/events/')
+        self.force_authenticate(request, self.no_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data'], [])
 
     def test_fail_with_nan_location(self):
         event_data = copy.deepcopy(self.event_data)
@@ -1193,8 +1201,11 @@ class TestEventView(BaseAPITest):
             self.api_base + '/event/{0}'.format(str(event.id)))
         self.force_authenticate(request, user)
         response = views.EventView.as_view()(request, id=str(event.id))
-        results['{0}_read'.format(event_type_name)
-                ] = response.status_code == 200
+        try:
+            result = response.data["data"] != []
+        except:
+            result = response.status_code == 200
+        results['{0}_read'.format(event_type_name)] = result
 
         # Attempt to modify the event we just created
         event_data['message'] = 'this is the updated message'
@@ -1745,8 +1756,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request, )
 
-        # Expect 400 Bad Request, because the given external_event_type will
-        # not be found for this user.
+        # Expect 400 becausethe event_type is not pre-existent
         self.assertEqual(response.status_code, 400)
 
 
