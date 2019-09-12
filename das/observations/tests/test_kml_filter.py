@@ -5,11 +5,13 @@ from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
 import fastkml
+import pytz
 from pytz import utc, timezone
 
 import observations.views as views
 from accounts.models import User, PermissionSet
 from core.tests import BaseAPITest
+from observations import kmlutils
 from observations.models import SubjectGroup, Subject, Observation, Source
 from observations.serializers import ObservationSerializer
 
@@ -157,3 +159,27 @@ class KmlSubjectViewTest(BaseAPITest):
             self.assertTrue(observation.recorded_at in timestamps or
                             observation.recorded_at.astimezone(
                                 timezone('US/Pacific')))
+
+    def test_filter_subject_kml_with_timezone_aware_datetimes(self):
+        subject_id = 'c25e17d0-0337-4f0c-9274-25e5ae4da7c0'
+        Subject.objects.create_subject(
+            id=subject_id, name='Elephant 5',
+            subject_subtype_id='elephant',
+            additional={'region': 'Region 1', 'country': 'USA'})
+
+        start_date = pytz.utc.localize(datetime.now() - timedelta(weeks=60))
+        end_date = pytz.utc.localize(datetime.now() - timedelta(weeks=50))
+        kml_filters = {'start': start_date.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                       'end': end_date.strftime("%Y-%m-%dT%H:%M:%S%z")
+                       }
+        self.request = self.factory.get(
+            API_BASE + '/subject/{0}/kml?{1}'.format(
+                subject_id, urlencode(kml_filters)))
+
+        self.force_authenticate(self.request, self.superuser)
+        kwargs = {
+            'id': subject_id
+        }
+
+        response = views.KmlSubjectView.as_view()(self.request, **kwargs)
+        self.assertEqual(response.status_code, 200)

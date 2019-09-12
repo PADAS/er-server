@@ -350,8 +350,8 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         end_date = pytz.utc.localize(datetime.now() - timedelta(weeks=50))
 
         url = reverse('subjects-kml-root-view')
-        url += '?{}'.format(urlencode({'start': start_date.strftime("%Y-%m-%d"),
-                                       'end': end_date.strftime("%Y-%m-%d")}))
+        url += '?{}'.format(urlencode({'start': start_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                                       'end': end_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")}))
 
         request = self.factory.get(self.api_base + url)
         self.force_authenticate(request, self.user)
@@ -389,3 +389,17 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
             created_at__range=[start_date, end_date]).count()
 
         self.assertEqual(len(urls), expected_subjects)
+
+    def test_root_kml_accepts_timezone_aware_datetimes(self):
+        start_date = pytz.utc.localize(datetime.now() - timedelta(weeks=60))
+        end_date = pytz.utc.localize(datetime.now() - timedelta(weeks=50))
+
+        url = reverse('subjects-kml-root-view')
+        url += '?{}'.format(urlencode({'start': start_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                                       'end': end_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")}))
+
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+
+        response = KmlRootView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
