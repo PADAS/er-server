@@ -209,4 +209,7 @@ Pipfile.lock
 das/das_server/.env
 
 *tar.gz*
-GDAL* 
+GDAL*
+
+# Rendered terraform templates
+terraform/rendered_deployments/
