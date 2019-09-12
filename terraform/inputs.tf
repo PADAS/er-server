@@ -17,3 +17,8 @@ variable "use_azure_storage" {
   type = string
   default = "false"
 }
+
+variable "storage_container" {
+  type = string
+  default = ""
+}

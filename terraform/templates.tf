@@ -7,5 +7,6 @@ resource "template_dir" "deployments" {
     DB_PORT = var.db_port
     DB_NAME = var.db_name
     USE_AZURE_STORAGE = var.use_azure_storage
+    STORAGE_CONTAINER = var.storage_container
   }
 }

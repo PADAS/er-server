@@ -61,10 +61,7 @@ spec:
               name: site-configmap
               key: STORAGE_ACCOUNT_KEY
         - name: STORAGE_CONTAINER
-          valueFrom:
-            configMapKeyRef:
-              name: site-configmap
-              key: STORAGE_CONTAINER
+          value: ${STORAGE_CONTAINER}
         - name: CONFIG_ACCOUNT
           valueFrom:
             configMapKeyRef:
