@@ -97,8 +97,8 @@ class KmlSubjectViewTest(BaseAPITest):
 
     def test_start_end_filter_with_admin_user(self):
         subject = Subject.objects.get(name='Junkie')
-        start_date = '2017-07-18'
-        end_date = '2018-10-07'
+        start_date = '2017-07-18T01:00:00.000Z'
+        end_date = '2018-10-07T01:00:00.000Z'
         exclusion_flag = '0'
         kwargs = {'id': str(subject.id)}
         kml_filters = {'start': start_date, 'end': end_date,
@@ -112,8 +112,10 @@ class KmlSubjectViewTest(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         timestamps = self.get_observations_timestamp(response)
         if timestamps:
-            lower = utc.localize(datetime.strptime(start_date, '%Y-%m-%d'))
-            upper = utc.localize(datetime.strptime(end_date, '%Y-%m-%d'))
+            lower = utc.localize(datetime.strptime(
+                start_date, '%Y-%m-%dT%H:%M:%S.%fZ'))
+            upper = utc.localize(datetime.strptime(
+                end_date, '%Y-%m-%dT%H:%M:%S.%fZ'))
             self.assertTrue(
                 any(upper >= timestamp >= lower for timestamp in timestamps))
 
@@ -139,7 +141,8 @@ class KmlSubjectViewTest(BaseAPITest):
         start_date = end_date - timedelta(days=7)
         exclusion_flag = '0'
         kwargs = {'id': str(self.subject.id)}
-        kml_filters = {'start': start_date, 'end': end_date,
+        kml_filters = {'start': start_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                       'end': end_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                        'filter': exclusion_flag}
         self.request = self.factory.get(
             API_BASE + '/subject/{0}/kml?{1}'.format(
@@ -169,8 +172,8 @@ class KmlSubjectViewTest(BaseAPITest):
 
         start_date = pytz.utc.localize(datetime.now() - timedelta(weeks=60))
         end_date = pytz.utc.localize(datetime.now() - timedelta(weeks=50))
-        kml_filters = {'start': start_date.strftime("%Y-%m-%dT%H:%M:%S%z"),
-                       'end': end_date.strftime("%Y-%m-%dT%H:%M:%S%z")
+        kml_filters = {'start': start_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                       'end': end_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
                        }
         self.request = self.factory.get(
             API_BASE + '/subject/{0}/kml?{1}'.format(
