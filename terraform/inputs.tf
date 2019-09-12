@@ -12,3 +12,8 @@ variable "db_name" {
   type = string
   default = "das"
 }
+
+variable "db_user" {
+  type = string
+  default = "das"
+}
