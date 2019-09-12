@@ -3,5 +3,6 @@ resource "template_dir" "deployments" {
   destination_dir = "${path.root}/rendered_deployments"
   vars = {
     NAMESPACE = var.namespace
+    DB_HOST = "${var.namespace}.svc.cluster.local"
   }
 }

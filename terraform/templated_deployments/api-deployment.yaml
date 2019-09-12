@@ -23,11 +23,11 @@ spec:
         ports:
           - containerPort: 8000
         env:
-        - name: DB_HOST
+        - name: ${DB_HOST}
           valueFrom:
             configMapKeyRef:
               name: site-configmap
-              key: DB_HOST
+              key: ${DB_HOST}
         - name: DB_PORT
           valueFrom:
             configMapKeyRef:
