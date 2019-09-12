@@ -17,3 +17,8 @@ variable "db_user" {
   type = string
   default = "das"
 }
+
+variable "use_azure_storage" {
+  type = string
+  default = "false"
+}
