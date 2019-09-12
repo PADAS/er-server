@@ -33,11 +33,11 @@ spec:
             configMapKeyRef:
               name: site-configmap
               key: ${DB_PORT}
-        - name: DB_NAME
+        - name: ${DB_NAME}
           valueFrom:
             configMapKeyRef:
               name: site-configmap
-              key: DB_NAME
+              key: ${DB_NAME}
         - name: DB_USER
           valueFrom:
             configMapKeyRef:
