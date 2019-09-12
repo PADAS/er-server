@@ -22,3 +22,8 @@ variable "storage_container" {
   type = string
   default = ""
 }
+
+variable "kml_export" {
+  type = string
+  default = "true"
+}
