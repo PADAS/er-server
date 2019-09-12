@@ -1,7 +1,7 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  namespace: <<namespace>>
+  namespace: ${NAMESPACE}
   name: api
 spec:
   template:
@@ -14,7 +14,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/api:<<server-version>>
+      - image: gcr.io/padas-app/api:${SERVER-VERSION}
         name: das-api
         resources:
           requests:
