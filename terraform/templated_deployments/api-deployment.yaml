@@ -14,7 +14,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/api:${SERVER-VERSION}
+      - image: gcr.io/padas-app/api:${SERVER_VERSION}
         name: das-api
         resources:
           requests:
