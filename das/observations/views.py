@@ -774,12 +774,12 @@ class KmlSubjectsView(generics.GenericAPIView):
 
         # verify date in YYYY-mm-dd
         try:
-            datetime.datetime.strptime(start_date, '%Y-%m-%d')
+            dateutil.parser.parse(start_date)
         except Exception as e:
             start_date = None
 
         try:
-            datetime.datetime.strptime(end_date, '%Y-%m-%d')
+            dateutil.parser.parse(start_date)
         except Exception as e:
             end_date = None
 
@@ -929,20 +929,19 @@ class KmlSubjectView(generics.RetrieveAPIView):
        :return: Dict of filter parameters in the appropriate format.
        """
         filter_parameters = {}
-        utc = pytz.UTC
         try:
             if self.request.GET.get('start'):
                 filter_parameters.update({
-                    'start': utc.localize(dateutil.parser.parse(
-                        self.request.GET.get('start')))})
+                    'start': dateutil.parser.parse(
+                        self.request.GET.get('start'))})
         except (ValueError, TypeError):
             raise ValueError('Invalid start-date format - {}'.format(
                 self.request.GET.get('start')))
         try:
             if self.request.GET.get('end'):
                 filter_parameters.update({
-                    'end': utc.localize(dateutil.parser.parse(
-                        self.request.GET.get('end')))})
+                    'end': dateutil.parser.parse(
+                        self.request.GET.get('end'))})
         except (ValueError, TypeError):
             raise ValueError('Invalid end-date format - {}'.format(
                 self.request.GET.get('end')))
