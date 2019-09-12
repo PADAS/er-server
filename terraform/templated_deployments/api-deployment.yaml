@@ -28,11 +28,11 @@ spec:
             configMapKeyRef:
               name: site-configmap
               key: ${DB_HOST}
-        - name: DB_PORT
+        - name: ${DB_PORT}
           valueFrom:
             configMapKeyRef:
               name: site-configmap
-              key: DB_PORT
+              key: ${DB_PORT}
         - name: DB_NAME
           valueFrom:
             configMapKeyRef:

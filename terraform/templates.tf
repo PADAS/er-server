@@ -4,5 +4,6 @@ resource "template_dir" "deployments" {
   vars = {
     NAMESPACE = var.namespace
     DB_HOST = "${var.namespace}.svc.cluster.local"
+    DB_PORT = var.db_port
   }
 }
