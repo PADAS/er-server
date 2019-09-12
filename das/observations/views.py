@@ -777,15 +777,11 @@ class KmlSubjectsView(generics.GenericAPIView):
             dateutil.parser.parse(start_date)
         except Exception as e:
             start_date = None
-            print(str(e))
 
         try:
             dateutil.parser.parse(start_date)
         except Exception as e:
-            print(str(e))
             end_date = None
-
-        print(f"start_Date: {start_date} end_date: {end_date}")
 
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         queryset = models.Subject.objects.filter(is_active=True)
