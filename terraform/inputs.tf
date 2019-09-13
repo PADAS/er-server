@@ -37,3 +37,8 @@ variable "from_email" {
   type = string
   default = "padas-app/main/email-from"
 }
+
+variable "email_host" {
+  type = string
+  default = "padas-app/main/email-host"
+}

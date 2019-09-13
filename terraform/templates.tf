@@ -11,5 +11,6 @@ resource "template_dir" "deployments" {
     KML_EXPORT = var.kml_export
     DEFAULT_FROM_EMAIL = var.default_from_email
     FROM_EMAIL = var.from_email
+    EMAIL_HOST= var.email_host
   }
 }
