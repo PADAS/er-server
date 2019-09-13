@@ -159,8 +159,10 @@ class SourceManager(models.Manager):
             if source_created:
                 if not subject:
                     subject = {'name': source.manufacturer_id}
-                subject = Subject.objects.create_subject(**subject)
-                SubjectSource.objects.create(source=source, subject=subject)
+                # TODO: Why am i unable to catch django's IntegrityError here??
+                if not subject.get('id') or not Subject.objects.filter(id=subject.get('id')):
+                    subject = Subject.objects.create_subject(**subject)
+                    SubjectSource.objects.create(source=source, subject=subject)
 
             return source
 
