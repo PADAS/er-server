@@ -27,3 +27,8 @@ variable "kml_export" {
   type = string
   default = "true"
 }
+
+variable "default_from_email" {
+  type = string
+  default = "padas-app/main/email-default-from"
+}

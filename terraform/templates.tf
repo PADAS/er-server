@@ -9,5 +9,6 @@ resource "template_dir" "deployments" {
     USE_AZURE_STORAGE = var.use_azure_storage
     STORAGE_CONTAINER = var.storage_container
     KML_EXPORT = var.kml_export
+    DEFAULT_FROM_EMAIL = var.default_from_email
   }
 }
