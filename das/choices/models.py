@@ -37,7 +37,7 @@ class ChoiceQuerySet(models.QuerySet):
         return self.filter(delete_on__isnull=False)
 
     def disable_choices(self):
-        return self.update(delete_on=timezone.now())
+        return self.update(delete_on=timezone.now(), activate=False)
 
 
 class DynamicChoice(models.Model):
@@ -51,12 +51,14 @@ class DynamicChoice(models.Model):
 
 class SoftDeleteModel(models.Model):
     delete_on = models.DateTimeField(blank=True, null=True)
+    activate = models.BooleanField(default=True)
 
     class Meta:
         abstract = True
 
     def delete(self):
         self.delete_on = timezone.now()
+        self.activate = False
         self.save()
 
 
@@ -77,6 +79,14 @@ class Choice(SoftDeleteModel):
 
     def __str__(self):
         return ', '.join((self.model, self.field, self.value, self.display))
+
+class DisableChoice(Choice):
+
+    class Meta:
+        proxy=True
+        verbose_name = 'Disable Choice'
+        verbose_name_plural = 'Disable Choices'
+
 
 
 class ChoiceCharField(models.CharField):
