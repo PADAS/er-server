@@ -156,10 +156,13 @@ class SourceManager(models.Manager):
                 source.groups.set((SourceGroup.objects.get_default(),))
 
             if subject_info:
+                # TODO: autocreate subject subtype as well??
+                # if subject_info.get('subject_subtype_id'):
+                #     SubjectSubType.objects.get_or_create(id=subject_info.get('subject_subtype_id'))
+
                 if subject_info.get('id'):
                     try:
                         subject_model = Subject.objects.get(id=subject_info.get('id'))
-                        #handle subject info update. what if subject's information has been updated in src das & its being reflected in the observations?
                     except Subject.DoesNotExist:
                         subject_model = Subject.objects.create_subject(**subject_info)
                 else:
