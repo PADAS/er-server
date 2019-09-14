@@ -139,11 +139,11 @@ class GenericSensorHandler:
         validator = ObservationSerializer(data=observation)
         if validator.is_valid():
             obs_to_persist.append(observation)
-            logger.info("Added new observation %s", observation,
+            logger.debug("Added new observation %s", observation,
                         extra={'obs.new': provider_key})
             errors.append({})
         else:
-            errors.append(validator.errors())
+            errors.append(validator.errors)
 
 
 class FollowltTrackerHandler:

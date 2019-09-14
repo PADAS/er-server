@@ -134,7 +134,8 @@ class SourceManager(models.Manager):
     def ensure_source(self, *args, **kwargs):
 
         additional = kwargs.get('additional', {})
-        subject = kwargs.get('subject')
+        subject_info = kwargs.get('subject')
+
         with transaction.atomic():
 
             provider, created = SourceProvider.objects.get_or_create(
@@ -154,15 +155,20 @@ class SourceManager(models.Manager):
             if source_created:
                 source.groups.set((SourceGroup.objects.get_default(),))
 
-            # If we've created a new Source, also create a subject with default
-            # values.
-            if source_created:
-                if not subject:
-                    subject = {'name': source.manufacturer_id}
-                # TODO: Why am i unable to catch django's IntegrityError here??
-                if not subject.get('id') or not Subject.objects.filter(id=subject.get('id')):
-                    subject = Subject.objects.create_subject(**subject)
-                    SubjectSource.objects.create(source=source, subject=subject)
+            if subject_info:
+                if subject_info.get('id'):
+                    try:
+                        subject_model = Subject.objects.get(id=subject_info.get('id'))
+                        #handle subject info update. what if subject's information has been updated in src das & its being reflected in the observations?
+                    except Subject.DoesNotExist:
+                        subject_model = Subject.objects.create_subject(**subject_info)
+                else:
+                    subject_model = Subject.objects.create_subject(**subject_info)
+            else:
+                subject_model = Subject.objects.create_subject(**{'name': source.manufacturer_id})
+
+            if not SubjectSource.objects.filter(source=source, subject=subject_model):
+                SubjectSource.objects.create(source=source, subject=subject_model)
 
             return source
 
