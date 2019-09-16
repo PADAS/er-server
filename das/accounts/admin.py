@@ -36,19 +36,33 @@ class PermissionSetAdminForm(forms.ModelForm):
         )
     )
 
+    acquire_from = forms.ModelMultipleChoiceField(
+        label='Permission Sets',
+        queryset=PermissionSet.objects.all().order_by('name'),
+        required=False,
+        widget=FilteredSelectMultiple(
+            verbose_name=_('Permission Sets'),
+            is_stacked=False
+        )
+    )
+
     class Meta:
         model = PermissionSet
-        fields = ('name', 'permissions', 'children', 'user_set')
+        fields = ('name', 'permissions', 'children', 'user_set', 'acquire_from',
+                  )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         if self.instance and self.instance.pk:
             self.fields['user_set'].initial = self.instance.user_set.all()
+            self.fields['acquire_from'].initial = self.instance._parents.all()
 
     def _save_m2m(self):
         users = self.cleaned_data['user_set']
+        inherit_from = self.cleaned_data['acquire_from']
         self.instance.user_set.set(users)
+        self.instance._parents.set(inherit_from)
         return super()._save_m2m()
 
 
@@ -62,13 +76,16 @@ class PermissionSetAdmin(DjangoGroupAdmin):
             'fields': ('name', 'permissions',
                        )}
          ),
-        (_('Members'), {
+        (_('Acquire permissions from'), {
+          'fields': ('acquire_from', )
+        }),
+        (_('Grant permissions to'), {
             'fields': ('children', 'user_set')}),
     )
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == 'children':
-            db_field.verbose_name = 'permission sets'
+            db_field.verbose_name = 'Permission Sets'
         return super().formfield_for_dbfield(db_field, **kwargs)
 
     def all_permissions(self, instance):
