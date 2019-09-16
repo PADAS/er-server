@@ -21,11 +21,11 @@ class ChoiceAdmin(admin.ModelAdmin):
     actions = ('disable_choices', )
     ordering = ('model', 'field', 'ordernum', 'display')
     list_display = ('model', 'field', 'value', 'display', 'ordernum',
-                    'activate')
+                    'is_active')
     list_display_links = ('model', 'field')
     search_fields = ('model', 'field', 'value', 'display')
     list_editable = ('value', 'display', 'ordernum')
-    exclude = ('delete_on', 'activate')
+    exclude = ('delete_on', 'is_active')
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -48,7 +48,6 @@ class ChoiceAdmin(admin.ModelAdmin):
                 post_url = reverse('admin:%s_%s_changelist' %
                                    (opts.app_label, opts.model_name),
                                    current_app=self.admin_site.name)
-
                 preserved_filters = self.get_preserved_filters(request)
                 post_url = add_preserved_filters(
                     {
@@ -57,13 +56,10 @@ class ChoiceAdmin(admin.ModelAdmin):
                     }, post_url)
 
                 return HttpResponseRedirect(post_url)
-
             else:
                 post_url = reverse('admin:index',
                                    current_app=self.admin_site.name)
-
                 return HttpResponseRedirect(post_url)
-
         return super().response_delete(request, obj_display, obj_id)
 
     def delete_disable_selected(self, modeladmin, request, queryset):
@@ -72,6 +68,10 @@ class ChoiceAdmin(admin.ModelAdmin):
         message = modeladmin.message_user
 
         def _delete_closure():
+            """
+            Wraps the original delete method which gets called by
+            delete_selected()
+            """
             if 'disable_choices' in request.POST:
                 fmt = 'Successfully disabled {0} {1}.'
                 messages.add_message(
@@ -96,6 +96,7 @@ class ChoiceAdmin(admin.ModelAdmin):
         return delete_selected(modeladmin, request, queryset)
 
     def get_actions(self, request):
+        """Patch delete_selected to have our method running"""
         actions = super().get_actions(request)
         actions['delete_selected'] = (self.delete_disable_selected,
                                       'delete_selected',
@@ -123,10 +124,10 @@ class DisableChoiceAdmin(admin.ModelAdmin):
     # actions = ('disable_choices', )
     ordering = ('model', 'field', 'ordernum', 'display', 'delete_on')
     list_display = ('model', 'field', 'value', 'display', 'ordernum',
-                    'delete_on', 'activate')
+                    'delete_on', 'is_active')
     list_display_links = ('model', 'field')
     search_fields = ('model', 'field', 'value', 'display')
-    list_editable = ('value', 'display', 'ordernum', 'activate')
+    list_editable = ('value', 'display', 'ordernum', 'is_active')
     list_filter = ('value', 'delete_on', 'field')
 
     def get_queryset(self, request):
@@ -140,7 +141,7 @@ class DisableChoiceAdmin(admin.ModelAdmin):
         return False
 
     def save_model(self, request, obj, form, change):
-        if change and obj.activate:
+        if change and obj.is_active:
             obj.delete_on = None
         super().save_model(request, obj, form, change)
 
