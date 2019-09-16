@@ -6,7 +6,7 @@ SHELL := /usr/bin/env sh
 .DEFAULT_GOAL := help
 
 base_image_name := gcr.io/padas-app/circleci/das-base
-version ?= beta-$(shell date +%s)
+tag ?= tag-not-provided-$(shell date +%s)
 
 .PHONY: help
 help: ## show this help
@@ -16,12 +16,12 @@ help: ## show this help
 
 .PHONY: base_build_and_push
 base_build_and_push: ## Develop branch: Build the Docker base image and push to Google Container Repository with unique tag ids
-	cd ../ && docker build  -f circleci-docker/base/Dockerfile --tag $(base_image_name):$(version) .
-	docker push $(base_image_name):$(version)
+	cd ../ && docker build  -f circleci-docker/base/Dockerfile --tag $(base_image_name):$(tag) .
+	docker push $(base_image_name):$(tag)
 
 earthranger_api_image_name := gcr.io/padas-app/circleci/earthranger-api
 
 .PHONY: earthranger_api_build_and_push
 earthranger_api_build_and_push: ## Develop branch: Build the Docker EarthRanger API image and push to Google Container Repository with unique tag ids
-	cd ../ && docker build  -f circleci-docker/Dockerfile --tag $(earthranger_api_image_name):$(version) .
-	docker push $(earthranger_api_image_name):$(version)
+	cd ../ && docker build  -f circleci-docker/Dockerfile --tag $(earthranger_api_image_name):$(tag) .
+	docker push $(earthranger_api_image_name):$(tag)
