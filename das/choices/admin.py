@@ -6,6 +6,8 @@ from django.utils.translation import gettext as _
 from django.urls import reverse
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 from django.http import HttpResponseRedirect, HttpResponse
+from django.contrib.admin.actions import delete_selected
+from django.contrib.admin.utils import model_ngettext
 
 import choices.models as models
 
@@ -13,10 +15,13 @@ import choices.models as models
 @admin.register(models.Choice)
 class ChoiceAdmin(admin.ModelAdmin):
     change_list_template = "admin/disable_change_list.html"
+    delete_confirmation_template = "admin/soft_delete_confirmation.html"
+    delete_selected_confirmation_template = "admin/soft_delete_selected_confirmation.html"
 
     actions = ('disable_choices', )
     ordering = ('model', 'field', 'ordernum', 'display')
-    list_display = ('model', 'field', 'value', 'display', 'ordernum')
+    list_display = ('model', 'field', 'value', 'display', 'ordernum',
+                    'activate')
     list_display_links = ('model', 'field')
     search_fields = ('model', 'field', 'value', 'display')
     list_editable = ('value', 'display', 'ordernum')
@@ -30,28 +35,78 @@ class ChoiceAdmin(admin.ModelAdmin):
         return queryset
 
     def response_delete(self, request, obj_display, obj_id):
-        opts = self.model._meta
+        if 'disable_choices' in request.POST:
 
-        self.message_user(
-            request,
-            _('The {name} "{object}" was disabled.'.format(
-                name=opts.verbose_name, object=obj_display)),
-            messages.WARNING,
-        )
-        if self.has_change_permission(request, None):
-            post_url = reverse(
-                'admin:%s_%s_changelist' % (opts.app_label, opts.model_name),
-                current_app=self.admin_site.name,
-            )
-            preserved_filters = self.get_preserved_filters(request)
-            post_url = add_preserved_filters(
-                {
-                    'preserved_filters': preserved_filters,
-                    'opts': opts
-                }, post_url)
-        else:
-            post_url = reverse('admin:index', current_app=self.admin_site.name)
-        return HttpResponseRedirect(post_url)
+            opts = self.model._meta
+            self.message_user(
+                request,
+                _('The {name} "{object}" was disabled.'.format(
+                    name=opts.verbose_name, object=obj_display)),
+                messages.WARNING)
+
+            if self.has_change_permission(request, None):
+                post_url = reverse('admin:%s_%s_changelist' %
+                                   (opts.app_label, opts.model_name),
+                                   current_app=self.admin_site.name)
+
+                preserved_filters = self.get_preserved_filters(request)
+                post_url = add_preserved_filters(
+                    {
+                        'preserved_filters': preserved_filters,
+                        'opts': opts
+                    }, post_url)
+
+                return HttpResponseRedirect(post_url)
+
+            else:
+                post_url = reverse('admin:index',
+                                   current_app=self.admin_site.name)
+
+                return HttpResponseRedirect(post_url)
+
+        return super().response_delete(request, obj_display, obj_id)
+
+    def delete_disable_selected(self, modeladmin, request, queryset):
+        delete = queryset.delete
+        count = queryset.count
+        message = modeladmin.message_user
+
+        def _delete_closure():
+            if 'disable_choices' in request.POST:
+                fmt = 'Successfully disabled {0} {1}.'
+                messages.add_message(
+                    request, messages.WARNING,
+                    fmt.format(len(queryset), self.opts.verbose_name))
+                result = queryset.soft_delete()
+            else:
+                fmt = _("Successfully deleted {count} {items}s.")
+                messages.add_message(
+                    request, messages.SUCCESS,
+                    fmt.format(count=count(),
+                               items=model_ngettext(modeladmin.opts, count())))
+                result = delete()
+
+            return result
+
+        def _message(request, message, message_level):
+            pass
+
+        queryset.delete = _delete_closure
+        modeladmin.message_user = _message
+        return delete_selected(modeladmin, request, queryset)
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions['delete_selected'] = (self.delete_disable_selected,
+                                      'delete_selected',
+                                      delete_selected.short_description)
+        return actions
+
+    def delete_model(self, request, obj):
+        if 'disable_choices' in request.POST:
+            return obj.disable()
+
+        super().delete_model(request, obj)
 
     def disable_choices(self, request, queryset):
         fmt = 'Successfully disabled {0} {1}.'
@@ -59,7 +114,7 @@ class ChoiceAdmin(admin.ModelAdmin):
                           fmt.format(len(queryset), self.opts.verbose_name),
                           messages.WARNING)
         return queryset.disable_choices()
-        
+
     disable_choices.short_description = "disable selected choices"
 
 
@@ -68,11 +123,11 @@ class DisableChoiceAdmin(admin.ModelAdmin):
     # actions = ('disable_choices', )
     ordering = ('model', 'field', 'ordernum', 'display', 'delete_on')
     list_display = ('model', 'field', 'value', 'display', 'ordernum',
-                    'delete_on', 'activate' )
+                    'delete_on', 'activate')
     list_display_links = ('model', 'field')
     search_fields = ('model', 'field', 'value', 'display')
     list_editable = ('value', 'display', 'ordernum', 'activate')
-    list_filter = ('value', 'delete_on', 'field' )
+    list_filter = ('value', 'delete_on', 'field')
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
