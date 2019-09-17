@@ -32,6 +32,39 @@ resources:
       - deployment/*
     private_key: ((das-github))
 
+- name: git-terraform-templates
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    paths:
+      - templated-deployment/*
+    private_key: ((das-github))
+
+- name: terraform-saved-plan
+  type: gcs-resource
+  source:
+    bucket: ((plan-bucket))
+    json_key: ((temp-concourse-terraform-planner))
+    regexp: padas-app/((pipeline-name))/plan-(.?).gpg
+
+- name: terraform-rendered-templates
+  type: gcs-resource
+  source:
+    bucket: ((plan-bucket))
+    json_key: ((temp-concourse-terraform-planner))
+    regexp: padas-app/((pipeline-name))/rendered-(.?).gpg
+
+- name: terraform-apply-time
+  type: time
+
+- name: terraform-saved-destroy
+  type: gcs-resource
+  source:
+    bucket: ((plan-bucket))
+    json_key: ((temp-concourse-terraform-planner))
+    regexp: padas-app/((pipeline-name))/destroy-(.?).gpg
+
 resource_types:
 - name: versioned-git-resource
   type: docker-image
@@ -41,7 +74,246 @@ resource_types:
     password: ((ss-infrastructure-container-registry-pull))
     repository: gcr.io/ss-infrastructure/concourse/versioned-git-resource
 
+groups:
+- name: create
+  jobs:
+  - terraform-plan
+  - terraform-show-plan
+  - terraform-apply-plan
+  - render-terraform-templates
+  - apply-terraform-templates
+  - deploy-to-k8s
+  - terraform-check-for-drift
+- name: destroy
+  jobs:
+  - destroy-resources
+  - terraform-destroy
+  - terraform-show-destroy
+  - terraform-do-destroy
+
 jobs:
+- name: terraform-plan
+  max_in_flight: 1
+  serial_groups:
+    - "terraform"
+  plan:
+  - do:
+    - get: git-terraform
+      params:
+        submodules: none
+    - task: plan
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: git-terraform
+        params: *terraform-apply-and-destroy-params
+        run:
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'cp -r ./git-terraform/terraform /tmp &&
+            cd /tmp/terraform &&
+            echo "$CREDENTIALS_FOR_STATE" > ./credentials-for-state.json &&
+            terraform init -input=false -backend-config="credentials=./credentials-for-state.json" &&
+            terraform plan -input=false -out=tfplan &&
+            cd "$OLDPWD" &&
+            cp -r /tmp/terraform ./plan'
+        outputs:
+        - name: plan
+    - task: zip
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: plan
+        params:
+          PLAN_ENCRYPTION_SECRET: ((plan-encryption-secret))
+        run:
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'tar c -z ./plan/terraform > ./zip && echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --symmetric -o ./zipped/plan-$(date +%s).gpg zip'
+        outputs:
+        - name: zipped
+    - put: terraform-saved-plan
+      params:
+        file: zipped/plan-*.gpg
+- name: terraform-show-plan
+  max_in_flight: 1
+  serial_groups:
+    - "terraform"
+  plan:
+  - do:
+    - get: terraform-saved-plan
+      passed:
+        - terraform-plan
+    - get: git-terraform
+      passed:
+        - terraform-plan
+      params:
+        submodules: none
+    - task: unzip
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: terraform-saved-plan
+        params:
+          PLAN_ENCRYPTION_SECRET: ((plan-encryption-secret))
+        run:
+          dir: terraform-saved-plan
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --decrypt ./plan-*.gpg | tar x -z -f - -C ../unzipped'
+        outputs:
+        - name: unzipped
+    - task: show
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: unzipped
+        params: *terraform-apply-and-destroy-params
+        run:
+          dir: unzipped
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'cp -r ./plan/terraform /tmp && cd /tmp/terraform && terraform show tfplan'
+- name: terraform-apply-plan
+  max_in_flight: 1
+  serial_groups:
+    - "terraform"
+  plan:
+  - do:
+    - get: terraform-saved-plan
+      passed:
+        - terraform-show-plan
+    - get: git-terraform
+      passed:
+        - terraform-show-plan
+      params:
+        submodules: none
+    - task: unzip
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: terraform-saved-plan
+        params:
+          PLAN_ENCRYPTION_SECRET: ((plan-encryption-secret))
+        run:
+          dir: terraform-saved-plan
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --decrypt ./plan-*.gpg | tar x -z -f - -C ../unzipped'
+        outputs:
+        - name: unzipped
+    - task: apply
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: unzipped
+        params: *terraform-apply-and-destroy-params
+        run:
+          dir: unzipped
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'cp -r ./plan/terraform /tmp && cd /tmp/terraform && terraform apply -input=false tfplan'
+      ensure:
+        - put: terraform-apply-time
+- name: render-terraform-templates
+  max_in_flight: 1
+  serial_groups:
+    - "terraform"
+  plan:
+  - do:
+    - get: terraform-apply-time
+      passed:
+        - terraform-apply-plan
+      trigger: true
+    - get: git-terraform-templates
+      params:
+        submodules: none
+      trigger: true
+    - task: render
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: git-terraform-templates
+        params:
+          GOOGLE_CREDENTIALS: "((concourse-terraform-state-reader-key))"
+          TF_IN_AUTOMATION: "not-empty"
+          TF_WORKSPACE: "((pipeline-name))"
+          VAULT_ADDR: "((vault-address))"
+          VAULT_SKIP_VERIFY: "true"
+          VAULT_TOKEN: "((vault-automation-token))"
+        run:
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'cd ./git-terraform-templates/templated-deployment &&
+            terraform init -input=false &&
+            terraform apply -input=false -auto-approve &&
+            cd "$OLDPWD" &&
+            cp -r ./git-terraform-templates/templated-deployment/rendered ./ &&
+            ls -Al ./rendered'
+        outputs:
+        - name: rendered
+    - task: zip
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: rendered
+        params:
+          PLAN_ENCRYPTION_SECRET: ((plan-encryption-secret))
+        run:
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'tar c -z ./rendered > ./zip && echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --symmetric -o ./zipped/rendered-$(date +%s).gpg zip'
+        outputs:
+        - name: zipped
+    - put: terraform-rendered-templates
+      params:
+        file: zipped/rendered-*.gpg
+- name: apply-terraform-templates
+  max_in_flight: 1
+  serial_groups:
+    - "terraform"
+    - "kubectl"
+  plan:
+  - do:
+    - get: terraform-rendered-templates
+      passed:
+        - render-terraform-templates
+    - get: terraform-apply-time
+      passed:
+        - render-terraform-templates
+    - task: unzip
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: terraform-rendered-templates
+        params:
+          PLAN_ENCRYPTION_SECRET: ((plan-encryption-secret))
+        run:
+          dir: terraform-rendered-templates
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --decrypt ./rendered-*.gpg | tar x -z -f - -C ../unzipped && ls -Al ../unzipped'
+        outputs:
+        - name: unzipped
+
 - name: deploy-to-k8s
   max_in_flight: 1
   plan:
