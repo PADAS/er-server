@@ -3,7 +3,7 @@ anchors:
     type: docker-image
     source:
       repository: "gcr.io/ss-infrastructure-public/vendor/hashicorp/terraform-0.12.5"
-      digest: "sha256:"
+      digest: "sha256:8055172b1c7c2f75c650255403634c3e8eec1108a118a630ab82e7e64a821b61"
   terraform-apply-and-destroy-params: &terraform-apply-and-destroy-params
     CREDENTIALS_FOR_STATE: "((concourse-terraform-state-reader-key))"
     GOOGLE_CREDENTIALS: "((concourse-terraform-state-reader-key))"
