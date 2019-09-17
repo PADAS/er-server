@@ -27,9 +27,10 @@ commands:
       apply_args:
         type: 'string'
         default: '-input=false tfplan'
-    - attach_workspace:
-        at: './'
-    - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_apply apply_args="<< parameters.apply_args >>"'
+    steps:
+      - attach_workspace:
+          at: './'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_apply apply_args="<< parameters.apply_args >>"'
 executors:
   default:
     docker:
