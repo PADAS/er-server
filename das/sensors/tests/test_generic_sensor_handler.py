@@ -235,6 +235,17 @@ class GenericSensorHandlerTest(BaseAPITest):
         for uuid in uuids:
             self.assertIsNotNone(Subject.objects.get(pk=uuid))
 
+    def test_with_subject_subtype(self):
+        subject_subtype = 'animal-awesome'
+        obs_copy = copy.deepcopy(self.one_observation)
+        obs_copy['subject_subtype'] = subject_subtype
+
+        response = self._post_data(json.dumps(obs_copy))
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source=self.test_source).count())
+        self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
+
     def _generate_observations(self, n=10, distinct=False):
         for i in range(n):
             obs = dict(self.one_observation)

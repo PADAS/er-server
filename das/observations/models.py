@@ -156,10 +156,11 @@ class SourceManager(models.Manager):
                 source.groups.set((SourceGroup.objects.get_default(),))
 
             if subject_info:
-                # TODO: autocreate subject subtype as well??
-                # if subject_info.get('subject_subtype_id'):
-                #     SubjectSubType.objects.get_or_create(id=subject_info.get('subject_subtype_id'))
+                # TODO: Is this the right thing to do here??
+                if subject_info.get('subject_subtype_id'):
+                    SubjectSubType.objects.get_or_create(value=subject_info.get('subject_subtype_id'))
 
+                # TODO: autocreate subject_type as well?
                 if subject_info.get('id'):
                     try:
                         subject_model = Subject.objects.get(id=subject_info.get('id'))
