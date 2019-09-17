@@ -43,7 +43,20 @@ jobs:
     steps:
       - terraform_plan:
           terraform_workspace: 'dev'
+  terraform_plan_prod:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - terraform_plan:
+          terraform_workspace: 'prod'
   terraform_apply_dev:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - terraform_apply: {}
+  terraform_apply_prod:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
@@ -56,28 +69,36 @@ jobs:
       - setup_remote_docker
       - docker_login
       - checkout
-      - run: 'cd circleci-docker && make base_build_and_push tag=latest'
       - run: 'cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH'
 workflows:
   version: 2
   build_and_terraform:
     jobs:
-      - docker_build:
-          filters:
-            branches:
-              only:
-                - 'develop'
+      - docker_build
       - terraform_plan_dev:
+          requires:
+            - docker_build
           filters:
             branches:
               ignore: 'develop'
-      - review_plan:
+      - terraform_plan_prod:
+          filters:
+            branches:
+              only: 'develop'
+      - approve_plan:
+          type: 'approval'
           requires:
             - 'terraform_plan_dev'
-          type: 'approval'
+            - 'terraform_plan_prod'
       - terraform_apply_dev:
           requires:
-            - 'review_plan'
+            - 'approve_plan'
           filters:
             branches:
               ignore: 'develop'
+      - terraform_apply_prod:
+          requires:
+            - 'approve_plan'
+          filters:
+            branches:
+              only: 'develop'
