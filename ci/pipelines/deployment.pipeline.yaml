@@ -11,7 +11,7 @@ anchors:
     TF_VAR_infra_namespace: "((infra-namespace))"
     TF_VAR_location: "West Europe"
     TF_VAR_namespace: "((namespace))"
-    TF_WORKSPACE: "((server-branch-name))"
+    TF_WORKSPACE: "((pipeline-name))"
 
 resources:
 - name: git-terraform
@@ -251,9 +251,6 @@ jobs:
           GOOGLE_CREDENTIALS: "((concourse-terraform-state-reader-key))"
           TF_IN_AUTOMATION: "not-empty"
           TF_WORKSPACE: "((pipeline-name))"
-          VAULT_ADDR: "((vault-address))"
-          VAULT_SKIP_VERIFY: "true"
-          VAULT_TOKEN: "((vault-automation-token))"
         run:
           path: /bin/sh
           args:
