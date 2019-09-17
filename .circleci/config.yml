@@ -66,10 +66,8 @@ workflows:
           filters:
             branches:
               only:
-                - develop
+                - 'develop'
       - terraform_plan_dev:
-          requires:
-            - 'docker_build'
           filters:
             branches:
               ignore: 'develop'
