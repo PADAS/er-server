@@ -1,4 +1,28 @@
+anchors:
+  terraform-image-specification: &terraform-image-specification
+    type: docker-image
+    source:
+      repository: "gcr.io/ss-infrastructure-public/vendor/hashicorp/terraform-0.12.5"
+      digest: "sha256:"
+  terraform-apply-and-destroy-params: &terraform-apply-and-destroy-params
+    CREDENTIALS_FOR_STATE: "((concourse-terraform-state-reader-key))"
+    GOOGLE_CREDENTIALS: "((concourse-terraform-state-reader-key))"
+    TF_IN_AUTOMATION: "not-empty"
+    TF_VAR_infra_namespace: "((infra-namespace))"
+    TF_VAR_location: "West Europe"
+    TF_VAR_namespace: "((namespace))"
+    TF_WORKSPACE: "((server-branch-name))"
+
 resources:
+- name: git-terraform
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    paths:
+      - terraform/*
+    private_key: ((das-github))
+
 - name: git-deployment
   type: versioned-git-resource
   source:
