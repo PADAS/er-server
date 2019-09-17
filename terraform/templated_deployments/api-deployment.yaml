@@ -76,7 +76,10 @@ spec:
               name: default-configmap
               key: EMAIL_HOST_USER
         - name: EMAIL_HOST
-          value: ${EMAIL_HOST}
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: EMAIL_HOST
         - name: FROM_EMAIL
           value: ${FROM_EMAIL}
         - name: DEFAULT_FROM_EMAIL

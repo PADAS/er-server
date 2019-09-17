@@ -1,5 +1,6 @@
 resource "template_dir" "deployments" {
   source_dir      = "${path.root}/templated_deployments"
+  # Point this at the deployments path for vcloud
   destination_dir = "${path.root}/rendered_deployments"
   vars = {
     NAMESPACE = var.namespace
@@ -11,7 +12,6 @@ resource "template_dir" "deployments" {
     KML_EXPORT = var.kml_export
     DEFAULT_FROM_EMAIL = var.default_from_email
     FROM_EMAIL = var.from_email
-    EMAIL_HOST = var.email_host
     CONFIG_CONTAINER = var.config_container
   }
 }
