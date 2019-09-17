@@ -86,7 +86,10 @@ spec:
               name: default-configmap
               key: FROM_EMAIL
         - name: DEFAULT_FROM_EMAIL
-          value: ${DEFAULT_FROM_EMAIL}
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: DEFAULT_FROM_EMAIL
         - name: KML_EXPORT
           value: ${KML_EXPORT}
       - image: prom/statsd-exporter:v0.8.1
