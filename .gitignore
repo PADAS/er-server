@@ -212,4 +212,4 @@ das/das_server/.env
 GDAL*
 
 # Rendered terraform templates
-terraform/rendered_deployments/
+templated-deployment/rendered

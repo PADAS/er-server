@@ -1,7 +1,7 @@
 resource "template_dir" "deployments" {
-  source_dir      = "${path.root}/templated_deployments"
+  source_dir      = "${path.root}/templates"
   # Point this at the deployments path for vcloud
-  destination_dir = "${path.root}/rendered_deployments"
+  destination_dir = "${path.root}/rendered"
   vars = {
     NAMESPACE = var.namespace
     DB_HOST = "${var.namespace}.svc.cluster.local"
