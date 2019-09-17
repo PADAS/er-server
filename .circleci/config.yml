@@ -3,32 +3,51 @@ commands:
   docker_login:
     steps:
       - run: echo "$GCR_PUSH_KEY" | docker login --username _json_key --password-stdin https://gcr.io
+  terraform_plan:
+    parameters:
+      terraform_workspace:
+        type: 'string'
+      init_args:
+        type: 'string'
+        default: '-input=false'
+      plan_args:
+        type: 'string'
+        default: '-input=false -out=tfplan'
+    steps:
+      - 'checkout'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_workspace_select workspace="<< parameters.terraform_workspace >>"'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_init init_args="<< parameters.init_args >>"'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_plan plan_args="<< parameters.plan_args >>"'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+  terraform_apply:
+    parameters:
+      apply_args:
+        type: 'string'
+        default: '-input=false tfplan'
+    - attach_workspace:
+        at: './'
+    - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_apply apply_args="<< parameters.apply_args >>"'
 executors:
   default:
     docker:
       - image: 'circleci/buildpack-deps:stretch'
 jobs:
-  terraform_plan:
+  terraform_plan_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - 'checkout'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_init init_args="-input=false"'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_plan plan_args="-input=false -out=tfplan"'
-      - persist_to_workspace:
-          root: './'
-          paths:
-            - '*.*'
-            - '*'
-  terraform_apply:
+      - terraform_plan:
+          terraform_workspace: 'dev'
+  terraform_apply_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - attach_workspace:
-          at: './'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_apply apply_args="-input=false tfplan"'
+      - terraform_apply: {}
   docker_build:
     docker:
       - image: circleci/buildpack-deps:stretch
@@ -47,20 +66,19 @@ workflows:
             branches:
               only:
                 - develop
-      - terraform_plan:
+      - terraform_plan_dev:
           requires:
             - 'docker_build'
+          filters:
+            branches:
+              ignore: 'develop'
       - review_plan:
-          filters:
-            branches:
-              only: 'develop'
           requires:
-            - 'terraform_plan'
+            - 'terraform_plan_dev'
           type: 'approval'
-      - terraform_apply:
-          filters:
-            branches:
-              only: 'develop'
+      - terraform_apply_dev:
           requires:
             - 'review_plan'
-
+          filters:
+            branches:
+              ignore: 'develop'
