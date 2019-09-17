@@ -33,11 +33,6 @@ variable "default_from_email" {
   default = "padas-app/main/email-default-from"
 }
 
-variable "from_email" {
-  type = string
-  default = "padas-app/main/email-from"
-}
-
 variable "config_container" {
   type = string
   default = "dev-az"

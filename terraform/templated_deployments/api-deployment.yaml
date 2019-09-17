@@ -81,7 +81,10 @@ spec:
               name: default-configmap
               key: EMAIL_HOST
         - name: FROM_EMAIL
-          value: ${FROM_EMAIL}
+          valueFrom:
+            configMapKeyRef:
+              name: default-configmap
+              key: FROM_EMAIL
         - name: DEFAULT_FROM_EMAIL
           value: ${DEFAULT_FROM_EMAIL}
         - name: KML_EXPORT

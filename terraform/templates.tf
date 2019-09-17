@@ -11,7 +11,6 @@ resource "template_dir" "deployments" {
     STORAGE_CONTAINER = var.storage_container
     KML_EXPORT = var.kml_export
     DEFAULT_FROM_EMAIL = var.default_from_email
-    FROM_EMAIL = var.from_email
     CONFIG_CONTAINER = var.config_container
   }
 }
