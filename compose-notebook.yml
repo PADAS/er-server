@@ -3,7 +3,7 @@ version: "3.2"
 services:
 
   notebook:
-    image: gcr.io/padas-app/circleci/earthranger-api
+    image: gcr.io/padas-app/circleci/earthranger-api:develop
     container_name: das_notebook
     env_file: .env
     environment:

@@ -22,7 +22,7 @@ services:
       - '35729:35729'
 
   api:
-    image: gcr.io/padas-app/circleci/earthranger-api
+    image: gcr.io/padas-app/circleci/earthranger-api:develop
     container_name: das_api
     env_file: .env
     environment:
@@ -40,7 +40,7 @@ services:
       retries: 5
 
   rt-api:
-    image: gcr.io/padas-app/circleci/earthranger-api
+    image: gcr.io/padas-app/circleci/earthranger-api:develop
     container_name: das_rt_api
     env_file: .env
     environment:
@@ -52,7 +52,7 @@ services:
       - api
 
   mql:
-    image: gcr.io/padas-app/circleci/earthranger-api
+    image: gcr.io/padas-app/circleci/earthranger-api:develop
     container_name: das_mql
     env_file: .env
     environment:
@@ -64,7 +64,7 @@ services:
       - rt-api
 
   worker:
-    image: gcr.io/padas-app/circleci/earthranger-api
+    image: gcr.io/padas-app/circleci/earthranger-api:develop
     container_name: das_worker
     env_file: .env
     environment:
@@ -79,7 +79,7 @@ services:
       - www-static:/var/www/static
 
   worker-rt:
-    image: gcr.io/padas-app/circleci/earthranger-api
+    image: gcr.io/padas-app/circleci/earthranger-api:develop
     container_name: das_worker_rt
     env_file: .env
     environment:
@@ -94,7 +94,7 @@ services:
       - www-static:/var/www/static
 
   worker-analyzer:
-    image: gcr.io/padas-app/circleci/earthranger-api
+    image: gcr.io/padas-app/circleci/earthranger-api:develop
     container_name: das_worker_analyzer
     env_file: .env
     environment:
@@ -109,7 +109,7 @@ services:
       - www-static:/var/www/static
 
   beat:
-    image: gcr.io/padas-app/circleci/earthranger-api
+    image: gcr.io/padas-app/circleci/earthranger-api:develop
     container_name: das_beat
     env_file: .env
     environment:
