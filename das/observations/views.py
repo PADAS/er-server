@@ -19,7 +19,7 @@ from django.utils.dateparse import parse_datetime
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, PermissionDenied
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 
@@ -284,7 +284,8 @@ class SubjectsView(generics.ListCreateAPIView):
 
     schema = SubjectsViewSchema()
 
-    # Ensure this attribute is present with a sensible default for any child classes.
+    # Ensure this attribute is present with a sensible default for any child
+    # classes.
     subject_linked_sources = {}
 
     def get_queryset(self):
@@ -734,10 +735,13 @@ class KmlRootView(generics.GenericAPIView):
 
     def build_link_for_user(self):
         token = kmlutils.get_kml_access_token(self.request.user, )
+        start_date = self.request.GET.get('start', '')
+        end_date = self.request.GET.get('end', '')
+        include_active = self.request.GET.get('include_inactive', 'active')
         return utils.add_base_url(self.request,
                                   '?'.join((
                                       reverse('subjects-kml-view'),
-                                      'auth={}'.format(token))
+                                      'auth={}&start={}&end={}&include_inactive={}'.format(token, start_date, end_date, include_active))
                                   )
                                   )
 
@@ -764,21 +768,47 @@ class KmlSubjectsView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def get_queryset(self):
+        include_inactive = self.request.GET.get('include_inactive')
+        start_date = self.request.GET.get('start')
+        end_date = self.request.GET.get('end')
+
+        # verify date in YYYY-mm-dd
+        try:
+            dateutil.parser.parse(start_date)
+        except Exception as e:
+            start_date = None
+
+        try:
+            dateutil.parser.parse(start_date)
+        except Exception as e:
+            end_date = None
+
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        # To include inactive subjects in KmlSubject report
-        queryset = models.Subject.objects.all()  # .by_is_active()
-        queryset = queryset.by_user_subjects(self.request.user) \
-            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
+        queryset = models.Subject.objects.filter(is_active=True)
+        if include_inactive == 'true':
+            queryset = models.Subject.objects.all()
+
+        if start_date and end_date:
+            queryset = queryset.filter(
+                created_at__range=[start_date, end_date])
+        elif start_date:
+            queryset = queryset.filter(created_at__gte=start_date)
+        elif end_date:
+            queryset = queryset.filter(created_at__lte=end_date)
+        else:
+            queryset = queryset.by_user_subjects(self.request.user) \
+                .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
         return queryset
 
     def build_link_for_subject(self, subject):
         token = kmlutils.get_kml_access_token(self.request.user)
-
+        start_date = self.request.GET.get('start', 'start')
+        end_date = self.request.GET.get('end', 'end')
         return utils.add_base_url(self.request,
                                   '?'.join((
                                       reverse('subject-kml-view',
                                               args=[subject['id']]),
-                                      'auth={}'.format(token))
+                                      'auth={}&start={}&end={}'.format(token, start_date, end_date))
                                   )
                                   )
 
@@ -899,20 +929,19 @@ class KmlSubjectView(generics.RetrieveAPIView):
        :return: Dict of filter parameters in the appropriate format.
        """
         filter_parameters = {}
-        utc = pytz.UTC
         try:
             if self.request.GET.get('start'):
                 filter_parameters.update({
-                    'start': utc.localize(dateutil.parser.parse(
-                        self.request.GET.get('start')))})
+                    'start': dateutil.parser.parse(
+                        self.request.GET.get('start'))})
         except (ValueError, TypeError):
             raise ValueError('Invalid start-date format - {}'.format(
                 self.request.GET.get('start')))
         try:
             if self.request.GET.get('end'):
                 filter_parameters.update({
-                    'end': utc.localize(dateutil.parser.parse(
-                        self.request.GET.get('end')))})
+                    'end': dateutil.parser.parse(
+                        self.request.GET.get('end'))})
         except (ValueError, TypeError):
             raise ValueError('Invalid end-date format - {}'.format(
                 self.request.GET.get('end')))

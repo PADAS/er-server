@@ -5,6 +5,7 @@ import pytz
 from django.contrib.gis.geos import Point
 from django.http.request import HttpRequest
 from django.utils.translation import ugettext_lazy as _
+from django.db.models import signals
 from rest_framework import status, serializers
 from rest_framework.response import Response
 
@@ -14,6 +15,7 @@ from activity.serializers import EventSerializer
 from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP
 from das_server import celery
 from utils import stats
+from revision.manager import RevisionMixin
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +180,11 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
 
 
 def persist_event(event_fields, request, counts):
+
+    def pre_save_info(sender, instance, **kwargs):
+        if issubclass(sender, RevisionMixin):
+            setattr(instance, 'revision_user', request.user)
+
     # check for duplicates before serializing
     location = Point(event_fields['location']['longitude'], event_fields['location']['latitude'])
 
@@ -191,8 +198,12 @@ def persist_event(event_fields, request, counts):
             counts[ERROR_COUNTER] = counts[ERROR_COUNTER]+1
             return evt_serializer.errors()
 
+        signals.pre_save.connect(pre_save_info,
+                                 dispatch_uid=(__name__, request, event_fields),
+                                 weak=False)
         evt_serializer.create(evt_serializer.validated_data)
         counts[PROCESSED_COUNTER] = counts[PROCESSED_COUNTER]+1
+        signals.pre_save.disconnect(dispatch_uid=(__name__, request, event_fields))
     return {}
 
 
