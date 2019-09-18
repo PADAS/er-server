@@ -9,6 +9,9 @@ services:
   nginx:
     image: gcr.io/padas-app/nginx
     container_name: das_nginx
+    env_file: .env
+    environment:
+      - REACT_APP_MOCK_API_URL=True
     links:
       - api
       - rt-api

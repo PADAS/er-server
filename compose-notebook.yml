@@ -7,7 +7,7 @@ services:
     container_name: das_notebook
     env_file: .env
     environment:
-      - SERVICE_NAME: notebook_server
+      - SERVICE_NAME=notebook_server
     links:
       - postgis
       - redis
