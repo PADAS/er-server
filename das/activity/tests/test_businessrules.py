@@ -1,10 +1,13 @@
+import json
 from datetime import datetime, timedelta
+from unittest import mock
 
 import jsonschema
 import pytz
 from business_rules import actions, fields, variables, export_rule_data
 from business_rules import run_all
 from django.contrib.auth.models import Permission
+from django.core import mail
 from django.core.management import call_command
 from django.template.loader import get_template
 from django.utils import timezone
@@ -13,14 +16,17 @@ from accounts.models import PermissionSet
 from accounts.models import User
 from activity.alerting.businessrules import EventActions, EventVariables, _generate_aggregate_event_variables_class, \
     render_event
-from activity.alerting.service import evaluate_event_on_alertrules
+from activity.alerting.service import evaluate_event_on_alertrules, \
+    evaluate_event
 from activity.alerts_views import AlertRuleListView, NotificationMethodListView, NotificationMethodView
-from activity.models import EventType, Event, AlertRule
+from activity.models import EventType, Event, AlertRule, NotificationMethod
 from activity.serializers import EventSerializer, AlertRuleSerializer
-from activity.tasks import send_alert_to_notificationmethod
+from activity.tasks import send_alert_to_notificationmethod, \
+    evaluate_alert_rules
 from core.tests import BaseAPITest
 from core.utils import NonHttpRequest
 from core.utils import OneWeekSchedule
+from observations.models import Subject
 
 power_user_permissions = [
     'security_read',
@@ -39,8 +45,12 @@ class BusinessRulesTestCase(BaseAPITest):
         self.power_user = User.objects.create_user(username='poweruser',
                                                    password='asdfo9823sfiu23$',
                                                    email='poweruser@tempuri.org')
+        self.admin_user = User.objects.create_superuser(username="superuser",
+                                                        password="adfsfds32423",
+                                                        email="super@user.com")
 
-        self.power_user_permissionset = PermissionSet.objects.create(name='power_set')
+        self.power_user_permissionset = PermissionSet.objects.create(
+            name='power_set')
         for perm in power_user_permissions:
             self.power_user_permissionset.permissions.add(
                 Permission.objects.get(codename=perm))
@@ -61,7 +71,8 @@ class BusinessRulesTestCase(BaseAPITest):
                 return [str(self.event.get('priority')), ]
 
             @variables.select_multiple_rule_variable(label='State', options=[{'name': 'new', 'label': 'New'},
-                                                                             {'name': 'active', 'label': 'Active'},
+                                                                             {'name': 'active',
+                                                                                 'label': 'Active'},
                                                                              {'name': 'resolved', 'label': 'Resolved'}])
             def state(self):
                 return [str(self.event.get('state')), ]
@@ -131,7 +142,8 @@ class BusinessRulesTestCase(BaseAPITest):
     def test_create_eventtype_variables_class(self):
 
         snare_et = EventType.objects.get(value='snare_rep')
-        variables_class, applies_to = _generate_aggregate_event_variables_class([snare_et, ])
+        variables_class, applies_to = _generate_aggregate_event_variables_class([
+                                                                                snare_et, ])
         # exported_rule_data = export_rule_data(variables_class, EventActions)
         # print(json.dumps(exported_rule_data, indent=2))
 
@@ -163,7 +175,6 @@ class BusinessRulesTestCase(BaseAPITest):
             },
         ]
 
-
         for event in (
                 dict(id=1, state='new', priority=0),
                 dict(id=2, state='new', priority=200),
@@ -179,7 +190,8 @@ class BusinessRulesTestCase(BaseAPITest):
     @staticmethod
     def test_generate_global_eventvariables():
 
-        variables_class, _ = _generate_aggregate_event_variables_class(EventType.objects.all(), only_common_factors=True)
+        variables_class, _ = _generate_aggregate_event_variables_class(
+            EventType.objects.all(), only_common_factors=True)
 
         exported_rule_data = export_rule_data(variables_class, EventActions)
         # print(json.dumps(exported_rule_data, indent=2))
@@ -207,7 +219,7 @@ class BusinessRulesTestCase(BaseAPITest):
         # Find the most recent Monday.
         d1 = d1 - timedelta(days=d1.isoweekday())
         d1 = d1.replace(hour=17)
-        print (f'Testing {d1}')
+        print(f'Testing {d1}')
         self.assertTrue(d1 in schedule)
         d1 = d1.replace(hour=19)
         self.assertFalse(d1 in schedule)
@@ -235,11 +247,12 @@ class BusinessRulesTestCase(BaseAPITest):
                 'method': 'email',
                 'value': email_1
             },
-            'title':'Some notification method',
+            'title': 'Some notification method',
             'is_active': True
         }
 
-        request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
+        request = self.factory.post(
+            self.api_base + '/activity/notificationmethods', notification_method)
         self.force_authenticate(request, self.power_user)
         response = NotificationMethodListView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -250,7 +263,8 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(response.data['contact']['value'], email_1)
 
         request = self.factory.patch(f'{self.api_base}/activity/notificationmethod/{notification_method_id}',
-                                     data={'contact': {'method': 'email', 'value': email_2}},
+                                     data={'contact': {
+                                         'method': 'email', 'value': email_2}},
                                      )
         self.force_authenticate(request, self.power_user)
         response = NotificationMethodView.as_view()(request, id=notification_method_id)
@@ -258,7 +272,6 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
         self.assertEqual(response.data['contact']['value'], email_2)
-
 
     def test_create_an_alert_rule(self):
 
@@ -268,11 +281,12 @@ class BusinessRulesTestCase(BaseAPITest):
                 'method': 'sms',
                 'value': '+12062147021'
             },
-            'title':'Some notification method',
+            'title': 'Some notification method',
             'is_active': True
         }
 
-        request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
+        request = self.factory.post(
+            self.api_base + '/activity/notificationmethods', notification_method)
         self.force_authenticate(request, self.power_user)
         response = NotificationMethodListView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -312,7 +326,8 @@ class BusinessRulesTestCase(BaseAPITest):
             'display': 'Test alert rule for carcass report.',
         }
 
-        request = self.factory.post(self.api_base + '/activity/alerts', alert_rule)
+        request = self.factory.post(
+            self.api_base + '/activity/alerts', alert_rule)
         self.force_authenticate(request, self.power_user)
         response = AlertRuleListView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -323,7 +338,8 @@ class BusinessRulesTestCase(BaseAPITest):
         request = NonHttpRequest()
         request.user = self.power_user
         ar = AlertRule.objects.get(id=alert_rule_id)
-        ar_repr = AlertRuleSerializer(context={'request': request}).to_representation(ar)
+        ar_repr = AlertRuleSerializer(
+            context={'request': request}).to_representation(ar)
         # print(json.dumps(ar_repr, indent=2, default=str))
 
     def _create_a_period_from_datetime(self, dt=None, including_time=True):
@@ -335,7 +351,8 @@ class BusinessRulesTestCase(BaseAPITest):
         '''
         dt = dt or timezone.localtime()
 
-        day_key = ['1', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][dt.isoweekday()]
+        day_key = ['1', 'monday', 'tuesday', 'wednesday', 'thursday',
+                   'friday', 'saturday', 'sunday'][dt.isoweekday()]
 
         if including_time:
             h1 = dt - timedelta(minutes=30)
@@ -352,7 +369,6 @@ class BusinessRulesTestCase(BaseAPITest):
         }
 
         return {"periods": periods}
-
 
     def test_for_confiscation_rep_with_select_multiple(self):
 
@@ -395,11 +411,12 @@ class BusinessRulesTestCase(BaseAPITest):
                 'method': 'sms',
                 'value': '+12062147021'
             },
-            'title':'Some notification method',
+            'title': 'Some notification method',
             'is_active': True
         }
 
-        request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
+        request = self.factory.post(
+            self.api_base + '/activity/notificationmethods', notification_method)
         self.force_authenticate(request, self.power_user)
         response = NotificationMethodListView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -413,12 +430,11 @@ class BusinessRulesTestCase(BaseAPITest):
             notification_method_ids=[notification_method_id, ],
             conditions={"all": [{"name": "confiscationrep_itemsconfiscated", "value": ["bushmeat"],
                                  "operator": "shares_at_least_one_element_with"},
-                                {"name": "confiscationrep_numberofitems", "value": 2, "operator": "greater_than_or_equal_to"},]}
-            ,
+                                {"name": "confiscationrep_numberofitems", "value": 2, "operator": "greater_than_or_equal_to"}, ]},
             schedule=self._create_a_period_from_datetime(including_time=True)
         )
         alert_rules_list = []
-        for ar in [alert_rule_1,]:
+        for ar in [alert_rule_1, ]:
             request = NonHttpRequest()
             request.user = self.power_user
             ser = AlertRuleSerializer(data=ar, context={'request': request})
@@ -429,7 +445,8 @@ class BusinessRulesTestCase(BaseAPITest):
                 rule = AlertRule.objects.get(id=rule.id)
                 alert_rules_list.append(rule)
 
-        self.assertEqual(len(AlertRule.objects.filter(event_types=event.event_type)), 1)
+        self.assertEqual(len(AlertRule.objects.filter(
+            event_types=event.event_type)), 1)
 
         action_list = evaluate_event_on_alertrules(alert_rules_list, event)
         self.assertEqual(len(action_list), 1)
@@ -481,11 +498,12 @@ class BusinessRulesTestCase(BaseAPITest):
                 'method': 'sms',
                 'value': '+12062147021'
             },
-            'title':'Some notification method',
+            'title': 'Some notification method',
             'is_active': True
         }
 
-        request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
+        request = self.factory.post(
+            self.api_base + '/activity/notificationmethods', notification_method)
         self.force_authenticate(request, self.power_user)
         response = NotificationMethodListView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -550,7 +568,8 @@ class BusinessRulesTestCase(BaseAPITest):
                 rule = AlertRule.objects.get(id=rule.id)
                 alert_rules_list.append(rule)
 
-        self.assertEqual(len(AlertRule.objects.filter(event_types=event.event_type)), 2)
+        self.assertEqual(len(AlertRule.objects.filter(
+            event_types=event.event_type)), 2)
 
         action_list = evaluate_event_on_alertrules(alert_rules_list, event)
         self.assertEqual(len(action_list), 1)
@@ -599,11 +618,12 @@ class BusinessRulesTestCase(BaseAPITest):
                 'method': 'sms',
                 'value': '+12062147021'
             },
-            'title':'Some notification method',
+            'title': 'Some notification method',
             'is_active': True
         }
 
-        request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
+        request = self.factory.post(
+            self.api_base + '/activity/notificationmethods', notification_method)
         self.force_authenticate(request, self.power_user)
         response = NotificationMethodListView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -619,7 +639,7 @@ class BusinessRulesTestCase(BaseAPITest):
         )
 
         alert_rules_list = []
-        for ar in [alert_rule_1,]:
+        for ar in [alert_rule_1, ]:
             request = NonHttpRequest()
             request.user = self.power_user
             ser = AlertRuleSerializer(data=ar, context={'request': request})
@@ -671,10 +691,12 @@ class BusinessRulesTestCase(BaseAPITest):
             event = ser.create(ser.validated_data)
             event = Event.objects.get(id=event.id)
 
-        print(f'Event Details: {event.event_details.latest("updated_at").data}')
+        print(
+            f'Event Details: {event.event_details.latest("updated_at").data}')
 
         ed = event.event_details.latest('updated_at')
-        ed.data['event_details']['carcassrep_sex'] = {'name': 'Female', 'value': 'female'}
+        ed.data['event_details']['carcassrep_sex'] = {
+            'name': 'Female', 'value': 'female'}
         ed.save()
 
         event.state = 'resolved'
@@ -685,11 +707,12 @@ class BusinessRulesTestCase(BaseAPITest):
                 'method': 'email',
                 'value': 'chrisdo@vulcan.com'
             },
-            'title':'Some notification method',
+            'title': 'Some notification method',
             'is_active': True
         }
 
-        request = self.factory.post(self.api_base + '/activity/notificationmethods', notification_method)
+        request = self.factory.post(
+            self.api_base + '/activity/notificationmethods', notification_method)
         self.force_authenticate(request, self.power_user)
         response = NotificationMethodListView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -704,7 +727,7 @@ class BusinessRulesTestCase(BaseAPITest):
         )
 
         alert_rules_list = []
-        for ar in [alert_rule_1,]:
+        for ar in [alert_rule_1, ]:
             request = NonHttpRequest()
             request.user = self.power_user
             ser = AlertRuleSerializer(data=ar, context={'request': request})
@@ -718,12 +741,9 @@ class BusinessRulesTestCase(BaseAPITest):
         send_alert_to_notificationmethod(alert_rule_id=str(rule.id), event_id=str(event.id),
                                          notification_method_id=str(notification_method_id))
 
-
-
     def test_event_alert_template(self):
 
         get_template('eventalert.html')
-
 
     def test_schedule_schema(self):
         valid_document_1 = {
@@ -739,12 +759,13 @@ class BusinessRulesTestCase(BaseAPITest):
             jsonschema.validate(valid_document_1, OneWeekSchedule.json_schema)
             assumed_valid = True
         finally:
-            self.assertTrue(assumed_valid, msg='Incorrectly assumed a schema is valid.')
+            self.assertTrue(
+                assumed_valid, msg='Incorrectly assumed a schema is valid.')
 
         invalid_document_1 = {
             "periods": {
                 "monday": [["00:00", "23:00"]],
-                "wednesday": [["00:01", "11:00", "12:30"]], # <-- invalid
+                "wednesday": [["00:01", "11:00", "12:30"]],  # <-- invalid
                 "thursday": [["01:01", "12:30"]]
             }
         }
@@ -756,23 +777,25 @@ class BusinessRulesTestCase(BaseAPITest):
         invalid_document_2 = {
             "periods": {
                 "monday": [["00:00", "23:00"]],
-                "thurs": [["01:01", "12:30"]] # <-- invalid
+                "thurs": [["01:01", "12:30"]]  # <-- invalid
             }
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for disallowed additional property."):
-            jsonschema.validate(invalid_document_2, OneWeekSchedule.json_schema)
+            jsonschema.validate(invalid_document_2,
+                                OneWeekSchedule.json_schema)
 
         invalid_document_3 = {
             "periods": {
                 "monday": [["00:00", "23:00"]],
                 "friday": [["01:01", "12:30"]],
-                "somerandomkey": { 'something': 1} # <-- invalid
+                "somerandomkey": {'something': 1}  # <-- invalid
             }
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for disallowed additional property."):
-            jsonschema.validate(invalid_document_3, OneWeekSchedule.json_schema)
+            jsonschema.validate(invalid_document_3,
+                                OneWeekSchedule.json_schema)
 
         invalid_document_4 = {
             "schedule_type": "month",
@@ -783,5 +806,174 @@ class BusinessRulesTestCase(BaseAPITest):
         }
 
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid schedule_type."):
-            jsonschema.validate(invalid_document_4, OneWeekSchedule.json_schema)
+            jsonschema.validate(invalid_document_4,
+                                OneWeekSchedule.json_schema)
 
+    def test_notification_triggered_for_subject_group(self):
+        NOTIFICATION_METHOD_EMAIL_ADDRESS = "phillip@email.com"
+        notification_method = NotificationMethod.objects.create(title="test",
+                                                                owner=self.admin_user,
+                                                                method="email",
+                                                                value=NOTIFICATION_METHOD_EMAIL_ADDRESS)
+        notification_method.save()
+        self.assertEquals(1, NotificationMethod.objects.count())
+
+        subj = Subject.objects.create(
+            name="test_subject",
+            owner=self.admin_user,
+        )
+        subj.save()
+
+        conditions = {
+            "all": [
+                {
+                    "name": "subject_group",
+                    "value": [
+                        str(subj.id)
+                    ],
+                    "operator": "shares_at_least_one_element_with"
+                }
+            ]
+        }
+
+        immobility = EventType.objects.get(display='Immobility')
+
+        TEST_ALERT_RULE_TITLE = "test_alert_rule"
+
+        alert_rule = AlertRule.objects.create(
+            owner=self.power_user, title=TEST_ALERT_RULE_TITLE)
+        alert_rule.conditions = conditions
+        alert_rule.notification_methods.set([notification_method, ])
+        alert_rule.event_types.set([immobility, ])
+        alert_rule.save()
+        # 3. Create event
+        TEST_EVENT_TITLE = "Test Subject Group Email"
+        event_data = dict(
+            state='active',
+            title=TEST_EVENT_TITLE,
+            event_time=datetime.now(tz=pytz.utc),
+            provenance=Event.PC_STAFF,
+            event_type=immobility.value,
+            priority=Event.PRI_IMPORTANT,
+            location=dict(longitude=37.5123, latitude=1.4590),
+            event_details={},
+            related_subjects=[{'id': subj.id}, ],
+        )
+
+        request = NonHttpRequest()
+        request.user = self.power_user
+        ser = EventSerializer(data=event_data, context={'request': request})
+
+        if not ser.is_valid():
+            self.fail(f'Event is not valid. Errors are: {ser.errors}')
+        else:
+            event = ser.create(ser.validated_data)
+            event = Event.objects.get(id=event.id)
+
+        action_list = evaluate_event(event)
+        alert_rule_ids = [action['alert_rule_id'] for action in action_list]
+
+        already_queued_nids = set()
+        for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by('ordernum', 'title'):
+            for notification_method in alert_rule.notification_methods.filter(is_active=True):
+
+                if notification_method.id not in already_queued_nids:
+                    kwargs = {
+                        'alert_rule_id': str(alert_rule.id),
+                        'event_id': str(event.id),
+                        'notification_method_id': str(notification_method.id)
+                    }
+
+                    send_alert_to_notificationmethod(**kwargs)
+                already_queued_nids.add(notification_method.id)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual([NOTIFICATION_METHOD_EMAIL_ADDRESS],
+                         mail.outbox[0].to)
+        self.assertIn(TEST_EVENT_TITLE, mail.outbox[0].subject)
+
+    def test_notification_not_triggered_for_wrong_subject_group(self):
+        NOTIFICATION_METHOD_EMAIL_ADDRESS = "phillip@email.com"
+        notification_method = NotificationMethod.objects.create(title="test",
+                                                                owner=self.admin_user,
+                                                                method="email",
+                                                                value=NOTIFICATION_METHOD_EMAIL_ADDRESS)
+        notification_method.save()
+        self.assertEquals(1, NotificationMethod.objects.count())
+
+        subj = Subject.objects.create(
+            name="test_subject",
+            owner=self.admin_user,
+        )
+        subj.save()
+
+        subj2 = Subject.objects.create(
+            name="test_subject",
+            owner=self.admin_user,
+        )
+        subj2.save()
+
+        conditions = {
+            "all": [
+                {
+                    "name": "subject_group",
+                    "value": [
+                        str(subj.id)
+                    ],
+                    "operator": "shares_at_least_one_element_with"
+                }
+            ]
+        }
+
+        immobility = EventType.objects.get(display='Immobility')
+
+        TEST_ALERT_RULE_TITLE = "test_alert_rule"
+
+        alert_rule = AlertRule.objects.create(
+            owner=self.power_user, title=TEST_ALERT_RULE_TITLE)
+        alert_rule.conditions = conditions
+        alert_rule.notification_methods.set([notification_method, ])
+        alert_rule.event_types.set([immobility, ])
+        alert_rule.save()
+        # 3. Create event
+        TEST_EVENT_TITLE = "Test Subject Group Email"
+        event_data = dict(
+            state='active',
+            title=TEST_EVENT_TITLE,
+            event_time=datetime.now(tz=pytz.utc),
+            provenance=Event.PC_STAFF,
+            event_type=immobility.value,
+            priority=Event.PRI_IMPORTANT,
+            location=dict(longitude=37.5123, latitude=1.4590),
+            event_details={},
+            related_subjects=[{'id': subj2.id}, ],
+        )
+
+        request = NonHttpRequest()
+        request.user = self.power_user
+        ser = EventSerializer(data=event_data, context={'request': request})
+
+        if not ser.is_valid():
+            self.fail(f'Event is not valid. Errors are: {ser.errors}')
+        else:
+            event = ser.create(ser.validated_data)
+            event = Event.objects.get(id=event.id)
+
+        action_list = evaluate_event(event)
+        alert_rule_ids = [action['alert_rule_id'] for action in action_list]
+
+        already_queued_nids = set()
+        for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by('ordernum', 'title'):
+            for notification_method in alert_rule.notification_methods.filter(is_active=True):
+
+                if notification_method.id not in already_queued_nids:
+                    kwargs = {
+                        'alert_rule_id': str(alert_rule.id),
+                        'event_id': str(event.id),
+                        'notification_method_id': str(notification_method.id)
+                    }
+
+                    send_alert_to_notificationmethod(**kwargs)
+                already_queued_nids.add(notification_method.id)
+
+        self.assertEqual(len(mail.outbox), 0)
