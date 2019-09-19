@@ -2,10 +2,23 @@
 . /startup/wait_for.sh
 wait_for $DB_HOST $DB_PORT
 
-cd /var/notebooks/
-
 pip3 install oauth2client
+pip3 install django-extensions
+pip3 install jupyterlab
 
 python3 cfgloader.py
 PYTHONPATH=/var/www/app:$PYTHONPATH
+
+# This writes a default password `dasdasdas`.
+# TODO: Find a way to make this easily configurable.
+JUPYTER_NOTEBOOK_CONFIG="
+{
+  \"NotebookApp\": {
+    \"password\": \"sha1:b0099d6bbb90:070c01257ed3649f4be027f363516539be36ed4d\"
+  }
+}
+"
+
+mkdir -p /root/.jupyter
+echo $JUPYTER_NOTEBOOK_CONFIG > /root/.jupyter/jupyter_notebook_config.json
 python3 /var/www/app/manage.py shell_plus --notebook --settings=das_server.notebook_settings
