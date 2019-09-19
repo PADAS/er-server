@@ -59,8 +59,9 @@ VOLUME /tmp
 
 ENV DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
 
+# Default service name
 ENV SERVICE_NAME=api_server
 
 WORKDIR /var/www/app
 
-ENTRYPOINT ["/var/www/app/start.sh"]
+CMD ["/var/www/app/start.sh"]
