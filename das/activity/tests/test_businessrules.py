@@ -822,7 +822,6 @@ class BusinessRulesTestCase(BaseAPITest):
             name="test_subject",
             owner=self.admin_user,
         )
-        subj.save()
 
         conditions = {
             "all": [
@@ -898,20 +897,17 @@ class BusinessRulesTestCase(BaseAPITest):
                                                                 owner=self.admin_user,
                                                                 method="email",
                                                                 value=NOTIFICATION_METHOD_EMAIL_ADDRESS)
-        notification_method.save()
         self.assertEquals(1, NotificationMethod.objects.count())
 
         subj = Subject.objects.create(
             name="test_subject",
             owner=self.admin_user,
         )
-        subj.save()
 
         subj2 = Subject.objects.create(
             name="test_subject",
             owner=self.admin_user,
         )
-        subj2.save()
 
         conditions = {
             "all": [
