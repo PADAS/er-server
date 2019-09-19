@@ -970,7 +970,7 @@ class TestEventView(BaseAPITest):
             self.assertEqual(event['Reported_By'],
                              event['Reported_By_Internal_Value'])
 
-    def test_collection_report_id_exported_as_parent_event_title(self):
+    def test_collection_report_id_exported_as_parent_event_serial_number(self):
         collection_event_data = copy.deepcopy(self.event_data)
         collection_event_data['reported_by'] = self.user_rep
         collection_event_data["message"] = ""
@@ -982,6 +982,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
+        collection_serial_number = response.data.get('serial_number')
         self.assertEqual(response.status_code, 201)
         response_data = response.data
         response_data = {k: response_data[k]
@@ -1029,26 +1030,28 @@ class TestEventView(BaseAPITest):
             response.rendered_content)
         # get the last event
         event = events_report[-1]
-        self.assertEqual(event['Collection_Report_Id'],
-                         collection_event_data['title'])
+        self.assertEqual(int(event['Collection_Report_Id']),
+                         collection_serial_number)
 
     def test_export_csv_with_filter(self):
-        carcass_data = json.loads(
-            """{"event_details":{"sectionArea":["bbbe77a9-f829-47dd-8a6f-bca76920f706","957a8bfa-ad0d-4b94-bc86-983cab105910"],"team":[],"conservancy":"346f5449-52b0-4b52-9d10-b44b8aa313a6","beginning_of_incident":"2017-10-13 12:00","end_of_incident":"2017-10-14 12:00","details":"interesting details","results_and_findings":"very interesting results and findings","species":"ad26adde-1261-4133-8d3f-a22d12ceae1f","sex":"Male","causeOfDeath":"ab468ffc-9745-4c71-a19d-c34b8c9c3b18"},"event_type":"carcass_rep","priority":200,"title":"Carcass","location":{"latitude":47.65636923655089,"longitude":-122.30770111083983}}""")
-        request = self.factory.post(self.api_base + '/events/', carcass_data)
-        self.force_authenticate(request, self.all_perms_user)
-        response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
+        with self.assertNumQueries(2):
+            carcass_data = json.loads(
+                """{"event_details":{"sectionArea":["bbbe77a9-f829-47dd-8a6f-bca76920f706","957a8bfa-ad0d-4b94-bc86-983cab105910"],"team":[],"conservancy":"346f5449-52b0-4b52-9d10-b44b8aa313a6","beginning_of_incident":"2017-10-13 12:00","end_of_incident":"2017-10-14 12:00","details":"interesting details","results_and_findings":"very interesting results and findings","species":"ad26adde-1261-4133-8d3f-a22d12ceae1f","sex":"Male","causeOfDeath":"ab468ffc-9745-4c71-a19d-c34b8c9c3b18"},"event_type":"carcass_rep","priority":200,"title":"Carcass","location":{"latitude":47.65636923655089,"longitude":-122.30770111083983}}""")
+            request = self.factory.post(
+                self.api_base + '/events/', carcass_data)
+            self.force_authenticate(request, self.all_perms_user)
+            response = views.EventsView.as_view()(request)
+            self.assertEqual(response.status_code, 201)
 
-        url = """/activity/events/export?state=active&filter=%7B%22text%22:%22carcass%22%7D"""
+            url = """/activity/events/export?state=active&filter=%7B%22text%22:%22carcass%22%7D"""
 
-        request = self.factory.get(
-            self.api_base + url)
+            request = self.factory.get(
+                self.api_base + url)
 
-        self.force_authenticate(request, self.all_perms_user)
-        response = self._export_template_response(request)
+            self.force_authenticate(request, self.all_perms_user)
+            response = self._export_template_response(request)
 
-        self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.status_code, 200)
 
     def test_export_csv_with_line_feed(self):
 

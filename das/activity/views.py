@@ -356,7 +356,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
             .annotate(related_subjects_count=Count('related_subjects')) \
             .annotate(parent_event_title=Subquery(
-                parent_event_subquery.values('from_event__title')[:1])) \
+                parent_event_subquery.values('from_event__serial_number')[:1])) \
             .values('id', 'serial_number', 'priority', 'state',
                     'title', 'event_type_id', 'event_type__value',
                     'event_type__display',
