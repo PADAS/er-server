@@ -223,10 +223,10 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         field_schema = schema_utils.map_schema(eventtype.schema, schema)
         for key, value in field_schema.items():
             inactive_choices = []
-            obj = Choice.objects.filter(is_active=False, field=value)
+            obj = Choice.objects.filter(is_active=False, field=value['field_name'])
             for o in obj:
                 inactive_choices.append(o.value)
-            schema['schema']['properties'][key]["inactive"] = inactive_choices
+            schema['schema']['properties'][key]["inactive"+"_"+value['lookup']] = inactive_choices
 
 
         return generics.views.Response(schema)

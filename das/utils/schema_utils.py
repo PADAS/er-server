@@ -386,28 +386,6 @@ def get_replacement_fields_in_schema(schema):
     return fields
 
 
-def map_schema(schema, load_schema):
-
-    lookups = []
-    keys = load_schema['schema']['properties'].keys()
-    for key in keys:
-        if ('enum' or 'query'
-                or 'table') in load_schema['schema']['properties'][key].keys():
-            lookups.append(key)
-
-    fields = []
-    template = Template(schema)
-    for node in template.nodelist:
-        if type(node) is VariableNode:
-            field_tag = node.token.contents
-            field_details = field_tag.split('___')
-
-            if field_details[1] not in fields:
-                fields.append(field_details[1])
-
-    return dict(zip(lookups, fields))
-
-
 def format_key_for_title(key):
     titleStr = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', key)
     titleStr = re.sub('([a-z0-9])([A-Z])', r'\1 \2', titleStr).lower()
@@ -501,3 +479,37 @@ def validate_rendered_schema_is_wellformed(schema):
     if sorted(keys) != sorted(list(properties.keys())):
         raise SchemaValidationError(
             SCHEMA_ERROR_MISMATCHED_PROPERTIES_IN_DEFINITION)
+
+
+def map_schema(schema, load_schema):
+
+    lookups = []
+    keys = load_schema['schema']['properties'].keys()
+    for key in keys:
+        if ('enum' or 'query'
+                or 'table') in load_schema['schema']['properties'][key].keys():
+            lookups.append(key)
+
+    fields = []
+    index = 0
+    template = Template(schema)
+    for node in template.nodelist:
+        if type(node) is VariableNode:
+            field_tag = node.token.contents
+            field_details = field_tag.split('___')
+
+            if len(fields) == 0:
+                fields.append({
+                    'field_name': field_details[1],
+                    'lookup': field_details[0]
+                })
+            else:
+
+                if fields[index]['field_name'] != field_details[1]:
+                    fields.append({
+                        'field_name': field_details[1],
+                        'lookup': field_details[0]
+                    })
+                    index += 1
+
+    return dict(zip(lookups, fields))
