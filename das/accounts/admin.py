@@ -203,8 +203,10 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
     phone = forms.CharField(required=False)
 
     # Additional JSON Fields
-    notes = forms.CharField(required=False, label='Notes', widget=forms.Textarea)
-    expiry = forms.DateTimeField(required=False, label=_('MoU Expires'), widget=AdminDateWidget())
+    notes = forms.CharField(
+        required=False, label='Notes', widget=forms.Textarea)
+    expiry = forms.DateTimeField(required=False, label=_(
+        'MoU Expires'), widget=AdminDateWidget())
     moudatesigned = forms.DateTimeField(
         required=False, label='MoU Date Signed', widget=AdminDateWidget())
     moutype = forms.CharField(required=False, label='MoU Type')
@@ -280,7 +282,6 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         (None, {
             'fields': ('first_name', 'last_name', 'role',
                        'email', 'phone',
-                       'is_email_alert', 'is_sms_alert',
                        'username', 'password')
         }),
         ('Additional JSON Fields', {
