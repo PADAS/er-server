@@ -18,7 +18,8 @@ from activity.alerting.businessrules import EventActions, EventVariables, _gener
     render_event
 from activity.alerting.service import evaluate_event_on_alertrules, \
     evaluate_event
-from activity.alerts_views import AlertRuleListView, NotificationMethodListView, NotificationMethodView
+from activity.alerts_views import AlertRuleListView, NotificationMethodListView, \
+    NotificationMethodView, EventAlertConditionsListView
 from activity.models import EventType, Event, AlertRule, NotificationMethod
 from activity.serializers import EventSerializer, AlertRuleSerializer
 from activity.tasks import send_alert_to_notificationmethod, \
@@ -26,7 +27,7 @@ from activity.tasks import send_alert_to_notificationmethod, \
 from core.tests import BaseAPITest
 from core.utils import NonHttpRequest
 from core.utils import OneWeekSchedule
-from observations.models import Subject
+from observations.models import Subject, SubjectGroup
 
 power_user_permissions = [
     'security_read',
@@ -973,3 +974,12 @@ class BusinessRulesTestCase(BaseAPITest):
                 already_queued_nids.add(notification_method.id)
 
         self.assertEqual(len(mail.outbox), 0)
+
+    def test_subject_group_in_conditions(self):
+        request = self.factory.get(
+            self.api_base + '/activity/alerts/conditions/')
+        self.force_authenticate(request, self.power_user)
+        response = EventAlertConditionsListView.as_view()(request)
+
+        for subject_group in SubjectGroup.objects.all():
+            self.assertIn(str(subject_group.id), str(response.data))
