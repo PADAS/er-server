@@ -9,6 +9,9 @@ from django.apps import apps
 from django.template import Template, Context
 from django.template.base import VariableNode
 
+from activity.exceptions import SchemaValidationError, \
+    SCHEMA_ERROR_EMPTY_PROPERTY, \
+    SCHEMA_ERROR_MISMATCHED_PROPERTIES_IN_DEFINITION
 from choices.models import Choice, DynamicChoice
 from utils.memoize import memoize
 
@@ -49,7 +52,8 @@ def get_dynamic_choices(field_details, as_string=True):
 
 def _get_dynamic_choices(field_details):
 
-    dynamic_choice = DynamicChoice.objects.filter(id=field_details['field']).first()
+    dynamic_choice = DynamicChoice.objects.filter(
+        id=field_details['field']).first()
 
     # Short-circuit if there aren't any DynamicChoices found for this field.
     if dynamic_choice is None:
@@ -73,7 +77,8 @@ def _get_dynamic_choices(field_details):
     if field_details['type'] == 'names':
         return_val = options
     elif field_details['type'] == 'map':
-        return_val = list([{'value': k, 'name': v} for k, v in options.items()])
+        return_val = list([{'value': k, 'name': v}
+                           for k, v in options.items()])
     else:
         return_val = list(options.keys())
 
@@ -183,11 +188,13 @@ def extract_from_list(values):
     ids = []
     for value in values:
         if value and not isinstance(value, dict):
-            logger.warning(f'extract_from_list value is not a dict: {value} from {values}')
+            logger.warning(
+                f'extract_from_list value is not a dict: {value} from {values}')
             return value, value
 
         if 'name' not in value:
-            logger.warning(f'extract_from_list name not in value: {value} from {values}')
+            logger.warning(
+                f'extract_from_list name not in value: {value} from {values}')
             return '', ''
 
         names.append(value['name'])
@@ -227,7 +234,8 @@ def extractor(schema_item, definition, value):
                     logger.warning(f'key not found in definition {definition}')
                     continue
                 if 'key' not in schema_item:
-                    logger.warning(f'key not found in schema_item {schema_item}')
+                    logger.warning(
+                        f'key not found in schema_item {schema_item}')
                     continue
                 if definition_item['key'] == schema_item['key']:
                     return definition_item.get('title'), val, key
@@ -247,7 +255,7 @@ def definition_keys(form_definition: list, index_values=None):
     '''
 
     index_values = index_values or generate_index()
-    
+
     for k in form_definition:
         if isinstance(k, str):
             yield (k, next(index_values))
@@ -452,3 +460,22 @@ def should_auto_generate(schema_string):
         if schema_doc.get('auto-generate', False):
             return True
     return False
+
+
+def validate_rendered_schema_is_wellformed(schema):
+    schema = get_schema_renderer_method()(schema)
+    properties = schema['schema'].get('properties')
+
+    for prop in properties.values():
+        if not all([x in prop.keys() for x in ["type", "title"]]):
+            raise SchemaValidationError(SCHEMA_ERROR_EMPTY_PROPERTY)
+
+    definition = schema.get('definition', [])
+    keys = []
+    for dfn in definition:
+        if 'key' in dfn.keys():
+            keys.append(dfn['key'])
+
+    if sorted(keys) != sorted(list(properties.keys())):
+        raise SchemaValidationError(
+            SCHEMA_ERROR_MISMATCHED_PROPERTIES_IN_DEFINITION)
