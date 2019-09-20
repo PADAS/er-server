@@ -99,27 +99,28 @@ def get_event_icon_select_list(dirname='sprite-src'):
     return sorted(icon_list, key=lambda icon: icon['key'])
 
 
+def validate_schema_is_well_formed(schema):
+
+    try:
+        _ = get_schema_renderer_method()(schema)
+    except NameError:
+        raise forms.ValidationError(SCHEMA_ERROR_INCORRECT_RENDER_TAG)
+    except Exception:
+        raise forms.ValidationError(SCHEMA_ERROR_JSON_DECODE_ERROR)
+    else:
+        try:
+            validate_rendered_schema_is_wellformed(schema)
+        except SchemaValidationError as e:
+            raise forms.ValidationError(str(e))
+
+
 class EventTypeForm(forms.ModelForm):
     schema = forms.CharField(widget=SchemaWidget(
-        attrs={'rows': 30, 'cols': 100}))
+        attrs={'rows': 30, 'cols': 100}), validators=[validate_schema_is_well_formed])
 
     icon = forms.CharField(required=False,
                            label='Icon Override',
                            widget=IconKeyInput(image_list_fn=get_event_icon_select_list))
-
-    def clean_schema(self):
-        schema = self.cleaned_data['schema']
-        try:
-            _ = get_schema_renderer_method()(schema)
-        except NameError:
-            raise forms.ValidationError(SCHEMA_ERROR_INCORRECT_RENDER_TAG)
-        except Exception:
-            raise forms.ValidationError(SCHEMA_ERROR_JSON_DECODE_ERROR)
-        else:
-            try:
-                validate_rendered_schema_is_wellformed(schema)
-            except SchemaValidationError as e:
-                raise forms.ValidationError(str(e))
 
     class Meta:
         model = EventType
