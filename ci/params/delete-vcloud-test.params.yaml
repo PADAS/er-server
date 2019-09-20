@@ -3,7 +3,7 @@ version-prefix: dev
 cluster-name: integration
 server-branch-name: TRELLO_2958-shift-a-template-to-terraform
 web-branch-name: develop
-namespace: remove-vcloud-test
+namespace: delete-vcloud-test
 web-react-admin-branch-name: master
 tag-as-latest: true
 das-static-ip: 34.83.76.186
