@@ -45,7 +45,8 @@ logger = logging.getLogger(__name__)
 User = django.contrib.auth.get_user_model()
 ET_OTHER = 'other'
 
-ET_SECURITY = 'carcass_rep'
+ET_CARCASS = 'carcass_rep'
+ET_SECURITY = ET_CARCASS
 ET_MONITORING = 'wildlife_sighting_rep'
 ET_LOGISTICS = 'all_posts'
 
@@ -862,6 +863,32 @@ class TestEventView(BaseAPITest):
         # clean the generated title from above as that is happening in the ORM
         self.assertEqual(response.data['title'], clean_user_text(
             TITLE, 'test_edit_event_title'))
+
+    def test_edit_event_details(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['event_type'] = ET_CARCASS
+        event_data['event_details'] = {"carcassrep_species": "elephant", "carcassrep_sex": "male", "carcassrep_ageofanimal": "adult",
+                                       "carcassrep_ageofcarcass": "fresh", "carcassrep_trophystatus": "intact", "carcassrep_causeofdeath": "naturaldisease"}
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        event_id = response.data['id']
+
+        update_data = {'event_details': event_data['event_details']}
+        update_data['event_details']['carcassrep_species'] = 'baboon'
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}'.format(str(event_id)),
+            update_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventView.as_view()(request, id=str(event_id))
+        self.assertEqual(response.status_code, 200)
+
+        # clean the generated title from above as that is happening in the ORM
+        self.assertIn('Species', response.data['updates'][0]['message'])
 
     def test_event_with_search_filter(self):
 
