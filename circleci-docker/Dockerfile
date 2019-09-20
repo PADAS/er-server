@@ -42,7 +42,6 @@ RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/depen
 ARG version=""
 
 ADD ./das /var/www/app
-ADD ./docker/start_scripts /var/www/app/docker/start_scripts
 
 EXPOSE 8000
 EXPOSE 5400
@@ -59,4 +58,4 @@ ENV SERVICE_NAME=api_server
 
 WORKDIR /var/www/app
 
-CMD ["/var/www/app/docker/start_scripts/start.sh"]
+CMD ["/var/www/app/start_scripts/start.sh"]
