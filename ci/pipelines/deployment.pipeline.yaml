@@ -8,6 +8,15 @@ resources:
       - deployment/*
     private_key: ((das-github))
 
+- name: git-terraform
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    paths:
+      - terraform/*
+    private_key: ((das-github))
+
 resource_types:
 - name: versioned-git-resource
   type: docker-image
