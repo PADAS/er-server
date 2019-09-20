@@ -142,12 +142,7 @@ class HasAlertRulePermissions(IsOwner):
             super().has_permission(request, view)
 
         if request.user.is_authenticated:
-            permitted = has_alerts_permissionset(request.user)
-            if permitted:
-                return True
-            elif request.method == 'GET':
-                raise Unauthorized
-            else:
+            if not has_alerts_permissionset(request.user):
                 return False
 
         return super().has_permission(request, view)
