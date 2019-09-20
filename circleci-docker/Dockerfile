@@ -42,6 +42,7 @@ RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/depen
 ARG version=""
 
 ADD ./das /var/www/app
+ADD ./docker/start_scripts /var/www/app/docker/start_scripts
 
 EXPOSE 8000
 EXPOSE 5400
