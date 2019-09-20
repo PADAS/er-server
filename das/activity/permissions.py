@@ -131,18 +131,3 @@ class IsEventProviderOwnerPermission(BasePermission):
         eventprovider = getattr(obj, self.relation_field, None)
         return eventprovider is not None and eventprovider.owner == request.user
 
-
-class HasAlertRulePermissions(IsOwner):
-    """
-    Custom permission to allow only users with alert rule permissions to create, edit or delete alert rules.
-    """
-    def has_permission(self, request, view):
-
-        if request.method in ['OPTIONS', 'HEAD']:
-            super().has_permission(request, view)
-
-        if request.user.is_authenticated:
-            if not has_alerts_permissionset(request.user):
-                return False
-
-        return super().has_permission(request, view)

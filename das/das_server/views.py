@@ -68,11 +68,8 @@ class StatusView(generics.RetrieveAPIView):
         resp['show_stationary_subjects_on_map'] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
         resp['daily_report_enabled'] = settings.DAILY_REPORT_ENABLED
 
-        has_alerts_permissions = has_alerts_permissionset(self.request.user)
+        resp['alerts_enabled'] = settings.ALERTS_ENABLED and has_alerts_permissionset(self.request.user)
 
-        alerts_enabled = True if has_alerts_permissions else False
-        
-        resp['alerts_enabled'] = alerts_enabled
         resp['server_timezone_name'] = timezone.get_current_timezone_name()
         resp['server_timezone'] = timezone.localtime().strftime('%Z')
 
