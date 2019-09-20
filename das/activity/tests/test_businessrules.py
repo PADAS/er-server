@@ -37,9 +37,6 @@ class BusinessRulesTestCase(BaseAPITest):
         call_command('loaddata', 'event_data_model')
         call_command('loaddata', 'test_events_schema')
 
-        # Create alerts permissionset
-        create_alerts_permissionset()
-
         self.alerts_perms_user = User.objects.create_user(
             username='alertsuser',
             password='asdfo9823sfiu23$',
@@ -323,7 +320,7 @@ class BusinessRulesTestCase(BaseAPITest):
         self.force_authenticate(request, self.power_user)
         response = AlertRuleListView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["data"], [])
+        self.assertEqual(response.data, [])
 
     def _create_a_period_from_datetime(self, dt=None, including_time=True):
         '''
