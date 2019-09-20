@@ -1,5 +1,5 @@
 import logging
-from rest_framework import generics, status, response
+from rest_framework import generics, status, response, permissions
 
 from activity.models import AlertRule, NotificationMethod, EventType
 
@@ -14,6 +14,7 @@ from utils.json import parse_bool
 logger = logging.getLogger(__name__)
 
 # Views for Advanced Alert Functionality.
+
 
 class EventAlertConditionsListView(generics.ListAPIView):
 
@@ -37,11 +38,13 @@ class EventAlertConditionsListView(generics.ListAPIView):
 
         return response.Response(rules, status=status.HTTP_200_OK)
 
-
 class AlertRuleListView(generics.ListCreateAPIView):
 
-    permission_classes = (IsOwner,)
+    permission_classes = [permissions.DjangoModelPermissions & IsOwner]
+
     serializer_class = AlertRuleSerializer
+
+    queryset = AlertRule.objects.none() # Required for DjangoModelPermission
 
     def get_queryset(self):
         return AlertRule.objects.filter(owner=self.request.user).order_by('ordernum', 'title')
@@ -52,7 +55,8 @@ class AlertRuleListView(generics.ListCreateAPIView):
 
 class AlertRuleView(generics.RetrieveUpdateDestroyAPIView):
 
-    permission_class = (IsOwner,)
+    permission_classes = [permissions.DjangoModelPermissions & IsOwner]
+
     serializer_class = AlertRuleSerializer
     pagination_class = StandardResultsSetPagination
 
