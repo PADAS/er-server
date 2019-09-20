@@ -42,6 +42,35 @@ resource_types:
     repository: gcr.io/ss-infrastructure/concourse/versioned-git-resource
 
 jobs:
+- name: terraform-plan
+  max_in_flight: 1
+  serial_groups:
+    - "terraform"
+  plan:
+  - do:
+    - get: git-terraform
+      params:
+        submodules: none
+    - task: plan
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: git-terraform
+        params: *terraform-apply-and-destroy-params
+        run:
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'cp -r ./git-terraform/terraform /tmp &&
+            cd /tmp/terraform &&
+            echo "$CREDENTIALS_FOR_STATE" > ./credentials-for-state.json &&
+            terraform init -input=false -backend-config="credentials=./credentials-for-state.json" &&
+            terraform plan -input=false -out=tfplan &&
+            cd "$OLDPWD" &&
+            cp -r /tmp/terraform ./plan'
+        outputs:
+        - name: plan
 - name: deploy-to-k8s
   max_in_flight: 1
   plan:
