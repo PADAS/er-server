@@ -21,7 +21,6 @@ def create_alerts_permissionset():
     Adds the proper permission and permissionset that dentify the users who can
     view, create, update and delete alerts.
     '''
-    User = django.contrib.auth.get_user_model()
     content_type = ContentType.objects.get_for_model(AlertRule)
 
     permissions = {
