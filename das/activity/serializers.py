@@ -836,7 +836,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         if not event_details:
             return OrderedDict()
         rep = OrderedDict(event_details.data['event_details'])
-        event_type = self.get_event_type(self.root.instance)
+        event_type = self.get_event_type(event_details.event)
         rep['updates'] = self.render_updates(event_details, event_type)
         return rep
 
