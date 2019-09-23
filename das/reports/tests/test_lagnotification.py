@@ -21,17 +21,23 @@ User = get_user_model()
 def generate_random_positions(source, min_lag_mins=10, max_lag_mins=20, x=37.5, y=0.56, time_length=timedelta(minutes=30),
                               intervals=10):
 
-    start_time =  - time_length
+    start_time = - time_length
 
     created_at = start_time
     cur = 0
+    existing_recorded_at = []
 
     while cur < intervals:
-        recorded_at = datetime.now(tz=pytz.utc) - timedelta(seconds=random.randint(min_lag_mins * 60, max_lag_mins * 60))
+        while True:
+            recorded_at = datetime.now(
+                tz=pytz.utc) - timedelta(seconds=random.randint(min_lag_mins * 60, max_lag_mins * 60))
+            if not any((recorded_at == era for era in existing_recorded_at)):
+                break
         yield Observation(source=source, recorded_at=recorded_at, location=Point(x, y), additional={})
         x += (random.random() - 0.5) / 10000
         y += (random.random() - 0.5) / 10000
         cur = cur + 1
+        existing_recorded_at.append(recorded_at)
 
 
 class TestSubjectSourceReport(TestCase):
@@ -49,7 +55,6 @@ class TestSubjectSourceReport(TestCase):
         self.u3 = User.objects.create(username='user3', first_name='User 3', last_name='Report User', email='u3@tempuri.org',
                                       password='Sko2901!kd219')
 
-
         # Add the users to the report recipients permission set.
         pset = PermissionSet.objects.get(
             permissions__codename=OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME)
@@ -60,7 +65,7 @@ class TestSubjectSourceReport(TestCase):
             provider_key='dummy1', display_name='Dummy provider1', additional=dict(lag_notification_threshold="00:30:00"))
 
         provider2 = SourceProvider.objects.create(
-            provider_key='dummy2', display_name='Dummy provider2')#using default lag threshold
+            provider_key='dummy2', display_name='Dummy provider2')  # using default lag threshold
 
         provider3 = SourceProvider.objects.create(
             provider_key='dummy3', display_name='Dummy provider3',
@@ -72,8 +77,6 @@ class TestSubjectSourceReport(TestCase):
             manufacturer_id='source2', provider=provider2)
         source3 = Source.objects.create(
             manufacturer_id='source3', provider=provider3)
-
-
 
         # Generate some observations for each source
         for observation in generate_random_positions(source1, min_lag_mins=40, max_lag_mins=60):
@@ -99,7 +102,6 @@ class TestSubjectSourceReport(TestCase):
         self.assertTrue(self._lists_equal(
             list((x.username for x in recipients)), expecting_usernames))
 
-
     def _lists_equal(self, l1, l2):
         return all(x in l1 for x in l2) and all(x in l2 for x in l1)
 
@@ -108,32 +110,27 @@ class TestSubjectSourceReport(TestCase):
         Make several assertions about the providers.
         '''
 
-
         providers = get_lagging_providers()
 
         for provider, provider_config in providers:
             provider_key = provider['provider_key']
             self.assertNotEqual(provider_key, 'dummy2')
 
-            email_body, message_subject = generate_lag_notification_email(provider, provider_config)
+            email_body, message_subject = generate_lag_notification_email(
+                provider, provider_config)
 
             if provider_key == 'dummy1':
-                self.assertGreater(int(provider['avg_lag'].total_seconds()), 40 * 60)
-                self.assertLess(int(provider['avg_lag'].total_seconds()), 60 * 60)
-                self.assertEqual(provider_config['lag_notification_threshold'], '00:30:00')
+                self.assertGreater(
+                    int(provider['avg_lag'].total_seconds()), 40 * 60)
+                self.assertLess(
+                    int(provider['avg_lag'].total_seconds()), 60 * 60)
+                self.assertEqual(
+                    provider_config['lag_notification_threshold'], '00:30:00')
                 self.assertTrue('Dummy provider1' in email_body)
 
             if provider_key == 'dummy3':
-                self.assertEqual(int(provider['avg_lag'].total_seconds()), 11 * 60)
-                self.assertEqual(provider_config['lag_notification_threshold'], '00:10:00')
+                self.assertEqual(
+                    int(provider['avg_lag'].total_seconds()), 11 * 60)
+                self.assertEqual(
+                    provider_config['lag_notification_threshold'], '00:10:00')
                 self.assertTrue('Dummy provider3' in email_body)
-
-
-
-
-
-
-
-
-
-

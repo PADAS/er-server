@@ -18,6 +18,7 @@ from django.http import Http404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_text
+from django.template.defaultfilters import truncatechars
 from drf_extra_fields.geo_fields import PointField
 from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.fields import DateTimeField
@@ -52,6 +53,8 @@ from activity.alerting.conditions import Conditions
 
 
 logger = logging.getLogger(__name__)
+
+MAX_UPDATES_STR_LENGTH = 10
 
 
 class DuplicateResourceError(APIException):
@@ -505,6 +508,7 @@ def get_update_type(revision, previous_revisions=[]):
         for k, v in field_mapping:
             if k in data:
                 return v
+        return 'update_event'
     return 'other'
 
 
@@ -541,7 +545,7 @@ class EventNoteSerializer(rest_framework.serializers.ModelSerializer):
             return revision.get_action_display()
 
         return [
-            dict(message='Note {action} by {user}'.format(
+            dict(message='Note {action}'.format(
                 action=get_action(revision),
                 user=get_user_display(revision.user)),
                 time=revision.revision_at.isoformat(),
@@ -599,7 +603,7 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
             return revision.get_action_display()
 
         return [
-            dict(message='Photo {action} by {user}'.format(
+            dict(message='Photo {action}'.format(
                 action=get_action(revision),
                 user=get_user_display(revision.user)),
                 time=revision.revision_at.isoformat(),
@@ -695,7 +699,7 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
             return revision.get_action_display()
 
         return [
-            dict(message='File {action} by {user}'.format(
+            dict(message='File {action}'.format(
                 action=get_action(revision),
                 user=get_user_display(revision.user)),
                 time=revision.revision_at.isoformat(),
@@ -747,32 +751,18 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
 
         return current_details
 
-    def _to_internal_value_inner(self, instance, data):
-
-        if instance is None:
-            data['_internal_validated'] = False
-            return data
-
-        event_type = instance.event_type
-        if 'request' in self.context and 'event_type' in self.context['request'].data:
+    def get_event_type(self, event):
+        event_type = event.event_type
+        if 'request' in self.context and 'event_type' in getattr(self.context['request'], 'data', {}):
             new_event_type = self.context['request'].data['event_type']
-            if new_event_type and new_event_type != instance.event_type.value:
+            if new_event_type and new_event_type != event_type.value:
                 event_type = activity.models.EventType.objects.get(
                     value=new_event_type)
+        return event_type
 
-        schema = event_type.schema
-
-        if not schema:
-            return super().to_internal_value(data)
-
-        # Auto-generate a schema if appropriate.
-        if schema_utils.should_auto_generate(schema):
-            schema = schema_utils.generate_event_type_schema_from_doc(data)
-            # Downstream code is expecting a template (as a string).
-            schema = json.dumps(schema, indent=2)
-            activity.models.EventType.objects.filter(id=event_type.id).update(schema=schema)
-
-        replacement_fields = schema_utils.get_replacement_fields_in_schema(schema)
+    def get_schema_fields_possible_values(self, schema):
+        replacement_fields = schema_utils.get_replacement_fields_in_schema(
+            schema)
 
         parameters = {}
         for replacement_field in replacement_fields:
@@ -791,6 +781,30 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                     replacement_field, as_string=False)
 
         all_schema_fields = schema_utils.get_all_fields(schema)
+        return all_schema_fields, parameters
+
+    def _to_internal_value_inner(self, instance, data):
+        if instance is None:
+            data['_internal_validated'] = False
+            return data
+
+        event_type = self.get_event_type(instance)
+
+        schema = event_type.schema
+
+        if not schema:
+            return super().to_internal_value(data)
+
+        # Auto-generate a schema if appropriate.
+        if schema_utils.should_auto_generate(schema):
+            schema = schema_utils.generate_event_type_schema_from_doc(data)
+            # Downstream code is expecting a template (as a string).
+            schema = json.dumps(schema, indent=2)
+            activity.models.EventType.objects.filter(
+                id=event_type.id).update(schema=schema)
+
+        all_schema_fields, parameters = self.get_schema_fields_possible_values(
+            schema)
 
         # Append field information to the data we're getting so we know how to
         # get back to the source
@@ -821,8 +835,59 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
     def to_representation(self, event_details):
         if not event_details:
             return OrderedDict()
-        ret = OrderedDict(event_details.data['event_details'])
-        return ret
+        rep = OrderedDict(event_details.data['event_details'])
+        event_type = self.get_event_type(self.root.instance)
+        rep['updates'] = self.render_updates(event_details, event_type)
+        return rep
+
+    def render_updates(self, event_details, event_type):
+        schema = event_type.schema
+        rendered_schema = schema_utils.get_schema_renderer_method()(schema)
+        last_details = None
+
+        def get_action(revision):
+            nonlocal last_details
+            result = None
+            fieldnames = []
+            revision_details = revision.data.get(
+                'data', {}).get('event_details', {})
+            details = schema_utils.get_display_values_for_event_details(
+                revision_details, rendered_schema)
+
+            if revision.action == AC_UPDATED:
+                for k, v in revision_details.items():
+                    if k not in details:
+                        continue
+                    if last_details and last_details.get(k) == v:
+                        continue
+
+                    title = schema_utils.get_display_value_header_for_key(
+                        rendered_schema, k)
+                    display = details.get(title, '')
+                    display = truncatechars(display, MAX_UPDATES_STR_LENGTH)
+                    fieldnames.append(f"{title}")
+
+                result = '{0} fields: {1}'.format(revision.get_action_display(),
+                                                  ', '.join(fieldnames))
+
+            last_details = revision_details
+            return result
+
+        updates = []
+        for revision in event_details.revision.all_user():
+            update_action = get_action(revision)
+            if update_action:
+                updates.append(
+                    dict(message='{action}'.format(
+                        action=update_action,
+                        user=get_user_display(revision.user)),
+                        time=revision.revision_at.isoformat(),
+                        text=revision.data.get('text', ''),
+                        user=UserDisplaySerializer().to_representation(revision.user),
+                        type=get_update_type(revision),
+                    )
+                )
+        return updates
 
     def is_valid(self, raise_exception=False):
         return super().is_valid(raise_exception=raise_exception)
@@ -993,7 +1058,7 @@ class EventSerializerMixin:
         while revisions:
             revision = revisions.pop()
             record = dict(
-                message='{action} by {user}'.format(
+                message='{action}'.format(
                     action=get_action(revision),
                     user=self.get_user_display(revision.user, event)
                 ),
@@ -1292,6 +1357,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 updates.extend(note['updates'])
             for f in rep.get('files', []):
                 updates.extend(f['updates'])
+            if rep.get('event_details'):
+                details_updates = rep['event_details'].pop('updates')
+                updates.extend(details_updates)
             rep['updates'] = sorted(
                 updates, key=lambda u: u['time'], reverse=True)
 

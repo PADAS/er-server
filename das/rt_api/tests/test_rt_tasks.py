@@ -1,15 +1,14 @@
 import random
 import datetime
+from unittest import mock
 
 from django.test import TestCase
-import django.contrib.auth
 from pytz import UTC
 
 from observations.serializers import ObservationSerializer
 from observations.views import SubjectStatusView
 from rt_api.tasks import get_subjectstatus_view
-
-User = django.contrib.auth.get_user_model()
+from core.tests import fake_get_pool, User
 
 
 class RTTasksTestCase(TestCase):
@@ -22,6 +21,7 @@ class RTTasksTestCase(TestCase):
         'initial_admin.yaml'
     ]
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_contain_last_voice(self):
         user = User.objects.get(username='admin')
         subject_id = 'a51d6901-4ece-484f-b0a6-baf1e44d2108'
@@ -58,4 +58,3 @@ class RTTasksTestCase(TestCase):
             SubjectStatusView.as_view(), user, subject_id)
 
         self.assertIn('last_voice_call_start_at', result['properties'])
-        print(result)

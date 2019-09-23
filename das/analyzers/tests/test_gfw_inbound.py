@@ -1,6 +1,7 @@
 import json
 
 from rest_framework import status
+from unittest.mock import patch
 
 from activity.models import Event
 from analyzers.tests.gfw_test_data import VIIRS_FIRE_ALERT, GLAD_ALERT
@@ -14,9 +15,11 @@ class GFWAlertHandlerTest(BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        self.api_path = '/'.join((self.api_base, 'sensors', self.sensor_type, self.provider, 'status'))
+        self.api_path = '/'.join((self.api_base, 'sensors',
+                                  self.sensor_type, self.provider, 'status'))
 
-    def test_glad(self):
+    @patch('das_server.celery.app.send_task')
+    def test_glad(self, mock_send_task):
         response = self._post_data(json.dumps(GLAD_ALERT))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         # note: this doesn't test downloads done by celery task...
@@ -29,7 +32,8 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(len(VIIRS_FIRE_ALERT['alerts']),
                          Event.objects.all().count())
 
-    def test_glad_with_duplicates(self):
+    @patch('das_server.celery.app.send_task')
+    def test_glad_with_duplicates(self, mock_send_task):
         # note: see note in test_glad
         num_events_expected = len(GLAD_ALERT['alerts'])
 
@@ -65,7 +69,9 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def _post_data(self, payload):
-        request = self.factory.post(self.api_path, data=payload, content_type='application/json')
+        request = self.factory.post(
+            self.api_path, data=payload, content_type='application/json')
         self.force_authenticate(request, self.app_user)
-        response = SensorObservation.as_view()(request, sensor_type=self.sensor_type, provider_key=self.provider)
+        response = SensorObservation.as_view()(
+            request, sensor_type=self.sensor_type, provider_key=self.provider)
         return response
