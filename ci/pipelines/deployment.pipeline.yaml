@@ -47,6 +47,11 @@ resource_types:
     username: ((gcr-io-username))
     password: ((ss-infrastructure-container-registry-pull))
     repository: gcr.io/ss-infrastructure/concourse/versioned-git-resource
+- name: gcs-resource
+  type: docker-image
+  source:
+    repository: "gcr.io/ss-infrastructure-public/vendor/frodenas/gcs-resource-v0.4.1"
+    digest: "sha256:c58ae577bb2a0557734f31a4ca6257f231699e069f0065dd2e0d34980d39a617"
 
 jobs:
 - name: terraform-plan
