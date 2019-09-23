@@ -5,6 +5,7 @@ resources:
 #
 ################################################################################
 # git resources
+
 - name: server-version
   type: semver
   source:
@@ -15,44 +16,11 @@ resources:
     private_key: ((das-versions-github))
     initial_version: ((initial-server-version))
 
-- name: server-base-version
-  type: semver
-  source:
-    driver: git
-    uri: git@github.com:PADAS/das.versions.git
-    branch: master
-    file: ((version-prefix)).server.base.version
-    private_key: ((das-versions-github))
-    initial_version: ((initial-server-version))
-
-- name: server-app-version
-  type: semver
-  source:
-    driver: git
-    uri: git@github.com:PADAS/das.versions.git
-    branch: master
-    file: ((version-prefix)).server.app.version
-    private_key: ((das-versions-github))
-    initial_version: ((initial-server-version))
-
-- name: git-server-base
+- name: git-earthranger-api
   type: versioned-git-resource
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
-    paths:
-      - dependencies/*
-      - docker/base/*
-    private_key: ((das-github))
-
-- name: git-server
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das.git
-    branch: ((server-branch-name))
-    ignore_paths:
-      - deployment/*
-      - das/ste
     private_key: ((das-github))
 
 - name: git-deployment
@@ -164,89 +132,23 @@ resources:
     private_key: ((das-versions-github))
     initial_version: ((initial-smartconnect-version))
 
-#base docker resources
-- name: image-server-base
+- name: concourse-earthranger-api-shim
   type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/base
+    repository: gcr.io/padas-app/concourse-shim/concourse-earthranger-api
 
-- name: circleci-das-base-image
+# EarthRanger API Image Resources
+- name: earthranger-api-image
   type: docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/circleci/das-base
-    tag: latest
-
-- name: image-server-app
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/app
-
-# AIS_Gap, AIS_Track, API, Beat, MQL, RT_AIS_API, RT_API, Worker, Worker_RT, Worker_Analyzer
-- name: image-server-worker
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/worker
-
-- name: image-server-worker-rt
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/worker-rt
-
-- name: image-server-worker-analyzer
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/worker-analyzer
-
-- name: image-server-rt-api
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/rt_api
-
-- name: image-server-mql
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/mql
-
-- name: image-server-beat
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/beat
-
-- name: image-server-api
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/api
-
+    repository: gcr.io/padas-app/circleci/earthranger-api
+    tag: ((server-branch-name))
 
 # docker resource images not dependent on base / app
 - name: image-postgis
@@ -407,172 +309,39 @@ resource_types:
 #
 ################################################################################
 jobs:
-- name: docker-build-server-base
+- name: docker-earthranger-api-shim
   max_in_flight: 1
   plan:
-  - get: git-server-base
+  - get: git-earthranger-api
     params:
       submodules: none
     trigger: false
-  - get: circleci-das-base-image
+  - get: earthranger-api-image
     trigger: true
-  - put: server-base-version
+  - put: server-version
     params:
       pre: ((version-prefix))
-  - put: image-server-base
-    params: {
-      build: git-server-base,
-      dockerfile: git-server-base/docker/base/Dockerfile,
-      tag: server-base-version/version,
-      tag_as_latest: ((tag-as-latest)),
-      build_args: {BASE_IMAGE_TAG: latest}
-    }
-    get_params: {skip_download: true}
-    on_failure:
-      do:
-      - put: slack-alert
-        params:
-          channel: ((slack-notification-channel))
-          text: |
-            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
-            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
-
-- name: docker-build-server-app
-  max_in_flight: 1
-  plan:
-  - aggregate:
-    - get: git-server-base
-      params:
-        submodules: none
-      passed: [docker-build-server-base]
-    - get: image-server-base
-      passed: [docker-build-server-base]
-      trigger: true
-      params: {
-        skip_download: true
-      }
-    - get: git-server
-      trigger: true
-      params:
-        submodules: none
-    - get: server-base-version
-      passed: [docker-build-server-base]
-    - put: server-app-version
-      params:
-        pre: ((version-prefix))
-  - put: image-server-app
+  - put: concourse-earthranger-api-shim
     params:
-      build: git-server
-      dockerfile: git-server/docker/App/Dockerfile
-      tag: server-app-version/version
+      build: git-earthranger-api
+      dockerfile: git-earthranger-api/docker/Dockerfile
+      tag: server-version/version
+      tag_as_latest: ((tag-as-latest))
       build_args:
-        from_file:
-          base_tag: server-base-version/version
-          version: server-app-version/version
+        {app_tag: ((server-branch-name))}
+    get_params: {skip_download: true}
+  - put: image-postgis
+    params:
+      build: git-earthranger-api/docker/PostGIS
+      tag: server-version/version
       tag_as_latest: ((tag-as-latest))
     get_params: {skip_download: true}
-    on_failure:
-      do:
-      - put: slack-alert
-        params:
-          channel: ((slack-notification-channel))
-          text: |
-            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
-            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
-
-- name: docker-build-server
-  max_in_flight: 1
-  plan:
-  - aggregate:
-    - get: git-server
-      params:
-        submodules: none
-    - get: image-server-app
-      passed: [docker-build-server-app]
-      trigger: true
-      params: {skip_download: true}
-    - get: server-app-version
-      passed: [docker-build-server-app]
-    - put: server-version
-      params:
-        pre: ((version-prefix))
-  - aggregate:
-    - put: image-server-api
-      params:
-        build: git-server/docker/API
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-            version: server-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-beat
-      params:
-        build: git-server/docker/Beat
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-mql
-      params:
-        build: git-server/docker/MQL
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-rt-api
-      params:
-        build: git-server/docker/RT_API
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-worker
-      params:
-        build: git-server/docker/Worker
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-worker-rt
-      params:
-        build: git-server/docker/Worker_RT
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-worker-analyzer
-      params:
-        build: git-server/docker/Worker_Analyzer
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-postgis
-      params:
-        build: git-server/docker/PostGIS
-        tag: server-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-nginx
-      params:
-        build: git-server/docker/Nginx
-        tag: server-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
+  - put: image-nginx
+    params:
+      build: git-earthranger-api/docker/Nginx
+      tag: server-version/version
+      tag_as_latest: ((tag-as-latest))
+    get_params: {skip_download: true}
   on_failure:
     do:
     - put: slack-alert
@@ -581,8 +350,6 @@ jobs:
         text: |
           :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
           $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
-
-
 # Web Jobs
 - name: docker-build-web-develop
   max_in_flight: 1
@@ -948,16 +715,18 @@ jobs:
   max_in_flight: 1
   plan:
     - aggregate:
+      - get: concourse-earthranger-api-shim
+        passed: [docker-earthranger-api-shim]
       - get: server-version
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
       - get: web-version
         passed: [docker-build-web-develop]
       - get: smartconnect-version
         passed: [docker-build-smartconnect-provider]
       - get: git-web
         passed: [docker-build-web-app]
-      - get: git-server
-        passed: [docker-build-server]
+      - get: git-earthranger-api
+        passed: [docker-earthranger-api-shim]
         params:
           submodules: none
       - get: git-deployment
@@ -978,40 +747,12 @@ jobs:
         passed: [docker-build-smartconnect-provider]
       - get: git-capturs-provider
         passed: [docker-build-capturs-provider]
-      - get: image-server-api
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-mql
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-beat
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-rt-api
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-worker
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-worker-rt
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-worker-analyzer
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
       - get: image-nginx
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
         trigger: true
         params: {skip_download: true}
       - get: image-postgis
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
         trigger: true
         params: {skip_download: true}
       - get: image-web-app
@@ -1366,3 +1107,4 @@ jobs:
             else
               echo "Skipping infra disk deletion"
             fi
+

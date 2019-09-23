@@ -20,7 +20,9 @@ from activity.alerting.service import evaluate_event_on_alertrules, \
     evaluate_event
 from activity.alerts_views import AlertRuleListView, NotificationMethodListView, \
     NotificationMethodView, EventAlertConditionsListView
+from activity.alerts import create_alerts_permissionset
 from activity.models import EventType, Event, AlertRule, NotificationMethod
+
 from activity.serializers import EventSerializer, AlertRuleSerializer
 from activity.tasks import send_alert_to_notificationmethod, \
     evaluate_alert_rules
@@ -43,6 +45,13 @@ class BusinessRulesTestCase(BaseAPITest):
         call_command('loaddata', 'event_data_model')
         call_command('loaddata', 'test_events_schema')
 
+        self.alerts_perms_user = User.objects.create_user(
+            username='alertsuser',
+            password='asdfo9823sfiu23$',
+            email='alertsuser@tempuri.org')
+        self.alerts_permissionset = PermissionSet.objects.get(
+            name='Alert Rule Permissions')
+        self.alerts_perms_user.permission_sets.add(self.alerts_permissionset)
         self.power_user = User.objects.create_user(username='poweruser',
                                                    password='asdfo9823sfiu23$',
                                                    email='poweruser@tempuri.org')
@@ -56,6 +65,61 @@ class BusinessRulesTestCase(BaseAPITest):
             self.power_user_permissionset.permissions.add(
                 Permission.objects.get(codename=perm))
         self.power_user.permission_sets.add(self.power_user_permissionset)
+        self.notification_method = {
+            'contact': {
+                'method': 'sms',
+                'value': '+12062147021'
+            },
+            'title': 'Some notification method',
+            'is_active': True
+        }
+
+    def create_notification_method(self):
+        request = self.factory.post(
+            self.api_base + '/activity/notificationmethods', self.notification_method)
+        self.force_authenticate(request, self.power_user)
+        return NotificationMethodListView.as_view()(request)
+
+    def create_alert(self, user):
+        # Create a notification method
+        notification = self.create_notification_method()
+
+        # Create a notification method
+        alert_rule = {
+            'notification_method_ids': [notification.data["id"], ],
+            'reportTypes': ['carcass_rep', ],
+            'schedule': {
+                "periods": {
+                    "monday": [("08:00", "12:00"), ("13:00", "17:30")],
+                    "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
+                }
+            },
+            'conditions': {
+                "all": [
+                    {
+                        "name": "priority",
+                        "operator": "shares_at_least_one_element_with",
+                        "value": ['1', '100', '200', ],
+                    },
+                    {
+                        "name": "state",
+                        "operator": "shares_at_least_one_element_with",
+                        "value": ["active", "new", ],
+                    },
+                    {
+                        'name': 'carcassrep_species',
+                        'operator': 'is_contained_by',
+                        'value': ['redriverhog', ],
+                    }
+                ]
+            },
+            'display': 'Test alert rule for carcass report.',
+        }
+
+        request = self.factory.post(
+            self.api_base + '/activity/alerts', alert_rule)
+        self.force_authenticate(request, user)
+        return AlertRuleListView.as_view()(request)
 
     def test_just_the_rules_engine_variables(self):
 
@@ -239,29 +303,17 @@ class BusinessRulesTestCase(BaseAPITest):
 
     def test_adding_and_updating_notification_method(self):
 
-        email_1 = 'user1@tempuri.org'
         email_2 = 'user2@tempuri.org'
 
         # Create a notification method
-        notification_method = {
-            'contact': {
-                'method': 'email',
-                'value': email_1
-            },
-            'title': 'Some notification method',
-            'is_active': True
-        }
+        response = self.create_notification_method()
 
-        request = self.factory.post(
-            self.api_base + '/activity/notificationmethods', notification_method)
-        self.force_authenticate(request, self.power_user)
-        response = NotificationMethodListView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
         notification_method_id = response.data["id"]
         print(f'NotificationMethod.id: {notification_method_id}')
 
-        self.assertEqual(response.data['contact']['value'], email_1)
+        self.assertEqual(response.data['contact']['value'], '+12062147021')
 
         request = self.factory.patch(f'{self.api_base}/activity/notificationmethod/{notification_method_id}',
                                      data={'contact': {
@@ -269,79 +321,24 @@ class BusinessRulesTestCase(BaseAPITest):
                                      )
         self.force_authenticate(request, self.power_user)
         response = NotificationMethodView.as_view()(request, id=notification_method_id)
-        print(response.data)
         self.assertEqual(response.status_code, 200)
 
         self.assertEqual(response.data['contact']['value'], email_2)
 
     def test_create_an_alert_rule(self):
-
-        # Create a notification method
-        notification_method = {
-            'contact': {
-                'method': 'sms',
-                'value': '+12062147021'
-            },
-            'title': 'Some notification method',
-            'is_active': True
-        }
-
-        request = self.factory.post(
-            self.api_base + '/activity/notificationmethods', notification_method)
-        self.force_authenticate(request, self.power_user)
-        response = NotificationMethodListView.as_view()(request)
+        response = self.create_alert(self.alerts_perms_user)
         self.assertEqual(response.status_code, 201)
 
-        notification_method_id = response.data["id"]
-        # print(f'NotificationMethod.id: {notification_method_id}')
+    def test_create_an_alert_rule_with_no_permissions(self):
+        response = self.create_alert(self.power_user)
+        self.assertEqual(response.status_code, 403)
 
-        # Create an alert rule
-        alert_rule = {
-            'notification_method_ids': [notification_method_id, ],
-            'reportTypes': ['carcass_rep', ],
-            'schedule': {
-                "periods": {
-                    "monday": [("08:00", "12:00"), ("13:00", "17:30")],
-                    "wednesday": [("08:00", "12:00"), ("13:00", "17:30")]
-                }
-            },
-            'conditions': {
-                "all": [
-                    {
-                        "name": "priority",
-                        "operator": "shares_at_least_one_element_with",
-                        "value": ['1', '100', '200', ],
-                    },
-                    {
-                        "name": "state",
-                        "operator": "shares_at_least_one_element_with",
-                        "value": ["active", "new", ],
-                    },
-                    {
-                        'name': 'carcassrep_species',
-                        'operator': 'is_contained_by',
-                        'value': ['redriverhog', ],
-                    }
-                ]
-            },
-            'display': 'Test alert rule for carcass report.',
-        }
-
-        request = self.factory.post(
-            self.api_base + '/activity/alerts', alert_rule)
+    def test_view_alert_rules_with_no_permissions(self):
+        request = self.factory.get(self.api_base + '/activity/alerts/')
         self.force_authenticate(request, self.power_user)
         response = AlertRuleListView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
-        alert_rule_id = response.data['id']
-        # print(f'AlertRule.id: {alert_rule_id}')
-
-        # Get the alert rule from the database
-        request = NonHttpRequest()
-        request.user = self.power_user
-        ar = AlertRule.objects.get(id=alert_rule_id)
-        ar_repr = AlertRuleSerializer(
-            context={'request': request}).to_representation(ar)
-        # print(json.dumps(ar_repr, indent=2, default=str))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
 
     def _create_a_period_from_datetime(self, dt=None, including_time=True):
         '''
@@ -405,25 +402,7 @@ class BusinessRulesTestCase(BaseAPITest):
 
         eventdata = render_event(event, self.power_user)
         # print(json.dumps(eventdata, indent=2, default=str))
-
-        # Create a notification method
-        notification_method = {
-            'contact': {
-                'method': 'sms',
-                'value': '+12062147021'
-            },
-            'title': 'Some notification method',
-            'is_active': True
-        }
-
-        request = self.factory.post(
-            self.api_base + '/activity/notificationmethods', notification_method)
-        self.force_authenticate(request, self.power_user)
-        response = NotificationMethodListView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
-
-        notification_method_id = response.data["id"]
-        # print(f'NotificationMethod.id: {notification_method_id}')
+        notification_method_id = self.create_notification_method().data["id"]
 
         # Create an alert rule
         alert_rule_1 = dict(
@@ -494,22 +473,8 @@ class BusinessRulesTestCase(BaseAPITest):
         # print(json.dumps(eventdata, indent=2, default=str))
 
         # Create a notification method
-        notification_method = {
-            'contact': {
-                'method': 'sms',
-                'value': '+12062147021'
-            },
-            'title': 'Some notification method',
-            'is_active': True
-        }
+        notification_method_id = self.create_notification_method().data["id"]
 
-        request = self.factory.post(
-            self.api_base + '/activity/notificationmethods', notification_method)
-        self.force_authenticate(request, self.power_user)
-        response = NotificationMethodListView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
-
-        notification_method_id = response.data["id"]
         # print(f'NotificationMethod.id: {notification_method_id}')
 
         # Create an alert rule
@@ -614,23 +579,10 @@ class BusinessRulesTestCase(BaseAPITest):
             event = Event.objects.get(id=event.id)
 
         # Create a notification method
-        notification_method = {
-            'contact': {
-                'method': 'sms',
-                'value': '+12062147021'
-            },
-            'title': 'Some notification method',
-            'is_active': True
-        }
+        notification = self.create_notification_method()
+        self.assertEqual(notification.status_code, 201)
 
-        request = self.factory.post(
-            self.api_base + '/activity/notificationmethods', notification_method)
-        self.force_authenticate(request, self.power_user)
-        response = NotificationMethodListView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
-
-        notification_method_id = response.data["id"]
-        # print(f'NotificationMethod.id: {notification_method_id}')
+        notification_method_id = notification.data["id"]
 
         # Create an alert rule
         alert_rule_1 = dict(
@@ -703,23 +655,12 @@ class BusinessRulesTestCase(BaseAPITest):
         event.state = 'resolved'
         event.save()
         # Create a notification method
-        notification_method = {
-            'contact': {
-                'method': 'email',
-                'value': 'chrisdo@vulcan.com'
-            },
-            'title': 'Some notification method',
-            'is_active': True
+        self.notification_method["contact"] = {
+            'method': 'email',
+            'value': 'chrisdo@vulcan.com'
         }
 
-        request = self.factory.post(
-            self.api_base + '/activity/notificationmethods', notification_method)
-        self.force_authenticate(request, self.power_user)
-        response = NotificationMethodListView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
-
-        notification_method_id = response.data["id"]
-        # print(f'NotificationMethod.id: {notification_method_id}')
+        notification_method_id = self.create_notification_method().data["id"]
 
         # Create an alert rule
         alert_rule_1 = dict(
