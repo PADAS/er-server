@@ -6,7 +6,7 @@ import logging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from observations.models import Observation, SubjectStatus, Subject, EMPTY_POINT
+from observations.models import Observation, SubjectStatus, Subject, EMPTY_POINT, SubjectSource, SubjectStatus
 from observations.utils import VIEW_END_WINDOWS
 
 logger = logging.getLogger(__name__)
@@ -45,3 +45,11 @@ def ensure_subject_status_exists(sender, **kwargs):
     if kwargs.get('created', False):
         subject = kwargs.get('instance')
         SubjectStatus.objects.ensure_for_subject(subject)
+
+
+@receiver(post_save, sender=SubjectSource)
+def maintain_subjectstatus(sender, instance, created, **kwargs):
+
+    # This function is triggered when source is updated for subject.
+    SubjectStatus.objects.maintain_subject_status(instance.subject_id)
+

@@ -1,17 +1,17 @@
 import json
 import copy
 import datetime
+from unittest import mock
 
 from django.utils import timezone
 from django.db import transaction
-
 from rest_framework import status
 from django.utils import lorem_ipsum
 
-from core.tests import BaseAPITest
+from core.tests import BaseAPITest, fake_get_pool
 from sensors.views import SensorObservation
 from observations.models import Subject, SourceProvider, Source, Observation, SubjectGroup, SubjectSubType
-from unittest import mock
+
 
 class GenericSensorHandlerTest(BaseAPITest):
     source_type = 'tracking-collar'
@@ -42,6 +42,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.api_path = '/'.join((self.api_base, 'sensors',
                                   self.sensor_type, self.provider, 'status'))
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def run_transaction_hooks(self):
         """
         Mock transaction hooks to validate code for delayed on_commit functions.
@@ -54,7 +55,8 @@ class GenericSensorHandlerTest(BaseAPITest):
         for db_name in reversed(self._databases_names()):
             with mock.patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
                             lambda a: False):
-                transaction.get_connection(using=db_name).run_and_clear_commit_hooks()
+                transaction.get_connection(
+                    using=db_name).run_and_clear_commit_hooks()
 
     def tearDown(self):
         self.run_transaction_hooks()
@@ -168,6 +170,7 @@ class GenericSensorHandlerTest(BaseAPITest):
 
             yield obs
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def _post_data(self, payload):
         request = self.factory.post(
             self.api_path, data=payload, content_type='application/json')

@@ -2,13 +2,13 @@ import http.client
 import io
 from datetime import datetime, timedelta
 from unittest import mock
-from unittest.mock import patch
-
 import pytz
+
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 
+from core.tests import BaseAPITest, fake_get_pool
 from activity.models import EventCategory, EventType
 from observations.models import Source, SourceProvider, Subject, SubjectType, \
     SubjectSubType, SubjectSource
@@ -96,7 +96,8 @@ class SavannahPluginTest(TestCase):
             name='Henry', subject_subtype=subject_subtype)
         SubjectSource.objects.create(source=self.source, subject=self.henry)
 
-    @patch('tracking.models.SavannaClient.make_request')
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
+    @mock.patch('tracking.models.SavannaClient.make_request')
     def xtest_savannah(self, mock_make_request):
 
         mock_make_request.return_value = mocked_requests_get()

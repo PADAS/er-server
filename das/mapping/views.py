@@ -20,6 +20,7 @@ from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError, Map,
 import mapping.serializers as serializers
 from mapping import app_settings
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -81,10 +82,11 @@ class FeatureSetListJsonView(APIView):
 
 def calculate_featureset_etag(view_instance, view_method, request, args, kwargs):
     featureset = FeatureSet.objects.get(id=kwargs['id'])
-    objects = chain(PolygonFeature.objects.filter(featureset=featureset),
-                    LineFeature.objects.filter(featureset=featureset),
-                    PointFeature.objects.filter(featureset=featureset))
-    etag = ','.join((str(f.updated_at) + str(f.type.updated_at)
+    field_list = ('updated_at', 'type__updated_at')
+    objects = chain(PolygonFeature.objects.filter(featureset=featureset).values(*field_list),
+                    LineFeature.objects.filter(featureset=featureset).values(*field_list),
+                    PointFeature.objects.filter(featureset=featureset).values(*field_list))
+    etag = ','.join((str(f['updated_at']) + str(f['type__updated_at'])
                      for f in objects))
     etag += str(featureset.updated_at)
     return hashlib.md5(etag.encode('utf-8')).hexdigest()

@@ -5,6 +5,7 @@ import pytz
 from django.contrib.gis.geos import Point
 from django.http.request import HttpRequest
 from django.utils.translation import ugettext_lazy as _
+from django.db.models import signals
 from rest_framework import status, serializers
 from rest_framework.response import Response
 
@@ -14,6 +15,7 @@ from activity.serializers import EventSerializer
 from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP
 from das_server import celery
 from utils import stats
+from revision.manager import RevisionMixin
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +71,15 @@ def process_handler_post(request):
                      ERROR_COUNTER: 1})
         return Response(status=status.HTTP_400_BAD_REQUEST, data=deserialized.errors)
 
+    logger.info(f'process_handler_alerts posted {deserialized.validated_data}', extra={
+                'data': request.data})
+
     layer_slug = deserialized.validated_data.get('layerSlug')
 
     event_type_value = GFW_EVENT_TYPES_MAP.get(layer_slug)
     if event_type_value:
-        logger.info('Got %s alert', layer_slug, extra={'alert_type': layer_slug})
+        logger.info('Got %s alert', layer_slug,
+                    extra={'alert_type': layer_slug})
         ensure_gfw_event_types()
 
         event_details_dict = {
@@ -90,7 +96,8 @@ def process_handler_post(request):
 
         return create_events(request, event_dict, deserialized.validated_data)
 
-    logger.info('Ignoring %s alert', layer_slug, extra={'alert_type': layer_slug})
+    logger.info('Ignoring %s alert', layer_slug,
+                extra={'alert_type': layer_slug})
     return Response(status=status.HTTP_400_BAD_REQUEST,
                     data=dict(message=f'Unknown layerSlug: {layer_slug}'))
 
@@ -100,7 +107,7 @@ def create_events(request, common_fields, validated_data):
     def create_alert_event(alert_sample):
         deserialized_sample = AlertSample(data=alert_sample)
         if not deserialized_sample.is_valid():
-            counts[ERROR_COUNTER] = counts[ERROR_COUNTER]+1
+            counts[ERROR_COUNTER] = counts[ERROR_COUNTER] + 1
             return deserialized_sample.errors()
 
         event_fields = {
@@ -110,7 +117,8 @@ def create_events(request, common_fields, validated_data):
                     'latitude': deserialized_sample.validated_data.get('latitude'),
                     'longitude': deserialized_sample.validated_data.get('longitude')},
                 'time': datetime.combine(date=deserialized_sample.validated_data.get('acq_date'),
-                                         time=deserialized_sample.validated_data.get('acq_time'),
+                                         time=deserialized_sample.validated_data.get(
+                                             'acq_time'),
                                          tzinfo=pytz.UTC)
             }
         }
@@ -125,7 +133,8 @@ def create_events(request, common_fields, validated_data):
         logger.debug('celery submit result: %s', result)
 
     counts = {PROCESSED_COUNTER: 0, ERROR_COUNTER: 0}
-    errors = [create_alert_event(alert) for alert in validated_data.get('alerts')]
+    errors = [create_alert_event(alert)
+              for alert in validated_data.get('alerts')]
     errors = filter(lambda x: len(list(x)) > 0, errors)
 
     log_metrics(counts)
@@ -155,7 +164,7 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
 
     deserialized_sample = AlertSampleDownloaded(data=downloaded_sample)
     if not deserialized_sample.is_valid():
-        counts[ERROR_COUNTER] = counts[ERROR_COUNTER]+1
+        counts[ERROR_COUNTER] = counts[ERROR_COUNTER] + 1
         return deserialized_sample.errors()
 
     julian_day = deserialized_sample.validated_data.get('julian_day')
@@ -178,30 +187,43 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
 
 
 def persist_event(event_fields, request, counts):
+
+    def pre_save_info(sender, instance, **kwargs):
+        if issubclass(sender, RevisionMixin):
+            setattr(instance, 'revision_user', request.user)
+
     # check for duplicates before serializing
-    location = Point(event_fields['location']['longitude'], event_fields['location']['latitude'])
+    location = Point(event_fields['location']['longitude'],
+                     event_fields['location']['latitude'])
 
     if Event.objects.filter(location=location,
                             event_time=event_fields['time'],
                             event_type__value__exact=event_fields['event_type']).exists():
         logger.warning('Event already exists - ignoring duplicate event')
     else:
-        evt_serializer = EventSerializer(data=event_fields, context={'request': request})
+        evt_serializer = EventSerializer(
+            data=event_fields, context={'request': request})
         if not evt_serializer.is_valid():
-            counts[ERROR_COUNTER] = counts[ERROR_COUNTER]+1
+            counts[ERROR_COUNTER] = counts[ERROR_COUNTER] + 1
             return evt_serializer.errors()
 
+        signals.pre_save.connect(pre_save_info,
+                                 dispatch_uid=(
+                                     __name__, request, event_fields),
+                                 weak=False)
         evt_serializer.create(evt_serializer.validated_data)
-        counts[PROCESSED_COUNTER] = counts[PROCESSED_COUNTER]+1
+        counts[PROCESSED_COUNTER] = counts[PROCESSED_COUNTER] + 1
+        signals.pre_save.disconnect(
+            dispatch_uid=(__name__, request, event_fields))
     return {}
 
 
 def log_metrics(counts):
     processed, errors = counts[PROCESSED_COUNTER], counts[ERROR_COUNTER]
-    logger.debug('updating metrics. processed: %s errors: %s', processed, errors)
+    logger.debug('updating metrics. processed: %s errors: %s',
+                 processed, errors)
 
     if errors > 0:
         stats.increment(ERRORS_COUNT_METRIC, value=errors)
     if processed > 0:
         stats.increment(PROCESSED_COUNT_METRIC, value=processed)
-

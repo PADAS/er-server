@@ -39,15 +39,9 @@ RUN rm -rf /usr/lib/python3/dist-packages/GDAL-2.2.2.*
 RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt --no-cache-dir -f /workspace/dependencies/wheelhouse
 #RUN pip3 install django-debug-toolbar
 
-RUN mkdir -p /var/www/app && mkdir -p /startup
-ADD ./docker/base/wait_for.sh /startup/wait_for.sh
-
 ARG version=""
 
 ADD ./das /var/www/app
-
-ADD ./docker/start_scripts/start*.sh /var/www/app/start_scripts/
-ADD ./docker/start_scripts/start.sh /var/www/app/start.sh
 
 EXPOSE 8000
 EXPOSE 5400
@@ -59,8 +53,9 @@ VOLUME /tmp
 
 ENV DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
 
+# Default service name
 ENV SERVICE_NAME=api_server
 
 WORKDIR /var/www/app
 
-ENTRYPOINT ["/var/www/app/start.sh"]
+CMD ["/var/www/app/start_scripts/start.sh"]

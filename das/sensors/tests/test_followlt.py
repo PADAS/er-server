@@ -1,19 +1,19 @@
 import datetime
 import logging
 import uuid
+from unittest import mock
 
-import django.contrib.auth
 from django.utils import timezone
 from oauth2_provider.models import AccessToken
 from rest_framework.test import force_authenticate
 
+from core.tests import fake_get_pool, User
 from core.tests import BaseAPITest
 from observations.models import Subject, Source, SourceProvider, SubjectSource, \
     DEFAULT_ASSIGNED_RANGE
 from sensors.views import SensorObservation
 
 logger = logging.getLogger(__name__)
-User = django.contrib.auth.get_user_model()
 
 
 class FollowltObservationTest(BaseAPITest):
@@ -43,6 +43,7 @@ class FollowltObservationTest(BaseAPITest):
             source=self.test_source, subject=self.henry,
             assigned_range=DEFAULT_ASSIGNED_RANGE)
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_post_new_radio_update(self):
         # Post sample data in api, and check subject's observations
         data = [{"lat": 32.01, "lng": 40.05, "date": "13-09-2018", "ttf": "485",
@@ -75,6 +76,7 @@ class FollowltObservationTest(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         self.assertTrue(len(self.henry.observations()) == 2)
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_post_new_minimal_radio_update(self):
         # Post sample data in api, and check subject's observations
         # ttf, sats, alt, hdop, temp
@@ -105,6 +107,7 @@ class FollowltObservationTest(BaseAPITest):
                                                provider_key=self.provider_key)
         self.assertEqual(response.status_code, 201)
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_post_null_island_radio_update(self):
         # Post sample data in api, and check subject's observations
         # ttf, sats, alt, hdop, temp
