@@ -53,7 +53,7 @@ class EventCategoryPermissions(IsAuthenticated):
                  "PUT": 'update', 'GET': 'read', "DELETE": 'delete'}
         for k, v in perms.items():
             if request.method == k and (
-                'event_type' in request.data or 'id' in view.kwargs):
+                    'event_type' in request.data or 'id' in view.kwargs):
                 try:
                     event_type = EventType.objects.get_by_natural_key(
                         request.data['event_type']
@@ -65,7 +65,6 @@ class EventCategoryPermissions(IsAuthenticated):
                 except EventType.DoesNotExist:
                     pass
                 permitted = user.has_perm(permission_name)
-                import pdb; pdb.set_trace()
                 if k == 'GET' and not permitted and user.is_authenticated:
                     raise Unauthorized
                 return permitted
@@ -140,4 +139,3 @@ class IsEventProviderOwnerPermission(BasePermission):
 
         eventprovider = getattr(obj, self.relation_field, None)
         return eventprovider is not None and eventprovider.owner == request.user
-
