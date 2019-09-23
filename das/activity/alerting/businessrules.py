@@ -60,7 +60,7 @@ class EventVariables(variables.BaseVariables):
     def priority(self):
         return [str(self.event.get('priority')), ]
 
-    @variables.select_multiple_rule_variable(label=_('Statue'), options=state_options)
+    @variables.select_multiple_rule_variable(label=_('State'), options=state_options)
     def state(self):
         return [self.event.get('state'), ]
 
