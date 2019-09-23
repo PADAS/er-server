@@ -32,6 +32,13 @@ resources:
       - terraform/*
     private_key: ((das-github))
 
+- name: terraform-saved-plan
+  type: gcs-resource
+  source:
+    bucket: ((plan-bucket))
+    json_key: ((temp-concourse-terraform-planner))
+    regexp: padas-app/((pipeline-name))/plan-(.?).gpg
+
 resource_types:
 - name: versioned-git-resource
   type: docker-image
