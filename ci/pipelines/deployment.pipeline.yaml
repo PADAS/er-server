@@ -72,6 +72,26 @@ jobs:
             cp -r /tmp/terraform ./plan'
         outputs:
         - name: plan
+    - task: zip
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: plan
+        params:
+          PLAN_ENCRYPTION_SECRET: ((plan-encryption-secret))
+        run:
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'tar c -z ./plan/terraform > ./zip && echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --symmetric -o ./zipped/plan-$(date +%s).gpg zip'
+        outputs:
+        - name: zipped
+    - put: terraform-saved-plan
+      params:
+        file: zipped/plan-*.gpg
+
+
           #- name: deploy-to-k8s
           #  max_in_flight: 1
           #  plan:
