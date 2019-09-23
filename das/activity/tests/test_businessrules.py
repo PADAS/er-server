@@ -765,12 +765,16 @@ class BusinessRulesTestCase(BaseAPITest):
             owner=self.admin_user,
         )
 
+        subj_group = SubjectGroup.objects.create(name="subject_group")
+        subj_group.subjects.set([subj])
+        subj_group.save()
+
         conditions = {
             "all": [
                 {
                     "name": "subject_group",
                     "value": [
-                        str(subj.id)
+                        str(subj_group.id)
                     ],
                     "operator": "shares_at_least_one_element_with"
                 }
@@ -841,14 +845,12 @@ class BusinessRulesTestCase(BaseAPITest):
                                                                 value=NOTIFICATION_METHOD_EMAIL_ADDRESS)
         self.assertEquals(1, NotificationMethod.objects.count())
 
-        subj = Subject.objects.create(
-            name="test_subject",
-            owner=self.admin_user,
-        )
-
         subj2 = Subject.objects.create(
             name="test_subject",
             owner=self.admin_user,
+        )
+        subj_group = SubjectGroup.objects.create(
+            name="subject_group"
         )
 
         conditions = {
@@ -856,7 +858,7 @@ class BusinessRulesTestCase(BaseAPITest):
                 {
                     "name": "subject_group",
                     "value": [
-                        str(subj.id)
+                        str(subj_group.id)
                     ],
                     "operator": "shares_at_least_one_element_with"
                 }

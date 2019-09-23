@@ -2,7 +2,7 @@ from typing import NamedTuple, Any
 
 from core.utils import NonHttpRequest
 from activity.serializers import EventSerializer
-from observations.models import SubjectGroup
+from observations.models import SubjectGroup, Subject
 
 from utils import schema_utils
 from business_rules import actions, fields, variables, export_rule_data
@@ -67,7 +67,7 @@ class EventVariables(variables.BaseVariables):
     @variables.select_multiple_rule_variable(label=_('Subject Group'),
                                              options=subject_group_options)
     def subject_group(self):
-        return [subject.get('id') for subject in self.event.get('related_subjects')]
+        return [str(subj_group.id) for subject in self.event.get('related_subjects') for subj_group in Subject.objects.get(id=subject.get('id')).groups.all()]
 
     # TODO: Implement state-change logic.
     # @variables.select_multiple_rule_variable(label=_('State Change'), options=state_change_options)
