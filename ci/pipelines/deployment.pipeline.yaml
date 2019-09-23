@@ -11,7 +11,7 @@ anchors:
     TF_VAR_infra_namespace: "((infra-namespace))"
     TF_VAR_location: "West Europe"
     TF_VAR_namespace: "((namespace))"
-    TF_WORKSPACE: "((pipeline-name))"
+    WORKSPACE: "((pipeline-name))"
 
 resources:
 - name: git-deployment
@@ -66,6 +66,7 @@ jobs:
             cd /tmp/terraform &&
             echo "$CREDENTIALS_FOR_STATE" > ./credentials-for-state.json &&
             terraform init -input=false -backend-config="credentials=./credentials-for-state.json" &&
+            (terraform workspace new "$WORKSPACE" || terraform workspace select "$WORKSPACE") &&
             terraform plan -input=false -out=tfplan &&
             cd "$OLDPWD" &&
             cp -r /tmp/terraform ./plan'
