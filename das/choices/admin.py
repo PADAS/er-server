@@ -116,7 +116,7 @@ class ChoiceAdmin(admin.ModelAdmin):
                           messages.WARNING)
         return queryset.disable_choices()
 
-    disable_choices.short_description = "disable selected choices"
+    disable_choices.short_description = "Disable selected choices"
 
 
 @admin.register(models.DisableChoice)
