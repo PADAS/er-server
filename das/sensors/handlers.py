@@ -155,6 +155,8 @@ class FollowltTrackerHandler:
         location = {'latitude': data.get('lat'), 'longitude': data.get('lng')}
         try:
             recorded_at = parse_date(data.get('date'))
+            if not recorded_at.tzinfo:
+                recorded_at = pytz.utc.localize(recorded_at)
         except Exception as e:
             logger.error(e)
             raise e

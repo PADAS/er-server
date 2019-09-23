@@ -508,6 +508,7 @@ def get_update_type(revision, previous_revisions=[]):
         for k, v in field_mapping:
             if k in data:
                 return v
+        return 'update_event'
     return 'other'
 
 
@@ -750,11 +751,11 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
 
         return current_details
 
-    def get_event_type(self, instance):
-        event_type = instance.event_type
-        if 'request' in self.context and 'event_type' in self.context['request'].data:
+    def get_event_type(self, event):
+        event_type = event.event_type
+        if 'request' in self.context and 'event_type' in getattr(self.context['request'], 'data', {}):
             new_event_type = self.context['request'].data['event_type']
-            if new_event_type and new_event_type != instance.event_type.value:
+            if new_event_type and new_event_type != event_type.value:
                 event_type = activity.models.EventType.objects.get(
                     value=new_event_type)
         return event_type
