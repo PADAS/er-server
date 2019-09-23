@@ -348,8 +348,8 @@ class SubjectsView(generics.ListCreateAPIView):
         for source_group in source_groups:
             sources = source_group.get_all_sources()
             for source in sources:
-                subjects = models.Subject.objects.filter(
-                    subjectsource__source=source)
+                subjects = models.Subject.objects.filter(is_active=True,
+                                                         subjectsource__source=source)
                 combined_queryset = combined_queryset.distinct() | \
                     subjects.distinct()
 
