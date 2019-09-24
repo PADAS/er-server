@@ -18,31 +18,40 @@ from tracking.models.savannah import SavannaClient, STObservation, STAlert
 from tracking.tasks import run_source_plugin
 
 
-def make_data_download_mock(mocker, host):
+def make_data_download(request_mock, host):
     def match_data_download(request):
         return 'data_download' in request.text
 
-    data = {
-        "sucess": 'true', "error_msg": "", "has_more_records": 'false',
+    data = json.loads("""{
+        "sucess": true, "error_msg": "", "has_more_records": false,
         "records": [
-            {"record_index": 17048927, "record_time": "8/6/2019 12:29:57", "time_to_fix": 0, "latitude": -3.60681,
-             "longitude": 39.87715, "hdop": 0,
-             "h_accuracy": 0, "heading": 0, "speed": 0, "speed_accuracy": 0, "altitude": 0, "temperature": 39,
-             "initial_data": "", "battery": 3.76},
-            {"record_index": 17048928, "record_time": "8/6/2019 12:30:00", "time_to_fix": 0, "latitude": -3.606825,
-             "longitude": 39.87715, "hdop": 0,
-             "h_accuracy": 0, "heading": 0, "speed": 0, "speed_accuracy": 0, "altitude": 0, "temperature": 39,
-             "initial_data": "", "battery": 3.76},
-            {"record_index": 17050390, "record_time": "8/6/2019 13:29:04", "time_to_fix": 0, "latitude": -3.606905,
-             "longitude": 39.87722, "hdop": 0,
-             "h_accuracy": 0, "heading": 0, "speed": 0, "speed_accuracy": 0, "altitude": 0, "temperature": 28.8,
-             "initial_data": "", "battery": 3.71}
-        ]}
-    mocker.post(host + "/savannah_data/data_request", json=data,
-                status_code=200, additional_matcher=match_data_download)
+            {
+                "record_index": 17048927, "record_time": "8/6/2019 12:29:57",
+                "time_to_fix": 0, "latitude": -3.60681,"longitude": 39.87715,
+                "hdop": 0, "h_accuracy": 0, "heading": 0, "speed": 0,
+                "speed_accuracy": 0, "altitude": 0, "temperature": 39,
+                "initial_data": "", "battery": 3.76
+             },
+            {
+                "record_index": 17048928, "record_time": "8/6/2019 12:30:00",
+                "time_to_fix": 0, "latitude": -3.606825, "longitude": 39.87715,
+                "hdop": 0, "h_accuracy": 0, "heading": 0, "speed": 0,
+                "speed_accuracy": 0, "altitude": 0, "temperature": 39,
+                "initial_data": "", "battery": 3.76
+                },
+            {
+                "record_index": 17050390, "record_time": "8/6/2019 13:29:04",
+                "time_to_fix": 0, "latitude": -3.606905, "longitude": 39.87722,
+                "hdop": 0, "h_accuracy": 0, "heading": 0, "speed": 0,
+                "speed_accuracy": 0, "altitude": 0, "temperature": 28.8,
+                "initial_data": "", "battery": 3.71
+                }
+        ]}""")
+    request_mock.register_uri('POST', host + "/savannah_data/data_request", json=data,
+                              status_code=200, additional_matcher=match_data_download)
 
 
-def make_exceptions_download_mock(mocker, host):
+def make_exceptions_download(request_mock, host):
     def match_exceptions_download(request):
         return 'exceptions_download' in request.text
 
@@ -155,8 +164,8 @@ def make_exceptions_download_mock(mocker, host):
         }
     ]
 }""")
-    mocker.post(host + "/savannah_data/data_request", json=data,
-                status_code=200, additional_matcher=match_exceptions_download)
+    request_mock.register_uri('POST', host + "/savannah_data/data_request", json=data,
+                              status_code=200, additional_matcher=match_exceptions_download)
 
 
 class SavannahPluginTest(TestCase):
@@ -195,11 +204,10 @@ class SavannahPluginTest(TestCase):
         SubjectSource.objects.create(source=self.source, subject=self.henry)
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
-    @requests_mock.mock()
-    def test_savannah(self, mock_data_download_request):
-        make_data_download_mock(mock_data_download_request, self.api_host)
-        make_exceptions_download_mock(
-            mock_data_download_request, self.api_host)
+    @requests_mock.Mocker()
+    def test_savannah(self, request_mock):
+        make_data_download(request_mock, self.api_host)
+        make_exceptions_download(request_mock, self.api_host)
 
         plugin_class = apps.get_model('tracking', 'SavannahPlugin')
 
@@ -212,7 +220,7 @@ class SavannahPluginTest(TestCase):
             else:
                 plugin.execute()
 
-        self.assertTrue(len(self.henry.observations()) == 3)
+        self.assertEqual(len(self.henry.observations()), 9)
 
         # Check battery values
         self.assertTrue(
