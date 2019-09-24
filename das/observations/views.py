@@ -29,7 +29,7 @@ from observations import kmlutils
 from observations import models
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
-from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS
+from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 
@@ -100,6 +100,9 @@ class SubjectGroupsView(generics.ListAPIView):
                                               models.SubjectGroup),)
 
     def get_queryset(self):
+        if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
+            raise UnauthorizedView
+
         queryset = models.SubjectGroup.objects.filter(
             _parents=None, is_visible=parse_bool(
                 self.request.GET.get('isvisible', True)))

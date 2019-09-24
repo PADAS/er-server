@@ -272,6 +272,15 @@ class SubjectGroupViewTest(BasePermissionTest):
                                                     id=str(self.ele_group.id))
         self.assertEqual(response.status_code, 403)
 
+    def test_not_return_subject_groups_no_view_permission(self):
+        request = self.factory.get(
+            API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.no_view_user)
+
+        response = views.SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data'], [])
+
 
 class SourceGroupViewTest(BasePermissionTest):
     def setUp(self):

@@ -31,6 +31,8 @@ VIEW_END_ORDERED_ASC = sorted(VIEW_END_WINDOWS, key=lambda _: _[1])
 VIEW_SUBJECT_PERMS = ('observations.view_subject',) + \
     VIEW_BEGIN_WINDOWS + VIEW_END_WINDOWS
 
+VIEW_SUBJECTGROUP_PERMS = ('observations.view_subjectgroup', )
+
 
 def get_maximum_allowed_age(user):
     maximum_allowed_age = None
