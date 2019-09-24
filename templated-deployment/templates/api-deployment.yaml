@@ -24,11 +24,11 @@ spec:
           - containerPort: 8000
         env:
         - name: DB_HOST
-          value: ${DB_HOST}
+          value: "${DB_HOST}"
         - name: DB_PORT
-          value: ${DB_PORT}
+          value: "${DB_PORT}"
         - name: DB_NAME
-          value: ${DB_NAME}
+          value: "${DB_NAME}"
         - name: DB_USER
           valueFrom:
             configMapKeyRef:
@@ -40,7 +40,7 @@ spec:
               name: site-configmap
               key: DB_PASSWORD
         - name: USE_AZURE_STORAGE
-          value: ${USE_AZURE_STORAGE}
+          value: "${USE_AZURE_STORAGE}"
         - name: STORAGE_ACCOUNT
           valueFrom:
             configMapKeyRef:
@@ -52,7 +52,7 @@ spec:
               name: site-configmap
               key: STORAGE_ACCOUNT_KEY
         - name: STORAGE_CONTAINER
-          value: ${STORAGE_CONTAINER}
+          value: "${STORAGE_CONTAINER}"
         - name: CONFIG_ACCOUNT
           valueFrom:
             configMapKeyRef:
@@ -64,7 +64,7 @@ spec:
               name: site-configmap
               key: CONFIG_ACCOUNT_KEY
         - name: CONFIG_CONTAINER
-          value: ${CONFIG_CONTAINER}
+          value: "${CONFIG_CONTAINER}"
         - name: EMAIL_PASSWORD
           valueFrom:
             configMapKeyRef:
@@ -91,7 +91,7 @@ spec:
               name: default-configmap
               key: DEFAULT_FROM_EMAIL
         - name: KML_EXPORT
-          value: ${KML_EXPORT}
+          value: "${KML_EXPORT}"
       - image: prom/statsd-exporter:v0.8.1
         name: statsd-exporter
         args: ["--statsd.listen-udp=127.0.0.1:8125"]
