@@ -39,6 +39,27 @@ resources:
     json_key: ((temp-concourse-terraform-planner))
     regexp: padas-app/((pipeline-name))/plan-(.?).gpg
 
+- name: git-terraform-templates
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    paths:
+      - templated-deployment/*
+    private_key: ((das-github))
+
+
+
+- name: terraform-rendered-templates
+  type: gcs-resource
+  source:
+    bucket: ((plan-bucket))
+    json_key: ((temp-concourse-terraform-planner))
+    regexp: padas-app/((pipeline-name))/rendered-(.?).gpg
+
+- name: terraform-apply-time
+  type: time
+
 resource_types:
 - name: versioned-git-resource
   type: docker-image
@@ -104,6 +125,62 @@ jobs:
     - put: terraform-saved-plan
       params:
         file: zipped/plan-*.gpg
+
+- name: render-terraform-templates
+  max_in_flight: 1
+  serial_groups:
+    - "terraform"
+  plan:
+  - do:
+    - get: terraform-apply-time
+      trigger: true
+    - get: git-terraform-templates
+      params:
+        submodules: none
+      trigger: true
+    - task: render
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: git-terraform-templates
+        params:
+          GOOGLE_CREDENTIALS: "((concourse-terraform-state-reader-key))"
+          TF_IN_AUTOMATION: "not-empty"
+          TF_WORKSPACE: "((pipeline-name))"
+          VAULT_ADDR: "((vault-address))"
+          VAULT_SKIP_VERIFY: "true"
+          VAULT_TOKEN: "((vault-automation-token))"
+        run:
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'cd ./git-terraform-templates/templated-deployment &&
+            terraform init -input=false &&
+            terraform apply -input=false -auto-approve &&
+            cd "$OLDPWD" &&
+            cp -r ./git-terraform-templates/templated-deployment/rendered ./ &&
+            ls -Al ./rendered'
+        outputs:
+        - name: rendered
+    - task: zip
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: rendered
+        params:
+          PLAN_ENCRYPTION_SECRET: ((plan-encryption-secret))
+        run:
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'tar c -z ./rendered > ./zip && echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --symmetric -o ./zipped/rendered-$(date +%s).gpg zip'
+        outputs:
+        - name: zipped
+    - put: terraform-rendered-templates
+      params:
+        file: zipped/rendered-*.gpg
 
 
           #- name: deploy-to-k8s
