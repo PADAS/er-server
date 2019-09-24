@@ -34,6 +34,7 @@ pytest-pythonpath==0.7.3
 pytest==5.1.0
 pytz==2019.1              # via django
 pyyaml==5.1.1             # via aspy.yaml, pre-commit
+requests-mock==1.7.0
 six==1.11.0               # via cfgv, django-extensions, more-itertools, packaging, pip-tools, pre-commit, websocket-client
 sqlparse==0.3.0           # via django-debug-toolbar
 toml==0.10.0              # via pre-commit

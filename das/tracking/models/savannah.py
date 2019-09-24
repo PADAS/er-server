@@ -1,12 +1,10 @@
 import copy
 import datetime
-import http.client
 import json
 import logging
-import time
+
 from datetime import timedelta
 from typing import NamedTuple
-
 import pytz
 from dateutil.parser import parse as parse_date
 from django.contrib.contenttypes.fields import GenericRelation
@@ -62,6 +60,12 @@ ALERT_EVENT_TYPE_MAP = {
 
 }
 
+REQUEST_TO_URL = {
+    "authenticate": "/savannah_data/data_auth",
+    "data_download": "/savannah_data/data_request",
+    "exceptions_download": "/savannah_data/data_request"
+}
+
 
 class SavannaClient(object):
 
@@ -83,15 +87,9 @@ class SavannaClient(object):
         """ Make request to savannah api with multiple request types """
         payload = dict(uid=self.username, pwd=self.password,
                        request=request, collar=collar_id, record_index=self.record_index)
-
-        payload = ['='.join((k, v)) for k, v in payload.items()]
-        payload = '&'.join(payload)
-        headers = {'accept': "*/*",
-                        'content-type': 'application/x-www-form-urlencoded'}
-        return requests.post(self.host + "/savannah_data/data_request", data=payload, headers=headers)
+        return requests.post(self.host + REQUEST_TO_URL[request], data=payload)
 
     def select_data(self, collar_id, record):
-
         """ Select and order data received from savannah api """
         return [collar_id, record["record_index"], record["longitude"], record["latitude"],
                 record["record_time"], record["speed"], record["heading"], record["temperature"],
@@ -103,7 +101,7 @@ class SavannaClient(object):
         :param collar_id: collar_id from trackingmaster record.
         :return: generator, yielding individual records.
         '''
-        logger.info(
+        self.logger.info(
             'Fetching from SavannahTracking for collar_id: %s', collar_id)
         res = self.make_request(collar_id, "data_download")
         if res.status_code == 200:
@@ -111,13 +109,7 @@ class SavannaClient(object):
                 'Fetch OK from SavannahTracking for collar_id: %s', collar_id)
             all_records = json.loads(res.text)["records"]
             for line in all_records:
-                try:
-                    if line != saveline:  # We occassionally see duplicate records in results.
-                        yield self.parse_line(STObservation, self.select_data(collar_id, line))
-                except Exception as e:
-                    self.logger.exception(
-                        'Failed to parse line for collar_id: %s, line: [%s]', collar_id, line)
-                saveline = line
+                yield self.parse_line(STObservation, self.select_data(collar_id, line))
         else:
             msg = 'Failed to get data from Savannah Tracking API for collar_id: %s. Result status: %d' % (collar_id,
                                                                                                           res.status)
@@ -160,7 +152,7 @@ class SavannaClient(object):
         :param s:
         :return:
         '''
-        dt = ((cls.str2date(i) if c == datetime.datetime else c(i)) if i != '' else None
+        dt = ((cls.str2date(i) if c == datetime.datetime else c(i))
               for c, i in zip(observation_class._field_types.values(), s))
         dt = observation_class(*dt)
         return dt
@@ -184,7 +176,6 @@ class SavannahPlugin(TrackingPlugin):
     source_plugins = GenericRelation(
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
         related_query_name=source_plugin_reverse_relation, related_name='+')
-
 
     def fetch(self, source, cursor_data=None, dry_run=False):
 
