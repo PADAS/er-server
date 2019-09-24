@@ -9,6 +9,9 @@ from django.apps import apps
 from django.template import Template, Context
 from django.template.base import VariableNode
 
+from activity.exceptions import SchemaValidationError, \
+    SCHEMA_ERROR_EMPTY_PROPERTY, \
+    SCHEMA_ERROR_MISMATCHED_PROPERTIES_IN_DEFINITION
 from choices.models import Choice, DynamicChoice
 from utils.memoize import memoize
 
@@ -473,3 +476,22 @@ def should_auto_generate(schema_string):
         if schema_doc.get('auto-generate', False):
             return True
     return False
+
+
+def validate_rendered_schema_is_wellformed(schema):
+    schema = get_schema_renderer_method()(schema)
+    properties = schema['schema'].get('properties')
+
+    for prop in properties.values():
+        if not all([x in prop.keys() for x in ["type", "title"]]):
+            raise SchemaValidationError(SCHEMA_ERROR_EMPTY_PROPERTY)
+
+    definition = schema.get('definition', [])
+    keys = []
+    for dfn in definition:
+        if 'key' in dfn.keys():
+            keys.append(dfn['key'])
+
+    if sorted(keys) != sorted(list(properties.keys())):
+        raise SchemaValidationError(
+            SCHEMA_ERROR_MISMATCHED_PROPERTIES_IN_DEFINITION)

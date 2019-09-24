@@ -42,7 +42,10 @@ class BaseTestCase(TestCase):
 
 
 class PermissionSetTestCase(BaseTestCase):
-    content_type = ContentType.objects.get(app_label='auth', model='permission')
+
+    def setUp(self):
+        super().setUp()
+        self.content_type = ContentType.objects.get(app_label='auth', model='permission')
 
     def test_some_is_member_of_all(self):
         all_set = PermissionSet.objects.get(name='all')

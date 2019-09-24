@@ -175,8 +175,7 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
         model = User
         json_fields = ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
                        'organization', 'tech', 'role')
-        fields = ('first_name', 'last_name', 'email', 'phone',
-                  'is_email_alert', 'is_sms_alert', 'username') + json_fields
+        fields = ('first_name', 'last_name', 'email', 'phone', 'username') + json_fields
 
     json_field = 'additional'
 
@@ -203,8 +202,10 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
     phone = forms.CharField(required=False)
 
     # Additional JSON Fields
-    notes = forms.CharField(required=False, label='Notes', widget=forms.Textarea)
-    expiry = forms.DateTimeField(required=False, label=_('MoU Expires'), widget=AdminDateWidget())
+    notes = forms.CharField(
+        required=False, label='Notes', widget=forms.Textarea)
+    expiry = forms.DateTimeField(required=False, label=_(
+        'MoU Expires'), widget=AdminDateWidget())
     moudatesigned = forms.DateTimeField(
         required=False, label='MoU Date Signed', widget=AdminDateWidget())
     moutype = forms.CharField(required=False, label='MoU Type')
@@ -226,8 +227,7 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
         json_fields = ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
                        'organization', 'tech', 'role')
         json_date_fields = ('expiry', 'moudatesigned')
-        fields = ('first_name', 'last_name', 'email', 'phone',
-                  'is_email_alert', 'is_sms_alert', 'username') + json_fields
+        fields = ('first_name', 'last_name', 'email', 'phone', 'username') + json_fields
 
     json_field = 'additional'
 
@@ -280,7 +280,6 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         (None, {
             'fields': ('first_name', 'last_name', 'role',
                        'email', 'phone',
-                       'is_email_alert', 'is_sms_alert',
                        'username', 'password')
         }),
         ('Additional JSON Fields', {
@@ -296,11 +295,10 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
     )
 
     list_display = ('display_name', 'member_permission_sets',
-                    'all_permission_sets', 'is_email_alert', 'is_sms_alert', 'is_active')
-    list_editable = ('is_email_alert', 'is_sms_alert', 'is_active')
+                    'all_permission_sets', 'is_active')
+    list_editable = ('is_active',)
     list_display_links = ('display_name', )
-    list_filter = ('is_active', 'is_staff', 'is_email_alert',
-                   'is_sms_alert', 'permission_sets')
+    list_filter = ('is_active', 'is_staff', 'permission_sets')
     filter_horizontal = ('permission_sets',)
     form = UserAdditionalForm
     add_form = CustomUserCreationForm
@@ -308,7 +306,6 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         (None, {
             'fields': ('first_name', 'last_name', 'role',
                        'email', 'phone',
-                       'is_email_alert', 'is_sms_alert',
                        'username'
                        )
         }),

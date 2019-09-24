@@ -3,7 +3,10 @@ version: "3.2"
 services:
 
   notebook:
-    image: gcr.io/padas-app/circleci/earthranger-api:develop
+    image: gcr.io/padas-app/circleci/earthranger-api:${DAS_TAG:-develop}
+    build:
+      context: .
+      dockerfile: circleci-docker/Dockerfile
     container_name: das_notebook
     env_file: .env
     environment:
@@ -12,9 +15,9 @@ services:
       - postgis
       - redis
     ports:
-      - 9888:8888
+      - 9888:8000
     volumes:
-      - ../PyMET:/var/www/pymet
-      - user-uploads:/user-uploads
-      - ./das:/var/www/app
+#      - ../PyMET:/var/www/pymet
+#      - user-uploads:/user-uploads
+#      - ./das:/var/www/app
       - ${DAS_NOTEBOOKS_DIR:-notebooks}:/var/notebooks
