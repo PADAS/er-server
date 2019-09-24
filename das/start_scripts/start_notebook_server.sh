@@ -19,5 +19,6 @@ JUPYTER_NOTEBOOK_CONFIG="
 mkdir -p /root/.jupyter
 echo $JUPYTER_NOTEBOOK_CONFIG > /root/.jupyter/jupyter_notebook_config.json
 
+export PYTHONPATH=/var/www/app:$PYTHONPATH
 python3 cfgloader.py
 python3 manage.py shell_plus --notebook --settings=das_server.notebook_settings
