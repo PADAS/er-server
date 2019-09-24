@@ -287,10 +287,9 @@ jobs:
             path: /bin/bash
             #dir: unzipped
             args:
-            - pwd
             - -ec
             - |
-              echo "Finalizing the PV definitions to be used for this IAAS"
+              echo "Finalizing the PV definitions to be used for this IAAS" && pwd
               find . -name "*.yaml.$IAAS" -exec bash -c 'mv "$1" "${1%.yaml.$IAAS}".yaml' - '{}' \;
               find . -type f -name '*.yaml\.*' -exec rm {} +
 
