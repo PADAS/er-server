@@ -41,9 +41,6 @@ resources:
     json_key: ((temp-concourse-terraform-planner))
     regexp: padas-app/((pipeline-name))/rendered-(.?).gpg
 
-- name: terraform-apply-time
-  type: time
-
 resource_types:
 - name: versioned-git-resource
   type: docker-image
@@ -65,8 +62,6 @@ jobs:
     - "terraform"
   plan:
   - do:
-    - get: terraform-apply-time
-      trigger: true
     - get: git-terraform-templates
       params:
         submodules: none
