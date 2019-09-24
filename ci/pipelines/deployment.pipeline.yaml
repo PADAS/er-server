@@ -261,7 +261,8 @@ jobs:
             }
           inputs:
           - name: git-deployment
-          - name: unzipped
+          - name: unzipped/rendered
+            path: git-deployment/templated-deployment
           params: {
             PROJECT: padas-app,
             CLUSTER_NAME: ((cluster-name)),
@@ -288,7 +289,6 @@ jobs:
             args:
             - -ec
             - |
-              mv ./unzipped/rendered ./templated-deployment/ &&
               echo "Finalizing the PV definitions to be used for this IAAS" &&
               find . -name "*.yaml.$IAAS" -exec bash -c 'mv "$1" "${1%.yaml.$IAAS}".yaml' - '{}' \;
               find . -type f -name '*.yaml\.*' -exec rm {} + && cat git-deployment/deployment/components/deployments/api-deployment.yaml
