@@ -195,7 +195,8 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.force_authenticate(request, self.no_view_user)
 
         response = views.SubjectsView.as_view()(request, bbox=bbox)
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data'], [])
 
     def test_return_subjects_bbox_view_delayed(self):
         bbox = '37.18,0.1,37.55,0.54'

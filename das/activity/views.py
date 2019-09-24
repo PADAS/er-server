@@ -59,7 +59,7 @@ import utils
 import accounts.serializers
 import accounts.models
 from observations.models import Subject
-from observations.views import Unauthorized
+from observations.views import UnauthorizedView
 from rest_framework import views
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
 import utils.schema_utils as schema_utils
@@ -658,7 +658,7 @@ class EventsView(generics.ListCreateAPIView):
         if len(allowed_event_categories) > 0:
             queryset = queryset.by_category(allowed_event_categories)
         else:
-            raise Unauthorized
+            raise UnauthorizedView
 
         queryset = queryset.prefetch_related(Prefetch('related_subjects'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))
