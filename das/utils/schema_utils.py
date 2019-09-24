@@ -49,7 +49,8 @@ def get_dynamic_choices(field_details, as_string=True):
 
 def _get_dynamic_choices(field_details):
 
-    dynamic_choice = DynamicChoice.objects.filter(id=field_details['field']).first()
+    dynamic_choice = DynamicChoice.objects.filter(
+        id=field_details['field']).first()
 
     # Short-circuit if there aren't any DynamicChoices found for this field.
     if dynamic_choice is None:
@@ -73,7 +74,8 @@ def _get_dynamic_choices(field_details):
     if field_details['type'] == 'names':
         return_val = options
     elif field_details['type'] == 'map':
-        return_val = list([{'value': k, 'name': v} for k, v in options.items()])
+        return_val = list([{'value': k, 'name': v}
+                           for k, v in options.items()])
     else:
         return_val = list(options.keys())
 
@@ -132,22 +134,19 @@ def get_table_choices(field_details, as_string=True):
 
 def get_schema_renderer_method():
 
-
-    # TODO: This is just a suggestion. Using memoize around each of the choice types.
-    # If this seems reasonable, we can refactor the function signatures to make it more clean.
     @memoize
-    def memo_enum_choices(identifier):
-        field_name, field_type = identifier.split(':')
+    def memo_enum_choices(enum_choices_identifier):
+        field_name, field_type = enum_choices_identifier.split(':')
         return get_enum_choices({'field': field_name, 'type': field_type})
 
     @memoize
-    def memo_dynamic_choices(identifier):
-        field_name, field_type = identifier.split(':')
+    def memo_dynamic_choices(dynamic_choices_identifier):
+        field_name, field_type = dynamic_choices_identifier.split(':')
         return get_dynamic_choices({'field': field_name, 'type': field_type})
 
     @memoize
-    def memo_table_choices(identifier):
-        field_name, field_type = identifier.split(':')
+    def memo_table_choices(table_choices_identifier):
+        field_name, field_type = table_choices_identifier.split(':')
         return get_table_choices({'field': field_name, 'type': field_type})
 
     @memoize
@@ -202,11 +201,13 @@ def extract_from_list(values):
     ids = []
     for value in values:
         if value and not isinstance(value, dict):
-            logger.warning(f'extract_from_list value is not a dict: {value} from {values}')
+            logger.warning(
+                f'extract_from_list value is not a dict: {value} from {values}')
             return value, value
 
         if 'name' not in value:
-            logger.warning(f'extract_from_list name not in value: {value} from {values}')
+            logger.warning(
+                f'extract_from_list name not in value: {value} from {values}')
             return '', ''
 
         names.append(value['name'])
@@ -246,7 +247,8 @@ def extractor(schema_item, definition, value):
                     logger.warning(f'key not found in definition {definition}')
                     continue
                 if 'key' not in schema_item:
-                    logger.warning(f'key not found in schema_item {schema_item}')
+                    logger.warning(
+                        f'key not found in schema_item {schema_item}')
                     continue
                 if definition_item['key'] == schema_item['key']:
                     return definition_item.get('title'), val, key
@@ -266,7 +268,7 @@ def definition_keys(form_definition: list, index_values=None):
     '''
 
     index_values = index_values or generate_index()
-    
+
     for k in form_definition:
         if isinstance(k, str):
             yield (k, next(index_values))
