@@ -245,7 +245,8 @@ jobs:
             path: /bin/sh
             args:
             - '-c'
-            - 'echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --decrypt ./rendered-*.gpg | tar x -z -f - -C ../unzipped && ls -Al ../unzipped'
+            - 'apk update && apk add gnupg &&
+            echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --decrypt ./rendered-*.gpg | tar x -z -f - -C ../unzipped && ls -Al ../unzipped'
           outputs:
           - name: unzipped
             #- task: deploy
