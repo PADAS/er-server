@@ -236,6 +236,7 @@ jobs:
       - task: unzip
         config:
           platform: linux
+          image_resource: *terraform-image-specification
           inputs:
           - name: terraform-rendered-templates
           params:
