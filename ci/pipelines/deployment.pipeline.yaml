@@ -288,7 +288,7 @@ jobs:
             args:
             - -ec
             - |
-              mv ./rendered ./templated-deployment/ &&
+              mv ./unzipped/rendered ./templated-deployment/ &&
               echo "Finalizing the PV definitions to be used for this IAAS" &&
               find . -name "*.yaml.$IAAS" -exec bash -c 'mv "$1" "${1%.yaml.$IAAS}".yaml' - '{}' \;
               find . -type f -name '*.yaml\.*' -exec rm {} + && ls -la git-deployment/deployment/components
