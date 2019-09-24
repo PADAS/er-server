@@ -230,6 +230,22 @@ jobs:
             - --iaas=((iaas))
             - --workspace=((iaas-workspace))
   - do:
+      - task: unzip
+        config:
+          platform: linux
+          image_resource: *terraform-image-specification
+          inputs:
+          - name: terraform-rendered-templates
+          params:
+            PLAN_ENCRYPTION_SECRET: ((plan-encryption-secret))
+          run:
+            dir: terraform-rendered-templates
+            path: /bin/sh
+            args:
+            - '-c'
+            - 'echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --decrypt ./rendered-*.gpg | tar x -z -f - -C ../unzipped && ls -Al ../unzipped'
+          outputs:
+          - name: unzipped
       - task: deploy
         config:
           platform: linux
@@ -271,7 +287,7 @@ jobs:
               find . -name "*.yaml.$IAAS" -exec bash -c 'mv "$1" "${1%.yaml.$IAAS}".yaml' - '{}' \;
               find . -type f -name '*.yaml\.*' -exec rm {} +
 
-              vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/default.params.yaml git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
+              #vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/default.params.yaml git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
 
 #########################
 # Destructive Jobs
