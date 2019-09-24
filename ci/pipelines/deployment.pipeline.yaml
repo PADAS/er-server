@@ -285,7 +285,6 @@ jobs:
           }
           run:
             path: /bin/bash
-            dir: unzipped
             args:
             - -ec
             - |
