@@ -288,10 +288,18 @@ jobs:
             args:
             - -ec
             - |
+              # Move terraform-rendered templates to original deployments location
               mv unzipped/rendered git-deployment/templated-deployment/ &&
               echo "Finalizing the PV definitions to be used for this IAAS" &&
+
+              # This finds files relevant to services (Azure or GCP) and renames them for preservation
               find . -name "*.yaml.$IAAS" -exec bash -c 'mv "$1" "${1%.yaml.$IAAS}".yaml' - '{}' \;
-              find . -type f -name '*.yaml\.*' -exec rm {} + && ls -la git-deployment/deployment/components/deployments/
+
+              # This locates and deletes config files that are not relevant to IAAS in this context
+              find . -type f -name '*.yaml\.*' -exec rm {} + &&
+
+              # List deployment files for debuggability. Note that templates moved to terraform are symlinked
+              ls -la git-deployment/deployment/components/deployments/
 
               vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/default.params.yaml git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((deployment-plan)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
 
