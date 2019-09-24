@@ -285,7 +285,9 @@ jobs:
           }
           run:
             path: /bin/bash
+            #dir: unzipped
             args:
+            - pwd
             - -ec
             - |
               echo "Finalizing the PV definitions to be used for this IAAS"
