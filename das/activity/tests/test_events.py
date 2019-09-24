@@ -1005,7 +1005,7 @@ class TestEventView(BaseAPITest):
             self.assertEqual(event['Reported_By'],
                              event['Reported_By_Internal_Value'])
 
-    def test_collection_report_id_exported_as_parent_event_title(self):
+    def test_collection_report_id_exported_as_parent_event_serial_number(self):
         collection_event_data = copy.deepcopy(self.event_data)
         collection_event_data['reported_by'] = self.user_rep
         collection_event_data["message"] = ""
@@ -1017,6 +1017,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
+        collection_serial_number = response.data.get('serial_number')
         self.assertEqual(response.status_code, 201)
         response_data = response.data
         response_data = {k: response_data[k]
@@ -1064,8 +1065,8 @@ class TestEventView(BaseAPITest):
             response.rendered_content)
         # get the last event
         event = events_report[-1]
-        self.assertEqual(event['Collection_Report_Id'],
-                         collection_event_data['title'])
+        self.assertEqual(int(event['Collection_Report_Id']),
+                         collection_serial_number)
 
     def test_export_csv_with_filter(self):
         carcass_data = json.loads(
