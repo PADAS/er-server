@@ -23,22 +23,6 @@ resources:
       - deployment/*
     private_key: ((das-github))
 
-- name: git-terraform
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das.git
-    branch: ((server-branch-name))
-    paths:
-      - terraform/*
-    private_key: ((das-github))
-
-- name: terraform-saved-plan
-  type: gcs-resource
-  source:
-    bucket: ((plan-bucket))
-    json_key: ((temp-concourse-terraform-planner))
-    regexp: padas-app/((pipeline-name))/plan-(.?).gpg
-
 - name: git-terraform-templates
   type: versioned-git-resource
   source:
@@ -75,57 +59,6 @@ resource_types:
     digest: "sha256:c58ae577bb2a0557734f31a4ca6257f231699e069f0065dd2e0d34980d39a617"
 
 jobs:
-- name: terraform-plan
-  max_in_flight: 1
-  serial_groups:
-    - "terraform"
-  plan:
-  - do:
-    - get: git-terraform
-      params:
-        submodules: none
-    - task: plan
-      config:
-        platform: linux
-        image_resource: *terraform-image-specification
-        inputs:
-        - name: git-terraform
-        params: *terraform-apply-and-destroy-params
-        run:
-          path: /bin/sh
-          args:
-          - '-c'
-          - 'cp -r ./git-terraform/terraform /tmp &&
-            cd /tmp/terraform &&
-            echo "$CREDENTIALS_FOR_STATE" > ./credentials-for-state.json &&
-            terraform init -input=false -backend-config="credentials=./credentials-for-state.json" &&
-            (terraform workspace new "$WORKSPACE" || terraform workspace select "$WORKSPACE") &&
-            terraform plan -input=false -out=tfplan &&
-            cd "$OLDPWD" &&
-            cp -r /tmp/terraform ./plan'
-        outputs:
-        - name: plan
-    - task: zip
-      config:
-        platform: linux
-        image_resource: *terraform-image-specification
-        inputs:
-        - name: plan
-        params:
-          PLAN_ENCRYPTION_SECRET: ((plan-encryption-secret))
-        run:
-          path: /bin/sh
-          args:
-          - '-c'
-          - 'apk update && apk add gnupg &&
-          tar c -z ./plan/terraform > ./zip &&
-          echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --symmetric -o ./zipped/plan-$(date +%s).gpg zip'
-        outputs:
-        - name: zipped
-    - put: terraform-saved-plan
-      params:
-        file: zipped/plan-*.gpg
-
 - name: render-terraform-templates
   max_in_flight: 1
   serial_groups:
