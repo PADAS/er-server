@@ -230,6 +230,9 @@ jobs:
             - --iaas=((iaas))
             - --workspace=((iaas-workspace))
   - do:
+      - get: terraform-rendered-templates
+        passed:
+          - render-terraform-templates
       - task: unzip
         config:
           platform: linux
