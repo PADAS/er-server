@@ -38,7 +38,7 @@ cd GDAL-${GDAL_VERSION}
 export GDAL_HOME=$(gdal-config --prefix)
 
 python setup.py build_ext --gdal=config=$GDAL_HOME/bin/gdal-config \
-    --library-dirs=$GDAL_HOME/unix/lib --libraries=gdal --include-dirs=$GDAL_HOME/unix/include
+    --library-dirs=$GDAL_HOME/lib --libraries=gdal --include-dirs=$GDAL_HOME/include
 python setup.py build
 python setup.py install
 cd ..
