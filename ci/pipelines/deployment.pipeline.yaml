@@ -103,7 +103,9 @@ jobs:
           path: /bin/sh
           args:
           - '-c'
-          - 'tar c -z ./rendered > ./zip && echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --symmetric -o ./zipped/rendered-$(date +%s).gpg zip'
+          - 'apk update && apk add gnupg &&
+            tar c -z ./rendered > ./zip &&
+            echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --symmetric -o ./zipped/rendered-$(date +%s).gpg zip'
         outputs:
         - name: zipped
     - put: terraform-rendered-templates
