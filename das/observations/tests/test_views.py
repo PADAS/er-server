@@ -195,7 +195,8 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.force_authenticate(request, self.no_view_user)
 
         response = views.SubjectsView.as_view()(request, bbox=bbox)
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data'], [])
 
     def test_return_subjects_bbox_view_delayed(self):
         bbox = '37.18,0.1,37.55,0.54'
@@ -270,6 +271,15 @@ class SubjectGroupViewTest(BasePermissionTest):
         response = views.SubjectGroupView.as_view()(request,
                                                     id=str(self.ele_group.id))
         self.assertEqual(response.status_code, 403)
+
+    def test_not_return_subject_groups_no_view_permission(self):
+        request = self.factory.get(
+            API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.no_view_user)
+
+        response = views.SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data'], [])
 
 
 class SourceGroupViewTest(BasePermissionTest):

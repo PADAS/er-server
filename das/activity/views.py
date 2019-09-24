@@ -59,7 +59,7 @@ import utils
 import accounts.serializers
 import accounts.models
 from observations.models import Subject
-from observations.views import Unauthorized
+from observations.views import UnauthorizedView
 from rest_framework import views
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
 import utils.schema_utils as schema_utils
@@ -317,6 +317,14 @@ def generate_reported_by_lookup():
     return reported_by_map
 
 
+def generate_event_type_cache():
+    event_types = EventType.objects.all().values('id', 'value', 'display', 'schema')
+    event_types_map = dict(
+        (event_type['id'], event_type) for event_type in event_types
+    )
+    return event_types_map
+
+
 class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
     permission_classes = (EventCategoryPermissions,)
 
@@ -346,6 +354,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         reported_by_map = generate_reported_by_lookup()
 
+        event_type_map = generate_event_type_cache()
+
         # TODO: Resolve how we can annotate with an array-aggregation for
         # parents' IDs.
         parent_event_subquery = EventRelationship.objects.filter(
@@ -356,28 +366,26 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
             .annotate(related_subjects_count=Count('related_subjects')) \
             .annotate(parent_event_title=Subquery(
-                parent_event_subquery.values('from_event__title')[:1])) \
+                parent_event_subquery.values('from_event__serial_number')[:1])) \
             .values('id', 'serial_number', 'priority', 'state',
-                    'title', 'event_type_id', 'event_type__value',
-                    'event_type__display',
-                    'event_type__schema', 'event_details__data', 'notes_count',
-                    'full_notes',
-                    'parent_event_title', 'location', 'event_time',
-                    'reported_by_id',
+                    'title', 'event_type_id', 'event_details__data',
+                    'notes_count', 'full_notes', 'parent_event_title',
+                    'location', 'event_time', 'reported_by_id',
                     'related_subjects_count'):
 
             if event['event_type_id'] != current_event_type_data['id']:
+                event_type = event_type_map[event['event_type_id']]
 
                 current_event_type_data = {
                     'id': event['event_type_id'],
-                    'display': event['event_type__display'],
-                    'value': event['event_type__value'],
+                    'display': event_type['display'],
+                    'value': event_type['value'],
                     'events': [],
                     'headers': copy.deepcopy(default_headers)
                 }
 
                 try:
-                    current_schema = renderer(event['event_type__schema'])
+                    current_schema = renderer(event_type['schema'])
                     current_schema_order = \
                         schema_utils.definition_key_order_as_dict(
                             current_schema)
@@ -425,8 +433,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             # Now assemble the data we want to write to the csv
             event_data = {
                 'serial': event['serial_number'],
-                'event_type': event['event_type__display'],
-                'event_type_internal': event['event_type__value'],
+                'event_type': event_type['display'],
+                'event_type_internal': event_type['value'],
                 'title': self.escape_string(event['title']),
                 'priority': Event.PRIORITY_LABELS_MAP.get(event['priority'],
                                                           ''),
@@ -658,7 +666,7 @@ class EventsView(generics.ListCreateAPIView):
         if len(allowed_event_categories) > 0:
             queryset = queryset.by_category(allowed_event_categories)
         else:
-            raise Unauthorized
+            raise UnauthorizedView
 
         queryset = queryset.prefetch_related(Prefetch('related_subjects'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))

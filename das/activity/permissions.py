@@ -4,7 +4,7 @@ from rest_framework.permissions import (SAFE_METHODS, BasePermission,
 
 from activity.alerts import has_alerts_permissionset
 from activity.models import EventType, Event
-from observations.views import Unauthorized
+from observations.views import UnauthorizedView
 
 
 class EventObjectPermissions(DjangoModelPermissions):
@@ -66,7 +66,7 @@ class EventCategoryPermissions(IsAuthenticated):
                     pass
                 permitted = user.has_perm(permission_name)
                 if k == 'GET' and not permitted and user.is_authenticated:
-                    raise Unauthorized
+                    raise UnauthorizedView
                 return permitted
         # Otherwise, let it through here and check at the object level later on
         return super().has_permission(request, view)
