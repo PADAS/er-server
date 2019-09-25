@@ -37,14 +37,16 @@ state_change_options = [
     },
 ]
 
-subject_group_options = [
-    {
-        'name': str(group.id),
-        'label': group.name
-    } for group in SubjectGroup.objects.all()
-]
-
 logger = logging.getLogger(__name__)
+
+
+def subject_group_options():
+    return [
+        {
+            'name': str(group.id),
+            'label': group.name
+        } for group in SubjectGroup.objects.all()
+    ]
 
 
 class EventVariables(variables.BaseVariables):
@@ -65,7 +67,7 @@ class EventVariables(variables.BaseVariables):
         return [self.event.get('state'), ]
 
     @variables.select_multiple_rule_variable(label=_('Subject Group'),
-                                             options=subject_group_options)
+                                             options=subject_group_options())
     def subject_group(self):
         return [str(subj_group.id) for subject in self.event.get('related_subjects') for subj_group in Subject.objects.get(id=subject.get('id')).groups.all()]
 
