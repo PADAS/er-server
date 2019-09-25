@@ -307,12 +307,12 @@ class SubjectsView(generics.ListCreateAPIView):
 
         self.subject_linked_sources = {}
         min_age = get_minimum_allowed_age(self.request.user) or 0
-        queryset = models.Subject.objects.all()
-        subjects = check_to_include_inactive_subjects(self.request, queryset)
-        queryset = subjects \
+        all_subjects = models.Subject.objects.all()
+        queryset = all_subjects \
             .annotate_with_subjectstatus(delay_hours=min_age * 24)
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
+        queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.order_by('id')
         bbox = self.request.query_params.get('bbox', None)
         if bbox:
@@ -365,7 +365,9 @@ class SubjectsView(generics.ListCreateAPIView):
         for source_group in source_groups:
             sources = source_group.get_all_sources()
             for source in sources:
-                subjects = subjects.filter(subjectsource__source=source)
+                queryset = check_to_include_inactive_subjects(
+                    self.request, all_subjects)
+                subjects = queryset.filter(subjectsource__source=source)
                 combined_queryset = combined_queryset.distinct() | \
                     subjects.distinct()
 

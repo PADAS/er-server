@@ -2,7 +2,6 @@ from rest_framework.permissions import (SAFE_METHODS, BasePermission,
                                         DjangoModelPermissions,
                                         IsAuthenticated)
 
-from activity.alerts import has_alerts_permissionset
 from activity.models import EventType, Event
 from observations.views import UnauthorizedView
 
