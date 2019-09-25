@@ -1,16 +1,13 @@
 import ast
 import os
-import pytz
-from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
-from django.core.cache import cache
 from django.test import TestCase
 
-from observations.models import Source, SourceProvider, Subject, SubjectType, \
-    SubjectSubType, SubjectSource
+from core.tests import fake_get_pool
+from observations.models import Source, Subject
 from tracking.models import SourcePlugin
 from tracking.models.awt import AwtPlugin, AwtClient
 from tracking.tasks import run_source_plugin
@@ -43,6 +40,7 @@ class AwtPluginTest(TestCase):
         data = open(TESTDATA_FILENAME).read()
         self.data = ast.literal_eval(data)
 
+    @patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_name(self):
         with patch(
                 'tracking.models.awt.AwtClient.fetch_data') as mock_fetch_data:

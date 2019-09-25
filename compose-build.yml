@@ -6,9 +6,10 @@ services:
       context: ./docker/Nginx
       
   earthranger-api:
-    image: gcr.io/padas-app/circleci/earthranger-api
+    image: gcr.io/padas-app/circleci/earthranger-api:${DAS_TAG:-develop}
     build:
-      context: ./docker/
+      context: .
+      dockerfile: circleci-docker/Dockerfile
 
   postgis:
     build:
