@@ -136,6 +136,22 @@ def get_table_choices(field_details, as_string=True):
 
 
 def get_schema_renderer_method():
+
+    @memoize
+    def memo_enum_choices(enum_choices_identifier):
+        field_name, field_type = enum_choices_identifier.split(':')
+        return get_enum_choices({'field': field_name, 'type': field_type})
+
+    @memoize
+    def memo_dynamic_choices(dynamic_choices_identifier):
+        field_name, field_type = dynamic_choices_identifier.split(':')
+        return get_dynamic_choices({'field': field_name, 'type': field_type})
+
+    @memoize
+    def memo_table_choices(table_choices_identifier):
+        field_name, field_type = table_choices_identifier.split(':')
+        return get_table_choices({'field': field_name, 'type': field_type})
+
     @memoize
     def render_f(schema):
 
@@ -145,13 +161,13 @@ def get_schema_renderer_method():
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
                 parameters[schema_field['tag']
-                           ] = get_enum_choices(schema_field)
+                           ] = memo_enum_choices('{field}:{type}'.format(**schema_field))
             elif schema_field['lookup'] == 'query':
                 parameters[schema_field['tag']
-                           ] = get_dynamic_choices(schema_field)
+                           ] = memo_dynamic_choices('{field}:{type}'.format(**schema_field))
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
-                           ] = get_table_choices(schema_field)
+                           ] = memo_table_choices('{field}:{type}'.format(**schema_field))
 
         if parameters:
             template = Template(schema)

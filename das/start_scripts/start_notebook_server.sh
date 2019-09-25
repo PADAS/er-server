@@ -6,9 +6,6 @@ pip3 install oauth2client
 pip3 install django-extensions
 pip3 install jupyterlab
 
-python3 cfgloader.py
-PYTHONPATH=/var/www/app:$PYTHONPATH
-
 # This writes a default password `dasdasdas`.
 # TODO: Find a way to make this easily configurable.
 JUPYTER_NOTEBOOK_CONFIG="
@@ -21,4 +18,7 @@ JUPYTER_NOTEBOOK_CONFIG="
 
 mkdir -p /root/.jupyter
 echo $JUPYTER_NOTEBOOK_CONFIG > /root/.jupyter/jupyter_notebook_config.json
-python3 /var/www/app/manage.py shell_plus --notebook --settings=das_server.notebook_settings
+
+export PYTHONPATH=/var/www/app:$PYTHONPATH
+python3 cfgloader.py
+python3 manage.py shell_plus --notebook --settings=das_server.notebook_settings

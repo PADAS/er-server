@@ -6,9 +6,13 @@ from django.utils import timezone
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
 from oauth2_provider.models import Application, AccessToken
-
+from kombu import Connection
 
 User = django.contrib.auth.get_user_model()
+
+
+def fake_get_pool():
+    return Connection("memory://").Pool(20)
 
 
 class BaseAPITest(TestCase):
@@ -40,4 +44,3 @@ class BaseAPITest(TestCase):
         )
 
         force_authenticate(request, user=request.user, token=tok)
-

@@ -29,7 +29,7 @@ from observations import kmlutils
 from observations import models
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
-from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS
+from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 
@@ -68,6 +68,14 @@ def dateparse(date_str, default_tz=pytz.utc):
     return dt
 
 
+class UnauthorizedView(APIException):
+    """
+    User does not have view permission, return empty data
+    """
+    status_code = 200
+    default_detail = {"data": []}
+
+
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
     queryset = models.Region.objects.all()
@@ -92,6 +100,9 @@ class SubjectGroupsView(generics.ListAPIView):
                                               models.SubjectGroup),)
 
     def get_queryset(self):
+        if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
+            raise UnauthorizedView
+
         queryset = models.SubjectGroup.objects.filter(
             _parents=None, is_visible=parse_bool(
                 self.request.GET.get('isvisible', True)))
@@ -289,6 +300,9 @@ class SubjectsView(generics.ListCreateAPIView):
     subject_linked_sources = {}
 
     def get_queryset(self):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
+            raise UnauthorizedView
+
         self.subject_linked_sources = {}
         min_age = get_minimum_allowed_age(self.request.user) or 0
         queryset = models.Subject.objects \
@@ -348,8 +362,8 @@ class SubjectsView(generics.ListCreateAPIView):
         for source_group in source_groups:
             sources = source_group.get_all_sources()
             for source in sources:
-                subjects = models.Subject.objects.filter(
-                    subjectsource__source=source)
+                subjects = models.Subject.objects.filter(is_active=True,
+                                                         subjectsource__source=source)
                 combined_queryset = combined_queryset.distinct() | \
                     subjects.distinct()
 
@@ -385,11 +399,6 @@ class SubjectsGeoJsonView(SubjectsView):
     renderer_classes = (ExtendedGEOJSONRenderer,)
 
 
-class Unauthorized(APIException):
-    status_code = 200
-    default_detail = {"data": []}
-
-
 class SubjectView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.SubjectSerializer
@@ -399,7 +408,7 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
-            raise Unauthorized
+            raise UnauthorizedView
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         queryset = models.Subject.objects.all()
         queryset = queryset.annotate_with_subjectstatus(

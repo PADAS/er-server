@@ -3,8 +3,8 @@ from rest_framework.permissions import (SAFE_METHODS, BasePermission,
                                         IsAuthenticated)
 
 from activity.alerts import has_alerts_permissionset
-from activity.models import EventType
-from observations.views import Unauthorized
+from activity.models import EventType, Event
+from observations.views import UnauthorizedView
 
 
 class EventObjectPermissions(DjangoModelPermissions):
@@ -48,17 +48,26 @@ class EventCategoryPermissions(IsAuthenticated):
         # These methods are allowed for everyone
         if request.method in ['OPTIONS', 'HEAD']:
             super().has_permission(request, view)
-
-        # If they're trying to make a new event, we need to check the type here
-        if request.method == 'POST' and 'event_type' in request.data:
-            event_type = EventType.objects.get_by_natural_key(
-                request.data['event_type'])
-            permission_name = 'activity.{0}_{1}'.format(
-                event_type.category.value,
-                'create'
-            )
-            return request.user.has_perm(permission_name)
-
+        user = request.user
+        perms = {"POST": 'create', "PATCH": 'update',
+                 "PUT": 'update', 'GET': 'read', "DELETE": 'delete'}
+        for k, v in perms.items():
+            if request.method == k and (
+                    'event_type' in request.data or 'id' in view.kwargs):
+                try:
+                    event_type = EventType.objects.get_by_natural_key(
+                        request.data['event_type']
+                    ) if 'event_type' in request.data else \
+                        Event.objects.get(id=view.kwargs["id"]).event_type
+                    permission_name = 'activity.{0}_{1}'.format(
+                        event_type.category.value, v
+                    )
+                except EventType.DoesNotExist:
+                    pass
+                permitted = user.has_perm(permission_name)
+                if k == 'GET' and not permitted and user.is_authenticated:
+                    raise UnauthorizedView
+                return permitted
         # Otherwise, let it through here and check at the object level later on
         return super().has_permission(request, view)
 
@@ -130,4 +139,3 @@ class IsEventProviderOwnerPermission(BasePermission):
 
         eventprovider = getattr(obj, self.relation_field, None)
         return eventprovider is not None and eventprovider.owner == request.user
-
