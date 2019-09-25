@@ -29,7 +29,7 @@ from observations import kmlutils
 from observations import models
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
-from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS
+from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, check_to_include_inactive_subjects
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 
@@ -112,6 +112,7 @@ class SubjectGroupsView(generics.ListAPIView):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['render_last_location'] = True
+        context['request'] = self.request
         return context
 
 
@@ -179,8 +180,9 @@ class RegionSubjectsView(generics.ListAPIView):
     def get_queryset(self):
         region = generics.get_object_or_404(models.Region.objects.all(),
                                             slug=self.kwargs['slug'])
-        subjects = models.Subject.objects.by_region(
-            region).annotate_with_subject_status()
+        queryset = models.Subject.objects.all()
+        queryset = check_to_include_inactive_subjects(self.request, queryset)  
+        subjects = queryset.by_region(region).annotate_with_subjectstatus()
         return subjects
 
 
@@ -305,12 +307,13 @@ class SubjectsView(generics.ListCreateAPIView):
 
         self.subject_linked_sources = {}
         min_age = get_minimum_allowed_age(self.request.user) or 0
-        queryset = models.Subject.objects \
+        queryset = models.Subject.objects.all()
+        subjects = check_to_include_inactive_subjects(self.request, queryset)
+        queryset = subjects \
             .annotate_with_subjectstatus(delay_hours=min_age * 24)
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = queryset.order_by('id')
-        queryset = queryset.by_is_active()
         bbox = self.request.query_params.get('bbox', None)
         if bbox:
             bbox = bbox.split(',')
@@ -362,8 +365,7 @@ class SubjectsView(generics.ListCreateAPIView):
         for source_group in source_groups:
             sources = source_group.get_all_sources()
             for source in sources:
-                subjects = models.Subject.objects.filter(is_active=True,
-                                                         subjectsource__source=source)
+                subjects = subjects.filter(subjectsource__source=source)
                 combined_queryset = combined_queryset.distinct() | \
                     subjects.distinct()
 
@@ -450,7 +452,9 @@ class SourceSubjectsView(generics.ListCreateAPIView):
             models.Source.objects.all(), pk=self.kwargs['id'])
         # if not self.request.user.has_any_perms(models.Source.VIEW_SUBJECT_PERMS, source):
         #     raise PermissionDenied
-        return models.Subject.objects.filter(subjectsource__source=source).annotate_with_subjectstatus()
+        queryset = models.Subject.objects.all()
+        queryset = check_to_include_inactive_subjects(self.request, queryset)   
+        return queryset.filter(subjectsource__source=source).annotate_with_subjectstatus()
 
     def create(self, request, *args, **kwargs):
         # /{id}/ contains subject_id.
@@ -777,7 +781,6 @@ class KmlSubjectsView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def get_queryset(self):
-        include_inactive = self.request.GET.get('include_inactive')
         start_date = self.request.GET.get('start')
         end_date = self.request.GET.get('end')
 
@@ -793,10 +796,8 @@ class KmlSubjectsView(generics.GenericAPIView):
             end_date = None
 
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        queryset = models.Subject.objects.filter(is_active=True)
-        if include_inactive == 'true':
-            queryset = models.Subject.objects.all()
-
+        queryset = models.Subject.objects.all()
+        queryset = check_to_include_inactive_subjects(self.request, queryset)
         if start_date and end_date:
             queryset = queryset.filter(
                 created_at__range=[start_date, end_date])
@@ -1004,7 +1005,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             raise PermissionDenied
         queryset = models.Subject.objects.all()
         # To include inactive subjects in trackingdata report
-        # queryset = queryset.by_is_active()
+        queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
         if chronofile is not None:
             queryset = queryset.filter(
@@ -1317,6 +1318,6 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         # Get user accessible active subjects.
         queryset = models.Subject.objects.all()
         # To include inactive subjects in trackingmetadata report
-        # queryset = queryset.by_is_active()
+        queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
         return queryset
