@@ -1,7 +1,7 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  namespace: ${NAMESPACE}
+  namespace: <<namespace>>
   name: api
 spec:
   template:
@@ -24,7 +24,10 @@ spec:
           - containerPort: 8000
         env:
         - name: DB_HOST
-          value: "${DB_HOST}"
+          valueFrom:
+            configMapKeyRef:
+              name: site-configmap
+              key: DB_HOST
         - name: DB_PORT
           value: "${DB_PORT}"
         - name: DB_NAME

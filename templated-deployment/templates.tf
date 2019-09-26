@@ -3,8 +3,6 @@ resource "template_dir" "deployments" {
   # Point this at the deployments path for vcloud
   destination_dir = "${path.root}/rendered"
   vars = {
-    NAMESPACE = var.namespace
-    DB_HOST = "${var.namespace}.svc.cluster.local"
     DB_PORT = var.db_port
     DB_NAME = var.db_name
     USE_AZURE_STORAGE = var.use_azure_storage
