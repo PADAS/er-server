@@ -3,7 +3,7 @@
 ## Migration from vCloud to Terraform
 
 As of September 2019, work is in progress to migrate:
-- configuration from vCloud templating to Terraform templates
+- configuration from vCloud templating to [Terraform templates](https://www.terraform.io/docs/providers/template/r/dir.html)
 - secrets to Vault
 - provisioned cloud resources to Terraform
 
@@ -17,6 +17,8 @@ ls -la deployment/components/deployments/
 api-deployment.yaml -> ../../../templated-deployment/rendered/api-deployment.yaml
 ...
 ```
+
+Files are rendered to `templated-deployment/rendered`. It is important to only store ephemeral, rendered files to this directory, since Terraform will delete any extraneous files found in this path.
 
 ### Templating conversion progress
 
