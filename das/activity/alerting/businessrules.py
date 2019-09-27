@@ -40,15 +40,6 @@ state_change_options = [
 logger = logging.getLogger(__name__)
 
 
-def subject_group_options():
-    return [
-        {
-            'name': str(group.id),
-            'label': group.name
-        } for group in SubjectGroup.objects.all()
-    ]
-
-
 class EventVariables(variables.BaseVariables):
 
     def __init__(self, event):
@@ -65,11 +56,6 @@ class EventVariables(variables.BaseVariables):
     @variables.select_multiple_rule_variable(label=_('State'), options=state_options)
     def state(self):
         return [self.event.get('state'), ]
-
-    @variables.select_multiple_rule_variable(label=_('Subject Group'),
-                                             options=subject_group_options())
-    def subject_group(self):
-        return [str(subj_group.id) for subject in self.event.get('related_subjects') for subj_group in Subject.objects.get(id=subject.get('id')).groups.all()]
 
     # TODO: Implement state-change logic.
     # @variables.select_multiple_rule_variable(label=_('State Change'), options=state_change_options)
@@ -137,6 +123,20 @@ def whitelist_operators(vtypename, operators):
                 yield operator
     else:
         yield from operators
+
+
+def create_subject_group_func():
+    def f(self):
+        return [str(subj_group.id) for subject in self.event.get('related_subjects') for subj_group in Subject.objects.get(id=subject.get('id')).groups.all()]
+
+    options_list = [
+        {
+            'name': str(group.id),
+            'label': group.name
+        } for group in SubjectGroup.objects.all()
+    ]
+    options_list = sorted(options_list, key=lambda x: x['label'])
+    return variables.select_multiple_rule_variable("Subject Group", options=options_list)(f)
 
 
 def create_new_func(key, return_type, label=None, options_dict=None):
@@ -299,6 +299,8 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
 
     attrs = dict((x.attrname, create_new_func(x.attrname, x.return_type, label=x.label, options_dict=x.optionsdict))
                  for x in attributes_accumulator.values())
+    subject_group_func = create_subject_group_func()
+    attrs['subject_group'] = subject_group_func
 
     # Invent a class name
     # TODO: Research the behavior of new-ing up a type like this repeatedly.

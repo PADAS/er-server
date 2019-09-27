@@ -831,7 +831,6 @@ class BusinessRulesTestCase(BaseAPITest):
 
                     send_alert_to_notificationmethod(**kwargs)
                 already_queued_nids.add(notification_method.id)
-
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual([NOTIFICATION_METHOD_EMAIL_ADDRESS],
                          mail.outbox[0].to)
@@ -926,3 +925,23 @@ class BusinessRulesTestCase(BaseAPITest):
 
         for subject_group in SubjectGroup.objects.all():
             self.assertIn(str(subject_group.id), str(response.data))
+
+    def test_subject_group_list_updated_for_a_new_eventvariables_type(self):
+        request = self.factory.get(
+            self.api_base + '/activity/alerts/conditions/')
+        self.force_authenticate(request, self.power_user)
+        response = EventAlertConditionsListView.as_view()(request)
+
+        for subject_group in SubjectGroup.objects.all():
+            self.assertIn(str(subject_group.id), str(response.data))
+
+        test_subj = SubjectGroup.objects.create(
+            name="new_created"
+        )
+
+        request = self.factory.get(
+            self.api_base + '/activity/alerts/conditions/')
+        self.force_authenticate(request, self.power_user)
+        response = EventAlertConditionsListView.as_view()(request)
+
+        self.assertIn(str(test_subj.id), str(response.data))
