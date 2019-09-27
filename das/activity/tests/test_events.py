@@ -1034,8 +1034,9 @@ class TestEventView(BaseAPITest):
             response.rendered_content)
         # get the last event
         event = events_report[-1]
-        self.assertEqual(int(event['Collection_Report_Id']),
-                         collection_serial_number)
+        parent_ids = event['Collection_Report_IDs'].split(';')
+        the_parent_id = int(parent_ids[0]) if parent_ids else None
+        self.assertEqual(the_parent_id, collection_serial_number)
 
     def test_export_csv_with_filter(self):
         carcass_data = json.loads(
