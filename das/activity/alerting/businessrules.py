@@ -16,6 +16,8 @@ import logging
 
 from activity.models import Event
 
+VIEW_SUBJECTGROUP_PERMS = ('observations.view_subjectgroup', )
+
 # Use string value of priority as value (ex. '0') to satisfy rules engine.
 priority_options = [dict(name=str(x), label=y)
                     for x, y in Event.PRIORITY_CHOICES]
@@ -125,17 +127,21 @@ def whitelist_operators(vtypename, operators):
         yield from operators
 
 
-def create_subject_group_func():
+def create_subject_group_func(user=None):
     def f(self):
         return [str(subj_group.id) for subject in self.event.get('related_subjects') for subj_group in Subject.objects.get(id=subject.get('id')).groups.all()]
 
-    options_list = [
-        {
-            'name': str(group.id),
-            'label': group.name
-        } for group in SubjectGroup.objects.all()
-    ]
-    options_list = sorted(options_list, key=lambda x: x['label'])
+    options_list = []
+
+    if user and user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
+        options_list = [
+            {
+                'name': str(group.id),
+                'label': group.name
+            } for group in SubjectGroup.objects.all().filter(
+                permission_sets__in=user.get_all_permission_sets())
+        ]
+        options_list = sorted(options_list, key=lambda x: x['label'])
     return variables.select_multiple_rule_variable("Subject Group", options=options_list)(f)
 
 
@@ -235,7 +241,7 @@ def accumulate_options(schema_option, accumulator=None):
     return {}
 
 
-def _generate_aggregate_event_variables_class(event_types, only_common_factors=False):
+def _generate_aggregate_event_variables_class(event_types, only_common_factors=False, user=None):
     '''
     From a list of EventTypes, generate an EventVariables class adhering to business-rules interface.
     :param event_types: A list of DAS EventType objects from which to build a variables type.
@@ -299,7 +305,7 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
 
     attrs = dict((x.attrname, create_new_func(x.attrname, x.return_type, label=x.label, options_dict=x.optionsdict))
                  for x in attributes_accumulator.values())
-    subject_group_func = create_subject_group_func()
+    subject_group_func = create_subject_group_func(user)
     attrs['subject_group'] = subject_group_func
 
     # Invent a class name
@@ -312,16 +318,15 @@ PRUNE_OPTIONS_FROM = (
     fields.FIELD_TEXT, fields.FIELD_NO_INPUT, fields.FIELD_NUMERIC,)
 
 
-def render_aggregate_event_variables(event_types, only_common_factors=False):
+def render_aggregate_event_variables(event_types, only_common_factors=False, user=None):
     '''
     From a list of EventTypes, generate render a set of rules.
     :param event_types: A list of DAS EventType objects from which to build a variables type.
     :param only_common_factors: Whether to reduce the list of variables to just those which apply to all event_types.
     :return: A rules document that the UI will render allowing a user to build a condition set.
     '''
-
     variables_class, applies_to_map = _generate_aggregate_event_variables_class(event_types,
-                                                                                only_common_factors=only_common_factors)
+                                                                                only_common_factors=only_common_factors, user=user)
 
     rules = export_rule_data(variables_class, EventActions)
 

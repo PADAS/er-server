@@ -65,6 +65,21 @@ class BusinessRulesTestCase(BaseAPITest):
             self.power_user_permissionset.permissions.add(
                 Permission.objects.get(codename=perm))
         self.power_user.permission_sets.add(self.power_user_permissionset)
+
+        self.subjectgroup_test_perm = PermissionSet.objects.create(
+            name='subject_view')
+        self.subjectgroup_test_perm.permissions.add(Permission.objects.get_by_natural_key(
+            'view_subjectgroup', 'observations', 'subjectgroup'
+        ))
+
+        self.subjectgroup_user = User.objects.create_user(
+            username='subGrp',
+            password='asdfo9823sfiu23$',
+            email='subgrpr@tempuri.org')
+
+        self.subjectgroup_user.permission_sets.add(self.subjectgroup_test_perm)
+        self.subjectgroup_user.save()
+
         self.notification_method = {
             'contact': {
                 'method': 'sms',
@@ -767,6 +782,7 @@ class BusinessRulesTestCase(BaseAPITest):
 
         subj_group = SubjectGroup.objects.create(name="subject_group")
         subj_group.subjects.set([subj])
+        subj_group.permission_sets.set([self.subjectgroup_test_perm])
         subj_group.save()
 
         conditions = {
@@ -918,18 +934,30 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(len(mail.outbox), 0)
 
     def test_subject_group_in_conditions(self):
+        for grp in SubjectGroup.objects.all():
+            grp.permission_sets.add(self.subjectgroup_test_perm)
+            grp.save()
         request = self.factory.get(
             self.api_base + '/activity/alerts/conditions/')
-        self.force_authenticate(request, self.power_user)
+        self.force_authenticate(request, self.subjectgroup_user)
         response = EventAlertConditionsListView.as_view()(request)
 
         for subject_group in SubjectGroup.objects.all():
             self.assertIn(str(subject_group.id), str(response.data))
 
+    def test_user_without_view_subjectgroup_permissions_does_not_see_subject_groups(self):
+        request = self.factory.get(
+            self.api_base + '/activity/alerts/conditions/')
+        self.force_authenticate(request, self.alerts_perms_user)
+        response = EventAlertConditionsListView.as_view()(request)
+
+        for subject_group in SubjectGroup.objects.all():
+            self.assertNotIn(str(subject_group.id), str(response.data))
+
     def test_subject_group_list_updated_for_a_new_eventvariables_type(self):
         request = self.factory.get(
             self.api_base + '/activity/alerts/conditions/')
-        self.force_authenticate(request, self.power_user)
+        self.force_authenticate(request, self.subjectgroup_user)
         response = EventAlertConditionsListView.as_view()(request)
 
         for subject_group in SubjectGroup.objects.all():
@@ -939,9 +967,12 @@ class BusinessRulesTestCase(BaseAPITest):
             name="new_created"
         )
 
+        test_subj.permission_sets.add(self.subjectgroup_test_perm)
+        test_subj.save()
+
         request = self.factory.get(
             self.api_base + '/activity/alerts/conditions/')
-        self.force_authenticate(request, self.power_user)
+        self.force_authenticate(request, self.subjectgroup_user)
         response = EventAlertConditionsListView.as_view()(request)
 
         self.assertIn(str(test_subj.id), str(response.data))
