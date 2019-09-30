@@ -19,7 +19,7 @@ from rest_framework import generics, status, response
 from django.http.response import HttpResponse
 from django.db.models import Prefetch, Q, F, Func, Count
 from django.db.models.functions import FirstValue
-from django.contrib.postgres.aggregates import StringAgg, JSONBAgg
+from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
 from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
 
 from django.urls import reverse
@@ -345,9 +345,9 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         default_headers = [
             'Report Type', 'Report Type Internal Value', 'Report Id', 'Title',
             'Priority', 'Priority Internal Value', 'Status', 'Reported By',
-            'Reported By Internal Value', reported_at, 'Latitude', 'Longitude',
+            reported_at, 'Latitude', 'Longitude',
             'Number of Notes', 'Notes', 'Number of Related Subjects',
-            'Collection Report Id', 'CUSTOM FIELDS BEGIN HERE'
+            'Collection Report IDs', 'CUSTOM FIELDS BEGIN HERE'
         ]
         custom_headers = []
         combined_headers = []
@@ -356,20 +356,14 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         event_type_map = generate_event_type_cache()
 
-        # TODO: Resolve how we can annotate with an array-aggregation for
-        # parents' IDs.
-        parent_event_subquery = EventRelationship.objects.filter(
-            to_event_id=OuterRef('id')).order_by('created_at')
-
         for event in self.get_queryset() \
             .annotate(notes_count=Count('note')) \
             .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
             .annotate(related_subjects_count=Count('related_subjects')) \
-            .annotate(parent_event_title=Subquery(
-                parent_event_subquery.values('from_event__serial_number')[:1])) \
+            .annotate(parent_event_serial_numbers=ArrayAgg('in_relationship__from_event__serial_number')) \
             .values('id', 'serial_number', 'priority', 'state',
                     'title', 'event_type_id', 'event_details__data',
-                    'notes_count', 'full_notes', 'parent_event_title',
+                    'notes_count', 'full_notes', 'parent_event_serial_numbers',
                     'location', 'event_time', 'reported_by_id',
                     'related_subjects_count'):
 
@@ -448,22 +442,15 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 'num_notes': event['notes_count'],
                 'notes': self.escape_string(event['full_notes']),
                 'num_attach': event['related_subjects_count'],
-                'parent_id': event['parent_event_title'],
+                'parent_event_serial_numbers': ';'.join((str(x) for x in event['parent_event_serial_numbers'] if x is not None)),
                 'status': 'Resolved' if event[
                     'state'] == Event.SC_RESOLVED else 'Active',
                 'details': schema_data
             }
 
             # Use cached reported_by map
-            reported_by_values = reported_by_map.get(
-                str(event['reported_by_id']))
-            if reported_by_values:
-                event_data['reported_by'] = reported_by_values['display']
-                event_data['reported_by_internal'] = reported_by_values[
-                    'display']
-            else:
-                event_data['reported_by'] = ''
-                event_data['reported_by_internal'] = ''
+            reported_by_values = reported_by_map.get(str(event['reported_by_id']))
+            event_data['reported_by'] = reported_by_values.get('display', '') if reported_by_values else ''
 
             current_event_type_data['events'].append(event_data)
 

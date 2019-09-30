@@ -973,37 +973,6 @@ class TestEventView(BaseAPITest):
             dict_list.append(d)
         return dict_list
 
-    def test_reported_by_and_reported_by_internal_id_in_exported_csv_are_same(
-            self):
-
-        event_data = copy.deepcopy(self.event_data)
-        event_data['reported_by'] = UserDisplaySerializer(
-        ).to_representation(self.all_perms_user)
-        event_data['provenance'] = Event.PC_STAFF
-        event_data['event_type'] = ET_SECURITY
-        event_data['message'] = ''
-
-        request = self.factory.post(self.api_base + '/events/', event_data)
-        self.force_authenticate(request, self.all_perms_user)
-
-        response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
-
-        url = """/activity/events/export"""
-
-        request = self.factory.get(
-            self.api_base + url)
-
-        self.force_authenticate(request, self.all_perms_user)
-        response = self._export_template_response(request)
-
-        self.assertEqual(response.status_code, 200)
-
-        events_array = self.convert_rendered_csv_to_dict(
-            response.rendered_content)
-        for event in events_array:
-            self.assertEqual(event['Reported_By'],
-                             event['Reported_By_Internal_Value'])
 
     def test_collection_report_id_exported_as_parent_event_serial_number(self):
         collection_event_data = copy.deepcopy(self.event_data)
@@ -1065,8 +1034,9 @@ class TestEventView(BaseAPITest):
             response.rendered_content)
         # get the last event
         event = events_report[-1]
-        self.assertEqual(int(event['Collection_Report_Id']),
-                         collection_serial_number)
+        parent_ids = event['Collection_Report_IDs'].split(';')
+        the_parent_id = int(parent_ids[0]) if parent_ids else None
+        self.assertEqual(the_parent_id, collection_serial_number)
 
     def test_export_csv_with_filter(self):
         carcass_data = json.loads(

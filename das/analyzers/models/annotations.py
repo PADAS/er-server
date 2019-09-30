@@ -24,6 +24,10 @@ except (AttributeError, KeyError):
 
 class ObservationAnnotator(Annotator):
 
+    class Meta(Annotator.Meta):
+        verbose_name = _('Subject Track Filter')
+        verbose_name_plural = _('Subject Track Filters')
+
     @classmethod
     def should_run(cls, *args, **kwargs):
         return True
