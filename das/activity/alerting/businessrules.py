@@ -139,7 +139,7 @@ def create_subject_group_func(user=None):
                 'name': str(group.id),
                 'label': group.name
             } for group in SubjectGroup.objects.all().filter(
-                permission_sets__in=user.get_all_permission_sets())
+                permission_sets__in=user.get_all_permission_sets()).distinct('id')
         ]
         options_list = sorted(options_list, key=lambda x: x['label'])
     return variables.select_multiple_rule_variable("Subject Group", options=options_list)(f)
