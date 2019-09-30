@@ -31,7 +31,7 @@ py==1.5.3                 # via pytest
 pyparsing==2.4.0          # via packaging
 pytest-django==3.5.1
 pytest-pythonpath==0.7.3
-pytest==5.1.0
+pytest==5.2.0
 pytz==2019.1              # via django
 pyyaml==5.1.1             # via aspy.yaml, pre-commit
 six==1.11.0               # via cfgv, django-extensions, more-itertools, packaging, pip-tools, pre-commit, websocket-client
