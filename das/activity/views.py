@@ -21,6 +21,8 @@ from django.db.models import Prefetch, Q, F, Func, Count
 from django.db.models.functions import FirstValue
 from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
 from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
+from django.db.utils import IntegrityError
+from django.db import transaction
 
 from django.urls import reverse
 from django.template import Template, Context
@@ -46,7 +48,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, \
     EventFileSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
-    EventGeoJsonSerializer
+    EventGeoJsonSerializer, DuplicateResourceError
 
 from activity.filters import EventObjectPermissionsFilter
 from choices.models import Choice
@@ -559,6 +561,28 @@ class EventsView(generics.ListCreateAPIView):
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
+
+    def post(self, request, *args, **kwargs):
+        new_record = request.data
+        errors = []
+
+        if isinstance(new_record, dict):
+            new_record = [new_record]
+        with transaction.atomic():
+            serializer = EventSerializer(data=new_record, many=True, context={'request': request})
+            if serializer.is_valid():
+                try:
+                    serializer.save()
+                    return Response(json.loads(json.dumps(serializer.data)), status=status.HTTP_201_CREATED)
+                except IntegrityError:
+                    return Response({'message': 'Duplicate record'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            else:
+                errors.append(serializer.errors)
+            for error in errors:
+                if error:
+                    return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     def get_serializer_context(self):
 
