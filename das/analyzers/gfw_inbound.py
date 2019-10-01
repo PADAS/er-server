@@ -61,7 +61,7 @@ PROCESSED_COUNTER, ERROR_COUNTER = 'processed', 'errors'
 
 
 def process_handler_post(request):
-    logger.debug('Handle GFW Alert')
+    logger.info('Handle GFW Alert POST.')
     stats.increment(WEBHOOK_INVOCATION_COUNT_METRIC)
 
     deserialized = GFWAlertParameters(data=request.data)
@@ -130,7 +130,7 @@ def create_events(request, common_fields, validated_data):
         result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_urls.get('json'),
                                                                                    common_fields,
                                                                                    str(request.user.id)))
-        logger.debug('celery submit result: %s', result)
+        logger.info('Submitted task for downloading GFW Alerts. Celery Async result: %s', result)
 
     counts = {PROCESSED_COUNTER: 0, ERROR_COUNTER: 0}
     errors = [create_alert_event(alert)

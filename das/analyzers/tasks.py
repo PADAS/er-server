@@ -126,13 +126,19 @@ def handle_observation(observation_id):
 @celery.app.task()
 def download_gfw_alerts(download_url, common_event_fields, user_id):
     try:
-        logger.debug('downloading from: %s', download_url)
-        rsp = requests.get(url=download_url, timeout=(2, 5))
-    except Exception as ex:
-        logger.warning('Exception occurred while downloading alert data. Ignoring')
-        logger.exception(ex)
+        logger.info('Processing GFW payload. Downloading from: %s', download_url)
+        resp = requests.get(url=download_url, timeout=(2, 5))
+    except Exception:
+        logger.exception('Failed downloading GFW alert data for url: %s', download_url)
+        raise
 
+    if resp and resp.status_code == status.HTTP_200_OK:
+        logger.info('Good response from GFW download url: %s', download_url)
+
+        gfw_alerts_payload = json.loads(resp.text)
+        logger.debug('GFW Alerts downloaded data: %s', gfw_alerts_payload)
+        gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('data', []),
+                                              common_event_fields, user_id)
     else:
-        if rsp and rsp.status_code == status.HTTP_200_OK:
-            gfw_inbound.process_downloaded_alerts(json.loads(rsp.text).get('data', []),
-                                                  common_event_fields, user_id)
+        logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
+                     resp.status_code, download_url, resp.text)
