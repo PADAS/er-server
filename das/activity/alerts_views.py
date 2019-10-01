@@ -32,7 +32,6 @@ class EventAlertConditionsListView(generics.ListAPIView):
         return qs
 
     def get(self, *args, **kwargs):
-
         only_common_factors = parse_bool(
             self.request.query_params.get('only_common_factors', False))
         rules = render_aggregate_event_variables(self.get_queryset(
