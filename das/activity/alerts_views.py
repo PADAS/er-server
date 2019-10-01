@@ -32,11 +32,13 @@ class EventAlertConditionsListView(generics.ListAPIView):
         return qs
 
     def get(self, *args, **kwargs):
-
-        only_common_factors = parse_bool(self.request.query_params.get('only_common_factors', False))
-        rules = render_aggregate_event_variables(self.get_queryset(), only_common_factors=only_common_factors)
+        only_common_factors = parse_bool(
+            self.request.query_params.get('only_common_factors', False))
+        rules = render_aggregate_event_variables(self.get_queryset(
+        ), only_common_factors=only_common_factors, user=self.request.user)
 
         return response.Response(rules, status=status.HTTP_200_OK)
+
 
 class AlertRuleListView(generics.ListCreateAPIView):
 
@@ -44,7 +46,7 @@ class AlertRuleListView(generics.ListCreateAPIView):
 
     serializer_class = AlertRuleSerializer
 
-    queryset = AlertRule.objects.none() # Required for DjangoModelPermission
+    queryset = AlertRule.objects.none()  # Required for DjangoModelPermission
 
     def get_queryset(self):
         return AlertRule.objects.filter(owner=self.request.user).order_by('ordernum', 'title')
