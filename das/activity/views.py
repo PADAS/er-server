@@ -48,7 +48,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, \
     EventFileSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
-    EventGeoJsonSerializer, DuplicateResourceError
+    EventGeoJsonSerializer
 
 from activity.filters import EventObjectPermissionsFilter
 from choices.models import Choice
@@ -564,28 +564,23 @@ class EventsView(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         new_record = request.data
-        errors = []
-
         if isinstance(new_record, dict):
             new_record = [new_record]
         with transaction.atomic():
-            serializer = EventSerializer(data=new_record, many=True, context={'request': request})
+            errors = []
+            serializer = self.get_serializer(data=new_record, many=True)
             if serializer.is_valid():
-                try:
-                    serializer.save()
-                    return Response(json.loads(json.dumps(serializer.data)), status=status.HTTP_201_CREATED)
-                except IntegrityError:
-                    return Response({'message': 'Duplicate record'}, status=status.HTTP_400_BAD_REQUEST)
-                
+                serializer.save()
+                return Response(
+                    serializer.data, status=status.HTTP_201_CREATED)
             else:
                 errors.append(serializer.errors)
-            for error in errors:
-                if error:
+                for error in errors:
+                    logger.exception(
+                        'Invalid Event type(s) provided {}'.format(error))
                     return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
-
     def get_serializer_context(self):
-
         query_params = self.request.query_params \
             if self.request and hasattr(self.request, 'query_params') else {}
 
