@@ -247,6 +247,9 @@ lag_notification_threshold_help_text =  \
 silence_notification_threshold_help_text =  \
     _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source Provider.')
 
+maximum_number_of_days_help_text =  \
+    _('Value in integer: that indicates number of days to retain data from Source Provider.')
+
 
 class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
@@ -256,11 +259,16 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text)
 
+    maximum_number_of_days = forms.IntegerField(required=False, help_text=maximum_number_of_days_help_text)
+
     class Meta:
         model = SourceProvider
         fields = ['provider_key', 'display_name', 'additional']
-        json_fields = ('lag_notification_threshold',
-                       'silence_notification_threshold',)
+        json_fields = (
+            'lag_notification_threshold',
+            'silence_notification_threshold',
+            'maximum_number_of_days',
+        )
         json_date_fields = set()
 
     # def clean_lag_notification_threshold(self):
