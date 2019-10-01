@@ -2,6 +2,8 @@ import json
 
 import requests
 from django.contrib.gis.geos import GEOSGeometry
+from django.test import tag
+from django.test.utils import skipIf
 from rest_framework import status
 
 from analyzers import gfw_outbound
@@ -14,6 +16,8 @@ GEOSTORE_ENDPOINT = f'{GFW_API_ROOT}/geostore'
 AUTH_HEADER = {'Authorization': f'Bearer {gfw_outbound.get_gfw_auth_token()}'}
 
 
+@tag('gwf_outbound')
+@skipIf(True, 'Skipping GFWServiceTest tests as they require GFW api calls')
 class GFWServiceTest(BaseAPITest):
 
     def setUp(self):
@@ -22,10 +26,12 @@ class GFWServiceTest(BaseAPITest):
         self.subscription_ids_to_delete = []
 
     def tearDown(self):
-        [self._unsubscribe(sub_id) for sub_id in self.subscription_ids_to_delete]
+        [self._unsubscribe(sub_id)
+         for sub_id in self.subscription_ids_to_delete]
 
     def test_create_geostore(self):
-        id = gfw_outbound._get_geostore_id({'subscription_geometry': GEOSGeometry(json.dumps(gfw_test_data.DRC_POLYGON))})
+        id = gfw_outbound._get_geostore_id(
+            {'subscription_geometry': GEOSGeometry(json.dumps(gfw_test_data.DRC_POLYGON))})
         self.assertIsNotNone(id)
         self.assertEqual(id, gfw_test_data.DRC_GEOSTORE_ID)
 
@@ -35,14 +41,17 @@ class GFWServiceTest(BaseAPITest):
         [self._create_and_verify_subscription(info) for info in test_models]
 
     def test_get_subscription(self):
-        gfw_info = self._get_gfw_info(gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA)
+        gfw_info = self._get_gfw_info(
+            gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA)
         self._create_and_verify_subscription(gfw_info)
 
     def test_update_subscription(self):
-        gfw_info = self._get_gfw_info(gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA)
+        gfw_info = self._get_gfw_info(
+            gfw_test_data.GLAD_ALERT_SUBSCRIPTION_DATA)
         original_sub_id = self._create_and_verify_subscription(gfw_info)
 
-        gfw_info = self._get_gfw_info(gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA)
+        gfw_info = self._get_gfw_info(
+            gfw_test_data.FIRE_ALERT_SUBSCRIPTION_DATA)
         gfw_info['subscription_id'] = original_sub_id
         rsp = gfw_outbound.update_subscription(gfw_info, False)
 
@@ -56,7 +65,8 @@ class GFWServiceTest(BaseAPITest):
         self.assertIsNotNone(updated_sub_id)
         self.assertIsNotNone(data.get('geostore_id'))
 
-        self.assertEqual(updated_sub_id, original_sub_id)  # shouldn't have created a new subscription_id
+        # shouldn't have created a new subscription_id
+        self.assertEqual(updated_sub_id, original_sub_id)
 
         rsp = self._get_data(dest_url=f'{SUBSCRIPTION_ENDPOINT}/{updated_sub_id}',
                              headers=AUTH_HEADER)
@@ -111,7 +121,8 @@ class GFWServiceTest(BaseAPITest):
         return sub_id
 
     def _unsubscribe(self, sub_id):
-        rsp = requests.get(url=f'{SUBSCRIPTION_ENDPOINT}/{sub_id}/unsubscribe', headers=AUTH_HEADER)
+        rsp = requests.get(
+            url=f'{SUBSCRIPTION_ENDPOINT}/{sub_id}/unsubscribe', headers=AUTH_HEADER)
         self.assertEqual(rsp.status_code, status.HTTP_200_OK)
 
     def _post_data(self, dest_url, payload_dict, headers=None):

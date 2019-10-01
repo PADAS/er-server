@@ -123,6 +123,10 @@ class EventCategory(TimestampedModel):
     flag = models.CharField(max_length=40, default='user', choices=(
         ('user', 'User'), ('system', 'System')))
 
+    class Meta:
+        verbose_name = _('Event Category')
+        verbose_name_plural = _('Event Categories')
+
     def __str__(self):
         return self.display
 

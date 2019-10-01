@@ -226,10 +226,10 @@ class EventProviderAdmin(admin.ModelAdmin):
     form = EventProviderForm
 
 
-@admin.register(models.EventsourceEvent)
-class EventsourceEventAdmin(admin.ModelAdmin):
-    pass
-
+# @admin.register(models.EventsourceEvent)
+# class EventsourceEventAdmin(admin.ModelAdmin):
+#     pass
+#
 
 @admin.register(models.EventCategory)
 class EventCategoryAdmin(admin.ModelAdmin):

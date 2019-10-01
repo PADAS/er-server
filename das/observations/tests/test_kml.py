@@ -1,13 +1,16 @@
 import copy
 import io
 import json
+import re
 import zipfile
+from unittest import mock
+from urllib.parse import urlencode
 
 import pytz
 from core.tests import BaseAPITest
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.contrib.auth.models import Permission
-from django.urls import reverse
+from django.urls import reverse, resolve
 from lxml import etree
 
 import xmlunittest
@@ -16,6 +19,11 @@ from observations.models import Subject, Source, SubjectSource, SubjectGroup, Re
 from observations.views import KmlSubjectView, KmlSubjectsView, KmlRootView
 from observations.kmlutils import get_kml_access_token
 from tracking.models.plugin_base import Obs
+
+
+def mock_now():
+    now = datetime.now()
+    return pytz.utc.localize(now - timedelta(weeks=55))
 
 
 class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
@@ -202,3 +210,196 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
             response_kml = response_kml_bytes.read()
         root = self.assertXmlDocument(response_kml)
         self.assertXmlNamespace(root, None, 'http://www.opengis.net/kml/2.2')
+
+    def test_root_kml_passes_filters_to_subjects_url(self):
+        url = reverse('subjects-kml-root-view')
+        kml_filters = {
+            'start': '2017-06-12',
+            'end': '2019-06-12',
+            'include_inactive': 'true'
+        }
+        url += '?{}'.format(urlencode(kml_filters))
+
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+
+        response = KmlRootView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
+        with kmz.open('document.kml') as response_kml_bytes:
+            response_kml = response_kml_bytes.read()
+        root = self.assertXmlDocument(response_kml)
+        self.assertXmlNamespace(root, None, 'http://www.opengis.net/kml/2.2')
+        response_kml_str = response_kml.decode('utf-8')
+        self.assertIn('start=2017-06-12', response_kml_str)
+        self.assertIn('end=2019-06-12', response_kml_str)
+        self.assertIn('include_inactive=true', response_kml_str)
+
+    def test_not_passing_include_inactive_filter_returns_only_active_subjects(self):
+        # force elephant_1 and elephant_2 to be inactive
+        self.elephant_1.is_active = False
+        self.elephant_1.save()
+
+        self.elephant_2.is_active = False
+        self.elephant_2.save()
+
+        # pass filters to the root kml view
+        url = reverse('subjects-kml-root-view')
+        url += '?{}'.format(urlencode({'include_inactive': 'false'}))
+
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+
+        response = KmlRootView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
+        with kmz.open('document.kml') as response_kml_bytes:
+            response_kml = response_kml_bytes.read()
+        response_kml_str = response_kml.decode('utf-8')
+        urls = re.findall(
+            r'http://testserver[\'"]?([^\'" <]+)', response_kml_str)
+        subjects_url = urls[0].replace("amp;", "")
+        # remove the query params to test if the right view is called
+        base_url = subjects_url.split("?")[0]
+        # assert that the link passed in the root url redirects to the
+        # KmlSubjectsView
+        found = resolve(base_url)
+        self.assertEqual(found.url_name, "subjects-kml-view")
+
+        request = self.factory.get(self.api_base + subjects_url)
+        self.force_authenticate(request, self.user)
+        response = KmlSubjectsView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
+        with kmz.open('document.kml') as response_kml_bytes:
+            response_kml = response_kml_bytes.read()
+        response_kml_str = response_kml.decode('utf-8')
+        urls = re.findall(r'http://testserver[\'"]?([^\'" <]+)',
+                          response_kml_str)
+
+        queryset = Subject.objects.filter(is_active=True)
+        queryset = queryset.by_user_subjects(self.user)
+        self.assertEqual(len(urls), queryset.count())
+
+    def test_include_inactive_filter_returns_all_subjects(self):
+        # force all subjects to be inactive
+        self.elephant_1.is_active = False
+        self.elephant_1.save()
+
+        self.elephant_2.is_active = False
+        self.elephant_2.save()
+
+        # pass filters to the root kml view
+        url = reverse('subjects-kml-root-view')
+        url += '?{}'.format(urlencode({'include_inactive': 'true'}))
+
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+
+        response = KmlRootView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
+        with kmz.open('document.kml') as response_kml_bytes:
+            response_kml = response_kml_bytes.read()
+        response_kml_str = response_kml.decode('utf-8')
+        urls = re.findall(
+            r'http://testserver[\'"]?([^\'" <]+)', response_kml_str)
+        subjects_url = urls[0].replace("amp;", "")
+        # remove the query params to test if the right view is called
+        base_url = subjects_url.split("?")[0]
+        # assert that the link passed in the root url redirects to the
+        # KmlSubjectsView
+        found = resolve(base_url)
+        self.assertEqual(found.url_name, "subjects-kml-view")
+
+        request = self.factory.get(self.api_base + subjects_url)
+        self.force_authenticate(request, self.user)
+        response = KmlSubjectsView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
+        with kmz.open('document.kml') as response_kml_bytes:
+            response_kml = response_kml_bytes.read()
+        response_kml_str = response_kml.decode('utf-8')
+        urls = re.findall(r'http://testserver[\'"]?([^\'" <]+)',
+                          response_kml_str)
+
+        queryset = Subject.objects.all()
+        queryset = queryset.by_user_subjects(self.user)
+        self.assertEqual(len(urls), queryset.count())
+
+    @mock.patch('django.utils.timezone.now', mock_now)
+    def test_filter_by_dates(self):
+        # create 2 new elephants backdate to last year - mock timezone.now()
+
+        Subject.objects.create_subject(
+            id='d2ed403e-9419-41aa-8fa9-45a70e5ce2e0', name='Elephant 4',
+            subject_subtype_id='elephant',
+            additional={'region': 'Region 1', 'country': 'USA',
+                        'rgb': '220,30,30'})
+        Subject.objects.create_subject(
+            id='c25e17d0-0337-4f0c-9274-25e5ae4da7c0', name='Elephant 5',
+            subject_subtype_id='elephant',
+            additional={'region': 'Region 1', 'country': 'USA'})
+
+        start_date = pytz.utc.localize(datetime.now() - timedelta(weeks=60))
+        end_date = pytz.utc.localize(datetime.now() - timedelta(weeks=50))
+
+        url = reverse('subjects-kml-root-view')
+        url += '?{}'.format(urlencode({'start': start_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                                       'end': end_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")}))
+
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+
+        response = KmlRootView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
+        with kmz.open('document.kml') as response_kml_bytes:
+            response_kml = response_kml_bytes.read()
+        response_kml_str = response_kml.decode('utf-8')
+        urls = re.findall(
+            r'http://testserver[\'"]?([^\'" <]+)', response_kml_str)
+        subjects_url = urls[0].replace("amp;", "")
+        # remove the query params to test if the right view is called
+        base_url = subjects_url.split("?")[0]
+        # assert that the link passed in the root url redirects to the
+        # KmlSubjectsView
+        found = resolve(base_url)
+        self.assertEqual(found.url_name, "subjects-kml-view")
+
+        request = self.factory.get(self.api_base + subjects_url)
+        self.force_authenticate(request, self.user)
+        response = KmlSubjectsView.as_view()(request)
+        response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        kmz = zipfile.ZipFile(io.BytesIO(response_data), "r")
+        with kmz.open('document.kml') as response_kml_bytes:
+            response_kml = response_kml_bytes.read()
+        response_kml_str = response_kml.decode('utf-8')
+        urls = re.findall(r'http://testserver[\'"]?([^\'" <]+)',
+                          response_kml_str)
+
+        expected_subjects = Subject.objects.filter(
+            created_at__range=[start_date, end_date]).count()
+
+        self.assertEqual(len(urls), expected_subjects)
+
+    def test_root_kml_accepts_timezone_aware_datetimes(self):
+        start_date = pytz.utc.localize(datetime.now() - timedelta(weeks=60))
+        end_date = pytz.utc.localize(datetime.now() - timedelta(weeks=50))
+
+        url = reverse('subjects-kml-root-view')
+        url += '?{}'.format(urlencode({'start': start_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                                       'end': end_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")}))
+
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+
+        response = KmlRootView.as_view()(request)
+        self.assertEqual(response.status_code, 200)

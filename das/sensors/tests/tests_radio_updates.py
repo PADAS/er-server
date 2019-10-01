@@ -1,11 +1,12 @@
 import logging
 from datetime import datetime, timedelta
+from unittest import mock
 
 import pytz
 from django.contrib.auth.models import Permission
 import django.contrib.auth
 
-from core.tests import BaseAPITest
+from core.tests import BaseAPITest, fake_get_pool
 from sensors.views import SensorObservation
 from observations.views import SubjectTracksView
 from observations.models import Subject, Source, SourceProvider, SubjectSource, SubjectStatus, \
@@ -40,6 +41,7 @@ class RadioObservationTest(BaseAPITest):
                                                                    subject=self.test_subject_no1,
                                                                    assigned_range=DEFAULT_ASSIGNED_RANGE)
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_post_new_radio_update(self):
 
         next_track = {'recorded_at': datetime.now(tz=pytz.utc),
@@ -75,6 +77,7 @@ class RadioObservationTest(BaseAPITest):
 
         self.assertEqual(response.status_code, 201)
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_radio_state_change(self):
 
         st = SubjectStatus.objects.filter(

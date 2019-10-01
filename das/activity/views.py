@@ -19,9 +19,8 @@ from rest_framework import generics, status, response
 from django.http.response import HttpResponse
 from django.db.models import Prefetch, Q, F, Func, Count
 from django.db.models.functions import FirstValue
-from django.contrib.postgres.aggregates import StringAgg, JSONBAgg
+from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
 from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
-
 
 from django.urls import reverse
 from django.template import Template, Context
@@ -36,30 +35,35 @@ from django.views.generic.base import TemplateResponseMixin, ContextMixin
 
 from accounts.models import User
 
-from activity.models import Event, EventNote, EventClass,\
-    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, EventFile, Community,\
+from activity.models import Event, EventNote, EventClass, \
+    EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, \
+    EventFile, Community, \
     EventFilter, EventSource, EventProvider
 
-from activity.serializers import EventSerializer, EventNoteSerializer,\
-    EventJSONSchema, EventStateSerializer,\
-    EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer,\
-    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, EventFileSerializer, \
-    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, EventGeoJsonSerializer
-from activity.alerts import get_alert_users
-from activity.filters import EventObjectPermissionsFilter
+from activity.serializers import EventSerializer, EventNoteSerializer, \
+    EventJSONSchema, EventStateSerializer, \
+    EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer, \
+    EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, \
+    EventFileSerializer, \
+    EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
+    EventGeoJsonSerializer
 
-from rest_framework.permissions import IsAuthenticated
-from activity.permissions import EventCategoryPermissions, EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
-from utils.drf import StandardResultsSetPagination, StandardResultsSetGeoJsonPagination
+from activity.filters import EventObjectPermissionsFilter
+from choices.models import Choice
+
+from activity.permissions import EventCategoryPermissions, \
+    EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
+from utils.drf import StandardResultsSetPagination, \
+    StandardResultsSetGeoJsonPagination
 from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
 import utils
 import accounts.serializers
 import accounts.models
 from observations.models import Subject
+from observations.views import UnauthorizedView
 from rest_framework import views
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
 import utils.schema_utils as schema_utils
-
 
 logger = logging.getLogger(__name__)
 
@@ -126,13 +130,13 @@ class EventProvidersView(generics.ListCreateAPIView):
     permission_classes = (IsOwner,)
 
     def get_queryset(self):
-        return EventProvider.objects.filter(owner=self.request.user, is_active=True).order_by('display')
+        return EventProvider.objects.filter(owner=self.request.user,
+                                            is_active=True).order_by('display')
 
 
 class EventSourcesView(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
-
         request.data['eventprovider'] = kwargs['eventprovider_id']
         return super().post(request, *args, **kwargs)
 
@@ -216,6 +220,15 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         schema['schema']['image_url'] = utils.add_base_url(
             request, eventtype.image_url)
 
+        field_schema = schema_utils.map_schema(eventtype.schema, schema)
+        for key, value in field_schema.items():
+            inactive_choices = []
+            obj = Choice.objects.filter(is_active=False, field=value['field_name'])
+            for o in obj:
+                inactive_choices.append(o.value)
+            schema['schema']['properties'][key]["inactive"+"_"+value['lookup']] = inactive_choices
+
+
         return generics.views.Response(schema)
 
     def post(self, request, *args, **kwargs):
@@ -227,10 +240,9 @@ from activity.search import get_event_search_schema
 
 class EventFilterSchemaView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
-
         schema = get_event_search_schema()
         schema['schema']['id'] = utils.add_base_url(
-            request, reverse('eventfilter-schema-view',))
+            request, reverse('eventfilter-schema-view', ))
 
         return generics.views.Response(schema)
 
@@ -291,22 +303,39 @@ class EventCountView(generics.ListAPIView):
 
 def generate_reported_by_lookup():
     user_qs = User.objects.all() \
-         .annotate(internal_id=Cast('id', CharField()), value=F('username'), kind=Value('user', output_field=CharField()), display_value=Concat('first_name', Value(' '), 'last_name'))\
-                   .values_list('internal_id', 'value', 'kind', 'display_value')
+        .annotate(internal_id=Cast('id', CharField()), value=F('username'),
+                  kind=Value('user', output_field=CharField()),
+                  display_value=Concat('first_name', Value(' '), 'last_name')) \
+        .values_list('internal_id', 'value', 'kind', 'display_value')
     community_qs = Community.objects.all() \
-         .annotate(internal_id=Cast('id', CharField()), value=F('name'), kind=Value('community', output_field=CharField()), display_value=F('name')) \
-                .values_list('internal_id', 'value', 'kind', 'display_value')
+        .annotate(internal_id=Cast('id', CharField()), value=F('name'),
+                  kind=Value('community', output_field=CharField()),
+                  display_value=F('name')) \
+        .values_list('internal_id', 'value', 'kind', 'display_value')
     reported_by_qs = Subject.objects.all() \
-         .annotate(internal_id=Cast('id', CharField()), value=Cast('id', CharField()), kind=Value('subject', output_field=CharField()), display_value=F('name')) \
-                .values_list('internal_id', 'value', 'kind', 'display_value')
+        .annotate(internal_id=Cast('id', CharField()),
+                  value=Cast('id', CharField()),
+                  kind=Value('subject', output_field=CharField()),
+                  display_value=F('name')) \
+        .values_list('internal_id', 'value', 'kind', 'display_value')
 
     reported_by_list = reported_by_qs.union(user_qs, community_qs)
 
-    reported_by_map = dict((x[0], {'value': x[1], 'kind': x[2], 'display': x[3]}) for x in reported_by_list)
+    reported_by_map = dict(
+        (x[0], {'value': x[1], 'kind': x[2], 'display': x[3]}) for x in
+        reported_by_list)
     return reported_by_map
 
-class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
+def generate_event_type_cache():
+    event_types = EventType.objects.all().values('id', 'value', 'display', 'schema')
+    event_types_map = dict(
+        (event_type['id'], event_type) for event_type in event_types
+    )
+    return event_types_map
+
+
+class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
     permission_classes = (EventCategoryPermissions,)
 
     def get_event_export_list(self):
@@ -326,49 +355,53 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         default_headers = [
             'Report Type', 'Report Type Internal Value', 'Report Id', 'Title',
             'Priority', 'Priority Internal Value', 'Status', 'Reported By',
-                        'Reported By Internal Value', reported_at, 'Latitude', 'Longitude',
-                        'Number of Notes', 'Notes', 'Number of Related Subjects',
-                        'Collection Report Id', 'CUSTOM FIELDS BEGIN HERE'
+            reported_at, 'Latitude', 'Longitude',
+            'Number of Notes', 'Notes', 'Number of Related Subjects',
+            'Collection Report IDs', 'CUSTOM FIELDS BEGIN HERE'
         ]
         custom_headers = []
         combined_headers = []
 
         reported_by_map = generate_reported_by_lookup()
 
-        # TODO: Resolve how we can annotate with an array-aggregation for parents' IDs.
-        parent_event_subquery = EventRelationship.objects.filter(to_event_id=OuterRef('id')).order_by('created_at')
+        event_type_map = generate_event_type_cache()
 
         for event in self.get_queryset() \
-                .annotate(notes_count=Count('note')) \
-                .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
-                .annotate(related_subjects_count=Count('related_subjects')) \
-                .annotate(parent_event_id=Subquery(parent_event_subquery.values('from_event_id')[:1])) \
-                .values( 'id', 'serial_number', 'priority', 'state',
-                        'title', 'event_type_id', 'event_type__value', 'event_type__display',
-                        'event_type__schema', 'event_details__data', 'notes_count', 'full_notes',
-                        'parent_event_id', 'location', 'event_time', 'reported_by_id',
-                         'related_subjects_count'):
+            .annotate(notes_count=Count('note')) \
+            .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
+            .annotate(related_subjects_count=Count('related_subjects')) \
+            .annotate(parent_event_serial_numbers=ArrayAgg('in_relationship__from_event__serial_number')) \
+            .values('id', 'serial_number', 'priority', 'state',
+                    'title', 'event_type_id', 'event_details__data',
+                    'notes_count', 'full_notes', 'parent_event_serial_numbers',
+                    'location', 'event_time', 'reported_by_id',
+                    'related_subjects_count'):
 
             if event['event_type_id'] != current_event_type_data['id']:
+                event_type = event_type_map[event['event_type_id']]
 
                 current_event_type_data = {
                     'id': event['event_type_id'],
-                    'display': event['event_type__display'],
-                    'value': event['event_type__value'],
+                    'display': event_type['display'],
+                    'value': event_type['value'],
                     'events': [],
                     'headers': copy.deepcopy(default_headers)
                 }
 
                 try:
-                    current_schema = renderer(event['event_type__schema'])
+                    current_schema = renderer(event_type['schema'])
                     current_schema_order = \
-                        schema_utils.definition_key_order_as_dict(current_schema)
+                        schema_utils.definition_key_order_as_dict(
+                            current_schema)
 
                     for key, order in current_schema_order.items():
                         if not isinstance(key, int):
-                            display_value = schema_utils.get_display_value_header_for_key(current_schema, key)
-                            current_event_type_data['headers'].append(self.escape_string(key))
-                            current_event_type_data['headers'].append(self.escape_string(display_value))
+                            display_value = schema_utils.get_display_value_header_for_key(
+                                current_schema, key)
+                            current_event_type_data['headers'].append(
+                                self.escape_string(key))
+                            current_event_type_data['headers'].append(
+                                self.escape_string(display_value))
 
                             if key not in custom_headers:
                                 custom_headers.append(key)
@@ -388,43 +421,46 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             # for the headers above
             if event['event_details__data']:
                 details = schema_utils.get_display_values_for_event_details(
-                    event['event_details__data'].get('event_details', {}), current_schema)
+                    event['event_details__data'].get('event_details', {}),
+                    current_schema)
             else:
                 details = {}
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
-                item_display_name = schema_utils.get_display_value_header_for_key(current_schema, key)
+                item_display_name = schema_utils.get_display_value_header_for_key(
+                    current_schema, key)
                 schema_data[key] = self.escape_string(details.get(key, ''))
-                schema_data[item_display_name] = self.escape_string(details.get(item_display_name, ''))
+                schema_data[item_display_name] = self.escape_string(
+                    details.get(item_display_name, ''))
 
             # Now assemble the data we want to write to the csv
             event_data = {
                 'serial': event['serial_number'],
-                'event_type': event['event_type__display'],
-                'event_type_internal': event['event_type__value'],
+                'event_type': event_type['display'],
+                'event_type_internal': event_type['value'],
                 'title': self.escape_string(event['title']),
-                'priority': Event.PRIORITY_LABELS_MAP.get(event['priority'], ''),
+                'priority': Event.PRIORITY_LABELS_MAP.get(event['priority'],
+                                                          ''),
                 'priority_internal': event['priority'],
-                'reported_at': event['event_time'].astimezone(current_tz).strftime('%Y-%m-%d %H:%M'),
-                'lat': event['location'].y if event['location'] is not None else '',
-                'lon': event['location'].x if event['location'] is not None else '',
+                'reported_at': event['event_time'].astimezone(
+                    current_tz).strftime('%Y-%m-%d %H:%M'),
+                'lat': event['location'].y if event[
+                    'location'] is not None else '',
+                'lon': event['location'].x if event[
+                    'location'] is not None else '',
                 'num_notes': event['notes_count'],
                 'notes': self.escape_string(event['full_notes']),
                 'num_attach': event['related_subjects_count'],
-                'parent_id': event['parent_event_id'],
-                'status': 'Resolved' if event['state'] == Event.SC_RESOLVED else 'Active',
+                'parent_event_serial_numbers': ';'.join((str(x) for x in event['parent_event_serial_numbers'] if x is not None)),
+                'status': 'Resolved' if event[
+                    'state'] == Event.SC_RESOLVED else 'Active',
                 'details': schema_data
             }
 
             # Use cached reported_by map
             reported_by_values = reported_by_map.get(str(event['reported_by_id']))
-            if reported_by_values:
-                event_data['reported_by'] = reported_by_values['display']
-                event_data['reported_by_internal'] = reported_by_values['value']
-            else:
-                event_data['reported_by'] = ''
-                event_data['reported_by_internal'] = ''
+            event_data['reported_by'] = reported_by_values.get('display', '') if reported_by_values else ''
 
             current_event_type_data['events'].append(event_data)
 
@@ -433,7 +469,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             combined_headers.extend(custom_headers)
         return {
             'event_export_data': event_export_data,
-            'combined_headers': [header.replace(' ', '_') for header in combined_headers],
+            'combined_headers': [header.replace(' ', '_') for header in
+                                 combined_headers],
             'custom_headers': custom_headers
         }
 
@@ -453,7 +490,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
     def render_to_response(self, context, **response_kwargs):
 
         response = super().render_to_response(context, **response_kwargs)
-        response['Content-Disposition'] = f'attachment; filename={context["report_filename"]}'
+        response[
+            'Content-Disposition'] = f'attachment; filename={context["report_filename"]}'
         response['x-das-download-filename'] = context['report_filename']
         return response
 
@@ -543,8 +581,9 @@ class EventsView(generics.ListCreateAPIView):
         except AttributeError:
             include_for_posts = False
 
-        context['include_related_events'] = parse_bool(query_params.get('include_related_events',
-                                                                        include_for_posts))
+        context['include_related_events'] = parse_bool(
+            query_params.get('include_related_events',
+                             include_for_posts))
         context['include_notes'] = parse_bool(
             query_params.get('include_notes', include_for_posts))
 
@@ -557,7 +596,8 @@ class EventsView(generics.ListCreateAPIView):
 
     def get_queryset(self):
 
-        queryset = Event.objects.all_sort().prefetch_related('eventsource_event_refs')
+        queryset = Event.objects.all_sort().prefetch_related(
+            'eventsource_event_refs')
 
         query_params = self.request.query_params
         bbox = query_params.get('bbox', None)
@@ -623,7 +663,7 @@ class EventsView(generics.ListCreateAPIView):
         if len(allowed_event_categories) > 0:
             queryset = queryset.by_category(allowed_event_categories)
         else:
-            raise rest_framework.exceptions.PermissionDenied
+            raise UnauthorizedView
 
         queryset = queryset.prefetch_related(Prefetch('related_subjects'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))
@@ -768,7 +808,8 @@ class EventFilesView(generics.ListCreateAPIView):
         if 'filecontent.file' not in request.data:
             try:
                 # Ajax request.
-                request.data['filecontent.file'] = request.stream.FILES['filecontent.file']
+                request.data['filecontent.file'] = request.stream.FILES[
+                    'filecontent.file']
             except KeyError:
                 pass
 
@@ -782,7 +823,8 @@ class EventFilesView(generics.ListCreateAPIView):
         self.perform_create(serializer)
 
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(serializer.data, status=status.HTTP_201_CREATED,
+                        headers=headers)
 
     def get_queryset(self):
         event = generics.get_object_or_404(Event.objects.all(),
@@ -795,7 +837,6 @@ from usercontent.serializers import get_stored_filename
 
 
 class EventFileView(generics.RetrieveUpdateDestroyAPIView):
-
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventFileSerializer
 
@@ -828,22 +869,26 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
         if content_type in USERCONTENT_FORCE_DOWNLOAD:
             content_type = 'application/octet-stream'
 
-        if isinstance(instance.usercontent.file, (versatileimagefield.files.VersatileImageFieldFile,)):
-            filename = get_stored_filename(instance.usercontent.file, rendition_set='default',
+        if isinstance(instance.usercontent.file,
+                      (versatileimagefield.files.VersatileImageFieldFile,)):
+            filename = get_stored_filename(instance.usercontent.file,
+                                           rendition_set='default',
                                            rendition_key=desired_image_size)
             try:
                 response_file = instance.usercontent.file.field.storage.open(
                     filename)
             except OSError as oe:
                 logger.warning(
-                    'Failed attempt to open file %s. Will default to original file version.', filename)
+                    'Failed attempt to open file %s. Will default to original file version.',
+                    filename)
                 response_file = instance.usercontent.file
 
             response = HttpResponse(response_file, content_type=content_type)
         else:
             response = HttpResponse(
                 instance.usercontent.file, content_type=content_type)
-            response['Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename
+            response[
+                'Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename
 
         return response
 
@@ -858,24 +903,26 @@ class EventRelationshipsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
 
     def create(self, request, *args, **kwargs):
-
         type = request.data.get('type')
 
         from_event = generics.get_object_or_404(Event.objects.all(),
                                                 pk=self.kwargs['from_event_id'])
 
         to_event = generics.get_object_or_404(Event.objects.all(),
-                                              pk=request.data.get('to_event_id'))
+                                              pk=request.data.get(
+                                                  'to_event_id'))
 
-        relation = EventRelationship.objects.add_relationship(from_event=from_event, to_event=to_event,
-                                                              type=type,)
+        relation = EventRelationship.objects.add_relationship(
+            from_event=from_event, to_event=to_event,
+            type=type, )
 
         serializer = self.get_serializer(relation)
         headers = self.get_success_headers(serializer.data)
-        return response.Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return response.Response(serializer.data,
+                                 status=status.HTTP_201_CREATED,
+                                 headers=headers)
 
     def get_queryset(self):
-
         event = generics.get_object_or_404(Event.objects.all(),
                                            pk=self.kwargs['from_event_id'])
 
@@ -899,7 +946,6 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
         return relationships
 
     def delete(self, request, *args, **kwargs):
-
         from_event = generics.get_object_or_404(Event.objects.all(),
                                                 pk=self.kwargs['from_event_id'])
 
@@ -926,103 +972,7 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class EventAlertTargetsListView(generics.ListAPIView):
-
     permission_classes = (EventCategoryPermissions,)
     serializer_class = accounts.serializers.UserDisplaySerializer
 
-    def get_queryset(self):
-        priority = self.request.query_params.getlist('priority', None)
-
-        priority = [int(_) for _ in priority]
-        if priority:
-            return get_alert_users(priority)
-
-        return accounts.models.User.objects.none()
-
-
-# # Views for Advanced Alert Functionality.
-# class EventAlertConditionsListView(generics.ListAPIView):
-#
-#     permission_classes = (EventCategoryPermissions,)
-#     serializer_class = EventTypeSerializer
-#
-#     queryset = EventType.objects.all()
-#
-#     def get_queryset(self):
-#         qs = super().get_queryset()
-#
-#         event_types = self.request.query_params.get('event_type', '')
-#         if event_types:
-#             qs = qs.by_event_type(event_types)
-#         return qs
-#
-#     def get(self, *args, **kwargs):
-#
-#         only_common_factors = parse_bool(self.request.query_params.get('only_common_factors', False))
-#         rules = render_aggregate_eventvariables(self.get_queryset(), only_common_factors=only_common_factors)
-#
-#         return response.Response(rules, status=status.HTTP_200_OK)
-#
-#
-# class AlertRuleListView(generics.ListCreateAPIView):
-#
-#     permission_classes = (IsOwner,)
-#     serializer_class = AlertRuleSerializer
-#
-#     def get_queryset(self):
-#         return AlertRule.objects.filter(owner=self.request.user).order_by('ordernum', 'display')
-#
-#     def perform_create(self, serializer):
-#         serializer.save(owner=self.request.user)
-#
-#
-# class AlertRuleView(generics.RetrieveUpdateDestroyAPIView):
-#
-#     permission_class = (IsOwner,)
-#     serializer_class = AlertRuleSerializer
-#     pagination_class = StandardResultsSetPagination
-#
-#     queryset = AlertRule.objects.all()
-#
-#     lookup_field = 'id'
-#
-#     def get_queryset(self):
-#         return AlertRule.objects.filter(owner=self.request.user)
-#
-#     def get(self, request, *args, **kwargs):
-#         obj = self.get_object()
-#         if obj:
-#             self.check_object_permissions(self.request, obj)
-#         return super().get(request, *args, **kwargs)
-#
-#
-# class NotificationMethodListView(generics.ListCreateAPIView):
-#
-#     permission_classes = (IsOwner,)
-#     serializer_class = NotificationMethodSerializer
-#     pagination_class = StandardResultsSetPagination
-#
-#     def get_queryset(self):
-#         return NotificationMethod.objects.filter(owner=self.request.user).order_by('method')
-#
-#     def perform_create(self, serializer):
-#         serializer.save(owner=self.request.user)
-#
-#
-# class NotificationMethodView(generics.RetrieveUpdateDestroyAPIView):
-#
-#     permission_class = (IsOwner,)
-#     serializer_class = NotificationMethodSerializer
-#
-#     queryset = NotificationMethod.objects.all()
-#
-#     lookup_field = 'id'
-#
-#     def get_queryset(self):
-#         return NotificationMethod.objects.filter(owner=self.request.user)
-#
-#     def get(self, request, *args, **kwargs):
-#         obj = self.get_object()
-#         if obj:
-#             self.check_object_permissions(self.request, obj)
-#         return super().get(request, *args, **kwargs)
+    queryset = accounts.models.User.objects.none()
