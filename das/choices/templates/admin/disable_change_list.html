@@ -1,0 +1,20 @@
+{% extends 'admin/change_list.html' %} {% block search %}
+{{ block.super }}
+
+<form action="../disablechoice/" method="POST">
+  {% csrf_token %}
+  <div class="actions" style="position: relative; float: right;">
+    <button
+      type="submit"
+      class="button"
+      style="background: #999!important; border-radius: 9px; text-transform: uppercase; padding: 4px 8px; font-size: 11px; outline: none; margin-top:0px; color:white; box-shadow: none; border: none;"
+      onMouseOver="this.style.background='#447e9b'"
+      onMouseOut="this.style.background='#999'"
+      name="disable_choices"
+    >
+      inactive choices
+    </button>
+  </div>
+</form>
+
+{% endblock %}
