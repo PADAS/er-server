@@ -49,16 +49,18 @@ Establish pattern for migrating templates to terraform from vcloud (awaiting app
 
 ## Future Work
 
-- Big picture architecture
+- Big picture architecture drawings
   - Graphviz repo: [das-sketch](https://github.com/PADAS/das-sketch)
 	
 Examples of generated artefacts (these are apt to change - please watch the repo for updates!
 ### Big picture of the repos
-![](repos.dot.gif)
+[big picture gif](https://trello.com/c/ifTl6AbF/2874-modernize-existing-das-repository)
+
+### Future infrastructure
+[future infrastructure](https://trello.com/c/ifTl6AbF/2874-modernize-existing-das-repository)
 
 ### Directionality of the config
-![](config_flow.png)
-
+[config flow](https://trello.com/c/EoiR2O3Z/2875-das-repo-create-terraform-configurations)
 
 - [TRELLO board](https://trello.com/c/ifTl6AbF/2874-modernize-existing-das-repository)
 
