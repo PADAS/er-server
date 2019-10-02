@@ -1,7 +1,11 @@
-#Infrastructure Migration
+# Infrastructure Migration
 
 ## Completed work:
 ### DAS application
+
+See all merged and closed PRs here:
+  - Github [infrastructure-migration](https://github.com/PADAS/das/pulls?q=label%3Ainfrastructure-migration+is%3Aclosed) label
+
 - Version-locked terraform executable and Makefile conventions 
 - CircleCI build integration
 - Builds on every commit
@@ -19,11 +23,21 @@
 
 ### Terraform State Storage tooling
 
+Github Repo: [terraform-state-storage](https://github.com/PADAS/terraform-state-storage)
 Provisions state storage for various terraform projects
 
 ### IAM for Build Agents
 
+Github Repo: [iam-for-build-agents](https://github.com/PADAS/iam-for-build-agents)
 Provision Google service accounts and roles for Circle CI build agents, pushes credentials up to circle CI
+
+### Terraform GCP
+Github Repo: [terraform-gcp] (https://github.com/PADAS/terraform-gcp)
+Landing spot and initial provisioning of networking infrastructure, 
+
+### Earthranger App Infra
+Github Repo: [earthranger-app-infra](https://github.com/PADAS/earthranger-app-infra)
+Landing spot and initial provisioning of managed postgres and Kubernetes clusters
 
 ### DAS application
 
@@ -37,6 +51,10 @@ Establish pattern for migrating templates to terraform from vcloud (awaiting app
 
 - Big picture architecture
   - Graphviz repo
+	
+Examples of generated artefacts (these are apt to change - please watch the repo for updates!
+
+
 
 - TRELLO board
   - Semver handling by Circle CI 
