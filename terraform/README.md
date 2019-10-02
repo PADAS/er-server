@@ -40,9 +40,7 @@ Landing spot and initial provisioning of networking infrastructure
 Github Repo: [earthranger-app-infra](https://github.com/PADAS/earthranger-app-infra)  
 Landing spot and initial provisioning of managed postgres and Kubernetes clusters
 
-### DAS application
-
-## WIP
+## Works in Progress
 ### DAS application
 [PR out](https://github.com/PADAS/das/pull/845). 
 Establish pattern for migrating templates to terraform from vcloud (awaiting approval / merge from Earthranger)
@@ -50,10 +48,13 @@ Establish pattern for migrating templates to terraform from vcloud (awaiting app
 
 ## Future Work
 
+### TRELLO Tickets
+- [TRELLO board](https://trello.com/c/ifTl6AbF/2874-modernize-existing-das-repository)
+
 - Big picture architecture drawings
   - Graphviz repo: [das-sketch](https://github.com/PADAS/das-sketch)
 	
-Examples of generated artefacts (these are apt to change - please watch the repo for updates!
+Examples of generated artifacts (these are apt to change - please watch the repo for updates!)
 ### Big picture of the repos
 [big picture gif](https://trello.com/c/ifTl6AbF/2874-modernize-existing-das-repository)
 
@@ -63,7 +64,6 @@ Examples of generated artefacts (these are apt to change - please watch the repo
 ### Directionality of the config
 [config flow](https://trello.com/c/EoiR2O3Z/2875-das-repo-create-terraform-configurations)
 
-- [TRELLO board](https://trello.com/c/ifTl6AbF/2874-modernize-existing-das-repository)
 
 Outstanding questions?
 
