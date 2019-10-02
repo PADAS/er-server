@@ -1,10 +1,11 @@
 # Infrastructure Migration
 
+Meeting agenda 10/2/2019
+
 ## Completed work:
 ### DAS application
 
-See all merged and closed PRs here:
-  - Github [infrastructure-migration](https://github.com/PADAS/das/pulls?q=label%3Ainfrastructure-migration+is%3Aclosed) label
+See all merged and closed PRs [here](https://github.com/PADAS/das/pulls?q=label%3Ainfrastructure-migration+is%3Aclosed)
 
 - Version-locked terraform executable and Makefile conventions 
 - CircleCI build integration
