@@ -53,6 +53,7 @@ Establish pattern for migrating templates to terraform from vcloud (awaiting app
   - Graphviz repo
 	
 Examples of generated artefacts (these are apt to change - please watch the repo for updates!
+![](repos.dot.gif)
 
 
 
