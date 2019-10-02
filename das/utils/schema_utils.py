@@ -301,7 +301,18 @@ def detail_resolver(schema, key, value):
 
 
 def generate_details(event, schema):
-    event_details = event.event_details.first().data.get('event_details', {})
+
+    event_details = event.event_details.first()
+    if not event_details:
+        logger.warning(f'Event No. {event.serial_number} has no event_details')
+        return
+
+    if not event_details.data:
+        logger.warning(
+            f'Event No. {event.serial_number} has no value for event_details.data')
+        return
+
+    event_details = event_details.data.get('event_details', {})
 
     definition_order = dict(definition_keys(schema.get('definition', [])))
 
