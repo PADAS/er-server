@@ -43,7 +43,7 @@ Landing spot and initial provisioning of managed postgres and Kubernetes cluster
 ## Works in Progress
 ### DAS application
 [PR out](https://github.com/PADAS/das/pull/845). 
-Establish pattern for migrating templates to terraform from vcloud (awaiting approval / merge from Earthranger)
+Establish pattern for migrating templates to terraform from vcloud (ready to merge!)
 
 
 ## Future Work
