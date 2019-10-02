@@ -37,7 +37,7 @@ Github Repo: [terraform-gcp](https://github.com/PADAS/terraform-gcp)
 Landing spot and initial provisioning of networking infrastructure 
 
 ### Earthranger App Infra
-Github Repo: [earthranger-app-infra](https://github.com/PADAS/earthranger-app-infra)
+Github Repo: [earthranger-app-infra](https://github.com/PADAS/earthranger-app-infra)  
 Landing spot and initial provisioning of managed postgres and Kubernetes clusters
 
 ### DAS application
