@@ -8,9 +8,9 @@ Meeting agenda 10/2/2019
 See all merged and closed PRs [here](https://github.com/PADAS/das/pulls?q=label%3Ainfrastructure-migration+is%3Aclosed)
 
 - Version-locked terraform executable and Makefile conventions 
-- CircleCI build integration
-- Builds on every commit
-- Pushes branch-tagged images to GCR
+- [CircleCI build integration](https://circleci.com/gh/PADAS/das)
+  - Builds on every commit
+  - Pushes branch-tagged images to GCR
 - Consolidated the following docker builds into a single image, run with a dynamic start script:
   - API
   - MQL
