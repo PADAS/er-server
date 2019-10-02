@@ -233,7 +233,8 @@ class EventsourceEventAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventCategory)
 class EventCategoryAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('display', 'value', 'ordernum', 'flag',)
+    ordering = ('display', 'value', 'ordernum', 'flag',)
 
 
 @admin.register(models.EventRelationshipType)
