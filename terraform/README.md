@@ -33,8 +33,8 @@ Github Repo: [iam-for-build-agents](https://github.com/PADAS/iam-for-build-agent
 Provision Google service accounts and roles for Circle CI build agents, pushes credentials up to circle CI
 
 ### Terraform GCP
-Github Repo: [terraform-gcp] (https://github.com/PADAS/terraform-gcp)
-Landing spot and initial provisioning of networking infrastructure, 
+Github Repo: [terraform-gcp](https://github.com/PADAS/terraform-gcp)  
+Landing spot and initial provisioning of networking infrastructure 
 
 ### Earthranger App Infra
 Github Repo: [earthranger-app-infra](https://github.com/PADAS/earthranger-app-infra)
