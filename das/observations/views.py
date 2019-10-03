@@ -68,6 +68,12 @@ def dateparse(date_str, default_tz=pytz.utc):
     return dt
 
 
+def str2bool(v):
+    if v:
+        return v.lower() in ("yes", "true", "t", 1)
+    return False
+
+
 def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):
     observations_qs = models.Observation.objects.all()
 
@@ -800,7 +806,7 @@ class KmlSubjectsView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def get_queryset(self):
-        include_inactive = self.request.GET.get('include_inactive')
+        include_inactive = self.request.GET.get('include_inactive', 'false')
         start_date = self.request.GET.get('start')
         end_date = self.request.GET.get('end')
 
@@ -815,10 +821,15 @@ class KmlSubjectsView(generics.GenericAPIView):
         except Exception as e:
             end_date = None
 
-        queryset = get_subjects_with_observations_in_daterange(
-            start_date, end_date)
+        if start_date or end_date:
+            queryset = get_subjects_with_observations_in_daterange(
+                start_date, end_date)
+        else:
+            # return all subjects with or without tracks if no date
+            # filter is passed
+            queryset = models.Subject.objects.all()
         queryset = queryset.by_user_subjects(self.request.user)
-        if not include_inactive:
+        if not str2bool(include_inactive):
             queryset = queryset.filter(is_active=True)
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 

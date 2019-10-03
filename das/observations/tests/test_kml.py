@@ -330,7 +330,7 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         urls = re.findall(r'http://testserver[\'"]?([^\'" <]+)',
                           response_kml_str)
 
-        queryset = get_subjects_with_observations_in_daterange()
+        queryset = Subject.objects.all()
         queryset = queryset.by_user_subjects(self.user)
         self.assertEqual(len(urls), queryset.count())
 
