@@ -16,7 +16,8 @@ from lxml import etree
 import xmlunittest
 from accounts.models import User, PermissionSet
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, Region, Observation
-from observations.views import KmlSubjectView, KmlSubjectsView, KmlRootView
+from observations.views import KmlSubjectView, KmlSubjectsView, KmlRootView, \
+    get_subjects_with_observations_in_daterange
 from observations.kmlutils import get_kml_access_token
 from tracking.models.plugin_base import Obs
 
@@ -47,7 +48,7 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         Region.objects.create(region='Region 2', country='USA')
 
         # Create three elephants in two different regions
-        self.elephant_1 = Subject.objects.create_subject(id='d2ed403e-9419-41aa-8fa9-45a70e5ce2ed', name='Elephant 1',
+        self.elephant_1 = Subject.objects.create_subject(id='d2ed403e-9419-41aa-8fa9-45a70e5ce2ef', name='Elephant 1',
                                                          subject_subtype_id='elephant',
                                                          additional={'region': 'Region 1', 'country': 'USA',
                                                                      'rgb': '220,30,30'})
@@ -237,12 +238,11 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         self.assertIn('include_inactive=true', response_kml_str)
 
     def test_not_passing_include_inactive_filter_returns_only_active_subjects(self):
-        # force elephant_1 and elephant_2 to be inactive
-        self.elephant_1.is_active = False
-        self.elephant_1.save()
-
-        self.elephant_2.is_active = False
-        self.elephant_2.save()
+        # force all subjects to be inactive except elephant 1
+        for subj in Subject.objects.all():
+            if subj.name != 'Elephant 1':
+                subj.is_active = False
+                subj.save()
 
         # pass filters to the root kml view
         url = reverse('subjects-kml-root-view')
@@ -283,6 +283,8 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         queryset = Subject.objects.filter(is_active=True)
         queryset = queryset.by_user_subjects(self.user)
         self.assertEqual(len(urls), queryset.count())
+        for subj in queryset:
+            self.assertIn(str(subj.id), ' '.join(urls))
 
     def test_include_inactive_filter_returns_all_subjects(self):
         # force all subjects to be inactive
@@ -328,23 +330,39 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         urls = re.findall(r'http://testserver[\'"]?([^\'" <]+)',
                           response_kml_str)
 
-        queryset = Subject.objects.all()
+        queryset = get_subjects_with_observations_in_daterange()
         queryset = queryset.by_user_subjects(self.user)
         self.assertEqual(len(urls), queryset.count())
 
     @mock.patch('django.utils.timezone.now', mock_now)
     def test_filter_by_dates(self):
-        # create 2 new elephants backdate to last year - mock timezone.now()
+        source_args = {
+            'subject': {'name': str(self.elephant_2.id)},
+            'provider': 'test_provider',
+            'manufacturer_id': 'best_manufacturer'
+        }
+        self.collar_2 = Source.objects.ensure_source(**source_args)
+        self.ss_1 = SubjectSource.objects.ensure(
+            subject=self.elephant_2, source=self.collar_1)
 
-        Subject.objects.create_subject(
-            id='d2ed403e-9419-41aa-8fa9-45a70e5ce2e0', name='Elephant 4',
-            subject_subtype_id='elephant',
-            additional={'region': 'Region 1', 'country': 'USA',
-                        'rgb': '220,30,30'})
-        Subject.objects.create_subject(
-            id='c25e17d0-0337-4f0c-9274-25e5ae4da7c0', name='Elephant 5',
-            subject_subtype_id='elephant',
-            additional={'region': 'Region 1', 'country': 'USA'})
+        observations_timestamp = pytz.utc.localize(
+            datetime.now() - timedelta(weeks=55)).strftime("%s")
+
+        observation_data = [
+            (1, 1, int(observations_timestamp)),
+            (1, 2, int(observations_timestamp)),
+            (2, 2, int(observations_timestamp))
+        ]
+        for obs_data in observation_data:
+            recorded_at = datetime.fromtimestamp(obs_data[2], tz=pytz.utc)
+            observation = Obs(source=self.collar_1, recorded_at=recorded_at,
+                              latitude=obs_data[0], longitude=obs_data[1], additional={})
+            observation2 = Obs(source=self.collar_2, recorded_at=recorded_at,
+                               latitude=obs_data[0], longitude=obs_data[1],
+                               additional={})
+
+            Observation.objects.add_observation(observation)
+            Observation.objects.add_observation(observation2)
 
         start_date = pytz.utc.localize(datetime.now() - timedelta(weeks=60))
         end_date = pytz.utc.localize(datetime.now() - timedelta(weeks=50))
@@ -385,8 +403,9 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         urls = re.findall(r'http://testserver[\'"]?([^\'" <]+)',
                           response_kml_str)
 
-        expected_subjects = Subject.objects.filter(
-            created_at__range=[start_date, end_date]).count()
+        queryset = get_subjects_with_observations_in_daterange(
+            start_date, end_date)
+        expected_subjects = queryset.by_user_subjects(self.user).count()
 
         self.assertEqual(len(urls), expected_subjects)
 

@@ -68,6 +68,29 @@ def dateparse(date_str, default_tz=pytz.utc):
     return dt
 
 
+def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):
+    observations_qs = models.Observation.objects.all()
+
+    if start_date and end_date:
+        observations_qs = observations_qs.filter(
+            Q(recorded_at__range=(start_date, end_date)))
+    elif start_date:
+        observations_qs = observations_qs.filter(
+            Q(recorded_at__gte=start_date))
+    elif end_date:
+        observations_qs = observations_qs.filter(Q(recorded_at__lte=end_date))
+
+    subject_id_values = observations_qs.distinct(
+        'source__subjectsource__subject').order_by(
+        'source__subjectsource__subject_id').values(
+        'source__subjectsource__subject_id')
+
+    subject_ids = [str(i['source__subjectsource__subject_id']) for i in
+                   subject_id_values if i['source__subjectsource__subject_id']]
+
+    return models.Subject.objects.filter(id__in=subject_ids)
+
+
 class UnauthorizedView(APIException):
     """
     User does not have view permission, return empty data
@@ -792,22 +815,14 @@ class KmlSubjectsView(generics.GenericAPIView):
         except Exception as e:
             end_date = None
 
+        queryset = get_subjects_with_observations_in_daterange(
+            start_date, end_date)
+        queryset = queryset.by_user_subjects(self.request.user)
+        if not include_inactive:
+            queryset = queryset.filter(is_active=True)
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        queryset = models.Subject.objects.filter(is_active=True)
-        if include_inactive == 'true':
-            queryset = models.Subject.objects.all()
 
-        if start_date and end_date:
-            queryset = queryset.filter(
-                created_at__range=[start_date, end_date])
-        elif start_date:
-            queryset = queryset.filter(created_at__gte=start_date)
-        elif end_date:
-            queryset = queryset.filter(created_at__lte=end_date)
-        else:
-            queryset = queryset.by_user_subjects(self.request.user) \
-                .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
-        return queryset
+        return queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24)
 
     def build_link_for_subject(self, subject):
         token = kmlutils.get_kml_access_token(self.request.user)
