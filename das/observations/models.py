@@ -156,23 +156,30 @@ class SourceManager(models.Manager):
                 source.groups.set((SourceGroup.objects.get_default(),))
 
             if subject_info:
-                # TODO: Is this the right thing to do here??
-                if subject_info.get('subject_subtype_id'):
-                    SubjectSubType.objects.get_or_create(value=subject_info.get('subject_subtype_id'))
+                # Create a subject-subtype on demand if necessary.
+                subject_subtype_id = subject_info.get('subject_subtype_id')
+                if isinstance(subject_subtype_id, str):
+                    default_display = subject_subtype_id[:100].title()
+                    SubjectSubType.objects.get_or_create(value=subject_subtype_id,
+                                                         defaults={'display': default_display})
 
-                # TODO: autocreate subject_type as well?
                 if subject_info.get('id'):
                     try:
-                        subject_model = Subject.objects.get(id=subject_info.get('id'))
+                        subject_model = Subject.objects.get(
+                            id=subject_info.get('id'))
                     except Subject.DoesNotExist:
-                        subject_model = Subject.objects.create_subject(**subject_info)
+                        subject_model = Subject.objects.create_subject(
+                            **subject_info)
                 else:
-                    subject_model = Subject.objects.create_subject(**subject_info)
+                    subject_model = Subject.objects.create_subject(
+                        **subject_info)
             else:
-                subject_model = Subject.objects.create_subject(**{'name': source.manufacturer_id})
+                subject_model = Subject.objects.create_subject(
+                    **{'name': source.manufacturer_id})
 
             if not SubjectSource.objects.filter(source=source, subject=subject_model):
-                SubjectSource.objects.create(source=source, subject=subject_model)
+                SubjectSource.objects.create(
+                    source=source, subject=subject_model)
 
             return source
 
