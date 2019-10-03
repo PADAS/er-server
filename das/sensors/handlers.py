@@ -26,6 +26,7 @@ class SensorPostParameters(serializers.Serializer):
     recorded_at = serializers.DateTimeField()
     manufacturer_id = serializers.CharField()
 
+    subject_id = serializers.CharField(default=None)
     subject_name = serializers.CharField(default=None)
     subject_groups = serializers.ListField(
         child=serializers.CharField(), allow_empty=True, default=list)
@@ -111,7 +112,8 @@ class GenericSensorHandler:
                                            subject={
                                                'subject_subtype_id': subject_subtype,
                                                'name': subject_name,
-                                               'subject_groups': an_observation.get('subject_groups')
+                                               'subject_groups': an_observation.get('subject_groups'),
+                                               'id': an_observation.get('subject_id')
                                            }
                                            )
         recorded_at = an_observation.get('recorded_at')
@@ -137,11 +139,11 @@ class GenericSensorHandler:
         validator = ObservationSerializer(data=observation)
         if validator.is_valid():
             obs_to_persist.append(observation)
-            logger.info("Added new observation %s", observation,
+            logger.debug("Added new observation %s", observation,
                         extra={'obs.new': provider_key})
             errors.append({})
         else:
-            errors.append(validator.errors())
+            errors.append(validator.errors)
 
 
 class FollowltTrackerHandler:
