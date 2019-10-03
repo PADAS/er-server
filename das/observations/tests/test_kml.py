@@ -235,7 +235,7 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         response_kml_str = response_kml.decode('utf-8')
         self.assertIn('start=2017-06-12', response_kml_str)
         self.assertIn('end=2019-06-12', response_kml_str)
-        self.assertIn('include_inactive=true', response_kml_str)
+        self.assertIn('include_inactive=true', response_kml_str.lower())
 
     def test_not_passing_include_inactive_filter_returns_only_active_subjects(self):
         # force all subjects to be inactive except elephant 1

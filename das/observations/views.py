@@ -778,6 +778,7 @@ class KmlRootView(generics.GenericAPIView):
         start_date = self.request.GET.get('start')
         end_date = self.request.GET.get('end')
         include_active = self.request.GET.get('include_inactive')
+        include_active = str2bool(include_active)
         params = {k: v for k, v in
                   zip(['auth', 'start', 'end', 'include_inactive'],
                       [token, start_date, end_date, include_active]) if v}
