@@ -16,4 +16,15 @@ spec:
   gcePersistentDisk:
     fsType: "ext4"
     pdName: "<<cluster-name>>-<<namespace>>-postgres-0"
-
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: failure-domain.beta.kubernetes.io/zone
+          operator: In
+          values:
+          - ((iaas-zone))
+#        - key: failure-domain.beta.kubernetes.io/region
+#          operator: In
+#          values:
+#          - us-west1
