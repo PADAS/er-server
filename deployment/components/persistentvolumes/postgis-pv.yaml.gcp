@@ -24,7 +24,7 @@ spec:
           operator: In
           values:
           - ((iaas-zone))
-#        - key: failure-domain.beta.kubernetes.io/region
-#          operator: In
-#          values:
-#          - us-west1
+        - key: failure-domain.beta.kubernetes.io/region
+          operator: In
+          values:
+          - us-west1
