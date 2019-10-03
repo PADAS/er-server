@@ -17,7 +17,7 @@ spec:
     fsType: "ext4"
     pdName: "<<cluster-name>>-<<namespace>>-postgres-0"
   nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
+    required:
       nodeSelectorTerms:
       - matchExpressions:
         - key: failure-domain.beta.kubernetes.io/zone
