@@ -1,3 +1,5 @@
+import urllib
+
 from observations.utils import get_minimum_allowed_age
 import csv
 import datetime
@@ -773,15 +775,15 @@ class KmlRootView(generics.GenericAPIView):
 
     def build_link_for_user(self):
         token = kmlutils.get_kml_access_token(self.request.user, )
-        start_date = self.request.GET.get('start', '')
-        end_date = self.request.GET.get('end', '')
-        include_active = self.request.GET.get('include_inactive', 'active')
-        return utils.add_base_url(self.request,
-                                  '?'.join((
-                                      reverse('subjects-kml-view'),
-                                      'auth={}&start={}&end={}&include_inactive={}'.format(token, start_date, end_date, include_active))
-                                  )
-                                  )
+        start_date = self.request.GET.get('start')
+        end_date = self.request.GET.get('end')
+        include_active = self.request.GET.get('include_inactive')
+        params = {k: v for k, v in
+                  zip(['auth', 'start', 'end', 'include_inactive'],
+                      [token, start_date, end_date, include_active]) if v}
+        params = urllib.parse.urlencode(params)
+        url = reverse('subjects-kml-view')
+        return utils.add_base_url(self.request, f"{url}?{params}")
 
     def get(self, request, *args, **kwargs):
         # TODO: Have a configuration for naming the KML feed.
@@ -837,15 +839,14 @@ class KmlSubjectsView(generics.GenericAPIView):
 
     def build_link_for_subject(self, subject):
         token = kmlutils.get_kml_access_token(self.request.user)
-        start_date = self.request.GET.get('start', 'start')
-        end_date = self.request.GET.get('end', 'end')
-        return utils.add_base_url(self.request,
-                                  '?'.join((
-                                      reverse('subject-kml-view',
-                                              args=[subject['id']]),
-                                      'auth={}&start={}&end={}'.format(token, start_date, end_date))
-                                  )
-                                  )
+        start_date = self.request.GET.get('start')
+        end_date = self.request.GET.get('end')
+        params = {k: v for k, v in
+                  zip(['auth', 'start', 'end'],
+                      [token, start_date, end_date]) if v}
+        params = urllib.parse.urlencode(params)
+        url = reverse('subject-kml-view', args=[subject['id']])
+        return utils.add_base_url(self.request, f"{url}?{params}")
 
     def subject_context(self, subject):
 
