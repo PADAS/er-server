@@ -216,6 +216,30 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.assertFalse(
             [s for s in response.data if s['id'] == str(self.ranger.id)])
 
+    def authenticate_user_and_get_subjects(self, url):
+        request = self.factory.get(API_BASE + url)
+        self.force_authenticate(request, self.superuser)
+        return views.SubjectsView.as_view()(request)
+
+    def test_subjects_api_call_only_returns_active_subjects(self):
+        response = self.authenticate_user_and_get_subjects('/subjects/')
+        self.assertEqual(response.status_code, 200)
+
+        # Returns all 2 subjects: Both are active
+        self.assertEqual(len(response.data), 2)
+
+        # Update one subject, set to inactive
+        self.ele.is_active = False
+        self.ele.save()
+        response = self.authenticate_user_and_get_subjects('/subjects/')
+
+        # Only one subject is returned, only one is active
+        self.assertEqual(len(response.data), 1)
+
+        # adding `include_inactive=True` param fetches both active and inactive
+        response = self.authenticate_user_and_get_subjects('/subjects/?include_inactive=True')
+        self.assertEqual(len(response.data), 2)
+
 
 class SubjectGroupViewTest(BasePermissionTest):
     def setUp(self):

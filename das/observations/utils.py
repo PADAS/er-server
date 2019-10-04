@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime, timedelta
 
@@ -164,3 +165,17 @@ def calculate_subject_view_window(user, maximum_history_days=60):
         (lower, upper) = (min(lower, expiry_date), min(upper, expiry_date))
 
     return lower, upper
+
+
+def check_to_include_inactive_subjects(request, full_queryset):
+    # by default return only active subjects
+    queryset = full_queryset.by_is_active()
+
+    # return all subjects if parameter is passed and set to true
+    params = request.GET.get("include_inactive", None)
+    try:
+        if params and json.loads(params.lower()):
+            queryset = full_queryset
+    except Exception:
+        pass
+    return queryset

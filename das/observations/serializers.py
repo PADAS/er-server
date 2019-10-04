@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 from collections import OrderedDict
 from typing import NamedTuple
@@ -50,9 +51,18 @@ class GroupSerializer(rest_framework.serializers.ModelSerializer):
         user = getattr(self.context.get('request', None), 'user', None)
         data_serializer = self.serializer(context=self.context)
         contained_field = self.contained_field
+        active = True
+
+        params = self.context["request"].GET \
+            .get("include_inactive", None)
+        try:
+            if params and json.loads(params.lower()):
+                active = None
+        except Exception:
+            pass
 
         queryset = getattr(instance, 'get_all_{0}'.format(contained_field))(
-            user=user, active=True, include_from_subgroups=False)
+            user=user, active=active, include_from_subgroups=False)
 
         # queryset = queryset.order_by('name')
         # queryset variable contains list of sources linked with source group.

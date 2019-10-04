@@ -85,7 +85,7 @@ class TrackingMetaDataExportViewTest(BaseAPITest):
             subject.save()
             inactive_subject_name = subject.name
             break
-        self.request = self.factory.get(API_BASE + '/trackingmetadata/export/')
+        self.request = self.factory.get(API_BASE + '/trackingmetadata/export/?include_inactive=True')
         self.force_authenticate(self.request, self.user)
         response = TrackingMetaDataExportView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
@@ -268,7 +268,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
             for obs in Observation.objects.get_subject_observations(subject):
                 inactive_subject_observation_fix_times.append(obs.recorded_at)
 
-        request = self.factory.get(API_BASE + '/trackingdata/export/')
+        request = self.factory.get(API_BASE + '/trackingdata/export/?include_inactive=True')
         self.force_authenticate(request, self.user)
         response = TrackingDataCsvView.as_view()(request)
         self.assertEqual(response.status_code, 200)
