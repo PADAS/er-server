@@ -52,3 +52,10 @@ class FileCompression:
 
         response['Content-Disposition'] = 'attachment; filename={}'.format(zipfile_name)
         return response
+
+
+
+
+
+
+
