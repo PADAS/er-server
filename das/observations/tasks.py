@@ -30,6 +30,48 @@ def maintain_subjectstatus_for_subject(subject_id):
 
     SubjectStatus.objects.maintain_subject_status(subject_id)
 
+
+
+
+# class ObservationMixin:
+#     def source_provider(self):
+#         source_provider = SourceProvider.objects.annotate(
+#             name=F('display_name'),
+#             info=F('additional')).values('name', 'info')
+#         return source_provider
+
+#     def source_id(self):
+#         return Source.objects.values('id')
+
+#     def observation_data(self, name, id_):
+#         return Observation.objects.filter(
+#             source__provider__display_name=o['name'], source__id=i['id'])
+
+#     def time_difference(self, recorded_time):
+#         difference_time = recorded_time - latest_recorded_time
+#         return difference_time
+
+#     def latest_recorded_time(self):
+#         return Observation.objects.last().recorded_at
+
+#     def check_time_difference(self, time_difference, configured_days):
+#         if time_difference == o['info']['maximum_number_of_days']:
+#             # TODO: Delete observed object.
+#             # pass
+
+#     def __call__(self):
+#         for o in self.source_provider():
+#             for i in self.source_id():
+#                 for x in self.observation_data():
+#                     time = self.time_difference(x.recorded_at)
+#                     configured_days = o['info']['maximum_number_of_days']
+#                     self.check_time_difference(time.days, configured_days)
+
+
+# observation_mixin = ObservationMixin()
+
+
+
 @celery.app.task
 def maintain_observation_data():
 
