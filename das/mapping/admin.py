@@ -79,7 +79,7 @@ class PointFeatureAdmin(BaseFeatureAdmin):
 
 @admin.register(models.FeatureType)
 class FeatureTypeAdmin(admin.ModelAdmin):
-    pass
+    ordering = ('name', )
 
 
 @admin.register(models.SpatialFeatureGroup)
