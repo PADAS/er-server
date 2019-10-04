@@ -153,33 +153,36 @@ class SourceManager(models.Manager):
                 defaults=defaults, **searchkey)
 
             if source_created:
+
+                # Getting here means we've created a source.
+                # We should create a Subject for it too.
                 source.groups.set((SourceGroup.objects.get_default(),))
 
-            if subject_info:
-                # Create a subject-subtype on demand if necessary.
-                subject_subtype_id = subject_info.get('subject_subtype_id')
-                if isinstance(subject_subtype_id, str):
-                    default_display = subject_subtype_id[:100].title()
-                    SubjectSubType.objects.get_or_create(value=subject_subtype_id,
-                                                         defaults={'display': default_display})
+                if subject_info:
+                    # Create a subject-subtype on demand if necessary.
+                    subject_subtype_id = subject_info.get('subject_subtype_id')
+                    if isinstance(subject_subtype_id, str):
+                        default_display = subject_subtype_id[:100].title()
+                        SubjectSubType.objects.get_or_create(value=subject_subtype_id,
+                                                             defaults={'display': default_display})
 
-                if subject_info.get('id'):
-                    try:
-                        subject_model = Subject.objects.get(
-                            id=subject_info.get('id'))
-                    except Subject.DoesNotExist:
+                    if subject_info.get('id'):
+                        try:
+                            subject_model = Subject.objects.get(
+                                id=subject_info.get('id'))
+                        except Subject.DoesNotExist:
+                            subject_model = Subject.objects.create_subject(
+                                **subject_info)
+                    else:
                         subject_model = Subject.objects.create_subject(
                             **subject_info)
                 else:
                     subject_model = Subject.objects.create_subject(
-                        **subject_info)
-            else:
-                subject_model = Subject.objects.create_subject(
-                    **{'name': source.manufacturer_id})
+                        **{'name': source.manufacturer_id})
 
-            if not SubjectSource.objects.filter(source=source, subject=subject_model):
-                SubjectSource.objects.create(
-                    source=source, subject=subject_model)
+                if not SubjectSource.objects.filter(source=source, subject=subject_model):
+                    SubjectSource.objects.create(
+                        source=source, subject=subject_model)
 
             return source
 
