@@ -44,18 +44,14 @@ class FileCompression:
 
         response = HttpResponse(content_type='application/zip')
         with zipfile.ZipFile(response, 'w') as zip_file:
-            for _file in self.file_paths:
-                file_dir, filename = os.path.split(_file)
-                zip_path = os.path.join(zip_subdir, filename)
+            if self.file_paths == []:
+                pass
+            else:
+                for _file in self.file_paths:
+                    file_dir, filename = os.path.split(_file)
+                    zip_path = os.path.join(zip_subdir, filename)
 
-                zip_file.write(_file, zip_path)
+                    zip_file.write(_file, zip_path)
 
         response['Content-Disposition'] = 'attachment; filename={}'.format(zipfile_name)
         return response
-
-
-
-
-
-
-
