@@ -69,24 +69,23 @@ REQUEST_TO_URL = {
 
 class SavannaClient(object):
 
-    def __init__(self, host=None, username=None, password=None, record_index=0):
+    def __init__(self, host=None, username=None, password=None):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self.username = username
         self.password = password
         self.host = host
-        self.record_index = record_index
 
     @staticmethod
     def str2date(d, replace_tzinfo=pytz.utc):
         '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
         return parse_date(d).replace(tzinfo=replace_tzinfo)
 
-    def make_request(self, collar_id, request):
+    def make_request(self, collar_id, request, record_index=0):
         """ Make request to savannah api with multiple request types """
         payload = dict(uid=self.username, pwd=self.password,
-                       request=request, collar=collar_id, record_index=self.record_index)
+                       request=request, collar=collar_id, record_index=record_index)
         return requests.post(self.host + REQUEST_TO_URL[request], data=payload)
 
     def select_data(self, collar_id, record):
@@ -95,54 +94,75 @@ class SavannaClient(object):
                 record["record_time"], record["speed"], record["heading"], record["temperature"],
                 record["h_accuracy"], record["hdop"], record["battery"]]
 
-    def fetch_observations(self, collar_id):
+    def fetch_observations(self, collar_id, last_record_index, last_exception_index):
         '''
         Fetch observations from Savannah data-source for a particular collar.
         :param collar_id: collar_id from trackingmaster record.
+        :param last_record_index: paging cursor for the dataset
+        :param last_exception_index: paging cursor for exceptions
         :return: generator, yielding individual records.
         '''
         self.logger.info(
             'Fetching from SavannahTracking for collar_id: %s', collar_id)
-        res = self.make_request(collar_id, "data_download")
-        if res.status_code == 200:
-            self.logger.info(
-                'Fetch OK from SavannahTracking for collar_id: %s', collar_id)
-            all_records = json.loads(res.text)["records"]
-            for line in all_records:
-                yield self.parse_line(STObservation, self.select_data(collar_id, line))
-        else:
-            msg = 'Failed to get data from Savannah Tracking API for collar_id: %s. Result status: %d' % (collar_id,
-                                                                                                          res.status)
-            self.logger.error(msg)
-            raise DasPluginFetchError(msg)
-        yield from self.fetch_alerts(collar_id)
+        while True:
+            res = self.make_request(
+                collar_id, "data_download", last_record_index)
+            if res.status_code == 200:
+                self.logger.info(
+                    'Fetch OK from SavannahTracking for collar_id: %s', collar_id)
+                response_body = json.loads(res.text)
+                all_records = response_body["records"]
+                for line in all_records:
+                    record = self.parse_line(
+                        STObservation, self.select_data(collar_id, line))
+                    last_record_index = record.record_index
+                    yield record
+                if response_body['has_more_records']:
+                    continue
+            else:
+                msg = 'Failed to get data from Savannah Tracking API for collar_id: %s. Result status: %d' % (collar_id,
+                                                                                                              res.status)
+                self.logger.error(msg)
+                raise DasPluginFetchError(msg)
+            break
 
-    def fetch_alerts(self, collar_id):
+        yield from self.fetch_alerts(collar_id, last_exception_index)
+
+    def fetch_alerts(self, collar_id, last_exception_index):
 
         # Get Savannah collar alarms.
         self.logger.info('Getting Savannah collar alarms for collar_id: '
                          '{}'.format(collar_id))
-        alerts_response = self.make_request(collar_id, "exceptions_download")
-        if alerts_response.status_code == 200:
-            alerts = json.loads(alerts_response.text)["records"]
+        while True:
+            alerts_response = self.make_request(
+                collar_id, "exceptions_download", last_exception_index)
+            if alerts_response.status_code == 200:
+                response_body = json.loads(alerts_response.text)
+                alerts = response_body["records"]
 
-            # Set device_alert type according to event_type
-            for alert in alerts:
-                alert_type = alert["exception_type"]
-                event_type_info = ALERT_EVENT_TYPE_MAP.get(
-                    alert_type.title(), None)
+                # Set device_alert type according to event_type
+                for alert in alerts:
+                    alert_type = alert["exception_type"]
+                    event_type_info = ALERT_EVENT_TYPE_MAP.get(
+                        alert_type.title(), None)
 
-                if not event_type_info:
-                    self.logger.info(f'Unsupported ST alert type {alert_type}')
+                    if not event_type_info:
+                        self.logger.info(
+                            f'Unsupported ST alert type {alert_type}')
+                        continue
+
+                    device_alert = event_type_info['event_type']
+                    alert = self.select_data(collar_id, alert)
+
+                    # At last push device_alert and is_alert
+                    alert.append(device_alert)
+                    alert.append('true')
+                    record = self.parse_line(STAlert, alert)
+                    last_exception_index = record.record_index
+                    yield record
+                if response_body['has_more_records']:
                     continue
-
-                device_alert = event_type_info['event_type']
-                alert = self.select_data(collar_id, alert)
-
-                # At last push device_alert and is_alert
-                alert.append(device_alert)
-                alert.append('true')
-                yield self.parse_line(STAlert, alert)
+            break
 
     @classmethod
     def parse_line(cls, observation_class, s):
@@ -194,14 +214,16 @@ class SavannahPlugin(TrackingPlugin):
             st = datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
 
         lt = st
-        st = int(st.timestamp()) + 1
+        last_record_index = self.cursor_data.get("record_index", 0)
+        last_exception_index = self.cursor_data.get("exception_index", 0)
 
         self.logger.debug('Fetching data for collar_id %s',
                           source.manufacturer_id)
 
         now = pytz.utc.localize(datetime.datetime.utcnow())
-        for fix in client.fetch_observations(source.manufacturer_id):
-            self.cursor_data["record_index"] = fix.record_index
+
+        for fix in client.fetch_observations(source.manufacturer_id, last_record_index, last_exception_index):
+            last_record_index = fix.record_index
 
             if fix.recorded_at > now:
                 self.logger.warning(
@@ -214,6 +236,7 @@ class SavannahPlugin(TrackingPlugin):
                 # Filter observation based on timestamp, source.
                 # If observation exist, update observation's additional field
                 # else yield Obs
+                last_exception_index = fix.record_index
                 obs = Observation.objects.filter(
                     source=source, recorded_at=fix.recorded_at).first()
                 if obs:
@@ -228,6 +251,8 @@ class SavannahPlugin(TrackingPlugin):
         # Update cursor data if dry_run = False
         if not dry_run:
             self.cursor_data['latest_timestamp'] = lt.isoformat()
+            self.cursor_data["record_index"] = last_record_index
+            self.cursor_data["exception_index"] = last_exception_index
 
     def _transform(self, item, dry_run):
         source, o = item
