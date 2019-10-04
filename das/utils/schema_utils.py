@@ -114,7 +114,7 @@ def get_oneOf_choices(field_details, as_string=True):
     for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
         options[choice.value] = choice.icon
     if field_details['type'] == 'names':
-            return_val = options
+        return_val = options
     else:
         return_val = list(options.keys())
     if as_string:
@@ -167,6 +167,11 @@ def get_schema_renderer_method():
         return get_table_choices({'field': field_name, 'type': field_type})
 
     @memoize
+    def memo_oneOf_choices(oneOf_choices_identifier):
+        field_name, field_type = oneOf_choices_identifier.split(':')
+        return get_oneOf_choices({'field': field_name, 'type': field_type})
+
+    @memoize
     def render_f(schema):
 
         schema_fields = get_replacement_fields_in_schema(schema)
@@ -182,7 +187,9 @@ def get_schema_renderer_method():
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
                            ] = memo_table_choices('{field}:{type}'.format(**schema_field))
-
+            elif schema_field['lookup'] == 'oneOf':
+                parameters[schema_field['tag']
+                           ] = memo_oneOf_choices('{field}:{type}'.format(**schema_field))
         if parameters:
             template = Template(schema)
             rendered_template = template.render(

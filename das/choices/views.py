@@ -4,7 +4,7 @@ from rest_framework.views import Response
 
 from choices.models import Choice
 from choices.serializers import ChoiceIconZipSerializer
-from utils.helpers import ZipFileCompression
+from utils.helpers import FileCompression
 
 
 class ChoiceIconZip(APIView):
@@ -17,7 +17,5 @@ class ChoiceIconZip(APIView):
             msg = "No icon(s) for choices found"
             return Response(msg)
 
-        zipfile_compress = ZipFileCompression(serializer.data)
-        file_paths = zipfile_compress.check_file_type()
-
-        return zipfile_compress.zip_compress(file_paths)
+        file_compress = FileCompression(serializer.data)
+        return file_compress.zip_compress('Choices_icons')
