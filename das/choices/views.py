@@ -13,9 +13,6 @@ class ChoiceIconZip(APIView):
         choices = Choice.objects.values('icon').exclude(Q(
             icon__exact='') | Q(icon__exact=None)).distinct()
         serializer = ChoiceIconZipSerializer(choices, many=True)
-        if serializer.data == []:
-            msg = "No icon(s) for choices found"
-            return Response(msg)
-
+        
         file_compress = FileCompression(serializer.data)
-        return file_compress.zip_compress('Choices_icons')
+        return file_compress.zip_compress('another_name')

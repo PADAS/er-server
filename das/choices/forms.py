@@ -4,7 +4,7 @@ from django import forms
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.forms.widgets import Widget
 
-from utils.widget import IconKeyInput, get_icon_select_list
+from core.widget import IconKeyInput, get_icon_select_list
 from choices.models import Choice
 
 

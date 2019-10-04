@@ -1,4 +1,4 @@
-<div id="icon_key_text">
+<!-- <div id="icon_key_text">
   <input type="hidden"
          name="{{ widget.name }}"
          {% if widget.value != None %}
@@ -7,7 +7,7 @@
 
   <div class="current-selection">
     <img class="icon-preview-image" src="{{ widget.file_path }}" />
-  
+
     <span class="icon-display-value">
       {% if widget.value == None %}
         <img class="input-icon" src="/static/admin/img/icon-addlink.svg" alt="Add icon override" />
@@ -19,7 +19,7 @@
         {% endif %}
     </a>
   </div>
-    
+
   <ul class="event-type-icon-list">
       {% for item in image_list %}
     <li
@@ -82,7 +82,7 @@
 
     const onIconSelect = (e) => {
       const { key, path } = e.target.dataset;
-      
+
       label.innerHTML = '';
       input.value = key;
       sampleImage.src = path;
@@ -99,4 +99,4 @@
 
     list.querySelectorAll('li').forEach(el => el.addEventListener('click', onIconSelect));
   });
-</script>
+</script> -->

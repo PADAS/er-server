@@ -19,7 +19,7 @@ from activity.alerting.conditions import Conditions
 from activity.models import EventProvider, NotificationMethod, EventType
 from utils.schema_utils import get_schema_renderer_method, \
     validate_rendered_schema_is_wellformed
-from utils.widget import IconKeyInput, get_icon_select_list
+from core.widget import IconKeyInput, get_icon_select_list
 
 logger = logging.getLogger(__name__)
 
