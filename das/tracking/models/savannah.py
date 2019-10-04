@@ -49,11 +49,11 @@ class STAlert(NamedTuple):
 
 # Map Savannah alert keys to DAS Event Type.
 ALERT_EVENT_TYPE_MAP = {
-    'Immobility Alert': {
+    'immobility alert': {
         'event_type': 'immobility',
         'title_template': _('{} is immobile')
     },
-    'None': {
+    'none': {
         'event_type': 'immobility_all_clear',
         'title_template': _('{} is moving')
     }
@@ -143,8 +143,9 @@ class SavannaClient(object):
                 # Set device_alert type according to event_type
                 for alert in alerts:
                     alert_type = alert["exception_type"]
+                    alert_type_lower = alert_type.lower()
                     event_type_info = ALERT_EVENT_TYPE_MAP.get(
-                        alert_type.title(), None)
+                        alert_type_lower, None)
 
                     if not event_type_info:
                         self.logger.info(
