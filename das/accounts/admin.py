@@ -309,7 +309,8 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
                        'username'
                        )
         }),
-        ('Additional JSON Fields', {
+        ('Advanced Attributes', {
+            'classes': ('collapse',),
             'fields': ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
                        'organization', 'tech',)
         }),
