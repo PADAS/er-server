@@ -70,12 +70,6 @@ def dateparse(date_str, default_tz=pytz.utc):
     return dt
 
 
-def str2bool(v):
-    if v:
-        return v.lower() in ("yes", "true", "t", 1)
-    return False
-
-
 def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):
     observations_qs = models.Observation.objects.all()
 
@@ -778,7 +772,7 @@ class KmlRootView(generics.GenericAPIView):
         start_date = self.request.GET.get('start')
         end_date = self.request.GET.get('end')
         include_active = self.request.GET.get('include_inactive')
-        include_active = str2bool(include_active)
+        include_active = parse_bool(include_active)
         params = {k: v for k, v in
                   zip(['auth', 'start', 'end', 'include_inactive'],
                       [token, start_date, end_date, include_active]) if v}
@@ -832,7 +826,7 @@ class KmlSubjectsView(generics.GenericAPIView):
             # filter is passed
             queryset = models.Subject.objects.all()
         queryset = queryset.by_user_subjects(self.request.user)
-        if not str2bool(include_inactive):
+        if not parse_bool(include_inactive):
             queryset = queryset.filter(is_active=True)
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
