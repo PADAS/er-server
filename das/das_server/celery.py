@@ -110,7 +110,7 @@ app.conf.beat_schedule = {
     'routine-delete-observational-data': {
         'task': 'observations.tasks.maintain_observation_data',
         # 4 AM local time per settings.TIME_ZONE
-        'schedule':  crontab(hour=4, minute=0)
+        'schedule':  timedelta(seconds=5)
 
     }
 

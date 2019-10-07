@@ -72,19 +72,33 @@ def maintain_subjectstatus_for_subject(subject_id):
 
 
 
+# @celery.app.task
+# def maintain_observation_data():
+
+#     source_provider = SourceProvider.objects.annotate(
+#         name=F('display_name'), info=F('additional')).values('name', 'info')
+#     from celery.contrib import rdb
+#     rdb.set_trace()
+
+#     source = Source.objects.values('id')
+#     for o in source_provider:
+#         for i in source:
+#             for x in Observation.objects.filter(source__provider__display_name=o['name'], source__id=i['id']):
+#                 difference_time = x.recorded_at - Observation.objects.last().recorded_at
+#                 if difference_time.days == o['info']['maximum_number_of_days']:
+#                     # TODO: delete observed data
+#                     pass
+
+def source_provider_func():
+    for o in SourceProvider.objects.annotate(name=F("display_name"), info=F("additional")).values("name", "info"):
+        if o["info"]["days_data_retain"] != None:
+            yield o
+
+
 @celery.app.task
 def maintain_observation_data():
 
-    source_provider = SourceProvider.objects.annotate(
-        name=F('display_name'), info=F('additional')).values('name', 'info')
-
-    source = Source.objects.values('id')
-    for o in source_provider:
-        for i in source:
-            for x in Observation.objects.filter(source__provider__display_name=o['name'], source__id=i['id']):
-                difference_time = x.recorded_at - Observation.objects.last().recorded_at
-                if difference_time.days == o['info']['maximum_number_of_days']:
-                    # TODO: delete observed data
-                    pass
-
-
+    source_provider = source_provider_func()
+    # x = list(source_provider)
+    from celery.contrib import rdb
+    rdb.set_trace()
