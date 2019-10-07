@@ -422,3 +422,15 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
 
         response = KmlRootView.as_view()(request)
         self.assertEqual(response.status_code, 200)
+
+    def test_wrong_date_format_returns_400(self):
+        url = reverse('subjects-kml-root-view')
+        url += '?{}'.format(
+            urlencode({'start': '2018-2008-13T05:11:29.096844Z',
+                       'end': '2018-08-13T05:11:29.096844Z'}))
+
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+
+        response = KmlRootView.as_view()(request)
+        self.assertEqual(response.status_code, 400)

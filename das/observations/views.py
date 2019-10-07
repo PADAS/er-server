@@ -767,10 +767,8 @@ class ObservationsView(generics.ListCreateAPIView):
 class KmlRootView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
-    def build_link_for_user(self):
+    def build_link_for_user(self, start_date=None, end_date=None):
         token = kmlutils.get_kml_access_token(self.request.user, )
-        start_date = self.request.GET.get('start')
-        end_date = self.request.GET.get('end')
         include_active = self.request.GET.get('include_inactive')
         include_active = parse_bool(include_active)
         params = {k: v for k, v in
@@ -781,6 +779,25 @@ class KmlRootView(generics.GenericAPIView):
         return utils.add_base_url(self.request, f"{url}?{params}")
 
     def get(self, request, *args, **kwargs):
+        start_date = self.request.GET.get('start')
+        end_date = self.request.GET.get('end')
+        start = None
+        end = None
+
+        if start_date:
+            try:
+                start_date = dateutil.parser.parse(start_date)
+                start = start_date.isoformat()
+            except Exception as e:
+                return Response(data={"start": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if end_date:
+            try:
+                end_date = dateutil.parser.parse(end_date)
+                end = end_date.isoformat()
+            except Exception as e:
+                return Response(data={"end": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
         # TODO: Have a configuration for naming the KML feed.
         filename = 'DAS-KML_{}_{}'.format(self.request.user.username,
                                           datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
@@ -789,7 +806,7 @@ class KmlRootView(generics.GenericAPIView):
                    {'name': settings.KML_FEED_TITLE,
                     'visibility': 0,
                     'open': 1,
-                    'href': self.build_link_for_user()
+                    'href': self.build_link_for_user(start, end)
                     }
                    }
 
