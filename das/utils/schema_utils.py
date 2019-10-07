@@ -10,8 +10,7 @@ from django.template import Template, Context
 from django.template.base import VariableNode
 
 from activity.exceptions import SchemaValidationError, \
-    SCHEMA_ERROR_EMPTY_PROPERTY, \
-    SCHEMA_ERROR_MISMATCHED_PROPERTIES_IN_DEFINITION
+    SCHEMA_ERROR_EMPTY_PROPERTY
 from choices.models import Choice, DynamicChoice
 from utils.memoize import memoize
 
@@ -34,7 +33,7 @@ def get_replacement_fields_in_schema(schema):
             field_tag = node.token.contents
             field_details = field_tag.split('___')
             if len(field_details) != 3:
-                raise NameError('Incorrect event render tag: ' + field_tag)
+                raise NameError(f'Invalid schema tag: {repr(field_tag)}')
 
             fields.append({'lookup': field_details[0],
                            'field': field_details[1],
@@ -301,7 +300,18 @@ def detail_resolver(schema, key, value):
 
 
 def generate_details(event, schema):
-    event_details = event.event_details.first().data.get('event_details', {})
+
+    event_details = event.event_details.first()
+    if not event_details:
+        logger.warning(f'Event No. {event.serial_number} has no event_details')
+        return
+
+    if not event_details.data:
+        logger.warning(
+            f'Event No. {event.serial_number} has no value for event_details.data')
+        return
+
+    event_details = event_details.data.get('event_details', {})
 
     definition_order = dict(definition_keys(schema.get('definition', [])))
 
@@ -392,7 +402,7 @@ def get_replacement_fields_in_schema(schema):
             field_tag = node.token.contents
             field_details = field_tag.split('___')
             if len(field_details) != 3:
-                raise NameError('Incorrect event render tag: ' + field_tag)
+                raise NameError(field_tag)
 
             fields.append({'lookup': field_details[0],
                            'field': field_details[1],
@@ -482,16 +492,59 @@ def validate_rendered_schema_is_wellformed(schema):
     schema = get_schema_renderer_method()(schema)
     properties = schema['schema'].get('properties')
 
-    for prop in properties.values():
-        if not all([x in prop.keys() for x in ["type", "title"]]):
-            raise SchemaValidationError(SCHEMA_ERROR_EMPTY_PROPERTY)
-
-    definition = schema.get('definition', [])
-    keys = []
-    for dfn in definition:
-        if 'key' in dfn.keys():
-            keys.append(dfn['key'])
-
-    if sorted(keys) != sorted(list(properties.keys())):
+    # Raise an error if any property exists without essential attributes.
+    incomplete_properties_keyset = set()
+    required_property_keyset = {'type', 'title'}
+    for property_key, val in properties.items():
+        if any([x not in val for x in required_property_keyset]):
+            incomplete_properties_keyset.add(property_key)
+    if len(incomplete_properties_keyset) > 0:
         raise SchemaValidationError(
-            SCHEMA_ERROR_MISMATCHED_PROPERTIES_IN_DEFINITION)
+            f'Schema properties {repr(incomplete_properties_keyset)} are required to have {repr(required_property_keyset)}')
+
+    # Inspect the form-definition and raise an error if any elements are
+    # missing essential elements.
+    definition = schema.get('definition', [])
+
+    definition_keyset = set([x for x, y in definition_keys(definition)])
+
+    schema_keyset = set(properties.keys())
+
+    extra_keys_in_definition = definition_keyset - schema_keyset
+    if len(extra_keys_in_definition) > 0:
+        raise SchemaValidationError(
+            f'Form definition keys {repr(extra_keys_in_definition)} are not present in the schema definition')
+
+
+def map_schema(schema, load_schema):
+
+    lookups = []
+    keys = load_schema['schema']['properties'].keys()
+    for key in keys:
+        if ('enum' or 'query'
+                or 'table') in load_schema['schema']['properties'][key].keys():
+            lookups.append(key)
+
+    fields = []
+    index = 0
+    template = Template(schema)
+    for node in template.nodelist:
+        if type(node) is VariableNode:
+            field_tag = node.token.contents
+            field_details = field_tag.split('___')
+
+            if len(fields) == 0:
+                fields.append({
+                    'field_name': field_details[1],
+                    'lookup': field_details[0]
+                })
+            else:
+
+                if fields[index]['field_name'] != field_details[1]:
+                    fields.append({
+                        'field_name': field_details[1],
+                        'lookup': field_details[0]
+                    })
+                    index += 1
+
+    return dict(zip(lookups, fields))

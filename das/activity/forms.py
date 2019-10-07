@@ -103,8 +103,9 @@ def validate_schema_is_well_formed(schema):
 
     try:
         _ = get_schema_renderer_method()(schema)
-    except NameError:
-        raise forms.ValidationError(SCHEMA_ERROR_INCORRECT_RENDER_TAG)
+    except NameError as ne:
+        raise forms.ValidationError(
+            f'Schema includes an invalid token {str(ne)}')
     except Exception:
         raise forms.ValidationError(SCHEMA_ERROR_JSON_DECODE_ERROR)
     else:

@@ -2,8 +2,6 @@ from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
-from django.contrib import messages
-from django.template.defaultfilters import escape
 from django.urls import reverse
 
 import activity.models as models
@@ -57,11 +55,6 @@ class EventAdmin(admin.OSMGeoAdmin):
 @admin.register(models.Community)
 class CommunityAdmin(admin.ModelAdmin):
     pass
-
-
-@admin.register(models.EventRelatedSubject)
-class EventRelatedSubject(admin.ModelAdmin):
-    ordering = ('event__id', 'subject')
 
 
 @admin.register(models.EventType)
@@ -233,26 +226,8 @@ class EventProviderAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventCategory)
 class EventCategoryAdmin(admin.ModelAdmin):
-    pass
-
-
-@admin.register(models.EventRelationshipType)
-class EventRelationshipTypeAdmin(admin.ModelAdmin):
-    list_display = ('value',)
-
-
-@admin.register(models.EventRelationship)
-class EventRelationshipAdmin(admin.ModelAdmin):
-
-    # def from_event_display(self, obj):
-    #     return obj.from_event.id
-    # from_event_display.short_description = 'From Event'
-    # def to_event_display(self, obj):
-    #     return obj.to_event_id
-    # to_event_display.short_description = 'To Event'
-
-    list_display = ('from_event', 'type', 'to_event', 'ordernum')
-    ordering = ('from_event', 'type', 'ordernum')
+    list_display = ('display', 'value', 'ordernum', 'flag',)
+    ordering = ('display', 'value', 'ordernum', 'flag',)
 
 
 @admin.register(models.AlertRule)

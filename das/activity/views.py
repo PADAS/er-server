@@ -49,6 +49,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventGeoJsonSerializer
 
 from activity.filters import EventObjectPermissionsFilter
+from choices.models import Choice
 
 from activity.permissions import EventCategoryPermissions, \
     EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
@@ -218,6 +219,15 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         schema['schema']['icon_id'] = eventtype.icon_id
         schema['schema']['image_url'] = utils.add_base_url(
             request, eventtype.image_url)
+
+        field_schema = schema_utils.map_schema(eventtype.schema, schema)
+        for key, value in field_schema.items():
+            inactive_choices = []
+            obj = Choice.objects.filter(is_active=False, field=value['field_name'])
+            for o in obj:
+                inactive_choices.append(o.value)
+            schema['schema']['properties'][key]["inactive"+"_"+value['lookup']] = inactive_choices
+
 
         return generics.views.Response(schema)
 
