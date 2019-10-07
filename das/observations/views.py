@@ -1,3 +1,5 @@
+import urllib
+
 from observations.utils import get_minimum_allowed_age
 import csv
 import datetime
@@ -66,6 +68,29 @@ def dateparse(date_str, default_tz=pytz.utc):
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tz)
     return dt
+
+
+def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):
+    observations_qs = models.Observation.objects.all()
+
+    if start_date and end_date:
+        observations_qs = observations_qs.filter(
+            Q(recorded_at__range=(start_date, end_date)))
+    elif start_date:
+        observations_qs = observations_qs.filter(
+            Q(recorded_at__gte=start_date))
+    elif end_date:
+        observations_qs = observations_qs.filter(Q(recorded_at__lte=end_date))
+
+    subject_id_values = observations_qs.distinct(
+        'source__subjectsource__subject').order_by(
+        'source__subjectsource__subject_id').values(
+        'source__subjectsource__subject_id')
+
+    subject_ids = [str(i['source__subjectsource__subject_id']) for i in
+                   subject_id_values if i['source__subjectsource__subject_id']]
+
+    return models.Subject.objects.filter(id__in=subject_ids)
 
 
 class UnauthorizedView(APIException):
@@ -748,19 +773,37 @@ class ObservationsView(generics.ListCreateAPIView):
 class KmlRootView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
-    def build_link_for_user(self):
+    def build_link_for_user(self, start_date=None, end_date=None):
         token = kmlutils.get_kml_access_token(self.request.user, )
-        start_date = self.request.GET.get('start', '')
-        end_date = self.request.GET.get('end', '')
-        include_active = self.request.GET.get('include_inactive', 'active')
-        return utils.add_base_url(self.request,
-                                  '?'.join((
-                                      reverse('subjects-kml-view'),
-                                      'auth={}&start={}&end={}&include_inactive={}'.format(token, start_date, end_date, include_active))
-                                  )
-                                  )
+        include_active = self.request.GET.get('include_inactive')
+        include_active = parse_bool(include_active)
+        params = {k: v for k, v in
+                  zip(['auth', 'start', 'end', 'include_inactive'],
+                      [token, start_date, end_date, include_active]) if v}
+        params = urllib.parse.urlencode(params)
+        url = reverse('subjects-kml-view')
+        return utils.add_base_url(self.request, f"{url}?{params}")
 
     def get(self, request, *args, **kwargs):
+        start_date = self.request.GET.get('start')
+        end_date = self.request.GET.get('end')
+        start = None
+        end = None
+
+        if start_date:
+            try:
+                start_date = dateutil.parser.parse(start_date)
+                start = start_date.isoformat()
+            except Exception as e:
+                return Response(data={"start": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if end_date:
+            try:
+                end_date = dateutil.parser.parse(end_date)
+                end = end_date.isoformat()
+            except Exception as e:
+                return Response(data={"end": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
         # TODO: Have a configuration for naming the KML feed.
         filename = 'DAS-KML_{}_{}'.format(self.request.user.username,
                                           datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
@@ -769,7 +812,7 @@ class KmlRootView(generics.GenericAPIView):
                    {'name': settings.KML_FEED_TITLE,
                     'visibility': 0,
                     'open': 1,
-                    'href': self.build_link_for_user()
+                    'href': self.build_link_for_user(start, end)
                     }
                    }
 
@@ -783,6 +826,8 @@ class KmlSubjectsView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def get_queryset(self):
+        include_inactive = self.request.GET.get('include_inactive', 'false')
+
         start_date = self.request.GET.get('start')
         end_date = self.request.GET.get('end')
 
@@ -797,32 +842,30 @@ class KmlSubjectsView(generics.GenericAPIView):
         except Exception as e:
             end_date = None
 
-        min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        queryset = models.Subject.objects.all()
-        queryset = check_to_include_inactive_subjects(self.request, queryset)
-        if start_date and end_date:
-            queryset = queryset.filter(
-                created_at__range=[start_date, end_date])
-        elif start_date:
-            queryset = queryset.filter(created_at__gte=start_date)
-        elif end_date:
-            queryset = queryset.filter(created_at__lte=end_date)
+        if start_date or end_date:
+            queryset = get_subjects_with_observations_in_daterange(
+                start_date, end_date)
         else:
-            queryset = queryset.by_user_subjects(self.request.user) \
-                .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
-        return queryset
+            # return all subjects with or without tracks if no date
+            # filter is passed
+            queryset = models.Subject.objects.all()
+        queryset = queryset.by_user_subjects(self.request.user)
+        if not parse_bool(include_inactive):
+            queryset = queryset.filter(is_active=True)
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+
+        return queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24)
 
     def build_link_for_subject(self, subject):
         token = kmlutils.get_kml_access_token(self.request.user)
-        start_date = self.request.GET.get('start', 'start')
-        end_date = self.request.GET.get('end', 'end')
-        return utils.add_base_url(self.request,
-                                  '?'.join((
-                                      reverse('subject-kml-view',
-                                              args=[subject['id']]),
-                                      'auth={}&start={}&end={}'.format(token, start_date, end_date))
-                                  )
-                                  )
+        start_date = self.request.GET.get('start')
+        end_date = self.request.GET.get('end')
+        params = {k: v for k, v in
+                  zip(['auth', 'start', 'end'],
+                      [token, start_date, end_date]) if v}
+        params = urllib.parse.urlencode(params)
+        url = reverse('subject-kml-view', args=[subject['id']])
+        return utils.add_base_url(self.request, f"{url}?{params}")
 
     def subject_context(self, subject):
 
