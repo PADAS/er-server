@@ -10,10 +10,10 @@ from django.db.models import Q
 
 from core.tests import BaseAPITest
 from accounts.models import PermissionSet
-from utils.helpers import ZipFileCompression
+from utils.helpers import FileCompression
 from choices.models import Choice
 from choices.serializers import ChoiceIconZipSerializer
-from choices.views import ChoiceIconZip
+from choices.views import ChoiceZipIcon
 
 User = get_user_model()
 
@@ -42,7 +42,7 @@ class TestChoice(BaseAPITest):
         request = self.factory.get(url)
 
         self.force_authenticate(request, self.user)
-        response = ChoiceIconZip.as_view()(request)
+        response = ChoiceZipIcon.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
         items = {name: value for name, value in response.items()}
@@ -53,17 +53,16 @@ class TestChoice(BaseAPITest):
         choices = Choice.objects.values('icon').exclude(
             Q(icon__exact='') | Q(icon__exact=None)).distinct()
         serializer = ChoiceIconZipSerializer(choices, many=True)
-        zipfile_compress = ZipFileCompression(serializer.data)
-        file_path = zipfile_compress.check_file_type()
+        zipfile_compress = FileCompression(serializer.data)
+        file_path = zipfile_compress.file_paths
         self.assertTrue(os.path.exists(file_path[0]))
 
-    def test_message_when_zipfile(self):
+    def test_when_no_icon_exist(self):
         url = reverse('icon-zip')
         request = self.factory.get(url)
 
         self.force_authenticate(request, self.user)
-        response = ChoiceIconZip.as_view()(request)
+        response = ChoiceZipIcon.as_view()(request)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data, "No icon(s) for choices found")
+        self.assertEqual(response.status_code, 404)
 
