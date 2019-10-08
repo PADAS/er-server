@@ -14,7 +14,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/api:<<server-version>>
+      - image: gcr.io/padas-app/concourse-shim/concourse-earthranger-api:<<server-version>>
         name: das-api
         resources:
           requests:
@@ -44,6 +44,8 @@ spec:
               key: DB_PASSWORD
         - name: USE_AZURE_STORAGE
           value: "${USE_AZURE_STORAGE}"
+        - name: SERVICE_NAME
+          value: "api_server"
         - name: STORAGE_ACCOUNT
           valueFrom:
             configMapKeyRef:
