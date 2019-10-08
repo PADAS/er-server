@@ -3,6 +3,8 @@ resource "template_dir" "deployments" {
   # Point this at the deployments path for vcloud
   destination_dir = "${path.root}/rendered"
   vars = {
+    API_HOST = var.api_host
+    API_PORT = var.api_port
     DB_PORT = var.db_port
     DB_NAME = var.db_name
     USE_AZURE_STORAGE = var.use_azure_storage

@@ -1,3 +1,13 @@
+variable "api_host" {
+  type = string
+  default = "api"
+}
+
+variable "api_port" {
+  type = string
+  default = "8000"
+}
+
 variable "db_port" {
   type = string
   default = "5432"
