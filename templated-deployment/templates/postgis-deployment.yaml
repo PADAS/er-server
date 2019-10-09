@@ -1,0 +1,37 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  namespace: <<namespace>>
+  name: postgis
+spec:
+  serviceName: "postgis"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        das.component: postgis
+    spec:
+      imagePullSecrets:
+        - name: gcr-secret
+      containers:
+      - image: gcr.io/padas-app/postgis:<<server-version>>
+        name: das-postgis
+        resources:
+          requests:
+            cpu: "150m"
+            memory: "500Mi"
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: pgdata
+  volumeClaimTemplates:
+  - metadata:
+      name: pgdata
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: ssd
+      resources:
+        requests:
+          storage: 50Gi
+      selector:
+        matchLabels:
+          das.component: <<namespace>>-postgis

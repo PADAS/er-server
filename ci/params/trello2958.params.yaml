@@ -1,0 +1,13 @@
+project-id: padas-app
+version-prefix: dev
+cluster-name: integration
+deployment-plan: integration
+server-branch-name: TRELLO_2958-redress-deployment-yamls
+web-branch-name: develop
+namespace: trello2958
+web-react-admin-branch-name: master
+tag-as-latest: true
+#das-static-ip: 34.83.76.186
+deploy-params-environment: trello2958
+deploy-recipe: standard-integration.yaml
+iaas-workspace: "padas-app"

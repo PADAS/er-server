@@ -1,6 +1,21 @@
-variable "db_port" {
+variable "api_endpoint" {
   type = string
-  default = "5432"
+  default = "localhost"
+}
+
+variable "api_host" {
+  type = string
+  default = "api"
+}
+
+variable "api_port" {
+  type = string
+  default = "8000"
+}
+
+variable "config_container" {
+  type = string
+  default = "dev-az"
 }
 
 variable "db_name" {
@@ -8,14 +23,9 @@ variable "db_name" {
   default = "das"
 }
 
-variable "use_azure_storage" {
+variable "db_port" {
   type = string
-  default = "false"
-}
-
-variable "storage_container" {
-  type = string
-  default = ""
+  default = "5432"
 }
 
 variable "kml_export" {
@@ -23,7 +33,20 @@ variable "kml_export" {
   default = "true"
 }
 
-variable "config_container" {
+variable "storage_container" {
   type = string
-  default = "dev-az"
+  default = ""
 }
+
+variable "use_azure_storage" {
+  type = string
+  default = "false"
+}
+
+variable "web_service_name" {
+  type = string
+  default = "web"
+}
+
+
+
