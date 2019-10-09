@@ -21,30 +21,18 @@ spec:
             cpu: "100m"
         env:
         - name: API_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: API_HOST
+          value: "${API_HOST}"
         - name: API_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: API_PORT
+          value: "${API_PORT}"
         - name: DB_HOST
           valueFrom:
             configMapKeyRef:
               name: site-configmap
               key: DB_HOST
         - name: DB_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: site-configmap
-              key: DB_PORT
+          value: "${DB_PORT}"
         - name: DB_NAME
-          valueFrom:
-            configMapKeyRef:
-              name: site-configmap
-              key: DB_NAME
+          value: "${DB_NAME}"
         - name: DB_USER
           valueFrom:
             configMapKeyRef:
@@ -56,10 +44,7 @@ spec:
               name: site-configmap
               key: DB_PASSWORD
         - name: USE_AZURE_STORAGE
-          valueFrom:
-            configMapKeyRef:
-              name: site-configmap
-              key: USE_AZURE_STORAGE
+          value: "${USE_AZURE_STORAGE}"
         - name: SERVICE_NAME
           value: "realtime_worker"
         - name: STORAGE_ACCOUNT
@@ -73,10 +58,7 @@ spec:
               name: site-configmap
               key: STORAGE_ACCOUNT_KEY
         - name: STORAGE_CONTAINER
-          valueFrom:
-            configMapKeyRef:
-              name: site-configmap
-              key: STORAGE_CONTAINER
+          value: "${STORAGE_CONTAINER}"
         - name: CONFIG_ACCOUNT
           valueFrom:
             configMapKeyRef:
@@ -88,10 +70,7 @@ spec:
               name: site-configmap
               key: CONFIG_ACCOUNT_KEY
         - name: CONFIG_CONTAINER
-          valueFrom:
-            configMapKeyRef:
-              name: site-configmap
-              key: CONFIG_CONTAINER
+          value: "${CONFIG_CONTAINER}"
         - name: EMAIL_PASSWORD
           valueFrom:
             configMapKeyRef:
