@@ -1,3 +1,8 @@
+variable "api_endpoint" {
+  type = string
+  default = "localhost"
+}
+
 variable "api_host" {
   type = string
   default = "api"

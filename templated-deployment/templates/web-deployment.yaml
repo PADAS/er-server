@@ -21,8 +21,4 @@ spec:
         - containerPort: 9000
         env:
         - name: APIENDPOINT
-          valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: APIENDPOINT
-
+          value: "${API_ENDPOINT}"
