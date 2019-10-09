@@ -8,9 +8,9 @@ variable "api_port" {
   default = "8000"
 }
 
-variable "db_port" {
+variable "config_container" {
   type = string
-  default = "5432"
+  default = "dev-az"
 }
 
 variable "db_name" {
@@ -18,14 +18,9 @@ variable "db_name" {
   default = "das"
 }
 
-variable "use_azure_storage" {
+variable "db_port" {
   type = string
-  default = "false"
-}
-
-variable "storage_container" {
-  type = string
-  default = ""
+  default = "5432"
 }
 
 variable "kml_export" {
@@ -33,7 +28,15 @@ variable "kml_export" {
   default = "true"
 }
 
-variable "config_container" {
+variable "storage_container" {
   type = string
-  default = "dev-az"
+  default = ""
 }
+
+variable "use_azure_storage" {
+  type = string
+  default = "false"
+}
+
+
+
