@@ -38,5 +38,10 @@ variable "use_azure_storage" {
   default = "false"
 }
 
+variable "web_service_name" {
+  type = string
+  default = "web"
+}
+
 
 

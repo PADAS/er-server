@@ -24,10 +24,7 @@ spec:
         - containerPort: 9001
         env:
         - name: WEB_SERVICE_NAME
-          valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: WEB_SERVICE_NAME
+          value: "${WEB_SERVICE_NAME}"
         - name: BUNDLE_CRT
           valueFrom:
             configMapKeyRef:
