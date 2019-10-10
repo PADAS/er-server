@@ -23,16 +23,16 @@ Files are rendered to `templated-deployment/rendered`. It is important to only s
 ### Templating conversion progress
 
 - [x] api-deployment.yaml
-- [ ] beat-deployment.yaml
-- [ ] default-configmap.yaml
-- [ ] mql-deployment.yaml
-- [ ] nginx-deployment.yaml
-- [ ] postgis-deployment.yaml
-- [ ] redis-deployment.yaml
-- [ ] rt-api-deployment.yaml
-- [ ] web-deployment.yaml
-- [ ] worker-analyzer-deployment.yaml
-- [ ] worker-deployment.yaml
-- [ ] worker-rt-deployment.yaml
+- [x] beat-deployment.yaml
+- [x] default-configmap.yaml
+- [x] mql-deployment.yaml
+- [x] nginx-deployment.yaml
+- [x] postgis-deployment.yaml
+- [x] redis-deployment.yaml
+- [x] rt-api-deployment.yaml
+- [x] web-deployment.yaml
+- [x] worker-analyzer-deployment.yaml
+- [x] worker-deployment.yaml
+- [x] worker-rt-deployment.yaml
 
 
