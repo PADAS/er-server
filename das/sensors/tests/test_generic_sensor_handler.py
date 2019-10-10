@@ -1,17 +1,18 @@
 import json
 import copy
 import datetime
+from uuid import uuid4
+from unittest import mock
 
 from django.utils import timezone
 from django.db import transaction
-
 from rest_framework import status
 from django.utils import lorem_ipsum
 
-from core.tests import BaseAPITest
+from core.tests import BaseAPITest, fake_get_pool
 from sensors.views import SensorObservation
 from observations.models import Subject, SourceProvider, Source, Observation, SubjectGroup, SubjectSubType
-from unittest import mock
+
 
 class GenericSensorHandlerTest(BaseAPITest):
     source_type = 'tracking-collar'
@@ -42,6 +43,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.api_path = '/'.join((self.api_base, 'sensors',
                                   self.sensor_type, self.provider, 'status'))
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def run_transaction_hooks(self):
         """
         Mock transaction hooks to validate code for delayed on_commit functions.
@@ -54,7 +56,8 @@ class GenericSensorHandlerTest(BaseAPITest):
         for db_name in reversed(self._databases_names()):
             with mock.patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
                             lambda a: False):
-                transaction.get_connection(using=db_name).run_and_clear_commit_hooks()
+                transaction.get_connection(
+                    using=db_name).run_and_clear_commit_hooks()
 
     def tearDown(self):
         self.run_transaction_hooks()
@@ -159,6 +162,91 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(2, Observation.objects.count())
 
+    def test_subject_doesnot_exist(self):
+        local_obs = copy.deepcopy(self.one_observation)
+        local_obs.pop('subject_name', None)
+        response = self._post_data(json.dumps(local_obs))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source=self.test_source).count())
+        self.assertIsNotNone(Subject.objects.get(name=self.manufacturer_id))
+
+    def test_source_doesnot_exist(self):
+        obs_copy = copy.deepcopy(self.one_observation)
+        obs_copy['manufacturer_id'] = 'random_mfg_id'
+        response = self._post_data(json.dumps(obs_copy))
+        source = Source.objects.get(manufacturer_id='random_mfg_id')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source=source).count())
+        self.assertIsNotNone(source)
+
+    def test_provider_doesnot_exist(self):
+        response = self._post_data(json.dumps(self.one_observation), 'random_src_provider')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.count())
+        self.assertIsNotNone(SourceProvider.objects.get(provider_key='random_src_provider'))
+
+    def test_subject_src_provider_donot_exist(self):
+        mfg_id = 'brew_new_mfg_id'
+        provider_key = 'new_provider_key'
+        obs_copy = copy.deepcopy(self.one_observation)
+        obs_copy.pop('subject_name', None)
+        obs_copy['manufacturer_id'] = mfg_id
+        response = self._post_data(json.dumps(obs_copy), provider_key)
+        src = Source.objects.get(manufacturer_id=mfg_id)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source=src).count())
+        self.assertIsNotNone(SourceProvider.objects.get(provider_key=provider_key))
+        self.assertIsNotNone(src)
+        self.assertIsNotNone(Subject.objects.get(name=mfg_id))
+
+    def test_with_subject_id(self):
+        uuid = uuid4()
+        obs_copy = copy.deepcopy(self.one_observation)
+        obs_copy['subject_id'] = uuid.hex
+        response = self._post_data(json.dumps(obs_copy))
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source=self.test_source).count())
+        self.assertIsNotNone(Subject.objects.get(pk=uuid))
+
+    def test_with_subject_id_multiple_obs(self):
+        uuid = uuid4()
+        obs_list = [x for x in self._generate_observations(distinct=True)]
+        for o in obs_list:
+            o['subject_id'] = uuid.hex
+        response = self._post_data(json.dumps(obs_list))
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(obs_list), Observation.objects.filter(source=self.test_source).count())
+        self.assertIsNotNone(Subject.objects.get(pk=uuid))
+
+    def test_with_multiple_subject_ids(self):
+        uuids = [uuid4() for i in range(5)]
+        obs_list = [x for x in self._generate_observations(5, distinct=True)]
+        for i, obs in enumerate(obs_list):
+            obs['subject_id'] = uuids[i].hex
+
+        response = self._post_data(json.dumps(obs_list))
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(obs_list), Observation.objects.filter(source=self.test_source).count())
+
+        for uuid in uuids:
+            self.assertIsNotNone(Subject.objects.get(pk=uuid))
+
+    def test_with_subject_subtype(self):
+        subject_subtype = 'animal-awesome'
+        obs_copy = copy.deepcopy(self.one_observation)
+        obs_copy['subject_subtype'] = subject_subtype
+
+        response = self._post_data(json.dumps(obs_copy))
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source=self.test_source).count())
+        self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
+
     def _generate_observations(self, n=10, distinct=False):
         for i in range(n):
             obs = dict(self.one_observation)
@@ -168,10 +256,14 @@ class GenericSensorHandlerTest(BaseAPITest):
 
             yield obs
 
-    def _post_data(self, payload):
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
+    def _post_data(self, payload, provider=None):
+        if not provider:
+            provider = self.provider
+
         request = self.factory.post(
             self.api_path, data=payload, content_type='application/json')
         self.force_authenticate(request, self.app_user)
         response = SensorObservation.as_view()(
-            request, sensor_type=self.sensor_type, provider_key=self.provider)
+            request, sensor_type=self.sensor_type, provider_key=provider)
         return response

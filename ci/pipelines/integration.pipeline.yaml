@@ -1,3 +1,18 @@
+anchors:
+  terraform-image-specification: &terraform-image-specification
+    type: docker-image
+    source:
+      repository: "gcr.io/ss-infrastructure-public/vendor/hashicorp/terraform-0.12.9"
+      digest: "sha256:cf9b54657c498378e3fe43f5e36039c9b7d8e620a606fbdc713d63df514fb96d"
+  terraform-apply-and-destroy-params: &terraform-apply-and-destroy-params
+    CREDENTIALS_FOR_STATE: "((concourse-terraform-state-reader-key))"
+    GOOGLE_CREDENTIALS: "((concourse-terraform-state-reader-key))"
+    TF_IN_AUTOMATION: "not-empty"
+    TF_VAR_infra_namespace: "((infra-namespace))"
+    TF_VAR_location: "West Europe"
+    TF_VAR_namespace: "((namespace))"
+    WORKSPACE: "((pipeline-name))"
+
 resources:
 ################################################################################
 #
@@ -5,6 +20,23 @@ resources:
 #
 ################################################################################
 # git resources
+
+- name: git-terraform-templates
+  type: versioned-git-resource
+  source:
+    uri: git@github.com:PADAS/das.git
+    branch: ((server-branch-name))
+    paths:
+      - templated-deployment/*
+    private_key: ((das-github))
+
+- name: terraform-rendered-templates
+  type: gcs-resource
+  source:
+    bucket: ((plan-bucket))
+    json_key: ((temp-concourse-terraform-planner))
+    regexp: padas-app/((pipeline-name))/rendered-(.?).gpg
+
 - name: server-version
   type: semver
   source:
@@ -15,44 +47,11 @@ resources:
     private_key: ((das-versions-github))
     initial_version: ((initial-server-version))
 
-- name: server-base-version
-  type: semver
-  source:
-    driver: git
-    uri: git@github.com:PADAS/das.versions.git
-    branch: master
-    file: ((version-prefix)).server.base.version
-    private_key: ((das-versions-github))
-    initial_version: ((initial-server-version))
-
-- name: server-app-version
-  type: semver
-  source:
-    driver: git
-    uri: git@github.com:PADAS/das.versions.git
-    branch: master
-    file: ((version-prefix)).server.app.version
-    private_key: ((das-versions-github))
-    initial_version: ((initial-server-version))
-
-- name: git-server-base
+- name: git-earthranger-api
   type: versioned-git-resource
   source:
     uri: git@github.com:PADAS/das.git
     branch: ((server-branch-name))
-    paths:
-      - dependencies/*
-      - docker/base/*
-    private_key: ((das-github))
-
-- name: git-server
-  type: versioned-git-resource
-  source:
-    uri: git@github.com:PADAS/das.git
-    branch: ((server-branch-name))
-    ignore_paths:
-      - deployment/*
-      - das/ste
     private_key: ((das-github))
 
 - name: git-deployment
@@ -164,89 +163,23 @@ resources:
     private_key: ((das-versions-github))
     initial_version: ((initial-smartconnect-version))
 
-#base docker resources
-- name: image-server-base
+- name: concourse-earthranger-api-shim
   type: docker-image-with-file-build-args
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/base
+    repository: gcr.io/padas-app/concourse-shim/concourse-earthranger-api
 
-- name: circleci-das-base-image
+# EarthRanger API Image Resources
+- name: earthranger-api-image
   type: docker-image
   source:
     email: ((gcr-io-email))
     username: ((gcr-io-username))
     password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/circleci/das-base
-    tag: latest
-
-- name: image-server-app
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/app
-
-# AIS_Gap, AIS_Track, API, Beat, MQL, RT_AIS_API, RT_API, Worker, Worker_RT, Worker_Analyzer
-- name: image-server-worker
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/worker
-
-- name: image-server-worker-rt
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/worker-rt
-
-- name: image-server-worker-analyzer
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/worker-analyzer
-
-- name: image-server-rt-api
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/rt_api
-
-- name: image-server-mql
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/mql
-
-- name: image-server-beat
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/beat
-
-- name: image-server-api
-  type: docker-image-with-file-build-args
-  source:
-    email: ((gcr-io-email))
-    username: ((gcr-io-username))
-    password: ((padas-app-container-registry-push))
-    repository: gcr.io/padas-app/api
-
+    repository: gcr.io/padas-app/circleci/earthranger-api
+    tag: ((server-branch-name))
 
 # docker resource images not dependent on base / app
 - name: image-postgis
@@ -400,6 +333,11 @@ resource_types:
     repository: cfcommunity/slack-notification-resource
     tag: v1.2.0
 
+- name: gcs-resource
+  type: docker-image
+  source:
+    repository: "gcr.io/ss-infrastructure-public/vendor/frodenas/gcs-resource-v0.4.1"
+    digest: "sha256:c58ae577bb2a0557734f31a4ca6257f231699e069f0065dd2e0d34980d39a617"
 
 ################################################################################
 #
@@ -407,172 +345,39 @@ resource_types:
 #
 ################################################################################
 jobs:
-- name: docker-build-server-base
+- name: docker-earthranger-api-shim
   max_in_flight: 1
   plan:
-  - get: git-server-base
+  - get: git-earthranger-api
     params:
       submodules: none
     trigger: false
-  - get: circleci-das-base-image
+  - get: earthranger-api-image
     trigger: true
-  - put: server-base-version
+  - put: server-version
     params:
       pre: ((version-prefix))
-  - put: image-server-base
-    params: {
-      build: git-server-base,
-      dockerfile: git-server-base/docker/base/Dockerfile,
-      tag: server-base-version/version,
-      tag_as_latest: ((tag-as-latest)),
-      build_args: {BASE_IMAGE_TAG: latest}
-    }
-    get_params: {skip_download: true}
-    on_failure:
-      do:
-      - put: slack-alert
-        params:
-          channel: ((slack-notification-channel))
-          text: |
-            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
-            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
-
-- name: docker-build-server-app
-  max_in_flight: 1
-  plan:
-  - aggregate:
-    - get: git-server-base
-      params:
-        submodules: none
-      passed: [docker-build-server-base]
-    - get: image-server-base
-      passed: [docker-build-server-base]
-      trigger: true
-      params: {
-        skip_download: true
-      }
-    - get: git-server
-      trigger: true
-      params:
-        submodules: none
-    - get: server-base-version
-      passed: [docker-build-server-base]
-    - put: server-app-version
-      params:
-        pre: ((version-prefix))
-  - put: image-server-app
+  - put: concourse-earthranger-api-shim
     params:
-      build: git-server
-      dockerfile: git-server/docker/App/Dockerfile
-      tag: server-app-version/version
+      build: git-earthranger-api
+      dockerfile: git-earthranger-api/docker/Dockerfile
+      tag: server-version/version
+      tag_as_latest: ((tag-as-latest))
       build_args:
-        from_file:
-          base_tag: server-base-version/version
-          version: server-app-version/version
+        {app_tag: ((server-branch-name))}
+    get_params: {skip_download: true}
+  - put: image-postgis
+    params:
+      build: git-earthranger-api/docker/PostGIS
+      tag: server-version/version
       tag_as_latest: ((tag-as-latest))
     get_params: {skip_download: true}
-    on_failure:
-      do:
-      - put: slack-alert
-        params:
-          channel: ((slack-notification-channel))
-          text: |
-            :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
-            $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
-
-- name: docker-build-server
-  max_in_flight: 1
-  plan:
-  - aggregate:
-    - get: git-server
-      params:
-        submodules: none
-    - get: image-server-app
-      passed: [docker-build-server-app]
-      trigger: true
-      params: {skip_download: true}
-    - get: server-app-version
-      passed: [docker-build-server-app]
-    - put: server-version
-      params:
-        pre: ((version-prefix))
-  - aggregate:
-    - put: image-server-api
-      params:
-        build: git-server/docker/API
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-            version: server-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-beat
-      params:
-        build: git-server/docker/Beat
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-mql
-      params:
-        build: git-server/docker/MQL
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-rt-api
-      params:
-        build: git-server/docker/RT_API
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-worker
-      params:
-        build: git-server/docker/Worker
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-worker-rt
-      params:
-        build: git-server/docker/Worker_RT
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-server-worker-analyzer
-      params:
-        build: git-server/docker/Worker_Analyzer
-        tag: server-version/version
-        build_args:
-          from_file:
-            app_tag: server-app-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-postgis
-      params:
-        build: git-server/docker/PostGIS
-        tag: server-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
-    - put: image-nginx
-      params:
-        build: git-server/docker/Nginx
-        tag: server-version/version
-        tag_as_latest: ((tag-as-latest))
-      get_params: {skip_download: true}
+  - put: image-nginx
+    params:
+      build: git-earthranger-api/docker/Nginx
+      tag: server-version/version
+      tag_as_latest: ((tag-as-latest))
+    get_params: {skip_download: true}
   on_failure:
     do:
     - put: slack-alert
@@ -581,8 +386,6 @@ jobs:
         text: |
           :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
           $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
-
-
 # Web Jobs
 - name: docker-build-web-develop
   max_in_flight: 1
@@ -944,20 +747,78 @@ jobs:
             :warning: $BUILD_PIPELINE_NAME job $BUILD_JOB_NAME failed
             $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME
 
+- name: render-terraform-templates
+  max_in_flight: 1
+  serial_groups:
+    - "terraform"
+  plan:
+  - do:
+    - get: git-terraform-templates
+      params:
+        submodules: none
+      trigger: true
+    - task: render
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: git-terraform-templates
+        params:
+          GOOGLE_CREDENTIALS: "((concourse-terraform-state-reader-key))"
+          TF_IN_AUTOMATION: "not-empty"
+          TF_WORKSPACE: "((pipeline-name))"
+          VAULT_ADDR: "((vault-address))"
+          VAULT_SKIP_VERIFY: "true"
+          VAULT_TOKEN: "((vault-automation-token))"
+        run:
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'cd ./git-terraform-templates/templated-deployment &&
+            terraform init -input=false &&
+            terraform apply -input=false -auto-approve &&
+            cd "$OLDPWD" &&
+            cp -r ./git-terraform-templates/templated-deployment/rendered ./ &&
+            ls -Al ./rendered'
+        outputs:
+        - name: rendered
+    - task: zip
+      config:
+        platform: linux
+        image_resource: *terraform-image-specification
+        inputs:
+        - name: rendered
+        params:
+          PLAN_ENCRYPTION_SECRET: ((plan-encryption-secret))
+        run:
+          path: /bin/sh
+          args:
+          - '-c'
+          - 'apk update && apk add gnupg &&
+            tar c -z ./rendered > ./zip &&
+            echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --symmetric -o ./zipped/rendered-$(date +%s).gpg zip'
+        outputs:
+        - name: zipped
+    - put: terraform-rendered-templates
+      params:
+        file: zipped/rendered-*.gpg
+
 - name: deploy-to-k8s
   max_in_flight: 1
   plan:
     - aggregate:
+      - get: concourse-earthranger-api-shim
+        passed: [docker-earthranger-api-shim]
       - get: server-version
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
       - get: web-version
         passed: [docker-build-web-develop]
       - get: smartconnect-version
         passed: [docker-build-smartconnect-provider]
       - get: git-web
         passed: [docker-build-web-app]
-      - get: git-server
-        passed: [docker-build-server]
+      - get: git-earthranger-api
+        passed: [docker-earthranger-api-shim]
         params:
           submodules: none
       - get: git-deployment
@@ -978,40 +839,12 @@ jobs:
         passed: [docker-build-smartconnect-provider]
       - get: git-capturs-provider
         passed: [docker-build-capturs-provider]
-      - get: image-server-api
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-mql
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-beat
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-rt-api
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-worker
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-worker-rt
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
-      - get: image-server-worker-analyzer
-        passed: [docker-build-server]
-        trigger: true
-        params: {skip_download: true}
       - get: image-nginx
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
         trigger: true
         params: {skip_download: true}
       - get: image-postgis
-        passed: [docker-build-server]
+        passed: [docker-earthranger-api-shim]
         trigger: true
         params: {skip_download: true}
       - get: image-web-app
@@ -1160,6 +993,26 @@ jobs:
             - git-deployment/deployment/default-deployment-plan-spec.yaml
             - --series=((cluster-name))
     - do:
+      - get: terraform-rendered-templates
+        passed:
+          - render-terraform-templates
+      - task: unzip
+        config:
+          platform: linux
+          image_resource: *terraform-image-specification
+          inputs:
+          - name: terraform-rendered-templates
+          params:
+            PLAN_ENCRYPTION_SECRET: ((plan-encryption-secret))
+          run:
+            dir: terraform-rendered-templates
+            path: /bin/sh
+            args:
+            - '-c'
+            - 'apk update && apk add gnupg &&
+            echo "$PLAN_ENCRYPTION_SECRET" | PASSPHRASE="$PLAN_ENCRYPTION_SECRET" gpg --batch --pinentry-mode loopback --command-fd 0 --decrypt ./rendered-*.gpg | tar x -z -f - -C ../unzipped && ls -Al ../unzipped/rendered'
+          outputs:
+          - name: unzipped
       - task: deploy
         config:
           platform: linux
@@ -1171,6 +1024,7 @@ jobs:
             }
           inputs:
           - name: git-deployment
+          - name: unzipped
           params: {
             PROJECT: padas-app,
             CLUSTER_NAME: ((cluster-name)),
@@ -1197,9 +1051,18 @@ jobs:
             args:
             - -ec
             - |
-              echo "Finalizing the PV definitions to be used for this IAAS"
+              # Move terraform-rendered templates to original deployments location
+              mv unzipped/rendered git-deployment/templated-deployment/ &&
+              echo "Finalizing the PV definitions to be used for this IAAS" &&
+
+              # This finds files relevant to services (Azure or GCP) and renames them for preservation
               find . -name "*.yaml.$IAAS" -exec bash -c 'mv "$1" "${1%.yaml.$IAAS}".yaml' - '{}' \;
-              find . -type f -name '*.yaml\.*' -exec rm {} +
+
+              # This locates and deletes config files that are not relevant to IAAS in this context
+              find . -type f -name '*.yaml\.*' -exec rm {} + &&
+
+              # List deployment files for debuggability. Note that templates moved to terraform are symlinked
+              ls -la git-deployment/deployment/components/deployments/
 
               vcloud clusters deploy git-deployment/deployment/components --params-file git-deployment/deployment/params/default.params.yaml git-deployment/deployment/params/((deploy-params-environment)).params.yaml --name ((cluster-name)) --workspace ((iaas-workspace)) --iaas ((iaas)) --zone ((iaas-zone)) --plan ((cluster-name)) --recipe git-deployment/deployment/recipes/((deploy-recipe))
       on_failure:

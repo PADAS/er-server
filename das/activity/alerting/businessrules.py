@@ -2,6 +2,7 @@ from typing import NamedTuple, Any
 
 from core.utils import NonHttpRequest
 from activity.serializers import EventSerializer
+from observations.models import SubjectGroup, Subject
 
 from utils import schema_utils
 from business_rules import actions, fields, variables, export_rule_data
@@ -15,8 +16,11 @@ import logging
 
 from activity.models import Event
 
+VIEW_SUBJECTGROUP_PERMS = ('observations.view_subjectgroup', )
+
 # Use string value of priority as value (ex. '0') to satisfy rules engine.
-priority_options = [dict(name=str(x), label=y) for x, y in Event.PRIORITY_CHOICES]
+priority_options = [dict(name=str(x), label=y)
+                    for x, y in Event.PRIORITY_CHOICES]
 
 state_options = [dict(name=x, label=y) for x, y in Event.STATE_CHOICES]
 
@@ -49,11 +53,11 @@ class EventVariables(variables.BaseVariables):
 
     @variables.select_multiple_rule_variable(label=_('Priority'), options=priority_options)
     def priority(self):
-        return [str(self.event.get('priority')),]
+        return [str(self.event.get('priority')), ]
 
     @variables.select_multiple_rule_variable(label=_('State'), options=state_options)
     def state(self):
-        return [self.event.get('state'),]
+        return [self.event.get('state'), ]
 
     # TODO: Implement state-change logic.
     # @variables.select_multiple_rule_variable(label=_('State Change'), options=state_change_options)
@@ -69,8 +73,10 @@ class EventActions(actions.BaseActions):
 
     @actions.rule_action(params={"alert_rule_id": fields.FIELD_NO_INPUT})
     def send_alert(self, alert_rule_id):
-        logger.info(f'Sending alert for event {self.event["id"]} for alert_rule_id {alert_rule_id}.')
-        self.action_list.append(dict(action='send_alert', event=self.event, alert_rule_id=alert_rule_id))
+        logger.info(
+            f'Sending alert for event {self.event["id"]} for alert_rule_id {alert_rule_id}.')
+        self.action_list.append(
+            dict(action='send_alert', event=self.event, alert_rule_id=alert_rule_id))
 
 
 class RuleVariableSpec(NamedTuple):
@@ -88,7 +94,8 @@ _WHITELISTED_OPERATORS = {
         # 'greater_than_or_equal_to': '>=',
         # 'less_than_or_equal_to': '<=',
 
-        # TODO: Resolve how to include special characters here that will be represented correctly inside a container.
+        # TODO: Resolve how to include special characters here that will be
+        # represented correctly inside a container.
         'greater_than_or_equal_to': '≥',
         'less_than_or_equal_to': '≤',
     },
@@ -113,10 +120,29 @@ def whitelist_operators(vtypename, operators):
             label = wtype.get(operator['name'])
             if label:
                 operator['label'] = label
-                logger.debug(f'For {vtypename} mapped {operator["name"]} to {label}')
+                logger.debug(
+                    f'For {vtypename} mapped {operator["name"]} to {label}')
                 yield operator
     else:
         yield from operators
+
+
+def create_subject_group_func(user=None):
+    def f(self):
+        return [str(subj_group.id) for subject in self.event.get('related_subjects') for subj_group in Subject.objects.get(id=subject.get('id')).groups.all()]
+
+    options_list = []
+
+    if user and user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
+        options_list = [
+            {
+                'name': str(group.id),
+                'label': group.name
+            } for group in SubjectGroup.objects.all().filter(
+                permission_sets__in=user.get_all_permission_sets()).distinct('id')
+        ]
+        options_list = sorted(options_list, key=lambda x: x['label'])
+    return variables.select_multiple_rule_variable("Subject Group", options=options_list)(f)
 
 
 def create_new_func(key, return_type, label=None, options_dict=None):
@@ -132,14 +158,16 @@ def create_new_func(key, return_type, label=None, options_dict=None):
 
     if return_type == 'select':
 
-        # For a multi-select option we return the Event's value as a member of a list.
+        # For a multi-select option we return the Event's value as a member of
+        # a list.
         def f(self):
             try:
                 return [self.event['event_details'].get(key, {}).get('value'), ]
             except KeyError:
                 return []
 
-        options_list = list({'name': k, 'label': v} for k, v in options_dict.items())
+        options_list = list({'name': k, 'label': v}
+                            for k, v in options_dict.items())
         options_list = sorted(options_list, key=lambda x: x['label'])
         return variables.select_multiple_rule_variable(label, options=options_list)(f)
 
@@ -163,7 +191,8 @@ def create_new_func(key, return_type, label=None, options_dict=None):
     elif return_type in (int, float):
         return variables.numeric_rule_variable(label)(numeric_f)
     else:
-        raise NotImplementedError(f'Return-type {return_type} is not yet supported.')
+        raise NotImplementedError(
+            f'Return-type {return_type} is not yet supported.')
 
 
 def translate_schema_type_to_type(option):
@@ -172,7 +201,8 @@ def translate_schema_type_to_type(option):
         return 'select'
 
     if 'type' not in option:
-        logger.warning('No \'type\' present in option, so using str. option=%s', option)
+        logger.warning(
+            'No \'type\' present in option, so using str. option=%s', option)
         return str
 
     if option['type'] == 'string':
@@ -182,7 +212,8 @@ def translate_schema_type_to_type(option):
         return int
 
     else:
-        raise NotImplementedError(f'I don\'t support type \'{option["type"]}\' yet.')
+        raise NotImplementedError(
+            f'I don\'t support type \'{option["type"]}\' yet.')
 
 
 def accumulate_options(schema_option, accumulator=None):
@@ -210,7 +241,7 @@ def accumulate_options(schema_option, accumulator=None):
     return {}
 
 
-def _generate_aggregate_event_variables_class(event_types, only_common_factors=False):
+def _generate_aggregate_event_variables_class(event_types, only_common_factors=False, user=None):
     '''
     From a list of EventTypes, generate an EventVariables class adhering to business-rules interface.
     :param event_types: A list of DAS EventType objects from which to build a variables type.
@@ -227,10 +258,12 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
         rendered_schema = schema_utils.get_rendered_schema(event_type.schema)
         keyset = set(rendered_schema['properties'].keys())
         keyset_list.append(keyset)
-        logger.debug('event_type: %s - Adding keyset: %s', event_type.value, keyset)
+        logger.debug('event_type: %s - Adding keyset: %s',
+                     event_type.value, keyset)
 
         # Accumulate rendered schema properties in a dict.
-        schema_properties_map[event_type.value] = rendered_schema.get('properties', {})
+        schema_properties_map[event_type.value] = rendered_schema.get(
+            'properties', {})
 
     # Determine intersection of keys.
     if only_common_factors:
@@ -241,7 +274,8 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
     applies_to_map = {}
     for event_type_value, schema_properties in schema_properties_map.items():
 
-        # Create an attributes list derived from schema and suitable for creating a Variables class.
+        # Create an attributes list derived from schema and suitable for
+        # creating a Variables class.
         for k, v in schema_properties.items():
 
             if only_common_factors and k not in keyset_intersection:
@@ -259,7 +293,8 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
                 if existing_attr.return_type == rule_return_type:
                     accumulate_options(v, existing_attr.optionsdict)
                 else:
-                    logger.warning('Name collision on %s with different return types.', k)
+                    logger.warning(
+                        'Name collision on %s with different return types.', k)
             else:
 
                 newattr = RuleVariableSpec(attrname=k, return_type=rule_return_type,
@@ -270,6 +305,8 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
 
     attrs = dict((x.attrname, create_new_func(x.attrname, x.return_type, label=x.label, options_dict=x.optionsdict))
                  for x in attributes_accumulator.values())
+    subject_group_func = create_subject_group_func(user)
+    attrs['subject_group'] = subject_group_func
 
     # Invent a class name
     # TODO: Research the behavior of new-ing up a type like this repeatedly.
@@ -277,19 +314,19 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
     return type(classname, (EventVariables,), attrs), applies_to_map
 
 
-PRUNE_OPTIONS_FROM = (fields.FIELD_TEXT, fields.FIELD_NO_INPUT, fields.FIELD_NUMERIC,)
+PRUNE_OPTIONS_FROM = (
+    fields.FIELD_TEXT, fields.FIELD_NO_INPUT, fields.FIELD_NUMERIC,)
 
 
-def render_aggregate_event_variables(event_types, only_common_factors=False):
+def render_aggregate_event_variables(event_types, only_common_factors=False, user=None):
     '''
     From a list of EventTypes, generate render a set of rules.
     :param event_types: A list of DAS EventType objects from which to build a variables type.
     :param only_common_factors: Whether to reduce the list of variables to just those which apply to all event_types.
     :return: A rules document that the UI will render allowing a user to build a condition set.
     '''
-
     variables_class, applies_to_map = _generate_aggregate_event_variables_class(event_types,
-                                                                                only_common_factors=only_common_factors)
+                                                                                only_common_factors=only_common_factors, user=user)
 
     rules = export_rule_data(variables_class, EventActions)
 
@@ -299,7 +336,8 @@ def render_aggregate_event_variables(event_types, only_common_factors=False):
 
     rules['variable_type_operators'] = replacement_operators
 
-    # Annotate conditions with event-type information, and nudge operators into the place where the UI wants them.
+    # Annotate conditions with event-type information, and nudge operators
+    # into the place where the UI wants them.
     for item in rules['variables']:
         item['exclusive_to'] = applies_to_map.get(item['name'], None)
 
@@ -315,8 +353,8 @@ def render_event(event, user, method='GET'):
     request.user = user
 
     if EventCategoryPermissions().has_object_permission(request, None, event):
-        return EventSerializer(event, context={'request': request,}).data
+        return EventSerializer(event, context={'request': request, }).data
     else:
-        logger.info(f'Permission denied when rendering event {event.serial_number} for user {user}.')
+        logger.info(
+            f'Permission denied when rendering event {event.serial_number} for user {user}.')
         return None
-

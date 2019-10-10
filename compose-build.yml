@@ -5,62 +5,13 @@ services:
     build:
       context: ./docker/Nginx
       
-  api:
+  earthranger-api:
+    image: gcr.io/padas-app/circleci/earthranger-api:${DAS_TAG:-develop}
     build:
-      context: ./docker/API/
-    depends_on:
-      - app
-
-  rt-api:
-    build:
-      context: ./docker/RT_API/
-    depends_on:
-      - app
-
-  mql:
-    build:
-      context: ./docker/MQL
-    depends_on:
-      - app
-
-  worker:
-    build:
-      context: ./docker/Worker
-    depends_on:
-      - app
-
-  worker-rt:
-    build:
-      context: ./docker/Worker_RT
-    depends_on:
-      - app
-
-  worker-analyzer:
-    build:
-      context: ./docker/Worker_Analyzer
-    depends_on:
-      - app
-
-  beat:
-    build:
-      context: docker/Beat
-    depends_on:
-      - app
+      context: .
+      dockerfile: circleci-docker/Dockerfile
 
   postgis:
     build:
       context: docker/PostGIS
 
-  app:
-    image: gcr.io/padas-app/app
-    build:
-      context: ./
-      dockerfile: ./docker/App/Dockerfile
-    depends_on:
-      - base
-
-  base:
-    image: gcr.io/padas-app/base
-    build:
-      context: ./
-      dockerfile: ./docker/base/Dockerfile

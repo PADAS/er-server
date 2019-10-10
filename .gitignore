@@ -207,3 +207,9 @@ das/das_server/das_ste_extensions_settings.py
 Pipfile
 Pipfile.lock
 das/das_server/.env
+
+*tar.gz*
+GDAL*
+
+# Rendered terraform templates
+templated-deployment/rendered

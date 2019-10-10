@@ -1,17 +1,37 @@
 import copy
 import random
 
+from django.contrib.auth.models import Permission, ContentType
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from accounts.models import PermissionSet, User
 import accounts.views as views
+from accounts.models import PermissionSet, User
 from core.tests import BaseAPITest
 
 
 def random_string(length=10):
     return ''.join([random.choice('abcdefghijklmnopqrstuvwxyz0123456789') for x in range(length)])
+
+
+def make_one_user():
+    user_name = random_string()
+    return User.objects.create_user(username=user_name,
+                                    password=user_name,
+                                    email=f'{user_name}@email.com')
+
+
+def make_n_users(n=1):
+    return [
+        make_one_user() for x in range(n)
+    ]
+
+
+def make_n_permissionsets(n=1):
+    return [PermissionSet.objects.create(name=random_string())
+            for x in range(n)]
+
 
 class BaseTestCase(TestCase):
     def setUp(self):
@@ -22,12 +42,79 @@ class BaseTestCase(TestCase):
 
 
 class PermissionSetTestCase(BaseTestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.content_type = ContentType.objects.get(app_label='auth', model='permission')
+
     def test_some_is_member_of_all(self):
         all_set = PermissionSet.objects.get(name='all')
         some_set = PermissionSet.objects.get(name='some')
 
         self.assertIn(some_set, all_set.children.all())
         self.assertIn(all_set.id, some_set.get_ancestor_ids())
+
+    def test_user_permissions(self):
+        user = make_one_user()
+        user_ps = make_n_permissionsets()[0]
+        user_permission = Permission.objects.create(name='User permission',
+                                                    codename='user_perm',
+                                                    content_type=self.content_type)
+        user_ps.permissions.add(user_permission)
+        user.permission_sets.add(user_ps)
+
+        self.assertIn(user_ps, user.get_all_permission_sets())
+        self.assertIn(self.content_type.app_label + '.' + user_permission.codename,
+                      user.get_all_permissions())
+        self.assertTrue(user.has_perm(self.content_type.app_label + '.' + user_permission.codename))
+
+    def test_2_level_permissionset_hierarchy(self):
+
+        parent_user, child_user = make_n_users(2)
+        parent_ps, child_ps = make_n_permissionsets(2)
+
+        parent_permission = Permission.objects.create(name='Parent permission',
+                                                      codename='parent_perm',
+                                                      content_type=self.content_type)
+        parent_ps.permissions.add(parent_permission)
+        parent_user.permission_sets.add(parent_ps)
+
+        child_permission = Permission.objects.create(name='Child permission',
+                                                     codename='child_perm',
+                                                     content_type=self.content_type)
+        child_permission.permission_sets.add(child_ps)
+        child_user.permission_sets.add(child_ps)
+
+        self.assertIn(parent_ps, parent_user.get_all_permission_sets())
+        self.assertIn(self.content_type.app_label + '.' + parent_permission.codename,
+                      parent_user.get_all_permissions())
+
+        self.assertIn(child_ps, child_user.get_all_permission_sets())
+        self.assertIn(self.content_type.app_label + '.' + child_permission.codename,
+                      child_user.get_all_permissions())
+        self.assertNotIn(parent_ps, child_user.get_all_permission_sets())
+
+        parent_ps.children.add(child_ps)
+        self.assertIn(parent_ps, child_user.get_all_permission_sets())
+
+    def test_3_level_permissionset_hierarchy(self):
+        gp_user, parent_user, child_user = make_n_users(3)
+        gp_ps, parent_ps, child_ps = make_n_permissionsets(3)
+
+        gp_user.permission_sets.add(gp_ps)
+        parent_user.permission_sets.add(parent_ps)
+        child_user.permission_sets.add(child_ps)
+
+        self.assertNotIn(gp_ps, parent_user.get_all_permission_sets())
+        self.assertNotIn(gp_ps, child_user.get_all_permission_sets())
+        self.assertNotIn(parent_ps, child_user.get_all_permission_sets())
+
+        gp_ps.children.add(parent_ps)
+        parent_ps.children.add(child_ps)
+
+        self.assertIn(gp_ps, parent_user.get_all_permission_sets())
+        self.assertIn(gp_ps, child_user.get_all_permission_sets())
+        self.assertIn(parent_ps, child_user.get_all_permission_sets())
 
 
 class UserModelTest(TestCase):

@@ -47,8 +47,8 @@ def get_gfw_user():
     :return:
     '''
     user, create = User.objects.get_or_create(username='gfwwebhookuser',
-                                              defaults={'first_name': 'GFW Webhook',
-                                                        'last_name': 'GFW Webhook',
+                                              defaults={'first_name': 'GFW',
+                                                        'last_name': 'Webhook',
                                                         'password': User.objects.make_random_password()
                                                         })
     return user

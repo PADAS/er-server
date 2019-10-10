@@ -1,3 +1,6 @@
+import urllib
+
+from observations.utils import get_minimum_allowed_age
 import csv
 import datetime
 import json
@@ -18,7 +21,7 @@ from django.utils.dateparse import parse_datetime
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import APIException, PermissionDenied
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 
@@ -28,7 +31,7 @@ from observations import kmlutils
 from observations import models
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
-from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS
+from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, check_to_include_inactive_subjects
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 
@@ -67,6 +70,37 @@ def dateparse(date_str, default_tz=pytz.utc):
     return dt
 
 
+def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):
+    observations_qs = models.Observation.objects.all()
+
+    if start_date and end_date:
+        observations_qs = observations_qs.filter(
+            Q(recorded_at__range=(start_date, end_date)))
+    elif start_date:
+        observations_qs = observations_qs.filter(
+            Q(recorded_at__gte=start_date))
+    elif end_date:
+        observations_qs = observations_qs.filter(Q(recorded_at__lte=end_date))
+
+    subject_id_values = observations_qs.distinct(
+        'source__subjectsource__subject').order_by(
+        'source__subjectsource__subject_id').values(
+        'source__subjectsource__subject_id')
+
+    subject_ids = [str(i['source__subjectsource__subject_id']) for i in
+                   subject_id_values if i['source__subjectsource__subject_id']]
+
+    return models.Subject.objects.filter(id__in=subject_ids)
+
+
+class UnauthorizedView(APIException):
+    """
+    User does not have view permission, return empty data
+    """
+    status_code = 200
+    default_detail = {"data": []}
+
+
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
     queryset = models.Region.objects.all()
@@ -91,6 +125,9 @@ class SubjectGroupsView(generics.ListAPIView):
                                               models.SubjectGroup),)
 
     def get_queryset(self):
+        if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
+            raise UnauthorizedView
+
         queryset = models.SubjectGroup.objects.filter(
             _parents=None, is_visible=parse_bool(
                 self.request.GET.get('isvisible', True)))
@@ -100,6 +137,7 @@ class SubjectGroupsView(generics.ListAPIView):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['render_last_location'] = True
+        context['request'] = self.request
         return context
 
 
@@ -167,12 +205,10 @@ class RegionSubjectsView(generics.ListAPIView):
     def get_queryset(self):
         region = generics.get_object_or_404(models.Region.objects.all(),
                                             slug=self.kwargs['slug'])
-        subjects = models.Subject.objects.by_region(
-            region).annotate_with_subject_status()
+        queryset = models.Subject.objects.all()
+        queryset = check_to_include_inactive_subjects(self.request, queryset)  
+        subjects = queryset.by_region(region).annotate_with_subjectstatus()
         return subjects
-
-
-from observations.utils import get_minimum_allowed_age
 
 
 class SubjectsViewSchema(rest_framework.schemas.AutoSchema):
@@ -286,18 +322,23 @@ class SubjectsView(generics.ListCreateAPIView):
 
     schema = SubjectsViewSchema()
 
-    # Ensure this attribute is present with a sensible default for any child classes.
+    # Ensure this attribute is present with a sensible default for any child
+    # classes.
     subject_linked_sources = {}
 
     def get_queryset(self):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
+            raise UnauthorizedView
+
         self.subject_linked_sources = {}
         min_age = get_minimum_allowed_age(self.request.user) or 0
-        queryset = models.Subject.objects \
+        all_subjects = models.Subject.objects.all()
+        queryset = all_subjects \
             .annotate_with_subjectstatus(delay_hours=min_age * 24)
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
+        queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.order_by('id')
-        queryset = queryset.by_is_active()
         bbox = self.request.query_params.get('bbox', None)
         if bbox:
             bbox = bbox.split(',')
@@ -349,8 +390,9 @@ class SubjectsView(generics.ListCreateAPIView):
         for source_group in source_groups:
             sources = source_group.get_all_sources()
             for source in sources:
-                subjects = models.Subject.objects.filter(
-                    subjectsource__source=source)
+                queryset = check_to_include_inactive_subjects(
+                    self.request, all_subjects)
+                subjects = queryset.filter(subjectsource__source=source)
                 combined_queryset = combined_queryset.distinct() | \
                     subjects.distinct()
 
@@ -395,8 +437,7 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
         subject = generics.get_object_or_404(
             models.Subject.objects.all(), pk=self.kwargs['id'])
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
-            raise PermissionDenied
-
+            raise UnauthorizedView
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         queryset = models.Subject.objects.all()
         queryset = queryset.annotate_with_subjectstatus(
@@ -438,7 +479,9 @@ class SourceSubjectsView(generics.ListCreateAPIView):
             models.Source.objects.all(), pk=self.kwargs['id'])
         # if not self.request.user.has_any_perms(models.Source.VIEW_SUBJECT_PERMS, source):
         #     raise PermissionDenied
-        return models.Subject.objects.filter(subjectsource__source=source).annotate_with_subjectstatus()
+        queryset = models.Subject.objects.all()
+        queryset = check_to_include_inactive_subjects(self.request, queryset)   
+        return queryset.filter(subjectsource__source=source).annotate_with_subjectstatus()
 
     def create(self, request, *args, **kwargs):
         # /{id}/ contains subject_id.
@@ -730,16 +773,37 @@ class ObservationsView(generics.ListCreateAPIView):
 class KmlRootView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
-    def build_link_for_user(self):
+    def build_link_for_user(self, start_date=None, end_date=None):
         token = kmlutils.get_kml_access_token(self.request.user, )
-        return utils.add_base_url(self.request,
-                                  '?'.join((
-                                      reverse('subjects-kml-view'),
-                                      'auth={}'.format(token))
-                                  )
-                                  )
+        include_active = self.request.GET.get('include_inactive')
+        include_active = parse_bool(include_active)
+        params = {k: v for k, v in
+                  zip(['auth', 'start', 'end', 'include_inactive'],
+                      [token, start_date, end_date, include_active]) if v}
+        params = urllib.parse.urlencode(params)
+        url = reverse('subjects-kml-view')
+        return utils.add_base_url(self.request, f"{url}?{params}")
 
     def get(self, request, *args, **kwargs):
+        start_date = self.request.GET.get('start')
+        end_date = self.request.GET.get('end')
+        start = None
+        end = None
+
+        if start_date:
+            try:
+                start_date = dateutil.parser.parse(start_date)
+                start = start_date.isoformat()
+            except Exception as e:
+                return Response(data={"start": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if end_date:
+            try:
+                end_date = dateutil.parser.parse(end_date)
+                end = end_date.isoformat()
+            except Exception as e:
+                return Response(data={"end": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
         # TODO: Have a configuration for naming the KML feed.
         filename = 'DAS-KML_{}_{}'.format(self.request.user.username,
                                           datetime.datetime.now(tz=pytz.utc).strftime('%Y%M%d%H%M'))
@@ -748,7 +812,7 @@ class KmlRootView(generics.GenericAPIView):
                    {'name': settings.KML_FEED_TITLE,
                     'visibility': 0,
                     'open': 1,
-                    'href': self.build_link_for_user()
+                    'href': self.build_link_for_user(start, end)
                     }
                    }
 
@@ -762,23 +826,46 @@ class KmlSubjectsView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def get_queryset(self):
+        include_inactive = self.request.GET.get('include_inactive', 'false')
+
+        start_date = self.request.GET.get('start')
+        end_date = self.request.GET.get('end')
+
+        # verify date in YYYY-mm-dd
+        try:
+            dateutil.parser.parse(start_date)
+        except Exception as e:
+            start_date = None
+
+        try:
+            dateutil.parser.parse(start_date)
+        except Exception as e:
+            end_date = None
+
+        if start_date or end_date:
+            queryset = get_subjects_with_observations_in_daterange(
+                start_date, end_date)
+        else:
+            # return all subjects with or without tracks if no date
+            # filter is passed
+            queryset = models.Subject.objects.all()
+        queryset = queryset.by_user_subjects(self.request.user)
+        if not parse_bool(include_inactive):
+            queryset = queryset.filter(is_active=True)
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        # To include inactive subjects in KmlSubject report
-        queryset = models.Subject.objects.all()  # .by_is_active()
-        queryset = queryset.by_user_subjects(self.request.user) \
-            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
-        return queryset
+
+        return queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24)
 
     def build_link_for_subject(self, subject):
         token = kmlutils.get_kml_access_token(self.request.user)
-
-        return utils.add_base_url(self.request,
-                                  '?'.join((
-                                      reverse('subject-kml-view',
-                                              args=[subject['id']]),
-                                      'auth={}'.format(token))
-                                  )
-                                  )
+        start_date = self.request.GET.get('start')
+        end_date = self.request.GET.get('end')
+        params = {k: v for k, v in
+                  zip(['auth', 'start', 'end'],
+                      [token, start_date, end_date]) if v}
+        params = urllib.parse.urlencode(params)
+        url = reverse('subject-kml-view', args=[subject['id']])
+        return utils.add_base_url(self.request, f"{url}?{params}")
 
     def subject_context(self, subject):
 
@@ -897,20 +984,19 @@ class KmlSubjectView(generics.RetrieveAPIView):
        :return: Dict of filter parameters in the appropriate format.
        """
         filter_parameters = {}
-        utc = pytz.UTC
         try:
             if self.request.GET.get('start'):
                 filter_parameters.update({
-                    'start': utc.localize(dateutil.parser.parse(
-                        self.request.GET.get('start')))})
+                    'start': dateutil.parser.parse(
+                        self.request.GET.get('start'))})
         except (ValueError, TypeError):
             raise ValueError('Invalid start-date format - {}'.format(
                 self.request.GET.get('start')))
         try:
             if self.request.GET.get('end'):
                 filter_parameters.update({
-                    'end': utc.localize(dateutil.parser.parse(
-                        self.request.GET.get('end')))})
+                    'end': dateutil.parser.parse(
+                        self.request.GET.get('end'))})
         except (ValueError, TypeError):
             raise ValueError('Invalid end-date format - {}'.format(
                 self.request.GET.get('end')))
@@ -964,7 +1050,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             raise PermissionDenied
         queryset = models.Subject.objects.all()
         # To include inactive subjects in trackingdata report
-        # queryset = queryset.by_is_active()
+        queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
         if chronofile is not None:
             queryset = queryset.filter(
@@ -1277,6 +1363,6 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         # Get user accessible active subjects.
         queryset = models.Subject.objects.all()
         # To include inactive subjects in trackingmetadata report
-        # queryset = queryset.by_is_active()
+        queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
         return queryset

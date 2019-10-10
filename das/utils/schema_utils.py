@@ -9,6 +9,8 @@ from django.apps import apps
 from django.template import Template, Context
 from django.template.base import VariableNode
 
+from activity.exceptions import SchemaValidationError, \
+    SCHEMA_ERROR_EMPTY_PROPERTY
 from choices.models import Choice, DynamicChoice
 from utils.memoize import memoize
 
@@ -31,7 +33,7 @@ def get_replacement_fields_in_schema(schema):
             field_tag = node.token.contents
             field_details = field_tag.split('___')
             if len(field_details) != 3:
-                raise NameError('Incorrect event render tag: ' + field_tag)
+                raise NameError(f'Invalid schema tag: {repr(field_tag)}')
 
             fields.append({'lookup': field_details[0],
                            'field': field_details[1],
@@ -49,7 +51,8 @@ def get_dynamic_choices(field_details, as_string=True):
 
 def _get_dynamic_choices(field_details):
 
-    dynamic_choice = DynamicChoice.objects.filter(id=field_details['field']).first()
+    dynamic_choice = DynamicChoice.objects.filter(
+        id=field_details['field']).first()
 
     # Short-circuit if there aren't any DynamicChoices found for this field.
     if dynamic_choice is None:
@@ -73,7 +76,8 @@ def _get_dynamic_choices(field_details):
     if field_details['type'] == 'names':
         return_val = options
     elif field_details['type'] == 'map':
-        return_val = list([{'value': k, 'name': v} for k, v in options.items()])
+        return_val = list([{'value': k, 'name': v}
+                           for k, v in options.items()])
     else:
         return_val = list(options.keys())
 
@@ -131,6 +135,22 @@ def get_table_choices(field_details, as_string=True):
 
 
 def get_schema_renderer_method():
+
+    @memoize
+    def memo_enum_choices(enum_choices_identifier):
+        field_name, field_type = enum_choices_identifier.split(':')
+        return get_enum_choices({'field': field_name, 'type': field_type})
+
+    @memoize
+    def memo_dynamic_choices(dynamic_choices_identifier):
+        field_name, field_type = dynamic_choices_identifier.split(':')
+        return get_dynamic_choices({'field': field_name, 'type': field_type})
+
+    @memoize
+    def memo_table_choices(table_choices_identifier):
+        field_name, field_type = table_choices_identifier.split(':')
+        return get_table_choices({'field': field_name, 'type': field_type})
+
     @memoize
     def render_f(schema):
 
@@ -140,13 +160,13 @@ def get_schema_renderer_method():
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
                 parameters[schema_field['tag']
-                           ] = get_enum_choices(schema_field)
+                           ] = memo_enum_choices('{field}:{type}'.format(**schema_field))
             elif schema_field['lookup'] == 'query':
                 parameters[schema_field['tag']
-                           ] = get_dynamic_choices(schema_field)
+                           ] = memo_dynamic_choices('{field}:{type}'.format(**schema_field))
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
-                           ] = get_table_choices(schema_field)
+                           ] = memo_table_choices('{field}:{type}'.format(**schema_field))
 
         if parameters:
             template = Template(schema)
@@ -186,17 +206,19 @@ def extract_from_list(items: list = list):
     '''
     names = []
     ids = []
-    for item in items:
-        if item and isinstance(item, (str, bool, int, float)):
-            logger.warning(f'extract_from_list value is not a dict: {item} from {items}')
-            names.append(str(item))
-            ids.append(item)
-        elif isinstance(item, dict) and 'name' in item and 'value' in item:
-            logger.info(f'extracting name/value from {item}')
-            names.append(item['name'])
-            ids.append(item['value'])
-        else:
-            logger.warning(f'extract_from_list cannot parse in value: {item} from {items}')
+    for value in values:
+        if value and not isinstance(value, dict):
+            logger.warning(
+                f'extract_from_list value is not a dict: {value} from {values}')
+            return value, value
+
+        if 'name' not in value:
+            logger.warning(
+                f'extract_from_list name not in value: {value} from {values}')
+            return '', ''
+
+        names.append(value['name'])
+        ids.append(value['value'])
 
     return ';'.join(ids), ';'.join(names)
 
@@ -236,8 +258,17 @@ def extractor(schema_item, definition, value):
         if isinstance(definition_item, dict) and definition_item.get('key') == schema_item['key']:
             return definition_item.get('title'), val, key
     else:
-        logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
-
+        for definition_item in definition:
+            if isinstance(definition_item, dict):
+                if 'key' not in definition_item:
+                    logger.warning(f'key not found in definition {definition}')
+                    continue
+                if 'key' not in schema_item:
+                    logger.warning(
+                        f'key not found in schema_item {schema_item}')
+                    continue
+                if definition_item['key'] == schema_item['key']:
+                    return definition_item.get('title'), val, key
 
 
 def generate_index(start_at=0, incr=1):
@@ -254,7 +285,7 @@ def definition_keys(form_definition: list, index_values=None):
     '''
 
     index_values = index_values or generate_index()
-    
+
     for k in form_definition:
         if isinstance(k, str):
             yield (k, next(index_values))
@@ -297,7 +328,18 @@ def detail_resolver(schema, key, value):
 
 
 def generate_details(event, schema):
-    event_details = event.event_details.first().data.get('event_details', {})
+
+    event_details = event.event_details.first()
+    if not event_details:
+        logger.warning(f'Event No. {event.serial_number} has no event_details')
+        return
+
+    if not event_details.data:
+        logger.warning(
+            f'Event No. {event.serial_number} has no value for event_details.data')
+        return
+
+    event_details = event_details.data.get('event_details', {})
 
     definition_order = dict(definition_keys(schema.get('definition', [])))
 
@@ -388,7 +430,7 @@ def get_replacement_fields_in_schema(schema):
             field_tag = node.token.contents
             field_details = field_tag.split('___')
             if len(field_details) != 3:
-                raise NameError('Incorrect event render tag: ' + field_tag)
+                raise NameError(field_tag)
 
             fields.append({'lookup': field_details[0],
                            'field': field_details[1],
@@ -472,3 +514,65 @@ def should_auto_generate(schema_string):
         if schema_doc.get('auto-generate', False):
             return True
     return False
+
+
+def validate_rendered_schema_is_wellformed(schema):
+    schema = get_schema_renderer_method()(schema)
+    properties = schema['schema'].get('properties')
+
+    # Raise an error if any property exists without essential attributes.
+    incomplete_properties_keyset = set()
+    required_property_keyset = {'type', 'title'}
+    for property_key, val in properties.items():
+        if any([x not in val for x in required_property_keyset]):
+            incomplete_properties_keyset.add(property_key)
+    if len(incomplete_properties_keyset) > 0:
+        raise SchemaValidationError(
+            f'Schema properties {repr(incomplete_properties_keyset)} are required to have {repr(required_property_keyset)}')
+
+    # Inspect the form-definition and raise an error if any elements are
+    # missing essential elements.
+    definition = schema.get('definition', [])
+
+    definition_keyset = set([x for x, y in definition_keys(definition)])
+
+    schema_keyset = set(properties.keys())
+
+    extra_keys_in_definition = definition_keyset - schema_keyset
+    if len(extra_keys_in_definition) > 0:
+        raise SchemaValidationError(
+            f'Form definition keys {repr(extra_keys_in_definition)} are not present in the schema definition')
+
+
+def map_schema(schema, load_schema):
+
+    lookups = []
+    keys = load_schema['schema']['properties'].keys()
+    for key in keys:
+        if ('enum' or 'query'
+                or 'table') in load_schema['schema']['properties'][key].keys():
+            lookups.append(key)
+
+    fields = []
+    index = 0
+    template = Template(schema)
+    for node in template.nodelist:
+        if type(node) is VariableNode:
+            field_tag = node.token.contents
+            field_details = field_tag.split('___')
+
+            if len(fields) == 0:
+                fields.append({
+                    'field_name': field_details[1],
+                    'lookup': field_details[0]
+                })
+            else:
+
+                if fields[index]['field_name'] != field_details[1]:
+                    fields.append({
+                        'field_name': field_details[1],
+                        'lookup': field_details[0]
+                    })
+                    index += 1
+
+    return dict(zip(lookups, fields))

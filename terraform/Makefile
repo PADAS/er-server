@@ -35,3 +35,10 @@ terraform_apply: ## invoke (bundled) Terraform apply | [apply_args="..."]
 	@ git diff --cached --quiet --exit-code || (printf "%s\n" "there are uncommitted changes... it is not wise to run terraform apply" >&2; exit 1)
 	@ export PATH="$(vulcan_path)/$(uname_s):$${PATH}" && terraform apply $(apply_args)
 	@ printf "\n\033[1;4;5;31;107m%s\033[0m\n" "make sure to git push any commits back to origin" >&2
+
+.PHONY: terraform_workspace_select
+terraform_workspace_select: workspace ?= dev
+terraform_workspace_select: ## invoke (bundled) Terraform workspace select on extant workspace | [workspace="WORKSPACE"] | workspace="dev"
+	@ export PATH="$(vulcan_path)/$(uname_s):$${PATH}" && terraform workspace select $(workspace)
+
+

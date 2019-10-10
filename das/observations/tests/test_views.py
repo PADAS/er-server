@@ -164,7 +164,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         response = views.SubjectSourcesView.as_view()(request, id=str(self.ele.id))
         self.assertEqual(response.status_code, 403)
 
-    def xtest_return_all_observation_for_subject(self):
+    def test_return_all_observation_for_subject(self):
         request = self.factory.get(API_BASE + '/subject/')
         self.force_authenticate(request, self.realtime_view_user)
 
@@ -173,8 +173,13 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.assertTrue('last_position_date' in response.data)
         self.assertEqual(self.ob_today.recorded_at,
                          response.data['last_position_date'])
-        self.assertEqual(self.ob_yesterday.recorded_at,
-                         response.data['tracks_range'][0])
+
+    def test_unauthorised_observation_viewing_of_subject(self):
+        request = self.factory.get(API_BASE + '/subject/')
+        self.force_authenticate(request, self.no_view_user)
+        response = views.SubjectView.as_view()(request, id=str(self.ele.id))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data'], [])
 
     def test_user_return_subject_sources(self):
         request = self.factory.get(
@@ -190,7 +195,8 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.force_authenticate(request, self.no_view_user)
 
         response = views.SubjectsView.as_view()(request, bbox=bbox)
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data'], [])
 
     def test_return_subjects_bbox_view_delayed(self):
         bbox = '37.18,0.1,37.55,0.54'
@@ -209,6 +215,30 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(
             [s for s in response.data if s['id'] == str(self.ranger.id)])
+
+    def authenticate_user_and_get_subjects(self, url):
+        request = self.factory.get(API_BASE + url)
+        self.force_authenticate(request, self.superuser)
+        return views.SubjectsView.as_view()(request)
+
+    def test_subjects_api_call_only_returns_active_subjects(self):
+        response = self.authenticate_user_and_get_subjects('/subjects/')
+        self.assertEqual(response.status_code, 200)
+
+        # Returns all 2 subjects: Both are active
+        self.assertEqual(len(response.data), 2)
+
+        # Update one subject, set to inactive
+        self.ele.is_active = False
+        self.ele.save()
+        response = self.authenticate_user_and_get_subjects('/subjects/')
+
+        # Only one subject is returned, only one is active
+        self.assertEqual(len(response.data), 1)
+
+        # adding `include_inactive=True` param fetches both active and inactive
+        response = self.authenticate_user_and_get_subjects('/subjects/?include_inactive=True')
+        self.assertEqual(len(response.data), 2)
 
 
 class SubjectGroupViewTest(BasePermissionTest):
@@ -265,6 +295,15 @@ class SubjectGroupViewTest(BasePermissionTest):
         response = views.SubjectGroupView.as_view()(request,
                                                     id=str(self.ele_group.id))
         self.assertEqual(response.status_code, 403)
+
+    def test_not_return_subject_groups_no_view_permission(self):
+        request = self.factory.get(
+            API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.no_view_user)
+
+        response = views.SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data'], [])
 
 
 class SourceGroupViewTest(BasePermissionTest):
