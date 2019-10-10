@@ -51,7 +51,19 @@ variable "track_days" {
   default = 16
 }
 
+variable "export_kml_enabled" {
+  default = "False"
+}
+
 variable "show_stationary_subjects_on_map" {
+  default = "False"
+}
+
+variable "daily_report_enabled" {
+  default = "False"
+}
+
+variable "alerts_enabled" {
   default = "False"
 }
 
@@ -124,6 +136,11 @@ data "template_file" "site_json" {
     track_days                      = var.track_days
     kml_feed_title                  = "${var.site} Tracking Service"
     show_stationary_subjects_on_map = var.show_stationary_subjects_on_map
+    export_kml_enabled              = var.export_kml_enabled
+    alerts_enabled                  = var.alerts_enabled
+    daily_report_enabled            = var.daily_report_enabled
+
+
   }
 }
 
