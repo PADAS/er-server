@@ -417,10 +417,6 @@ class DisplayCategory(models.Model):
     def natural_key(self):
         return (self.name,)
 
-    class Meta:
-        verbose_name = _('Display Category')
-        verbose_name_plural = _('Display Categories')
-
 
 class SpatialFeatureGroupManager(InheritanceManager):
     def get_by_natural_key(self, name):
