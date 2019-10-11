@@ -75,6 +75,11 @@
 	        },
             "subjects": {
                 "show_stationary_subjects_on_map": "${show_stationary_subjects_on_map}"
+            },
+            "features": {
+                "export_kml_enabled": "${export_kml_enabled}",
+                "alerts_enabled": "${alerts_enabled}",
+                "daily_report_enabled": "${daily_report_enabled}"
             }
         }
     }
