@@ -59,6 +59,7 @@ class FeatureSetAdmin(admin.ModelAdmin):
 class BaseFeatureAdmin(admin.OSMGeoAdmin):
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
+    map_template = 'admin/custom_openlayers.html'
     list_filter = ('type', 'featureset')
     list_display = ('name', 'type', 'featureset')
     search_fields = ('name', )

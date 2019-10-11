@@ -1,0 +1,13 @@
+{% extends "gis/admin/openlayers.html" %}
+{% block extrastyle %}
+{{ block.super }}
+<style type="text/css">
+.olControlNavigationItemInactive, .olControlModifyFeatureItemInactive {
+    display: none;
+
+}
+
+</style>
+
+{% endblock %}
+{% block openlayers %}{% include "gis/admin/osm.js" %}{% endblock %}
