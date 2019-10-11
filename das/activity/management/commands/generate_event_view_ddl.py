@@ -22,7 +22,8 @@ class Command(BaseCommand):
             schema_accumulator[et.value] = render_f(et.schema)
 
         lines = []
-        lines.append('create or replace view event_details_view as select ')
+        lines.append('create materialized view event_details_view as select ')
+        lines.append(' ed.event_id, et.display as "event_type", ')
 
         fieldset = set()
         for a, b in generate_field_details(schema_accumulator):
@@ -30,11 +31,12 @@ class Command(BaseCommand):
             fielddef = f'(data#>>\'{{{path}}}\')::{b} as "{a[1]}"'
             fieldset.add(fielddef)
         lines.append(',\n'.join(fieldset))
-        lines.append(' from activity_eventdetails')
+        lines.append(' from activity_eventdetails ed ')
+        lines.append(' join activity_event e on e.id = ed.event_id ')
+        lines.append(' join activity_eventtype et on et.id = e.event_type_id ')
 
         for line in lines:
             print(line)
-
 
 
 def generate_propkey_suffix():
@@ -73,13 +75,10 @@ def generate_field_details(schema_accumulator):
             propkey = f"{propkey}{suf}"
             if propval.get('enum'):
                 if propval.get('type') == 'string':
-                    yield ('event_details', propkey, 'name'), 'TEXT'
+                    yield ('ed.event_details', propkey, 'name'), 'TEXT'
 
             elif propval.get('type') == 'string':
-                yield ('event_details', propkey), 'TEXT'
+                yield ('ed.event_details', propkey), 'TEXT'
 
             elif propval.get('type') == 'number':
-                yield ('event_details', propkey), 'NUMERIC'
-
-
-
+                yield ('ed.event_details', propkey), 'NUMERIC'
