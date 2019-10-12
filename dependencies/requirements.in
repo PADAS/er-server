@@ -55,6 +55,8 @@ django-tagulous==0.14.0
 django-versatileimagefield==1.10
 django-redis==4.10.0
 djangorestframework-gis==0.14.0
+# Use django-extensions to support shell_plus, which allows for running a Django app jupyter notebook.
+django-extensions==2.2.3
 
 #oauth
 oauthlib==3.0.2

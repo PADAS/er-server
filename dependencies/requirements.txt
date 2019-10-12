@@ -5,6 +5,7 @@
 #    pip-compile --find-links=./wheelhouse requirements.in
 #
 --find-links ./wheelhouse
+--find-links /c/projects/das/das/dependencies/./wheelhouse
 
 adal==1.2.1               # via azure-datalake-store, msrestazure
 affine==2.2.2             # via rasterio
@@ -117,6 +118,7 @@ decorator==4.4.0          # via datadog
 django-cors-headers==2.5.3
 django-debug-toolbar==1.11
 django-environ==0.4.5
+django-extensions==2.2.3
 django-extra-fields==0.9
 django-js-asset==1.2.2    # via django-mptt
 django-leaflet==0.24.0
