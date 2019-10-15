@@ -239,11 +239,19 @@ class FenceDamage(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Fence Damage')
+        verbose_name_plural = _('Fence Damage')
+
 
 class KeySpecies(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Key Species')
+        verbose_name_plural = _('Key Species')
 
 
 class Species(models.Model):
@@ -251,11 +259,19 @@ class Species(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Species')
+        verbose_name_plural = _('Species')
+
 
 class AnimalSex(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Animal Sex')
+        verbose_name_plural = _('Animal Sexes')
 
 
 class AnimalAge(models.Model):
@@ -275,11 +291,19 @@ class TrophyStatus(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Trophy Status')
+        verbose_name_plural = _('Trophy Statuses')
+
 
 class CauseOfDeath(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Cause of Death')
+        verbose_name_plural = _('Causes of Death')
 
 
 class InjuryCause(models.Model):
@@ -299,6 +323,10 @@ class FireStatus(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Fire Status')
+        verbose_name_plural = _('Fire Statuses')
+
 
 class FireCause(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -317,11 +345,19 @@ class Crops(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Crops')
+        verbose_name_plural = _('Crops')
+
 
 class TypeOfIllegalActivity(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Type of Illegal Activity')
+        verbose_name_plural = _('Type of Illegal Activities')
 
 
 class SnareAge(models.Model):
@@ -335,6 +371,10 @@ class SnareStatus(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Snare Status')
+        verbose_name_plural = _('Snare Statuses')
+
 
 class PoacherCampAge(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -347,11 +387,19 @@ class TypeOfShots(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Type of Shots')
+        verbose_name_plural = _('Type of Shots')
+
 
 class TypeOfTrophy(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Type of Trophy')
+        verbose_name_plural = _('Type of Trophies')
 
 
 class VehicleTypes(models.Model):
@@ -359,11 +407,19 @@ class VehicleTypes(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Vehicle Types')
+        verbose_name_plural = _('Vehicle Types')
+
 
 class WeaponTypes(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Types of Weapons')
+        verbose_name_plural = _('Types of Weapons')
 
 
 class TrafficType(models.Model):
@@ -376,6 +432,10 @@ class TrafficActivity(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Traffic Activity')
+        verbose_name_plural = _('Traffic Activities')
 
 
 class AccidentType(models.Model):
@@ -395,6 +455,10 @@ class TracksType(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Tracks Type')
+        verbose_name_plural = _('Tracks Type')
+
 
 class VehicleType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -407,11 +471,19 @@ class MedicalEquipmentRequired(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Medical Equipment Required')
+        verbose_name_plural = _('Medical Equipment Required')
+
 
 class MedicalEvacSecurity(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Medical Evac Security')
+        verbose_name_plural = _('Medical Evac Securities')
 
 
 class DetectionType(models.Model):
@@ -425,11 +497,19 @@ class ActionTaken(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Action Taken')
+        verbose_name_plural = _('Actions Taken')
+
 
 class Conservancy(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Conservancy')
+        verbose_name_plural = _('Conservancies')
 
 
 class Behavior(models.Model):
@@ -448,6 +528,10 @@ class Health(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Health')
+        verbose_name_plural = _('Health')
 
 
 class FenceSection(models.Model):
@@ -479,11 +563,19 @@ class IllegalActivity(models.Model):
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = _('Illegal Activity')
+        verbose_name_plural = _('Illegal Activities')
+
 
 class Livestock(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
     ordernum = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = _('Livestock')
+        verbose_name_plural = _('Livestock')
 
 
 class ContactType(models.Model):
