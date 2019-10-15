@@ -521,8 +521,7 @@ def map_schema(schema, load_schema):
     lookups = []
     keys = load_schema['schema']['properties'].keys()
     for key in keys:
-        if ('enum' or 'query'
-                or 'table') in load_schema['schema']['properties'][key].keys():
+        if bool({'enum', 'query', 'table'} & load_schema['schema']['properties'][key].keys()):
             lookups.append(key)
 
     fields = []
