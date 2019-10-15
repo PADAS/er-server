@@ -1764,14 +1764,14 @@ class TestEventView(BaseAPITest):
         security.is_active = False
         security.save()
 
-        response = views.EventCategoriesView.as_view()(request)
+        response = views.EventFilterSchemaView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
-        category_values = [x['value'] for x in response.data]
+        response_data = str(response.data)
 
-        self.assertNotIn('security', category_values)
-        self.assertIn('monitoring', category_values)
-        self.assertIn('logistics', category_values)
+        self.assertNotIn('security', response_data)
+        self.assertIn('monitoring', response_data)
+        self.assertIn('logistics', response_data)
 
     def test_list_event_types_returns_only_from_active_categories(self):
         request = self.factory.get(
@@ -1782,13 +1782,14 @@ class TestEventView(BaseAPITest):
         security.is_active = False
         security.save()
 
-        response = views.EventTypesView.as_view()(request)
+        response = views.EventFilterSchemaView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
 
-        category_values = [x['category']['value'] for x in response.data]
+        response_data = str(response.data)
 
-        self.assertNotIn('security', category_values)
-        self.assertIn('monitoring', category_values)
-        self.assertIn('logistics', category_values)
+        self.assertNotIn('security', response_data)
+        self.assertIn('monitoring', response_data)
+        self.assertIn('logistics', response_data)
 
 
 class TestParsing(TestCase):

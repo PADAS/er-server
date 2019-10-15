@@ -96,7 +96,6 @@ class EventTypesView(generics.ListAPIView):
     def get_queryset(self):
         query_params = self.request.query_params
         queryset = EventType.objects.all_sort()
-        queryset = queryset.filter(category__is_active=True)
 
         category = query_params.getlist('category', None)
         if category:
@@ -113,7 +112,6 @@ class EventCategoriesView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = EventCategory.objects.all_sort()
-        queryset = queryset.filter(is_active=True)
         return queryset
 
 
