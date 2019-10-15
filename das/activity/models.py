@@ -63,7 +63,8 @@ class Community(TimestampedModel):
     name = models.CharField(max_length=80)
 
     class Meta:
-        verbose_name_plural = _('communities')
+        verbose_name = _('Event Reporters')
+        verbose_name_plural = _('Event Reporters')
 
     def __str__(self):
         return self.name
