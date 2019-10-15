@@ -1757,22 +1757,6 @@ class TestEventView(BaseAPITest):
         # Expect 400 becausethe event_type is not pre-existent
         self.assertEqual(response.status_code, 400)
 
-    def test_active_event_categories_in_event_filters_schema(self):
-        request = self.factory.get(self.api_base + '/events/categories')
-        self.force_authenticate(request, self.all_perms_user)
-        security = EventCategory.objects.get(value='security')
-        security.is_active = False
-        security.save()
-
-        response = views.EventFilterSchemaView.as_view()(request)
-        self.assertEqual(response.status_code, 200)
-
-        response_data = str(response.data)
-
-        self.assertNotIn('security', response_data)
-        self.assertIn('monitoring', response_data)
-        self.assertIn('logistics', response_data)
-
     def test_list_eventfilters_schema_returns_only_from_active_categories(self):
         request = self.factory.get(
             self.api_base + '/events/eventtypes')

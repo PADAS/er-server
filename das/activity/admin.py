@@ -226,8 +226,8 @@ class EventProviderAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventCategory)
 class EventCategoryAdmin(admin.ModelAdmin):
-    list_display = ('display', 'value', 'ordernum', 'flag',)
-    ordering = ('display', 'value', 'ordernum', 'flag',)
+    list_display = ('display', 'value', 'ordernum', 'flag', 'is_active')
+    ordering = ('display', 'value', 'ordernum', 'flag', 'is_active')
 
 
 @admin.register(models.AlertRule)
