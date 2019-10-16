@@ -165,7 +165,7 @@ def create_new_func(key, return_type, label=None, options_dict=None):
                 # there are still some dynamic choices where the value stored
                 # in event_details is the UUID
                 value = self.event['event_details'].get(key, {})
-                if not isinstance(value, str):
+                if isinstance(value, dict):
                     value = value.get('value')
                 return [value, ]
             except KeyError:
