@@ -119,6 +119,7 @@ class EventCategory(TimestampedModel):
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
     objects = EventBaseManager()
 
     flag = models.CharField(max_length=40, default='user', choices=(
