@@ -456,8 +456,8 @@ class TracksType(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Tracks Type')
-        verbose_name_plural = _('Tracks Type')
+        verbose_name = _('Track Type')
+        verbose_name_plural = _('Track Types')
 
 
 class VehicleType(models.Model):
