@@ -1,5 +1,7 @@
 {% block extrastyle %}
 {% load i18n static %}{% get_current_language_bidi as LANGUAGE_BIDI %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.0.1/css/ol.css"
+        type="text/css">
 
 <style class="text/css">
 #{{ id }}_map { width: {{ map_width }}px; height: {{ map_height }}px; }

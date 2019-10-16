@@ -140,7 +140,7 @@ class OlWidget(OpenLayersWidget):
             return 'new ol.extent.boundingExtent(%s)' % extent
 
 
-        def ol_projection(srid):
+        def ol_projection(srid, units):
             return 'new ol.View({"projection": "EPSG:%s"})' % srid
 
         # An array of the parameter name, the name of their OpenLayers
@@ -161,7 +161,8 @@ class OlWidget(OpenLayersWidget):
         for param_name, js_name, option_type in map_types:
             if self.params.get(param_name, False):
                 if option_type == 'srid':
-                    value = ol_projection(self.params[param_name])
+                    value = ol_projection(self.params[param_name],
+                                          self.params['units'])
                 elif option_type == 'bounds':
                     value = ol_bounds(self.params[param_name])
                 elif option_type in (float, int):

@@ -36,7 +36,6 @@ var {{ module }} = {};
     }
 {% endblock %}
 
-console.log(options)
 
 // {% block map_creation %}
 // var map = new ol.Map({
@@ -52,14 +51,16 @@ console.log(options)
 //     target: 'id_feature_geometry_map'
 // });
 
+
+
 // var map = new ol.Map('id_feature_geometry_map', options)
 
 var map = new ol.Map({
     view: new ol.View({
         center: [0, 0],
         maxResolution: options.maxResolution,
-        zoom: 3
-        projection: 
+        zoom: 3,
+        projection: options.projection.projection_
     }),
     layers: [
         new ol.layer.Tile({
@@ -67,6 +68,10 @@ var map = new ol.Map({
         })
     ],
     target: '{{ id }}_map',
+
+    interactions: new ol.interaction.defaults().extend([
+        new ol.interaction.DragRotateAndZoom()
+    ]),
 
 
 });
