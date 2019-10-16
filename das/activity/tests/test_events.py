@@ -1775,6 +1775,42 @@ class TestEventView(BaseAPITest):
         self.assertIn('monitoring', response_data)
         self.assertIn('logistics', response_data)
 
+    def test_eventtypesview_returns_only_types_in_active_categories(self):
+        request = self.factory.get(
+            self.api_base + '/events/eventtypes')
+        self.force_authenticate(request, self.all_perms_user)
+
+        security = EventCategory.objects.get(value='security')
+        security.is_active = False
+        security.save()
+
+        event_type_value = "Security Type"
+
+        EventType.objects.create(value=event_type_value, category=security)
+        response = views.EventTypesView.as_view()(request)
+
+        event_type_values = [i["value"] for i in response.data]
+
+        self.assertNotIn(event_type_value, event_type_values)
+
+    def test_eventcategoryview_returns_only_active_categories(self):
+        request = self.factory.get(self.api_base + '/events/categories')
+        self.force_authenticate(request, self.all_perms_user)
+        security = EventCategory.objects.get(value='security')
+        security.is_active = False
+        security.save()
+
+        response = views.EventCategoriesView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        category_values = [x['value'] for x in response.data]
+
+        self.assertNotIn('security', category_values)
+        self.assertIn('monitoring', category_values)
+        self.assertIn('logistics', category_values)
+
+
+
 
 class TestParsing(TestCase):
 
