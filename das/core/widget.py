@@ -37,10 +37,11 @@ class IconKeyInput(Widget):
 
 
 def get_icon_select_list(dirname='sprite-src'):
-    icon_list = [{
-        'key':
-        item.split('.')[0],
-        'file_path':
-        staticfiles_storage.url(os.sep.join((dirname, item)))
-    } for item in staticfiles_storage.listdir(dirname)[1]]
+    icon_list = [
+        {
+            'key': item.split('.')[0],
+            'file_path': staticfiles_storage.url(os.sep.join((dirname, item)))
+        }
+        for item in staticfiles_storage.listdir(dirname)[1]
+    ]
     return sorted(icon_list, key=lambda icon: icon['key'])
