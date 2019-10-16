@@ -58,7 +58,7 @@ class SchemaWidget(forms.Textarea):
 
 class IconKeyInput(Widget):
     input_type = 'text'
-    template_name = 'admin/activity/eventtype/icon_key_widget.html'
+    template_name = 'admin/core/icon_key_widget.html'
 
     def __init__(self, attrs=None, image_list_fn=None):
         if attrs is not None:
