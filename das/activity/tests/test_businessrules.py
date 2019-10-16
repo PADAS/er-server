@@ -724,10 +724,10 @@ class BusinessRulesTestCase(BaseAPITest):
             "arrestrep_time": "2019-10-07T02:00:00.000Z",
             "arrestrep_fullname": "Y",
             "arrestrep_irnumber": "M",
-            #            "arrestrep_location": "Wisero",
+            "arrestrep_location": "Wisero",
             "arrestrep_nationality": "tanzania", "arrestrep_villagename": "marakopo",
             "arrestrep_reasonforarrest": {"name": "Torch / Panga", "value": "torch"},
-            #            "arrestrep_zapnumberofarrestingscout": str(subj.id)
+            "arrestrep_zapnumberofarrestingscout": str(subj.id)
         }
 
         event_data = dict(
@@ -737,7 +737,7 @@ class BusinessRulesTestCase(BaseAPITest):
             provenance=Event.PC_STAFF,
             event_type=arrest_eventtype.value,
             priority=Event.PRI_IMPORTANT,
-            #location=dict(longitude=37.5123, latitude=1.4590),
+            location=dict(longitude=37.5123, latitude=1.4590),
             event_details=event_details,
             # related_subjects=[{'id': self.subject.id}, ],
         )
@@ -776,11 +776,11 @@ class BusinessRulesTestCase(BaseAPITest):
                         ],
                         "operator": "shares_at_least_one_element_with"
                     },
-                    {
-                        "name": "arrestrep_zapnumberofarrestingscout",
-                        "value": [],
-                        "operator": "shares_at_least_one_element_with"
-                    },
+                    # {
+                    #     "name": "arrestrep_zapnumberofarrestingscout",
+                    #     "value": [],
+                    #     "operator": "shares_at_least_one_element_with"
+                    # },
                     {
                         "name": "arrestrep_reasonforarrest",
                         "value": [
@@ -796,16 +796,16 @@ class BusinessRulesTestCase(BaseAPITest):
                         ],
                         "operator": "shares_at_least_one_element_with"
                     },
-                    {
-                        "name": "arrestrep_location",
-                        "value": None,
-                        "operator": "contains"
-                    },
-                    {
-                        "name": "arrestrep_asset",
-                        "value": None,
-                        "operator": "contains"
-                    }
+                    # {
+                    #     "name": "arrestrep_location",
+                    #     "value": None,
+                    #     "operator": "contains"
+                    # },
+                    # {
+                    #     "name": "arrestrep_asset",
+                    #     "value": None,
+                    #     "operator": "contains"
+                    # }
                 ]
             },
             schedule=self._create_a_period_from_datetime(including_time=True)
