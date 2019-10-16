@@ -89,6 +89,7 @@ class SpatialFeatureGroupAdmin(admin.ModelAdmin):
 
 class FeaturesInline(admin.TabularInline):
     model = models.SpatialFeatureGroupStatic.features.through
+    model._meta.verbose_name_plural = "Member of spatial feature groups"
 
 
 @admin.register(models.SpatialFeatureGroupStatic)
