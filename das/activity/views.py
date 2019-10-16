@@ -196,17 +196,15 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         parameters = {}
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
+                is_icon = schema_utils.check_enum_icon(schema_field)
                 parameters[schema_field['tag']
-                           ] = schema_utils.get_enum_choices(schema_field)
+                           ] = schema_utils.get_enum_choices(schema_field, is_icon=is_icon)
             elif schema_field['lookup'] == 'query':
                 parameters[schema_field['tag']
                            ] = schema_utils.get_dynamic_choices(schema_field)
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
                            ] = schema_utils.get_table_choices(schema_field)
-            elif schema_field['lookup'] == 'oneOf':
-                parameters[schema_field['tag']
-                           ] = schema_utils.get_oneOf_choices(schema_field)
 
         if len(parameters) > 0:
             template = Template(eventtype.schema)

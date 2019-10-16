@@ -84,11 +84,14 @@ def _get_dynamic_choices(field_details):
     return return_val
 
 
-def get_enum_choices(field_details, as_string=True):
+def get_enum_choices(field_details, as_string=True, is_icon=False):
 
     options = OrderedDict()
     for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
-        options[choice.value] = choice.display
+        if is_icon:
+            options[choice.value] = choice.icon
+        else:
+            options[choice.value] = choice.display
 
     if field_details['type'] == 'names':
         return_val = options
@@ -108,19 +111,10 @@ def get_enum_choices(field_details, as_string=True):
     return return_val
 
 
-def get_oneOf_choices(field_details, as_string=True):
-
-    options = OrderedDict()
-    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
-        options[choice.value] = choice.icon
-    if field_details['type'] == 'names':
-        return_val = options
-    else:
-        return_val = list(options.keys())
-    if as_string:
-        return json.dumps(return_val)
-
-    return return_val
+def check_enum_icon(schema_fields):
+    # Checks tags with word 'icon'
+    tag = schema_fields['tag']
+    return "icon" in tag
 
 
 def get_table_choices(field_details, as_string=True):
@@ -166,10 +160,6 @@ def get_schema_renderer_method():
         field_name, field_type = table_choices_identifier.split(':')
         return get_table_choices({'field': field_name, 'type': field_type})
 
-    @memoize
-    def memo_oneOf_choices(oneOf_choices_identifier):
-        field_name, field_type = oneOf_choices_identifier.split(':')
-        return get_oneOf_choices({'field': field_name, 'type': field_type})
 
     @memoize
     def render_f(schema):
@@ -187,9 +177,6 @@ def get_schema_renderer_method():
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
                            ] = memo_table_choices('{field}:{type}'.format(**schema_field))
-            elif schema_field['lookup'] == 'oneOf':
-                parameters[schema_field['tag']
-                           ] = memo_oneOf_choices('{field}:{type}'.format(**schema_field))
         if parameters:
             template = Template(schema)
             rendered_template = template.render(
