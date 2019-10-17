@@ -1,5 +1,7 @@
 import logging
 import json
+from datetime import datetime, timedelta
+import pytz
 
 from celery_once import QueueOnce
 from das_server import celery, pubsub
@@ -32,35 +34,21 @@ def maintain_subjectstatus_for_subject(subject_id):
 
 
 def query_source_provider():
-    for ssprovider in SourceProvider.objects.annotate(
-            name=F('display_name'),
-            info=F('additional')).values('name', 'info'):
+    for ssprovider in SourceProvider.objects.annotate(unique_id=F('id')):
         try:
-            if ssprovider["info"]["days_data_retain"] != None:
+            if ssprovider.additional['days_data_retain'] != None:
                 yield ssprovider
         except KeyError:
             pass
 
-
-def query_observation(source_provider, source):
-    for o in Observation.objects.filter(
-            source__provider__display_name=source_provider['name'],
-            source__id=source['id']):
-        yield o
-
-
 @celery.app.task
 def maintain_observation_data():
     source_provider = query_source_provider()
-    source = Source.objects.values('id')
 
     for o in source_provider:
-        for i in source:
-            observation_record = list(
-                query_observation(source_provider=o, source=i))
-            if len(observation_record) >= 2:
-                for n in range(1, len(observation_record)):
-                    difference_time = observation_record[
-                        0].recorded_at - observation_record[-n].recorded_at
-                    if difference_time.days == o['info']['days_data_retain']:
-                        observation_record[-n].delete()
+        minimum_date = pytz.utc.localize(datetime.utcnow()) - timedelta(days=o.additional['days_data_retain'])
+
+        # Observation records older than minimum date
+        observation_queryset = Observation.objects.filter(
+            source__provider__id=o.unique_id, recorded_at__lte=minimum_date)
+        observation_queryset.delete()
