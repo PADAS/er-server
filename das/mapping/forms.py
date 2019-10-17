@@ -5,7 +5,7 @@ from django.contrib.gis.geos import Point
 from django.contrib.postgres.forms import JSONField
 
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
-from mapping.models import Map, TileLayer
+from mapping.models import Map, TileLayer, SpatialFeatureGroupStatic
 from choices.models import Choice
 
 
@@ -114,3 +114,11 @@ class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
         if commit:
             instance.save()
         return instance
+
+
+class SpatialFeatureGroupStaticForm(forms.ModelForm):
+    features = forms.ModelChoiceField(queryset=SpatialFeatureGroupStatic.objects.all(), label='Spatial Feature Group Static')
+
+    class Meta:
+        model = SpatialFeatureGroupStatic
+        fields = ('features',)

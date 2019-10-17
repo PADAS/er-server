@@ -1,12 +1,14 @@
 from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.contrib import admin as django_admin
+from django.forms import ModelForm, forms
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
 
 import mapping.models as models
-from mapping.forms import MapCenterForm, TileLayerFormWithAttributes
+from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, \
+    SpatialFeatureGroupStaticForm
 
 
 @admin.register(models.Map)
@@ -89,8 +91,10 @@ class SpatialFeatureGroupAdmin(admin.ModelAdmin):
 
 class FeaturesInline(admin.TabularInline):
     model = models.SpatialFeatureGroupStatic.features.through
+    form = SpatialFeatureGroupStaticForm
     model._meta.verbose_name_plural = "Member of spatial feature groups"
     extra = 1
+    verbose_name = "Spatial Feature Group Static"
 
 
 @admin.register(models.SpatialFeatureGroupStatic)
