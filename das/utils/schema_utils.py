@@ -7,7 +7,7 @@ import re
 from collections import OrderedDict
 from django.apps import apps
 from django.template import Template, Context
-from django.template.base import VariableNode
+from django.template.base import VariableNode, TextNode
 
 from activity.exceptions import SchemaValidationError, \
     SCHEMA_ERROR_EMPTY_PROPERTY, SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA
@@ -112,9 +112,25 @@ def get_enum_choices(field_details, as_string=True, is_icon=False):
 
 
 def check_enum_icon(schema_fields):
-    # Checks tags with word 'icon'
-    tag = schema_fields['tag']
-    return "icon" in tag
+    try:
+        if schema_fields['icon'] == True:
+            return True
+    except KeyError:
+        return False
+
+def update_schema_fields_value(schema_fields):
+    index = len(schema_fields)
+    for schema in schema_fields:
+        try:
+            if (schema['icon'] == True) and schema['type'] == 'values':
+                schema_fields[1-index]['icon'] = True
+        except KeyError:
+            pass
+        finally:
+            index -=1
+    return schema_fields
+
+
 
 
 def get_table_choices(field_details, as_string=True):
@@ -417,6 +433,10 @@ def get_replacement_fields_in_schema(schema):
                            'field': field_details[1],
                            'type': field_details[2],
                            'tag': node.token.contents})
+       
+        elif type(node) == TextNode:
+            if "enumImages" in node.token.contents:
+                fields[-1]['icon'] = True
 
     return fields
 
