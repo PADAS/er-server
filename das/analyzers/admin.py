@@ -108,7 +108,8 @@ class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': (('name', 'subject_group', 'threshold_dist_meters', 'is_active',))
+            'fields': (('name', 'subject_group', 'threshold_dist_meters',
+                        'is_active',))
         }
         ),
         ('Spatial Features', {
