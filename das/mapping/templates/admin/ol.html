@@ -8,7 +8,21 @@
 #{{ id }}_map .aligned label { float:inherit; }
 #{{ id }}_admin_map { position: relative; vertical-align: top; float: {{ LANGUAGE_BIDI|yesno:"right,left" }}; }
 
+.ol-rotate {
+    margin-top: 1.5em;
+}
+
+
 </style>
+
+    <form class="form-inline">
+        <select id="type">
+            <option value="Point">Point</option>
+            <option value="LineString">LineString</option>
+            <option value="Polygon">Polygon</option>
+            <option value="Circle">Circle</option>
+        </select>
+    </form>
 
 
 
