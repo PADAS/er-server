@@ -35,11 +35,17 @@ def maintain_subjectstatus_for_subject(subject_id):
 
 def query_source_provider():
     for ssprovider in SourceProvider.objects.annotate(unique_id=F('id')):
-        try:
-            if ssprovider.additional['days_data_retain'] != None:
-                yield ssprovider
-        except KeyError:
-            pass
+        config = ssprovider.additional.get('days_data_retain')
+        instance_type = isinstance(config, int)
+
+        if bool(config and instance_type):
+            yield ssprovider
+        else:
+            logger.info(
+                'Unconfigured field {0} in integer for source_provider: {1}'.format(
+                    "days_data_retain", ssprovider.display_name))
+
+
 
 @celery.app.task
 def maintain_observation_data():
@@ -51,4 +57,7 @@ def maintain_observation_data():
         # Observation records older than minimum date
         observation_queryset = Observation.objects.filter(
             source__provider__id=o.unique_id, recorded_at__lte=minimum_date)
-        observation_queryset.delete()
+
+        if bool(observation_queryset):
+            observation_queryset.delete()
+            logger.info(f"Deleted observation record: {observation_queryset}")

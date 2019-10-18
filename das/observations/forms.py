@@ -259,7 +259,7 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text)
 
-    days_data_retain = forms.IntegerField(required=False,
+    days_data_retain = forms.IntegerField(required=False, min_value=1, max_value=365,
                                           help_text=days_data_retain_help_text)
 
     class Meta:
