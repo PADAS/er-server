@@ -1,6 +1,6 @@
 variable "site" {
   description = "Name of site, used for naming resources and dns"
-  default = "${terraform.workspace}"
+  default = "dev"
 }
 
 #variable "build_version" {
