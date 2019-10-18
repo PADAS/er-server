@@ -1,17 +1,18 @@
-variable "build_version" {
-    description = "DAS build number, 1.70.1-rc.15"
-    default = "1.70.1-rc.15"
-}
 variable "site" {
   description = "Name of site, used for naming resources and dns"
   default = "${terraform.workspace}"
 }
 
-variable "timezone" {
-  description = "Timezone used by the site, look in pytz for examples"
-  default     = "Africa/Nairobi"
-}
-
+#variable "build_version" {
+#    description = "DAS build number, 1.70.1-rc.15"
+#    default = "1.70.1-rc.15"
+#}
+#
+#variable "timezone" {
+#  description = "Timezone used by the site, look in pytz for examples"
+#  default     = "Africa/Nairobi"
+#}
+#
 #variable "zendesk_name" {
 #  default = ""
 #}
