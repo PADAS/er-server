@@ -4,6 +4,7 @@ variable "build_version" {
 }
 variable "site" {
   description = "Name of site, used for naming resources and dns"
+  default = "${terraform.workspace}"
 }
 
 variable "timezone" {
