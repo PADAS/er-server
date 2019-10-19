@@ -192,7 +192,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
         schema_fields = schema_utils.get_replacement_fields_in_schema(
             eventtype.schema)
-            
+
         parameters = {}
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
@@ -229,7 +229,8 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             obj = Choice.objects.filter(is_active=False, field=value['field_name'])
             for o in obj:
                 inactive_choices.append(o.value)
-            schema['schema']['properties'][key]["inactive"+"_"+value['lookup']] = inactive_choices
+            if inactive_choices:
+                schema['schema']['properties'][key]["inactive"+"_"+value['lookup']] = inactive_choices
 
 
         return generics.views.Response(schema)
