@@ -346,7 +346,7 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
             subject=self.elephant_2, source=self.collar_1)
 
         observations_timestamp = pytz.utc.localize(
-            datetime.now() - timedelta(weeks=55)).strftime("%s")
+            datetime.now() - timedelta(weeks=55)).timestamp()
 
         observation_data = [
             (1, 1, int(observations_timestamp)),
