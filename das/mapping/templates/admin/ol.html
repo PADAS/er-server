@@ -10,6 +10,7 @@
 
 .ol-rotate {
     margin-top: 1.5em;
+    top: 1em;
 }
 
 
@@ -33,7 +34,11 @@
     {% block openlayers %}{% include "admin/ol.js" %}{% endblock %}
     </script>
     <div id="{{ id }}_map"{% if LANGUAGE_BIDI %} dir="ltr"{% endif %}></div>
-
-<script type="text/javascript">{% block init_function %}{{ module }}.init();{% endblock %}</script>
+    {% if editable %}
+    <a href="javascript:{{ module }}.clearFeatures()">{% trans "Delete all Features" %}</a>
+    {% endif %}
+    <!-- {% if display_wkt %}<p>{% trans "WKT debugging window:" %} </p>{% endif %}
+    <textarea id="{{ id }}" class="vWKTField required" cols="150" rows="10" name="{{ name }}">{{ wkt }}</textarea> -->
+    <script type="text/javascript">{% block init_function %}{{ module }}.init();{% endblock %}</script>
 
 </span>

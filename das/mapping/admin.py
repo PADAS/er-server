@@ -185,6 +185,9 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     list_filter = ('type', 'featureset')
     list_display = ('name', 'type', 'featureset')
     search_fields = ('name', )
+    display_wkt = True
+    debug=False
+
     widget = OlWidget
 
 
