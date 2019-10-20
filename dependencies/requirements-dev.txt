@@ -207,7 +207,7 @@ pyasn1==0.4.5
 pycparser==2.19
 pycryptodome==3.7.0
 pyjwt==1.7.1
-pymet==0.1.23
+pymet==0.1.24
 pyopenssl==19.0.0
 pyparsing==2.4.0
 pyproj==1.9.5.1

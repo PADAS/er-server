@@ -189,7 +189,7 @@ pyasn1==0.4.5             # via oauth2client, pyasn1-modules, rsa
 pycparser==2.19           # via cffi
 pycryptodome==3.7.0
 pyjwt==1.7.1              # via adal, twilio
-pymet==0.1.23
+pymet==0.1.24
 pyopenssl==19.0.0         # via earthengine-api
 pyparsing==2.4.0          # via snuggs
 pyproj==1.9.5.1
