@@ -61,6 +61,33 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     list_display = ('name', 'type', 'featureset')
     search_fields = ('name', )
 
+    def get_single_coordinate_pair(self, coords):
+        try:
+            if not isinstance(coords[0], tuple):
+                return coords
+            return self.get_single_coordinate_pair(coords[0])
+        except Exception:
+            return (0, 0)
+
+    def set_coordinates_cookie(self, http_response, obj):
+        coords = obj.feature_geometry.coords
+        long, lat = self.get_single_coordinate_pair(coords)
+        http_response.set_cookie("latitude", lat, max_age=365 * 24 * 60 * 60)
+        http_response.set_cookie("longitude", long, max_age=365 * 24 * 60 * 60)
+        return http_response
+
+    def response_post_save_add(self, request, obj):
+        http_response = super(BaseFeatureAdmin,
+                              self).response_post_save_add(request, obj)
+        response = self.set_coordinates_cookie(http_response, obj)
+        return response
+
+    def response_post_save_change(self, request, obj):
+        http_response = super(BaseFeatureAdmin,
+                              self).response_post_save_change(request, obj)
+        response = self.set_coordinates_cookie(http_response, obj)
+        return response
+
 
 @admin.register(models.PolygonFeature)
 class PolygonFeatureAdmin(BaseFeatureAdmin):
