@@ -212,7 +212,7 @@ pyopenssl==19.0.0
 pyparsing==2.4.0
 pyproj==1.9.5.1
 pysocks==1.6.8
-pytest-django==3.5.1
+pytest-django==3.6.0
 pytest-pythonpath==0.7.3
 pytest==5.2.1
 python-dateutil==2.8.0
