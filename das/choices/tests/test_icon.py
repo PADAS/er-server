@@ -34,7 +34,7 @@ SCHEMA = """
                 "type": "string",
                 "title": "Species",
                 "enum": {{enum___wildlifesightingrep_species___values}},
-                "enumImages": {{enum___wildlifesightingrep_species___names}}
+                "enumNames": {{enum___wildlifesightingrep_species___names}}
             },
            "wildlifesightingrep_numberanimals": {
                 "type": "number",
@@ -51,7 +51,7 @@ SCHEMA = """
                 "type": "string",
                 "title": "Icons",
                 "enum": {{enum___wildlifesightingrep_icons___values}},
-                "enumImages": {{enum___wildlifesightingrep_icons___names}}
+                "enumNames": {{enum___wildlifesightingrep_icons___names}}
             }
 
        }
@@ -151,9 +151,9 @@ class TestChoice(BaseAPITest):
 
         self.assertEqual(response.status_code, 404)
 
-
     def test_enumImages_enumNames(self):
-        event_category = EventCategory.objects.create(value='monitoring', display='Monitoring', )
+        event_category = EventCategory.objects.create(
+            value='monitoring', display='Monitoring', )
         event_type = EventType.objects.create(value='wildlifesightingrep_species',
                                               display='Wildlife Sighting',
                                               category=event_category,
@@ -167,12 +167,16 @@ class TestChoice(BaseAPITest):
         response = views.EventTypeSchemaView.as_view()(request, **kwargs)
 
         # get values for enumImages: "maps choice value to icon value"
-        enumImage_vals = dict(response.data['schema']['properties']['wildlifesightingrep_species']['enumImages'])
-        choice_vals = dict([i for i in Choice.objects.filter(field='wildlifesightingrep_species').values_list('value', 'icon')])
+        enumImage_vals = dict(
+            response.data['schema']['properties']['wildlifesightingrep_species']['enumImages'])
+        choice_vals = dict([i for i in Choice.objects.filter(
+            field='wildlifesightingrep_species').values_list('value', 'icon')])
 
         # get values for enumNames: "maps choice value to  display"
-        enumNames_vals = dict(response.data['schema']['properties']['wildlifesightingrep_collared']['enumNames'])
-        choice_vals_ = dict([i for i in Choice.objects.filter(field='yesno').values_list('value', 'display')])
+        enumNames_vals = dict(
+            response.data['schema']['properties']['wildlifesightingrep_collared']['enumNames'])
+        choice_vals_ = dict([i for i in Choice.objects.filter(
+            field='yesno').values_list('value', 'display')])
 
         self.assertEqual(enumImage_vals, choice_vals)
         self.assertEqual(enumNames_vals, choice_vals_)
