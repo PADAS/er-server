@@ -63,7 +63,8 @@ class Community(TimestampedModel):
     name = models.CharField(max_length=80)
 
     class Meta:
-        verbose_name_plural = _('communities')
+        verbose_name = _('Event Reporters')
+        verbose_name_plural = _('Event Reporters')
 
     def __str__(self):
         return self.name
@@ -118,6 +119,7 @@ class EventCategory(TimestampedModel):
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
     objects = EventBaseManager()
 
     flag = models.CharField(max_length=40, default='user', choices=(

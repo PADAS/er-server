@@ -1,6 +1,7 @@
 from django.test import TestCase
 
-from activity.exceptions import SCHEMA_ERROR_EMPTY_PROPERTY
+from activity.exceptions import SCHEMA_ERROR_EMPTY_PROPERTY, \
+    SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA
 from activity.forms import EventTypeForm, SCHEMA_ERROR_JSON_DECODE_ERROR, \
     SCHEMA_ERROR_INCORRECT_RENDER_TAG
 
@@ -13,6 +14,8 @@ EVENT_SCHEMA_MISSING_COMMA_AFTER_VARIABLE = """{\n    "schema": {\n        "$sch
 EVENT_SCHEMA_INCORRECT_TAG = """{\n    "schema": {\n        "$schema": "http://json-schema.org/draft-04/schema#",\n        "title": "Rhino Sighting (rhino_sighting_rep)",\n      \n        "type": "object",\n\n        "properties": \n        {\n            "rhinosightingrep_Rhino": {\n                "type": "string",\n                "title": "Individual Rhino ID",\n                "enum": {{query___blackRhinos___values}}\n                "enumNames": {{query_blackRhinos___names}}\n            },\n            "rhinosightingrep_earnotchcount": {\n                "type":"number",\n                "title": "Ear notch count"\n            },\n            "rhinosightingrep_condition":{\n                "type": "string",\n                "title": "Condition",\n               "enum": {{enum___rhinosightingrep_condition___values}},\n               "enumNames": {{enum___rhinosightingrep_condition___names}}                   \n            },\n            "rhinosightingrep_activity": {\n                "type": "string",\n                "title": "Activity",\n               "enum": {{enum___rhinosightingrep_activity___values}},\n               "enumNames": {{enum___rhinosightingrep_activity___names}}            \n            }\n        }\n    },\n    "definition": [\n    {\n        "key":         "rhinosightingrep_Rhino",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_earnotchcount",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_condition",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_activity",\n        "htmlClass": "col-lg-6"\n    }\n    ]\n}"""
 
 EVENT_SCHEMA_EMPTY_PROPERTY = """{\n    "schema": {\n        "$schema": "http://json-schema.org/draft-04/schema#",\n        "title": "Rhino Sighting (rhino_sighting_rep)",\n      \n        "type": "object",\n\n        "properties": \n        {\n            "rhinosightingrep_Rhino": {\n            },\n            "rhinosightingrep_earnotchcount": {\n                "type":"number",\n                "title": "Ear notch count"\n            },\n            "rhinosightingrep_condition":{\n                "type": "string",\n                "title": "Condition",\n               "enum": {{enum___rhinosightingrep_condition___values}},\n               "enumNames": {{enum___rhinosightingrep_condition___names}}                   \n            },\n            "rhinosightingrep_activity": {\n                "type": "string",\n                "title": "Activity",\n               "enum": {{enum___rhinosightingrep_activity___values}},\n               "enumNames": {{enum___rhinosightingrep_activity___names}}            \n            }\n        }\n    },\n    "definition": [\n    {\n        "key":         "rhinosightingrep_Rhino",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_earnotchcount",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_condition",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_activity",\n        "htmlClass": "col-lg-6"\n    }\n    ]\n}"""
+
+EVENT_SCHEMA_MISSING_DOLLAR_SIGN_SCHEMA = """{\n    "schema": {\n        "schema": "http://json-schema.org/draft-04/schema#",\n        "title": "Rhino Sighting (rhino_sighting_rep)",\n      \n        "type": "object",\n\n        "properties": \n        {\n            "rhinosightingrep_Rhino": {\n                "type": "string",\n                "title": "Individual Rhino ID",\n                "enum": {{query___blackRhinos___values}},\n                "enumNames": {{query___blackRhinos___names}}\n            },\n            "rhinosightingrep_earnotchcount": {\n                "type":"number",\n                "title": "Ear notch count"\n            },\n            "rhinosightingrep_condition":{\n                "type": "string",\n                "title": "Condition",\n               "enum": {{enum___rhinosightingrep_condition___values}},\n               "enumNames": {{enum___rhinosightingrep_condition___names}}                   \n            },\n            "rhinosightingrep_activity": {\n                "type": "string",\n                "title": "Activity",\n               "enum": {{enum___rhinosightingrep_activity___values}},\n               "enumNames": {{enum___rhinosightingrep_activity___names}}            \n            }\n        }\n    },\n    "definition": [\n    {\n        "key":         "rhinosightingrep_Rhino",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_earnotchcount",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_condition",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_activity",\n        "htmlClass": "col-lg-6"\n    }\n    ]\n}"""
 
 EVENT_SCHEMA_WITH_MISSING_PROPERTY_IN_DEFINITION = """{
     "schema": {
@@ -75,6 +78,13 @@ class TestEventTypeForm(TestCase):
         self.assertFalse(form.is_valid())
         self.assertEqual(form.errors["schema"],
                          [SCHEMA_ERROR_JSON_DECODE_ERROR])
+
+    def test_schema_with_missing_dollar_sign_schema(self):
+        form = EventTypeForm(
+            data={"schema": EVENT_SCHEMA_MISSING_DOLLAR_SIGN_SCHEMA})
+        self.assertFalse(form.is_valid())
+        self.assertEqual(form.errors["schema"],
+                         [SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA])
 
     def test_correct_schema_form_is_valid(self):
         form = EventTypeForm(data={"schema": EVENT_SCHEMA})

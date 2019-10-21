@@ -5,7 +5,6 @@
 #    pip-compile --find-links=./wheelhouse --output-file=requirements-dev.txt ./requirements.txt requirements-dev.in
 #
 --find-links ./wheelhouse
---find-links /c/projects/das/das/dependencies/./wheelhouse
 
 adal==1.2.1
 affine==2.2.2
@@ -197,7 +196,7 @@ pandas==0.24.2
 pep8==1.7.1
 piexif==1.0.13
 pillow==4.3.0
-pip-tools==4.1.0
+pip-tools==4.2.0
 pluggy==0.12.0            # via pytest
 pre-commit==1.18.3
 psycopg2-binary==2.8.3
@@ -208,12 +207,12 @@ pyasn1==0.4.5
 pycparser==2.19
 pycryptodome==3.7.0
 pyjwt==1.7.1
-pymet==0.1.22
+pymet==0.1.24
 pyopenssl==19.0.0
 pyparsing==2.4.0
 pyproj==1.9.5.1
 pysocks==1.6.8
-pytest-django==3.5.1
+pytest-django==3.6.0
 pytest-pythonpath==0.7.3
 pytest==5.2.1
 python-dateutil==2.8.0

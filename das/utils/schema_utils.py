@@ -10,7 +10,7 @@ from django.template import Template, Context
 from django.template.base import VariableNode
 
 from activity.exceptions import SchemaValidationError, \
-    SCHEMA_ERROR_EMPTY_PROPERTY
+    SCHEMA_ERROR_EMPTY_PROPERTY, SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA
 from choices.models import Choice, DynamicChoice
 from utils.memoize import memoize
 
@@ -517,6 +517,8 @@ def should_auto_generate(schema_string):
 
 
 def validate_rendered_schema_is_wellformed(schema):
+    if "$schema" not in schema:
+        raise SchemaValidationError(SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA)
     schema = get_schema_renderer_method()(schema)
     properties = schema['schema'].get('properties')
 
@@ -549,8 +551,7 @@ def map_schema(schema, load_schema):
     lookups = []
     keys = load_schema['schema']['properties'].keys()
     for key in keys:
-        if ('enum' or 'query'
-                or 'table') in load_schema['schema']['properties'][key].keys():
+        if bool({'enum', 'query', 'table'} & load_schema['schema']['properties'][key].keys()):
             lookups.append(key)
 
     fields = []

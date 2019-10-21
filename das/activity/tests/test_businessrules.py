@@ -29,7 +29,7 @@ from activity.tasks import send_alert_to_notificationmethod, \
 from core.tests import BaseAPITest
 from core.utils import NonHttpRequest
 from core.utils import OneWeekSchedule
-from observations.models import Subject, SubjectGroup
+from observations.models import Subject, SubjectGroup, CommonName
 
 power_user_permissions = [
     'security_read',
@@ -44,6 +44,8 @@ class BusinessRulesTestCase(BaseAPITest):
         call_command('loaddata', 'initial_eventdata')
         call_command('loaddata', 'event_data_model')
         call_command('loaddata', 'test_events_schema')
+        call_command('loaddata', 'initial_choices')
+        call_command('loaddata', 'initial_common_name')
 
         self.alerts_perms_user = User.objects.create_user(
             username='alertsuser',
@@ -556,6 +558,275 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(len(action_list), 1)
 
         print(action_list)
+
+    def test_a_arrest_report_against_a_defined_alert_rule(self):
+        schema = """{
+   "schema": 
+   {
+       "$schema": "http://json-schema.org/draft-04/schema#",
+       "title": "Arrest Report (arrest_rep)",
+     
+       "type": "object",
+
+       "properties": 
+       {
+            "arrestrep_fullname": {
+                "type": "string",
+                "title": "Line 1: Name of Arrestee"
+            }, 
+            "arrestrep_age": {
+                "type": "number",
+                "title": "Line 2: Age",
+                "minimum": 0
+            },             
+            "arrestrep_dateofbirth": {
+                "type": "string",
+                "title": "Line 3: Date of Birth"
+            },
+            "arrestrep_villagename": {
+                "type": "string",
+                "title": "Line 4: Village Name",
+                "enum": {{enum___villagename___values}},
+                "enumNames": {{enum___villagename___names}}                  
+            },
+            "arrestrep_nationality": {
+                "type": "string",
+                "title": "Line 5: Nationality",
+                "enum": {{enum___nationality___values}},
+                "enumNames": {{enum___nationality___names}}              
+            },
+            "arrestrep_reasonforarrest": {
+                "type": "string",
+                "title": "Line 6: Reason for Arrest",
+                "enum": {{enum___arrestrep_reasonforarrest___values}},
+                "enumNames": {{enum___arrestrep_reasonforarrest___names}}                    
+            },                
+            "arrestrep_time": {
+                "type": "string",
+                "title": "Line 7: Time of Arrest"
+            },                                    
+            "arrestrep_location": {
+                "type": "string",
+                "title": "Line 8: Place of Arrest"
+            }, 
+            "arrestrep_area": {
+                "type": "string",
+                "title": "Line 9: Area",
+                "enum": {{enum___arrestrep_area___values}},
+                "enumNames": {{enum___arrestrep_area___names}}
+            },      
+            "arrestrep_asset": {
+                "type": "string",
+                "title": "Line 10: Asset"                 
+           },                      
+            "arrestrep_zapnumberofarrestingscout": {
+                "type": "string",
+                "title": "Line 11: Arresting Scout",
+                "enum": {{query___blackRhinos___values}},
+                "enumNames": {{query___blackRhinos___names}}                       
+            },
+            "arrestrep_nameofranger": {
+                "type": "string",
+                "title": "Line 12: Name of Ranger"
+            },            
+            "arrestrep_zapnumberoftawarep": {
+                "type": "string",
+                "title": "Line 13: TAWA Scout ID"
+            },
+
+            "arrestrep_irnumber": {
+                "type": "string",
+                "title": "Line 14: IR Number"
+            },    
+"ARCHIVED FIELDS BEGIN": {"title": "==========================================="},
+"arrestrep_assetusedpicklist": {
+    "title": "Line 10: Assets Used",
+    "type": "object"
+},              
+ 
+"ARCHIVED FIELDS END": {"title": "==========================================="}
+       }
+   },
+ "definition": [
+
+   {
+       "key": "arrestrep_fullname",
+        "htmlClass": "col-lg-6"
+    },       
+    {
+       "key": "arrestrep_age",
+        "htmlClass": "col-lg-6"
+    },       
+    {
+       "key": "arrestrep_dateofbirth",
+        "htmlClass": "col-lg-6"
+    },       
+    {
+       "key": "arrestrep_villagename",
+        "htmlClass": "col-lg-6"
+    },       
+    {
+       "key": "arrestrep_nationality",
+        "htmlClass": "col-lg-6"
+    },       
+    {
+       "key": "arrestrep_reasonforarrest",
+        "htmlClass": "col-lg-6"
+    },       
+    {
+       "key": "arrestrep_time",
+       "fieldHtmlClass": "date-time-picker json-schema",
+       "readonly": false,
+       "htmlClass": "col-lg-6"
+    },
+    {
+       "key": "arrestrep_location",
+        "htmlClass": "col-lg-6"
+    },
+    {
+       "key": "arrestrep_area",
+       "htmlClass": "col-lg-6"
+    },            
+    {
+       "key": "arrestrep_asset",
+        "htmlClass": "col-lg-6"
+    },      
+    {
+       "key": "arrestrep_zapnumberofarrestingscout",
+        "htmlClass": "col-lg-6"
+    }, 
+    {
+       "key": "arrestrep_nameofranger",
+        "htmlClass": "col-lg-6"
+    },       
+    {
+       "key": "arrestrep_zapnumberoftawarep",
+        "htmlClass": "col-lg-6"
+    },
+
+    {
+       "key": "arrestrep_irnumber",
+        "htmlClass": "col-lg-6"
+    }          
+ ]
+}"""
+        subj = Subject.objects.create(
+            name="Roni",
+            common_name=CommonName.objects.get(value="black_rhino")
+        )
+        arrest_eventtype = EventType.objects.get(value='arrest_rep')
+        arrest_eventtype.schema = schema
+        arrest_eventtype.save()
+
+        event_details = {
+            "arrestrep_age": 20,
+            "arrestrep_area": {"name": "IGGR", "value": "iggr"},
+            "arrestrep_time": "2019-10-07T02:00:00.000Z",
+            "arrestrep_fullname": "Y",
+            "arrestrep_irnumber": "M",
+            "arrestrep_location": "Wisero",
+            "arrestrep_nationality": "tanzania", "arrestrep_villagename": "marakopo",
+            "arrestrep_reasonforarrest": {"name": "Torch / Panga", "value": "torch"},
+            "arrestrep_zapnumberofarrestingscout": str(subj.id)
+        }
+
+        event_data = dict(
+            state='active',
+            title='Test Event No. 1',
+            event_time=datetime.now(tz=pytz.utc),
+            provenance=Event.PC_STAFF,
+            event_type=arrest_eventtype.value,
+            priority=Event.PRI_IMPORTANT,
+            location=dict(longitude=37.5123, latitude=1.4590),
+            event_details=event_details,
+            # related_subjects=[{'id': self.subject.id}, ],
+        )
+
+        request = NonHttpRequest()
+        request.user = self.power_user
+        ser = EventSerializer(data=event_data, context={'request': request})
+
+        if not ser.is_valid():
+            print(f'Event is not valid. Errors are: {ser.errors}')
+        else:
+            event = ser.create(ser.validated_data)
+            event = Event.objects.get(id=event.id)
+
+        eventdata = render_event(event, self.power_user)
+        # print(json.dumps(eventdata, indent=2, default=str))
+
+        # Create a notification method
+        notification_method_id = self.create_notification_method().data["id"]
+
+        # print(f'NotificationMethod.id: {notification_method_id}')
+
+        # Create an alert rule
+        alert_rule_1 = dict(
+            reportTypes=[arrest_eventtype.value, ],
+            notification_method_ids=[notification_method_id, ],
+            conditions={
+                "all": [
+                    {
+                        "name": "arrestrep_area",
+                        "value": [
+                            "senapa",
+                            "iggr",
+                            "wma",
+                            "grumetireserves"
+                        ],
+                        "operator": "shares_at_least_one_element_with"
+                    },
+                    # {
+                    #     "name": "arrestrep_zapnumberofarrestingscout",
+                    #     "value": [],
+                    #     "operator": "shares_at_least_one_element_with"
+                    # },
+                    {
+                        "name": "arrestrep_reasonforarrest",
+                        "value": [
+                            "bushmeat/trophypossession",
+                            "elephantpoaching",
+                            "firearmpoaching",
+                            "illegalgrazing",
+                            "snaring",
+                            "dogpoaching",
+                            "motorbikepoaching",
+                            "footpoaching",
+                            "torch",
+                        ],
+                        "operator": "shares_at_least_one_element_with"
+                    },
+                    # {
+                    #     "name": "arrestrep_location",
+                    #     "value": None,
+                    #     "operator": "contains"
+                    # },
+                    # {
+                    #     "name": "arrestrep_asset",
+                    #     "value": None,
+                    #     "operator": "contains"
+                    # }
+                ]
+            },
+            schedule=self._create_a_period_from_datetime(including_time=True)
+        )
+        alert_rules_list = []
+        for ar in [alert_rule_1, ]:
+            request = NonHttpRequest()
+            request.user = self.power_user
+            ser = AlertRuleSerializer(data=ar, context={'request': request})
+            if not ser.is_valid():
+                print(f'AlertRule is not valid. Errors are: {ser.errors}')
+            else:
+                rule = ser.create(ser.validated_data)
+                rule = AlertRule.objects.get(id=rule.id)
+                alert_rules_list.append(rule)
+
+        self.assertEqual(len(AlertRule.objects.filter(
+            event_types=event.event_type)), 1)
+
+        action_list = evaluate_event_on_alertrules(alert_rules_list, event)
+        self.assertEqual(len(action_list), 1)
 
     def test_alert_rule_with_empty_schedule(self):
 
