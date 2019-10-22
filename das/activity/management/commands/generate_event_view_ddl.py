@@ -28,7 +28,7 @@ class Command(BaseCommand):
         fieldset = set()
         for a, b in generate_field_details(schema_accumulator):
             path = ','.join(a)
-            fielddef = f'(data#>>\'{{{path}}}\')::{b} as "{a[1]}"'
+            fielddef = f'(ed.data#>>\'{{{path}}}\')::{b} as "{a[1]}"'
             fieldset.add(fielddef)
         lines.append(',\n'.join(fieldset))
         lines.append(' from activity_eventdetails ed ')
@@ -75,10 +75,10 @@ def generate_field_details(schema_accumulator):
             propkey = f"{propkey}{suf}"
             if propval.get('enum'):
                 if propval.get('type') == 'string':
-                    yield ('ed.event_details', propkey, 'name'), 'TEXT'
+                    yield ('event_details', propkey, 'name'), 'TEXT'
 
             elif propval.get('type') == 'string':
-                yield ('ed.event_details', propkey), 'TEXT'
+                yield ('event_details', propkey), 'TEXT'
 
             elif propval.get('type') == 'number':
-                yield ('ed.event_details', propkey), 'NUMERIC'
+                yield ('event_details', propkey), 'NUMERIC'
