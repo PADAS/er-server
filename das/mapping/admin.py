@@ -77,6 +77,10 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
         
     def get_form(self, request, obj=None, **kwargs):
         if not obj:
+            # the map in the admin uses EPSG 3857 by default and changing the
+            # map_srid here doesn't have any effect on the map.
+            # This workaround converts EPSG 4326 coordinates to EPSG 3857 so
+            # that the map can be centered to that position
             p = Point(float(request.COOKIES.get('longitude', 0)), float(request.COOKIES.get('latitude', 0)), srid=4326)
             p.transform(3857)
             self.default_lat = p.y
