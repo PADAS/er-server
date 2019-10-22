@@ -4,6 +4,7 @@ from django.contrib import admin as django_admin
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
+from django.contrib.gis.geos import Point
 
 import mapping.models as models
 from mapping.forms import MapCenterForm, TileLayerFormWithAttributes
@@ -61,6 +62,9 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     list_display = ('name', 'type', 'featureset')
     search_fields = ('name', )
 
+    def __init__(self, *args, **kwargs):
+        super(BaseFeatureAdmin, self).__init__(*args, **kwargs)
+
     def get_single_coordinate_pair(self, coords):
         try:
             if not isinstance(coords[0], tuple):
@@ -68,6 +72,14 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
             return self.get_single_coordinate_pair(coords[0])
         except Exception:
             return (0, 0)
+        
+    def get_form(self, request, obj=None, **kwargs):
+        if not obj:
+            p = Point(float(request.COOKIES.get('longitude', "0")), float(request.COOKIES.get('latitude', 0)), srid=4326)
+            p.transform(3857)
+            self.default_lat = p.y
+            self.default_lon = p.x
+        return super(BaseFeatureAdmin, self).get_form(request, obj=None, **kwargs)
 
     def set_coordinates_cookie(self, http_response, obj):
         coords = obj.feature_geometry.coords
