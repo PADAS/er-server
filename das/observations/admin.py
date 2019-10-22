@@ -929,7 +929,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
         ),
         ('Provider configurations', {
             'classes': ('wide',),
-            'fields': ('lag_notification_threshold', 'silence_notification_threshold',)
+            'fields': ('lag_notification_threshold', 'silence_notification_threshold', 'days_data_retain')
         }
         ),
 
