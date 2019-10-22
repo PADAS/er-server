@@ -151,7 +151,7 @@ class TestChoice(BaseAPITest):
 
         self.assertEqual(response.status_code, 404)
 
-    def test_enumImages_enumNames(self):
+    def test_enumImages_is_inserted_if_associated_choice_has_icon(self):
         event_category = EventCategory.objects.create(
             value='monitoring', display='Monitoring', )
         event_type = EventType.objects.create(value='wildlifesightingrep_species',

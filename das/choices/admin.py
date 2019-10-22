@@ -10,6 +10,7 @@ from django.contrib.admin.utils import model_ngettext
 from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext as _
+from django.utils.safestring import mark_safe
 
 import choices.models as models
 from choices.forms import ChoiceForm
@@ -23,7 +24,6 @@ def submit_row(context):
     if ctx['opts'].model_name == 'choice':
         ctx.update({'addchoices': True})
     return ctx
-from django.utils.safestring import mark_safe
 
 
 
