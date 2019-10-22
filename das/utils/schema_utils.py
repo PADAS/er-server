@@ -4,7 +4,7 @@ import jsonschema
 import logging
 import re
 
-from collections import OrderedDict
+from collections import OrderedDict, ChainMap
 from django.apps import apps
 from django.template import Template, Context
 from django.template.base import VariableNode, TextNode
@@ -88,10 +88,7 @@ def get_enum_choices(field_details, as_string=True, is_icon=False):
 
     options = OrderedDict()
     for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
-        if is_icon:
-            options[choice.value] = choice.icon
-        else:
-            options[choice.value] = choice.display
+        options[choice.value] = choice.display
 
     if field_details['type'] == 'names':
         return_val = options
@@ -111,17 +108,23 @@ def get_enum_choices(field_details, as_string=True, is_icon=False):
     return return_val
 
 
-def check_enum_icon(schema_fields):
-    return schema_fields.get('icon', False)
+def get_enumImage_values(field_details, as_string=True):
+
+    options = OrderedDict()
+    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
+        options[choice.value] = choice.icon
+
+    return {k: v for k, v in options.items() if len(v) != 0}
 
 
-def update_schema_fields_values(schema_fields):
-    index = len(schema_fields)
-    for schema in schema_fields:
-        if bool(check_enum_icon(schema) and ("values" in schema.values())):
-            schema_fields[1 - index]['icon'] = True
-        index -= 1
-    return schema_fields
+
+# def update_schema_fields_values(schema_fields):
+#     index = len(schema_fields)
+#     for schema in schema_fields:
+#         if bool(check_enum_icon(schema) and ("values" in schema.values())):
+#             schema_fields[1 - index]['icon'] = True
+#         index -= 1
+#     return schema_fields
 
 
 def get_table_choices(field_details, as_string=True):
@@ -425,11 +428,7 @@ def get_replacement_fields_in_schema(schema):
                            'type': field_details[2],
                            'tag': node.token.contents})
 
-        elif type(node) == TextNode:
-            if "enumImages" in node.token.contents:
-                fields[-1]['icon'] = True
-
-    return update_schema_fields_values(fields)
+    return fields
 
 
 def format_key_for_title(key):
