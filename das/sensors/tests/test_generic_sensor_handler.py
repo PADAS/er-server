@@ -3,6 +3,7 @@ import copy
 import datetime
 from uuid import uuid4
 from unittest import mock
+import pytz
 
 from django.utils import timezone
 from django.db import transaction
@@ -137,7 +138,8 @@ class GenericSensorHandlerTest(BaseAPITest):
     def test_post_multiple_batches(self):
         obs_list = [x for x in self._generate_observations(300, distinct=True)]
         response = self._post_data(json.dumps(obs_list))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code,
+                         status.HTTP_201_CREATED, response.data)
         self.assertEqual(300, Observation.objects.count())
 
     def test_post_two_different_ids(self):
@@ -186,10 +188,12 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(source)
 
     def test_provider_doesnot_exist(self):
-        response = self._post_data(json.dumps(self.one_observation), 'random_src_provider')
+        response = self._post_data(json.dumps(
+            self.one_observation), 'random_src_provider')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(1, Observation.objects.count())
-        self.assertIsNotNone(SourceProvider.objects.get(provider_key='random_src_provider'))
+        self.assertIsNotNone(SourceProvider.objects.get(
+            provider_key='random_src_provider'))
 
     def test_subject_src_provider_donot_exist(self):
         mfg_id = 'brew_new_mfg_id'
@@ -202,7 +206,8 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(1, Observation.objects.filter(source=src).count())
-        self.assertIsNotNone(SourceProvider.objects.get(provider_key=provider_key))
+        self.assertIsNotNone(
+            SourceProvider.objects.get(provider_key=provider_key))
         self.assertIsNotNone(src)
         self.assertIsNotNone(Subject.objects.get(name=mfg_id))
 
@@ -217,7 +222,8 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNotNone(new_source)
-        self.assertEqual(1, Observation.objects.filter(source=new_source).count())
+        self.assertEqual(1, Observation.objects.filter(
+            source=new_source).count())
         self.assertIsNotNone(Subject.objects.get(pk=uuid))
 
     def test_multiple_obs_with_new_subject_id_and_source(self):
@@ -232,7 +238,8 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNotNone(new_source)
-        self.assertEqual(len(obs_list), Observation.objects.filter(source=new_source).count())
+        self.assertEqual(len(obs_list), Observation.objects.filter(
+            source=new_source).count())
         self.assertIsNotNone(Subject.objects.get(pk=uuid))
 
     def test_with_multiple_subject_ids_new_source(self):
@@ -248,7 +255,8 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNotNone(new_source)
-        self.assertEqual(len(obs_list), Observation.objects.filter(source=new_source).count())
+        self.assertEqual(len(obs_list), Observation.objects.filter(
+            source=new_source).count())
 
         # for uuid in uuids:
         #     self.assertIsNotNone(Subject.objects.get(pk=uuid))
@@ -265,15 +273,17 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNotNone(new_source)
-        self.assertEqual(1, Observation.objects.filter(source=new_source).count())
+        self.assertEqual(1, Observation.objects.filter(
+            source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
 
     def _generate_observations(self, n=10, distinct=False):
         for i in range(n):
             obs = dict(self.one_observation)
             if distinct:
-                timestamp = timezone.now() - datetime.timedelta(days=i)
-                obs.update(recorded_at=timestamp.strftime("%Y-%m-%d %H:%M:%S"))
+                timestamp = pytz.utc.localize(
+                    datetime.datetime.utcnow()) - datetime.timedelta(days=i)
+                obs.update(recorded_at=timestamp.isoformat())
 
             yield obs
 
