@@ -62,6 +62,8 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     list_display = ('name', 'type', 'featureset')
     search_fields = ('name', )
 
+    map_srid = 4326
+
     def __init__(self, *args, **kwargs):
         super(BaseFeatureAdmin, self).__init__(*args, **kwargs)
 
@@ -75,7 +77,7 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
         
     def get_form(self, request, obj=None, **kwargs):
         if not obj:
-            p = Point(float(request.COOKIES.get('longitude', "0")), float(request.COOKIES.get('latitude', 0)), srid=4326)
+            p = Point(float(request.COOKIES.get('longitude', 0)), float(request.COOKIES.get('latitude', 0)), srid=4326)
             p.transform(3857)
             self.default_lat = p.y
             self.default_lon = p.x
