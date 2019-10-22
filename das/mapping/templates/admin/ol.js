@@ -14,27 +14,90 @@ var {{ module }} = {};
 {% endblock %}
 
 
-// function getMinZoom() {
-//     var width = vie
-// }
+{{ module }}.modify_wkt = function(event){
+    if ({{ module }}.is_collection){
+        if ({{ module }}.is_point){
+            {{ module }}.add_wkt(event);
+            return;
+        } else {
+            // When modifying the selected components are added to the
+            // vector layer so we only increment to the `num_geom` value.
+            var feat = new OpenLayers.Feature.Vector(new OpenLayers.Geometry.{{ geom_type }}());
+            for (var i = 0; i < {{ module }}.num_geom; i++){
+                feat.geometry.addComponents([{{ module }}.layers.vector.features[i].geometry]);
+            }
+            {{ module }}.write_wkt(feat);
+        }
+    } else {
+        {{ module }}.write_wkt(event.feature);
+    }
+};
+
+
+{{ module }}.enableDrawing = function(){
+};
+
+
+// Add Select control
+// {{ module }}.addSelectControl = function(){
+//     // var select = new OpenLayers.Control.SelectFeature({{ module }}.layers.vector, {'toggle' : true, 'clickout' : true});
+//     // {{ module }}.map.addControl(select);
+//     // select.activate();
+// };
 
 
 
+// Create an array of controls based on geometry type
+{{ module }}.getControls = function(lyr){
+    // {{ module }}.panel = new OpenLayers.Control.Panel({'displayClass': 'olControlEditingToolbar'})
+
+    var source = lyr
+
+ var modify = new ol.interaction.Modify({ source: source });
+ {{ module }}.map.addInteraction(modify);
+
+ var draw, snap; // global so we can remove them later
+var typeSelect = document.getElementById('type');
+
+
+function addInteractions() {
+draw = new ol.interaction.Draw({
+         source: source,
+         type: typeSelect.value
+     });
+     {{ module }}.map.addInteraction(draw);
+     snap = new ol.interaction.Snap({ source: source });
+     {{ module }}.map.addInteraction(snap);
+
+
+   return addInteractions()
+ }
+
+
+/**
+ * Handle change event.
+ */
+// typeSelect.onchange = function () {
+//     {{ module }}.map.removeInteraction(draw);
+//     {{ module }}.map.removeInteraction(snap);
+//     addInteractions();
+// };
 
 
 
+};
 
 {{ module }}.init = function() {
 
-    {% block map_options %}// The options hash, w/ zoom, resolution, and projection settings.
-    var options = {
-        {% autoescape off %}
-        {% for item in map_options.items %}
-        '{{ item.0 }}' : {{ item.1 }},
-        {% endfor %}{% endautoescape %}
+//     {% block map_options %}// The options hash, w/ zoom, resolution, and projection settings.
+//     var options = {
+//         {% autoescape off %}
+//         {% for item in map_options.items %}
+//         '{{ item.0 }}' : {{ item.1 }},
+//         {% endfor %}{% endautoescape %}
 
-    }
-{% endblock %}
+//     }
+// {% endblock %}
 
 
 
@@ -43,8 +106,8 @@ var {{ module }} = {};
  {% block map_creation %}
 {{ module }}.map = new ol.Map({
     view: new ol.View({
-        center: [0, 0],
-        zoom: 3,
+        center: [{{ default_lon }}, {{ default_lat }}],
+        zoom: {{ default_zoom }}
     }),
     target: '{{ id }}_map',
     controls: new ol.control.defaults().extend([
@@ -70,7 +133,7 @@ var {{ module }} = {};
 
 var source = new ol.source.Vector();
 
-{{ module }}.vector = new ol.layer.Vector({
+{{ module }}.layers.vector = new ol.layer.Vector({
     source: source,
     style: new ol.style.Style({
         fill: new ol.style.Fill({
@@ -85,7 +148,7 @@ var source = new ol.source.Vector();
 });
 
 
-{{ module }}.map.addLayer({{ module }}.vector);
+{{ module }}.map.addLayer({{ module }}.layers.vector);
 
 // Read WKT from the text field:
 var wkt = document.getElementById('{{ id }}').value;
@@ -113,35 +176,31 @@ if (wkt) {
              {{ module }}.map.zoomTo({{ point_zoom }});
 
         }
-} else {
-        {% localize off %}
-        {{ module }}.map.setCenter(new OpenLayers.LonLat({{ default_lon }}, {{ default_lat }}), {{ default_zoom }});
-        {% endlocalize %}
-    }
-
+}
 
 
 // This allows editing of the geographic fields -- the modified WKT is
 // written back to the content field (as EWKT, so that the ORM will know
 // to transform back to original SRID).
 
- {{ module }}.layers.vector.events.on({"featuremodified" : {{ module }}.modify_wkt});
- {{ module }}.layers.vector.events.on({"featureadded" : {{ module }}.add_wkt});
+ {{ module }}.layers.vector.on({"featuremodified" : {{ module }}.modify_wkt});
+ {{ module }}.layers.vector.on({"featureadded" : {{ module }}.add_wkt});
 
 
      {% block controls %}
     // Map controls:
     // Add geometry specific panel of toolbar controls
-    {{ module }}.getControls({{ module }}.layers.vector);
-    {{ module }}.panel.addControls({{ module }}.controls);
-    {{ module }}.map.addControl({{ module }}.panel);
-    {{ module }}.addSelectControl();
+    {{ module }}.getControls(source);
+    // {{ module }}.panel.addControls({{ module }}.controls);
+    // {{ module }}.map.addControl({{ module }}.panel);
+    // {{ module }}.addSelectControl();
+
     // Then add optional visual controls
-    {% if mouse_position %}{{ module }}.map.addControl(new OpenLayers.Control.MousePosition());{% endif %}
-    {% if scale_text %}{{ module }}.map.addControl(new OpenLayers.Control.Scale());{% endif %}
-    {% if layerswitcher %}{{ module }}.map.addControl(new OpenLayers.Control.LayerSwitcher());{% endif %}
+    // {% if mouse_position %}{{ module }}.map.addControl(new OpenLayers.Control.MousePosition());{% endif %}
+    // {% if scale_text %}{{ module }}.map.addControl(new OpenLayers.Control.Scale());{% endif %}
+    // {% if layerswitcher %}{{ module }}.map.addControl(new OpenLayers.Control.LayerSwitcher());{% endif %}
     // Then add optional behavior controls
-    {% if not scrollable %}{{ module }}.map.getControlsByClass('OpenLayers.Control.Navigation')[0].disableZoomWheel();{% endif %}
+    // {% if not scrollable %}{{ module }}.map.getControlsByClass('OpenLayers.Control.Navigation')[0].disableZoomWheel();{% endif %}
     {% endblock %}
 
        if (wkt){
