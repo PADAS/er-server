@@ -4,7 +4,6 @@ from django.contrib import admin as django_admin
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
-from django.contrib.gis.geos import Point
 
 import mapping.models as models
 from mapping.forms import MapCenterForm, TileLayerFormWithAttributes
@@ -63,9 +62,6 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     search_fields = ('name', )
 
     map_srid = 4326
-
-    def __init__(self, *args, **kwargs):
-        super(BaseFeatureAdmin, self).__init__(*args, **kwargs)
 
     def get_single_coordinate_pair(self, coords):
         try:
