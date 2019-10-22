@@ -117,16 +117,6 @@ def get_enumImage_values(field_details, as_string=True):
     return {k: v for k, v in options.items() if len(v) != 0}
 
 
-
-# def update_schema_fields_values(schema_fields):
-#     index = len(schema_fields)
-#     for schema in schema_fields:
-#         if bool(check_enum_icon(schema) and ("values" in schema.values())):
-#             schema_fields[1 - index]['icon'] = True
-#         index -= 1
-#     return schema_fields
-
-
 def get_table_choices(field_details, as_string=True):
 
     options = OrderedDict()
