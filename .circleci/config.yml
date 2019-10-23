@@ -67,6 +67,7 @@ jobs:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
+    steps:
       - terraform_apply
 
   docker_build:
