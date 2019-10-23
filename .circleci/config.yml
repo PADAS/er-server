@@ -81,7 +81,6 @@ workflows:
             branches:
               only:
                 - 'develop'
-                - 'TRELLO-3013_provision_dbs'
           requires:
             - 'terraform_plan_dev'
           type: 'approval'
@@ -90,7 +89,6 @@ workflows:
             branches:
               only:
                 - 'develop'
-                - 'TRELLO-3013_provision_dbs'
           requires:
             - 'review_plan_dev'
 
