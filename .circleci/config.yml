@@ -3,11 +3,6 @@ commands:
   docker_login:
     steps:
       - run: echo "$GCR_PUSH_KEY" | docker login --username _json_key --password-stdin https://gcr.io
-  #add_deploy_key_for_common_terraform_modules:
-  #  steps:
-  #    - add_ssh_keys:
-  #        fingerprints:
-  #          - ''
 executors:
   default:
     docker:
@@ -39,13 +34,17 @@ jobs:
             - '*.*'
             - '*'
   terraform_apply:
+    parameters:
+      apply_args:
+        type: string
+        default: "-input=false tfplan"
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
       - attach_workspace:
           at: './'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_apply apply_args="-input=false tfplan"'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_apply apply_args="<< parameters.apply_args >>"'
   docker_build:
     docker:
       - image: circleci/buildpack-deps:stretch
@@ -65,14 +64,18 @@ workflows:
       - review_plan:
           filters:
             branches:
-              only: 'develop'
+              only:
+                - 'develop'
+                - 'TRELLO-3013_provision_dbs'
           requires:
             - 'terraform_plan'
           type: 'approval'
       - terraform_apply:
           filters:
             branches:
-              only: 'develop'
+              only:
+                - 'develop'
+                - 'TRELLO-3013_provision_dbs'
           requires:
             - 'review_plan'
 
