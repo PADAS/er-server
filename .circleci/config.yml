@@ -70,7 +70,7 @@ workflows:
       - review_plan_dev:
           filters:
             branches:
-              only:
+              ignore:
                 - 'develop'
           requires:
             - 'terraform_plan_dev'
@@ -78,7 +78,7 @@ workflows:
       - terraform_apply_dev:
           filters:
             branches:
-              only:
+              ignore:
                 - 'develop'
           requires:
             - 'review_plan_dev'
