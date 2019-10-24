@@ -16,16 +16,9 @@ commands:
         default: "-input=false -out=tfplan"
     steps:
       - 'checkout'
-      - run: >-
-          export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)"
-          && cd terraform && make terraform_init init_args="<< parameters.init_args >>"
-      - run: >-
-          export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)"
-          && cd terraform && make terraform_workspace_select
-          terraform_workspace="<< parameters.terraform_workspace >>"
-      - run: >- 
-          export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)"
-          && cd terraform && make terraform_plan plan_args="<< parameters.plan_args >>"
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_init init_args="<< parameters.init_args >>"'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_workspace_select terraform_workspace="<< parameters.terraform_workspace >>"'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_plan plan_args="<< parameters.plan_args >>"'
       - persist_to_workspace:
           root: './'
           paths:
@@ -39,9 +32,7 @@ commands:
     steps:
       - attach_workspace:
           at: './'
-      - run: >-
-          export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)"
-          && cd terraform && make terraform_apply apply_args="<< parameters.apply_args >>"
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_apply apply_args="<< parameters.apply_args >>"'
 executors:
   default:
     docker:
