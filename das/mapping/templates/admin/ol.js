@@ -279,6 +279,25 @@ vector.getSource().on("addfeature", add_wkt)
 vector.getSource().on("changefeature", modify_wkt)
 // vector.getSource().on("change", modify_wkt);
 
+if(wkt) {
+    // OpenLayers cannot handle EWKT -- we make sure to strip it out.
+    // EWKT is only exposed to OL if there's a validation error in the admin.
+    // var match = {{ module }}.re.exec(wkt);
+    var wkt_value = wkt.value;
+    admin_geom = {{ module }}.wkt_f.readFeature(wkt_value);
+    // console.log(admin_geom)
+    write_wkt(admin_geom);
+    // source.addFeatures()
+
+    source.addFeatures([admin_geom]);
+
+
+
+
+
+
+};
+
 };
 
 

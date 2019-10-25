@@ -48,27 +48,13 @@
 
 </style>
 
-    <!-- <form class="form-inline"> -->
-    <!-- </form> -->
-
-
-
 {% endblock %}
 
 <span id="{{ id }}_admin_map">
     <script type="text/javascript">
     {% block openlayers %}{% include "admin/ol.js" %}{% endblock %}
     </script>
-    <div id="{{ id }}_map"{% if LANGUAGE_BIDI %} dir="ltr"{% endif %}>
-        <!-- <select class="test-btn ol-control ol-unselectable" id="type">
-            <option value="None">None</option>
-            <option name="featurex" value="Point">Point</button>
-            <option value="LineString">LineString</option>
-            <option value="Polygon">Polygon</option>
-            <option value="Circle">Circle</option>
-            <option value="Modify">Modify</option>
-        </select> -->
-    </div>
+    <div id="{{ id }}_map"{% if LANGUAGE_BIDI %} dir="ltr"{% endif %}></div>
     {% if editable %}
     <a href="javascript:{{ module }}.clearFeatures()">{% trans "Delete all Features" %}</a>
     {% endif %}
