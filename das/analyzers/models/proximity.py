@@ -10,9 +10,10 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
 
     threshold_dist_meters = models.FloatField(
         null=False, default=500.0,
-        verbose_name="A proximity event occurs when a subject's path passes "
-                     "within this distance of a designated spatial feature."
-                     "A subject's path is drawn using a straight line between "
+        verbose_name='Threshold Distance (meters)',
+        help_text="A proximity event occurs when a subject's path passes "
+                     "within this distance of a designated spatial feature. "
+                     "<br/>A subject's path is drawn using a straight line between "
                      "reported positions.")  # 500 meters
 
     proximal_features = models.ForeignKey(
@@ -20,7 +21,9 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
         on_delete=models.CASCADE,
         null=True,
         related_name='proximal_features',
-        verbose_name='This analyzer applies to proximity features in this SpatialFeatureGroupStatic.'
+        verbose_name="Feature Groups",
+        help_text=_(
+            'This analyzer applies to proximity features in this Feature Group.')
     )
 
     analyzer_category = 'proximity'

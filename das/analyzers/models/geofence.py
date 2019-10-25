@@ -22,7 +22,8 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
         null=True,
         blank=True,
         related_name='+',
-        verbose_name='Critical geo-fences for this analyzer'
+        verbose_name=_('Critical geo-fences'),
+        help_text=_('A <span style="color:#fff;padding:2px 10px; background-color: #c00; border-radius:3px;">red</span> alert will be recorded when a subject breaks a geo-fence in this Spatial Feature Group.')
     )
 
     warning_geofence_group = models.ForeignKey(
@@ -31,7 +32,8 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
         null=True,
         blank=True,
         related_name='+',
-        verbose_name='Warning geo-fences for this analyzer'
+        verbose_name=_('Warning geo-fences'),
+        help_text=_('An <span style="color:#000;padding:2px 10px; background-color: #fead38; border-radius:3px;">amber</span> alert will be recorded when a subject breaks a geo-fence in this Spatial Feature Group.')
     )
 
     containment_regions = models.ForeignKey(
@@ -40,7 +42,9 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
         null=True,
         blank=True,
         related_name='+',
-        verbose_name='This analyzer applies to containment polygons in this SpatialFeatureGroupStatic.'
+        verbose_name=_('Containment Regions'),
+        help_text=_(
+            'A geo-fence break report will indicate a subject\'s latest location within one of these containment areas.')
     )
 
     analyzer_category = 'geofence'

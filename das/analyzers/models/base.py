@@ -60,14 +60,16 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(null=False, unique=True, max_length=100,
-                            verbose_name='A friendly, unique name for the analyzer.')
+                            verbose_name=_('Analyzer Name'),
+                            help_text=_('A friendly, <b>unique</b> name for the analyzer.'))
     notes = models.TextField(blank=True, default='')
     schedule = ArrayField(models.CharField(max_length=50), default=[], null=True, blank=True,
                           verbose_name='Array of crontab schedule patterns that '
                                        'an analyzer can use to determine whether to run.')
 
     subject_group = models.ForeignKey(to=SubjectGroup, on_delete=models.CASCADE,
-                                      verbose_name='This analyzer applies to subjects in this SubjectGroup.')
+                                      verbose_name=_('Subject Group'),
+                                      help_text=_('This analyzer applies to subjects in this Subject Group.'))
 
     revision = Revision()
 
