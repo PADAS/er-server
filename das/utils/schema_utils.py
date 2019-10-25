@@ -114,7 +114,7 @@ def get_enumImage_values(field_details, as_string=True):
     for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
         options[choice.value] = choice.icon
 
-    return {k: v for k, v in options.items() if len(v) != 0}
+    return {k: v for k, v in options.items() if bool(v)}
 
 
 def get_table_choices(field_details, as_string=True):
