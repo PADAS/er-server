@@ -4,10 +4,10 @@ import jsonschema
 import logging
 import re
 
-from collections import OrderedDict, ChainMap
+from collections import OrderedDict
 from django.apps import apps
 from django.template import Template, Context
-from django.template.base import VariableNode, TextNode
+from django.template.base import VariableNode
 
 from activity.exceptions import SchemaValidationError, \
     SCHEMA_ERROR_EMPTY_PROPERTY, SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA
