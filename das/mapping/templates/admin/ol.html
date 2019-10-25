@@ -2,6 +2,7 @@
 {% load i18n static %}{% get_current_language_bidi as LANGUAGE_BIDI %}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.0.1/css/ol.css"
         type="text/css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css">
 
 <style class="text/css">
 #{{ id }}_map { width: {{ map_width }}px; height: {{ map_height }}px; }
@@ -10,20 +11,45 @@
 
 .ol-rotate {
     margin-top: 1.5em;
-    top: 1em;
+    top: 9em;
+}
+
+.ol-point {
+    right: .5em;
+    top: 2.5em;
+}
+
+.ol-polygon {
+    right: .5em;
+    top: 4.5em;
+}
+
+.ol-linestring {
+    right: .5em;
+    top: 6.5em;
 }
 
 
+.ol-modify {
+    right: .5em;
+    top: 8.5em;
+}
+
+.img_1 {
+    width: 18px;
+    margin-left:1px ;
+
+}
+
+.img_2 {
+    width: 12px;
+
+}
+
 </style>
 
-    <form class="form-inline">
-        <select id="type">
-            <option value="Point">Point</option>
-            <option value="LineString">LineString</option>
-            <option value="Polygon">Polygon</option>
-            <option value="Circle">Circle</option>
-        </select>
-    </form>
+    <!-- <form class="form-inline"> -->
+    <!-- </form> -->
 
 
 
@@ -33,12 +59,20 @@
     <script type="text/javascript">
     {% block openlayers %}{% include "admin/ol.js" %}{% endblock %}
     </script>
-    <div id="{{ id }}_map"{% if LANGUAGE_BIDI %} dir="ltr"{% endif %}></div>
+    <div id="{{ id }}_map"{% if LANGUAGE_BIDI %} dir="ltr"{% endif %}>
+        <!-- <select class="test-btn ol-control ol-unselectable" id="type">
+            <option value="None">None</option>
+            <option name="featurex" value="Point">Point</button>
+            <option value="LineString">LineString</option>
+            <option value="Polygon">Polygon</option>
+            <option value="Circle">Circle</option>
+            <option value="Modify">Modify</option>
+        </select> -->
+    </div>
     {% if editable %}
     <a href="javascript:{{ module }}.clearFeatures()">{% trans "Delete all Features" %}</a>
     {% endif %}
     {% if display_wkt %}<p>{% trans "WKT debugging window:" %} </p>{% endif %}
     <textarea id="{{ id }}" class="vWKTField required" cols="150" rows="10" name="{{ name }}">{{ wkt }}</textarea>
     <script type="text/javascript">{% block init_function %}{{ module }}.init();{% endblock %}</script>
-
 </span>

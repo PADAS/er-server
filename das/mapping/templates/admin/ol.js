@@ -1,3 +1,4 @@
+
 {% load l10n %}
 
 {% block vars %}
@@ -14,258 +15,271 @@ var {{ module }} = {};
 {% endblock %}
 
 
-{{ module }}.modify_wkt = function(event){
-    if ({{ module }}.is_collection){
-        if ({{ module }}.is_point){
-            {{ module }}.add_wkt(event);
-            return;
-        } else {
-            // When modifying the selected components are added to the
-            // vector layer so we only increment to the `num_geom` value.
-            var feat = new OpenLayers.Feature.Vector(new OpenLayers.Geometry.{{ geom_type }}());
-            for (var i = 0; i < {{ module }}.num_geom; i++){
-                feat.geometry.addComponents([{{ module }}.layers.vector.features[i].geometry]);
-            }
-            {{ module }}.write_wkt(feat);
-        }
-    } else {
-        {{ module }}.write_wkt(event.feature);
-    }
-};
-
-
-{{ module }}.enableDrawing = function(){
-};
-
-
-// Add Select control
-// {{ module }}.addSelectControl = function(){
-//     // var select = new OpenLayers.Control.SelectFeature({{ module }}.layers.vector, {'toggle' : true, 'clickout' : true});
-//     // {{ module }}.map.addControl(select);
-//     // select.activate();
-// };
-
-
-
-// Create an array of controls based on geometry type
-{{ module }}.getControls = function(lyr){
-    // {{ module }}.panel = new OpenLayers.Control.Panel({'displayClass': 'olControlEditingToolbar'})
-
-    var source = lyr
-
- var modify = new ol.interaction.Modify({ source: source });
- {{ module }}.map.addInteraction(modify);
-
- var draw, snap; // global so we can remove them later
-var typeSelect = document.getElementById('type');
-
-
-function addInteractions() {
-draw = new ol.interaction.Draw({
-         source: source,
-         type: typeSelect.value
-     });
-     {{ module }}.map.addInteraction(draw);
-     snap = new ol.interaction.Snap({ source: source });
-     {{ module }}.map.addInteraction(snap);
-
-
-   return addInteractions()
- }
-
-
-/**
- * Handle change event.
- */
-// typeSelect.onchange = function () {
-//     {{ module }}.map.removeInteraction(draw);
-//     {{ module }}.map.removeInteraction(snap);
-//     addInteractions();
-// };
-
-
-
-};
 
 {{ module }}.init = function() {
 
-//     {% block map_options %}// The options hash, w/ zoom, resolution, and projection settings.
-//     var options = {
-//         {% autoescape off %}
-//         {% for item in map_options.items %}
-//         '{{ item.0 }}' : {{ item.1 }},
-//         {% endfor %}{% endautoescape %}
+    {% block map_options %}// The options hash, w/ zoom, resolution, and projection settings.
+    var options = {
+        {% autoescape off %}
+        {% for item in map_options.items %}
+        '{{ item.0 }}' : {{ item.1 }},
+        {% endfor %}{% endautoescape %}
 
-//     }
-// {% endblock %}
-
-
+    }
+{% endblock %}
 
 
- // The admin map for this geometry field.
- {% block map_creation %}
-{{ module }}.map = new ol.Map({
-    view: new ol.View({
-        center: [{{ default_lon }}, {{ default_lat }}],
-        zoom: {{ default_zoom }}
-    }),
-    target: '{{ id }}_map',
-    controls: new ol.control.defaults().extend([
-        new ol.control.FullScreen()
-    ]),
+{{ module }}.get_ewkt = function(feat){
+    // console.log("feat", feat)
+    return 'SRID={{ srid|unlocalize }};' + {{ module }}.wkt_f.writeFeature(feat);
+};
 
-    interactions: new ol.interaction.defaults().extend([
-        new ol.interaction.DragRotateAndZoom(),
-    ]),
-});
+var write_wkt = function(feat) {
+    document.getElementById('{{ id }}').value = {{ module }}.get_ewkt(feat);
+};
+
+var add_wkt = function (event) {
+    // This function will sync the contents of the `vector` layer with the
+    // WKT in the text-field
+    if(source.getFeatures().length > 1) {
+        old_feats = source.getFeatures()[0];
+        source.removeFeature(old_feats);
+    }
+    write_wkt(event.feature)
+};
 
 
-{{ module }}.layers = new ol.layer.Tile({
+
+// Modify WKT-TextField
+var modify_wkt = function(event) {
+    //  When modifying the selected component the vector-layer increment "num_geom" value.
+    // var feat = new
+    write_wkt(event.feature);
+
+
+};
+
+// var map = new ol.Map('id_feature_geometry_map', options)
+
+var raster = new ol.layer.Tile({
     source: new ol.source.OSM()
-});
-
-{{ module }}.map.addLayer({{ module }}.layers);
-
-{% endblock%}
-
-{% block extra_layers %}{% endblock %}
-
+})
 
 var source = new ol.source.Vector();
-
-{{ module }}.layers.vector = new ol.layer.Vector({
+var vector = new ol.layer.Vector({
     source: source,
     style: new ol.style.Style({
         fill: new ol.style.Fill({
-            color: 'rgba(255, 204, 51, 0.3)'
+           color: 'rgba(255, 204, 51, 0.3)'
         }),
         stroke: new ol.style.Stroke({
             color: '#65cdcc',
-            width: 3
+            width: 2
+        }),
+        image: new ol.style.Circle({
+            radius: 7,
+            fill: new ol.style.Fill({
+                color: '#ffcc33'
+            })
         })
-
     })
 });
 
 
-{{ module }}.map.addLayer({{ module }}.layers.vector);
 
-// Read WKT from the text field:
-var wkt = document.getElementById('{{ id }}').value;
+var map = new ol.Map({
+    view: new ol.View({
+        center: [0, 0],
+        maxResolution: options.maxResolution,
+        zoom: 3,
+        projection: options.projection.projection_
+    }),
+    layers: [raster, vector],
+    target: '{{ id }}_map',
+    controls: new ol.control.defaults().extend([
+        new ol.control.FullScreen()
 
-if (wkt) {
-    // After reading into geometry, immediately write back to
-    // WKT <textarea> as EWKT (so that SRID is included).
+    ])
+});
 
-    var admin_geom = {{ module }}.read_wkt(wkt);
-    {{ module }}.write_wkt(admin_geom);
+// added elements
+var button = document.createElement('button');
+button.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
 
-    if ({{ module }}.is_collection){
-         // If geometry collection, add each component individually so they may be
-          // edited individually.
+var polygon = function (e) {
+    e.preventDefault();
 
-    for (var i = 0; i < {{ module }}.num_geom; i++) {
-        {{ module }}.layers.vector.addFeatures([new OpenLayers.Feature.Vector(admin_geom.geometry.components[i].clone())]);
-    }
-}else {
-     {{ module }}.layers.vector.addFeatures([admin_geom]);
-}
-    // Zooming to the bounds.
-    {{ module }}.map.zoomToExtent(admin_geom.geometry.getBounds());
-        if ({{ module }}.is_point){
-             {{ module }}.map.zoomTo({{ point_zoom }});
+    draw = new ol.interaction.Draw({
+        source: source,
+        type: 'Polygon'
+    });
+    draw.on('drawend', function (event) {
+        map.removeInteraction(draw);
+    });
+    map.addInteraction(draw);
+};
 
-        }
-}
+button.addEventListener('click', polygon, false);
 
+var element = document.createElement('div');
+element.className = 'ol-polygon ol-unselectable ol-control';
+element.appendChild(button);
 
-// This allows editing of the geographic fields -- the modified WKT is
-// written back to the content field (as EWKT, so that the ORM will know
-// to transform back to original SRID).
-
- {{ module }}.layers.vector.on({"featuremodified" : {{ module }}.modify_wkt});
- {{ module }}.layers.vector.on({"featureadded" : {{ module }}.add_wkt});
+var polygonControl = new ol.control.Control({
+    element: element
+});
+map.addControl(polygonControl);
 
 
-     {% block controls %}
-    // Map controls:
-    // Add geometry specific panel of toolbar controls
-    {{ module }}.getControls(source);
-    // {{ module }}.panel.addControls({{ module }}.controls);
-    // {{ module }}.map.addControl({{ module }}.panel);
-    // {{ module }}.addSelectControl();
+// Linestring
+var button_linestring = document.createElement('button');
+button_linestring.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
 
-    // Then add optional visual controls
-    // {% if mouse_position %}{{ module }}.map.addControl(new OpenLayers.Control.MousePosition());{% endif %}
-    // {% if scale_text %}{{ module }}.map.addControl(new OpenLayers.Control.Scale());{% endif %}
-    // {% if layerswitcher %}{{ module }}.map.addControl(new OpenLayers.Control.LayerSwitcher());{% endif %}
-    // Then add optional behavior controls
-    // {% if not scrollable %}{{ module }}.map.getControlsByClass('OpenLayers.Control.Navigation')[0].disableZoomWheel();{% endif %}
-    {% endblock %}
+var linestring = function (e) {
+    e.preventDefault();
+    draw = new ol.interaction.Draw({
+        source: source,
+        type: 'LineString'
+    });
+    draw.on('drawend', function (event) {
+        map.removeInteraction(draw);
+    });
+    map.addInteraction(draw);
+};
 
-       if (wkt){
-        if ({{ module }}.modifiable){
-            {{ module }}.enableEditing();
-        }
-    } else {
-        {{ module }}.enableDrawing();
-    }
+button_linestring.addEventListener('click', linestring, false);
 
+var element_linestring = document.createElement('div');
+element_linestring.className = 'ol-linestring ol-unselectable ol-control';
+element_linestring.appendChild(button_linestring);
+
+var linestringControl = new ol.control.Control({
+    element: element_linestring
+});
+map.addControl(linestringControl);
+
+
+// Point
+var button_point = document.createElement('button');
+button_point.innerHTML = '<img class="img_2" src="https://img.icons8.com/material-rounded/24/ffffff/filled-circle.png">';
+
+var point = function (e) {
+    e.preventDefault();
+    draw = new ol.interaction.Draw({
+        source: source,
+        type: 'Point'
+    });
+    draw.on('drawend', function (evt) {
+        map.removeInteraction(draw);
+    });
+    map.addInteraction(draw);
+
+};
+
+button_point.addEventListener('click', point, false);
+
+var element_point = document.createElement('div');
+element_point.className = 'ol-point ol-unselectable ol-control';
+element_point.appendChild(button_point);
+
+var pointControl = new ol.control.Control({
+    element: element_point
+});
+map.addControl(pointControl);
+
+
+// Modify
+var button_modify = document.createElement('button');
+button_modify.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/24/ffffff/map-editing--v2.png">';
+
+var modify = function (e) {
+    e.preventDefault();
+    modify = new ol.interaction.Modify({ source: source });
+
+    map.addInteraction(modify);
+};
+
+button_modify.addEventListener('click', modify, false);
+
+var element_modify = document.createElement('div');
+element_modify.className = 'ol-modify ol-unselectable ol-control';
+element_modify.appendChild(button_modify);
+
+var modifyControl = new ol.control.Control({
+    element: element_modify
+});
+map.addControl(modifyControl);
+
+
+
+// map.on('pointermove', function(e) {
+//     if (e.dragging) return;
+//     var pixel = map.getEventPixel(e.originalEvent)
+//     var hit = map.hasFeatureAtPixel(pixel);
+//     console.log(hit)
+//     map.getTargetElement().style.cursor = hit ? 'pointer': '';
+// });
+
+
+
+// snap = new ol.interaction.Snap({ source: source })
+// map.addInteraction(snap)
 
 
 // var modify = new ol.interaction.Modify({ source: source });
-// {{ module }}.map.addInteraction(modify);
+// map.addInteraction(modify);
 
-// var draw, snap; // global so we can remove them later
-// var typeSelect = document.getElementById('type');
+var draw, snap; // global so we can remove them later
+var typeSelect = document.getElementById('type');
+
+var zoomslider = new ol.control.ZoomSlider();
+map.addControl(zoomslider);
+
+var scaleline = new ol.control.ScaleLine();
+map.addControl(scaleline);
+
 
 
 // function addInteractions() {
+//     value = typeSelect.value;
+//     if(value != 'None'){
 //     draw = new ol.interaction.Draw({
 //         source: source,
 //         type: typeSelect.value
 //     });
-//     {{ module }}.map.addInteraction(draw);
+//     map.addInteraction(draw);
+//     console.log(draw)
 //     snap = new ol.interaction.Snap({ source: source });
-//     {{ module }}.map.addInteraction(snap);
+//     map.addInteraction(snap);
+// } if(value=='Modify') {
+//     var modify = new ol.interaction.Modify({ source: source });
+//     map.addInteraction(modify);
 
-// }
+// };
+// };
+
+var dragrotate = new ol.interaction.DragRotateAndZoom()
+map.addInteraction(dragrotate);
 
 
 /**
  * Handle change event.
  */
 // typeSelect.onchange = function () {
-//     {{ module }}.map.removeInteraction(draw);
-//     {{ module }}.map.removeInteraction(snap);
+//     map.removeInteraction(draw);
+//     map.removeInteraction(snap);
 //     addInteractions();
 // };
 
 // addInteractions();
 
+var wkt = document.getElementById("{{ id }}");
 
-
-// Read WKT from the text field.
-var wkt = document.getElementById('{{ id }}').value;
-
-
-
-
+vector.getSource().on("addfeature", add_wkt)
+vector.getSource().on("changefeature", modify_wkt)
+// vector.getSource().on("change", modify_wkt);
 
 };
-
-// Baselayer:
-
-
-
-
-
-
-
-
-
-
-
 
 
 

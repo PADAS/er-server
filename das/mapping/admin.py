@@ -69,69 +69,6 @@ class OlWidget(OpenLayersWidget):
     """
     Render an OpenLayers map using the WKT of the geometry.
     """
-    def get_context(self, name, value, attrs):
-        # Update the template parameters with any attributes passed in.
-        if attrs:
-            self.params.update(attrs)
-            self.params['editable'] = self.params['modifiable']
-        else:
-            self.params['editable'] = True
-
-        # Defaulting the WKT value to a blank string -- this
-        # will be tested in the JavaScript and the appropriate
-        # interface will be constructed.
-        self.params['wkt'] = ''
-
-        # If a string reaches here (via a validation error on another
-        # field) then just reconstruct the Geometry.
-        if value and isinstance(value, str):
-            try:
-                value = GEOSGeometry(value)
-            except (GEOSException, ValueError) as err:
-                logger.error("Error creating geometry from value '%s' (%s)",
-                             value, err)
-                value = None
-
-        if (value and value.geom_type.upper() != self.geom_type
-                and self.geom_type != 'GEOMETRY'):
-            value = None
-
-        # Constructing the dictionary of the map options.
-        self.params['map_options'] = self.map_options()
-
-        # Constructing the JavaScript module name using the name of
-        # the GeometryField (passed in via the `attrs` keyword).
-        # Use the 'name' attr for the field name (rather than 'field')
-        self.params['name'] = name
-        # note: we must switch out dashes for underscores since js
-        # functions are created using the module variable
-        js_safe_name = self.params['name'].replace('-', '_')
-        self.params['module'] = 'geodjango_%s' % js_safe_name
-
-        if value:
-            # Transforming the geometry to the projection used on the
-            # OpenLayers map.
-            srid = self.params['srid']
-            if value.srid != srid:
-                try:
-                    ogr = value.ogr
-                    ogr.transform(srid)
-                    wkt = ogr.wkt
-                except GDALException as err:
-                    logger.error(
-                        "Error transforming geometry from srid '%s' to srid '%s' (%s)",
-                        value.srid, srid, err)
-                    wkt = ''
-            else:
-                wkt = value.wkt
-
-            # Setting the parameter WKT with that of the transformed
-            # geometry.
-            self.params['wkt'] = wkt
-
-        self.params.update(geo_context)
-        return self.params
-
     def map_options(self):
         """Build the map options hash for the OpenLayers template."""
 
