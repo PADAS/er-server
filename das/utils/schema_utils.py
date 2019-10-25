@@ -108,11 +108,12 @@ def get_enum_choices(field_details, as_string=True):
     return return_val
 
 
-def get_enumImage_values(field_details, as_string=True):
+def get_enumImage_values(field_details):
 
     options = OrderedDict()
     for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
         options[choice.value] = choice.icon
+
 
     return {k: v for k, v in options.items() if bool(v)}
 
