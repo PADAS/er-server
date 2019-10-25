@@ -84,7 +84,7 @@ def _get_dynamic_choices(field_details):
     return return_val
 
 
-def get_enum_choices(field_details, as_string=True, is_icon=False):
+def get_enum_choices(field_details, as_string=True):
 
     options = OrderedDict()
     for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
