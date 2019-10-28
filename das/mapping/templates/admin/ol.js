@@ -102,90 +102,52 @@ var map = new ol.Map({
     ])
 });
 
-// added elements
-var button = document.createElement('button');
-button.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
 
-var polygon = function (e) {
-    e.preventDefault();
+// Geometric Object
+var createGeometricObject = function(innerHTML, geoType, className){
+    var button = document.createElement('button');
+    button.innerHTML = innerHTML
 
-    draw = new ol.interaction.Draw({
-        source: source,
-        type: 'Polygon'
+    var geometricObject = function(e){
+        e.preventDefault()
+        map.getInteractions().pop()
+
+        draw = new ol.interaction.Draw({
+            source: source,
+            type: geoType
+        });
+        draw.on('drawend', function (event) {
+            map.removeInteraction(draw);
+        });
+        map.addInteraction(draw);
+    };
+
+    button.addEventListener('click', geometricObject, false);
+
+    var element = document.createElement('div');
+    element.className = `${className} ol-unselectable ol-control`;
+    element.appendChild(button);
+
+    var geoControl = new ol.control.Control({
+        element: element
     });
-    draw.on('drawend', function (event) {
-        map.removeInteraction(draw);
-    });
-    map.addInteraction(draw);
+
+    map.addControl(geoControl);
 };
 
-button.addEventListener('click', polygon, false);
 
-var element = document.createElement('div');
-element.className = 'ol-polygon ol-unselectable ol-control';
-element.appendChild(button);
-
-var polygonControl = new ol.control.Control({
-    element: element
-});
-map.addControl(polygonControl);
+// Polygon
+var polygonUrl = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
+createGeometricObject(polygonUrl, 'Polygon', 'ol-polygon');
 
 
 // Linestring
-var button_linestring = document.createElement('button');
-button_linestring.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
-
-var linestring = function (e) {
-    e.preventDefault();
-    draw = new ol.interaction.Draw({
-        source: source,
-        type: 'LineString'
-    });
-    draw.on('drawend', function (event) {
-        map.removeInteraction(draw);
-    });
-    map.addInteraction(draw);
-};
-
-button_linestring.addEventListener('click', linestring, false);
-
-var element_linestring = document.createElement('div');
-element_linestring.className = 'ol-linestring ol-unselectable ol-control';
-element_linestring.appendChild(button_linestring);
-
-var linestringControl = new ol.control.Control({
-    element: element_linestring
-});
-map.addControl(linestringControl);
-
+var linestringUrl = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
+createGeometricObject(linestringUrl, 'LineString', 'ol-linestring');
 
 // Point
-var button_point = document.createElement('button');
-button_point.innerHTML = '<img class="img_2" src="https://img.icons8.com/material-rounded/24/ffffff/filled-circle.png">';
-
-var point = function (e) {
-    e.preventDefault();
-    draw = new ol.interaction.Draw({
-        source: source,
-        type: 'Point'
-    });
-    draw.on('drawend', function (evt) {
-        map.removeInteraction(draw);
-    });
-    map.addInteraction(draw);
-
-};
-
-button_point.addEventListener('click', point, false);
-
-var element_point = document.createElement('div');
-element_point.className = 'ol-point ol-unselectable ol-control';
-element_point.appendChild(button_point);
-
-var pointControl = new ol.control.Control({
-    element: element_point
-});
-map.addControl(pointControl);
+var pointUrl = '<img class="img_2" src="https://img.icons8.com/material-rounded/24/ffffff/filled-circle.png">';
+createGeometricObject(pointUrl, 'Point', 'ol-point');
 
 
 // Modify
@@ -221,42 +183,11 @@ map.addControl(modifyControl);
 // });
 
 
-
-// snap = new ol.interaction.Snap({ source: source })
-// map.addInteraction(snap)
-
-
-// var modify = new ol.interaction.Modify({ source: source });
-// map.addInteraction(modify);
-
-var draw, snap; // global so we can remove them later
-var typeSelect = document.getElementById('type');
-
 var zoomslider = new ol.control.ZoomSlider();
 map.addControl(zoomslider);
 
 var scaleline = new ol.control.ScaleLine();
 map.addControl(scaleline);
-
-
-
-// function addInteractions() {
-//     value = typeSelect.value;
-//     if(value != 'None'){
-//     draw = new ol.interaction.Draw({
-//         source: source,
-//         type: typeSelect.value
-//     });
-//     map.addInteraction(draw);
-//     console.log(draw)
-//     snap = new ol.interaction.Snap({ source: source });
-//     map.addInteraction(snap);
-// } if(value=='Modify') {
-//     var modify = new ol.interaction.Modify({ source: source });
-//     map.addInteraction(modify);
-
-// };
-// };
 
 var dragrotate = new ol.interaction.DragRotateAndZoom()
 map.addInteraction(dragrotate);
@@ -265,13 +196,7 @@ map.addInteraction(dragrotate);
 /**
  * Handle change event.
  */
-// typeSelect.onchange = function () {
-//     map.removeInteraction(draw);
-//     map.removeInteraction(snap);
-//     addInteractions();
-// };
 
-// addInteractions();
 
 var wkt = document.getElementById("{{ id }}");
 
@@ -279,24 +204,19 @@ vector.getSource().on("addfeature", add_wkt)
 vector.getSource().on("changefeature", modify_wkt)
 // vector.getSource().on("change", modify_wkt);
 
-if(wkt) {
-    // OpenLayers cannot handle EWKT -- we make sure to strip it out.
-    // EWKT is only exposed to OL if there's a validation error in the admin.
-    // var match = {{ module }}.re.exec(wkt);
-    var wkt_value = wkt.value;
-    admin_geom = {{ module }}.wkt_f.readFeature(wkt_value);
-    // console.log(admin_geom)
-    write_wkt(admin_geom);
-    // source.addFeatures()
+// if(wkt) {
+//     // OpenLayers cannot handle EWKT -- we make sure to strip it out.
+//     // EWKT is only exposed to OL if there's a validation error in the admin.
+//     // var match = {{ module }}.re.exec(wkt);
+//     var wkt_value = wkt.value;
+//     admin_geom = {{ module }}.wkt_f.readFeature(wkt_value);
+//     // console.log(admin_geom)
+//     write_wkt(admin_geom);
+//     // source.addFeatures()
 
-    source.addFeatures([admin_geom]);
+//     source.addFeatures([admin_geom]);
 
-
-
-
-
-
-};
+// };
 
 };
 
