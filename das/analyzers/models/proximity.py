@@ -10,7 +10,7 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
 
     threshold_dist_meters = models.FloatField(
         null=False, default=500.0,
-        verbose_name='Threshold Distance (meters)',
+        verbose_name='Proximity Distance (meters)',
         help_text="A proximity event occurs when a subject's path passes "
                      "within this distance of a designated spatial feature. "
                      "<br/>A subject's path is drawn using a straight line between "
