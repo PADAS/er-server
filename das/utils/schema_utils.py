@@ -115,7 +115,7 @@ def get_enumImage_values(field_details):
         options[choice.value] = choice.icon
 
 
-    return {k: v for k, v in options.items() if bool(v)}
+    return {k: v for k, v in options.items() if v}
 
 
 def get_table_choices(field_details, as_string=True):
