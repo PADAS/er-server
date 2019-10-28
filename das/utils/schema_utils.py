@@ -108,6 +108,16 @@ def get_enum_choices(field_details, as_string=True):
     return return_val
 
 
+def get_enumImage_values(field_details):
+
+    options = OrderedDict()
+    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
+        options[choice.value] = choice.icon
+
+
+    return {k: v for k, v in options.items() if v}
+
+
 def get_table_choices(field_details, as_string=True):
 
     options = OrderedDict()
@@ -151,6 +161,7 @@ def get_schema_renderer_method():
         field_name, field_type = table_choices_identifier.split(':')
         return get_table_choices({'field': field_name, 'type': field_type})
 
+
     @memoize
     def render_f(schema):
 
@@ -167,7 +178,6 @@ def get_schema_renderer_method():
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
                            ] = memo_table_choices('{field}:{type}'.format(**schema_field))
-
         if parameters:
             template = Template(schema)
             rendered_template = template.render(

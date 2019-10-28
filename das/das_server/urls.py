@@ -44,6 +44,7 @@ urlpatterns = [
     url(r'^api/v1.0/reports/', include(('reports.urls', 'reports'))),
     url(r'^api/v1.0/usercontent/',
         include(('usercontent.urls', 'usercontent'))),
+    url(r'^api/v1.0/choices/', include('choices.urls'))
 ]
 
 
