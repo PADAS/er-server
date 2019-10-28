@@ -68,18 +68,10 @@ workflows:
           requires:
             - 'docker_build'
       - review_plan_dev:
-          filters:
-            branches:
-              ignore:
-                - 'develop'
           requires:
             - 'terraform_plan_dev'
           type: 'approval'
       - terraform_apply_dev:
-          filters:
-            branches:
-              ignore:
-                - 'develop'
           requires:
             - 'review_plan_dev'
 
