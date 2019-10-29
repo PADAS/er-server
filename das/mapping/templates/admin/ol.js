@@ -16,6 +16,7 @@ var {{ module }} = {};
 
 
 
+
 {{ module }}.init = function() {
 
     {% block map_options %}// The options hash, w/ zoom, resolution, and projection settings.
@@ -25,7 +26,7 @@ var {{ module }} = {};
         '{{ item.0 }}' : {{ item.1 }},
         {% endfor %}{% endautoescape %}
 
-    }
+    };
 {% endblock %}
 
 
@@ -48,16 +49,24 @@ var add_wkt = function (event) {
     write_wkt(event.feature)
 };
 
-
-
 // Modify WKT-TextField
 var modify_wkt = function(event) {
     //  When modifying the selected component the vector-layer increment "num_geom" value.
     // var feat = new
     write_wkt(event.feature);
 
-
 };
+
+
+{{ module }}.clearFeatures = function (){
+    source.clear()
+    document.getElementById('{{ id }}').value = '';
+    {% localize off %}
+    map.getView().setCenter(ol.proj.transform([{{ default_lon}}, {{ default_lat}}], 'EPSG:4326', 'EPSG:3857'));
+    map.getView().setZoom({{ default_zoom }});
+    {% endlocalize %}
+};
+
 
 // var map = new ol.Map('id_feature_geometry_map', options)
 
@@ -77,9 +86,9 @@ var vector = new ol.layer.Vector({
             width: 2
         }),
         image: new ol.style.Circle({
-            radius: 7,
+            radius: 8,
             fill: new ol.style.Fill({
-                color: '#ffcc33'
+                color: '#65cdcc'
             })
         })
     })
@@ -91,8 +100,9 @@ var map = new ol.Map({
     view: new ol.View({
         center: [0, 0],
         maxResolution: options.maxResolution,
-        zoom: 3,
-        projection: options.projection.projection_
+        zoom: options.numZoomLevels,
+        projection: options.projection.projection_,
+        extend: options.maxExtent,
     }),
     layers: [raster, vector],
     target: '{{ id }}_map',
@@ -174,6 +184,29 @@ map.addControl(modifyControl);
 
 
 
+// Delete
+
+var button_delete = document.createElement('button');
+button_delete.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-filled/24/ffffff/delete-sign.png">';
+
+var deleteFeatures = function (e) {
+    e.preventDefault();
+    source.clear();
+    document.getElementById('{{ id }}').value = '';
+};
+
+button_delete.addEventListener('click', deleteFeatures, false);
+
+var element_delete = document.createElement('div');
+element_delete.className = 'ol-x ol-unselectable ol-control';
+element_delete.appendChild(button_delete);
+
+var deleteControl = new ol.control.Control({
+    element: element_delete
+});
+map.addControl(deleteControl);
+
+
 // map.on('pointermove', function(e) {
 //     if (e.dragging) return;
 //     var pixel = map.getEventPixel(e.originalEvent)
@@ -198,25 +231,35 @@ map.addInteraction(dragrotate);
  */
 
 
-var wkt = document.getElementById("{{ id }}");
+var wkt = document.getElementById("{{ id }}").value;
 
 vector.getSource().on("addfeature", add_wkt)
 vector.getSource().on("changefeature", modify_wkt)
 // vector.getSource().on("change", modify_wkt);
 
-// if(wkt) {
-//     // OpenLayers cannot handle EWKT -- we make sure to strip it out.
-//     // EWKT is only exposed to OL if there's a validation error in the admin.
-//     // var match = {{ module }}.re.exec(wkt);
-//     var wkt_value = wkt.value;
-//     admin_geom = {{ module }}.wkt_f.readFeature(wkt_value);
-//     // console.log(admin_geom)
-//     write_wkt(admin_geom);
-//     // source.addFeatures()
+if(wkt) {
+    // OpenLayers cannot handle EWKT -- we make sure to strip it out.
+    // EWKT is only exposed to OL if there's a validation error in the admin.
+    // var match = {{ module }}.re.exec(wkt);
+    admin_geom = {{ module }}.wkt_f.readFeature(wkt);
+    // console.log(admin_geom)
+    write_wkt(admin_geom);
+    // source.addFeatures()
 
-//     source.addFeatures([admin_geom]);
+    source.addFeatures([admin_geom]);
 
-// };
+    // Zooming ot the bounds
+    // extent = map.getView().calculateExtent();
+    var extent = source.getExtent();
+    map.getView().fit(extent, map.getSize());
+
+    if (source.getFeatures()[0].getGeometry().getType() == 'Point'){
+        console.log({{ point_zoom }});
+        map.getView().setZoom({{ point_zoom }});
+
+    };
+};
+
 
 };
 
