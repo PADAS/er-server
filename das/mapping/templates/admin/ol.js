@@ -248,7 +248,7 @@ if(wkt) {
 
     source.addFeatures([admin_geom]);
 
-    // Zooming ot the bounds
+    // Zooming to the bounds
     // extent = map.getView().calculateExtent();
     var extent = source.getExtent();
     map.getView().fit(extent, map.getSize());
