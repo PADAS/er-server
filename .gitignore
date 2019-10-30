@@ -213,3 +213,4 @@ GDAL*
 
 # Rendered terraform templates
 templated-deployment/rendered
+**.vault-token
