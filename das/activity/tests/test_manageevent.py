@@ -8,7 +8,9 @@ from drf_extra_fields.geo_fields import PointField
 from rest_framework.fields import DateTimeField
 
 from activity.management.commands.manageevent import Command
-from activity.models import Event, EventType
+from activity.models import Event, EventType, EventCategory, EventDetails
+from choices.models import Color, Choice
+from utils import schema_utils
 
 logger = logging.getLogger(__name__)
 
@@ -24,64 +26,43 @@ migration_doc = [
         "category_value": "security",
         "category_id": "61d279a3-95fd-421f-bdb0-604ae8731761",
         "ordernum": 270,
-        "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Sit Rep Report\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"sitrepWhat\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 1: What is it?\"\r\n            },\r\n            \"sitrepCurrentActivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 2: Update of current activity\"\r\n            },\r\n            \"sitrepFutureActivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 3: Planned Future Activity\"\r\n            },\r\n            \"sitrepOther\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 4: Other\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   \"sitrepWhat\",\r\n   \"sitrepCurrentActivity\",\r\n   \"sitrepFutureActivity\",\r\n   \"sitrepOther\"\r\n ]\r\n}",
+        "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"EventType Data\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n           \"post\": {\r\n               \"type\":\"string\",\r\n               \"title\": \"Line 1: Post\",\r\n               \"enum\": {{table___color___values}},\r\n               \"enumNames\": {{table___color___names}}\r\n           }\r\n       }\r\n   },\r\n \"definition\": [\r\n  \"post\"\r\n ]\r\n}",
         "is_collection": False,
         "count": 0,
         "rendered_schema": {
             "schema": {
                 "$schema": "http://json-schema.org/draft-04/schema#",
-                "title": "Animal Control Report",
+                "title": "EventType Data",
                 "type": "object",
                 "properties": {
-                    "species": {
+                    "post": {
                         "type": "string",
-                        "title": "Line 3: Animal Species",
-                        "enum": [],
-                        "enumNames": []
-                    },
-                    "numberAnimals": {
-                        "type": "number",
-                        "title": "Line 4: # of Animals",
-                        "minimum": 0
-                    },
-                    "reason": {
-                        "type": "string",
-                        "title": "Line 5: Reason"
-                    },
-                    "numberShotsFired": {
-                        "type": "number",
-                        "title": "Line 6: Number of Shots Fired",
-                        "minimum": 0
+                        "title": "Line 1: Post",
+                        "enum": [
+                            "753dbb6f-8b39-49c4-8d95-36d1f711f6a2",
+                            "b97b6d03-f669-4a1a-9024-479fa973c711"
+                        ],
+                        "enumNames": {
+                            "753dbb6f-8b39-49c4-8d95-36d1f711f6a2": "Black",
+                            "b97b6d03-f669-4a1a-9024-479fa973c711": "White"
+                        }
                     }
                 }
             },
             "definition": [
-                "species",
-                "numberAnimals",
-                "reason",
-                "numberShotsFired"
+                "post"
             ]
         },
         "fields": [
-            {
-                "property_name": "species",
-                "previous_property_name": "HC:Elephant"
-            },
-            {
-                "property_name": "numberAnimals",
-                "previous_property_name": "IGNORE"
-            },
-            {
-                "property_name": "reason",
-                "previous_property_name": "reason"
-            }
+            "post"
         ],
         "tables": [
             {
-                "table_name": "Species",
-                "field": "contact_species",
-                "model": "activity.event"
+                "table_name": "color"
             },
+            {
+                "table_name": "color"
+            }
         ],
         "queries": [],
         "enums": []
@@ -109,6 +90,22 @@ class TestManageEvent(TestCase):
         call_command('loaddata', 'test_events_schema')
 
         self.sample_event = self.create_event(self.event_data)
+        Color.objects.bulk_create(
+            [Color(id=item_id, name=item) for (item_id, item) in [
+                ("753dbb6f-8b39-49c4-8d95-36d1f711f6a2", "Black"),
+                ("b97b6d03-f669-4a1a-9024-479fa973c711", "White")]])
+        self.schema = "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"EventType Data\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n           \"post\": {\r\n               \"type\":\"string\",\r\n               \"title\": \"Line 1: Post\",\r\n               \"enum\": {{table___color___values}},\r\n               \"enumNames\": {{table___color___names}}\r\n           }\r\n       }\r\n   },\r\n \"definition\": [\r\n  \"post\"\r\n ]\r\n}"
+        self.event_category = EventCategory.objects.create(
+            value='new_security', display='Some display', )
+        self.event_type = EventType.objects.create(
+            id="b413783b-c162-447f-8541-e3f51cd341e8",
+            value='contact',
+            display='Contact',
+            category=self.event_category,
+            schema=self.schema)
+        self.event_details = EventDetails.objects.create(
+            data={"event_details": {"name": "Ndovu", "geofence": "Lewa"}},
+            event=self.sample_event)
 
     def create_event(self, event_data):
         data = copy.deepcopy(event_data)
@@ -138,10 +135,52 @@ class TestManageEvent(TestCase):
 
         self.assertEqual(len(records), 37)
 
-    def test_migrate_event_type(self):
+    def test_migrate_event_types_and_choices(self):
         self.migrate_ran = True
         command_under_test = Command()
         records_pre = command_under_test.get_all_event_type_records()
+
+        # Check initial choices count before migration
+        choices_count = Choice.objects.all().count()
+
         command_under_test.perform_migration_on_records(migration_doc)
         records_post = command_under_test.get_all_event_type_records()
+
         self.assertEqual(len(records_pre), len(records_post))
+
+        # species table choices migrated to choice model
+        self.assertEqual(Choice.objects.all().count(), choices_count + 2)
+
+    def perform_migration(self):
+        self.migrate_ran = True
+        command_under_test = Command()
+        command_under_test.perform_migration_on_records(migration_doc)
+
+    def test_rendered_schema_display_values_after_migration(self):
+        pre_schema_properties = schema_utils.get_rendered_schema(self.schema)["properties"]
+        # perform migration
+        self.perform_migration()
+        ev_type = EventType.objects.get(id=self.event_type.id)
+        post_schema_properties = schema_utils.get_rendered_schema(ev_type.schema)["properties"]
+
+        # Check display values on rendered schema
+        self.assertEqual(list(pre_schema_properties["post"]["enumNames"].values()), list(post_schema_properties["post"]["enumNames"].values()))
+
+    def test_event_details_after_migration(self):
+        # Add event details update to migration doc
+        event_details_update = {
+            "previous_property_name": "name",
+            "property_name": "species",
+            "property_value": "fatu"
+        }
+        migration_doc[0].get("fields").append(event_details_update)
+        self.sample_event.event_type = self.event_type
+        self.sample_event.save()
+
+        # perform migration
+        self.perform_migration()
+
+        # Event details after migration
+        event_details = self.sample_event.event_details.first().data["event_details"]
+
+        self.assertEqual(event_details["species"], "fatu")

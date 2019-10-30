@@ -402,25 +402,6 @@ def render_schema_template(schema, parameters):
     return json.loads(rendered_template, object_pairs_hook=OrderedDict)
 
 
-def get_replacement_fields_in_schema(schema):
-    template = Template(schema)
-
-    fields = []
-    for node in template.nodelist:
-        if type(node) is VariableNode:
-            field_tag = node.token.contents
-            field_details = field_tag.split('___')
-            if len(field_details) != 3:
-                raise NameError(field_tag)
-
-            fields.append({'lookup': field_details[0],
-                           'field': field_details[1],
-                           'type': field_details[2],
-                           'tag': node.token.contents})
-
-    return fields
-
-
 def format_key_for_title(key):
     titleStr = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', key)
     titleStr = re.sub('([a-z0-9])([A-Z])', r'\1 \2', titleStr).lower()
