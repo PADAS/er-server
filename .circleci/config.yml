@@ -4,7 +4,7 @@ commands:
     steps:
       - add_ssh_keys:
           fingerprints:
-            - "a5:9e:8b:12:db:3c:7a:72:38:03:d2:80:44:fe:7e:ba"
+            - Pending provisioning
   docker_login:
     steps:
       - run: echo "$GCR_PUSH_KEY" | docker login --username _json_key --password-stdin https://gcr.io
