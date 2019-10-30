@@ -1,19 +1,25 @@
 locals {
   is_production = (terraform.workspace == "prod")
-  dev_subnetwork_name = data.terraform_remote_state.terraform_gcp_networking.outputs.dev_us_west_1_subnetwork_name
-  prod_subnetwork_name = data.terraform_remote_state.terraform_gcp_networking.outputs.prod_europe_west_3_subnetwork_name
+  dev_subnetwork_name = data.terraform_remote_state.terraform_gcp.outputs.dev_us_west_1_subnetwork_name
+  prod_subnetwork_name = data.terraform_remote_state.terraform_gcp.outputs.prod_europe_west_3_subnetwork_name
+
+
+  dev_network_name = data.terraform_remote_state.terraform_gcp.outputs.dev_network_name
+  prod_network_name = data.terraform_remote_state.terraform_gcp.outputs.prod_network_name
+
   subnetwork_name = local.is_production ? local.prod_subnetwork_name : local.dev_subnetwork_name
+  network_name = local.is_production ? local.prod_network_name : local.dev_network_name
 }
 
 module "vulcan_firewall_access_to_bastion_server" {
   source = "git@github.com:vulcantechnologies/ss-terraform-modules.git//gcp-vulcan-corpnet-firewall?ref=v2.21.0"
 
   firewall_name = "vulcan-to-bastion-server"
-  network_name  = google_compute_network.dev.name
+  network_name  = local.network_name
   priority      = var.firewall_priority_threshold - 1
   project_id    = data.google_project.this.project_id
   protocol      = "tcp"
-  target_tags   = [bastion_server.name]
+  target_tags   = [google_compute_instance.bastion_server.name]
 }
 
 resource "tls_private_key" "bastion_server" {
@@ -73,6 +79,6 @@ resource "google_compute_instance" "bastion_server" {
   }
 
   tags = [
-    google_compute_instance.bastion_server.name,
+    "psql-bastion-server-${terraform.workspace}"
   ]
 }
