@@ -19,7 +19,7 @@ module "vulcan_firewall_access_to_bastion_server" {
   priority      = var.firewall_priority_threshold - 1
   project_id    = data.google_project.this.project_id
   protocol      = "tcp"
-  target_tags   = [google_compute_instance.bastion_server.name]
+  target_tags   = ["psql-bastion-server-${terraform.workspace}"]
 }
 
 resource "tls_private_key" "bastion_server" {
@@ -34,6 +34,9 @@ data "google_compute_image" "container_optimized_os" {
 }
 
 resource "google_compute_instance" "bastion_server" {
+  # Toggle this variable to ensure bastion server spins down after bootstrapping
+  count = var.bastion_server_count
+
   allow_stopping_for_update = "true"
   machine_type              = "g1-small"
   name                      = "psql-bastion-server-${terraform.workspace}"
@@ -71,7 +74,7 @@ resource "google_compute_instance" "bastion_server" {
     destination = "/home/bastion_server/postgres_bootstrapping.sql"
 
     connection {
-      host        = google_compute_instance.bastion_server.network_interface.0.access_config.0.nat_ip
+      host        = google_compute_instance.bastion_server.*.network_interface.0.access_config.0.nat_ip
       type        = "ssh"
       private_key = "${tls_private_key.bastion_server.private_key_pem}"
       user        = "bastion_server"
