@@ -8,7 +8,7 @@ resource "google_sql_database" "database" {
 
   provisioner "remote-exec" {
         connection {
-          host        = google_compute_instance.bastion_server.network_interface.0.access_config.0.nat_ip
+          host        = google_compute_instance.bastion_server.*.network_interface.0.access_config.0.nat_ip
           port        = "22"
           private_key = "${tls_private_key.bastion_server.private_key_pem}"
           type        = "ssh"
