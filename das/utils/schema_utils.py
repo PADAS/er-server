@@ -241,19 +241,19 @@ def extractor(schema_item, definition, value):
         key, val = extract_from_dict_or_string(schema_item, value)
 
     response = None
-    for definition_item in definition:
-        if isinstance(definition_item, dict):
-            if 'key' not in definition_item:
-                logger.warning(f'key not found in definition {definition}')
-                continue
-            if 'key' not in schema_item:
-                logger.warning(
-                    f'key not found in schema_item {schema_item}')
-                continue
-            if definition_item['key'] == schema_item['key']:
-                response = definition_item.get('title'), val, key
-    if not response and 'title' in schema_item:
-        response = schema_item['title'], val, key
+    if 'key' in schema_item:
+        for definition_item in definition:
+            if isinstance(definition_item, dict):
+                if 'key' not in definition_item:
+                    logger.warning(f'key not found in definition {definition}')
+                    continue
+                if definition_item['key'] == schema_item['key']:
+                    response = definition_item.get('title'), val, key
+    else:
+        logger.warning(f'key not found in schema_item {schema_item}')
+
+    if not response:
+        response = schema_item.get('title', key), val, key
     return response
 
 
