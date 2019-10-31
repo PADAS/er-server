@@ -38,14 +38,27 @@ executors:
     docker:
       - image: 'circleci/buildpack-deps:stretch'
 jobs:
-  terraform_plan:
+  terraform_plan_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
       - terraform_plan:
           terraform_workspace: 'dev'
-  terraform_apply:
+  terraform_plan_prod1:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - terraform_plan:
+          terraform_workspace: 'prod1'
+  terraform_apply_dev:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - terraform_apply
+  terraform_apply_prod1:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
@@ -61,17 +74,35 @@ jobs:
       - run: 'cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH'
 workflows:
   version: 2
-  build_and_terraform:
+  build_and_terraform_dev:
     jobs:
-      - docker_build
-      - terraform_plan:
+      - docker_build:
+          filters:
+            branches:
+              only: 'develop'
+      - terraform_plan_dev:
           requires:
             - 'docker_build'
-      - review_plan:
+      - review_plan_dev:
           requires:
-            - 'terraform_plan'
+            - 'terraform_plan_dev'
           type: 'approval'
-      - terraform_apply:
+      - terraform_apply_dev:
           requires:
-            - 'review_plan'
-
+            - 'review_plan_dev'
+  build_and_terraform_prod1:
+    jobs:
+      - docker_build:
+          filters:
+            branches:
+              only: /release*/
+      - terraform_plan_prod1:
+          requires:
+            - 'docker_build'
+      - review_plan_prod1:
+          requires:
+            - 'terraform_plan_prod1'
+          type: 'approval'
+      - terraform_apply_prod1:
+          requires:
+            - 'review_plan_prod1'
