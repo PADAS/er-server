@@ -2,6 +2,10 @@ data "vault_generic_secret" "db_password" {
   path = "padas-app/main/earthranger-app-infra-postgres-server-${terraform.workspace}"
 }
 
+output "nat_ip_check" {
+  value = google_compute_instance.bastion_server[0].network_interface.0.access_config.0.nat_ip
+}
+
 resource "google_sql_database" "database" {
   name = "${var.site}_dasdb"
   instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
