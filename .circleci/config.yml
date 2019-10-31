@@ -70,10 +70,7 @@ workflows:
   version: 2
   build_and_terraform_dev:
     jobs:
-      #- docker_build
       - terraform_plan_dev:
-        #requires:
-        #    - 'docker_build'
       - review_plan_dev:
           filters:
             branches:
