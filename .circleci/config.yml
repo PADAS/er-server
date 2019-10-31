@@ -79,7 +79,7 @@ workflows:
       - docker_build:
           filters:
             branches:
-              only: 'circleci-build-filters'
+              only: 'develop'
       - terraform_plan_dev:
           requires:
             - 'docker_build'
