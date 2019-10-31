@@ -4,7 +4,7 @@ commands:
     steps:
       - add_ssh_keys:
           fingerprints:
-            - Pending provisioning
+            - "ca:a6:a4:87:70:0b:8c:92:b5:06:65:00:13:4d:c9:c4"
   docker_login:
     steps:
       - run: echo "$GCR_PUSH_KEY" | docker login --username _json_key --password-stdin https://gcr.io
@@ -70,10 +70,10 @@ workflows:
   version: 2
   build_and_terraform_dev:
     jobs:
-      - docker_build
+      #- docker_build
       - terraform_plan_dev:
-          requires:
-            - 'docker_build'
+        #requires:
+        #    - 'docker_build'
       - review_plan_dev:
           filters:
             branches:
