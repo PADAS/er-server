@@ -4,9 +4,10 @@ variable "site" {
   default     = "dev"
 }
 
-variable "bastion_server_count" {
-  type    = string
-  default = "1"
+variable "need_bastion_server" {
+  description = "Only set to true when postgres bootstrapping is necessary. Meant to be short lived, make sure to revert to false, so that a bastion server with a public IP does not persist."
+  type    = bool
+  default = false
 }
 
 variable "firewall_priority_threshold" {

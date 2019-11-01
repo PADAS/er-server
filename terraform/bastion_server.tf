@@ -9,6 +9,8 @@ locals {
 
   subnetwork_name = local.is_production ? local.prod_subnetwork_name : local.dev_subnetwork_name
   network_name = local.is_production ? local.prod_network_name : local.dev_network_name
+
+  bastion_server_count = var.need_bastion_server ? 1 : 0
 }
 
 
@@ -44,7 +46,7 @@ data "google_compute_image" "container_optimized_os" {
 
 resource "google_compute_instance" "bastion_server" {
   # Toggle this variable to ensure bastion server spins down after bootstrapping
-  count = var.bastion_server_count
+  count = local.bastion_server_count
 
   allow_stopping_for_update = "true"
   machine_type              = "g1-small"
