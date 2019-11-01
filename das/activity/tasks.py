@@ -5,8 +5,9 @@ from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 
 from activity.alerting.message import send_event_alert
 from activity.alerting.service import evaluate_event
-from activity.models import EventPhoto, Event, AlertRule
+from activity.models import EventPhoto, Event, AlertRule, RefreshRecreateEventDetailView
 from das_server import celery
+from activity.materialized_view import refresh_materialized_view
 
 logger = logging.getLogger(__name__)
 
@@ -69,4 +70,12 @@ def send_alert_to_notificationmethod(alert_rule_id=None, event_id=None, notifica
 
     logger.info(f"Sending alert of event {event_id} to notification id {notification_method_id}")
     send_event_alert(alert_rule_id=alert_rule_id, event_id=event_id, notification_method_id=notification_method_id)
+
+@celery.app.task
+def refresh_event_details_views():
+    # refresh materialized view for: "event_details_view"
+    refresh_materialized_view()
+    RefreshRecreateEventDetailView.objects.refresh('Celery')
+
+    logger.info(f'Refresh data for event_details_view')
 

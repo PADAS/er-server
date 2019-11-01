@@ -112,7 +112,11 @@ app.conf.beat_schedule = {
         # 4 AM local time per settings.TIME_ZONE
         'schedule': crontab(hour=4, minute=0)
 
-    }
+    },
+     'refresh-event-details-view': {
+        'task': 'activity.tasks.refresh_event_details_views',
+        'schedule': timedelta(hours=8)
+     },
 
 }
 
