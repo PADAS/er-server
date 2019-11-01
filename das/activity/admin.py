@@ -3,12 +3,14 @@ from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
 from django.urls import reverse
+from django.http import HttpResponseRedirect
 
 import activity.models as models
 from activity.forms import EventTypeForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
 from core.openlayers import OSMGeoExtendedAdmin
+from activity.materialized_view import re_create_view, refresh_materialized_view
 
 
 class EventRelationshipInline(admin.TabularInline):
@@ -268,3 +270,34 @@ class NotificationMethodAdmin(admin.ModelAdmin):
     def owner_username(self, instance):
         return instance.owner.username
     owner_username.short_description = _('Owner')
+
+
+@admin.register(models.RefreshRecreateEventDetailView)
+class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
+    list_display = ('performed_by', 'refresh_at', 'recreated_at')
+    enable_change_view = False
+
+    def get_urls(self):
+        urls = super().get_urls()
+        from django.urls import path
+        urls_paths = [
+            path('re_create/', self.recreate_view),
+            path('refresh/', self.refresh_view),
+        ]
+        return urls_paths + urls
+
+    def has_add_permission(self, request):
+        return False
+
+    def refresh_view(self, request):
+        refresh_materialized_view()
+        self.model.objects.refresh(activity='Admin')
+        self.message_user(request, "Successfully refresh 'event_detail_view'")
+        return HttpResponseRedirect("../")
+
+    def recreate_view(self, request):
+        re_create_view()
+        self.model.objects.recreated(activity='Admin')
+        self.message_user(request, "Successfully recreated 'event_detail_view'")
+        return HttpResponseRedirect("../")
