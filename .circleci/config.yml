@@ -45,7 +45,20 @@ jobs:
     steps:
       - terraform_plan:
           terraform_workspace: 'dev'
+  terraform_plan_prod1:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - terraform_plan:
+          terraform_workspace: 'prod1'
   terraform_apply_dev:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - terraform_apply
+  terraform_apply_prod1:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
@@ -62,24 +75,56 @@ jobs:
 workflows:
   version: 2
   build_and_terraform_dev:
+  # This is our eager workflow for deploying from our main code branch.
+  # So no review step.
     jobs:
-      - docker_build
+      - docker_build:
+          filters:
+            branches:
+              only: 'develop'
+      - terraform_plan_dev:
+          requires:
+            - 'docker_build'
+      - terraform_apply_dev:
+          requires:
+            - 'terraform_plan_dev'
+
+  build_and_terraform_feature_branch:
+  # Build for all branches except develop and release.
+  # Include a review step.
+    jobs:
+      - docker_build:
+          filters:
+            branches:
+              ignore:
+                - 'develop'
+                - /release*/
       - terraform_plan_dev:
           requires:
             - 'docker_build'
       - review_plan_dev:
-          filters:
-            branches:
-              ignore:
-                - 'develop'
           requires:
             - 'terraform_plan_dev'
           type: 'approval'
       - terraform_apply_dev:
-          filters:
-            branches:
-              ignore:
-                - 'develop'
           requires:
             - 'review_plan_dev'
 
+  build_and_terraform_prod1:
+  # Build for all release branches
+  # Review step for apply
+    jobs:
+      - docker_build:
+          filters:
+            branches:
+              only: /release*/
+      - terraform_plan_prod1:
+          requires:
+            - 'docker_build'
+      - review_plan_prod1:
+          requires:
+            - 'terraform_plan_prod1'
+          type: 'approval'
+      - terraform_apply_prod1:
+          requires:
+            - 'review_plan_prod1'
