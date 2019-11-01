@@ -4,7 +4,7 @@ from utils import schema_utils
 from django.db import connection
 
 cursor = connection.cursor()
-table_name = 'event_detai_view'
+table_name = 'event_details_view'
 
 
 def load_schema():
@@ -39,8 +39,6 @@ def generate_DDL():
 
 def execute_DDL():
     query_string = ''
-    table_name = 'event_details_views'
-
     for line in generate_DDL():
         query_string += line
     cursor_wrapper = connection.cursor()
