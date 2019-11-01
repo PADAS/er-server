@@ -198,7 +198,7 @@ piexif==1.0.13
 pillow==4.3.0
 pip-tools==4.2.0
 pluggy==0.12.0            # via pytest
-pre-commit==1.18.3
+pre-commit==1.19.0
 psycopg2-binary==2.8.3
 ptvsd==4.3.2
 py==1.5.3                 # via pytest
@@ -214,7 +214,7 @@ pyproj==1.9.5.1
 pysocks==1.6.8
 pytest-django==3.6.0
 pytest-pythonpath==0.7.3
-pytest==5.2.1
+pytest==5.2.2
 python-dateutil==2.8.0
 python-docx==0.8.6
 python-engineio==3.8.2
