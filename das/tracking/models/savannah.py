@@ -146,18 +146,19 @@ class SavannaClient(object):
                     alert_type_lower = alert_type.lower()
                     event_type_info = ALERT_EVENT_TYPE_MAP.get(
                         alert_type_lower, None)
+                    alert = self.select_data(collar_id, alert)
 
                     if not event_type_info:
                         self.logger.info(
                             f'Unsupported ST alert type {alert_type}')
-                        continue
+                        alert.append(alert_type)
+                        alert.append(False)
+                    else:
+                        device_alert = event_type_info['event_type']
+                        # At last push device_alert and is_alert
+                        alert.append(device_alert)
+                        alert.append(True)
 
-                    device_alert = event_type_info['event_type']
-                    alert = self.select_data(collar_id, alert)
-
-                    # At last push device_alert and is_alert
-                    alert.append(device_alert)
-                    alert.append('true')
                     record = self.parse_line(STAlert, alert)
                     last_exception_index = record.record_index
                     yield record
@@ -224,7 +225,10 @@ class SavannahPlugin(TrackingPlugin):
         now = pytz.utc.localize(datetime.datetime.utcnow())
 
         for fix in client.fetch_observations(source.manufacturer_id, last_record_index, last_exception_index):
-            last_record_index = fix.record_index
+            if isinstance(fix, STObservation):
+                last_record_index = fix.record_index
+            if isinstance(fix, STAlert):
+                last_exception_index = fix.record_index
 
             if fix.recorded_at > now:
                 self.logger.warning(
@@ -233,11 +237,13 @@ class SavannahPlugin(TrackingPlugin):
 
             # If observation has been received from alert api than
             # is_alert=True
-            if isinstance(fix, STAlert) and fix.is_alert:
+            if isinstance(fix, STAlert):
+                if not fix.is_alert:
+                    # unknown alert type
+                    continue
                 # Filter observation based on timestamp, source.
                 # If observation exist, update observation's additional field
                 # else yield Obs
-                last_exception_index = fix.record_index
                 obs = Observation.objects.filter(
                     source=source, recorded_at=fix.recorded_at).first()
                 if obs:

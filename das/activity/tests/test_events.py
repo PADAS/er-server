@@ -257,9 +257,20 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response_data = response.data[0]
         response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
+
+    def test_create_multiple_events_on_a_single_api_call(self):
+        prev_count = Event.objects.count()
+        request = self.factory.post(self.api_base + '/events/', [self.event_data, self.event_data])
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        
+        self.assertEqual(2, len(response.data))
+        self.assertEqual(Event.objects.count(), prev_count + 2)
 
     def test_get_new_event_without_event_write_permissions(self):
         request = self.factory.get(self.api_base + '/events/')
@@ -308,7 +319,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response_data = response.data[0]
         response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
@@ -321,7 +332,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response_data = response.data[0]
         response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
@@ -417,7 +428,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response_data = response.data[0]
         response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
@@ -432,7 +443,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response_data = response.data[0]
 
         event_data['id'] = None
 
@@ -455,7 +466,7 @@ class TestEventView(BaseAPITest):
 
             self.force_authenticate(request, self.all_perms_user)
             response = views.EventFilesView.as_view()(request, id=my_event_id)
-            logger.debug(response.data)
+            logger.debug(response_data)
 
         # Make request for the new event and assert that it includes a new
         # document.
@@ -552,7 +563,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response_data = response.data[0]
 
         event_data['id'] = None
 
@@ -575,7 +586,7 @@ class TestEventView(BaseAPITest):
 
             self.force_authenticate(request, self.all_perms_user)
             response = views.EventFilesView.as_view()(request, id=my_event_id)
-            logger.debug(response.data)
+            logger.debug(response_data)
 
         # Make request for the new event and assert that it includes a new
         # document.
@@ -795,11 +806,12 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response_data = response.data[0]
+        collection_id = response_data['id']
         response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
-        collection_id = response.data['id']
+        
 
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
@@ -810,11 +822,11 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response_data = response.data[0]
+        report_id = response_data['id']
         response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
-        report_id = response.data['id']
         rel_data = {'to_event_id': report_id, 'type': 'contains'}
         request = self.factory.post(
             self.api_base + '/event/' + collection_id + '/relationships',
@@ -822,7 +834,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventRelationshipsView.as_view()(
             request, from_event_id=collection_id)
-        logger.debug(response.data)
+        logger.debug(response_data)
         self.assertEqual(response.status_code, 201)
 
     def test_return_new_contained_events(self):
@@ -834,9 +846,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        event = response.data
-
-        self.assertIn('contains', event)
+        event = response.data[0]
         self.assertEqual(len(event_data['contains']), len(event['contains']))
         self.assertEqual(event_data['contains'][0]['message'],
                          event['contains'][0]['related_event']['message'])
@@ -849,9 +859,8 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 400)
-
-        self.assertTrue('event_type' in response.data,
-                        'I cannot find "event_type" in response data.')
+        self.assertTrue('event_type' in response.data[0][0],
+                        'Event type must be provided.')
 
     def test_edit_event_title(self):
         event = self.create_event(self.event_data)
@@ -882,7 +891,7 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-        event_id = response.data['id']
+        event_id = response.data[0]['id']
 
         update_data = {'event_details': event_data['event_details']}
         update_data['event_details']['carcassrep_species'] = 'baboon'
@@ -986,15 +995,13 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
-        collection_serial_number = response.data.get('serial_number')
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response_data = response.data[0]
+        collection_serial_number = response_data.get('serial_number')
+        collection_id = response_data['id']
         response_data = {k: response_data[k]
                          for k in collection_event_data.keys()}
         self.assertDictEqual(response_data, collection_event_data)
-
-        collection_id = response.data['id']
-
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
         event_data["message"] = ""
@@ -1005,11 +1012,11 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response_data = response.data[0]
+        report_id = response_data['id']
         response_data = {k: response_data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
-
-        report_id = response.data['id']
+        
         rel_data = {'to_event_id': report_id, 'type': 'contains'}
         request = self.factory.post(
             self.api_base + '/event/' + collection_id + '/relationships',
@@ -1017,7 +1024,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventRelationshipsView.as_view()(
             request, from_event_id=collection_id)
-        logger.debug(response.data)
+        logger.debug(response_data)
         self.assertEqual(response.status_code, 201)
 
         url = """/activity/events/export"""
@@ -1136,8 +1143,8 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
-        self.assertDictEqual(response_data, {})
+        response_data = response.data[0]
+        self.assertEqual(len(response_data), 0)
 
     def test_radio_room_operator_permissions(self):
         results = self.do_all_operations_on_all_event_types(
