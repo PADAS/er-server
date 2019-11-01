@@ -16,6 +16,7 @@ locals {
 
 # CircleCI needs to connect to bastion server
 resource "google_compute_firewall" "public_to_bastion_server" {
+  count = local.bastion_server_count
   provider = google-beta
 
   direction               = "INGRESS"
