@@ -66,7 +66,6 @@ resource "google_compute_instance" "bastion_server" {
 
   metadata = {
     ssh-keys = "bastion_server:${tls_private_key.bastion_server.public_key_openssh}"
-    startup-script = file("${path.root}/bastion_server_scripts/docker_install.sh")
   }
 
   network_interface {
@@ -91,6 +90,19 @@ resource "google_compute_instance" "bastion_server" {
       private_key = "${tls_private_key.bastion_server.private_key_pem}"
       user        = "bastion_server"
     }
+  }
+
+  provisioner "remote-exec" {
+      connection {
+        host        = google_compute_instance.bastion_server[0].network_interface.0.access_config.0.nat_ip
+        port        = "22"
+        private_key = "${tls_private_key.bastion_server.private_key_pem}"
+        type        = "ssh"
+        user        = "bastion_server"
+      }
+
+    script = file("${path.root}/bastion_server_scripts/docker_install.sh")
+
   }
 
   tags = [
