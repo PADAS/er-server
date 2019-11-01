@@ -101,7 +101,7 @@ resource "google_compute_instance" "bastion_server" {
         user        = "bastion_server"
       }
 
-    script = file("${path.root}/bastion_server_scripts/docker_install.sh")
+    script = "${path.root}/bastion_server_scripts/docker_install.sh"
 
   }
 
