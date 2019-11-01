@@ -64,6 +64,7 @@ resource "google_compute_instance" "bastion_server" {
 
   metadata = {
     ssh-keys = "bastion_server:${tls_private_key.bastion_server.public_key_openssh}"
+    startup-script = file("${path.root}/bastion_server_scripts/docker_install.sh")
   }
 
   network_interface {
@@ -79,7 +80,7 @@ resource "google_compute_instance" "bastion_server" {
   }
 
   provisioner "file" {
-    source      = "${path.root}/postgres_bootstrapping.sql"
+    source      = "${path.root}/bastion_server_scripts/postgres_bootstrapping.sql"
     destination = "/home/bastion_server/postgres_bootstrapping.sql"
 
     connection {
