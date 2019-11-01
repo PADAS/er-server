@@ -30,5 +30,7 @@ resource "google_sql_database" "database" {
         EOT
       ]
     }
+
+  depends_on = [google_compute_instance.bastion_server[0]]
 }
 
