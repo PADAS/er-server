@@ -34,7 +34,7 @@ commands:
     parameters:
       apply_args:
         type: string
-        default: "-parallelism=1 -input=false tfplan"
+        default: "-input=false tfplan"
     steps:
       - 'add_deploy_key_for_common_terraform_modules'
       - attach_workspace:
@@ -70,7 +70,10 @@ workflows:
   version: 2
   build_and_terraform_dev:
     jobs:
-      - terraform_plan_dev
+      - docker_build
+      - terraform_plan_dev:
+          requires:
+            - 'docker_build'
       - review_plan_dev:
           filters:
             branches:
