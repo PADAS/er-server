@@ -206,7 +206,7 @@ class RegionSubjectsView(generics.ListAPIView):
         region = generics.get_object_or_404(models.Region.objects.all(),
                                             slug=self.kwargs['slug'])
         queryset = models.Subject.objects.all()
-        queryset = check_to_include_inactive_subjects(self.request, queryset)  
+        queryset = check_to_include_inactive_subjects(self.request, queryset)
         subjects = queryset.by_region(region).annotate_with_subjectstatus()
         return subjects
 
@@ -480,7 +480,7 @@ class SourceSubjectsView(generics.ListCreateAPIView):
         # if not self.request.user.has_any_perms(models.Source.VIEW_SUBJECT_PERMS, source):
         #     raise PermissionDenied
         queryset = models.Subject.objects.all()
-        queryset = check_to_include_inactive_subjects(self.request, queryset)   
+        queryset = check_to_include_inactive_subjects(self.request, queryset)
         return queryset.filter(subjectsource__source=source).annotate_with_subjectstatus()
 
     def create(self, request, *args, **kwargs):
@@ -1183,7 +1183,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 else recorded_at.isoformat(),
                 dloadtime_label: created_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
                 else created_at.isoformat(),
-                'temp': item['additional'].get('temp', 0)
+                'temp': item['additional'].get('temp', item['additional'].get('temperature', 0))
                 }
         return data
 
