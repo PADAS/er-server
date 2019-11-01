@@ -26,7 +26,7 @@ resource "google_sql_database" "database" {
         psql --host=${data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip}
         --username=postgres --dbname=${google_sql_database.database.name} --file=/tmp/postgres_bootstrapping.sql \
         --variable=db_owner=${google_sql_database.database.name} --variable=db_passwd=${data.vault_generic_secret.db_password.data["value"]} \
-        --variable=db_name=${google_sql_database.database.name} --single-transaction --variable=ON_ERROR_STOP=1"
+        --variable=db_name=${google_sql_database.database.name} --single-transaction --variable=ON_ERROR_STOP=1
         EOT
       ]
     }
