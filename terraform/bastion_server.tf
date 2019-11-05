@@ -25,7 +25,7 @@ resource "google_compute_firewall" "public_to_bastion_server" {
   name                    = "public-to-bastion-server"
   network                 = local.network_name
   priority                = var.firewall_priority_threshold - 1
-  project                 = data.google_project.this.project_id
+  project                 = data.google_project.earthranger.project_id
   target_tags             = ["psql-bastion-server-${terraform.workspace}"]
 
   allow {
@@ -52,7 +52,7 @@ resource "google_compute_instance" "bastion_server" {
   allow_stopping_for_update = "true"
   machine_type              = "g1-small"
   name                      = "psql-bastion-server-${terraform.workspace}"
-  project                   = data.google_project.this.project_id
+  project                   = data.google_project.earthranger.project_id
   zone                      = data.terraform_remote_state.earthranger_app_infra.outputs.gcp_zone
   boot_disk {
     initialize_params {
