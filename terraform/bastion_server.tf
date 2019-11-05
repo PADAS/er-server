@@ -79,10 +79,6 @@ resource "google_compute_instance" "bastion_server" {
     }
   }
 
-  lifecycle {
-    ignore_changes = ["attached_disk"]
-  }
-
   provisioner "file" {
     source      = "${path.root}/bastion_server_scripts/postgres_bootstrapping.sql"
     destination = "/home/bastion_server/postgres_bootstrapping.sql"
