@@ -1,16 +1,21 @@
+import logging
+
 from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.http import HttpResponseRedirect
+from django.contrib import messages
 
 import activity.models as models
 from activity.forms import EventTypeForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
 from activity.materialized_view import re_create_view, refresh_materialized_view
+from activity.tasks import refresh_event_details_views, recreate_event_details_views
 
+logger = logging.getLogger(__name__)
 
 class EventRelationshipInline(admin.TabularInline):
     model = models.EventRelationship
@@ -277,7 +282,7 @@ class NotificationMethodAdmin(admin.ModelAdmin):
 @admin.register(models.RefreshRecreateEventDetailView)
 class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
-    list_display = ('performed_by', 'refresh_at', 'recreated_at')
+    list_display = ('performed_by', 'refresh_at', 'recreated_at', 'maintenance_status')
     enable_change_view = False
 
     def get_urls(self):
@@ -292,14 +297,43 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    def refresh_view(self, request):
-        refresh_materialized_view()
-        self.model.objects.refresh(activity='Admin')
-        self.message_user(request, "Successfully refresh 'event_detail_view'")
+    def manage_task_status(self, request, task, status, qs_method, name):
+        action = 'Admin'
+        while not task.ready():
+            logger.info(f'State={task.state}, info={task.info}')
+
+        if task.state == 'SUCCESS':
+            qs_method(activity=action, status=status)
+            self.message_user(request, f"Successfully {name} 'event_detail_view'")
+        if task.state == 'FAILURE':
+            qs_method(activity=action, status=task.state)
+            self.message_user(request,f"Failed to {name} 'event_detail_view'", messages.ERROR)
+        if task.state == 'RETRY':
+            qs_method(activity=type_, status=task.state)
+            self.message_user(request, f"Retry again to {name} 'event_detail_view'",  messages.WARNING)
+
         return HttpResponseRedirect("../")
 
+
+
+    def refresh_view(self, request):
+        task = refresh_event_details_views.delay()
+        status = self.model.REFRESH
+        qs_method = self.model.objects.refresh
+        name = 'refresh'
+        return self.manage_task_status(request=request,
+                                       task=task,
+                                       status=status,
+                                       qs_method=qs_method,
+                                       name=name)
+
     def recreate_view(self, request):
-        re_create_view()
-        self.model.objects.recreated(activity='Admin')
-        self.message_user(request, "Successfully recreated 'event_detail_view'")
-        return HttpResponseRedirect("../")
+        task = recreate_event_details_views.delay()
+        status = self.model.SUCCESS
+        qs_method = self.model.objects.recreate
+        name = 'recreate'
+        return self.manage_task_status(request=request,
+                                       task=task,
+                                       status=status,
+                                       qs_method=qs_method,
+                                       name=name)

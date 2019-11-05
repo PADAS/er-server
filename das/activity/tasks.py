@@ -7,7 +7,7 @@ from activity.alerting.message import send_event_alert
 from activity.alerting.service import evaluate_event
 from activity.models import EventPhoto, Event, AlertRule, RefreshRecreateEventDetailView
 from das_server import celery
-from activity.materialized_view import refresh_materialized_view
+from activity.materialized_view import refresh_materialized_view, re_create_view, check_db_view_exists
 
 logger = logging.getLogger(__name__)
 
@@ -71,11 +71,40 @@ def send_alert_to_notificationmethod(alert_rule_id=None, event_id=None, notifica
     logger.info(f"Sending alert of event {event_id} to notification id {notification_method_id}")
     send_event_alert(alert_rule_id=alert_rule_id, event_id=event_id, notification_method_id=notification_method_id)
 
-@celery.app.task
-def refresh_event_details_views():
-    # refresh materialized view for: "event_details_view"
-    refresh_materialized_view()
-    RefreshRecreateEventDetailView.objects.refresh('Celery')
 
+
+@celery.app.task(bind=True)
+def recreate_event_details_views(self):
+    # recreate materialized view for: "event_details_view".
+
+    re_create_view()
+    logger.info(f'Recreate data for event_details_view')
+
+
+@celery.app.task(bind=True)
+def refresh_event_details_views(self):
+    # refresh materialized view for: "event_details_view".
+
+    refresh_materialized_view()
     logger.info(f'Refresh data for event_details_view')
 
+
+@celery.app.task(bind=True)
+def refresh_event_details_views_task(self):
+    # run the scheduler if and only-if view exist.
+    status = RefreshRecreateEventDetailView.REFRESH
+
+    if check_db_view_exists():
+        task = refresh_event_details_views.delay()
+
+        while not task.ready():
+            logger.info(f'State={task.state}, info={task.info}')
+
+        if task.state == 'SUCCESS':
+            RefreshRecreateEventDetailView.objects.refresh(activity='Celery', status=status)
+        if task.state == 'FAILURE':
+            RefreshRecreateEventDetailView.objects.refresh(activity='Celery', status=status)
+        if task.state == 'RETRY':
+            RefreshRecreateEventDetailView.objects.refresh(activity='Celery', status=status)
+    else:
+        logger.info("{} has not be created.".format('event_details_view'))
