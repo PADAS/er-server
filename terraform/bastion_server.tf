@@ -60,6 +60,8 @@ resource "google_compute_instance" "bastion_server" {
     }
   }
 
+  tags = google_compute_firewall.public_to_bastion_server[count.index].target_tags
+
   labels = {
     role      = "psql-bastion-server"
     workspace = terraform.workspace
@@ -106,5 +108,4 @@ resource "google_compute_instance" "bastion_server" {
 
   }
 
-  tags = google_compute_firewall.public_to_bastion_server[count.index].target_tags
 }
