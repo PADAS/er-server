@@ -38,7 +38,7 @@ resource "tls_private_key" "bastion_server" {
   algorithm = "RSA"
 }
 
-data "google_compute_image" "container_optimized_os" {
+data "google_compute_image" "ubuntu" {
   provider = google
 
   family  = "ubuntu-1804-lts"
@@ -56,7 +56,7 @@ resource "google_compute_instance" "bastion_server" {
   zone                      = data.terraform_remote_state.earthranger_app_infra.outputs.gcp_zone
   boot_disk {
     initialize_params {
-      image = data.google_compute_image.container_optimized_os.self_link
+      image = data.google_compute_image.ubuntu.self_link
     }
   }
 
