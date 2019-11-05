@@ -11,6 +11,7 @@ locals {
   network_name = local.is_production ? local.prod_network_name : local.dev_network_name
 
   bastion_server_count = var.need_bastion_server ? 1 : 0
+  bastion_server_user = "bastion_server"
 }
 
 
@@ -68,7 +69,7 @@ resource "google_compute_instance" "bastion_server" {
   }
 
   metadata = {
-    ssh-keys = "bastion_server:${tls_private_key.bastion_server.public_key_openssh}"
+    ssh-keys = "${local.bastion_server_user}:${tls_private_key.bastion_server.public_key_openssh}"
   }
 
   network_interface {
@@ -81,13 +82,13 @@ resource "google_compute_instance" "bastion_server" {
 
   provisioner "file" {
     source      = "${path.root}/bastion_server_scripts/postgres_bootstrapping.sql"
-    destination = "/home/bastion_server/postgres_bootstrapping.sql"
+    destination = "/home/${local.bastion_server_user}/postgres_bootstrapping.sql"
 
     connection {
       host        = google_compute_instance.bastion_server[count.index].network_interface.0.access_config.0.nat_ip
       type        = "ssh"
       private_key = "${tls_private_key.bastion_server.private_key_pem}"
-      user        = "bastion_server"
+      user        = local.bastion_server_user
     }
   }
 
@@ -97,7 +98,7 @@ resource "google_compute_instance" "bastion_server" {
         port        = "22"
         private_key = "${tls_private_key.bastion_server.private_key_pem}"
         type        = "ssh"
-        user        = "bastion_server"
+        user        = local.bastion_server_user
       }
 
     script = "${path.root}/bastion_server_scripts/docker_install.sh"
