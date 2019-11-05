@@ -37,18 +37,22 @@ def generate_DDL():
     return lines
 
 
+def _cursor():
+    cursor_wrapper = connection.cursor()
+    cursor = cursor_wrapper.cursor
+    return cursor
+
+
 def execute_DDL():
     query_string = ''
     for line in generate_DDL():
         query_string += line
-    cursor_wrapper = connection.cursor()
-    cursor = cursor = cursor_wrapper.cursor
+    cursor = _cursor()
     cursor.execute(query_string)
 
 
 def check_db_view_exists():
-    cursor_wrapper = connection.cursor()
-    cursor = cursor = cursor_wrapper.cursor
+    cursor = _cursor()
     cursor.execute("SELECT to_regclass('public.{0}')".format(table_name))
     view_exist = cursor.fetchone()[0]
     return bool(view_exist)
@@ -56,6 +60,7 @@ def check_db_view_exists():
 
 def re_create_view():
     if check_db_view_exists():
+        cursor = _cursor()
         cursor.execute(f'DROP MATERIALIZED VIEW {table_name}')
         execute_DDL()
     else:
@@ -64,8 +69,7 @@ def re_create_view():
 
 def refresh_materialized_view():
     if check_db_view_exists():
-        cursor_wrapper = connection.cursor()
-        cursor = cursor = cursor_wrapper.cursor
+        cursor = _cursor()
         cursor.execute(f"REFRESH MATERIALIZED VIEW {table_name}")
     else:
         execute_DDL()
