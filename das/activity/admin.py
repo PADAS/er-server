@@ -13,7 +13,6 @@ from activity.forms import EventTypeForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
 from core.openlayers import OSMGeoExtendedAdmin
-from activity.materialized_view import re_create_view, refresh_materialized_view
 from activity.tasks import refresh_event_details_views, recreate_event_details_views
 
 logger = logging.getLogger(__name__)
