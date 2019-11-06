@@ -250,20 +250,21 @@ def extractor(schema_item, definition, value):
     else:
         key, val = extract_from_dict_or_string(schema_item, value)
 
-    if 'title' in schema_item:
-        return schema_item['title'], val, key
-    else:
+    response = None
+    if 'key' in schema_item:
         for definition_item in definition:
             if isinstance(definition_item, dict):
                 if 'key' not in definition_item:
                     logger.warning(f'key not found in definition {definition}')
                     continue
-                if 'key' not in schema_item:
-                    logger.warning(
-                        f'key not found in schema_item {schema_item}')
-                    continue
                 if definition_item['key'] == schema_item['key']:
-                    return definition_item.get('title'), val, key
+                    response = definition_item.get('title'), val, key
+    else:
+        logger.warning(f'key not found in schema_item {schema_item}')
+
+    if not response:
+        response = schema_item.get('title', key), val, key
+    return response
 
 
 def generate_index(start_at=0, incr=1):
@@ -438,9 +439,26 @@ def find_display_value_for_key_in_definition(schema, key):
 
 
 def get_display_value_header_for_key(schema, key):
-    if key in schema['schema']['properties'] and 'title' in schema['schema']['properties'][key]:
-        return schema['schema']['properties'][key]['title']
-    return find_display_value_for_key_in_definition(schema, key) or format_key_for_title(key)
+    '''
+    Prefer the title from:
+    1. the form definition
+    2. The schema properties extra title attribute
+    3. A sanitized derivative of the key itself
+
+    :param schema: An EventType.schema  as a dict
+    :param key: The document property key
+    :return: A title
+    '''
+    definition_header = find_display_value_for_key_in_definition(schema, key)
+
+    if definition_header:
+        return definition_header
+    else:
+        properties = schema['schema']['properties']
+        if key in properties and 'title' in properties[key]:
+            return properties[key]['title']
+
+    return format_key_for_title(key)
 
 
 def generate_schema_from_document(doc):

@@ -21,6 +21,8 @@ from django.db.models import Prefetch, Q, F, Func, Count
 from django.db.models.functions import FirstValue
 from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
 from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
+from django.db.utils import IntegrityError
+from django.db import transaction
 
 from django.urls import reverse
 from django.template import Template, Context
@@ -572,8 +574,26 @@ class EventsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
 
-    def get_serializer_context(self):
+    def post(self, request, *args, **kwargs):
+        new_record = request.data
+        if isinstance(new_record, dict):
+            new_record = [new_record]
+        with transaction.atomic():
+            errors = []
+            serializer = self.get_serializer(data=new_record, many=True)
+            if serializer.is_valid():
+                serializer.save()
+                data = serializer.data
+                data = data if len(new_record) > 1 else data[0]
+                return Response(data, status=status.HTTP_201_CREATED)
+            else:
+                errors.append(serializer.errors)
+                for error in errors:
+                    logger.exception(
+                        'Invalid Event type(s) provided {}'.format(error))
+                    return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def get_serializer_context(self):
         query_params = self.request.query_params \
             if self.request and hasattr(self.request, 'query_params') else {}
 

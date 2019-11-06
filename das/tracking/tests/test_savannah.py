@@ -125,7 +125,7 @@ def make_exceptions_download(request_mock, host):
             "altitude": 0,
             "temperature": 0,
             "initial_data": "",
-            "exception_type": "IMMOBILITY ALERT",
+            "exception_type": "GPNTR",
             "battery": 0
         },
         {
@@ -220,7 +220,7 @@ class SavannahPluginTest(TestCase):
             else:
                 plugin.execute()
 
-        self.assertEqual(len(self.henry.observations()), 9)
+        self.assertEqual(len(self.henry.observations()), 8)
 
         # Check battery values
         self.assertTrue(
