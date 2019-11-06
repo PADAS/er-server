@@ -75,6 +75,7 @@ resource "google_compute_instance" "bastion_server" {
   network_interface {
 
     subnetwork = local.subnetwork_name
+    subnetwork_project = data.google_project.earthranger.project_id
 
     access_config { # necessary to allocate public ip
     }
