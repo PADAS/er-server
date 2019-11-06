@@ -61,7 +61,7 @@ resource "google_compute_instance" "bastion_server" {
     }
   }
 
-  tags = google_compute_firewall.public_to_bastion_server[count.index].target_tags
+  tags = google_compute_firewall.public_to_bastion_server[0].target_tags
 
   labels = {
     role      = "psql-bastion-server"
@@ -85,7 +85,7 @@ resource "google_compute_instance" "bastion_server" {
     destination = "/home/${local.bastion_server_user}/postgres_bootstrapping.sql"
 
     connection {
-      host        = google_compute_instance.bastion_server[count.index].network_interface.0.access_config.0.nat_ip
+      host        = google_compute_instance.bastion_server[0].network_interface.0.access_config.0.nat_ip
       type        = "ssh"
       private_key = "${tls_private_key.bastion_server.private_key_pem}"
       user        = local.bastion_server_user
@@ -94,7 +94,7 @@ resource "google_compute_instance" "bastion_server" {
 
   provisioner "remote-exec" {
       connection {
-        host        = google_compute_instance.bastion_server[count.index].network_interface.0.access_config.0.nat_ip
+        host        = google_compute_instance.bastion_server[0].network_interface.0.access_config.0.nat_ip
         port        = "22"
         private_key = "${tls_private_key.bastion_server.private_key_pem}"
         type        = "ssh"
