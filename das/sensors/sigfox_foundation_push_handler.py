@@ -32,8 +32,7 @@ class PayloadValidator(serializers.Serializer):
 
 
 class SigfoxFoundationPushHandler:
-    SENSOR_TYPE = 'gps-radio'
-    PROVIDER_KEY = 'sigfox-dev'
+    SENSOR_TYPE = 'sff-tracker'
     DEFAULT_SUBJECT_SUBTYPE = 'wildlife'
 
     @classmethod
@@ -83,7 +82,7 @@ class SigfoxFoundationPushHandler:
                     **parsed_data
                 }
             }
-            print('data_uplink', observation)
+            logger.debug('data_uplink', observation)
 
             validator = ObservationSerializer(data=observation)
             if validator.is_valid():
@@ -129,7 +128,7 @@ class SigfoxFoundationPushHandler:
                 }
             }
 
-            print('data_advanced', observation)
+            logger.debug('data_advanced', observation)
 
             validator = ObservationSerializer(data=observation)
             if validator.is_valid():
@@ -192,14 +191,14 @@ class SigfoxPayloadParser:
                 except ValueError:
                     raise ParseException(f'Illegal hex value: {each_byte}')
                 else:
-                    # print('%x ' % as_hex)
+                    # logger.debug('%x ' % as_hex)
                     as_binary = bin(as_hex).replace('0b', '')
                     while len(as_binary) < 8:
                         as_binary = '0' + as_binary
 
-                    # print(as_binary)
+                    # logger.debug(as_binary)
                     payload_binary_string += as_binary
-            # print(payload_binary_string)
+            # logger.debug(payload_binary_string)
             return payload_binary_string
         else:
             raise ParseException('byte_re did not find any bytes')

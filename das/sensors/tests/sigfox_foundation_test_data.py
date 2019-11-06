@@ -22,8 +22,7 @@ DATA_PAIRS = [
              "source": 2,
              "status": 1
          }
-     }
-    ),
+     }),
     ({
          "deviceId": "CDBB5F",
          "time": 1572918753,
