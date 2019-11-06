@@ -3,46 +3,57 @@ import math
 import re
 from datetime import datetime
 
-from rest_framework import serializers
+from django.contrib.gis.geos import Point
+from rest_framework import serializers, status
+from rest_framework.response import Response
 
-from observations.models import Source
+from observations.models import Source, Observation
 from observations.serializers import ObservationSerializer
 
 logger = logging.getLogger(__name__)
 
 
-class MessageValidator(serializers.Serializer):
-    recorded_at = serializers.DateTimeField()
-    manufacturer_id = serializers.CharField()
+class ComputedLocation(serializers.Serializer):
+    lat = serializers.FloatField()
+    lng = serializers.FloatField()
+    radius = serializers.IntegerField(required=False)
+    source = serializers.IntegerField(required=False)
+    status = serializers.IntegerField(required=False)
 
-    subject_id = serializers.CharField(default=None)
+
+class PayloadValidator(serializers.Serializer):
+    deviceId = serializers.CharField()
+    time = serializers.IntegerField()
+    seqNumber = serializers.IntegerField()
+    data = serializers.CharField(min_length=24, max_length=24, required=False)
+    computedLocation = ComputedLocation(required=False)
+    duplicate = serializers.BooleanField(required=False)
+    reception = serializers.ListField(required=False)
 
 
 class SigfoxFoundationPushHandler:
-    SENSOR_TYPE = 'sigfox-foundation-tracker'
-    PROVIDER_KEY = 'sigfox-foundation'
+    SENSOR_TYPE = 'gps-radio'
+    PROVIDER_KEY = 'sigfox-dev'
     DEFAULT_SUBJECT_SUBTYPE = 'wildlife'
 
     @classmethod
     def post(cls, request, sensor_type, provider_key):
-        sigfox_data = request.data
-        # TODO: validate data
-        if sigfox_data.get('data'):
-            cls.process_data_uplink(sigfox_data, sensor_type, provider_key)
-        elif sigfox_data.get('computedLocation'):
-            cls.process_data_advanced(sigfox_data, sensor_type, provider_key)
-        else:
-            pass  # TODO: don't know how to handle this message. HTTP_400
+        sigfox_data = PayloadValidator(data=request.data)
+        if sigfox_data.is_valid():
+            validated_data = sigfox_data.validated_data
+            if validated_data.get('data'):
+                return cls.process_data_uplink(validated_data, sensor_type, provider_key)
+            elif validated_data.get('computedLocation'):
+                return cls.process_data_advanced(validated_data, sensor_type, provider_key)
+
+        return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @classmethod
     def process_data_uplink(cls, payload, sensor_type, provider_key):
-        # TODO: validate data. required params: deviceId, time, data...
         data = payload.pop('data')
         parsed_data = SigfoxPayloadParser.parse(data)
-
         if parsed_data:
             device_id = payload.pop('deviceId')
-
             src = Source.objects.ensure_source(sensor_type,
                                                provider=provider_key,
                                                manufacturer_id=device_id,
@@ -50,37 +61,46 @@ class SigfoxFoundationPushHandler:
                                                    'subject_subtype_id': cls.DEFAULT_SUBJECT_SUBTYPE,
                                                    'name': device_id
                                                })
-            lat = parsed_data.pop('lat')
-            lon = parsed_data.pop('lon')
+
+            recorded_at = datetime.fromtimestamp(payload.pop('time')).isoformat()
+            # for data_uplink this test is sufficient for dups...
+            if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
+                logger.info('Ignoring duplicate observation from %s', src)
+                return Response(data={}, status=status.HTTP_200_OK)
+
+            lat = parsed_data.pop('latitude')
+            lon = parsed_data.pop('longitude')
 
             observation = {
                 'location': {
                     'latitude': lat,
                     'longitude': lon
                 },
-                'recorded_at': datetime.fromtimestamp(payload.pop('time')).isoformat(),
+                'recorded_at': recorded_at,
                 'source': str(src.id),
                 'additional': {
                     **payload,
                     **parsed_data
                 }
             }
+            print('data_uplink', observation)
 
             validator = ObservationSerializer(data=observation)
             if validator.is_valid():
                 validator.save()
+                return Response(data=validator.data.get('id'), status=status.HTTP_201_CREATED)
             else:
                 logger.error('Invalid observation', observation)
-                # TODO HTTP 400
+                return Response(data=validator.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        else:
-            pass  # TODO couldn't parse data. HTTP_400
+        return Response(data=dict(message='Unable to parse data'), status=status.HTTP_400_BAD_REQUEST)
 
     @classmethod
     def process_data_advanced(cls, payload, sensor_type, provider_key):
-        # TODO: validate data. required params: deviceId, time, computedLocation...
-        computed_location = payload.pop('computedLocation')
         device_id = payload.pop('deviceId')
+        computed_location = payload.pop('computedLocation')
+        latitude = computed_location.pop('lat')
+        longitude = computed_location.pop('lng')
 
         src = Source.objects.ensure_source(sensor_type,
                                            provider=provider_key,
@@ -90,29 +110,40 @@ class SigfoxFoundationPushHandler:
                                                'name': device_id
                                            })
 
-        observation = {
-            'location': {
-                'latitude': computed_location.pop('lat'),
-                'longitude': computed_location.pop('lng')
-            },
-            'recorded_at': datetime.fromtimestamp(payload.pop('time')).isoformat(),
-            'source': str(src.id),
-            'additional': {
-                **payload,
-                **computed_location
+        recorded_at = datetime.fromtimestamp(payload.pop('time')).isoformat()
+        # search for src, recorded_time, & seqNumber to find observation to update.
+        # then compare location for dup detection
+        try:
+            existing_observation = Observation.objects.get(source=src, recorded_at=recorded_at)
+        except Observation.DoesNotExist:
+            observation = {
+                'location': {
+                    'latitude': latitude,
+                    'longitude': longitude
+                },
+                'recorded_at': recorded_at,
+                'source': str(src.id),
+                'additional': {
+                    **payload,
+                    **computed_location
+                }
             }
-        }
 
-        validator = ObservationSerializer(data=observation)
-        if validator.is_valid():
-            validator.save()
+            print('data_advanced', observation)
+
+            validator = ObservationSerializer(data=observation)
+            if validator.is_valid():
+                validator.save()
+                return Response(data=validator.data.get('id'), status=status.HTTP_201_CREATED)
+            else:
+                logger.error('Invalid observation', observation)
+                return Response(data=validator.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
-            logger.error('Invalid observation', observation)
-            # TODO HTTP 400
-
-
-class ParseException(Exception):
-    pass
+            existing_observation.location = Point(longitude, latitude)
+            existing_observation.additional.update(**payload, **computed_location)
+            existing_observation.save(update_fields=['location', 'additional'])
+            return Response(data=dict(message='Updated metadata in existing observation'),
+                            status=status.HTTP_200_OK)
 
 
 class SigfoxPayloadParser:
@@ -138,8 +169,8 @@ class SigfoxPayloadParser:
         else:
             logger.debug('parsed components', components)
             return {
-                'lat': cls._parse_coordinate(components[0], components[1]),
-                'lon': cls._parse_coordinate(components[2], components[3]),
+                'latitude': cls._parse_coordinate(components[0], components[1]),
+                'longitude': cls._parse_coordinate(components[2], components[3]),
                 'hdop': cls._parse_hdop(components[4]),
                 'sat': cls._parse_sat(components[5]),
                 'unknown_field': int(components[6], 2),
@@ -229,7 +260,5 @@ class SigfoxPayloadParser:
         return int(bits, 2)
 
 
-if __name__ == '__main__':
-    sigfox_payload = '80aed31501e97f8d3470e200'
-    print(SigfoxPayloadParser.parse(sigfox_payload))
-
+class ParseException(Exception):
+    pass
