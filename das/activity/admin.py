@@ -278,6 +278,8 @@ class NotificationMethodAdmin(admin.ModelAdmin):
 
 @admin.register(models.RefreshRecreateEventDetailView)
 class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
+    # NOTE: This class relies on celery.
+    
     change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
     list_display = ('performed_by', 'refresh_at', 'recreated_at', 'maintenance_status')
     enable_change_view = False
