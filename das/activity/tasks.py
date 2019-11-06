@@ -1,5 +1,7 @@
+import pytz
 import logging
 
+from datetime import datetime, timedelta
 from celery_once import QueueOnce
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 
@@ -94,6 +96,13 @@ def refresh_event_details_views_task(self):
     # run the scheduler if and only-if view exist.
     status = RefreshRecreateEventDetailView.REFRESH
 
+    # Remove records older than 15-days
+    minimum_data = minimum_date = pytz.utc.localize(datetime.utcnow()) - timedelta(days=15)
+    queryset = RefreshRecreateEventDetailView.objects.filter(refresh_at__lte=minimum_date)
+
+    if queryset:
+        queryset.delete()
+
     if check_db_view_exists():
         task = refresh_event_details_views.delay()
 
@@ -107,4 +116,4 @@ def refresh_event_details_views_task(self):
         if task.state == 'RETRY':
             RefreshRecreateEventDetailView.objects.refresh(activity='Celery', status=status)
     else:
-        logger.info("{} has not be created.".format('event_details_view'))
+        logger.info("{} has not been created.".format('event_details_view'))

@@ -24,9 +24,8 @@ def generate_DDL():
 
     fieldset = set()
     schema_accumulator = load_schema()
-    for a, b in generate_field_details(schema_accumulator):
-        path = ','.join(a)
-        fielddef = f'(data#>>\'{{{path}}}\')::{b} as "{a[1]}"'
+    for json_path, data_type in generate_field_details(schema_accumulator):
+        fielddef = query_statement(json_path, data_type)
         fieldset.add(fielddef)
     lines.append(',\n'.join(fieldset))
     lines.append(' from activity_eventdetails ed ')
@@ -35,6 +34,17 @@ def generate_DDL():
     # lines.append(' with no data ')
 
     return lines
+
+
+def query_statement(json_path, data_type):
+    array_path = ','.join([json_path[0], json_path[1]])
+    path = ','.join(json_path)
+
+    if data_type == 'TEXT[]':
+        query_string = f"case when jsonb_typeof(data#> '{{{array_path}}}') = 'array' then array(select jsonb_array_elements(data#>'{{{array_path}}}')->>'name') end as {json_path[1]}"
+    else:
+        query_string = f'(data#>>\'{{{path}}}\')::{data_type} as "{json_path[1]}"'
+    return query_string
 
 
 def _cursor():
@@ -81,21 +91,25 @@ def generate_field_details(schema_accumulator):
     for k, v in schema_accumulator.items():
         properties = v['schema']['properties']
 
-        for propkey, propval in properties.items():
+        for prop_key, prop_val in properties.items():
 
-            proptype = propval.get('type', '')
-            prophash = f'{propkey}:{proptype}'
-            if prophash in used_properties:
+            prop_type = prop_val.get('type', '')
+            prop_hash = f'{prop_key}:{prop_type}'
+            if prop_hash in used_properties:
                 continue
-            used_properties.add(prophash)
+            used_properties.add(prop_hash)
 
-            propkey = f"{propkey}"
-            if propval.get('enum'):
-                if propval.get('type') == 'string':
-                    yield ('ed.event_details', propkey, 'name'), 'TEXT'
+            prop_key = f"{prop_key}"
+            if prop_val.get('enum'):
+                if prop_val.get('type') == 'string':
+                    yield ('event_details', prop_key, 'name'), 'TEXT'
 
-            elif propval.get('type') == 'string':
-                yield ('ed.event_details', propkey), 'TEXT'
 
-            elif propval.get('type') == 'number':
-                yield ('ed.event_details', propkey), 'NUMERIC'
+            elif prop_val.get('type') == 'string':
+                yield ('event_details', prop_key), 'TEXT'
+
+            elif prop_val.get('type') == 'number':
+                yield ('event_details', prop_key), 'NUMERIC'
+
+            elif bool({'checkboxes', 'array'} & set(prop_val.values())):
+                yield ('event_details', prop_key, 'name'), 'TEXT[]'
