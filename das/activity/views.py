@@ -583,8 +583,9 @@ class EventsView(generics.ListCreateAPIView):
             serializer = self.get_serializer(data=new_record, many=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    serializer.data, status=status.HTTP_201_CREATED)
+                data = serializer.data
+                data = data if len(new_record) > 1 else data[0]
+                return Response(data, status=status.HTTP_201_CREATED)
             else:
                 errors.append(serializer.errors)
                 for error in errors:

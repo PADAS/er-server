@@ -257,8 +257,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data[0]
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
     def test_create_multiple_events_on_a_single_api_call(self):
@@ -319,8 +318,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data[0]
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
     def test_create_new_message_only_event(self):
@@ -332,8 +330,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data[0]
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
     def test_add_note(self):
@@ -428,8 +425,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data[0]
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
     def test_create_event_and_upload_document(self):
@@ -443,11 +439,10 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data[0]
-
+        
         event_data['id'] = None
 
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertTrue(response_data['id'] is not None)
 
         my_event_id = response_data['id']
@@ -563,11 +558,9 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data[0]
-
         event_data['id'] = None
 
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertTrue(response_data['id'] is not None)
 
         my_event_id = response_data['id']
@@ -806,12 +799,9 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data[0]
-        collection_id = response_data['id']
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        collection_id = response.data['id']
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
-
-        
 
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
@@ -822,9 +812,8 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data[0]
-        report_id = response_data['id']
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        report_id = response.data['id']
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
         rel_data = {'to_event_id': report_id, 'type': 'contains'}
@@ -846,7 +835,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        event = response.data[0]
+        event = response.data
         self.assertEqual(len(event_data['contains']), len(event['contains']))
         self.assertEqual(event_data['contains'][0]['message'],
                          event['contains'][0]['related_event']['message'])
@@ -891,7 +880,7 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-        event_id = response.data[0]['id']
+        event_id = response.data['id']
 
         update_data = {'event_details': event_data['event_details']}
         update_data['event_details']['carcassrep_species'] = 'baboon'
@@ -996,7 +985,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data[0]
+        response_data = response.data
         collection_serial_number = response_data.get('serial_number')
         collection_id = response_data['id']
         response_data = {k: response_data[k]
@@ -1012,9 +1001,8 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data[0]
-        report_id = response_data['id']
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        report_id = response.data['id']
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
         
         rel_data = {'to_event_id': report_id, 'type': 'contains'}
@@ -1143,8 +1131,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data[0]
-        self.assertEqual(len(response_data), 0)
+        self.assertEqual(len(response.data), 0)
 
     def test_radio_room_operator_permissions(self):
         results = self.do_all_operations_on_all_event_types(
