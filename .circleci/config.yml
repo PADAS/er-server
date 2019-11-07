@@ -71,7 +71,7 @@ jobs:
       - setup_remote_docker
       - docker_login
       - checkout
-      - run: 'cd circleci-docker && make generate_manifest semver_metadata_suffix=$CIRCLE_SHA'
+      - run: 'cd circleci-docker && make generate_manifest semver_metadata_suffix=$CIRCLE_SHA1'
   docker_build:
     docker:
       - image: circleci/buildpack-deps:stretch
