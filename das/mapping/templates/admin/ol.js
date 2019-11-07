@@ -58,14 +58,28 @@ var modify_wkt = function(event) {
 };
 
 
-{{ module }}.clearFeatures = function (){
-    source.clear()
-    document.getElementById('{{ id }}').value = '';
-    {% localize off %}
-    map.getView().setCenter(ol.proj.transform([{{ default_lon}}, {{ default_lat}}], 'EPSG:4326', 'EPSG:3857'));
-    map.getView().setZoom({{ default_zoom }});
-    {% endlocalize %}
+{{ module }}.showHideWKT = function (){
+    var aTag = document.querySelector('.click-toggle');
+    if (aTag.innerHTML == 'Show'){
+        textArea = document.getElementById("{{ id }}")
+        textArea.style.display = 'block';
+        aTag.innerHTML = 'Hide'
+
+    } else if  (aTag.innerHTML == 'Hide'){
+        textArea = document.getElementById("{{ id }}")
+        textArea.style.display = 'none';
+        aTag.innerHTML = 'Show'
+
+    }
 };
+
+
+    // source.clear()
+    // document.getElementById('{{ id }}').value = '';
+    // {% localize off %}
+    // map.getView().setCenter(ol.proj.transform([{{ default_lon}}, {{ default_lat}}], 'EPSG:4326', 'EPSG:3857'));
+    // map.getView().setZoom({{ default_zoom }});
+    // {% endlocalize %}
 
 
 // var map = new ol.Map('id_feature_geometry_map', options)
@@ -191,8 +205,11 @@ button_delete.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-fi
 
 var deleteFeatures = function (e) {
     e.preventDefault();
+    result = confirm("Want to clear all features?");
+    if (result){
     source.clear();
     document.getElementById('{{ id }}').value = '';
+    }
 };
 
 button_delete.addEventListener('click', deleteFeatures, false);

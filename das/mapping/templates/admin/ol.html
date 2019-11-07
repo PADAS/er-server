@@ -60,10 +60,10 @@
     {% block openlayers %}{% include "admin/ol.js" %}{% endblock %}
     </script>
     <div id="{{ id }}_map"{% if LANGUAGE_BIDI %} dir="ltr"{% endif %}></div>
-    {% if editable %}
-    <a href="javascript:{{ module }}.clearFeatures()">{% trans "Delete all Features" %}</a>
-    {% endif %}
-    {% if display_wkt %}<p>{% trans "WKT debugging window:" %} </p>{% endif %}
-    <textarea id="{{ id }}" class="vWKTField required" cols="150" rows="10" name="{{ name }}">{{ wkt }}</textarea>
+    <!-- {% if editable %} -->
+    <!-- <a href="javascript:{{ module }}.clearFeatures()">{% trans "Delete all Features" %}</a> -->
+    <!-- {% endif %} -->
+    {% if display_wkt %}<p style="color: #777;">{% trans "WKT debugging window:" %} (<span><a class="click-toggle" href="javascript:{{ module }}.showHideWKT()">Show</a></span>) </p>{% endif %}
+    <textarea id="{{ id }}" class="vWKTField required" cols="150" rows="10" name="{{ name }}" style="display: none;">{{ wkt }}</textarea>
     <script type="text/javascript">{% block init_function %}{{ module }}.init();{% endblock %}</script>
 </span>
