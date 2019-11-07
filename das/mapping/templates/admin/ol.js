@@ -15,8 +15,6 @@ var {{ module }} = {};
 {% endblock %}
 
 
-
-
 {{ module }}.init = function() {
 
     {% block map_options %}// The options hash, w/ zoom, resolution, and projection settings.
