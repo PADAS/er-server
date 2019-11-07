@@ -1,5 +1,10 @@
 version: 2.1
 commands:
+  add_deploy_key_for_common_terraform_modules:
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "ca:a6:a4:87:70:0b:8c:92:b5:06:65:00:13:4d:c9:c4"
   docker_login:
     steps:
       - run: echo "$GCR_PUSH_KEY" | docker login --username _json_key --password-stdin https://gcr.io
@@ -16,6 +21,7 @@ commands:
         default: "-input=false -out=tfplan"
     steps:
       - 'checkout'
+      - 'add_deploy_key_for_common_terraform_modules'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_init init_args="<< parameters.init_args >>"'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_workspace_select terraform_workspace="<< parameters.terraform_workspace >>"'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_plan plan_args="<< parameters.plan_args >>"'
@@ -30,6 +36,7 @@ commands:
         type: string
         default: "-input=false tfplan"
     steps:
+      - 'add_deploy_key_for_common_terraform_modules'
       - attach_workspace:
           at: './'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_apply apply_args="<< parameters.apply_args >>"'
