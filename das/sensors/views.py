@@ -12,6 +12,7 @@ from sensors.handlers import GsatHandler, GenericSensorHandler,\
     SigFoxPushHandler, GFWAlertHandler
 
 from sensors.camera_trap import CameraTrapSensorHandler
+from sensors.sigfox_foundation_push_handler import SigfoxFoundationPushHandler
 from observations.serializers import ObservationSerializer
 
 from utils.stats import increment
@@ -66,6 +67,10 @@ class SensorObservation(generics.GenericAPIView):
 
         elif sensor_type == GFWAlertHandler.SENSOR_TYPE:
             return GFWAlertHandler.post(request, provider_key=provider_key)
+
+        elif sensor_type == SigfoxFoundationPushHandler.SENSOR_TYPE:
+            return SigfoxFoundationPushHandler.post(request, sensor_type=sensor_type,
+                                                    provider_key=provider_key)
         else:
             return GenericSensorHandler.post(request, sensor_type=sensor_type, 
                                                 provider_key=provider_key)
