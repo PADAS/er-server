@@ -8,16 +8,17 @@ SHELL := /usr/bin/env sh
 base_image_name := gcr.io/padas-app/circleci/das-base
 tag ?= tag-not-provided-$(shell date +%s)
 
-server_semver_stem := $(shell cat $(CURDIR)/SERVER_VERSION)
-web_semver_stem := $(shell cat $(CURDIR)/WEB_VERSION)
+server_semver_stem := $(shell cat $(CURDIR)/../SERVER_VERSION)
+web_semver_stem := $(shell cat $(CURDIR)/../WEB_VERSION)
 semver_metadata_suffix ?= beta-$(shell date +%s)
 server_full_semver ?= $(server_semver_stem)-$(semver_metadata_suffix)
 web_full_semver ?= $(web_semver_stem)-$(semver_metadata_suffix)
 
-manifest_file := $(CURDIR)/../GENERATED_MANIFEST
+manifest_file := GENERATED_MANIFEST
 server_manifest_key := SERVER_VERSION
 web_manifest_key := WEB_VERSION
 manifest_wip_file := $(manifest_file).local
+manifest_path := $(CURDIR)/../
 
 .PHONY: help
 help: ## show this help
@@ -39,10 +40,8 @@ earthranger_api_build_and_push: ## Develop branch: Build the Docker EarthRanger 
 
 .PHONY: generate_manifest
 generate_manifest: semver_metadata_suffix ?=
-generate_manifest: git_directory ?=
 generate_manifest:
-	@ cd "$(git_directory)" && \
-	printf "%s = \"%s\"""\n%s = \"%s\"" "$(server_manifest_key)" "$(server_full_semver)" "$(web_manifest_key)" "$(web_full_semver)" > "$(manifest_wip_file)"
+	printf "%s = \"%s\"""\n%s = \"%s\"" "$(server_manifest_key)" "$(server_full_semver)" "$(web_manifest_key)" "$(web_full_semver)" > "$(manifest_path)$(manifest_wip_file)"
 
 .PHONY: commit_and_push_manifest
 commit_and_push_manifest: server_branch_name ?=

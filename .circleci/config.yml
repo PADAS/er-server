@@ -64,6 +64,14 @@ jobs:
     executor: 'default'
     steps:
       - terraform_apply
+  generate_manifest:
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - setup_remote_docker
+      - docker_login
+      - checkout
+      - run: 'cd circleci-docker && make generate_manifest semver_metadata_suffix=$CIRCLE_SHA'
   docker_build:
     docker:
       - image: circleci/buildpack-deps:stretch
@@ -93,6 +101,7 @@ workflows:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
+      - generate_manifest
       - docker_build:
           filters:
             branches:
