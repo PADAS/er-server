@@ -10,5 +10,9 @@ provider "vault" {
 }
 
 provider "tls" {
-  tls    = ">= 2.0"
+  version    = ">= 2.0"
+}
+
+provider "google-beta" {
+  version = ">= 2.11"
 }
