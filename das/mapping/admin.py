@@ -124,9 +124,9 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     search_fields = ('name', )
     map_srid = 4326
     display_wkt = True
-    num_zoom = 3
     point_zoom = 18
     default_zoom = 3
+    units = 'degrees'
 
     widget = OlWidget
 

@@ -112,9 +112,10 @@ var vector = new ol.layer.Vector({
 
 var map = new ol.Map({
     view: new ol.View({
-        center: [0, 0],
+        center: ol.proj.transform([0, 0], 'EPSG:4326', 'EPSG:3857'),
         maxResolution: options.maxResolution,
         zoom: options.numZoomLevels,
+
         projection: options.projection.projection_,
         extend: options.maxExtent,
     }),
@@ -271,8 +272,7 @@ if(wkt) {
     map.getView().fit(extent, map.getSize());
 
     if (source.getFeatures()[0].getGeometry().getType() == 'Point'){
-        console.log({{ point_zoom }});
-        map.getView().setZoom({{ point_zoom }});
+        map.getView().setZoom(map.getView().getZoom()-8);
 
     };
 };
