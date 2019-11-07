@@ -81,7 +81,7 @@ class GenericSensorHandler:
         if bulk_serializer.is_valid():
             bulk_serializer.save()
         else:
-            errors.append(bulk_serializer.errors())
+            errors.append(bulk_serializer.errors)
 
         transaction.on_commit(notify_tracks_listeners)
 

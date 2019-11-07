@@ -53,8 +53,7 @@ class SigfoxFoundationPushHandler:
         parsed_data = SigfoxPayloadParser.parse(data)
         if parsed_data:
             device_id = payload.pop('deviceId')
-            src = Source.objects.ensure_source(sensor_type,
-                                               provider=provider_key,
+            src = Source.objects.ensure_source(provider=provider_key,
                                                manufacturer_id=device_id,
                                                subject={
                                                    'subject_subtype_id': cls.DEFAULT_SUBJECT_SUBTYPE,
@@ -101,8 +100,7 @@ class SigfoxFoundationPushHandler:
         latitude = computed_location.pop('lat')
         longitude = computed_location.pop('lng')
 
-        src = Source.objects.ensure_source(sensor_type,
-                                           provider=provider_key,
+        src = Source.objects.ensure_source(provider=provider_key,
                                            manufacturer_id=device_id,
                                            subject={
                                                'subject_subtype_id': cls.DEFAULT_SUBJECT_SUBTYPE,
@@ -110,8 +108,6 @@ class SigfoxFoundationPushHandler:
                                            })
 
         recorded_at = datetime.fromtimestamp(payload.pop('time')).isoformat()
-        # search for src, recorded_time, & seqNumber to find observation to update.
-        # then compare location for dup detection
         try:
             existing_observation = Observation.objects.get(source=src, recorded_at=recorded_at)
         except Observation.DoesNotExist:
@@ -138,10 +134,22 @@ class SigfoxFoundationPushHandler:
                 logger.error('Invalid observation', observation)
                 return Response(data=validator.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
-            existing_observation.location = Point(longitude, latitude)
-            existing_observation.additional.update(**payload, **computed_location)
-            existing_observation.save(update_fields=['location', 'additional'])
-            return Response(data=dict(message='Updated metadata in existing observation'),
+            update_fields = []
+            rsp_message = ''
+            updated_additional = {**payload, **computed_location}
+            updated_location = Point(longitude, latitude)
+            if updated_additional != existing_observation.additional:
+                existing_observation.additional = updated_additional
+                update_fields.append('additional')
+            if updated_location.coords != existing_observation.location.coords:
+                existing_observation.location = updated_location
+                update_fields.append('location')
+
+            if update_fields:
+                rsp_message = 'Updated existing observation'
+                existing_observation.save(update_fields=update_fields)
+
+            return Response(data=dict(message=rsp_message),
                             status=status.HTTP_200_OK)
 
 
@@ -151,7 +159,6 @@ class SigfoxPayloadParser:
     # https://vulcan.atlassian.net/browse/DAS-4392
 
     BYTE_PATTERN = '.{1,2}'
-    # sigfox_frame_pattern = '(.{1})(.{31})(.{1})(.{31})(.{2})(.{2})(.{4})(.{4})(.{4})(.{8})(.{8})'
     SIGFOX_PAYLOAD_PATTERN = '(.)(.{31})(.)(.{31})(.{2})(.{2})(.{4})(.{4})(.{4})(.{8})(.{8})'
 
     byte_re = re.compile(BYTE_PATTERN)

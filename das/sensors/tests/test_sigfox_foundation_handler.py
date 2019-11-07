@@ -77,6 +77,79 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
             self.assertEqual(observation.id, updated_observation.id)
             self._verify_data_advanced_rsp(updated_observation, advanced)
 
+    def test_duplicate_uplink(self):
+        uplink, _ = DATA_PAIRS[0]
+        rsp = self._post_data(json.dumps(uplink))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source__manufacturer_id__exact=uplink['deviceId']).count())
+
+        posted_again = self._post_data(json.dumps(uplink))
+        self.assertIsNotNone(posted_again)
+        self.assertEqual(posted_again.status_code, status.HTTP_200_OK)
+        self.assertEqual(1, Observation.objects.filter(source__manufacturer_id__exact=uplink['deviceId']).count())
+
+    def test_dupllicate_advanced(self):
+        _, advanced = DATA_PAIRS[0]
+        rsp = self._post_data(json.dumps(advanced))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source__provider__provider_key=self.PROVIDER_KEY).count())
+
+        posted_again = self._post_data(json.dumps(advanced))
+        self.assertIsNotNone(posted_again)
+        self.assertEqual(1, Observation.objects.filter(source__provider__provider_key=self.PROVIDER_KEY).count())
+
+    def test_advanced_updated_location(self):
+        _, advanced = DATA_PAIRS[2]
+        rsp = self._post_data(json.dumps(advanced))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
+        obs = Observation.objects.get(source__manufacturer_id=advanced['deviceId'])
+        self._verify_data_advanced_rsp(obs, advanced)
+
+        advanced['computedLocation']['lat'] = 0
+        advanced['computedLocation']['lng'] = 0
+        posted_again = self._post_data(json.dumps(advanced))
+        self.assertIsNotNone(posted_again)
+        self.assertEqual(posted_again.status_code, status.HTTP_200_OK)
+        updated_obs = Observation.objects.get(source__manufacturer_id=advanced['deviceId'])
+        self._verify_data_advanced_rsp(updated_obs, advanced)
+
+    def test_advanced_updated_additional(self):
+        _, advanced = DATA_PAIRS[2]
+        rsp = self._post_data(json.dumps(advanced))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
+        obs = Observation.objects.get(source__manufacturer_id=advanced['deviceId'])
+        self._verify_data_advanced_rsp(obs, advanced)
+
+        advanced['computedLocation']['lat'] = 0
+        advanced['computedLocation']['lng'] = 0
+        advanced['computedLocation']['radius'] = 0
+        advanced['computedLocation']['source'] = 0
+        posted_again = self._post_data(json.dumps(advanced))
+        self.assertIsNotNone(posted_again)
+        self.assertEqual(posted_again.status_code, status.HTTP_200_OK)
+        updated_obs = Observation.objects.get(source__manufacturer_id=advanced['deviceId'])
+        self._verify_data_advanced_rsp(updated_obs, advanced)
+
+    def test_advanced_updated_location_additional(self):
+        _, advanced = DATA_PAIRS[2]
+        rsp = self._post_data(json.dumps(advanced))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
+        obs = Observation.objects.get(source__manufacturer_id=advanced['deviceId'])
+        self._verify_data_advanced_rsp(obs, advanced)
+
+        advanced['computedLocation']['radius'] = 0
+        advanced['computedLocation']['source'] = 0
+        posted_again = self._post_data(json.dumps(advanced))
+        self.assertIsNotNone(posted_again)
+        self.assertEqual(posted_again.status_code, status.HTTP_200_OK)
+        updated_obs = Observation.objects.get(source__manufacturer_id=advanced['deviceId'])
+        self._verify_data_advanced_rsp(updated_obs, advanced)
+
     def _verify_data_advanced_rsp(self, observation, test_data):
         self.assertIsNotNone(observation)
         location = Point(test_data['computedLocation']['lng'], test_data['computedLocation']['lat'])
