@@ -88,7 +88,7 @@ class SigfoxFoundationPushHandler:
                 validator.save()
                 return Response(data=validator.data.get('id'), status=status.HTTP_201_CREATED)
             else:
-                logger.error('Invalid observation', observation)
+                logger.error('Invalid observation %s', observation)
                 return Response(data=validator.errors, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(data=dict(message='Unable to parse data'), status=status.HTTP_400_BAD_REQUEST)
@@ -131,7 +131,7 @@ class SigfoxFoundationPushHandler:
                 validator.save()
                 return Response(data=validator.data.get('id'), status=status.HTTP_201_CREATED)
             else:
-                logger.error('Invalid observation', observation)
+                logger.error('Invalid observation %s', observation)
                 return Response(data=validator.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
             update_fields = []
