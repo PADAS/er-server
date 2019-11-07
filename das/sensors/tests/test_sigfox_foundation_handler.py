@@ -1,4 +1,5 @@
 import json
+import copy
 
 from rest_framework import status
 from django.contrib.gis.geos import Point
@@ -57,7 +58,6 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
             self._verify_data_advanced_rsp(observation, data_advanced)
 
     def test_uplink_then_advanced(self):
-
         for (uplink, advanced) in DATA_PAIRS:
             device_id = uplink['deviceId']
             uplink_rsp = self._post_data(json.dumps(uplink))
@@ -89,7 +89,7 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
         self.assertEqual(posted_again.status_code, status.HTTP_200_OK)
         self.assertEqual(1, Observation.objects.filter(source__manufacturer_id__exact=uplink['deviceId']).count())
 
-    def test_dupllicate_advanced(self):
+    def test_duplicate_advanced(self):
         _, advanced = DATA_PAIRS[0]
         rsp = self._post_data(json.dumps(advanced))
         self.assertIsNotNone(rsp)
@@ -149,6 +149,77 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
         self.assertEqual(posted_again.status_code, status.HTTP_200_OK)
         updated_obs = Observation.objects.get(source__manufacturer_id=advanced['deviceId'])
         self._verify_data_advanced_rsp(updated_obs, advanced)
+
+    def test_bad_msgs(self):
+        uplink, advanced = DATA_PAIRS[0]
+        bad_msg = copy.deepcopy(uplink)
+        bad_msg.pop('deviceId')
+        rsp = self._post_data(json.dumps(bad_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        bad_msg = copy.deepcopy(uplink)
+        bad_msg.pop('time')
+        rsp = self._post_data(json.dumps(bad_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        bad_msg = copy.deepcopy(uplink)
+        bad_msg.pop('seqNumber')
+        rsp = self._post_data(json.dumps(bad_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        bad_msg = copy.deepcopy(uplink)
+        bad_msg.pop('data')
+        rsp = self._post_data(json.dumps(bad_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        bad_msg = copy.deepcopy(uplink)
+        bad_msg['data'] = '80aed31501e97f8d3470e2'
+        rsp = self._post_data(json.dumps(bad_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        bad_msg = copy.deepcopy(uplink)
+        bad_msg['data'] = '80aed31501e97f8d3470e2rt'
+        rsp = self._post_data(json.dumps(bad_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        bad_msg = copy.deepcopy(uplink)
+        bad_msg.pop('reception')
+        rsp = self._post_data(json.dumps(bad_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
+
+        bad_msg = copy.deepcopy(advanced)
+        bad_msg.pop('computedLocation')
+        rsp = self._post_data(json.dumps(bad_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        bad_msg = copy.deepcopy(advanced)
+        computed_location = bad_msg.get('computedLocation')
+        computed_location.pop('lat')
+        rsp = self._post_data(json.dumps(bad_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        bad_msg = copy.deepcopy(advanced)
+        computed_location = bad_msg.get('computedLocation')
+        computed_location.pop('lng')
+        rsp = self._post_data(json.dumps(bad_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        bad_msg = copy.deepcopy(advanced)
+        computed_location = bad_msg.get('computedLocation')
+        computed_location.pop('radius')
+        rsp = self._post_data(json.dumps(bad_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_200_OK)
 
     def _verify_data_advanced_rsp(self, observation, test_data):
         self.assertIsNotNone(observation)
