@@ -8,3 +8,7 @@ provider "vault" {
   skip_tls_verify = "true"
   version         = ">= 2.1"
 }
+
+provider "tls" {
+  tls    = ">= 2.0"
+}
