@@ -1,4 +1,5 @@
 import pytz
+import time
 import logging
 
 from datetime import datetime, timedelta
@@ -108,6 +109,7 @@ def refresh_event_details_views_task(self):
 
         while not task.ready():
             logger.info(f'State={task.state}, info={task.info}')
+            time.sleep(0.5)
 
         if task.state == 'SUCCESS':
             RefreshRecreateEventDetailView.objects.refresh(activity='Celery', status=status)
