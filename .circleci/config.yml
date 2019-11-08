@@ -75,15 +75,19 @@ jobs:
       - persist_to_workspace:
           root: './'
           paths:
-            - '*'
+            - './GENERATED_MANIFEST.local'
   docker_build:
     docker:
       - image: circleci/buildpack-deps:stretch
     steps:
+      - attach_workspace:
+          at: './'
       - setup_remote_docker
       - docker_login
       - checkout
       - run: 'cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH'
+      - persist_to_workspace:
+          root: './'
   commit_and_push_manifest:
     docker:
       - image: circleci/buildpack-deps:stretch
