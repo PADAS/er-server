@@ -44,11 +44,7 @@ generate_manifest:
 	printf "%s = \"%s\"""\n%s = \"%s\"" "$(server_manifest_key)" "$(server_full_semver)" "$(web_manifest_key)" "$(web_full_semver)" > "$(manifest_path)$(manifest_wip_file)"
 
 .PHONY: commit_and_push_manifest
-commit_and_push_manifest: server_branch_name ?=
-commit_and_push_manifest: git_directory ?=
 commit_and_push_manifest: # this should only be run by the build server
-	git config --global user.email "circle.build@localhost" && git config --global user.name "CircleCi" && \
-	git config --global push.default simple && \
 	git diff --quiet --exit-code || (printf "\nthere are uncommitted changes... will not commit manifest\n" >&2; exit 1) && \
 	cp $(manifest_path)$(manifest_wip_file) $(manifest_path)$(manifest_file) && \
 	if git diff --exit-code $(manifest_path)$(manifest_file); then (printf "\nno changes to the manifest... nothing to do\n" >&2; exit 0); else git add $(manifest_path)$(manifest_file) && git commit -m '[ci skip] robo-bump manifest' && git push && echo 'successful push';fi

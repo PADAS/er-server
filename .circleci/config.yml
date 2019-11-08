@@ -1,5 +1,13 @@
 version: 2.1
 commands:
+  configure_git_for_commit_and_push:
+    steps:
+      - run: 'git config user.email "circleci@vulcan.com"'
+      - run: 'git config user.name "circleci"'
+      - run: 'git config push.default current'
+      - add_ssh_keys:
+          fingerprints:
+            - ''
   docker_login:
     steps:
       - run: echo "$GCR_PUSH_KEY" | docker login --username _json_key --password-stdin https://gcr.io
@@ -99,6 +107,7 @@ jobs:
       - setup_remote_docker
       - docker_login
       - checkout
+      - configure_git_for_commit_and_push
       - run: 'cd circleci-docker && make commit_and_push_manifest'
 workflows:
   version: 2
