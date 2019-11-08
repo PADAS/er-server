@@ -80,6 +80,14 @@ jobs:
       - docker_login
       - checkout
       - run: 'cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH'
+  commit_and_push_manifest:
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - setup_remote_docker
+      - docker_login
+      - checkout
+      - run: 'cd circleci-docker && make commit_and_push_manifest'
 workflows:
   version: 2
   build_and_terraform_dev:
@@ -108,6 +116,7 @@ workflows:
               ignore:
                 - 'develop'
                 - /release*/
+      - commit_and_push_manifest
       - terraform_plan_dev:
           requires:
             - 'docker_build'

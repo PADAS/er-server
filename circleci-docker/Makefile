@@ -47,9 +47,15 @@ generate_manifest:
 commit_and_push_manifest: server_branch_name ?=
 commit_and_push_manifest: git_directory ?=
 commit_and_push_manifest: # this should only be run by the build server
-	@ cd "$(git_directory)" && git checkout "$(server_branch_name)" && \
 	git config --global user.email "circle.build@localhost" && git config --global user.name "CircleCi" && \
 	git config --global push.default simple && \
 	git diff --quiet --exit-code || (printf "\nthere are uncommitted changes... will not commit manifest\n" >&2; exit 1) && \
 	cp $(manifest_wip_file) $(manifest_file) && \
 	if git diff --exit-code $(manifest_file); then (printf "\nno changes to the manifest... nothing to do\n" >&2; exit 0); else git add $(manifest_file) && git commit -m '[ci skip] robo-bump manifest' && git push && echo 'successful push';fi
+
+
+# .PHONY: commit_and_push_manifest
+# commit_and_push_manifest: # this should only be run by the build server
+# 	git diff --quiet --exit-code || (printf "\nthere are uncommitted changes... will not commit manifest\n" >&2; exit 1)
+# 	cp $(manifest_wip_file) $(manifest_file)
+# 	if git diff --exit-code $(manifest_file); then (printf "\nno changes to the manifest... nothing to do\n" >&2; exit 0); else git add $(manifest_file) && git commit -m '[ci skip] robo-bump manifest' && git push;fi
