@@ -75,7 +75,7 @@ jobs:
       - persist_to_workspace:
           root: './'
           paths:
-            - './GENERATED_MANIFEST.local'
+            - '*'
   docker_build:
     docker:
       - image: circleci/buildpack-deps:stretch
