@@ -118,7 +118,7 @@ workflows:
               ignore:
                 - 'develop'
                 - /release*/
-      - commit_and_push_manifest
+      - commit_and_push_manifest:
           requires:
             - 'docker_build'
       - terraform_plan_dev:
