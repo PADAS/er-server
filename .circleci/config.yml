@@ -111,12 +111,16 @@ workflows:
     jobs:
       - generate_manifest
       - docker_build:
+          requires:
+            - 'generate_manifest'
           filters:
             branches:
               ignore:
                 - 'develop'
                 - /release*/
       - commit_and_push_manifest
+          requires:
+            - 'docker_build'
       - terraform_plan_dev:
           requires:
             - 'docker_build'
