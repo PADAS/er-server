@@ -88,6 +88,8 @@ jobs:
       - run: 'cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH'
       - persist_to_workspace:
           root: './'
+          paths:
+            - '*'
   commit_and_push_manifest:
     docker:
       - image: circleci/buildpack-deps:stretch
