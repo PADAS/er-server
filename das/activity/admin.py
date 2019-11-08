@@ -1,4 +1,5 @@
 import logging
+import time
 
 from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
@@ -279,7 +280,7 @@ class NotificationMethodAdmin(admin.ModelAdmin):
 @admin.register(models.RefreshRecreateEventDetailView)
 class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     # NOTE: This class relies on celery.
-    
+
     change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
     list_display = ('performed_by', 'refresh_at', 'recreated_at', 'maintenance_status')
     enable_change_view = False
@@ -298,8 +299,10 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
     def manage_task_status(self, request, task, status, qs_method, name):
         action = 'Admin'
+        
         while not task.ready():
             logger.info(f'State={task.state}, info={task.info}')
+            time.sleep(0.5)
 
         if task.state == 'SUCCESS':
             qs_method(activity=action, status=status)
