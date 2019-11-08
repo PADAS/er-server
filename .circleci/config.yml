@@ -7,7 +7,7 @@ commands:
       - run: 'git config push.default current'
       - add_ssh_keys:
           fingerprints:
-            - ''
+            - 'fc:dc:b0:e5:df:23:4f:fd:3a:8b:7e:d2:1e:b4:6d:bd'
   add_deploy_key_for_common_terraform_modules:
     steps:
       - add_ssh_keys:
