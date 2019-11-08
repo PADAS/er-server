@@ -1,33 +1,33 @@
 locals {
-  is_production = (terraform.workspace == "prod")
-  dev_subnetwork_name = data.terraform_remote_state.terraform_gcp.outputs.dev_us_west_1_subnetwork_name
+  is_production        = (terraform.workspace == "prod")
+  dev_subnetwork_name  = data.terraform_remote_state.terraform_gcp.outputs.dev_us_west_1_subnetwork_name
   prod_subnetwork_name = data.terraform_remote_state.terraform_gcp.outputs.prod_europe_west_3_subnetwork_name
 
 
-  dev_network_name = data.terraform_remote_state.terraform_gcp.outputs.dev_network_name
+  dev_network_name  = data.terraform_remote_state.terraform_gcp.outputs.dev_network_name
   prod_network_name = data.terraform_remote_state.terraform_gcp.outputs.prod_network_name
 
   subnetwork_name = local.is_production ? local.prod_subnetwork_name : local.dev_subnetwork_name
-  network_name = local.is_production ? local.prod_network_name : local.dev_network_name
+  network_name    = local.is_production ? local.prod_network_name : local.dev_network_name
 
   bastion_server_count = var.need_bastion_server ? 1 : 0
-  bastion_server_user = "bastion_server"
+  bastion_server_user  = "bastion_server"
 }
 
 
 # CircleCI needs to connect to bastion server
 resource "google_compute_firewall" "public_to_bastion_server" {
-  count = local.bastion_server_count
+  count    = local.bastion_server_count
   provider = google-beta
 
-  direction               = "INGRESS"
-  disabled                = false
-  enable_logging          = true
-  name                    = "public-to-bastion-server"
-  network                 = local.network_name
-  priority                = var.firewall_priority_threshold - 1
-  project                 = data.google_project.earthranger.project_id
-  target_tags             = ["psql-bastion-server-${terraform.workspace}"]
+  direction      = "INGRESS"
+  disabled       = false
+  enable_logging = true
+  name           = "public-to-bastion-server"
+  network        = local.network_name
+  priority       = var.firewall_priority_threshold - 1
+  project        = data.google_project.earthranger.project_id
+  target_tags    = ["psql-bastion-server-${terraform.workspace}"]
 
   allow {
     protocol = "tcp"
@@ -74,7 +74,7 @@ resource "google_compute_instance" "bastion_server" {
 
   network_interface {
 
-    subnetwork = local.subnetwork_name
+    subnetwork         = local.subnetwork_name
     subnetwork_project = data.google_project.earthranger.project_id
 
     access_config { # necessary to allocate public ip
@@ -94,13 +94,13 @@ resource "google_compute_instance" "bastion_server" {
   }
 
   provisioner "remote-exec" {
-      connection {
-        host        = google_compute_instance.bastion_server[0].network_interface.0.access_config.0.nat_ip
-        port        = "22"
-        private_key = "${tls_private_key.bastion_server.private_key_pem}"
-        type        = "ssh"
-        user        = local.bastion_server_user
-      }
+    connection {
+      host        = google_compute_instance.bastion_server[0].network_interface.0.access_config.0.nat_ip
+      port        = "22"
+      private_key = "${tls_private_key.bastion_server.private_key_pem}"
+      type        = "ssh"
+      user        = local.bastion_server_user
+    }
 
     script = "${path.root}/bastion_server_scripts/docker_install.sh"
 
