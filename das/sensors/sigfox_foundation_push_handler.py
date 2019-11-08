@@ -41,6 +41,8 @@ class SigfoxFoundationPushHandler:
             validated_data = sigfox_data.validated_data
             if validated_data.get('data'):
                 return cls.process_data_uplink(validated_data, sensor_type, provider_key)
+            elif validated_data.get('computedLocation'):
+                return Response(data=dict(message='Message received'), status=status.HTTP_200_OK)
 
         return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
 

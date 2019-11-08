@@ -43,6 +43,13 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
             observation = Observation.objects.get(source=source)
             self._verify_data_uplink_rsp(observation, data_uplink)
 
+    def test_all_data_advanced_msgs_ignored(self):
+        for (_, data_advanced) in DATA_PAIRS:
+            rsp = self._post_data(json.dumps(data_advanced))
+
+            self.assertIsNotNone(rsp)
+            self.assertEqual(rsp.status_code, status.HTTP_200_OK)
+
     def test_duplicate_uplink(self):
         uplink, _ = DATA_PAIRS[0]
         rsp = self._post_data(json.dumps(uplink))
