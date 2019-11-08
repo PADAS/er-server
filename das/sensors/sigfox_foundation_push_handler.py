@@ -3,7 +3,6 @@ import math
 import re
 from datetime import datetime
 
-from django.contrib.gis.geos import Point
 from rest_framework import serializers, status
 from rest_framework.response import Response
 
@@ -42,8 +41,6 @@ class SigfoxFoundationPushHandler:
             validated_data = sigfox_data.validated_data
             if validated_data.get('data'):
                 return cls.process_data_uplink(validated_data, sensor_type, provider_key)
-            elif validated_data.get('computedLocation'):
-                return cls.process_data_advanced(validated_data, sensor_type, provider_key)
 
         return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -64,7 +61,7 @@ class SigfoxFoundationPushHandler:
             # for data_uplink this test is sufficient for dups...
             if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
                 logger.info('Ignoring duplicate observation from %s', src)
-                return Response(data={}, status=status.HTTP_200_OK)
+                return Response(data=dict(message='Ignored duplicate message'), status=status.HTTP_200_OK)
 
             lat = parsed_data.pop('latitude')
             lon = parsed_data.pop('longitude')
@@ -92,65 +89,6 @@ class SigfoxFoundationPushHandler:
                 return Response(data=validator.errors, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(data=dict(message='Unable to parse data'), status=status.HTTP_400_BAD_REQUEST)
-
-    @classmethod
-    def process_data_advanced(cls, payload, sensor_type, provider_key):
-        device_id = payload.pop('deviceId')
-        computed_location = payload.pop('computedLocation')
-        latitude = computed_location.pop('lat')
-        longitude = computed_location.pop('lng')
-
-        src = Source.objects.ensure_source(provider=provider_key,
-                                           manufacturer_id=device_id,
-                                           subject={
-                                               'subject_subtype_id': cls.DEFAULT_SUBJECT_SUBTYPE,
-                                               'name': device_id
-                                           })
-
-        recorded_at = datetime.fromtimestamp(payload.pop('time')).isoformat()
-        try:
-            existing_observation = Observation.objects.get(source=src, recorded_at=recorded_at)
-        except Observation.DoesNotExist:
-            observation = {
-                'location': {
-                    'latitude': latitude,
-                    'longitude': longitude
-                },
-                'recorded_at': recorded_at,
-                'source': str(src.id),
-                'additional': {
-                    **payload,
-                    **computed_location
-                }
-            }
-
-            logger.debug('data_advanced', observation)
-
-            validator = ObservationSerializer(data=observation)
-            if validator.is_valid():
-                validator.save()
-                return Response(data=validator.data.get('id'), status=status.HTTP_201_CREATED)
-            else:
-                logger.error('Invalid observation %s', observation)
-                return Response(data=validator.errors, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            update_fields = []
-            rsp_message = ''
-            updated_additional = {**payload, **computed_location}
-            updated_location = Point(longitude, latitude)
-            if updated_additional != existing_observation.additional:
-                existing_observation.additional = updated_additional
-                update_fields.append('additional')
-            if updated_location.coords != existing_observation.location.coords:
-                existing_observation.location = updated_location
-                update_fields.append('location')
-
-            if update_fields:
-                rsp_message = 'Updated existing observation'
-                existing_observation.save(update_fields=update_fields)
-
-            return Response(data=dict(message=rsp_message),
-                            status=status.HTTP_200_OK)
 
 
 class SigfoxPayloadParser:
