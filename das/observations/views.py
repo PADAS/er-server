@@ -107,6 +107,23 @@ class RegionsView(generics.ListAPIView):
     serializer_class = serializers.RegionSerializer
 
 
+class InactiveSubjectsViewSchema(rest_framework.schemas.AutoSchema):
+    def get_manual_fields(self, path, method):
+        if method == 'GET':
+            extra_fields = [
+                coreapi.Field(
+                    name='include_inactive',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Include Inactive Subjects',
+                        description='Include inactive subjects in list.',
+                    )
+                ),
+            ]
+            return super().get_manual_fields(path, method) + extra_fields
+
+
 class RegionView(generics.RetrieveAPIView):
     lookup_field = 'slug'
     queryset = models.Region.objects.all()
@@ -123,6 +140,7 @@ class SubjectGroupsView(generics.ListAPIView):
     filter_backends = (create_gp_filter_class('subjectgf',
                                               ('observations.view_subjectgroup',),
                                               models.SubjectGroup),)
+    schema = InactiveSubjectsViewSchema()
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
@@ -202,16 +220,18 @@ class RegionSubjectsView(generics.ListAPIView):
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
 
+    schema = InactiveSubjectsViewSchema()
+
     def get_queryset(self):
         region = generics.get_object_or_404(models.Region.objects.all(),
                                             slug=self.kwargs['slug'])
         queryset = models.Subject.objects.all()
-        queryset = check_to_include_inactive_subjects(self.request, queryset)  
+        queryset = check_to_include_inactive_subjects(self.request, queryset)
         subjects = queryset.by_region(region).annotate_with_subjectstatus()
         return subjects
 
 
-class SubjectsViewSchema(rest_framework.schemas.AutoSchema):
+class SubjectsViewSchema(InactiveSubjectsViewSchema):
 
     def get_manual_fields(self, path, method):
         if method == 'GET':
@@ -473,6 +493,7 @@ class SubjectSourcesView(generics.ListCreateAPIView):
 
 class SourceSubjectsView(generics.ListCreateAPIView):
     serializer_class = serializers.SubjectSerializer
+    schema = InactiveSubjectsViewSchema()
 
     def get_queryset(self):
         source = generics.get_object_or_404(
@@ -480,7 +501,7 @@ class SourceSubjectsView(generics.ListCreateAPIView):
         # if not self.request.user.has_any_perms(models.Source.VIEW_SUBJECT_PERMS, source):
         #     raise PermissionDenied
         queryset = models.Subject.objects.all()
-        queryset = check_to_include_inactive_subjects(self.request, queryset)   
+        queryset = check_to_include_inactive_subjects(self.request, queryset)
         return queryset.filter(subjectsource__source=source).annotate_with_subjectstatus()
 
     def create(self, request, *args, **kwargs):
@@ -1183,7 +1204,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 else recorded_at.isoformat(),
                 dloadtime_label: created_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
                 else created_at.isoformat(),
-                'temp': item['additional'].get('temp', 0)
+                'temp': item['additional'].get('temp', item['additional'].get('temperature', 0))
                 }
         return data
 
@@ -1226,6 +1247,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
 
 class TrackingMetaDataExportView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
+    schema = InactiveSubjectsViewSchema()
 
     def get_source_details(self, format):
         """

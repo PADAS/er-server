@@ -744,10 +744,12 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         if not current_details:
             current_details = activity.models.EventDetails.objects.create(
                 event=instance, data=validated_data, update_parent_event=False)
+            logger.info(f'Event Details created successfully for event id: {instance.id}')
 
         elif current_details.data != validated_data:
             current_details.data = validated_data
             current_details.save()
+            logger.info(f'Event Details updated for event id: {instance.id}')
 
         return current_details
 

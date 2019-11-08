@@ -21,6 +21,8 @@ from django.db.models import Prefetch, Q, F, Func, Count
 from django.db.models.functions import FirstValue
 from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
 from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
+from django.db.utils import IntegrityError
+from django.db import transaction
 
 from django.urls import reverse
 from django.template import Template, Context
@@ -96,6 +98,7 @@ class EventTypesView(generics.ListAPIView):
     def get_queryset(self):
         query_params = self.request.query_params
         queryset = EventType.objects.all_sort()
+        queryset = queryset.filter(category__is_active=True)
 
         category = query_params.getlist('category', None)
         if category:
@@ -112,6 +115,7 @@ class EventCategoriesView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = EventCategory.objects.all_sort()
+        queryset = queryset.filter(is_active=True)
         return queryset
 
 
@@ -192,8 +196,12 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             eventtype.schema)
 
         parameters = {}
+        enumImages_vals = {}
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
+                icon_vals = schema_utils.get_enumImage_values(schema_field)
+                if icon_vals:
+                    enumImages_vals[schema_field['field']] = icon_vals
                 parameters[schema_field['tag']
                            ] = schema_utils.get_enum_choices(schema_field)
             elif schema_field['lookup'] == 'query':
@@ -226,7 +234,13 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             obj = Choice.objects.filter(is_active=False, field=value['field_name'])
             for o in obj:
                 inactive_choices.append(o.value)
-            schema['schema']['properties'][key]["inactive"+"_"+value['lookup']] = inactive_choices
+            if inactive_choices:
+                schema['schema']['properties'][key]["inactive"+"_"+value['lookup']] = inactive_choices
+
+        for key, value in field_schema.items():
+            for o, vals in enumImages_vals.items():
+                if value['field_name'] == o:
+                    schema['schema']['properties'][key]['enumImages'] =  vals
 
 
         return generics.views.Response(schema)
@@ -560,8 +574,26 @@ class EventsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
 
-    def get_serializer_context(self):
+    def post(self, request, *args, **kwargs):
+        new_record = request.data
+        if isinstance(new_record, dict):
+            new_record = [new_record]
+        with transaction.atomic():
+            errors = []
+            serializer = self.get_serializer(data=new_record, many=True)
+            if serializer.is_valid():
+                serializer.save()
+                data = serializer.data
+                data = data if len(new_record) > 1 else data[0]
+                return Response(data, status=status.HTTP_201_CREATED)
+            else:
+                errors.append(serializer.errors)
+                for error in errors:
+                    logger.exception(
+                        'Invalid Event type(s) provided {}'.format(error))
+                    return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def get_serializer_context(self):
         query_params = self.request.query_params \
             if self.request and hasattr(self.request, 'query_params') else {}
 

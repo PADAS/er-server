@@ -275,14 +275,16 @@ class KmkMasterLinkForm(forms.Form):
 
 
 class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
+    readonly_fields = ('_last_login',)
     ordering = ('last_name', 'first_name', 'username')
     fieldsets = (
         (None, {
             'fields': ('first_name', 'last_name', 'role',
                        'email', 'phone',
-                       'username', 'password')
+                       'username', 'password', '_last_login',)
         }),
-        ('Additional JSON Fields', {
+        ('Advanced Attributes', {
+            'classes': ('collapse',),
             'fields': ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
                        'organization', 'tech',)
         }),
@@ -294,7 +296,7 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
                        'is_superuser', 'act_as_profiles')}),
     )
 
-    list_display = ('display_name', 'member_permission_sets',
+    list_display = ('display_name', 'username', '_last_login', 'member_permission_sets',
                     'all_permission_sets', 'is_active')
     list_editable = ('is_active',)
     list_display_links = ('display_name', )
@@ -429,6 +431,12 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
                        self.admin_site.admin_view(self.get_kml_master_link))
                    ]
         return my_urls + urls
+
+    def _last_login(self, instance):
+        return instance.last_login if instance.last_login else 'Never Logged in'
+
+    _last_login.short_description = _('Last Login')
+    _last_login.admin_order_field = 'last_login'
 
 
 admin.site.register(User, UserAdmin)

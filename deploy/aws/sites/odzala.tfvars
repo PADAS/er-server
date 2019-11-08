@@ -1,0 +1,7 @@
+partner = "prod"
+site = "odzala"
+rds_name = "prod-01-das-db"
+timezone = "Africa/Brazzaville"
+daily_report_enabled = "True"
+export_kml_enabled = "True"
+alerts_enabled = "True"

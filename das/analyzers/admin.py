@@ -108,7 +108,8 @@ class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': (('name', 'subject_group', 'is_active',))
+            'fields': (('name', 'subject_group', 'threshold_dist_meters',
+                        'is_active',))
         }
         ),
         ('Spatial Features', {
@@ -118,7 +119,7 @@ class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
         ),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'threshold_time', 'threshold_dist_meters', 'search_time_hours', 'notes',)
+            'fields': ('id', 'search_time_hours', 'notes',)
         })
     )
 

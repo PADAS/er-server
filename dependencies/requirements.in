@@ -86,7 +86,7 @@ openpyxl==2.5.4
 #pymet and requirements that pymet is not pinning
 rasterio==1.0.23
 geojson==2.4.1
-pymet==0.1.22
+pymet==0.1.24
 oauth2client==4.1.3
 
 humanize==0.5.1

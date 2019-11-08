@@ -1,15 +1,30 @@
 import logging
 
-from django.contrib import admin
-from django.contrib import messages
-from django.utils.translation import gettext as _
-from django.urls import reverse
-from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
-from django.http import HttpResponseRedirect, HttpResponse
+from django.contrib import admin, messages
 from django.contrib.admin.actions import delete_selected
+from django.contrib.admin.templatetags.admin_modify import *
+from django.contrib.admin.templatetags.admin_modify import \
+    submit_row as original_submit_row
+from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 from django.contrib.admin.utils import model_ngettext
+from django.http import HttpResponse, HttpResponseRedirect
+from django.urls import reverse
+from django.utils.translation import gettext as _
+from django.utils.safestring import mark_safe
 
 import choices.models as models
+from choices.forms import ChoiceForm
+import urllib.parse as urlparse
+from urllib.parse import urlencode, quote
+
+
+@register.inclusion_tag('admin/choices_submit_line.html', takes_context=True)
+def submit_row(context):
+    ctx = original_submit_row(context)
+    if ctx['opts'].model_name == 'choice':
+        ctx.update({'addchoices': True})
+    return ctx
+
 
 
 @admin.register(models.Choice)
@@ -18,12 +33,14 @@ class ChoiceAdmin(admin.ModelAdmin):
     delete_confirmation_template = "admin/soft_delete_confirmation.html"
     delete_selected_confirmation_template = "admin/soft_delete_selected_confirmation.html"
 
+    form = ChoiceForm
     actions = ('disable_choices', )
     ordering = ('model', 'field', 'ordernum', 'display')
     list_display = ('model', 'field', 'value', 'display', 'ordernum',
-                    'is_active')
+                    '_icon_display', 'is_active')
     list_display_links = ('model', 'field')
     search_fields = ('model', 'field', 'value', 'display')
+    list_filter = ('field', )
     list_editable = ('value', 'display', 'ordernum')
     exclude = ('delete_on', 'is_active')
 
@@ -33,6 +50,49 @@ class ChoiceAdmin(admin.ModelAdmin):
         if not self.has_change_permission(request):
             queryset = queryset.none()
         return queryset
+
+    def get_changeform_initial_data(self, request):
+        if request.GET:
+            return {
+                'model': request.GET.get('model'),
+                'field': request.GET.get('field')
+            }
+        super().get_changeform_initial_data(request)
+
+    def pass_params_to_url(self, redirect_url, params):
+        url_parts = list(urlparse.urlparse(redirect_url))
+        url_parts[4] = urlencode(params)
+        return urlparse.urlunparse(url_parts)
+
+    def addvalue(self, request, obj, opts, action, url):
+        self.message_user(
+            request,
+            _('The {name} "{obj}" was {action} successfully. You may add another {name} below.'.format(
+                name=opts.verbose_name, obj=str(obj), action=action)),
+            messages.SUCCESS)
+
+        preserved_filters = self.get_preserved_filters(request)
+        redirect_url = add_preserved_filters(
+            {'preserved_filters': preserved_filters, 'opts': opts}, url)
+
+        params = {'model': obj.model, 'field': obj.field}
+        redirect_url = self.pass_params_to_url(redirect_url, params)
+        return HttpResponseRedirect(redirect_url)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        if "_addvalue" in request.POST:
+            opts = obj._meta
+            return self.addvalue(request, obj, opts, 'added', request.path)
+        return super().response_add(request, obj, post_url_continue)
+
+    def response_change(self, request, obj):
+        if "_addvalue" in request.POST:
+            opts = self.model._meta
+            redirect_url = reverse('admin:%s_%s_add' %
+                                   (opts.app_label, opts.model_name),
+                                   current_app=self.admin_site.name)
+            return self.addvalue(request, obj, opts, 'changed', redirect_url)
+        return super().response_change(request, obj)
 
     def response_delete(self, request, obj_display, obj_id):
         if 'disable_choices' in request.POST:
@@ -117,6 +177,11 @@ class ChoiceAdmin(admin.ModelAdmin):
         return queryset.disable_choices()
 
     disable_choices.short_description = "Disable selected choices"
+
+    def _icon_display(self, obj):
+        url = models.Choice.marker_icon(obj.icon_id)
+        return mark_safe(
+            f'<img src="{url}" style="height:2.5em; filter:opacity(0.8)" />')
 
 
 @admin.register(models.DisableChoice)

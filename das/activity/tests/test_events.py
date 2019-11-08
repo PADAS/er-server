@@ -257,9 +257,19 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
+
+    def test_create_multiple_events_on_a_single_api_call(self):
+        prev_count = Event.objects.count()
+        request = self.factory.post(self.api_base + '/events/', [self.event_data, self.event_data])
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        
+        self.assertEqual(2, len(response.data))
+        self.assertEqual(Event.objects.count(), prev_count + 2)
 
     def test_get_new_event_without_event_write_permissions(self):
         request = self.factory.get(self.api_base + '/events/')
@@ -308,8 +318,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
     def test_create_new_message_only_event(self):
@@ -321,8 +330,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
     def test_add_note(self):
@@ -417,8 +425,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
     def test_create_event_and_upload_document(self):
@@ -432,11 +439,10 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
-
+        
         event_data['id'] = None
 
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertTrue(response_data['id'] is not None)
 
         my_event_id = response_data['id']
@@ -455,7 +461,7 @@ class TestEventView(BaseAPITest):
 
             self.force_authenticate(request, self.all_perms_user)
             response = views.EventFilesView.as_view()(request, id=my_event_id)
-            logger.debug(response.data)
+            logger.debug(response_data)
 
         # Make request for the new event and assert that it includes a new
         # document.
@@ -552,11 +558,9 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
-
         event_data['id'] = None
 
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertTrue(response_data['id'] is not None)
 
         my_event_id = response_data['id']
@@ -575,7 +579,7 @@ class TestEventView(BaseAPITest):
 
             self.force_authenticate(request, self.all_perms_user)
             response = views.EventFilesView.as_view()(request, id=my_event_id)
-            logger.debug(response.data)
+            logger.debug(response_data)
 
         # Make request for the new event and assert that it includes a new
         # document.
@@ -795,11 +799,9 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
-        response_data = {k: response_data[k] for k in event_data.keys()}
-        self.assertDictEqual(response_data, event_data)
-
         collection_id = response.data['id']
+        response_data = {k: response.data[k] for k in event_data.keys()}
+        self.assertDictEqual(response_data, event_data)
 
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
@@ -810,11 +812,10 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
-        response_data = {k: response_data[k] for k in event_data.keys()}
+        report_id = response.data['id']
+        response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
-        report_id = response.data['id']
         rel_data = {'to_event_id': report_id, 'type': 'contains'}
         request = self.factory.post(
             self.api_base + '/event/' + collection_id + '/relationships',
@@ -822,7 +823,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventRelationshipsView.as_view()(
             request, from_event_id=collection_id)
-        logger.debug(response.data)
+        logger.debug(response_data)
         self.assertEqual(response.status_code, 201)
 
     def test_return_new_contained_events(self):
@@ -835,8 +836,6 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
         event = response.data
-
-        self.assertIn('contains', event)
         self.assertEqual(len(event_data['contains']), len(event['contains']))
         self.assertEqual(event_data['contains'][0]['message'],
                          event['contains'][0]['related_event']['message'])
@@ -849,9 +848,8 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 400)
-
-        self.assertTrue('event_type' in response.data,
-                        'I cannot find "event_type" in response data.')
+        self.assertTrue('event_type' in response.data[0][0],
+                        'Event type must be provided.')
 
     def test_edit_event_title(self):
         event = self.create_event(self.event_data)
@@ -986,15 +984,13 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
-        collection_serial_number = response.data.get('serial_number')
         self.assertEqual(response.status_code, 201)
         response_data = response.data
+        collection_serial_number = response_data.get('serial_number')
+        collection_id = response_data['id']
         response_data = {k: response_data[k]
                          for k in collection_event_data.keys()}
         self.assertDictEqual(response_data, collection_event_data)
-
-        collection_id = response.data['id']
-
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
         event_data["message"] = ""
@@ -1005,11 +1001,10 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
-        response_data = {k: response_data[k] for k in event_data.keys()}
-        self.assertDictEqual(response_data, event_data)
-
         report_id = response.data['id']
+        response_data = {k: response.data[k] for k in event_data.keys()}
+        self.assertDictEqual(response_data, event_data)
+        
         rel_data = {'to_event_id': report_id, 'type': 'contains'}
         request = self.factory.post(
             self.api_base + '/event/' + collection_id + '/relationships',
@@ -1017,7 +1012,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventRelationshipsView.as_view()(
             request, from_event_id=collection_id)
-        logger.debug(response.data)
+        logger.debug(response_data)
         self.assertEqual(response.status_code, 201)
 
         url = """/activity/events/export"""
@@ -1136,8 +1131,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
-        self.assertDictEqual(response_data, {})
+        self.assertEqual(len(response.data), 0)
 
     def test_radio_room_operator_permissions(self):
         results = self.do_all_operations_on_all_event_types(
@@ -1774,6 +1768,42 @@ class TestEventView(BaseAPITest):
         self.assertNotIn('security', response_data)
         self.assertIn('monitoring', response_data)
         self.assertIn('logistics', response_data)
+
+    def test_eventtypesview_returns_only_types_in_active_categories(self):
+        request = self.factory.get(
+            self.api_base + '/events/eventtypes')
+        self.force_authenticate(request, self.all_perms_user)
+
+        security = EventCategory.objects.get(value='security')
+        security.is_active = False
+        security.save()
+
+        event_type_value = "Security Type"
+
+        EventType.objects.create(value=event_type_value, category=security)
+        response = views.EventTypesView.as_view()(request)
+
+        event_type_values = [i["value"] for i in response.data]
+
+        self.assertNotIn(event_type_value, event_type_values)
+
+    def test_eventcategoryview_returns_only_active_categories(self):
+        request = self.factory.get(self.api_base + '/events/categories')
+        self.force_authenticate(request, self.all_perms_user)
+        security = EventCategory.objects.get(value='security')
+        security.is_active = False
+        security.save()
+
+        response = views.EventCategoriesView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        category_values = [x['value'] for x in response.data]
+
+        self.assertNotIn('security', category_values)
+        self.assertIn('monitoring', category_values)
+        self.assertIn('logistics', category_values)
+
+
 
 
 class TestParsing(TestCase):
