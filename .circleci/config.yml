@@ -12,7 +12,7 @@ commands:
     parameters:
       terraform_workspace:
         type: string
-        default: "dev"
+        default: "develop"
       init_args:
         type: string
         default: "-input=false"
@@ -23,8 +23,7 @@ commands:
       - 'checkout'
       - 'add_deploy_key_for_common_terraform_modules'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_init init_args="<< parameters.init_args >>"'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_workspace_new workspace="$CIRCLE_BRANCH" || make terraform_workspace_select workspace="$CIRCLE_BRANCH"'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_workspace_select terraform_workspace="<< parameters.terraform_workspace >>"'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_workspace_new workspace="<< parameters.terraform_workspace >>" || make terraform_workspace_select workspace="<< parameters.terraform_workspace >>"'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_plan plan_args="<< parameters.plan_args >>"'
       - persist_to_workspace:
           root: './'
@@ -52,7 +51,7 @@ jobs:
     executor: 'default'
     steps:
       - terraform_plan:
-          terraform_workspace: 'dev'
+          terraform_workspace: '$CIRCLE_BRANCH'
   terraform_plan_prod1:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
