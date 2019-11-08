@@ -7,7 +7,7 @@ data "terraform_remote_state" "earthranger_app_infra" {
 }
 
 data "terraform_remote_state" "terraform_gcp" {
-  backend   = "gcs"
+  backend = "gcs"
   # There is only a single terraform_gcp workspace
   workspace = "default"
   config = {
