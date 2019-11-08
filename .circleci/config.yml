@@ -23,6 +23,7 @@ commands:
       - 'checkout'
       - 'add_deploy_key_for_common_terraform_modules'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_init init_args="<< parameters.init_args >>"'
+      - run: 'make terraform_workspace_new workspace="$CIRCLE_BRANCH" || make terraform_workspace_select workspace="$CIRCLE_BRANCH"'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_workspace_select terraform_workspace="<< parameters.terraform_workspace >>"'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_plan plan_args="<< parameters.plan_args >>"'
       - persist_to_workspace:
