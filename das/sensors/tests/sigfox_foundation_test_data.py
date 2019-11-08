@@ -120,5 +120,4 @@ DATA_PAIRS = [
              "status": 1
          }
      }),
-
 ]
