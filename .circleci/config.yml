@@ -101,6 +101,7 @@ jobs:
       - docker_login
       - checkout
       - run: 'cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH'
+      - run: 'manifest_tag=$(cat ./GENERATED_MANIFEST.local | awk -F ''"'' ''$1 ~ /SERVER_VERSION/ {print $2}'') && cd circleci-docker && make earthranger_api_build_and_push tag=manifest_tag'
       - persist_to_workspace:
           root: './'
           paths:
