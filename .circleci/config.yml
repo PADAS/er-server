@@ -1,5 +1,13 @@
 version: 2.1
 commands:
+  configure_git_for_commit_and_push:
+    steps:
+      - run: 'git config user.email "circleci@vulcan.com"'
+      - run: 'git config user.name "circleci"'
+      - run: 'git config push.default current'
+      - add_ssh_keys:
+          fingerprints:
+            - 'fc:dc:b0:e5:df:23:4f:fd:3a:8b:7e:d2:1e:b4:6d:bd'
   add_deploy_key_for_common_terraform_modules:
     steps:
       - add_ssh_keys:
@@ -71,14 +79,43 @@ jobs:
     executor: 'default'
     steps:
       - terraform_apply
-  docker_build:
+  generate_manifest:
     docker:
       - image: circleci/buildpack-deps:stretch
     steps:
       - setup_remote_docker
       - docker_login
       - checkout
-      - run: 'cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH'
+      - run: 'cd circleci-docker && make generate_manifest semver_metadata_suffix=$CIRCLE_SHA1'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+  docker_build:
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - attach_workspace:
+          at: './'
+      - setup_remote_docker
+      - docker_login
+      - checkout
+      - run: 'manifest_tag=$(cat ./GENERATED_MANIFEST.local | awk -F ''"'' ''$1 ~ /SERVER_VERSION/ {print $2}'') && cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH new_tag=$manifest_tag'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+  commit_and_push_manifest:
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - attach_workspace:
+          at: './'
+      - setup_remote_docker
+      - docker_login
+      - checkout
+      - configure_git_for_commit_and_push
+      - run: 'cd circleci-docker && make commit_and_push_manifest'
 workflows:
   version: 2
   build_and_terraform_dev:
@@ -100,12 +137,18 @@ workflows:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
+      - generate_manifest
       - docker_build:
+          requires:
+            - 'generate_manifest'
           filters:
             branches:
               ignore:
                 - 'develop'
                 - /release*/
+      - commit_and_push_manifest:
+          requires:
+            - 'docker_build'
       - terraform_plan_dev:
           requires:
             - 'docker_build'
