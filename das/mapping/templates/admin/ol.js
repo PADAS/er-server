@@ -47,12 +47,6 @@ var write_wkt = function(feat) {
 //     write_wkt(event.feature)
 // };
 
-
-
-
-
-
-
 var add_wkt = function (event){
     // This function will sync the contents of the `vector` layer with the
     // WKT in the text-field
@@ -66,17 +60,13 @@ var add_wkt = function (event){
             var coord = feat.getGeometry().getCoordinates();
             coordinates.push(coord)
 
-            // geom = ol.geom.{{ geom_type }}([])
-            // console.log("a", coordinates)
-            // console.log(">>>>>>>>>>>>>>", feat.getGeometry().getType())
 
-
-            // if (feat.getGeometry().getType() == 'Point' || 'LineString' || 'Polygon'){
-            //     coordinates = [coordinates]
-            // };
+            if (feat.getGeometry().getType() == 'Point' || 'LineString' || 'Polygon'){
+                coordinates = [coordinates]
+            };
 
             var feats = new ol.Feature({
-                geometry: new ol.geom.{{ geom_type}}([coordinates])
+                geometry: new ol.geom.{{ geom_type}}(coordinates)
             })
             write_wkt(feats)
         });
@@ -92,7 +82,6 @@ var add_wkt = function (event){
     };
 
 };
-
 
 // Modify WKT-TextField
 var modify_wkt = function(event) {
@@ -342,12 +331,8 @@ if(wkt) {
 
     if (source.getFeatures()[0].getGeometry().getType() == 'Point'){
         map.getView().setZoom(map.getView().getZoom()-8);
-
-    };
-};
-
-
-};
+    }
+}};
 
 
 
