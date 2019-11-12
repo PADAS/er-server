@@ -1,5 +1,6 @@
 resource "kubernetes_namespace" "this" {
   metadata {
-    name = terraform.workspace
+    # To be DNS compliant, replace _ with -
+    name = replace(terraform.workspace, "_", "-")
   }
 }
