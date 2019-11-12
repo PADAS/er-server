@@ -52,7 +52,7 @@ terraform_workspace_new: workspace ?=
 terraform_workspace_new: ## terraform workspace new | workspace="WORKSPACE"
 	@ export PATH="$(vulcan_path)/$(uname_s):$${PATH}" && terraform workspace new $(workspace)
 
-.INTERMEDIATE: $(tmp_vault_token_path)
+.SECONDARY: $(tmp_vault_token_path)
 $(tmp_vault_token_path):
 	@ if [ -z $${VAULT_TOKEN} ]; \
 		then \
