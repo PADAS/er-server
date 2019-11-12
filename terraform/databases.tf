@@ -1,6 +1,7 @@
 locals {
   db_secret_path = (local.is_production ? "prod1" : "dev")
-  sanitized_db_name = replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_")
+  temp_long_string = "asdfasdfl;aksjfaskl;fjasdkl;fja;sdfjkkasdl;fjasdf"
+  sanitized_db_name = substr(replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_"), 0, 28)
 }
 
 data "vault_generic_secret" "db_password" {
@@ -9,7 +10,7 @@ data "vault_generic_secret" "db_password" {
 
 resource "google_sql_database" "database" {
   project  = data.google_project.earthranger.project_id
-  name     = "${local.sanitized_db_name}_dasdb"
+  name     = "${local.sanitized_db_name}_db"
   instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
 
   provisioner "remote-exec" {
