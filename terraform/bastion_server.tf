@@ -1,6 +1,6 @@
 locals {
-  is_production = (terraform.workspace == "prod")
-  dev_subnetwork_name = data.terraform_remote_state.terraform_gcp.outputs.dev_us_west_1_subnetwork_name
+  is_production        = (terraform.workspace == "prod1")
+  dev_subnetwork_name  = data.terraform_remote_state.terraform_gcp.outputs.dev_us_west_1_subnetwork_name
   prod_subnetwork_name = data.terraform_remote_state.terraform_gcp.outputs.prod_europe_west_3_subnetwork_name
 
 
