@@ -122,7 +122,20 @@ workflows:
   # This is our eager workflow for deploying from our main code branch.
   # So no review step.
     jobs:
+      - generate_manifest:
+          filters:
+            branches:
+              only:
+                - 'develop'
       - docker_build:
+          requires:
+            - 'generate_manifest'
+          filters:
+            branches:
+              only: 'develop'
+      - commit_and_push_manifest:
+          requires:
+            - 'docker_build'
           filters:
             branches:
               only: 'develop'
@@ -137,7 +150,12 @@ workflows:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
-      - generate_manifest
+      - generate_manifest:
+          filters:
+            branches:
+              ignore:
+                - 'develop'
+                - /release*/
       - docker_build:
           requires:
             - 'generate_manifest'
@@ -149,6 +167,11 @@ workflows:
       - commit_and_push_manifest:
           requires:
             - 'docker_build'
+          filters:
+            branches:
+              ignore:
+                - 'develop'
+                - /release*/
       - terraform_plan_dev:
           requires:
             - 'docker_build'
@@ -164,7 +187,20 @@ workflows:
   # Build for all release branches
   # Review step for apply
     jobs:
+      - generate_manifest:
+          filters:
+            branches:
+              only:
+                - /release*/
       - docker_build:
+          requires:
+            - 'generate_manifest'
+          filters:
+            branches:
+              only: /release*/
+      - commit_and_push_manifest:
+          requires:
+            - 'docker_build'
           filters:
             branches:
               only: /release*/
