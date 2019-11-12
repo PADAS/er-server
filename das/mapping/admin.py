@@ -137,6 +137,7 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     display_wkt = True
     point_zoom = 18
     default_zoom = 3
+    num_zoom =  3
     units = 'degrees'
 
     widget = OlWidget

@@ -37,22 +37,89 @@ var write_wkt = function(feat) {
     document.getElementById('{{ id }}').value = {{ module }}.get_ewkt(feat);
 };
 
-var add_wkt = function (event) {
+// var add_wkt = function (event) {
+//     // This function will sync the contents of the `vector` layer with the
+//     // WKT in the text-field
+//     if(source.getFeatures().length > 1) {
+//         old_feats = source.getFeatures()[0];
+//         source.removeFeature(old_feats);
+//     }
+//     write_wkt(event.feature)
+// };
+
+
+
+
+
+
+
+var add_wkt = function (event){
     // This function will sync the contents of the `vector` layer with the
     // WKT in the text-field
-    if(source.getFeatures().length > 1) {
-        old_feats = source.getFeatures()[0];
-        source.removeFeature(old_feats);
+
+    if ({{ module }}.is_collection){
+
+        var feat = source.getFeatures();
+        var coordinates = []
+
+        feat.forEach( function(feat){
+            var coord = feat.getGeometry().getCoordinates();
+            coordinates.push(coord)
+
+            // geom = ol.geom.{{ geom_type }}([])
+            // console.log("a", coordinates)
+            // console.log(">>>>>>>>>>>>>>", feat.getGeometry().getType())
+
+
+            // if (feat.getGeometry().getType() == 'Point' || 'LineString' || 'Polygon'){
+            //     coordinates = [coordinates]
+            // };
+
+            var feats = new ol.Feature({
+                geometry: new ol.geom.{{ geom_type}}([coordinates])
+            })
+            write_wkt(feats)
+        });
+
+    }else {
+        if (source.getFeatures().length > 1) {
+            old_feats = source.getFeatures()[0];
+            source.removeFeature(old_feats);
     }
-    write_wkt(event.feature)
+    write_wkt(event.feature);
+
+
+    };
+
 };
+
 
 // Modify WKT-TextField
 var modify_wkt = function(event) {
     //  When modifying the selected component the vector-layer increment "num_geom" value.
     // var feat = new
-    write_wkt(event.feature);
 
+
+    if ({{ module }}.is_collection){
+
+        var feat = source.getFeatures();
+        feat.forEach( function(feat){
+            var coordinates = feat.getGeometry().getCoordinates();
+            // geom = ol.geom.{{ geom_type }}([])
+
+            if ([coordinates][0][0].length > 1 || feat.getGeometry().getType() == 'Point'){
+                coordinates = [coordinates]
+            };
+
+            var feats = new ol.Feature({
+                geometry: new ol.geom.{{ geom_type}}(coordinates)
+            })
+            write_wkt(feats)
+        });
+
+    }else {
+    write_wkt(event.feature);
+    }
 };
 
 
@@ -86,7 +153,9 @@ var raster = new ol.layer.Tile({
     source: new ol.source.OSM()
 })
 
-var source = new ol.source.Vector();
+var source = new ol.source.Vector({
+    format: new ol.format.GeoJSON()
+});
 var vector = new ol.layer.Vector({
     source: source,
     style: new ol.style.Style({
@@ -246,11 +315,12 @@ map.addInteraction(dragrotate);
  * Handle change event.
  */
 
+vector.getSource().on("addfeature", add_wkt)
+vector.getSource().on("changefeature", modify_wkt)
 
 var wkt = document.getElementById("{{ id }}").value;
 
-vector.getSource().on("addfeature", add_wkt)
-vector.getSource().on("changefeature", modify_wkt)
+
 // vector.getSource().on("change", modify_wkt);
 
 if(wkt) {
@@ -258,6 +328,7 @@ if(wkt) {
     // EWKT is only exposed to OL if there's a validation error in the admin.
     // var match = {{ module }}.re.exec(wkt);
     admin_geom = {{ module }}.wkt_f.readFeature(wkt);
+
     // console.log(admin_geom)
     write_wkt(admin_geom);
     // source.addFeatures()
