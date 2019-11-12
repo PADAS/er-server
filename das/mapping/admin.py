@@ -82,6 +82,7 @@ class PointFeatureAdmin(BaseFeatureAdmin):
 @admin.register(models.FeatureType)
 class FeatureTypeAdmin(admin.ModelAdmin):
     ordering = ('name', )
+    list_display = ('name', )
 
 
 @admin.register(models.SpatialFeatureGroup)
