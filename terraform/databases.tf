@@ -8,7 +8,7 @@ data "vault_generic_secret" "db_password" {
 
 resource "google_sql_database" "database" {
   project  = data.google_project.earthranger.project_id
-  name     = "${var.site}_dasdb"
+  name     = "${replace(terraform.workspace, '/[^A-Za-z0-9_]/', '_')}_dasdb"
   instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
 
   provisioner "remote-exec" {
