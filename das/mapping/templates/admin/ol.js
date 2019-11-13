@@ -54,22 +54,61 @@ var add_wkt = function (event){
     if ({{ module }}.is_collection){
 
         var feat = source.getFeatures();
-        var coordinates = []
+        var eventCoord =  event.feature.getGeometry().getCoordinates();
+        var coordinates = [];
+        var type;
+
 
         feat.forEach( function(feat){
             var coord = feat.getGeometry().getCoordinates();
-            coordinates.push(coord)
+            type = feat.getGeometry().getType();
+            // console.log(type)
+            // if (coord[0].length == 1 ){
+            //     for(i = 0; i < coord.length; i++){
+            //         coordinates.push(coord[i])
 
+            //     };
+            // }else{
+            //     coordinates.push(coord)
+            // };
+            if (type == 'MultiLineString'){
+                for(i = 0; i < coord.length; i++){
+                    coordinates.push(coord[i])
+                }
 
-            if (feat.getGeometry().getType() == 'Point' || 'LineString' || 'Polygon'){
-                coordinates = [coordinates]
+            };
+            if (type == 'MultiPoint') {
+                for (i = 0; i < coord.length; i++) {
+                    coordinates.push(coord[i])
+                }
+
+            };
+            if (type == 'MultiPolygon') {
+                for (i = 0; i < coord.length; i++) {
+                    coordinates.push(coord[i])
+                }
+
+            } else {
+                coordinates.push(coord)
             };
 
+
+
+        });
+
+        console.log(coordinates)
+
+        // x.push(eventFeature);
+            // if (type == 'MultiPolygon' || type == 'MultiLinestring'){
+            //     coordinates = coordinates
+            // };
             var feats = new ol.Feature({
                 geometry: new ol.geom.{{ geom_type}}(coordinates)
             })
+
             write_wkt(feats)
-        });
+
+
 
     }else {
         if (source.getFeatures().length > 1) {
@@ -197,9 +236,9 @@ var createGeometricObject = function(innerHTML, geoType, className){
             source: source,
             type: geoType
         });
-        draw.on('drawend', function (event) {
-            map.removeInteraction(draw);
-        });
+        // draw.on('drawend', function (event) {
+        //     map.removeInteraction(draw);
+        // });
         map.addInteraction(draw);
     };
 
@@ -318,7 +357,6 @@ if(wkt) {
     // var match = {{ module }}.re.exec(wkt);
     admin_geom = {{ module }}.wkt_f.readFeature(wkt);
 
-    // console.log(admin_geom)
     write_wkt(admin_geom);
     // source.addFeatures()
 

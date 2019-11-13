@@ -133,7 +133,7 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     list_filter = ('type', 'featureset')
     list_display = ('name', 'type', 'featureset')
     search_fields = ('name', )
-    map_srid = 4326
+    # map_srid = 4326
     display_wkt = True
     point_zoom = 18
     default_zoom = 3
