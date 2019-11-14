@@ -96,7 +96,7 @@ def get_silent_sources():
         provider_threshold=KeyTextTransform('silence_notification_threshold', 'provider__additional')) \
         .exclude(Q(source_threshold__isnull=True) & Q(provider_threshold__isnull=True))
 
-    eligible_sources = get_uniquely_eligible_sources(eligible_sources)
+    eligible_sources = get_required_eligible_sources(eligible_sources)
 
     logger.debug('Eligible Sources: %s', eligible_sources)
     # For each Source, figure out whether it has an Observation with it's allowed threshold.
@@ -139,7 +139,7 @@ def get_silent_sources():
 
 
 
-def get_uniquely_eligible_sources(eligible_sources):
+def get_required_eligible_sources(eligible_sources):
     exclude = []
     str_value = 'provider__provider_key'
     source_provider = eligible_sources.values(str_value).distinct()
