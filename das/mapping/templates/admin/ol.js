@@ -307,11 +307,10 @@ var wkt = document.getElementById("{{ id }}").value;
 
 if(wkt) {
     /*
-    OpenLayers cannot handle EWKT -- we make sure to strip it out.
-    EWKT is only exposed to OL if there's a validation error in the admin.
+    Reading feature from TextArea: in WKT  format.
+    and draw a feature.
     var match = {{ module }}.re.exec(wkt);
     */
-
     admin_geom = {{ module }}.wkt_f.readFeature(wkt);
 
     write_wkt(admin_geom);
