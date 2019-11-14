@@ -1,5 +1,6 @@
 provider "google" {
   region  = data.terraform_remote_state.earthranger_app_infra.outputs.gcp_region
+  version = ">=2.20"
 }
 
 provider "google" {
@@ -13,6 +14,9 @@ provider "google" {
   ]
 }
 
+provider "google-beta" {
+  version = ">=2.19"
+}
 provider "kubernetes" {
   version = "~> 1.10"
 
@@ -21,10 +25,14 @@ provider "kubernetes" {
   load_config_file       = false
   token                  = data.google_client_config.k8s.access_token
 }
+
+provider "tls" {
+  version = ">=2.1"
+}
+
 provider "vault" {
   address         = "https://vault.vulcancloud.io:8200"
   skip_tls_verify = "true"
   version         = ">= 2.1"
 }
-
 
