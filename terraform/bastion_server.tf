@@ -12,8 +12,9 @@ locals {
 
   bastion_server_count = var.need_bastion_server ? 1 : 0
   bastion_server_user  = "bastion_server"
-}
 
+  sanitized_tag = "psql-bastion-server-${replace(terraform.workspace, "_", "-")}"
+}
 
 # CircleCI needs to connect to bastion server
 resource "google_compute_firewall" "public_to_bastion_server" {
@@ -27,7 +28,7 @@ resource "google_compute_firewall" "public_to_bastion_server" {
   network        = local.network_name
   priority       = var.firewall_priority_threshold - 1
   project        = data.google_project.earthranger.project_id
-  target_tags    = ["psql-bastion-server-${terraform.workspace}"]
+  target_tags    = [local.sanitized_tag]
 
   allow {
     protocol = "tcp"
