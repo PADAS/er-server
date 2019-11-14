@@ -2,10 +2,15 @@ provider "google" {
   region  = data.terraform_remote_state.earthranger_app_infra.outputs.gcp_region
 }
 
-provider "vault" {
-  address         = "https://vault.vulcancloud.io:8200"
-  skip_tls_verify = "true"
-  version         = ">= 2.1"
+provider "google" {
+  version = "~> 2.20"
+  alias   = "k8s_cluster"
+
+  project = data.terraform_remote_state.earthranger_app_infra.outputs.cluster_project_id
+  scopes = [
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/userinfo.email",
+  ]
 }
 
 provider "kubernetes" {
@@ -16,3 +21,10 @@ provider "kubernetes" {
   load_config_file       = false
   token                  = data.google_client_config.k8s.access_token
 }
+provider "vault" {
+  address         = "https://vault.vulcancloud.io:8200"
+  skip_tls_verify = "true"
+  version         = ">= 2.1"
+}
+
+
