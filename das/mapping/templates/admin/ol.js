@@ -35,9 +35,8 @@ var write_wkt = function(feat) {
 };
 
 var add_wkt = function (event){
-    /*
-    This Function will sync content of vector layer with WKT
-    in the text field
+    /**
+    * This Function will sync content of vector layer with WKT in the text field
     */
    if ({{ module }}.is_collection){
        var feat = source.getFeatures();
@@ -306,10 +305,10 @@ vector.getSource().on("changefeature", modify_wkt)
 var wkt = document.getElementById("{{ id }}").value;
 
 if(wkt) {
-    /*
-    Reading feature from TextArea: in WKT  format.
-    and draw a feature.
-    var match = {{ module }}.re.exec(wkt);
+    /**
+    * Reading feature from TextArea: in WKT format.
+    * Draw a feature.
+    * var match = {{ module }}.re.exec(wkt);
     */
     admin_geom = {{ module }}.wkt_f.readFeature(wkt);
 
