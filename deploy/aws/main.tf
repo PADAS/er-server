@@ -31,6 +31,7 @@ resource "aws_s3_bucket" "media-uploads" {
   acl    = "private"
   versioning {
     enabled = true
+    mfa_delete = true
   }
 }
 
