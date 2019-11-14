@@ -16,20 +16,17 @@ var {{ module }} = {};
 
 
 {{ module }}.init = function() {
-
-    {% block map_options %}// The options hash, w/ zoom, resolution, and projection settings.
+    {% block map_options %} // The options hash, w/ zoom, resolution, and projection settings.
     var options = {
         {% autoescape off %}
         {% for item in map_options.items %}
         '{{ item.0 }}' : {{ item.1 }},
         {% endfor %}{% endautoescape %}
-
     };
 {% endblock %}
 
 
 {{ module }}.get_ewkt = function(feat){
-    // console.log("feat", feat)
     return 'SRID={{ srid|unlocalize }};' + {{ module }}.wkt_f.writeFeature(feat);
 };
 
@@ -38,64 +35,59 @@ var write_wkt = function(feat) {
 };
 
 var add_wkt = function (event){
-    // This function will sync the contents of the `vector` layer with the
-    // WKT in the text-field
-    if ({{ module }}.is_collection){
-
-        var feat = source.getFeatures();
-        var eventCoord =  event.feature.getGeometry().getCoordinates();
-        var coordinates = [];
-        var type;
-
-        feat.forEach( function(feat){
-            var coord = feat.getGeometry().getCoordinates();
-            type = feat.getGeometry().getType();
-
-            if (type == '{{ geom_type }}') {
-                for (i = 0; i < coord.length; i++) {
-                    coordinates.push(coord[i]);
+    /*
+    This Function will sync content of vector layer with WKT
+    in the text field
+    */
+   if ({{ module }}.is_collection){
+       var feat = source.getFeatures();
+       var eventCoord =  event.feature.getGeometry().getCoordinates();
+       var coordinates = [];
+       var type;
+       feat.forEach( function(feat){
+           var coord = feat.getGeometry().getCoordinates();
+           type = feat.getGeometry().getType();
+           if (type == '{{ geom_type }}') {
+               for (i = 0; i < coord.length; i++) {
+                   coordinates.push(coord[i]);
                 }} else {
-                coordinates.push(coord)
-            };
-        });
-        var feats = new ol.Feature({
-            geometry: new ol.geom.{{ geom_type}}(coordinates)
-        })
-        write_wkt(feats)
-    }else {
-        if (source.getFeatures().length > 1) {
-            old_feats = source.getFeatures()[0];
-            source.removeFeature(old_feats);
-        }
-        write_wkt(event.feature);
-    };
-};
-
-// Modify WKT-TextField
-var modify_wkt = function(event) {
-    //  When modifying the selected component the vector-layer increment "num_geom" value.
-    // var feat = new
-
-    if ({{ module }}.is_collection){
-
-        var feat = source.getFeatures();
-        feat.forEach( function(feat){
-            var coordinates = feat.getGeometry().getCoordinates();
-            // geom = ol.geom.{{ geom_type }}([])
-
-            if ([coordinates][0][0].length > 1 || feat.getGeometry().getType() == 'Point'){
-                coordinates = [coordinates]
-            };
-
+                    coordinates.push(coord)
+                };
+            });
             var feats = new ol.Feature({
                 geometry: new ol.geom.{{ geom_type}}(coordinates)
-            })
+            });
+            write_wkt(feats)
+        }else {
+            if (source.getFeatures().length > 1) {
+                old_feats = source.getFeatures()[0];
+                source.removeFeature(old_feats);
+            }
+            write_wkt(event.feature);
+        };
+    };
+
+var modify_wkt = function(event) {
+    /*
+    Modift WKT-Textfied
+    Modify the selected component: vector-layer
+    */
+   if ({{ module }}.is_collection){
+       var feat = source.getFeatures();
+       feat.forEach( function(feat){
+           var coordinates = feat.getGeometry().getCoordinates();
+           // geom = ol.geom.{{ geom_type }}([])
+           if ([coordinates][0][0].length > 1 || feat.getGeometry().getType() == 'Point'){
+               coordinates = [coordinates]
+            };
+            var feats = new ol.Feature({
+                geometry: new ol.geom.{{ geom_type}}(coordinates)
+            });
             write_wkt(feats)
         });
-
     }else {
-    write_wkt(event.feature);
-    }
+        write_wkt(event.feature);
+    };
 };
 
 
@@ -105,12 +97,10 @@ var modify_wkt = function(event) {
         textArea = document.getElementById("{{ id }}")
         textArea.style.display = 'block';
         aTag.innerHTML = 'Hide'
-
     } else if  (aTag.innerHTML == 'Hide'){
         textArea = document.getElementById("{{ id }}")
         textArea.style.display = 'none';
         aTag.innerHTML = 'Show'
-
     }
 };
 
@@ -121,11 +111,9 @@ var modify_wkt = function(event) {
     // map.getView().setZoom({{ default_zoom }});
     // {% endlocalize %}
 
-
 var raster = new ol.layer.Tile({
     source: new ol.source.OSM()
-})
-
+});
 var source = new ol.source.Vector({
     format: new ol.format.GeoJSON()
 });
@@ -171,7 +159,7 @@ var map = new ol.Map({
 // Geometric Object
 var createGeometricObject = function(innerHTML, geoType, className){
     var button = document.createElement('button');
-    button.innerHTML = innerHTML
+    button.innerHTML = innerHTML;
 
     var geometricObject = function(e){
         e.preventDefault()
@@ -203,81 +191,77 @@ var createGeometricObject = function(innerHTML, geoType, className){
 
 // Polygon
 if ("{{ geom_type }}" == "MultiPolygon") {
-var polygonUrl = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
-createGeometricObject(polygonUrl, 'Polygon', 'ol-point');
-} else{
-    if ("{{ geom_type }}" != "MultiLineString" && "{{ geom_type }}" != "MultiPoint") {
-        var polygonUrl = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
-        createGeometricObject(polygonUrl, 'Polygon', 'ol-polygon');
-    }
-
+    var polygonUrl = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
+    createGeometricObject(polygonUrl, 'Polygon', 'ol-point');
+} else if ("{{ geom_type }}" != "MultiLineString" && "{{ geom_type }}" != "MultiPoint") {
+    var polygonUrl = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
+    createGeometricObject(polygonUrl, 'Polygon', 'ol-polygon');
 };
 
 // Linestring
 if ("{{ geom_type }}" == "MultiLineString"){
-var linestringUrl = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
-createGeometricObject(linestringUrl, 'LineString', 'ol-point');
+    var linestringUrl = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
+    createGeometricObject(linestringUrl, 'LineString', 'ol-point');
 } else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint"){
     var linestringUrl = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
     createGeometricObject(linestringUrl, 'LineString', 'ol-linestring');
-}
+};
 
 // Point
 if ("{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiLineString") {
-var pointUrl = '<img class="img_2" src="https://img.icons8.com/material-rounded/24/ffffff/filled-circle.png">';
-createGeometricObject(pointUrl, 'Point', 'ol-point');
-}
+    var pointUrl = '<img class="img_2" src="https://img.icons8.com/material-rounded/24/ffffff/filled-circle.png">';
+    createGeometricObject(pointUrl, 'Point', 'ol-point');
+};
 
 // Modify
 var modif = function(className) {
-var button_modify = document.createElement('button');
-button_modify.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/24/ffffff/map-editing--v2.png">';
+    var button_modify = document.createElement('button');
+    button_modify.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/24/ffffff/map-editing--v2.png">';
 
-var modify = function (e) {
-    e.preventDefault();
-    modify = new ol.interaction.Modify({ source: source });
+    var modify = function (e) {
+        e.preventDefault();
+        modify = new ol.interaction.Modify({ source: source });
 
-    map.addInteraction(modify);
-};
+        map.addInteraction(modify);
+    };
 
-button_modify.addEventListener('click', modify, false);
+    button_modify.addEventListener('click', modify, false);
 
-var element_modify = document.createElement('div');
-element_modify.className =  `${className} ol-unselectable ol-control`;
-element_modify.appendChild(button_modify);
+    var element_modify = document.createElement('div');
+    element_modify.className =  `${className} ol-unselectable ol-control`;
+    element_modify.appendChild(button_modify);
 
-var modifyControl = new ol.control.Control({
-    element: element_modify
-});
-map.addControl(modifyControl);
+    var modifyControl = new ol.control.Control({
+        element: element_modify
+    });
+    map.addControl(modifyControl);
 };
 
 
 // Delete
-
 var delet = function (className){
-var button_delete = document.createElement('button');
-button_delete.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-filled/24/ffffff/delete-sign.png">';
+    var button_delete = document.createElement('button');
+    button_delete.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-filled/24/ffffff/delete-sign.png">';
 
-var deleteFeatures = function (e) {
-    e.preventDefault();
-    result = confirm("Want to clear all features?");
-    if (result){
-    source.clear();
-    document.getElementById('{{ id }}').value = '';
-    }
-};
+    var deleteFeatures = function (e) {
+        e.preventDefault();
+        result = confirm("Want to clear all features?");
+        if (result){
+            source.clear();
+            document.getElementById('{{ id }}').value = '';
+        }
+    };
 
-button_delete.addEventListener('click', deleteFeatures, false);
+    button_delete.addEventListener('click', deleteFeatures, false);
 
-var element_delete = document.createElement('div');
-element_delete.className = `${className} ol-unselectable ol-control`;
-element_delete.appendChild(button_delete);
+    var element_delete = document.createElement('div');
+    element_delete.className = `${className} ol-unselectable ol-control`;
+    element_delete.appendChild(button_delete);
 
-var deleteControl = new ol.control.Control({
-    element: element_delete
-});
-map.addControl(deleteControl);
+    var deleteControl = new ol.control.Control({
+        element: element_delete
+    });
+    map.addControl(deleteControl);
 };
 
 
@@ -292,9 +276,6 @@ if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || 
 } else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint") {
     modif('ol-modify')
 };
-
-
-
 
 // map.on('pointermove', function(e) {
 //     if (e.dragging) return;
@@ -324,18 +305,16 @@ vector.getSource().on("changefeature", modify_wkt)
 
 var wkt = document.getElementById("{{ id }}").value;
 
-
-// vector.getSource().on("change", modify_wkt);
-
 if(wkt) {
-    // OpenLayers cannot handle EWKT -- we make sure to strip it out.
-    // EWKT is only exposed to OL if there's a validation error in the admin.
-    // var match = {{ module }}.re.exec(wkt);
+    /*
+    OpenLayers cannot handle EWKT -- we make sure to strip it out.
+    EWKT is only exposed to OL if there's a validation error in the admin.
+    var match = {{ module }}.re.exec(wkt);
+    */
+
     admin_geom = {{ module }}.wkt_f.readFeature(wkt);
 
     write_wkt(admin_geom);
-    // source.addFeatures()
-
     source.addFeatures([admin_geom]);
 
     // Zooming to the bounds
