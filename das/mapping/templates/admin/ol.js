@@ -37,20 +37,9 @@ var write_wkt = function(feat) {
     document.getElementById('{{ id }}').value = {{ module }}.get_ewkt(feat);
 };
 
-// var add_wkt = function (event) {
-//     // This function will sync the contents of the `vector` layer with the
-//     // WKT in the text-field
-//     if(source.getFeatures().length > 1) {
-//         old_feats = source.getFeatures()[0];
-//         source.removeFeature(old_feats);
-//     }
-//     write_wkt(event.feature)
-// };
-
 var add_wkt = function (event){
     // This function will sync the contents of the `vector` layer with the
     // WKT in the text-field
-
     if ({{ module }}.is_collection){
 
         var feat = source.getFeatures();
@@ -58,75 +47,34 @@ var add_wkt = function (event){
         var coordinates = [];
         var type;
 
-
         feat.forEach( function(feat){
             var coord = feat.getGeometry().getCoordinates();
             type = feat.getGeometry().getType();
-            // console.log(type)
-            // if (coord[0].length == 1 ){
-            //     for(i = 0; i < coord.length; i++){
-            //         coordinates.push(coord[i])
 
-            //     };
-            // }else{
-            //     coordinates.push(coord)
-            // };
-            if (type == 'MultiLineString'){
-                for(i = 0; i < coord.length; i++){
-                    coordinates.push(coord[i])
-                }
-
-            };
-            if (type == 'MultiPoint') {
+            if (type == '{{ geom_type }}') {
                 for (i = 0; i < coord.length; i++) {
-                    coordinates.push(coord[i])
-                }
-
-            };
-            if (type == 'MultiPolygon') {
-                for (i = 0; i < coord.length; i++) {
-                    coordinates.push(coord[i])
-                }
-
-            } else {
+                    coordinates.push(coord[i]);
+                }} else {
                 coordinates.push(coord)
             };
-
-
-
         });
-
-        console.log(coordinates)
-
-        // x.push(eventFeature);
-            // if (type == 'MultiPolygon' || type == 'MultiLinestring'){
-            //     coordinates = coordinates
-            // };
-            var feats = new ol.Feature({
-                geometry: new ol.geom.{{ geom_type}}(coordinates)
-            })
-
-            write_wkt(feats)
-
-
-
+        var feats = new ol.Feature({
+            geometry: new ol.geom.{{ geom_type}}(coordinates)
+        })
+        write_wkt(feats)
     }else {
         if (source.getFeatures().length > 1) {
             old_feats = source.getFeatures()[0];
             source.removeFeature(old_feats);
-    }
-    write_wkt(event.feature);
-
-
+        }
+        write_wkt(event.feature);
     };
-
 };
 
 // Modify WKT-TextField
 var modify_wkt = function(event) {
     //  When modifying the selected component the vector-layer increment "num_geom" value.
     // var feat = new
-
 
     if ({{ module }}.is_collection){
 
@@ -166,7 +114,6 @@ var modify_wkt = function(event) {
     }
 };
 
-
     // source.clear()
     // document.getElementById('{{ id }}').value = '';
     // {% localize off %}
@@ -174,8 +121,6 @@ var modify_wkt = function(event) {
     // map.getView().setZoom({{ default_zoom }});
     // {% endlocalize %}
 
-
-// var map = new ol.Map('id_feature_geometry_map', options)
 
 var raster = new ol.layer.Tile({
     source: new ol.source.OSM()
@@ -257,20 +202,34 @@ var createGeometricObject = function(innerHTML, geoType, className){
 
 
 // Polygon
+if ("{{ geom_type }}" == "MultiPolygon") {
 var polygonUrl = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
-createGeometricObject(polygonUrl, 'Polygon', 'ol-polygon');
+createGeometricObject(polygonUrl, 'Polygon', 'ol-point');
+} else{
+    if ("{{ geom_type }}" != "MultiLineString" && "{{ geom_type }}" != "MultiPoint") {
+        var polygonUrl = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
+        createGeometricObject(polygonUrl, 'Polygon', 'ol-polygon');
+    }
 
+};
 
 // Linestring
+if ("{{ geom_type }}" == "MultiLineString"){
 var linestringUrl = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
-createGeometricObject(linestringUrl, 'LineString', 'ol-linestring');
+createGeometricObject(linestringUrl, 'LineString', 'ol-point');
+} else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint"){
+    var linestringUrl = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
+    createGeometricObject(linestringUrl, 'LineString', 'ol-linestring');
+}
 
 // Point
+if ("{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiLineString") {
 var pointUrl = '<img class="img_2" src="https://img.icons8.com/material-rounded/24/ffffff/filled-circle.png">';
 createGeometricObject(pointUrl, 'Point', 'ol-point');
-
+}
 
 // Modify
+var modif = function(className) {
 var button_modify = document.createElement('button');
 button_modify.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/24/ffffff/map-editing--v2.png">';
 
@@ -284,18 +243,19 @@ var modify = function (e) {
 button_modify.addEventListener('click', modify, false);
 
 var element_modify = document.createElement('div');
-element_modify.className = 'ol-modify ol-unselectable ol-control';
+element_modify.className =  `${className} ol-unselectable ol-control`;
 element_modify.appendChild(button_modify);
 
 var modifyControl = new ol.control.Control({
     element: element_modify
 });
 map.addControl(modifyControl);
-
+};
 
 
 // Delete
 
+var delet = function (className){
 var button_delete = document.createElement('button');
 button_delete.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-filled/24/ffffff/delete-sign.png">';
 
@@ -311,13 +271,29 @@ var deleteFeatures = function (e) {
 button_delete.addEventListener('click', deleteFeatures, false);
 
 var element_delete = document.createElement('div');
-element_delete.className = 'ol-x ol-unselectable ol-control';
+element_delete.className = `${className} ol-unselectable ol-control`;
 element_delete.appendChild(button_delete);
 
 var deleteControl = new ol.control.Control({
     element: element_delete
 });
 map.addControl(deleteControl);
+};
+
+
+if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" == "MultiLineString"){
+    delet('ol-linestring')
+} else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint") {
+    delet('ol-x')
+};
+
+if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" == "MultiLineString") {
+    modif('ol-polygon')
+} else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint") {
+    modif('ol-modify')
+};
+
+
 
 
 // map.on('pointermove', function(e) {
