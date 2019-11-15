@@ -331,7 +331,7 @@ if(wkt) {
     var extent = source.getExtent();
     map.getView().fit(extent, map.getSize());
 
-    if (source.getFeatures()[0].getGeometry().getType() == 'Point'){
+    if (source.getFeatures()[0].getGeometry().getType() == 'Point' || '{{ geom_type }}' == 'MultiPoint'){
         map.getView().setZoom(map.getView().getZoom()-8);
     }
 }};

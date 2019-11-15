@@ -3,7 +3,7 @@ import django.contrib.gis.admin as gis_admin
 
 import analyzers.models as models
 from analyzers.forms import EnvironmentalAnalyzerAdminForm, GlobalForestWatchSubscriptionForm
-from mapping.admin import OSMGeoExtendedAdmin
+from core.openlayers import OSMGeoExtendedAdmin
 
 
 @admin.register(models.ObservationAnnotator)

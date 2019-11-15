@@ -8,7 +8,7 @@ import activity.models as models
 from activity.forms import EventTypeForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
-from mapping.admin import OSMGeoExtendedAdmin
+from core.openlayers import OSMGeoExtendedAdmin
 
 
 class EventRelationshipInline(admin.TabularInline):

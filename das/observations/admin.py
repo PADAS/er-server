@@ -30,7 +30,7 @@ import observations.models as models
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
-from mapping.admin import OSMGeoExtendedAdmin
+from core.openlayers import OSMGeoExtendedAdmin
 from utils.html import make_html_list
 from .models import SOURCE_TYPES
 
