@@ -44,7 +44,7 @@ resource "google_compute_instance" "bastion_server" {
     }
   }
 
-  tags = local.bastion_tag
+  tags = [local.bastion_tag]
 
   labels = {
     role      = "psql-bastion-server"
