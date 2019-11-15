@@ -2,7 +2,7 @@ version: 2.1
 commands:
   activate_google_service_account:
     steps:
-      - run: 'gcloud auth activate-service-account --key-file=<(echo "$ENCODED_GOOGLE_CREDENTIALS" | base64 --decode)'
+      - run: 'echo "export GOOGLE_CREDENTIALS=\"\$(echo \$ENCODED_GOOGLE_CREDENTIALS | base64 --decode)\"" >> $BASH_ENV'
   configure_git_for_commit_and_push:
     steps:
       - run: 'git config user.email "circleci@vulcan.com"'
