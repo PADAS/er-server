@@ -15,7 +15,7 @@ locals {
 
   # Do not change bastion_tag values: CircleCI relies on them to safelist build agents with a firewall rule,
   # independent of terraform.
-  bastion_tag = "psql_bastion"
+  bastion_tag = "psql-bastion"
 }
 
 resource "tls_private_key" "bastion_server" {
