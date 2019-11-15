@@ -77,7 +77,7 @@ commands:
 executors:
   default:
     docker:
-      - image: 'circleci/buildpack-deps:stretch'
+      - image: 'google/cloud-sdk:269.0.0'
 jobs:
   terraform_plan_dev:
     environment:
