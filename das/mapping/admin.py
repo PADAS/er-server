@@ -69,19 +69,20 @@ class OlWidget(OpenLayersWidget):
         return map_options
 
 
-@admin.register(models.Map)
-class MapAdmin(admin.OSMGeoAdmin):
+class OSMGeoExtendedAdmin(admin.OSMGeoAdmin):
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
     map_template = 'admin/ol.html'
     openlayers_url = 'https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.0.1/build/ol.js'
     map_srid = 4326
     display_wkt = True
-    point_zoom = 18
-    default_zoom = 3
+    num_zoom = 19
     units = 'degrees'
 
     widget = OlWidget
+
+@admin.register(models.Map)
+class MapAdmin(OSMGeoExtendedAdmin):
     form = MapCenterForm
 
 
@@ -125,23 +126,10 @@ class FeatureSetAdmin(admin.ModelAdmin):
     filter_horizontal = ('types',)
 
 
-class BaseFeatureAdmin(admin.OSMGeoAdmin):
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
-    map_template = 'admin/ol.html'
-    openlayers_url = 'https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.0.1/build/ol.js'
+class BaseFeatureAdmin(OSMGeoExtendedAdmin):
     list_filter = ('type', 'featureset')
     list_display = ('name', 'type', 'featureset')
     search_fields = ('name', )
-    # map_srid = 4326
-    display_wkt = True
-    point_zoom = 18
-    default_zoom = 3
-    num_zoom =  3
-    units = 'degrees'
-
-    widget = OlWidget
-
 
 @admin.register(models.PolygonFeature)
 class PolygonFeatureAdmin(BaseFeatureAdmin):

@@ -8,6 +8,7 @@ import activity.models as models
 from activity.forms import EventTypeForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
+from mapping.admin import OSMGeoExtendedAdmin
 
 
 class EventRelationshipInline(admin.TabularInline):
@@ -20,10 +21,10 @@ class EventDetailsInline(admin.TabularInline):
 
 
 @admin.register(models.Event)
-class EventAdmin(admin.OSMGeoAdmin):
-    openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
+class EventAdmin(OSMGeoExtendedAdmin):
+    # openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
+    # wms_layer = 'terrain,overlay'
+    # wms_url = 'http://tiles.maps.eox.at/wms/'
 
     list_display = ('serial_number', 'created_at', 'event_type',
                     'title', 'location', 'attributes',)

@@ -30,6 +30,7 @@ import observations.models as models
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
+from mapping.admin import OSMGeoExtendedAdmin
 from utils.html import make_html_list
 from .models import SOURCE_TYPES
 
@@ -244,10 +245,7 @@ class LargeTablePaginator(Paginator):
 
 
 @admin.register(models.Observation)
-class ObservationAdmin(ExportCsvMixin, gis_admin.OSMGeoAdmin):
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
-
+class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
     list_display = ('subject_link', '_manufacturer_id', 'recorded_at', 'created_at',
                     '_longitude', '_latitude', '_state', '_event_action')
     date_hierarchy = 'recorded_at'
@@ -852,10 +850,7 @@ class SourceTypeFilter(admin.SimpleListFilter):
 
 
 @admin.register(models.SubjectStatus)
-class SubjectStatusAdmin(gis_admin.OSMGeoAdmin):
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
-
+class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     search_fields = (
         'subject__name', 'subject__subjectsource__source__manufacturer_id')
     ordering = ('-recorded_at',)

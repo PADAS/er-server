@@ -39,6 +39,7 @@ var add_wkt = function (event){
     * This Function will sync content of vector layer with WKT in the text field
     */
    if ({{ module }}.is_collection){
+
        var feat = source.getFeatures();
        var eventCoord =  event.feature.getGeometry().getCoordinates();
        var coordinates = [];
@@ -68,22 +69,28 @@ var add_wkt = function (event){
 
 var modify_wkt = function(event) {
     /*
-    Modift WKT-Textfied
-    Modify the selected component: vector-layer
+    * Modift WKT-Textfied
+    * Modify the selected component: vector-layer
     */
    if ({{ module }}.is_collection){
-       var feat = source.getFeatures();
-       feat.forEach( function(feat){
-           var coordinates = feat.getGeometry().getCoordinates();
-           // geom = ol.geom.{{ geom_type }}([])
-           if ([coordinates][0][0].length > 1 || feat.getGeometry().getType() == 'Point'){
-               coordinates = [coordinates]
+
+    var feat = source.getFeatures();
+    var eventCoord =  event.feature.getGeometry().getCoordinates();
+    var coordinates = [];
+    var type;
+    feat.forEach( function(feat){
+        var coord = feat.getGeometry().getCoordinates();
+        type = feat.getGeometry().getType();
+        if (type == '{{ geom_type }}') {
+            for (i = 0; i < coord.length; i++) {
+                coordinates.push(coord[i]);
+            }} else {
+                coordinates.push(coord)
             };
-            var feats = new ol.Feature({
-                geometry: new ol.geom.{{ geom_type}}(coordinates)
-            });
-            write_wkt(feats)
+        });var feats = new ol.Feature({
+            geometry: new ol.geom.{{ geom_type}}(coordinates)
         });
+        write_wkt(feats)
     }else {
         write_wkt(event.feature);
     };
@@ -160,6 +167,7 @@ var createGeometricObject = function(innerHTML, geoType, className){
     var button = document.createElement('button');
     button.innerHTML = innerHTML;
 
+    var type = "{{ geom_type }}";
     var geometricObject = function(e){
         e.preventDefault()
         map.getInteractions().pop()
@@ -168,9 +176,11 @@ var createGeometricObject = function(innerHTML, geoType, className){
             source: source,
             type: geoType
         });
-        // draw.on('drawend', function (event) {
-        //     map.removeInteraction(draw);
-        // });
+        if (!type){
+            draw.on('drawend', function (event) {
+                map.removeInteraction(draw);
+            });
+        };
         map.addInteraction(draw);
     };
 
@@ -220,6 +230,7 @@ var modif = function(className) {
     var modify = function (e) {
         e.preventDefault();
         modify = new ol.interaction.Modify({ source: source });
+        map.getInteractions().pop()
 
         map.addInteraction(modify);
     };
