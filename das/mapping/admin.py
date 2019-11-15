@@ -73,7 +73,7 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin):
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
     map_template = 'admin/ol.html'
-    openlayers_url = 'https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.0.1/build/ol.js'
+    openlayers_url = static('admin/v6/ol.js')
     map_srid = 4326
     display_wkt = True
     num_zoom = 19
