@@ -13,27 +13,9 @@ locals {
   bastion_server_count = var.need_bastion_server ? 1 : 0
   bastion_server_user  = "bastion_server"
 
-  sanitized_tag = "psql-bastion-server-${replace(terraform.workspace, "_", "-")}"
-}
-
-# CircleCI needs to connect to bastion server
-resource "google_compute_firewall" "public_to_bastion_server" {
-  count    = local.bastion_server_count
-  provider = google-beta
-
-  direction      = "INGRESS"
-  disabled       = false
-  enable_logging = true
-  name           = "public-to-bastion-server"
-  network        = local.network_name
-  priority       = var.firewall_priority_threshold - 1
-  project        = data.google_project.earthranger.project_id
-  target_tags    = [local.sanitized_tag]
-
-  allow {
-    protocol = "tcp"
-    ports    = ["22"]
-  }
+  # Do not change bastion_tag values: CircleCI relies on them to safelist build agents with a firewall rule,
+  # independent of terraform.
+  bastion_tag = "psql_bastion"
 }
 
 resource "tls_private_key" "bastion_server" {
@@ -62,7 +44,7 @@ resource "google_compute_instance" "bastion_server" {
     }
   }
 
-  tags = google_compute_firewall.public_to_bastion_server[0].target_tags
+  tags = bastion_tag
 
   labels = {
     role      = "psql-bastion-server"
