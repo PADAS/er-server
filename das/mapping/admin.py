@@ -1,3 +1,5 @@
+import logging
+from django.utils import translation
 from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.contrib import admin as django_admin
@@ -10,10 +12,11 @@ from django.contrib.gis.geos import Point
 import mapping.models as models
 from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, \
     SpatialFeatureGroupStaticForm
+from core.openlayers import OSMGeoExtendedAdmin
 
 
 @admin.register(models.Map)
-class MapAdmin(admin.OSMGeoAdmin):
+class MapAdmin(OSMGeoExtendedAdmin):
     form = MapCenterForm
 
 
@@ -57,9 +60,7 @@ class FeatureSetAdmin(admin.ModelAdmin):
     filter_horizontal = ('types',)
 
 
-class BaseFeatureAdmin(admin.OSMGeoAdmin):
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
+class BaseFeatureAdmin(OSMGeoExtendedAdmin):
     list_filter = ('type', 'featureset')
     list_display = ('name', 'type', 'featureset')
     search_fields = ('name', )
@@ -131,6 +132,7 @@ class PointFeatureAdmin(BaseFeatureAdmin):
 @admin.register(models.FeatureType)
 class FeatureTypeAdmin(admin.ModelAdmin):
     ordering = ('name', )
+    list_display = ('name', )
 
 
 @admin.register(models.SpatialFeatureGroup)
