@@ -19,6 +19,13 @@ from core.openlayers import OSMGeoExtendedAdmin
 class MapAdmin(OSMGeoExtendedAdmin):
     form = MapCenterForm
 
+    def set_coordinates_cookie(self, http_response, obj):
+        coords = obj.center.coords
+        long, lat = self.get_single_coordinate_pair(coords)
+        http_response.set_cookie("latitude", lat, max_age=365 * 24 * 60 * 60)
+        http_response.set_cookie("longitude", long, max_age=365 * 24 * 60 * 60)
+        return http_response
+
 
 @admin.register(models.TileLayer)
 class TileLayerAdmin(admin.ModelAdmin):
