@@ -78,7 +78,7 @@ commands:
       - run:
           command: "gcloud compute firewall-rules delete \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
           when: 'always'
-  executors:
+executors:
   default:
     docker:
       - image: 'google/cloud-sdk:269.0.0'
