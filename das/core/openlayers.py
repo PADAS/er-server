@@ -33,6 +33,8 @@ class OlWidget(OpenLayersWidget):
             ('num_zoom', 'numZoomLevels', int),
             ('max_zoom', 'maxZoomLevels', int),
             ('min_zoom', 'minZoomLevel', int),
+            ('default_lon', 'defaultLon', float),
+            ('default_lat', 'defaultLat', float),
         ]
 
         # Building the map options hash.

@@ -143,10 +143,9 @@ var vector = new ol.layer.Vector({
 });
 
 
-
 var map = new ol.Map({
     view: new ol.View({
-        center: ol.proj.transform([0, 0], 'EPSG:4326', 'EPSG:3857'),
+        center: ol.proj.transform([options.defaultLon, options.defaultLat], 'EPSG:4326', 'EPSG:4326'),
         maxResolution: options.maxResolution,
         zoom: options.numZoomLevels,
 

@@ -65,8 +65,6 @@ class BaseFeatureAdmin(OSMGeoExtendedAdmin):
     list_display = ('name', 'type', 'featureset')
     search_fields = ('name', )
 
-    map_srid = 4326
-
     def get_single_coordinate_pair(self, coords):
         try:
             if not isinstance(coords[0], tuple):
@@ -74,13 +72,9 @@ class BaseFeatureAdmin(OSMGeoExtendedAdmin):
             return self.get_single_coordinate_pair(coords[0])
         except Exception:
             return (0, 0)
-        
+
     def get_form(self, request, obj=None, **kwargs):
         if not obj:
-            # the map in the admin uses EPSG 3857 by default and changing the
-            # map_srid here doesn't have any effect on the map.
-            # This workaround converts EPSG 4326 coordinates to EPSG 3857 so
-            # that the map can be centered to that position
             lon, lat = 0, 0
             try:
                 lon = float(request.COOKIES.get('longitude', 0))
@@ -88,10 +82,8 @@ class BaseFeatureAdmin(OSMGeoExtendedAdmin):
             except ValueError:
                 pass
 
-            p = Point(lon, lat, srid=4326)
-            p.transform(3857)
-            self.default_lat = p.y
-            self.default_lon = p.x
+            self.default_lat = lat
+            self.default_lon = lon
         return super(BaseFeatureAdmin, self).get_form(request, obj=None, **kwargs)
 
     def set_coordinates_cookie(self, http_response, obj):
