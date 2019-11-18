@@ -38,7 +38,8 @@ commands:
       - 'add_deploy_key_for_common_terraform_modules'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_init init_args="<< parameters.init_args >>"'
       - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_workspace_new workspace="<< parameters.terraform_workspace >>" || make terraform_workspace_select workspace="<< parameters.terraform_workspace >>"'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_plan plan_args="<< parameters.plan_args >>"'
+      - 'toggle_firewall_for_build_agent_k8s_closure':
+          inner_command: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_plan plan_args="<< parameters.plan_args >>"'
       - persist_to_workspace:
           root: './'
           paths:
@@ -57,10 +58,10 @@ commands:
       - attach_workspace:
           at: './'
       - 'export_google_credentials'
-      - 'toggle_firewall_for_build_agent_closure':
+      - 'toggle_firewall_for_build_agent_k8s_and_proxy_closure':
           inner_command: 'cd terraform && make terraform_apply apply_args="<< parameters.apply_args >>"'
           network: '<< parameters.network >>'
-  toggle_firewall_for_build_agent_closure:
+  toggle_firewall_for_build_agent_k8s_and_proxy_closure:
     parameters:
       inner_command:
         type: 'string'
@@ -75,6 +76,17 @@ commands:
       - run:
           command: "gcloud compute firewall-rules delete \"bastion-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"earthranger-78ca55ca\" --quiet"
           when: 'always'
+      - run:
+          command: "gcloud compute firewall-rules delete \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
+          when: 'always'
+  toggle_firewall_for_build_agent_k8s_closure:
+    parameters:
+      inner_command:
+        type: 'string'
+    steps:
+      - 'activate_google_service_account'
+      - run: "gcloud compute firewall-rules create \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:$K8S_PROXY_PORT\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"$K8S_PROXY_NETWORK\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.co)/32\" --target-tags=\"$K8S_PROXY_TARGET_TAG\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
+      - run: '<<parameters.inner_command>>'
       - run:
           command: "gcloud compute firewall-rules delete \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
           when: 'always'
