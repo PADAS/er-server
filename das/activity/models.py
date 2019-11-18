@@ -241,7 +241,7 @@ class EventType(TimestampedModel):
     icon = models.CharField(max_length=100, blank=True, null=True)
 
     schema = models.TextField(blank=True, default='''{
-                "schema": 
+                "schema":
                 {
                     "$schema": "http://json-schema.org/draft-04/schema#",
                     "title": "Empty Event Schema",
@@ -277,6 +277,42 @@ def parse_date_range(val):
     if upper is not None:
         upper = dateparse.parse_datetime(upper)
     return (lower, upper)
+
+
+class RefreshRecreateEventDetailViewQuery(models.QuerySet):
+
+    def recreate(self, activity, status):
+        return self.create(recreated_at=timezone.now(),
+                           performed_by=activity,
+                           maintenance_status=status)
+
+    def refresh(self, activity, status):
+        return self.create(refresh_at=timezone.now(),
+                           performed_by=activity,
+                           maintenance_status=status)
+
+
+class RefreshRecreateEventDetailView(models.Model):
+    SUCCESS = 'SUCCESS'
+    FAILURE = 'FAILURE'
+    REFRESH = 'REFRESH'
+    PENDING = 'PENDING'
+    RETRY = 'RETRY'
+
+    STATUS_MESSAGE = [
+        (SUCCESS, 'Recreate'),
+        (FAILURE, 'Error'),
+        (REFRESH, 'Refresh'),
+        (PENDING, 'Pending'),
+        (RETRY, 'Retry'),
+    ]
+
+    performed_by = models.CharField(blank=True, null=True, max_length=255)
+    refresh_at = models.DateTimeField(blank=True, null=True)
+    recreated_at = models.DateField(blank=True, null=True)
+    maintenance_status = models.CharField(max_length=255, choices=STATUS_MESSAGE, default=PENDING)
+
+    objects = RefreshRecreateEventDetailViewQuery.as_manager()
 
 
 class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
@@ -1318,5 +1354,3 @@ class EventNotification(TimestampedModel):
         indexes = [
             models.Index(fields=['event'])
         ]
-
-

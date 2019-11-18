@@ -7,6 +7,8 @@ from django.utils.functional import lazy, curry
 from django.utils.translation import ugettext_lazy as _
 from django.utils import timezone
 
+from core.utils import static_image_finder
+
 
 class ChoiceQuerySet(models.QuerySet):
     def get_choices_for_field(self, model, field):
@@ -71,6 +73,7 @@ class Choice(SoftDeleteModel):
     field = models.CharField(max_length=40)
     value = models.CharField(max_length=100, blank=True)
     display = models.CharField(max_length=100, blank=True)
+    icon = models.CharField(max_length=100, blank=True, null=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     sub_choice_of = models.ManyToManyField('self', blank=True,
                                            symmetrical=False)
@@ -83,13 +86,31 @@ class Choice(SoftDeleteModel):
     def __str__(self):
         return ', '.join((self.model, self.field, self.value, self.display))
 
-class DisableChoice(Choice):
+    @property
+    def icon_id(self):
+        return self.icon if self.icon else self.value
 
+    @staticmethod
+    def image_basename(choice_value):
+        color = 'black'
+        return '{0}-{1}'.format(choice_value, color)
+
+    @staticmethod
+    def generate_image_keys(choice_value):
+        yield choice_value
+
+    @staticmethod
+    def marker_icon(choice_value, default='/static/generic-black.svg'):
+        image_url = static_image_finder.get_marker_icon(
+            Choice.generate_image_keys(choice_value))
+        return image_url or default
+
+
+class DisableChoice(Choice):
     class Meta:
-        proxy=True
+        proxy = True
         verbose_name = 'Disable Choice'
         verbose_name_plural = 'Disable Choices'
-
 
 
 class ChoiceCharField(models.CharField):

@@ -108,6 +108,16 @@ def get_enum_choices(field_details, as_string=True):
     return return_val
 
 
+def get_enumImage_values(field_details):
+
+    options = OrderedDict()
+    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
+        options[choice.value] = choice.icon
+
+
+    return {k: v for k, v in options.items() if v}
+
+
 def get_table_choices(field_details, as_string=True):
 
     options = OrderedDict()
@@ -151,6 +161,7 @@ def get_schema_renderer_method():
         field_name, field_type = table_choices_identifier.split(':')
         return get_table_choices({'field': field_name, 'type': field_type})
 
+
     @memoize
     def render_f(schema):
 
@@ -167,7 +178,6 @@ def get_schema_renderer_method():
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
                            ] = memo_table_choices('{field}:{type}'.format(**schema_field))
-
         if parameters:
             template = Template(schema)
             rendered_template = template.render(
@@ -206,19 +216,17 @@ def extract_from_list(items: list = list):
     '''
     names = []
     ids = []
-    for value in values:
-        if value and not isinstance(value, dict):
-            logger.warning(
-                f'extract_from_list value is not a dict: {value} from {values}')
-            return value, value
-
-        if 'name' not in value:
-            logger.warning(
-                f'extract_from_list name not in value: {value} from {values}')
-            return '', ''
-
-        names.append(value['name'])
-        ids.append(value['value'])
+    for item in items:
+        if item and isinstance(item, (str, bool, int, float)):
+            logger.warning(f'extract_from_list value is not a dict: {item} from {items}')
+            names.append(str(item))
+            ids.append(item)
+        elif isinstance(item, dict) and 'name' in item and 'value' in item:
+            logger.info(f'extracting name/value from {item}')
+            names.append(item['name'])
+            ids.append(item['value'])
+        else:
+            logger.warning(f'extract_from_list cannot parse in value: {item} from {items}')
 
     return ';'.join(ids), ';'.join(names)
 
@@ -258,17 +266,8 @@ def extractor(schema_item, definition, value):
         if isinstance(definition_item, dict) and definition_item.get('key') == schema_item['key']:
             return definition_item.get('title'), val, key
     else:
-        for definition_item in definition:
-            if isinstance(definition_item, dict):
-                if 'key' not in definition_item:
-                    logger.warning(f'key not found in definition {definition}')
-                    continue
-                if 'key' not in schema_item:
-                    logger.warning(
-                        f'key not found in schema_item {schema_item}')
-                    continue
-                if definition_item['key'] == schema_item['key']:
-                    return definition_item.get('title'), val, key
+        logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
+
 
 
 def generate_index(start_at=0, incr=1):
@@ -456,9 +455,26 @@ def find_display_value_for_key_in_definition(schema, key):
 
 
 def get_display_value_header_for_key(schema, key):
-    if key in schema['schema']['properties'] and 'title' in schema['schema']['properties'][key]:
-        return schema['schema']['properties'][key]['title']
-    return find_display_value_for_key_in_definition(schema, key) or format_key_for_title(key)
+    '''
+    Prefer the title from:
+    1. the form definition
+    2. The schema properties extra title attribute
+    3. A sanitized derivative of the key itself
+
+    :param schema: An EventType.schema  as a dict
+    :param key: The document property key
+    :return: A title
+    '''
+    definition_header = find_display_value_for_key_in_definition(schema, key)
+
+    if definition_header:
+        return definition_header
+    else:
+        properties = schema['schema']['properties']
+        if key in properties and 'title' in properties[key]:
+            return properties[key]['title']
+
+    return format_key_for_title(key)
 
 
 def generate_schema_from_document(doc):

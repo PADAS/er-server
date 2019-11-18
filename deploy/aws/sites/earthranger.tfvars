@@ -1,0 +1,7 @@
+partner = "prod"
+site = "earthranger"
+rds_name = "prod-01-das-db"
+timezone = "Chile/EasterIsland"
+daily_report_enabled = "False"
+export_kml_enabled = "False"
+alerts_enabled = "False"

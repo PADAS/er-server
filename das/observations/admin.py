@@ -15,9 +15,9 @@ from django import forms
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
 from django.utils.translation import ugettext_lazy as _
-from django.db.models import Q, F, Count, Value, ExpressionWrapper, Avg, Window, Max, Sum, Min
+from django.db.models import Q, F, Count, ExpressionWrapper, Window, Max, Min
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models.functions import FirstValue, LastValue, Trunc, RowNumber
+from django.db.models.functions import FirstValue, Trunc
 from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
 from django.db.models.functions import Now
 from django.http import HttpResponse
@@ -31,6 +31,7 @@ import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
 from utils.html import make_html_list
+from .models import SOURCE_TYPES
 
 site_title = _('DAS Administration (advanced view)')
 admin.site.site_title = site_title
@@ -825,19 +826,28 @@ class RadioStatusFilter(admin.SimpleListFilter):
 
 class SourceTypeFilter(admin.SimpleListFilter):
     title = 'Source Type'
-    parameter_name = 'radio_identifier'
+    parameter_name = 'source_type'
 
     def lookups(self, request, model_admin):
-        return (
-            ('trbonet', 'TRBOnet Radios'),
-        )
+        source_types = [('trbonet', 'TRBOnet Radios')]
+        for sourcetype in SOURCE_TYPES:
+            source_types.append(sourcetype)
+        return source_types
 
     def queryset(self, request, queryset):
         value = self.value()
-        if value == 'trbonet':
-            return queryset.filter(subject__subjectsource__assigned_range__contains=F('recorded_at'),
-                                   subject__subjectsource__source__manufacturer_id__startswith='trbonet-')
-
+        if value:
+            if value == 'trbonet':
+                display = queryset.filter(
+                    subject__subjectsource__assigned_range__contains=F(
+                        'recorded_at'),
+                    subject__subjectsource__source__manufacturer_id__startswith='trbonet-')
+            else:
+                display = queryset.filter(
+                    subject__subjectsource__assigned_range__contains=F(
+                        'recorded_at'),
+                    subject__subjectsource__source__source_type=value)
+            return display
         return queryset
 
 
@@ -851,8 +861,9 @@ class SubjectStatusAdmin(gis_admin.OSMGeoAdmin):
     ordering = ('-recorded_at',)
     # change_list_template = 'admin/subject_status_change_list.html'
     # readonly_fields = ('recorded_at', 'subject','delay_hours', 'additional')
-    list_display = ('_status', 'radio_state_at', '_age_of_state', 'subject_link',
-                    'recorded_at', '_location', '_age', '_source_provider')
+    list_display = ('_status', 'radio_state_at', '_age_of_state',
+                    'subject_link', 'recorded_at', '_location', '_age',
+                    '_source_provider', '_source_type', )
     list_filter = (RadioStatusFilter, SourceTypeFilter,
                    'subject__subject_subtype__display',
                    SSSourceProviderFilter
@@ -912,6 +923,14 @@ class SubjectStatusAdmin(gis_admin.OSMGeoAdmin):
     def _source_provider(self, o):
         return o.provider_name
 
+    def _source_type(self, o):
+        source = None
+        try:
+            source = o.subject.source.source_type
+        except Exception:
+            pass
+        return source
+
 
 @admin.register(models.SourceProvider)
 class SourceProviderAdmin(admin.ModelAdmin):
@@ -929,7 +948,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
         ),
         ('Provider configurations', {
             'classes': ('wide',),
-            'fields': ('lag_notification_threshold', 'silence_notification_threshold',)
+            'fields': ('lag_notification_threshold', 'silence_notification_threshold', 'days_data_retain')
         }
         ),
 

@@ -47,6 +47,7 @@ app.conf.task_routes = {
     'rt_api.tasks.broadcast_service_status': {'queue': 'realtime_p1'},
     'observations.tasks.handle_source_with_new_observations': {'queue': 'realtime_p2'},
     'observations.tasks.maintain_subjectstatus_for_subject': {'queue': 'maintenance'},
+    'observations.tasks.maintain_observation_data': {'queue': 'maintenance'},
     # Queue analyzer tasks separately.
     'analyzers.tasks.*': {'queue': 'analyzers', },
 
@@ -105,7 +106,17 @@ app.conf.beat_schedule = {
     'silent-source-report': {
         'task': 'reports.tasks.queue_silent_source_report',
         'schedule': timedelta(minutes=60),
-    }
+    },
+    'routine-delete-observational-data': {
+        'task': 'observations.tasks.maintain_observation_data',
+        # 4 AM local time per settings.TIME_ZONE
+        'schedule': crontab(hour=4, minute=0)
+
+    },
+     'refresh-event-details-view': {
+        'task': 'activity.tasks.refresh_event_details_views_task',
+        'schedule': timedelta(hours=8)
+     },
 
 }
 
