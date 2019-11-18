@@ -321,6 +321,13 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
 
     actions = ['export_as_csv', ]
 
+    def set_coordinates_cookie(self, http_response, obj):
+        coords = obj.location.coords
+        long, lat = self.get_single_coordinate_pair(coords)
+        http_response.set_cookie("latitude", lat, max_age=365 * 24 * 60 * 60)
+        http_response.set_cookie("longitude", long, max_age=365 * 24 * 60 * 60)
+        return http_response
+
 
 class SourceProviderFilter(admin.SimpleListFilter):
     title = 'Source Provider'
