@@ -42,6 +42,9 @@ def query_statement(json_path, data_type):
 
     if data_type == 'TEXT[]':
         query_string = f"case when jsonb_typeof(data#> '{{{array_path}}}') = 'array' then array(select jsonb_array_elements(data#>'{{{array_path}}}')->>'name') end as {json_path[1]}"
+    elif data_type == 'NUMERIC':
+        # Wrap in a function that'll safely coerce values to NUMERIC.
+        query_string = f'TO_NUMERIC((data#>>\'{{{path}}}\')::{data_type}) as "{json_path[1]}"'
     else:
         query_string = f'(data#>>\'{{{path}}}\')::{data_type} as "{json_path[1]}"'
     return query_string
@@ -103,7 +106,6 @@ def generate_field_details(schema_accumulator):
             if prop_val.get('enum'):
                 if prop_val.get('type') == 'string':
                     yield ('event_details', prop_key, 'name'), 'TEXT'
-
 
             elif prop_val.get('type') == 'string':
                 yield ('event_details', prop_key), 'TEXT'
