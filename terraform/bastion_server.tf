@@ -35,7 +35,7 @@ resource "google_compute_instance" "bastion_server" {
 
   allow_stopping_for_update = "true"
   machine_type              = "g1-small"
-  name                      = "psql-bastion-server-${terraform.workspace}"
+  name                      = "psql-bastion-server"
   project                   = data.google_project.earthranger.project_id
   zone                      = data.terraform_remote_state.earthranger_app_infra.outputs.gcp_zone
   boot_disk {
