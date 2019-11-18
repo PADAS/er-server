@@ -57,10 +57,10 @@ commands:
       - attach_workspace:
           at: './'
       - 'export_google_credentials'
-      - 'toggle_firewall_for_build_agent_to_bastion_closure':
+      - 'toggle_firewall_for_build_agent_closure':
           inner_command: 'cd terraform && make terraform_apply apply_args="<< parameters.apply_args >>"'
           network: '<< parameters.network >>'
-  toggle_firewall_for_build_agent_to_bastion_closure:
+  toggle_firewall_for_build_agent_closure:
     parameters:
       inner_command:
         type: 'string'
@@ -69,12 +69,16 @@ commands:
         default: 'dev'
     steps:
       - 'activate_google_service_account'
-      - run: "gcloud compute firewall-rules create \"cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:22\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"<< parameters.network >>\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.co)/32\" --target-tags=\"psql-bastion\" --project=\"earthranger-78ca55ca\" --quiet"
+      - run: "gcloud compute firewall-rules create \"bastion-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:22\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"<< parameters.network >>\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.co)/32\" --target-tags=\"psql-bastion\" --project=\"earthranger-78ca55ca\" --quiet"
+      - run: "gcloud compute firewall-rules create \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:$K8S_PROXY_PORT\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"$K8S_PROXY_NETWORK\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.co)/32\" --target-tags=\"$K8S_PROXY_TARGET_TAG\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
       - run: '<<parameters.inner_command>>'
       - run:
-          command: "gcloud compute firewall-rules delete \"cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"earthranger-78ca55ca\" --quiet"
+          command: "gcloud compute firewall-rules delete \"bastion-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"earthranger-78ca55ca\" --quiet"
           when: 'always'
-executors:
+      - run:
+          command: "gcloud compute firewall-rules delete \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
+          when: 'always'
+  executors:
   default:
     docker:
       - image: 'google/cloud-sdk:269.0.0'
