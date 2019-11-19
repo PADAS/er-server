@@ -44,7 +44,7 @@ def query_statement(json_path, data_type):
         query_string = f"case when jsonb_typeof(data#> '{{{array_path}}}') = 'array' then array(select jsonb_array_elements(data#>'{{{array_path}}}')->>'name') end as {json_path[1]}"
     elif data_type == 'NUMERIC':
         # Wrap in a function that'll safely coerce values to NUMERIC.
-        query_string = f'TO_NUMERIC((data#>>\'{{{path}}}\')::{data_type}) as "{json_path[1]}"'
+        query_string = f'TO_NUMERIC((data#>>\'{{{path}}}\')::TEXT) as "{json_path[1]}"'
     else:
         query_string = f'(data#>>\'{{{path}}}\')::{data_type} as "{json_path[1]}"'
     return query_string
