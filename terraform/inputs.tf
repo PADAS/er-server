@@ -5,7 +5,7 @@ variable "firewall_priority_threshold" {
 }
 
 variable "is_running_in_automation" {
-  type = bool
+  type    = bool
   default = false
 }
 
