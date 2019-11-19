@@ -126,8 +126,9 @@ def handle_observation(observation_id):
 @celery.app.task()
 def download_gfw_alerts(download_url, common_event_fields, user_id):
     try:
+        connect_timeout, read_timeout = 3, 30
         logger.info('Processing GFW payload. Downloading from: %s', download_url)
-        resp = requests.get(url=download_url, timeout=(2, 5))
+        resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
     except Exception:
         logger.exception('Failed downloading GFW alert data for url: %s', download_url)
         raise
