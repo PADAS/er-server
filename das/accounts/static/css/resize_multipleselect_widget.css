@@ -1,0 +1,23 @@
+.selector {
+    width: 90%;
+}
+
+.selector .selector-available,
+.selector .selector-chosen {
+    max-width: 45%;
+    width: 45%;
+}
+
+@media (max-width: 768px) {
+    .selector .selector-available,
+    .selector .selector-chosen {
+        max-width: 100%;
+        width: 100%;
+    }
+}
+
+
+.selector select {
+    width: 100%;
+}
+
