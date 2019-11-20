@@ -36,10 +36,10 @@ commands:
     steps:
       - 'checkout'
       - 'add_deploy_key_for_common_terraform_modules'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_init init_args="<< parameters.init_args >>"'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_workspace_new workspace="<< parameters.terraform_workspace >>" || make terraform_workspace_select workspace="<< parameters.terraform_workspace >>"'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd infra-automation && make tf_init init_options="<< parameters.init_args >>"'
+      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd infra-automation && make terraform_workspace_new workspace="<< parameters.terraform_workspace >>" || make terraform_workspace_select workspace="<< parameters.terraform_workspace >>"'
       - 'toggle_firewall_for_build_agent_k8s_closure':
-          inner_command: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_plan plan_args="<< parameters.plan_args >>"'
+          inner_command: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd infra-automation && make terraform_plan plan_args="<< parameters.plan_args >>"'
       - persist_to_workspace:
           root: './'
           paths:
@@ -59,7 +59,7 @@ commands:
           at: './'
       - 'export_google_credentials'
       - 'toggle_firewall_for_build_agent_k8s_and_proxy_closure':
-          inner_command: 'cd terraform && make terraform_apply apply_args="<< parameters.apply_args >>"'
+          inner_command: 'cd infra-automation && make terraform_apply apply_args="<< parameters.apply_args >>"'
           network: '<< parameters.network >>'
   toggle_firewall_for_build_agent_k8s_and_proxy_closure:
     parameters:
