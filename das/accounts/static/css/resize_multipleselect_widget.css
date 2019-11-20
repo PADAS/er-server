@@ -1,11 +1,18 @@
-.selector {
+.related-widget-wrapper {
     width: 90%;
+}
+
+.related-widget-wrapper > .selector {
+    width: 90%;
+}
+
+.selector {
+    width: 80%;
 }
 
 .selector .selector-available,
 .selector .selector-chosen {
-    max-width: 45%;
-    width: 45%;
+    width: 48%;
 }
 
 @media (max-width: 768px) {
