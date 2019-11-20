@@ -1,5 +1,5 @@
 locals {
-  db_secret_path = (local.is_production ? "prod1" : "dev")
+  db_secret_path    = (local.is_production ? "prod1" : "dev")
   sanitized_db_name = substr(replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_"), 0, 28)
 }
 
