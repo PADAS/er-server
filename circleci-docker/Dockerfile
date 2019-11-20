@@ -1,4 +1,4 @@
-#FROM ubuntu:18.04
+FROM ubuntu:18.04
 #MAINTAINER Chris Doehring, chrisdo@vulcan.com & Matt Korwel, mattko@vulcan.com, lorainek@vulcan.com
 #
 #RUN apt-get update
@@ -59,3 +59,4 @@
 #WORKDIR /var/www/app
 #
 #CMD ["/var/www/app/start_scripts/start.sh"]
+CMD ['echo foo']
