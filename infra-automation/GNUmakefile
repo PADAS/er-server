@@ -16,8 +16,8 @@ vulcan_path := $(CURDIR)/.vulcan
 terraform_makefile := $(vulcan_path)/terraform-subtree/GNUmakefile
 vault_makefile := $(vulcan_path)/vault-subtree/GNUmakefile
 
-terraform_path := $(CURDIR)/terraform-new
-template_path := $(CURDIR)/templated-deployment
+terraform_path := $(CURDIR)/../terraform
+template_path := $(CURDIR)/../templated-deployment
 
 .PHONY: help
 help: ## show this help
