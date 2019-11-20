@@ -8,7 +8,7 @@ You can incorporate this into other repos by the magic of [Git Subtree](https://
 $ pwd
 /home/you/src/some-other-git-repo-that-isn't-this-one
 
-$ git subtree add --prefix <the-path-where-you-want-these-hooks-to-land> git@github.com:das/terraform.git master --squash
+$ git subtree add --prefix <the-path-where-you-want-these-hooks-to-land> git@github.com:padas/terraform.git master --squash
 ```
 
 Need to **update** this in some other repo?
@@ -17,7 +17,7 @@ Need to **update** this in some other repo?
 $ pwd
 /home/you/src/some-other-git-repo-that-isn't-this-one
 
-$ git subtree pull --prefix <the-path-where-you-want-this-to-land> git@github.com:das/terraform.git master --squash
+$ git subtree pull --prefix <the-path-where-you-want-this-to-land> git@github.com:padas/terraform.git master --squash
 ```
 
 Having done this, the **other project's** `GNUmakefile` can invoke this one. Observe:
