@@ -1,8 +1,4 @@
-.related-widget-wrapper {
-    width: 90%;
-}
-
-.related-widget-wrapper > .selector {
+.related-widget-wrapper, .related-widget-wrapper > .selector {
     width: 90%;
 }
 
