@@ -359,6 +359,58 @@ class SubjectsView(generics.ListCreateAPIView):
         # parameter set in by_user_subjects
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.order_by('id')
+
+        # Filter by provided subject_ids.
+        queryset = queryset.by_user_subjects(self.request.user)
+
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+
+        queryset = queryset.select_related(
+            'subject_subtype', 'subject_subtype__subject_type')
+        queryset = queryset.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24)
+
+        subject_group = self.request.query_params.get('subject_group', None)
+        subject_ids = self.request.query_params.get('id', '')
+
+        if subject_ids:
+            queryset = queryset.by_id(subject_ids)
+        elif subject_group:
+            groups = models.SubjectGroup.objects.get_nested_groups(
+                subject_group)
+            queryset = queryset.by_groups(groups)
+        else:
+            # Fetch all the Subjects whose access is gained through Source Group
+            # permissions.
+            source_groups = models.SourceGroup.objects.filter(
+                permission_sets__in=self.request.user.get_all_permission_sets())
+            for source_group in source_groups:
+                sources = source_group.get_all_sources()
+                for source in sources:
+
+                    subjects_via_source = all_subjects.filter(
+                        subjectsource__source=source)
+
+                    queryset = queryset.distinct() | subjects_via_source.distinct()
+
+                    # Send all allowed Sources of each Subject to serializer for
+                    # latest_location finding.
+                    if not self.request.user.is_superuser:
+                        for subject in subjects_via_source:
+                            self.subject_linked_sources.setdefault(
+                                subject.name, set()).add(source)
+
+        # Apply request query filters.
+        updated_since = self.request.query_params.get('updated_since', None)
+        if updated_since:
+            try:
+                updated_since = dateparse(updated_since)
+            except ValueError:
+                raise ValueError(
+                    f'Invalid value for updated_since: "{updated_since}"')
+            else:
+                queryset = queryset.by_updated_since(updated_since)
+
         bbox = self.request.query_params.get('bbox', None)
         if bbox:
             bbox = bbox.split(',')
@@ -372,58 +424,7 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_name_search(
                 self.request.query_params.get('name'))
 
-        subject_group = self.request.query_params.get('subject_group', None)
-        if subject_group:
-            groups = models.SubjectGroup.objects.get_nested_groups(
-                subject_group)
-            queryset = queryset.by_groups(groups)
-
-        # Filter by provided subject_ids.
-        subject_ids = self.request.query_params.get('id', '')
-        if subject_ids:
-            queryset = queryset.by_id(subject_ids)
-
-        queryset = queryset.by_user_subjects(self.request.user)
-
-        min_age_days = get_minimum_allowed_age(self.request.user) or 0
-
-        queryset = queryset.select_related(
-            'subject_subtype', 'subject_subtype__subject_type')
-        queryset = queryset.annotate_with_subjectstatus(
-            delay_hours=min_age_days * 24)
-
-        updated_since = self.request.query_params.get('updated_since', None)
-        if updated_since:
-            try:
-                updated_since = dateparse(updated_since)
-            except ValueError:
-                raise ValueError(
-                    f'Invalid value for updated_since: "{updated_since}"')
-            else:
-                queryset = queryset.by_updated_since(updated_since)
-
-        combined_queryset = queryset
-        # Fetch all the Subjects whose access is gained through Source Group
-        # permissions.
-        source_groups = models.SourceGroup.objects.filter(
-            permission_sets__in=self.request.user.get_all_permission_sets())
-        for source_group in source_groups:
-            sources = source_group.get_all_sources()
-            for source in sources:
-                queryset = check_to_include_inactive_subjects(
-                    self.request, all_subjects)
-                subjects = queryset.filter(subjectsource__source=source)
-                combined_queryset = combined_queryset.distinct() | \
-                    subjects.distinct()
-
-                # Send all allowed Sources of each Subject to serializer for
-                # latest_location finding.
-                if not self.request.user.is_superuser:
-                    for subject in subjects:
-                        self.subject_linked_sources.setdefault(
-                            subject.name, set()).add(source)
-
-        return combined_queryset
+        return queryset
 
     def get_serializer_context(self):
         request = self.request
