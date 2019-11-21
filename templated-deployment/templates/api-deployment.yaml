@@ -72,9 +72,9 @@ spec:
           value: "${CONFIG_CONTAINER}"
         - name: EMAIL_PASSWORD
           valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: EMAIL_PASSWORD
+            secretKeyRef:
+              name: email-password
+              key: value
         - name: EMAIL_HOST_USER
           valueFrom:
             configMapKeyRef:
