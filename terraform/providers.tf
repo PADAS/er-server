@@ -26,6 +26,10 @@ provider "kubernetes" {
   token                  = data.google_client_config.k8s.access_token
 }
 
+provider "random" {
+  version = ">=2.1"
+}
+
 provider "tls" {
   version = ">=2.1"
 }
