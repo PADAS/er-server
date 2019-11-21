@@ -1,3 +1,4 @@
+import json
 from uuid import uuid4
 
 from django.contrib.auth.models import Permission
@@ -9,6 +10,10 @@ from observations.models import Subject, SubjectGroup
 from observations.views import SubjectGroupsView, SubjectsView
 
 API_BASE = '/api/v1.0'
+
+
+def make_perm(perm):
+    return "{0}.{1}".format(perm.content_type.app_label, perm.codename)
 
 
 class SubjectGroupTest(BaseAPITest):
@@ -85,3 +90,99 @@ class SubjectGroupTest(BaseAPITest):
                          str(self.beta.id) not in subject_ids) and
                         (str(self.rosie.id) in subject_ids and
                          str(self.henry.id) in subject_ids))
+
+
+class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
+    user_const = dict(last_name='last', first_name='first')
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.view_subject_group_perm_name = 'view_subjectgroup'
+        self.child_grp_1 = SubjectGroup.objects.create(name='Child Group 1')
+        self.child_grp_2 = SubjectGroup.objects.create(name='Child Group 2')
+        self.parent_group = SubjectGroup.objects.create(name='Parent Group')
+
+        self.parent_group.children.add(self.child_grp_1, self.child_grp_2)
+        self.parent_group.save()
+
+        self.user = User.objects.create_user(username='active_user',
+                                             email='active_user@test.com',
+                                             password=User.objects.make_random_password(),
+                                             **self.user_const)
+        self.view_subject_perm = Permission.objects.get(
+            codename=self.view_subject_group_perm_name)
+        self.perm_set = PermissionSet.objects.create(name="View child 1 Perm set")
+
+    def test_all_subgroups_not_visible_whn_granted_access_to_one_subgroup(self):
+
+        self.perm_set.permissions.add(self.view_subject_perm)
+        self.perm_set.save()
+
+        self.user.permission_sets.add(self.perm_set)
+
+        self.child_grp_1.permission_sets.add(self.perm_set)
+        self.child_grp_1.save()
+
+        self.assertFalse(
+            self.user.has_perm(make_perm(self.view_subject_perm), self.child_grp_2))
+
+    def test_get_subjectgroups_for_user_with_perms_for_child_1_group(self):
+        """
+        when the user only has permissions to view only child group 1
+        only child group one should be returned by the api
+        the child group should be in the top level subject groups
+        """
+
+        self.perm_set.permissions.add(self.view_subject_perm)
+        self.perm_set.save()
+
+        self.user.permission_sets.add(self.perm_set)
+
+        self.child_grp_1.permission_sets.add(self.perm_set)
+        self.child_grp_1.save()
+
+        request = self.factory.get(API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.user)
+
+        response = SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertIn(str(self.child_grp_1.id), [subjectgroup.get('id') for subjectgroup in response.data])
+        subject_group_ids = []
+        for subject_group in response.data:
+            subject_group_ids.append(subject_group.get('id'))
+            for subgroup in subject_group.get('subgroups'):
+                subject_group_ids.append(subgroup.get('id'))
+        self.assertNotIn(str(self.child_grp_2.id), subject_group_ids)
+        self.assertNotIn(str(self.parent_group.id), subject_group_ids)
+
+    def test_get_subjectgroups_for_user_with_perms_for_parent_group(self):
+
+        self.perm_set.permissions.add(self.view_subject_perm)
+        self.perm_set.save()
+
+        self.user.permission_sets.add(self.perm_set)
+
+        self.parent_group.permission_sets.add(self.perm_set)
+        self.parent_group.save()
+
+        request = self.factory.get(API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.user)
+
+        response = SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        top_level_subject_groups_ids = []
+        subgroups_ids = []
+
+        for subject_group in response.data:
+            top_level_subject_groups_ids.append(subject_group.get('id'))
+            for subgroup in subject_group.get('subgroups'):
+                subgroups_ids.append(subgroup.get('id'))
+
+        self.assertEqual(str(self.parent_group.id), top_level_subject_groups_ids[0])
+        self.assertIn(str(self.child_grp_1.id), subgroups_ids)
+        self.assertIn(str(self.child_grp_2.id), subgroups_ids)
+
+
+
