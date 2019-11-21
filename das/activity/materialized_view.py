@@ -74,10 +74,8 @@ def check_db_view_exists():
 def re_create_view():
     if check_db_view_exists():
         cursor = _cursor()
-        cursor.execute(f'DROP MATERIALIZED VIEW {table_name}')
-        execute_DDL()
-    else:
-        execute_DDL()
+        cursor.execute(f'DROP MATERIALIZED VIEW IF EXISTS {table_name}')
+    execute_DDL()
 
 
 def refresh_materialized_view():
