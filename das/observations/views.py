@@ -351,27 +351,28 @@ class SubjectsView(generics.ListCreateAPIView):
             raise UnauthorizedView
 
         self.subject_linked_sources = {}
-        min_age = get_minimum_allowed_age(self.request.user) or 0
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+
         all_subjects = models.Subject.objects.all()
         queryset = all_subjects \
-            .annotate_with_subjectstatus(delay_hours=min_age * 24)
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.order_by('id')
 
-        # Filter by provided subject_ids.
         queryset = queryset.by_user_subjects(self.request.user)
-
-        min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
         queryset = queryset.select_related(
             'subject_subtype', 'subject_subtype__subject_type')
         queryset = queryset.annotate_with_subjectstatus(
             delay_hours=min_age_days * 24)
 
-        subject_group = self.request.query_params.get('subject_group', None)
-        subject_ids = self.request.query_params.get('id', '')
+        # Allow specifying a single subject group by 'id'.
+        subject_group = self.request.query_params.get('subject_group')
+
+        # Allow specifying a comma-delimited list of subject IDs.
+        subject_ids = self.request.query_params.get('id')
 
         if subject_ids:
             queryset = queryset.by_id(subject_ids)
@@ -384,6 +385,9 @@ class SubjectsView(generics.ListCreateAPIView):
             # permissions.
             source_groups = models.SourceGroup.objects.filter(
                 permission_sets__in=self.request.user.get_all_permission_sets())
+
+            # TODO: Review this to determine whether it would be better to join
+            # in a query.
             for source_group in source_groups:
                 sources = source_group.get_all_sources()
                 for source in sources:
@@ -400,8 +404,9 @@ class SubjectsView(generics.ListCreateAPIView):
                             self.subject_linked_sources.setdefault(
                                 subject.name, set()).add(source)
 
-        # Apply request query filters.
-        updated_since = self.request.query_params.get('updated_since', None)
+        # Apply request query filters that have are compatible with any of the
+        # criteria above.
+        updated_since = self.request.query_params.get('updated_since')
         if updated_since:
             try:
                 updated_since = dateparse(updated_since)
@@ -411,7 +416,7 @@ class SubjectsView(generics.ListCreateAPIView):
             else:
                 queryset = queryset.by_updated_since(updated_since)
 
-        bbox = self.request.query_params.get('bbox', None)
+        bbox = self.request.query_params.get('bbox')
         if bbox:
             bbox = bbox.split(',')
             bbox = [float(v) for v in bbox]
