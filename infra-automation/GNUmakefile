@@ -81,3 +81,4 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_init
 	@ if [ ! -f $(tfvars_overrides)/$(tfvars_environment).tfvars ]; then touch $(tfvars_overrides)/$(tfvars_environment).tfvars; fi
 	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars'"
+	@ cat $(template_path)/rendered/api-deployment.yaml
