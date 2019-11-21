@@ -36,10 +36,11 @@ commands:
     steps:
       - 'checkout'
       - 'add_deploy_key_for_common_terraform_modules'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd infra-automation && make tf_init init_options="<< parameters.init_args >>"'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd infra-automation && make tf_workspace_new workspace="<< parameters.terraform_workspace >>" || make tf_workspace_select workspace="<< parameters.terraform_workspace >>"'
+      - 'export_google_credentials'
+      - run: 'cd infra-automation && make tf_init init_options="<< parameters.init_args >>"'
+      - run: 'cd infra-automation && make tf_workspace_new workspace="<< parameters.terraform_workspace >>" || make tf_workspace_select workspace="<< parameters.terraform_workspace >>"'
       - 'toggle_firewall_for_build_agent_k8s_closure':
-          inner_command: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd infra-automation && make tf_plan plan_options="<< parameters.plan_args >>"'
+          inner_command: 'cd infra-automation && make tf_plan plan_options="<< parameters.plan_args >>"'
       - persist_to_workspace:
           root: './'
           paths:
