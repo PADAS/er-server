@@ -124,6 +124,12 @@ jobs:
     steps:
       - terraform_apply:
           network: 'prod1'
+  render_templates:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - run: 'cd infra-automation && make render_templates tfvars_environment=$CIRCLE_BRANCH'
   generate_manifest:
     docker:
       - image: circleci/buildpack-deps:stretch
@@ -190,6 +196,10 @@ workflows:
       - terraform_apply_dev:
           requires:
             - 'terraform_plan_dev'
+      - render_templates:
+          requires:
+            - 'terraform_apply_dev'
+
 
   build_and_terraform_feature_branch:
   # Build for all branches except develop and release.
@@ -227,6 +237,9 @@ workflows:
       - terraform_apply_dev:
           requires:
             - 'review_plan_dev'
+      - render_templates:
+          requires:
+            - 'terraform_apply_dev'
 
   build_and_terraform_prod1:
   # Build for all release branches
@@ -259,3 +272,8 @@ workflows:
       - terraform_apply_prod1:
           requires:
             - 'review_plan_prod1'
+      - render_templates:
+          requires:
+            - 'terraform_apply_prod'
+
+
