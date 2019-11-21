@@ -274,6 +274,6 @@ workflows:
             - 'review_plan_prod1'
       - render_templates:
           requires:
-            - 'terraform_apply_prod'
+            - 'terraform_apply_prod1'
 
 
