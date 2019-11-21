@@ -18,6 +18,7 @@ vault_makefile := $(vulcan_path)/vault-subtree/GNUmakefile
 
 terraform_path := $(CURDIR)/../terraform
 template_path := $(CURDIR)/../templated-deployment
+tfvars_overrides := $(template_path)/tfvars-overrides
 
 .PHONY: help
 help: ## show this help
@@ -75,7 +76,8 @@ tf_version: ## show terraform version
 	@ $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_version
 
 .PHONY: render_templates
-render_templates: tfvars_environment ?= default
-render_templates: ## render templates (using Terraform) | [tfvars_environment="NAME"]
+render_templates: tfvars_environment ?= no_overrides
+render_templates: ## render templates (using Terraform) | [tfvars_environment="BRANCH_NAME"]
 	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_init
-	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='./environment-specs/default/deployment-params.tfvars' -var-file='./environment-specs/$(tfvars_environment)/deployment-params.tfvars'"
+	@ if [ ! -f $(tfvars_overrides)/$(tfvars_environment).tfvars ]; then touch $(tfvars_overrides)/$(tfvars_environment).tfvars; fi
+	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars'"
