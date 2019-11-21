@@ -32,6 +32,7 @@ data "google_compute_image" "ubuntu" {
 resource "random_string" "bastion_name_uniqueness" {
   length = 4
   special = false
+  upper = false
 }
 
 resource "google_compute_instance" "bastion_server" {
@@ -40,7 +41,7 @@ resource "google_compute_instance" "bastion_server" {
 
   allow_stopping_for_update = "true"
   machine_type              = "g1-small"
-  name                      = "psql-bastion-server_${random_string.bastion_name_uniqueness}"
+  name                      = "psql-bastion-server-${random_string.bastion_name_uniqueness.result}"
   project                   = data.google_project.earthranger.project_id
   zone                      = data.terraform_remote_state.earthranger_app_infra.outputs.gcp_zone
   boot_disk {
