@@ -188,7 +188,8 @@ class SpatialFile(TimestampedModel):
                 management.call_command(
                     'importlayer', import_file, self.feature_set.name,
                     self.feature_type.name, layer=self.layer_number,
-                    name_field=self.name_field, id_field=self.id_field
+                    name_field=self.name_field, id_field=self.id_field,
+                    spatialfile_id=str(self.id)
                 )
             else:
                 raise ValidationError(
