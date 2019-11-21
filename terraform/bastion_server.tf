@@ -29,13 +29,19 @@ data "google_compute_image" "ubuntu" {
   project = "gce-uefi-images"
 }
 
+resource "random_string" "bastion_name_uniqueness" {
+  length = 4
+  special = false
+  upper = false
+}
+
 resource "google_compute_instance" "bastion_server" {
   # Toggle this variable to ensure bastion server spins down after bootstrapping
   count = local.bastion_server_count
 
   allow_stopping_for_update = "true"
   machine_type              = "g1-small"
-  name                      = "psql-bastion-server"
+  name                      = "psql-bastion-server-${random_string.bastion_name_uniqueness.result}"
   project                   = data.google_project.earthranger.project_id
   zone                      = data.terraform_remote_state.earthranger_app_infra.outputs.gcp_zone
   boot_disk {
@@ -48,7 +54,7 @@ resource "google_compute_instance" "bastion_server" {
 
   labels = {
     role      = "psql-bastion-server"
-    workspace = terraform.workspace
+    workspace = lower(terraform.workspace)
   }
 
   metadata = {
