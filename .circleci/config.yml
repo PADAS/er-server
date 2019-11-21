@@ -44,7 +44,6 @@ commands:
       - persist_to_workspace:
           root: './'
           paths:
-            - '*.*'
             - '*'
   terraform_apply:
     parameters:
@@ -130,6 +129,10 @@ jobs:
     executor: 'default'
     steps:
       - run: 'cd infra-automation && make render_templates tfvars_environment=$CIRCLE_BRANCH'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
   generate_manifest:
     docker:
       - image: circleci/buildpack-deps:stretch
