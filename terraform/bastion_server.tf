@@ -53,7 +53,7 @@ resource "google_compute_instance" "bastion_server" {
 
   labels = {
     role      = "psql-bastion-server"
-    workspace = terraform.workspace
+    workspace = lower(terraform.workspace)
   }
 
   metadata = {
