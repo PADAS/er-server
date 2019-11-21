@@ -161,12 +161,6 @@ jobs:
       - checkout
       - configure_git_for_commit_and_push
       - run: 'cd circleci-docker && make commit_and_push_manifest'
-  terraform_render_templates:
-    environment:
-      TF_IN_AUTOMATION: 'not-empty'
-    executor: 'default'
-    steps:
-      - run: 'cd infra-automation && make render_templates'
 workflows:
   version: 2
   build_and_terraform_dev:
