@@ -1063,8 +1063,27 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return kmlutils.render_to_kmz(result, filename)
 
 
+class FilterBySubjects(rest_framework.schemas.AutoSchema):
+    def get_manual_fields(self, path, method):
+        if method == 'GET':
+            extra_fields = [
+                coreapi.Field(
+                    name='subject_id',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Filter by subject id',
+                        description='Get Tracking data for specific subject ID.',
+                    )
+                ),
+            ]
+            return super().get_manual_fields(path, method) + extra_fields
+
+
 class TrackingDataCsvView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
+
+    schema = FilterBySubjects()
 
     def get_queryset(self, subject_id=None):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
@@ -1073,7 +1092,6 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         # To include inactive subjects in trackingdata report
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
-
         if subject_id:
             queryset = queryset.filter(id=subject_id)
         return queryset
@@ -1149,7 +1167,14 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                                                          item, request_subject_id)
                     csv_data.append(data)
         else:
-            subjects = self.get_queryset(request_subject_id)
+            try:
+                subjects = self.get_queryset(request_subject_id)
+                if subjects:
+                    pass
+            except Exception:
+                raise ValidationError("none", code='invalid')
+            # import pdb; pdb.set_trace()
+            
             for subject in subjects:
                 # all the relevant observations for the subject
                 items = self.get_subject_trackdata_queryset(
