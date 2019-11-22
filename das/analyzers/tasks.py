@@ -2,6 +2,7 @@ import json
 import logging
 
 import requests
+from requests.exceptions import Timeout
 from celery_once import QueueOnce
 from rest_framework import status
 
@@ -129,17 +130,19 @@ def download_gfw_alerts(download_url, common_event_fields, user_id):
         connect_timeout, read_timeout = 3, 30
         logger.info('Processing GFW payload. Downloading from: %s', download_url)
         resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
+    except Timeout as tex:
+        logger.exception('Failed downloading GFW alert data for url: %s', download_url,
+                         extra={'Exception': tex})
     except Exception:
         logger.exception('Failed downloading GFW alert data for url: %s', download_url)
-        raise
-
-    if resp and resp.status_code == status.HTTP_200_OK:
-        logger.info('Good response from GFW download url: %s', download_url)
-
-        gfw_alerts_payload = json.loads(resp.text)
-        logger.debug('GFW Alerts downloaded data: %s', gfw_alerts_payload)
-        gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('data', []),
-                                              common_event_fields, user_id)
     else:
-        logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
-                     resp.status_code, download_url, resp.text)
+        if resp and resp.status_code == status.HTTP_200_OK:
+            logger.info('Good response from GFW download url: %s', download_url)
+
+            gfw_alerts_payload = json.loads(resp.text)
+            logger.debug('GFW Alerts downloaded data: %s', gfw_alerts_payload)
+            gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('data', []),
+                                                  common_event_fields, user_id)
+        else:
+            logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
+                         resp.status_code, download_url, resp.text)
