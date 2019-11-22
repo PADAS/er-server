@@ -1167,14 +1167,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                                                          item, request_subject_id)
                     csv_data.append(data)
         else:
-            try:
-                subjects = self.get_queryset(request_subject_id)
-                if subjects:
-                    pass
-            except Exception:
-                raise ValidationError("none", code='invalid')
-            # import pdb; pdb.set_trace()
-            
+            subjects = self.get_queryset(request_subject_id)
             for subject in subjects:
                 # all the relevant observations for the subject
                 items = self.get_subject_trackdata_queryset(

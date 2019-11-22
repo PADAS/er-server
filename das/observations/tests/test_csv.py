@@ -235,12 +235,11 @@ class TrackingDataCsvViewTest(BaseAPITest):
         csv_data = [row.split(',') for row in csv_file_data[1:-1]]
         observations = [dict(zip(header, data)) for data in csv_data]
 
-        # Get list of chronofile
-        chrono_files = [observation['chronofile']
-                        for observation in observations]
-        unique_chrono_files = list(set(chrono_files))
+        # Get subject_ids_with records
+        unique_subject_ids = list(set([observation['subject_id']
+                                       for observation in observations]))
 
-        self.assertTrue(len(unique_chrono_files) > 1)
+        self.assertTrue(len(unique_subject_ids) == 1)
 
     def test_csv_observation_with_inactive_subject(self):
         inactive_subject_observation_fix_times = []
