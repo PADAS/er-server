@@ -296,7 +296,7 @@ class EventCountView(generics.ListAPIView):
         if len(allowed_event_categories) > 0:
             queryset = queryset.by_category(allowed_event_categories)
         else:
-            raise rest_framework.exceptions.PermissionDenied
+            queryset = queryset.none()
 
         data = {'count': queryset.count()}
         return generics.views.Response(data)
