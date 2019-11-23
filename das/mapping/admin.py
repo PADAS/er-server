@@ -1,26 +1,18 @@
-import logging
 from functools import reduce
 
 from django.contrib.admin import helpers
 from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
 from django.contrib.admin.utils import get_deleted_objects, unquote, \
-    model_ngettext, NestedObjects, quote
-from django.contrib.auth import get_permission_codename
+    model_ngettext
 from django.core.exceptions import PermissionDenied
 from django.db import router
 from django.template.response import TemplateResponse
-from django.urls import reverse, NoReverseMatch
-from django.utils import translation
 from django.contrib.gis import admin
-from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.contrib import admin as django_admin, messages
-from django.forms import ModelForm, forms
-from django.utils.text import capfirst
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
-from django.utils.html import escape, format_html
-from django.contrib.admin.actions import delete_selected
+from django.utils.html import escape
 from django.db.models import Q
 
 import mapping.models as models
