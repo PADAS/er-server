@@ -120,9 +120,9 @@ commit_and_push_manifest: $(manifest_file) # this should only be run by the buil
 	git diff --cached --quiet --exit-code || (printf "\tThere are staged, uncommitted changes... will not commit manifest.\n" >&2; exit 1)
 	if git diff --exit-code $(manifest_file); then (printf "\tNo changes to the manifest... nothing to do.\n" >&2; exit 0); else git add $(manifest_file) && git commit -F $(commit_message_path) && git push; fi
 
-.PHONY: $(manifest_file)
+$(manifest_file):
 	@ printf "\e[31m\tGenerating new manifest.\e[0m\n" >&2
-		@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_server_gcr_path)" manifest_key="$(manifest_key)" > /dev/null 2>&1 || (printf "\e[31m\tFailed to find 'latest' tagged image at '$(descriptive_server_gcr_path)'.\e[0m\n" >&2; exit 1)
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_server_gcr_path)" manifest_key="$(manifest_key)" > /dev/null 2>&1 || (printf "\e[31m\tFailed to find 'latest' tagged image at '$(descriptive_server_gcr_path)'.\e[0m\n" >&2; exit 1)
 
 .PHONY: append_to_manifest
 append_to_manifest: gcr_path :=
@@ -130,5 +130,3 @@ append_to_manifest: manifest_key :=
 append_to_manifest: # this should only be run by the build server
 	@ export DIGEST="$$(gcloud container images list-tags $(gcr_path) --filter="tags:latest" --format="value(Digest)" || exit 1)" && \
 		if [ -n "$$DIGEST" ]; then printf "%s = \"%s@%s\"\n" "$(manifest_key)" "$(gcr_path)" "$$DIGEST" >> $(manifest_file); else exit 1; fi
-
-
