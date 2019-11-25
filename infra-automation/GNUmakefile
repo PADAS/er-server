@@ -98,11 +98,8 @@ web_semver_file := $(CURDIR)/../WEB_VERSION
 
 current_branch := $(shell echo "$$(git rev-parse --quiet --verify --abbrev-ref HEAD || exit 1)")
 descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
-descriptive_gcr_path_stem := $(shell git config --get user.name || exit 1)
 
 .PHONY: build_and_push
-build_and_push: descriptive_gcr_path_stem := $(shell git config --get user.name || exit 1)
-build_and_push: descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(descriptive_gcr_path_stem) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 build_and_push: latest_gcr_tag := latest
 build_and_push: semver_gcr_tag := $(shell cat "$(server_semver_file)" || exit 1)
 build_and_push: sha_gcr_tag := $(shell git rev-parse --quiet --verify HEAD || exit 1)
