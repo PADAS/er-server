@@ -4,6 +4,8 @@ from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.contrib.gis.admin.widgets import OpenLayersWidget
 
+from core.admin import SaveCoordinatesToCookieMixin
+
 geo_context = {'LANGUAGE_BIDI': translation.get_language_bidi()}
 logger = logging.getLogger('django.contrib.gis')
 
@@ -56,7 +58,7 @@ class OlWidget(OpenLayersWidget):
         return map_options
 
 
-class OSMGeoExtendedAdmin(admin.OSMGeoAdmin):
+class OSMGeoExtendedAdmin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
     map_template = 'admin/openlayer/ol.html'
@@ -66,15 +68,9 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin):
     num_zoom = 19
     units = 'degrees'
 
-    widget = OlWidget
+    gis_geometry_attr_name = 'feature_geometry'
 
-    def get_single_coordinate_pair(self, coords):
-        try:
-            if not isinstance(coords[0], tuple):
-                return coords
-            return self.get_single_coordinate_pair(coords[0])
-        except Exception:
-            return (0, 0)
+    widget = OlWidget
 
     def get_form(self, request, obj=None, **kwargs):
         if not obj:
@@ -88,17 +84,6 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin):
             self.default_lat = lat
             self.default_lon = lon
         return super(OSMGeoExtendedAdmin, self).get_form(request, obj=None, **kwargs)
-
-    def set_coordinates_cookie(self, http_response, obj):
-        try:
-            coords = obj.feature_geometry.coords
-        except AttributeError:
-            pass
-        else:
-            long, lat = self.get_single_coordinate_pair(coords)
-            http_response.set_cookie("latitude", lat, max_age=365 * 24 * 60 * 60)
-            http_response.set_cookie("longitude", long, max_age=365 * 24 * 60 * 60)
-        return http_response
 
     def response_post_save_add(self, request, obj):
         http_response = super(OSMGeoExtendedAdmin,

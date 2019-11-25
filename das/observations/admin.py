@@ -29,7 +29,8 @@ import django.contrib.gis.admin as gis_admin
 import observations.models as models
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
-from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
+from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
+    SaveCoordinatesToCookieMixin
 from core.openlayers import OSMGeoExtendedAdmin
 from utils.html import make_html_list
 from .models import SOURCE_TYPES
@@ -321,17 +322,11 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
 
     actions = ['export_as_csv', ]
 
-    def set_coordinates_cookie(self, http_response, obj):
-        coords = obj.location.coords
-        long, lat = self.get_single_coordinate_pair(coords)
-        http_response.set_cookie("latitude", lat, max_age=365 * 24 * 60 * 60)
-        http_response.set_cookie("longitude", long, max_age=365 * 24 * 60 * 60)
-        return http_response
 
-
-class SourceProviderFilter(admin.SimpleListFilter):
+class SourceProviderFilter(admin.SimpleListFilter, SaveCoordinatesToCookieMixin):
     title = 'Source Provider'
     parameter_name = 'provider_key'
+    gis_geometry_attr_name = 'location'
 
     def lookups(self, request, model_admin):
         return [(p.provider_key, p.display_name) for p in sorted(models.SourceProvider.objects.all(),
@@ -858,6 +853,7 @@ class SourceTypeFilter(admin.SimpleListFilter):
 
 @admin.register(models.SubjectStatus)
 class SubjectStatusAdmin(OSMGeoExtendedAdmin):
+    gis_geometry_attr_name = 'location'
     search_fields = (
         'subject__name', 'subject__subjectsource__source__manufacturer_id')
     ordering = ('-recorded_at',)
@@ -933,12 +929,6 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
             pass
         return source
 
-    def set_coordinates_cookie(self, http_response, obj):
-        coords = obj.location.coords
-        long, lat = self.get_single_coordinate_pair(coords)
-        http_response.set_cookie("latitude", lat, max_age=365 * 24 * 60 * 60)
-        http_response.set_cookie("longitude", long, max_age=365 * 24 * 60 * 60)
-        return http_response
 
 
 @admin.register(models.SourceProvider)

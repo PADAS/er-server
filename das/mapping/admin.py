@@ -18,13 +18,7 @@ from core.openlayers import OSMGeoExtendedAdmin
 @admin.register(models.Map)
 class MapAdmin(OSMGeoExtendedAdmin):
     form = MapCenterForm
-
-    def set_coordinates_cookie(self, http_response, obj):
-        coords = obj.center.coords
-        long, lat = self.get_single_coordinate_pair(coords)
-        http_response.set_cookie("latitude", lat, max_age=365 * 24 * 60 * 60)
-        http_response.set_cookie("longitude", long, max_age=365 * 24 * 60 * 60)
-        return http_response
+    gis_geometry_attr_name = 'center'
 
 
 @admin.register(models.TileLayer)
