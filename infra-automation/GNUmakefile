@@ -90,7 +90,7 @@ commit_message_path := $(CURDIR)/.robo-commit-message
 legacy_concourse_shim_gcr := gcr.io/padas-app/circleci/earthranger-api
 
 gcr_root := gcr.io/padas-app/circleci/deleteme
-manifest_file := $(CURDIR)/MANIFEST
+manifest_file := $(CURDIR)/../GENERATED_MANIFEST
 manifest_key := SERVER_VERSION
 server_semver_file := $(CURDIR)/../SERVER_VERSION
 web_semver_file := $(CURDIR)/../WEB_VERSION
@@ -113,3 +113,19 @@ build_and_push: ## build and push
 	docker push $(descriptive_gcr_path):$(semver_gcr_tag)
 	docker push $(descriptive_gcr_path):$(sha_gcr_tag)
 	docker push $(descriptive_gcr_path):$(unique_gcr_tag)
+
+
+
+.PHONY: commit_and_push_manifest
+commit_and_push_manifest: $(manifest_file) # this should only be run by the build server
+	git diff --cached --quiet --exit-code || (printf "\tThere are staged, uncommitted changes... will not commit manifest.\n" >&2; exit 1)
+	if git diff --exit-code $(manifest_file); then (printf "\tNo changes to the manifest... nothing to do.\n" >&2; exit 0); else git add $(manifest_file) && git commit -F $(commit_message_path) && git push; fi
+
+.PHONY: $(manifest_file)
+$(manifest_file): descriptive_gcr_path_stem := $(shell git config --get user.name || exit 1)
+$(manifest_file): descriptive_gcr_path := $(gcr_root)/$(shell echo $(descriptive_gcr_path_stem) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
+$(manifest_file): unique_gcr_tag :=
+$(manifest_file):
+	@ if [ -z "$(unique_gcr_tag)" ]; then (printf "\e[31m\tMust provide a value for 'unique_gcr_tag'.\e[0m\n" >&2; exit 1); fi
+	@ export DIGEST="$$(gcloud container images list-tags $(descriptive_gcr_path) --filter="tags:$(unique_gcr_tag)" --format="value(Digest)" || true)" && \
+		if [ -z "$$DIGEST" ]; then (printf "\e[31m\tCould not find an image digest at '$(descriptive_gcr_path)' with tag '$(unique_gcr_tag)'.\e[0m\n" >&2; exit 1); else printf "%s = \"%s@%s\"" "$(manifest_key)" "$(descriptive_gcr_path)" "$$DIGEST" > $(manifest_file); fi
