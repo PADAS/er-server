@@ -94,7 +94,7 @@ manifest_file := $(CURDIR)/../GENERATED_MANIFEST
 manifest_key := SERVER_VERSION
 server_semver_file := $(CURDIR)/../SERVER_VERSION
 web_semver_file := $(CURDIR)/../WEB_VERSION
-server_api_dockerfile := $(CURDIR)/../circleci-docker/Dockerfile
+server_api_dockerfile := ../circleci-docker/Dockerfile
 
 .PHONY: build_and_push
 build_and_push: descriptive_gcr_path_stem := $(shell git config --get user.name || exit 1)
