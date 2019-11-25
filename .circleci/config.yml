@@ -154,7 +154,7 @@ jobs:
       - run: 'cd infra-automation && make build_and_push descriptive_gcr_path_stem="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID"'
       - 'activate_google_service_account'
       - 'configure_git_for_commit_and_push'
-      - run: 'make commit_and_push_manifest descriptive_gcr_path_stem="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID"'
+      - run: 'cd infra-automation && make commit_and_push_manifest descriptive_gcr_path_stem="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID"'
       - persist_to_workspace:
           root: './'
           paths:
