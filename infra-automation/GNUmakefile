@@ -94,7 +94,6 @@ manifest_file := $(CURDIR)/../GENERATED_MANIFEST
 manifest_key := SERVER_VERSION
 server_semver_file := $(CURDIR)/../SERVER_VERSION
 web_semver_file := $(CURDIR)/../WEB_VERSION
-server_api_dockerfile := ../circleci-docker/Dockerfile
 
 .PHONY: build_and_push
 build_and_push: descriptive_gcr_path_stem := $(shell git config --get user.name || exit 1)
@@ -108,7 +107,7 @@ build_and_push: ## build and push
 	@ if [ -z "$(sha_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve sha_gcr_tag with git rev-parse.\e[0m\n" >&2; exit 1); fi
 	@ if [ -z "$(unique_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve unique_gcr_tag with 'date'.\e[0m\n" >&2; exit 1); fi
 	@ if [ "$$(dirname $(descriptive_gcr_path))" = "$$(dirname $(gcr_root))" ]; then (printf "\e[31m\tCould not construct a unique, sanitized GCR path.\e[0m\n" >&2; exit 1); fi
-	docker build --tag $(descriptive_gcr_path):$(latest_gcr_tag) --tag $(descriptive_gcr_path):$(semver_gcr_tag) --tag $(descriptive_gcr_path):$(sha_gcr_tag) --tag $(descriptive_gcr_path):$(unique_gcr_tag) -f $(server_api_dockerfile) .
+	docker build --tag $(descriptive_gcr_path):$(latest_gcr_tag) --tag $(descriptive_gcr_path):$(semver_gcr_tag) --tag $(descriptive_gcr_path):$(sha_gcr_tag) --tag $(descriptive_gcr_path):$(unique_gcr_tag) .
 	docker push $(descriptive_gcr_path):$(latest_gcr_tag)
 	docker push $(descriptive_gcr_path):$(semver_gcr_tag)
 	docker push $(descriptive_gcr_path):$(sha_gcr_tag)
