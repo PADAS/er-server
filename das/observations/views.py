@@ -8,6 +8,7 @@ import logging
 import re
 
 import dateutil.parser
+import django
 import pytz
 import rest_framework
 from django.conf import settings
@@ -21,7 +22,7 @@ from django.utils.dateparse import parse_datetime
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
-from rest_framework.exceptions import APIException, PermissionDenied
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 
@@ -100,6 +101,9 @@ class UnauthorizedView(APIException):
     status_code = 200
     default_detail = {"data": []}
 
+
+# class ValidationError(APIException):
+#     status_code = 400
 
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
@@ -1167,18 +1171,22 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                                                          item, request_subject_id)
                     csv_data.append(data)
         else:
-            subjects = self.get_queryset(request_subject_id)
-            for subject in subjects:
-                # all the relevant observations for the subject
-                items = self.get_subject_trackdata_queryset(
-                    filter_flag, lower, subject, upper, max_records, subject.id)
+            try:
+                subjects = self.get_queryset(request_subject_id)
+                for subject in subjects:
+                    # all the relevant observations for the subject
+                    items = self.get_subject_trackdata_queryset(
+                        filter_flag, lower, subject, upper, max_records, subject.id)
 
-                if items:
-                    for item in items:
-                        cur_record_serial += 1
-                        data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, format,
-                                                             item, subject.id)
-                        csv_data.append(data)
+                    if items:
+                        for item in items:
+                            cur_record_serial += 1
+                            data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, format,
+                                                                item, subject.id)
+                            csv_data.append(data)
+            except django.core.exceptions.ValidationError:
+                raise ValidationError({'Error': f'{request_subject_id} is not a valid UUID'})
+
 
         # Generate CSV attachment and send it with response
         timestamp = current_tz.localize(datetime.datetime.utcnow())

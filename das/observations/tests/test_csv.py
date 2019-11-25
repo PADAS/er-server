@@ -212,16 +212,15 @@ class TrackingDataCsvViewTest(BaseAPITest):
             tz.gettz(timezone.get_current_timezone_name())).strftime('%m/%d/%Y %H:%M:%S')
         self.assertIn(recorded_time, recorded_at_timestamps)
 
-    def test_different_chronofile_values_for_same_subject(self):
-        # check if we are getting different chronofile values for single
-        # subject
+    def test_tracking_data_for_specific_subject(self):
+        # check if the number of subject records returned is just one
         self.subject_group.permission_sets.add(PermissionSet.objects.get(
             name='View Tracks All Time')
         )
         self.user.permission_sets.add(PermissionSet.objects.get(
             name='View Tracks All Time')
         )
-        self.request = self.factory.get(API_BASE + '/trackingdata/export/')
+        self.request = self.factory.get(API_BASE + '/trackingdata/export/?subject_id=0fa8ec9a-7e92-4575-9575-df202d5dde25')
         self.force_authenticate(self.request, self.user)
         response = TrackingDataCsvView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
