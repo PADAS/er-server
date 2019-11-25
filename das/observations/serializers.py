@@ -36,13 +36,9 @@ class RecursiveSerializer(rest_framework.serializers.Serializer):
 
 def create_sg_serializer(name, model, serializer):
     contained_field = '{0}s'.format(serializer.Meta.model._meta.model_name)
-    meta = type('Meta', (object,), dict(model=model,
-                                        fields=('name', 'id', 'subgroups')))
-    subgroups = RecursiveSerializer(
-        many=True, read_only=True, source='children')
-    return type(name, (GroupSerializer,), dict(serializer=serializer, Meta=meta,
-                                               subgroups=subgroups,
-                                               contained_field=contained_field))
+    meta = type('Meta', (object,), dict(model=model, fields=('name', 'id', 'subgroups')))
+    subgroups = RecursiveSerializer(many=True, read_only=True, source='children')
+    return type(name, (GroupSerializer,), dict(serializer=serializer, Meta=meta,subgroups=subgroups,contained_field=contained_field))
 
 
 class GroupSerializer(rest_framework.serializers.ModelSerializer):

@@ -119,6 +119,7 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
         self.perm_set.save()
 
         self.user.permission_sets.add(self.perm_set)
+        self.user.save()
 
         self.child_grp_1.permission_sets.add(self.perm_set)
         self.child_grp_1.save()
@@ -137,6 +138,7 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
         self.perm_set.save()
 
         self.user.permission_sets.add(self.perm_set)
+        self.user.save()
 
         self.child_grp_1.permission_sets.add(self.perm_set)
         self.child_grp_1.save()
@@ -162,6 +164,7 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
         self.perm_set.save()
 
         self.user.permission_sets.add(self.perm_set)
+        self.user.save()
 
         self.parent_group.permission_sets.add(self.perm_set)
         self.parent_group.save()
@@ -183,6 +186,39 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
         self.assertEqual(str(self.parent_group.id), top_level_subject_groups_ids[0])
         self.assertIn(str(self.child_grp_1.id), subgroups_ids)
         self.assertIn(str(self.child_grp_2.id), subgroups_ids)
+
+    def test_user_get_all_child_groups_if_they_have_permissions_to_view_them(self):
+        self.perm_set.permissions.add(self.view_subject_perm)
+        self.perm_set.save()
+
+        self.user.permission_sets.add(self.perm_set)
+        self.user.save()
+
+        self.child_grp_1.permission_sets.add(self.perm_set)
+        self.child_grp_1.save()
+
+        self.child_grp_2.permission_sets.add(self.perm_set)
+        self.child_grp_2.save()
+
+        request = self.factory.get(API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.user)
+
+        response = SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        top_level_subject_groups_ids = []
+
+        print(response.data)
+
+        for subject_group in response.data:
+            top_level_subject_groups_ids.append(subject_group.get('id'))
+
+        self.assertIn(str(self.child_grp_1.id), top_level_subject_groups_ids)
+        self.assertIn(str(self.child_grp_2.id), top_level_subject_groups_ids)
+
+
+
+
 
 
 
