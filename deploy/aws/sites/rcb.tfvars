@@ -1,0 +1,6 @@
+partner = "prod"
+site = "rcb"
+rds_name = "prod-01-das-db"
+timezone = "Africa/Gaborone"
+export_kml_enabled = "True"
+alerts_enabled = "True"
