@@ -102,6 +102,11 @@ class PermissionSetAdmin(DjangoGroupAdmin):
     all_users.short_description = 'Users'
     all_users.allow_tags = True
 
+    class Media:
+        css = {
+            'all': ('css/resize_multipleselect_widget.css',),
+        }
+
 
 ROLE_CHOICES = [('', 'Select One'),
                 ('community-liaison-officer', _('Community Liaison Officer')),
