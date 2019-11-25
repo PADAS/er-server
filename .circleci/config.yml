@@ -144,8 +144,7 @@ jobs:
           paths:
             - '*'
   docker_build:
-    docker:
-      - image: circleci/buildpack-deps:stretch
+    executor: 'default'
     steps:
       - attach_workspace:
           at: './'
