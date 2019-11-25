@@ -208,23 +208,9 @@ workflows:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
-      - generate_manifest:
-          filters:
-            branches:
-              ignore:
-                - 'develop'
-                - /release*/
       - docker_build:
           requires:
             - 'generate_manifest'
-          filters:
-            branches:
-              ignore:
-                - 'develop'
-                - /release*/
-      - commit_and_push_manifest:
-          requires:
-            - 'docker_build'
           filters:
             branches:
               ignore:
