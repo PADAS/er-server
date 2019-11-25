@@ -26,38 +26,6 @@ provider "postgresql" {
   connect_timeout = 15
 }
 
-resource "aws_kms_key" "s3-kms-key" {
-  description = "This key encrypts bucket objects in all TF deplpoyed buckets"
-  enable_key_rotation = true
-}
-
-resource "aws_s3_bucket" "access-log-bucket" {
-  bucket = "er-s3-access-logs"
-  acl = "log-delivery-write"
-
-  versioning {
-    enabled = true
-  }
-
-  lifecycle_rule {
-    id = "expiration-rule"
-    prefix = "logs/"
-    enabled = true
-    expiration {
-      days = 365 #TODO: whats a reasonable ttl for access logs?
-    }
-  }
-
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        kms_master_key_id = aws_kms_key.s3-kms-key.arn
-        sse_algorithm = "aws:kms"
-      }
-    }
-  }
-}
-
 resource "aws_s3_bucket" "media-uploads" {
   bucket = "${var.site}-das-media-uploads"
   acl    = "private"
@@ -65,21 +33,20 @@ resource "aws_s3_bucket" "media-uploads" {
     enabled = true
   }
   logging {
-      target_bucket = aws_s3_bucket.access-log-bucket.id
+      target_bucket = data.aws_s3_bucket.access-logs.id
       target_prefix = "logs/${var.site}-das-media-uploads/"
   }
 
   server_side_encryption_configuration {
     rule {
       apply_server_side_encryption_by_default {
-        kms_master_key_id = aws_kms_key.s3-kms-key.arn
-        sse_algorithm = "aws:kms"
+        sse_algorithm = "AES256"
       }
     }
   }
 
   policy = <<POLICY
-  {
+{
     "Version": "2012-10-17",
     "Id": "bucket-data-transport-policy",
     "Statement": [{
@@ -94,7 +61,7 @@ resource "aws_s3_bucket" "media-uploads" {
         }
       }
     }]
-  }
+}
   POLICY
 }
 
