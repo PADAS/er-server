@@ -89,6 +89,35 @@ class TestSubjectSourceReport(TestCase):
         for observation in generate_random_positions(source3, min_lag_mins=11, max_lag_mins=11):
             observation.save()
 
+    def create_observation_record(self):
+        subject = Subject.objects.create(name='Subject01')
+        subject2 = Subject.objects.create(name='Subject02')
+        provider = SourceProvider.objects.create(
+            provider_key='provider001',
+            display_name='Provider001',
+            additional=dict(silence_notification_threshold="0:10:0"))
+        source = Source.objects.create(manufacturer_id='001',
+                                       provider=provider)
+        source2 = Source.objects.create(manufacturer_id='002',
+                                        provider=provider)
+        ASSIGNED_RANGE = list(
+            (pytz.utc.localize(datetime.now()),
+             pytz.utc.localize(datetime.now() + timedelta(days=20))))
+        ss = SubjectSource.objects.create(subject=subject,
+                                          source=source,
+                                          assigned_range=ASSIGNED_RANGE)
+
+        ss2 = SubjectSource.objects.create(subject=subject2, source=source2)
+        recorded_at = datetime.now(tz=pytz.utc)
+        x = float(random.randint(3000, 3000)) / 100
+        y = float(random.randint(2800, 4000)) / 100
+
+        recorded_late = datetime.now(tz=pytz.utc) - timedelta(days=3)
+        location = Point(x, y)
+
+        return source, source2, recorded_at, recorded_late, location
+
+
     def test_lag_notify_permission(self):
         ps = Permission.objects.filter(
             codename=OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME)
@@ -137,39 +166,39 @@ class TestSubjectSourceReport(TestCase):
                 self.assertTrue('Dummy provider3' in email_body)
 
     def test_subject_silent_notification(self):
-        subject = Subject.objects.create(name='Subject01')
-        subject2 = Subject.objects.create(name='Subject02')
-        provider = SourceProvider.objects.create(
-            provider_key='provider001',
-            display_name='Provider001',
-            additional=dict(silence_notification_threshold="0:10:0"))
-        source = Source.objects.create(manufacturer_id='001',
-                                       provider=provider)
-        source2 = Source.objects.create(manufacturer_id='002',
-                                        provider=provider)
-        ASSIGNED_RANGE = list(
-            (pytz.utc.localize(datetime.now()),
-             pytz.utc.localize(datetime.now() + timedelta(days=20))))
-        ss = SubjectSource.objects.create(subject=subject,
-                                          source=source,
-                                          assigned_range=ASSIGNED_RANGE)
-
-        ss2 = SubjectSource.objects.create(subject=subject2, source=source2)
-        recorded_at = datetime.now(tz=pytz.utc)
-        x = float(random.randint(3000, 3000)) / 100
-        y = float(random.randint(2800, 4000)) / 100
-
-        recorded_late = datetime.now(tz=pytz.utc) - timedelta(days=3)
+        """Test when one source is within the silent_notification_threshold,
+        then any source they share the same source-provider should be included in the
+        email."""
+        source, source2, recorded_at, recorded_late, location = self.create_observation_record()
 
         obervation = Observation(source=source,
                          recorded_at=recorded_at,
-                         location=Point(x, y),
+                         location=location,
                          additional={})
         obervation.save()
         observation2 = Observation(source=source2,
                           recorded_at=recorded_late,
-                          location=Point(x, y),
+                          location=location,
                           additional={})
         observation2.save()
         eligible_sources = get_silent_sources()
         self.assertEqual(eligible_sources, [])
+
+
+    def test_when_all_source_are_outside_the_silent_notification_threshold(self):
+        """Test when all source are outside the threshold"""
+        source, source2, recorded_at, recorded_late, location = self.create_observation_record()
+
+        obervation = Observation(source=source,
+                                 recorded_at=recorded_late,
+                                 location=location,
+                                 additional={})
+        obervation.save()
+        observation2 = Observation(source=source2,
+                                   recorded_at=recorded_late,
+                                   location=location,
+                                   additional={})
+        observation2.save()
+        eligible_sources = get_silent_sources()
+        self.assertNotEqual(eligible_sources, [])
+        self.assertEqual(len(eligible_sources), 2)
