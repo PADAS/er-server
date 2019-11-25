@@ -1,3 +1,4 @@
+this_file := $(lastword $(MAKEFILE_LIST))
 MAKEFLAGS += --warn-undefined-variables
 
 minimum_version := 4.1
@@ -95,6 +96,10 @@ manifest_key := SERVER_VERSION
 server_semver_file := $(CURDIR)/../SERVER_VERSION
 web_semver_file := $(CURDIR)/../WEB_VERSION
 
+current_branch := $(shell echo "$$(git rev-parse --quiet --verify --abbrev-ref HEAD || exit 1)")
+descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
+descriptive_gcr_path_stem := $(shell git config --get user.name || exit 1)
+
 .PHONY: build_and_push
 build_and_push: descriptive_gcr_path_stem := $(shell git config --get user.name || exit 1)
 build_and_push: descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(descriptive_gcr_path_stem) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
@@ -114,6 +119,10 @@ build_and_push: ## build and push
 	docker push $(descriptive_server_gcr_path):$(unique_gcr_tag)
 
 
+.PHONY: generate_manifest
+generate_manifest: ## remove and regenerate the manifest
+	@ rm -f "$(manifest_file)"
+	@ $(MAKE) --no-print-directory -f $(this_file) $(manifest_file)
 
 .PHONY: commit_and_push_manifest
 commit_and_push_manifest: $(manifest_file) # this should only be run by the build server
