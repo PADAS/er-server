@@ -209,8 +209,6 @@ workflows:
   # Include a review step.
     jobs:
       - docker_build:
-          requires:
-            - 'generate_manifest'
           filters:
             branches:
               ignore:
