@@ -166,9 +166,7 @@ class TestSubjectSourceReport(TestCase):
                 self.assertTrue('Dummy provider3' in email_body)
 
     def test_subject_silent_notification(self):
-        """Test when one source is within the silent_notification_threshold,
-        then any source they share the same source-provider should be included in the
-        email."""
+        """Test when one source is within the silent_notification_threshold."""
         source, source2, recorded_at, recorded_late, location = self.create_observation_record()
 
         obervation = Observation(source=source,
@@ -182,6 +180,7 @@ class TestSubjectSourceReport(TestCase):
                           additional={})
         observation2.save()
         eligible_sources = get_silent_sources()
+        # None of the above sources should be eligible.
         self.assertEqual(eligible_sources, [])
 
 
@@ -200,5 +199,6 @@ class TestSubjectSourceReport(TestCase):
                                    additional={})
         observation2.save()
         eligible_sources = get_silent_sources()
+        # All the above sources should be eligible(since configured under one source-provider)
         self.assertNotEqual(eligible_sources, [])
         self.assertEqual(len(eligible_sources), 2)
