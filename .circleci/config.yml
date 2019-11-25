@@ -149,10 +149,10 @@ jobs:
     steps:
       - attach_workspace:
           at: './'
-      - setup_remote_docker
-      - docker_login
-      - checkout
-      - run: 'manifest_tag=$(cat ./GENERATED_MANIFEST.local | awk -F ''"'' ''$1 ~ /SERVER_VERSION/ {print $2}'') && cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH new_tag=$manifest_tag'
+      - 'setup_remote_docker'
+      - 'docker_login'
+      - 'checkout'
+      - run: 'cd infra-automation && make build_and_push descriptive_gcr_path_stem="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID"'
       - persist_to_workspace:
           root: './'
           paths:
