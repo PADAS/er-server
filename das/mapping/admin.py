@@ -67,9 +67,16 @@ class FeatureSetAdmin(admin.ModelAdmin):
 
 
 class BaseFeatureAdmin(OSMGeoExtendedAdmin):
-    list_filter = ('type', 'featureset')
-    list_display = ('name', 'type', 'featureset')
+    list_filter = ('type', 'featureset', 'spatialfile__name')
+    list_display = ('name', 'type', 'featureset', 'get_spatialfile')
     search_fields = ('name', )
+
+    def get_spatialfile(self, obj):
+        return obj.spatialfile.name if obj.spatialfile else ""
+
+    get_spatialfile.short_description = 'Spatial File'
+
+
 
 @admin.register(models.PolygonFeature)
 class PolygonFeatureAdmin(BaseFeatureAdmin):
@@ -283,8 +290,6 @@ class SpatialFileAdmin(admin.ModelAdmin):
         # will also be deleted.
         (deleted_objects, model_count, perms_needed, protected) = get_deleted_objects(
             [obj], opts, request.user, self.admin_site, using)
-
-        import pdb; pdb.set_trace()
 
         # get related features
         line_features = models.LineFeature.objects.filter(spatialfile=obj)

@@ -18,16 +18,16 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='linefeature',
             name='spatialfile',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='mapping.SpatialFile'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='mapping.SpatialFile', verbose_name='Spatial File Name'),
         ),
         migrations.AddField(
             model_name='pointfeature',
             name='spatialfile',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='mapping.SpatialFile'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='mapping.SpatialFile', verbose_name='Spatial File Name'),
         ),
         migrations.AddField(
             model_name='polygonfeature',
             name='spatialfile',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='mapping.SpatialFile'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='mapping.SpatialFile', verbose_name='Spatial File Name'),
         ),
     ]

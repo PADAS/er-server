@@ -263,7 +263,7 @@ class Feature(TimestampedModel):
     featureset = models.ForeignKey(
         to=FeatureSet, null=True, on_delete=models.PROTECT)
 
-    spatialfile = models.ForeignKey(to=SpatialFile, null=True, on_delete=models.SET_NULL)
+    spatialfile = models.ForeignKey(to=SpatialFile, null=True, on_delete=models.SET_NULL, verbose_name='Spatial File Name')
 
     @property
     def default_presentation(self):
