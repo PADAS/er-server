@@ -97,7 +97,7 @@ web_semver_file := $(CURDIR)/../WEB_VERSION
 
 .PHONY: build_and_push
 build_and_push: descriptive_gcr_path_stem := $(shell git config --get user.name || exit 1)
-build_and_push: descriptive_gcr_path := $(gcr_root)/$(shell echo $(descriptive_gcr_path_stem) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
+build_and_push: descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(descriptive_gcr_path_stem) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 build_and_push: latest_gcr_tag := latest
 build_and_push: semver_gcr_tag := $(shell cat "$(server_semver_file)" || exit 1)
 build_and_push: sha_gcr_tag := $(shell git rev-parse --quiet --verify HEAD || exit 1)
@@ -106,12 +106,12 @@ build_and_push: ## build and push
 	@ if [ -z "$(semver_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve semver_gcr_tag by cat'ing '$(server_semver_file)'.\e[0m\n" >&2; exit 1); fi
 	@ if [ -z "$(sha_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve sha_gcr_tag with git rev-parse.\e[0m\n" >&2; exit 1); fi
 	@ if [ -z "$(unique_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve unique_gcr_tag with 'date'.\e[0m\n" >&2; exit 1); fi
-	@ if [ "$$(dirname $(descriptive_gcr_path))" = "$$(dirname $(gcr_root))" ]; then (printf "\e[31m\tCould not construct a unique, sanitized GCR path.\e[0m\n" >&2; exit 1); fi
-	docker build --tag $(descriptive_gcr_path):$(latest_gcr_tag) --tag $(descriptive_gcr_path):$(semver_gcr_tag) --tag $(descriptive_gcr_path):$(sha_gcr_tag) --tag $(descriptive_gcr_path):$(unique_gcr_tag) .
-	docker push $(descriptive_gcr_path):$(latest_gcr_tag)
-	docker push $(descriptive_gcr_path):$(semver_gcr_tag)
-	docker push $(descriptive_gcr_path):$(sha_gcr_tag)
-	docker push $(descriptive_gcr_path):$(unique_gcr_tag)
+	@ if [ "$$(dirname $(descriptive_server_gcr_path))" = "$$(dirname $(gcr_root))" ]; then (printf "\e[31m\tCould not construct a unique, sanitized GCR path.\e[0m\n" >&2; exit 1); fi
+	docker build --tag $(descriptive_server_gcr_path):$(latest_gcr_tag) --tag $(descriptive_server_gcr_path):$(semver_gcr_tag) --tag $(descriptive_server_gcr_path):$(sha_gcr_tag) --tag $(descriptive_server_gcr_path):$(unique_gcr_tag) .
+	docker push $(descriptive_server_gcr_path):$(latest_gcr_tag)
+	docker push $(descriptive_server_gcr_path):$(semver_gcr_tag)
+	docker push $(descriptive_server_gcr_path):$(sha_gcr_tag)
+	docker push $(descriptive_server_gcr_path):$(unique_gcr_tag)
 
 
 
@@ -121,10 +121,14 @@ commit_and_push_manifest: $(manifest_file) # this should only be run by the buil
 	if git diff --exit-code $(manifest_file); then (printf "\tNo changes to the manifest... nothing to do.\n" >&2; exit 0); else git add $(manifest_file) && git commit -F $(commit_message_path) && git push; fi
 
 .PHONY: $(manifest_file)
-$(manifest_file): descriptive_gcr_path_stem := $(shell git config --get user.name || exit 1)
-$(manifest_file): descriptive_gcr_path := $(gcr_root)/$(shell echo $(descriptive_gcr_path_stem) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
-$(manifest_file): unique_gcr_tag :=
-$(manifest_file):
-	@ if [ -z "$(unique_gcr_tag)" ]; then (printf "\e[31m\tMust provide a value for 'unique_gcr_tag'.\e[0m\n" >&2; exit 1); fi
-	@ export DIGEST="$$(gcloud container images list-tags $(descriptive_gcr_path) --filter="tags:$(unique_gcr_tag)" --format="value(Digest)" || true)" && \
-		if [ -z "$$DIGEST" ]; then (printf "\e[31m\tCould not find an image digest at '$(descriptive_gcr_path)' with tag '$(unique_gcr_tag)'.\e[0m\n" >&2; exit 1); else printf "%s = \"%s@%s\"" "$(manifest_key)" "$(descriptive_gcr_path)" "$$DIGEST" > $(manifest_file); fi
+	@ printf "\e[31m\tGenerating new manifest.\e[0m\n" >&2
+		@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_server_gcr_path)" manifest_key="$(manifest_key)" > /dev/null 2>&1 || (printf "\e[31m\tFailed to find 'latest' tagged image at '$(descriptive_server_gcr_path)'.\e[0m\n" >&2; exit 1)
+
+.PHONY: append_to_manifest
+append_to_manifest: gcr_path :=
+append_to_manifest: manifest_key :=
+append_to_manifest: # this should only be run by the build server
+	@ export DIGEST="$$(gcloud container images list-tags $(gcr_path) --filter="tags:latest" --format="value(Digest)" || exit 1)" && \
+		if [ -n "$$DIGEST" ]; then printf "%s = \"%s@%s\"\n" "$(manifest_key)" "$(gcr_path)" "$$DIGEST" >> $(manifest_file); else exit 1; fi
+
+
