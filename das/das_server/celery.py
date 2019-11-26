@@ -115,7 +115,7 @@ app.conf.beat_schedule = {
     },
      'refresh-event-details-view': {
         'task': 'activity.tasks.refresh_event_details_views_task',
-        'schedule': timedelta(hours=8)
+        'schedule': timedelta(hours=1)
      },
 
 }
