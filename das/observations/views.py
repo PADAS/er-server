@@ -102,9 +102,6 @@ class UnauthorizedView(APIException):
     default_detail = {"data": []}
 
 
-# class ValidationError(APIException):
-#     status_code = 400
-
 class RegionsView(generics.ListAPIView):
     lookup_field = 'slug'
     queryset = models.Region.objects.all()
@@ -1073,17 +1070,98 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return kmlutils.render_to_kmz(result, filename)
 
 
-class FilterBySubjects(rest_framework.schemas.AutoSchema):
+class TrackingDataViewSchema(rest_framework.schemas.AutoSchema):
     def get_manual_fields(self, path, method):
         if method == 'GET':
             extra_fields = [
+                coreapi.Field(
+                    name='include_inactive',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Include Inactive Subjects',
+                        description='Include inactive subjects in list',
+                    )
+                ),
+                coreapi.Field(
+                    name='current_status',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Current Status',
+                        description='Get current status or historical observations',
+                    )
+                ),
                 coreapi.Field(
                     name='subject_id',
                     required=False,
                     location='query',
                     schema=coreschema.String(
-                        title='Filter by subject id',
-                        description='Get Tracking data for specific subject ID.',
+                        title='Subject Id',
+                        description='Get Tracking data for specific subject ID',
+                    )
+                ),
+                coreapi.Field(
+                    name='subject_chronofile',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Subject Chronofiles',
+                        description='Get Tracking data for specific chronofiles',
+                    )
+                ),
+                coreapi.Field(
+                    name='filter',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Filter',
+                        description='Add Exclusion flags as a bitmap',
+                    )
+                ),
+                coreapi.Field(
+                    name='format',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Format',
+                        description='Return report as CSV or JSON',
+                    )
+                ),
+                coreapi.Field(
+                    name='before_date',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Before Date',
+                        description='Return report before given date',
+                    )
+                ),
+                coreapi.Field(
+                    name='after_date',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='After date',
+                        description='Return report after given date',
+                    )
+                ),
+                coreapi.Field(
+                    name='record_serial_base',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Record Serial Base',
+                        description='Return report in order of generated serial number',
+                    )
+                ),
+                coreapi.Field(
+                    name='max_records',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Maximum Records',
+                        description='Maximum number of records to return',
                     )
                 ),
             ]
@@ -1093,9 +1171,9 @@ class FilterBySubjects(rest_framework.schemas.AutoSchema):
 class TrackingDataCsvView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
 
-    schema = FilterBySubjects()
+    schema = TrackingDataViewSchema()
 
-    def get_queryset(self, subject_id=None):
+    def get_queryset(self, subject_id=None, chronofile=None):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise PermissionDenied
         queryset = models.Subject.objects.all()
@@ -1104,6 +1182,9 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         queryset = queryset.by_user_subjects(self.request.user)
         if subject_id:
             queryset = queryset.filter(id=subject_id)
+        elif chronofile:
+            queryset = queryset.filter(
+                subjectsource__additional__chronofile=int(chronofile))
         return queryset
 
     def get(self, request, *args, **kwargs):
@@ -1134,6 +1215,10 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         request_subject_id = self.request.GET.get(
             'subject_id', None)
 
+        # get data for a specific chronofile? This is for STE downloader
+        request_subject_chronofile = self.request.GET.get(
+            'subject_chronofile', None)
+
         # get current status? or historical observations
         get_current = self.request.GET.get(
             'current_status', 'false').lower() == 'true'
@@ -1163,7 +1248,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             tz_offset) if format != 'json' else 'fixtime'
         dloadtime_label = 'dloadtime ({})'.format(
             tz_offset) if format != 'json' else 'dloadtime'
-        fieldnames = ['subject_id', 'recordserial', 'collar_id', fixtime_label, dloadtime_label,
+        fieldnames = ['chronofile', 'recordserial', 'collar_id', fixtime_label, dloadtime_label,
                       'lon', 'lat', 'height', 'temp']
         csv_data = []
         cur_record_serial = record_serial_base
@@ -1174,7 +1259,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 for item in items:
                     cur_record_serial += 1
                     data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, format,
-                                                         item, request_subject_id)
+                                                         item, request_subject_id, request_subject_chronofile)
                     csv_data.append(data)
         else:
             try:
@@ -1182,19 +1267,18 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 for subject in subjects:
                     # all the relevant observations for the subject
                     items = self.get_subject_trackdata_queryset(
-                        filter_flag, lower, subject, upper, max_records, subject.id)
+                        filter_flag, lower, subject, upper, max_records, request_subject_id, request_subject_chronofile)
 
                     if items:
                         for item in items:
                             cur_record_serial += 1
                             data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, format,
-                                                                item, subject.id)
+                                                                 item, request_subject_id, request_subject_chronofile)
                             csv_data.append(data)
             except django.core.exceptions.ValidationError:
-                raise ValidationError({'Error': f'{request_subject_id} is not a valid UUID'})
+                raise ValidationError(
+                    {'Error': f'{request_subject_id} is not a valid UUID'})
 
-
-        # Generate CSV attachment and send it with response
         timestamp = current_tz.localize(datetime.datetime.utcnow())
 
         if format == 'json':
@@ -1208,6 +1292,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         response['Content-Disposition'] = f'attachment;filename={download_filename}'
         response['x-das-download-filename'] = download_filename
 
+        if request_subject_id:
+            fieldnames = [item.replace('chronofile', 'subject_id') for item in fieldnames]
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         if csv_data:
@@ -1215,16 +1301,26 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         return response
 
     def get_csv_observation_data(self, cur_record_serial, dloadtime_label, fixtime_label, format, item,
-                                 subject_id):
+                                 subject_id=None, subject_chronofile=None):
         recorded_at = item['recorded_at'].astimezone(
             current_tz) if format != 'json' else item['recorded_at']
         created_at = item['created_at'].astimezone(
             current_tz) if format != 'json' else item['created_at']
+
+        request_key = 'chronofile'
+        if subject_id:
+            request_key, value = 'subject_id', subject_id
+        elif subject_chronofile:
+            value = subject_chronofile
+        else:
+            value = item['subjectsource_additional'].get('chronofile', '') \
+                if item['subjectsource_additional'] else ''
+        
         collar_id = item['collar_id']
         data = {'lat': item['location'].x,
                 'lon': item['location'].y,
                 'height': item['location'].z,
-                'subject_id': subject_id,
+                request_key: value,
                 'collar_id': collar_id,
                 'recordserial': cur_record_serial,
                 fixtime_label: recorded_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
@@ -1235,24 +1331,20 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 }
         return data
 
-    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records, request_subject_id):
-        qs = models.Observation.objects.all()
-        
-        if request_subject_id:
-            # NOTE: time bounds are EXCLUSIVE
-            qs = qs.filter(exclusion_flags=filter_flag,
-                           recorded_at__gt=lower,
-                           recorded_at__lt=upper,
-                           source__subjectsource__assigned_range__contains=F(
-                               'recorded_at'),
-                           source__subjectsource__subject__id=request_subject_id)
+    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records, subject_id=None, subject_chronofile=None):
+        qs = models.Observation.objects.filter(exclusion_flags=filter_flag,
+                                               recorded_at__gt=lower,
+                                               recorded_at__lt=upper,
+                                               source__subjectsource__assigned_range__contains=F('recorded_at'))
+
+        if subject_id:
+            qs = models.Observation.objects.filter(
+                source__subjectsource__subject__id=subject_id)
+        elif subject_chronofile:
+            qs.filter(source__subjectsource__additional__chronofile=int(
+                subject_chronofile))
         else:
-            qs = qs.filter(exclusion_flags=filter_flag,
-                           recorded_at__gt=lower,
-                           recorded_at__lt=upper,
-                           source__subjectsource__assigned_range__contains=F(
-                               'recorded_at'),
-                           source__subjectsource__subject=subject)
+            qs = qs.filter(source__subjectsource__subject=subject)
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
                          collar_id=F('source__manufacturer_id')).order_by('recorded_at').values()
 
