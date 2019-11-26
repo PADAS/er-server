@@ -100,7 +100,7 @@ jobs:
     steps:
       - attach_workspace:
           at: './'
-      - run: make gcloud_get_credentials
+      - run: 'cd infra-automation && make gcloud_get_credentials'
   terraform_plan_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
