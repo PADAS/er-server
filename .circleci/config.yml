@@ -96,9 +96,10 @@ executors:
       - image: 'google/cloud-sdk:269.0.0'
 jobs:
   kubectl_apply:
+    executor: 'default'
     steps:
       - attach_workspace:
-        at: './'
+          at: './'
       - run: make gcloud_get_credentials
   terraform_plan_dev:
     environment:
