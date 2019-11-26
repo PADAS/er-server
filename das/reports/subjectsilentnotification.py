@@ -85,6 +85,18 @@ def calculate_silent_source_report(usernames=None):
                     html_content=email_body)
 
 
+def get_latest_observation(src):
+    if src.source_threshold:
+        conf_duration = parse_duration(src.source_threshold)
+    else:
+        conf_duration = parse_duration(src.provider_threshold)
+    minimum_accepted_time = datetime.now(tz=pytz.utc) - conf_duration
+
+    latest_observation = Observation.objects.filter(
+        source=src).order_by('-recorded_at').first()
+    return conf_duration, minimum_accepted_time, latest_observation
+
+
 def get_silent_sources():
 
     silent_sources = []
@@ -101,14 +113,8 @@ def get_silent_sources():
     logger.debug('Eligible Sources: %s', eligible_sources)
     # For each Source, figure out whether it has an Observation with it's allowed threshold.
     for src in eligible_sources:
-        if src.source_threshold:
-            duration = parse_duration(src.source_threshold)
-        else:
-            duration = parse_duration(src.provider_threshold)
-        earliest_acceptable_time = datetime.now(tz=pytz.utc) - duration
-
-        latest_observation = Observation.objects.filter(source=src).order_by('-recorded_at').first()
-
+        duration, earliest_acceptable_time, latest_observation = get_latest_observation(src)
+        
         if latest_observation and latest_observation.recorded_at >= earliest_acceptable_time:
             continue
 
@@ -138,7 +144,6 @@ def get_silent_sources():
     return silent_sources
 
 
-
 def get_required_eligible_sources(eligible_sources):
     exclude = []
     str_value = 'provider__provider_key'
@@ -146,16 +151,9 @@ def get_required_eligible_sources(eligible_sources):
 
     for sp in source_provider:
         sources = eligible_sources.filter(provider__provider_key=sp[str_value])
-        for  src in sources:
-            if src.source_threshold:
-                conf_duration = parse_duration(src.source_threshold)
-            else:
-                conf_duration = parse_duration(src.provider_threshold)
-            minimum_accepted_time = datetime.now(tz=pytz.utc) - conf_duration
-
-            lastest_observation =  Observation.objects.filter(source=src).order_by('-recorded_at').first()
-
-            if lastest_observation and lastest_observation.recorded_at >= minimum_accepted_time:
+        for src in sources:
+            _, minimum_accepted_time, latest_observation = get_latest_observation(src)
+            if latest_observation and latest_observation.recorded_at >= minimum_accepted_time:
                 exclude.append(src)
                 break
 
