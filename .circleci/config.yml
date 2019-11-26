@@ -95,6 +95,11 @@ executors:
     docker:
       - image: 'google/cloud-sdk:269.0.0'
 jobs:
+  kubectl_apply:
+    steps:
+      - attach_workspace:
+        at: './'
+      - run: make gcloud_get_credentials
   terraform_plan_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
@@ -241,6 +246,10 @@ workflows:
       - render_templates:
           requires:
             - 'terraform_apply_dev'
+      - kubectl_apply:
+          requires:
+            - 'render_templates'
+
 
   build_and_terraform_prod1:
   # Build for all release branches
