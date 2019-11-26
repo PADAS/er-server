@@ -128,7 +128,7 @@ commit_and_push_manifest: $(manifest_file) # this should only be run by the buil
 
 $(manifest_file):
 	@ printf "\e[31m\tGenerating new manifest.\e[0m\n" >&2
-	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_server_gcr_path)" manifest_key="$(manifest_key)" filter_tag="$(unique_gcr_tag)" > /dev/null 2>&1 || (printf "\e[31m\tFailed to find 'latest' tagged image at '$(descriptive_server_gcr_path)'.\e[0m\n" >&2; exit 1)
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_server_gcr_path)" manifest_key="$(manifest_key)" filter_tag="latest" > /dev/null 2>&1 || (printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_server_gcr_path)'.\e[0m\n" >&2; exit 1)
 
 .PHONY: append_to_manifest
 append_to_manifest: gcr_path :=
