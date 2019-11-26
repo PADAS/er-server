@@ -1,1 +1,2 @@
-SERVER_VERSION = "gcr.io/padas-app/circleci/deleteme/trello-2991-templating-semver@sha256:4910a11d6d5c797da0b153f2d0c2824acee61451bd0f77b7c0802c1ebc5b7a93"
+SERVER_VERSION = "gcr.io/padas-app/circleci/deleteme/trello-2991-templating-semver@sha256:3426300e5d7f866b4e1deb001ae395d14b1147023e43eaed1521bafffb391edc"
+WEB_VERSION = "TBD"
