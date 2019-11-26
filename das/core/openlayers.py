@@ -68,7 +68,7 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
     num_zoom = 19
     units = 'degrees'
 
-    gis_geometry_attr_name = 'feature_geometry'
+    gis_geometry_field_name = 'feature_geometry'
 
     widget = OlWidget
 

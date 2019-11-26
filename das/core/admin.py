@@ -25,7 +25,7 @@ class InlineExtraDynamicMixin:
 
 
 class SaveCoordinatesToCookieMixin:
-    gis_geometry_attr_name = 'location'
+    gis_geometry_field_name = 'location'
 
     def get_single_coordinate_pair(self, coords):
         try:
@@ -38,7 +38,7 @@ class SaveCoordinatesToCookieMixin:
 
     def set_coordinates_cookie(self, http_response, obj):
         try:
-            geom = getattr(obj, self.gis_geometry_attr_name)
+            geom = getattr(obj, self.gis_geometry_field_name)
             coords = geom.coords
         except AttributeError as ex:
             logger.exception(f"Failed to get GIS geometry attribute on this obj {obj}: {ex}")

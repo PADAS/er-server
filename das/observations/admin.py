@@ -254,6 +254,8 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
 
     paginator = LargeTablePaginator
 
+    gis_geometry_field_name = 'location'
+
     list_filter = (SubjectNameFilter, SubjectIdFilter)
 
     def subject_link(self, obj):
@@ -326,7 +328,7 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
 class SourceProviderFilter(admin.SimpleListFilter, SaveCoordinatesToCookieMixin):
     title = 'Source Provider'
     parameter_name = 'provider_key'
-    gis_geometry_attr_name = 'location'
+    gis_geometry_field_name = 'location'
 
     def lookups(self, request, model_admin):
         return [(p.provider_key, p.display_name) for p in sorted(models.SourceProvider.objects.all(),
@@ -853,7 +855,7 @@ class SourceTypeFilter(admin.SimpleListFilter):
 
 @admin.register(models.SubjectStatus)
 class SubjectStatusAdmin(OSMGeoExtendedAdmin):
-    gis_geometry_attr_name = 'location'
+    gis_geometry_field_name = 'location'
     search_fields = (
         'subject__name', 'subject__subjectsource__source__manufacturer_id')
     ordering = ('-recorded_at',)

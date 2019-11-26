@@ -18,7 +18,7 @@ from core.openlayers import OSMGeoExtendedAdmin
 @admin.register(models.Map)
 class MapAdmin(OSMGeoExtendedAdmin):
     form = MapCenterForm
-    gis_geometry_attr_name = 'center'
+    gis_geometry_field_name = 'center'
 
 
 @admin.register(models.TileLayer)
