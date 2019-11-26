@@ -1,3 +1,5 @@
+this_file := $(lastword $(MAKEFILE_LIST))
+
 MAKEFLAGS += --warn-undefined-variables
 
 minimum_version := 4.1
@@ -82,3 +84,19 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	@ if [ ! -f $(tfvars_overrides)/$(tfvars_environment).tfvars ]; then touch $(tfvars_overrides)/$(tfvars_environment).tfvars; fi
 	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars'"
 	@ cat $(template_path)/rendered/api-deployment.yaml
+
+.PHONY: gcloud_auth
+gcloud_auth: ## get google credentials for service account
+	@ if [ -n "$$GOOGLE_CREDENTIALS" ]; then \
+		/bin/echo -E "$$GOOGLE_CREDENTIALS" > $(CURDIR)/google-credentials.json && \
+		gcloud auth activate-service-account --key-file=$(CURDIR)/google-credentials.json && \
+		rm $(CURDIR)/google-credentials.json; \
+	fi
+
+.PHONY: gcloud_get_credentials
+gcloud_get_credentials: gcloud_auth ## runs gcloud auth from circleci before configuring kubectl or runs kubectl configuration only locally
+	$(MAKE) -f $(this_file) tf_output output_name='gcloud_kubectl_configuration'
+
+.PHONY: kubectl_apply
+kubectl_apply: ## kubectl apply (recursively) everything in the ./k8s path
+	kubectl apply --recursive --filename="$(CURDIR)/../templated-deployment/rendered
