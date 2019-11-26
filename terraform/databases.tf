@@ -1,10 +1,20 @@
+locals {
+  db_secret_path    = (local.is_production ? "prod1" : "dev")
+  sanitized_db_name = substr(replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_"), 0, 24)
+}
+
+resource "random_string" "db_name_uniqueness" {
+  length = 4
+  special = false
+}
+
 data "vault_generic_secret" "db_password" {
-  path = "padas-app/main/earthranger-app-infra-postgres-server-${terraform.workspace}"
+  path = "padas-app/main/earthranger-app-infra-postgres-server-${local.db_secret_path}"
 }
 
 resource "google_sql_database" "database" {
   project  = data.google_project.earthranger.project_id
-  name     = "${var.site}_dasdb"
+  name     = "${local.sanitized_db_name}_${random_string.db_name_uniqueness.result}"
   instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
 
   provisioner "remote-exec" {
