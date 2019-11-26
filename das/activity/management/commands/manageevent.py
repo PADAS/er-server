@@ -2,6 +2,7 @@ import logging
 import copy
 import csv
 
+import pandas as pd
 from django.core.management.base import BaseCommand
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction, connection
@@ -67,7 +68,28 @@ class Command(BaseCommand):
         schema = schema_utils.get_rendered_schema(schema_raw)[
             'properties']
 
+    def load_standard_eventtypes(self):
+        event_types = pd.read_json('./activity/fixtures/event_data_model.json')
+        for index, row in event_types.iterrows():
+            if row.model == 'activity.eventtype':
+                fields = row.fields
+                try:
+                    event_type = EventType.objects.get(value=fields["value"])
+                    logger.info(f"Event type {event_type} already existing")
+                except Exception:
+                    new_category, created = EventCategory.objects.get_or_create(value=fields["category"][0])
+                    event_type = EventType.objects.create(
+                        id=row.pk,
+                        value=fields["value"],
+                        display=fields["display"],
+                        ordernum=fields["ordernum"],
+                        category=new_category,
+                        schema=fields["schema"],
+                        is_collection=fields["is_collection"])
+                    logger.info(f"New event type {event_type} loadded")
+
     def dumptypes(self):
+        self.load_standard_eventtypes()
         if not self.output:
             raise NameError('-o output option required')
 
