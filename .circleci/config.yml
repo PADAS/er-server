@@ -245,12 +245,12 @@ workflows:
       #- terraform_apply_dev:
       #    requires:
       #      - 'review_plan_dev'
-      #- render_templates:
-      #    requires:
-      #      - 'terraform_apply_dev'
-      - kubectl_apply
-        #requires:
-        #    - 'render_templates'
+      - render_templates
+      #requires:
+      #    - 'terraform_apply_dev'
+      - kubectl_apply:
+          requires:
+            - 'render_templates'
 
 
   build_and_terraform_prod1:
