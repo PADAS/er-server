@@ -86,8 +86,7 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 
 
 commit_message_path := $(CURDIR)/.robo-commit-message
-
-# Todo: Retrofit this before merging to master
+# TO DEPRICATE: this can be removed once out of concourse
 legacy_concourse_shim_gcr := gcr.io/padas-app/circleci/earthranger-api
 
 gcr_root := gcr.io/padas-app/circleci/deleteme
