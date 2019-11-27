@@ -334,7 +334,7 @@ CELERY_WORKER_MAX_TASKS_PER_CHILD = 100
 
 CELERY_RESULT_PERSISTENT = False
 CELERY_RESULT_EXPIRES = 300
-CELERY_TASK_IGNORE_RESULT = False
+CELERY_TASK_IGNORE_RESULT = True
 CELERY_TASK_STORE_ERRORS_EVEN_IF_IGNORED = True
 # TODO: update in production
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
@@ -349,9 +349,6 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
     'visibility_timeout': 3600,
     'fanout_prefix': True
 }
-
-# task:
-CELERY_TASK_TRACK_STARTED = True
 
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
