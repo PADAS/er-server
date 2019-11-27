@@ -96,6 +96,8 @@ manifest_file := $(CURDIR)/../GENERATED_MANIFEST
 server_manifest_key := SERVER_VERSION
 web_manifest_key := WEB_VERSION
 server_semver_file := $(CURDIR)/../SERVER_VERSION
+web_default_branch := develop
+web_gcr_path_default_branch := $(gcr_web_root)/$(web_default_branch)
 
 current_branch := $(shell echo "$$(git rev-parse --quiet --verify --abbrev-ref HEAD || exit 1)")
 descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
@@ -131,7 +133,9 @@ commit_and_push_manifest: $(manifest_file) # this should only be run by the buil
 $(manifest_file):
 	@ printf "\e[31m\tGenerating new manifest.\e[0m\n" >&2
 	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_server_gcr_path)" manifest_key="$(server_manifest_key)" > /dev/null 2>&1 || (printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_server_gcr_path)'.\e[0m\n" >&2; exit 1)
-	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_web_gcr_path)" manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || (printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_web_gcr_path)'.\e[0m\n" >&2; exit 1)
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_web_gcr_path)" manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
+	  $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(web_gcr_path_default_branch)" manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
+		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_web_gcr_path)'.\e[0m\n" >&2; exit 1)
 
 .PHONY: append_to_manifest
 append_to_manifest: gcr_path :=
