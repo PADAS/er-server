@@ -138,6 +138,11 @@ jobs:
       - 'checkout'
       - 'export_google_credentials'
       - run: 'cd infra-automation && make render_templates tfvars_environment=$CIRCLE_BRANCH'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+
   generate_manifest:
     docker:
       - image: circleci/buildpack-deps:stretch
