@@ -4,19 +4,19 @@ MAINTAINER Chris Doehring, chrisdo@vulcan.com & Matt Korwel, mattko@vulcan.com, 
 RUN apt-get update
 
 RUN apt-get install -y \
-   git \
-   libpq-dev \
-   python3-pip \
-   python-numpy \
-   python-numpy-dev \
-   libgdal-dev \
-   curl \
-   python3-openssl \
-   libssl-dev \
-   wget \
-   gnupg \
-   && apt-get autoremove \
-   && apt-get clean
+    git \
+    libpq-dev \
+    python3-pip \
+    python-numpy \
+    python-numpy-dev \
+    libgdal-dev \
+    curl \
+    python3-openssl \
+    libssl-dev \
+    wget \
+    gnupg \
+    && apt-get autoremove \
+    && apt-get clean
 
 WORKDIR /workspace
 
