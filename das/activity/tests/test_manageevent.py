@@ -17,12 +17,12 @@ logger = logging.getLogger(__name__)
 
 migration_doc = [
     {
-        "id": "b413783b-c162-447f-8541-e3f51cd341e8",
+        "id": "74941f0d-4b89-48be-a62a-a74c78db8383",
         "created_at": "2016-08-05 01:00:00+00:00",
         "updated_at": "2016-10-08 00:57:39.310560+00:00",
-        "value": "contact",
+        "value": "fire_rep",
         "previous_value": "arrest_rep",
-        "display": "Contact",
+        "display": "Fire",
         "category_value": "security",
         "category_id": "61d279a3-95fd-421f-bdb0-604ae8731761",
         "ordernum": 270,
@@ -95,15 +95,12 @@ class TestManageEvent(TestCase):
                 ("753dbb6f-8b39-49c4-8d95-36d1f711f6a2", "Black"),
                 ("b97b6d03-f669-4a1a-9024-479fa973c711", "White")]])
         self.schema = "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"EventType Data\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n           \"post\": {\r\n               \"type\":\"string\",\r\n               \"title\": \"Line 1: Post\",\r\n               \"enum\": {{table___color___values}},\r\n               \"enumNames\": {{table___color___names}}\r\n           }\r\n       }\r\n   },\r\n \"definition\": [\r\n  \"post\"\r\n ]\r\n}"
-        self.event_category = EventCategory.objects.create(
-            value='new_security', display='Some display', )
-        self.event_type = EventType.objects.create(
-            id="b413783b-c162-447f-8541-e3f51cd341e8",
-            value='contact',
-            display='Contact',
-            category=self.event_category,
-            schema=self.schema)
-        self.event_details = EventDetails.objects.create(
+
+        self.event_type = EventType.objects.get(id="74941f0d-4b89-48be-a62a-a74c78db8383")
+        self.event_type.schema = self.schema
+        self.event_type.save()
+
+        EventDetails.objects.create(
             data={"event_details": {"name": "Ndovu", "geofence": "Lewa"}},
             event=self.sample_event)
 
@@ -146,7 +143,8 @@ class TestManageEvent(TestCase):
         command_under_test.perform_migration_on_records(migration_doc)
         records_post = command_under_test.get_all_event_type_records()
 
-        self.assertEqual(len(records_pre), len(records_post))
+        # Note one more record saved from event_data_model
+        self.assertEqual(len(records_pre), len(records_post)+1)
 
         # species table choices migrated to choice model
         self.assertEqual(Choice.objects.all().count(), choices_count + 2)

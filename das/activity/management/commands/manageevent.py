@@ -42,6 +42,7 @@ class Command(BaseCommand):
         sub_command = options['sub-command']
         self.dry_run = options['dry_run']
         self.migration_file = options['migration_file']
+        self.event_types = options['event_types']
         self.output = options['o']
         self.summary_only = options['summary']
 
@@ -55,6 +56,8 @@ class Command(BaseCommand):
                             help='supported commands are {0}'.format(Command.SUB_COMMANDS))
         parser.add_argument('--migration-file', type=str,
                             help='input filename for migration plan')
+        parser.add_argument('--event-types', nargs='+',
+                            help='input list of unused eventtypes to delete')
         parser.add_argument(
             '-o', type=str, help='output filename for dumptypes')
         parser.add_argument('--summary', action='store_true',
@@ -193,16 +196,28 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def deleteunusedtypes(self):
-        types_to_delete = self.get_unused_event_types()
+        types_to_delete = self.get_unused_event_types(self.event_types)
 
         if not self.dry_run:
-            logger.info('Deleting unused Event Types')
-            for event_type in types_to_delete:
-                event_type.delete()
+            if types_to_delete:
+                logger.info('Deleting unused Event Types')
+                for event_type in types_to_delete:
+                    try:
+                        event_type.delete()
+                    except Exception as error:
+                        logger.error(f"Error deleting {event_type} eventtype: ", error)
 
-    def get_unused_event_types(self):
+    def get_unused_event_types(self, event_types=None):
         unused_event_types = []
-        for event_type in EventType.objects.all():
+        all_event_types = EventType.objects.all()
+        if event_types:
+            for event_type in self.event_types:
+                try:
+                    EventType.objects.get(value__iexact=event_type)
+                except Exception:
+                    logger.error(f"Eventtype {event_type} does not exist")
+            all_event_types = EventType.objects.filter(value__in=event_types)
+        for event_type in all_event_types:
             count = self.get_event_type_count(event_type)
             if not count:
                 logger.info('EventType %s has 0 records associated with it',
