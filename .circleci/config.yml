@@ -213,44 +213,44 @@ workflows:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
-      - generate_manifest:
-          filters:
-            branches:
-              ignore:
-                - 'develop'
-                - /release*/
-      - docker_build:
-          requires:
-            - 'generate_manifest'
-          filters:
-            branches:
-              ignore:
-                - 'develop'
-                - /release*/
-      - commit_and_push_manifest:
-          requires:
-            - 'docker_build'
-          filters:
-            branches:
-              ignore:
-                - 'develop'
-                - /release*/
-      - terraform_plan_dev:
-          requires:
-            - 'docker_build'
-      - review_plan_dev:
-          requires:
-            - 'terraform_plan_dev'
-          type: 'approval'
-      - terraform_apply_dev:
-          requires:
-            - 'review_plan_dev'
-      - render_templates:
-          requires:
-            - 'terraform_apply_dev'
-      - kubectl_apply:
-          requires:
-            - 'render_templates'
+      #- generate_manifest:
+      #    filters:
+      #      branches:
+      #        ignore:
+      #          - 'develop'
+      #          - /release*/
+      #- docker_build:
+      #    requires:
+      #      - 'generate_manifest'
+      #    filters:
+      #      branches:
+      #        ignore:
+      #          - 'develop'
+      #          - /release*/
+      #- commit_and_push_manifest:
+      #    requires:
+      #      - 'docker_build'
+      #    filters:
+      #      branches:
+      #        ignore:
+      #          - 'develop'
+      #          - /release*/
+      #- terraform_plan_dev:
+      #    requires:
+      #      - 'docker_build'
+      #- review_plan_dev:
+      #    requires:
+      #      - 'terraform_plan_dev'
+      #    type: 'approval'
+      #- terraform_apply_dev:
+      #    requires:
+      #      - 'review_plan_dev'
+      #- render_templates:
+      #    requires:
+      #      - 'terraform_apply_dev'
+      - kubectl_apply
+        #requires:
+        #    - 'render_templates'
 
 
   build_and_terraform_prod1:
