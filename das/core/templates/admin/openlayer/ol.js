@@ -161,6 +161,21 @@ var map = new ol.Map({
 });
 
 
+map.on('moveend', (event) => {
+    var newZoom = map.getView().getZoom();
+    sessionStorage.setItem("zoomLevel", newZoom);
+});
+
+
+var zoom = sessionStorage.getItem("zoomLevel");
+// if zoom was saved in sessionstorage, then use it to zoom the map else default to numZoomLevels
+if (zoom !== null) {
+    map.getView().setZoom(zoom);
+} else {
+    zoom = options.numZoomLevels
+}
+
+
 // Geometric Object
 var createGeometricObject = function(innerHTML, geoType, className){
     var button = document.createElement('button');
@@ -328,11 +343,14 @@ if(wkt) {
     // Zooming to the bounds
     // extent = map.getView().calculateExtent();
     var extent = source.getExtent();
+    var zoomBeforeFit = zoom;
+
     map.getView().fit(extent, map.getSize());
 
-    if (source.getFeatures()[0].getGeometry().getType() == 'Point' || '{{ geom_type }}' == 'MultiPoint'){
-        map.getView().setZoom(map.getView().getZoom()-8);
-    }
+    // if (source.getFeatures()[0].getGeometry().getType() == 'Point' || '{{ geom_type }}' == 'MultiPoint'){
+    //     map.getView().setZoom(map.getView().getZoom()-8);
+    // }
+    map.getView().setZoom(zoomBeforeFit);
 }};
 
 
