@@ -138,7 +138,7 @@ class SpatialFile(TimestampedModel):
     specific geometry type [polygon, line, point]
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, blank=True)
+    name = models.CharField(max_length=255, unique=True, verbose_name="SpatialFile Name")
     description = models.CharField(max_length=100, blank=True)
     data = models.FileField(storage=TempStorage(), blank=True)
     feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
@@ -237,7 +237,7 @@ class SpatialFile(TimestampedModel):
             self.data.name = ''
 
     def __str__(self):
-        return str(self.id)
+        return str(self.name)
 
 
 class Feature(TimestampedModel):
@@ -263,7 +263,7 @@ class Feature(TimestampedModel):
     featureset = models.ForeignKey(
         to=FeatureSet, null=True, on_delete=models.PROTECT)
 
-    spatialfile = models.ForeignKey(to=SpatialFile, null=True, on_delete=models.SET_NULL, verbose_name='Spatial File Name')
+    spatialfile = models.ForeignKey(to=SpatialFile, null=True,blank=True, on_delete=models.SET_NULL)
 
     @property
     def default_presentation(self):
