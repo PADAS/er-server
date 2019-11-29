@@ -1,0 +1,34 @@
+{% extends 'admin/change_list.html' %} {% block search %}
+{{ block.super }}
+
+<form action="re_create/" method="POST">
+    {% csrf_token %}
+    <div class="actions" style="position: relative; float: right; padding-left: 0px;">
+        <button type="submit" class="button" name="recreate-views"
+            style="background: #999!important; border-radius: 9px; text-transform: uppercase; padding: 4px 8px; font-size: 11px; outline: none; margin-top:0px; color:white; box-shadow: none; border: none;"
+            onMouseOver="this.style.background='#447e9b'" onMouseOut="this.style.background='#999'"
+            name="disable_choices">
+            Re-create view
+        </button>
+    </div>
+</form>
+<form action="refresh/" method="POST">
+    {% csrf_token %}
+    <div class="actions" style="position: relative; float: right;">
+        <button type="submit" class="button" name="recreate-views"
+            style="background: #999!important; border-radius: 9px; text-transform: uppercase; padding: 4px 8px; font-size: 11px; outline: none; margin-top:0px; color:white; box-shadow: none; border: none;"
+            onMouseOver="this.style.background='#447e9b'" onMouseOut="this.style.background='#999'"
+            name="disable_choices">
+            Refresh view
+        </button>
+    </div>
+</form>
+
+<script type="text/javascript">
+
+        setTimeout(function () {
+            location.reload();
+        }, 8000);
+</script>
+
+{% endblock %}
