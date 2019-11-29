@@ -110,21 +110,7 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
             codename=self.view_subject_group_perm_name)
         self.perm_set = PermissionSet.objects.create(name="View child 1 Perm set")
 
-    def test_all_subgroups_not_visible_whn_granted_access_to_one_subgroup(self):
-
-        self.perm_set.permissions.add(self.view_subject_perm)
-        self.perm_set.save()
-
-        self.user.permission_sets.add(self.perm_set)
-        self.user.save()
-
-        self.child_grp_1.permission_sets.add(self.perm_set)
-        self.child_grp_1.save()
-
-        self.assertFalse(
-            self.user.has_perm(make_perm(self.view_subject_perm), self.child_grp_2))
-
-    def test_get_subjectgroups_for_user_with_perms_for_child_1_group(self):
+    def test_get_subjgroups_for_user_with_perms_for_child_1_group_returns_child_grp_1_only(self):
         """
         when the user only has permissions to view only child group 1
         only child group one should be returned by the api
@@ -155,7 +141,7 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
         self.assertNotIn(str(self.child_grp_2.id), subject_group_ids)
         self.assertNotIn(str(self.parent_group.id), subject_group_ids)
 
-    def test_get_subjectgroups_for_user_with_perms_for_parent_group(self):
+    def test_get_subjectgroups_for_user_with_perms_for_parent_group_returns_all_children(self):
 
         self.perm_set.permissions.add(self.view_subject_perm)
         self.perm_set.save()
@@ -187,7 +173,7 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
         self.assertIn(str(self.child_grp_1.id), subgroups_ids)
         self.assertIn(str(self.child_grp_2.id), subgroups_ids)
 
-    def test_user_get_all_child_groups_if_they_have_permissions_to_view_them(self):
+    def test_user_gets_only_child_groups_if_they_have_perms_but_no_perms_for_parent(self):
         """
         test that a user can view both child group 1 and child group 2 when they
         have permissions to view both groups
@@ -217,86 +203,6 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
 
         self.assertIn(str(self.child_grp_1.id), top_level_subject_groups_ids)
         self.assertIn(str(self.child_grp_2.id), top_level_subject_groups_ids)
-
-    def test_user_with_parent_group_permissions_and_child_group1_sees_child1_under_parent(self):
-        """
-        create a parent group with child group 1, add view permissions to both the parent
-        and the child group, user should be able to see the child group under the parent
-        """
-        self.perm_set.permissions.add(self.view_subject_perm)
-        self.perm_set.save()
-
-        self.user.permission_sets.add(self.perm_set)
-        self.user.save()
-
-        self.child_grp_1.permission_sets.add(self.perm_set)
-        self.child_grp_1.save()
-
-        self.parent_group.permission_sets.add(self.perm_set)
-        self.parent_group.save()
-
-        self.parent_group.children.add(self.child_grp_1)
-        self.parent_group.save()
-
-        request = self.factory.get(API_BASE + '/subjectgroups')
-        self.force_authenticate(request, self.user)
-
-        response = SubjectGroupsView.as_view()(request)
-        self.assertEqual(response.status_code, 200)
-
-        top_level_subject_groups_ids = []
-        subgroups_ids = []
-
-        for subject_group in response.data:
-            top_level_subject_groups_ids.append(subject_group.get('id'))
-            for subgroup in subject_group.get('subgroups'):
-                subgroups_ids.append(subgroup.get('id'))
-
-        self.assertIn(str(self.parent_group.id), top_level_subject_groups_ids)
-        self.assertNotIn(str(self.child_grp_1.id), top_level_subject_groups_ids)
-        self.assertIn(str(self.child_grp_1.id), subgroups_ids)
-        self.assertNotIn(str(self.parent_group.id), subgroups_ids)
-        self.assertNotIn(str(self.child_grp_2.id), subgroups_ids)
-
-    def test_user_with_only_child_group1_permissions_views_child1_under_parent(self):
-        """
-        create a parent group and add child 1 to the parent group, give the user
-        permissions to view the child group but not the parent
-
-        Result: child group should appear at the top level
-        """
-        self.perm_set.permissions.add(self.view_subject_perm)
-        self.perm_set.save()
-
-        self.user.permission_sets.add(self.perm_set)
-        self.user.save()
-
-        self.child_grp_1.permission_sets.add(self.perm_set)
-        self.child_grp_1.save()
-
-        self.parent_group.children.add(self.child_grp_1)
-        self.parent_group.save()
-
-        request = self.factory.get(API_BASE + '/subjectgroups')
-        self.force_authenticate(request, self.user)
-
-        response = SubjectGroupsView.as_view()(request)
-        self.assertEqual(response.status_code, 200)
-
-        top_level_subject_groups_ids = []
-        subgroups_ids = []
-
-        for subject_group in response.data:
-            top_level_subject_groups_ids.append(subject_group.get('id'))
-            for subgroup in subject_group.get('subgroups'):
-                subgroups_ids.append(subgroup.get('id'))
-
-        self.assertNotIn(str(self.parent_group.id), top_level_subject_groups_ids)
-        self.assertIn(str(self.child_grp_1.id), top_level_subject_groups_ids)
-        self.assertNotIn(str(self.child_grp_1.id), subgroups_ids)
-        self.assertNotIn(str(self.parent_group.id), subgroups_ids)
-        self.assertNotIn(str(self.child_grp_2.id), subgroups_ids)
-        self.assertNotIn(str(self.child_grp_2.id), top_level_subject_groups_ids)
 
     def test_user_with_perm_to_view_parent_and_child1_only_views_those_two(self):
         """
@@ -344,11 +250,10 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
         self.assertIn(str(self.child_grp_2.id), subgroups_ids)
         self.assertNotIn(str(self.parent_group.id), subgroups_ids)
 
-    def test_user_only_sees_child_if_they_have_no_permissions_to_view_parent_abd_child2(self):
+    def test_user_only_sees_child_1_if_they_have_no_permissions_to_view_parent_and_child2(self):
         """
         Create a group A with two sub-groups, child_grp_1 and child_grp_2.
-        Do not give permissions
-        to see A
+        Do not give permissions to see A
         Create a permission set that gives rights to child_grp_1 but not child_grp_2.
 
         Result: User should only see child_grp_1 at the top level
@@ -431,6 +336,44 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
         self.assertIn(str(self.child_grp_1.id), subgroups_ids)
         self.assertIn(str(self.child_grp_2.id), subgroups_ids)
         self.assertNotIn(str(self.parent_group.id), subgroups_ids)
+
+    def test_user_sees_child_1_and_2_at_the_top_level_if_they_have_permissions_for_both_but_not_the_parent(self):
+        self.perm_set.permissions.add(self.view_subject_perm)
+        self.perm_set.save()
+
+        self.user.permission_sets.add(self.perm_set)
+        self.user.save()
+
+        self.child_grp_1.permission_sets.add(self.perm_set)
+        self.child_grp_1.save()
+
+        self.child_grp_2.permission_sets.add(self.perm_set)
+        self.child_grp_2.save()
+
+        self.parent_group.children.add(self.child_grp_1, self.child_grp_2)
+        self.parent_group.save()
+
+        request = self.factory.get(API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.user)
+
+        response = SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        top_level_subject_groups_ids = []
+        subgroups_ids = []
+
+        for subject_group in response.data:
+            top_level_subject_groups_ids.append(subject_group.get('id'))
+            for subgroup in subject_group.get('subgroups'):
+                subgroups_ids.append(subgroup.get('id'))
+
+        self.assertNotIn(str(self.parent_group.id), top_level_subject_groups_ids)
+        self.assertIn(str(self.child_grp_1.id), top_level_subject_groups_ids)
+        self.assertIn(str(self.child_grp_2.id), top_level_subject_groups_ids)
+        self.assertNotIn(str(self.child_grp_1.id), subgroups_ids)
+        self.assertNotIn(str(self.child_grp_2.id), subgroups_ids)
+        self.assertNotIn(str(self.parent_group.id), subgroups_ids)
+
 
 
 
