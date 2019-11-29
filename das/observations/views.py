@@ -1263,7 +1263,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                     csv_data.append(data)
         else:
             try:
-                subjects = self.get_queryset(request_subject_id)
+                subjects = self.get_queryset(request_subject_id, request_subject_chronofile)
                 for subject in subjects:
                     # all the relevant observations for the subject
                     items = self.get_subject_trackdata_queryset(
