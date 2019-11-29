@@ -120,6 +120,23 @@ var modify_wkt = function(event) {
 var raster = new ol.layer.Tile({
     source: new ol.source.OSM()
 });
+var raster2 = new ol.layer.Tile({
+    source: new ol.source.XYZ({
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}'
+    })
+});
+
+var raster3 = new ol.layer.Tile({
+    source: new ol.source.XYZ({
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+    })
+});
+
+var raster4 = new ol.layer.Tile({
+    source: new ol.source.XYZ({
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}'
+    })
+});
 var source = new ol.source.Vector({
     format: new ol.format.GeoJSON()
 });
@@ -152,7 +169,7 @@ var map = new ol.Map({
         projection: options.projection.projection_,
         extend: options.maxExtent,
     }),
-    layers: [raster, vector],
+    layers: [raster, raster2, raster3, raster4, vector],
     target: '{{ id }}_map',
     controls: new ol.control.defaults().extend([
         new ol.control.FullScreen()
@@ -308,6 +325,42 @@ if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || 
 //     console.log(hit)
 //     map.getTargetElement().style.cursor = hit ? 'pointer': '';
 // });
+
+raster2.setVisible(false)
+raster3.setVisible(false)
+raster4.setVisible(false)
+
+// console.log(raster3.getVisible())
+
+var button_baselayer = document.createElement('button');
+button_baselayer.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/layers.png">';
+
+var switchBaseLayer = function (e) {
+    e.preventDefault();
+    if (raster3.getVisible()){
+        raster2.setVisible(false)
+        raster3.setVisible(false)
+        raster4.setVisible(false)
+    }else{
+    raster2.setVisible(false)
+    raster3.setVisible(true)
+    raster4.setVisible(false)
+    }
+
+};
+
+button_baselayer.addEventListener('click', switchBaseLayer, false);
+
+var element_baselayer = document.createElement('div');
+element_baselayer.className = 'ol-bl ol-unselectable ol-control';
+element_baselayer.appendChild(button_baselayer);
+
+var BaseLayerControl = new ol.control.Control({
+    element: element_baselayer
+});
+map.addControl(BaseLayerControl);
+
+
 
 
 var zoomslider = new ol.control.ZoomSlider();
