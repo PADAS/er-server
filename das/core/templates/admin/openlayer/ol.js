@@ -228,7 +228,6 @@ var createGeometricObject = function(innerHTML, geoType, className){
     map.addControl(geoControl);
 };
 
-console.log(">>>>>>>>>>", {{ module }}.is_point)
 
 // Polygon
 if ("{{ geom_type }}" == "MultiPolygon" || {{ module }}.is_polygon == true) {
@@ -331,7 +330,6 @@ raster2.setVisible(false)
 raster3.setVisible(false)
 raster4.setVisible(false)
 
-// console.log(raster3.getVisible())
 
 var button_baselayer = document.createElement('button');
 button_baselayer.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/layers.png">';
