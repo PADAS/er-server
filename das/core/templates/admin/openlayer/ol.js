@@ -228,27 +228,28 @@ var createGeometricObject = function(innerHTML, geoType, className){
     map.addControl(geoControl);
 };
 
+console.log(">>>>>>>>>>", {{ module }}.is_point)
 
 // Polygon
-if ("{{ geom_type }}" == "MultiPolygon") {
+if ("{{ geom_type }}" == "MultiPolygon" || {{ module }}.is_polygon == true) {
     var polygonUrl = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
     createGeometricObject(polygonUrl, 'Polygon', 'ol-point');
-} else if ("{{ geom_type }}" != "MultiLineString" && "{{ geom_type }}" != "MultiPoint") {
+} else if ("{{ geom_type }}" != "MultiLineString" && "{{ geom_type }}" != "MultiPoint" && {{ module }}.is_linestring != true) {
     var polygonUrl = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
     createGeometricObject(polygonUrl, 'Polygon', 'ol-polygon');
 };
 
 // Linestring
-if ("{{ geom_type }}" == "MultiLineString"){
+if ("{{ geom_type }}" == "MultiLineString" || {{ module }}.is_linestring == true){
     var linestringUrl = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
     createGeometricObject(linestringUrl, 'LineString', 'ol-point');
-} else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint"){
+} else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint" && {{ module }}.is_polygon != true && {{ module }}.is_point != true){
     var linestringUrl = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
     createGeometricObject(linestringUrl, 'LineString', 'ol-linestring');
 };
 
 // Point
-if ("{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiLineString") {
+if ("{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiLineString" && {{ module }}.is_polygon != true && {{ module }}.is_linestring != true ) {
     var pointUrl = '<img class="img_2" src="https://img.icons8.com/material-rounded/24/ffffff/filled-circle.png">';
     createGeometricObject(pointUrl, 'Point', 'ol-point');
 };
@@ -306,13 +307,13 @@ var delet = function (className){
 };
 
 
-if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" == "MultiLineString"){
+if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" == "MultiLineString" || {{ module }}.is_polygon == true || {{ module }}.is_linestring == true || {{ module }}.is_point == true ){
     delet('ol-linestring')
 } else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint") {
     delet('ol-x')
 };
 
-if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" == "MultiLineString") {
+if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" == "MultiLineString" || {{ module }}.is_polygon == true || {{ module }}.is_linestring == true || {{ module }}.is_point == true) {
     modif('ol-polygon')
 } else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint") {
     modif('ol-modify')
