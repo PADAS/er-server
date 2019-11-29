@@ -361,6 +361,25 @@ map.addControl(BaseLayerControl);
 
 
 
+<button class="openbtn" onclick="javascript:openNav()">☰ Toggle Sidepanel</button>
+var button_baselayer = document.createElement('button');
+button_baselayer.innerHTML = "☰ Toggle Sidepanel"
+
+var 
+
+
+
+function openNav(e) {
+    e.preventDefault();
+    document.getElementById("mySidepanel").style.width = "250px";
+}
+
+function closeNav(e) {
+    e.preventDefault();
+
+    document.getElementById("mySidepanel").style.width = "0";
+}
+
 
 var zoomslider = new ol.control.ZoomSlider();
 map.addControl(zoomslider);
