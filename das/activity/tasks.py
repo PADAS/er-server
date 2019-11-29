@@ -1,12 +1,16 @@
+import pytz
+import time
 import logging
 
+from datetime import datetime, timedelta
 from celery_once import QueueOnce
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 
 from activity.alerting.message import send_event_alert
 from activity.alerting.service import evaluate_event
-from activity.models import EventPhoto, Event, AlertRule
+from activity.models import EventPhoto, Event, AlertRule, RefreshRecreateEventDetailView
 from das_server import celery
+from activity.materialized_view import refresh_materialized_view, re_create_view, check_db_view_exists
 
 logger = logging.getLogger(__name__)
 
@@ -70,3 +74,48 @@ def send_alert_to_notificationmethod(alert_rule_id=None, event_id=None, notifica
     logger.info(f"Sending alert of event {event_id} to notification id {notification_method_id}")
     send_event_alert(alert_rule_id=alert_rule_id, event_id=event_id, notification_method_id=notification_method_id)
 
+
+
+@celery.app.task(bind=True, ignore_result=False, track_started=True)
+def recreate_event_details_views(self):
+    # recreate materialized view for: "event_details_view".
+
+    re_create_view()
+    logger.info(f'Recreate data for event_details_view')
+
+
+@celery.app.task(bind=True, ignore_result=False, track_started=True)
+def refresh_event_details_views(self):
+    # refresh materialized view for: "event_details_view".
+
+    refresh_materialized_view()
+    logger.info(f'Refresh data for event_details_view')
+
+
+@celery.app.task(bind=True, ignore_result=False, track_started=True)
+def refresh_event_details_views_task(self):
+    # run the scheduler if and only-if view exist.
+    status = RefreshRecreateEventDetailView.REFRESH
+
+    # Remove records older than 15-days
+    minimum_data = minimum_date = pytz.utc.localize(datetime.utcnow()) - timedelta(days=15)
+    queryset = RefreshRecreateEventDetailView.objects.filter(refresh_at__lte=minimum_date)
+
+    if queryset:
+        queryset.delete()
+
+    if check_db_view_exists():
+        task = refresh_event_details_views.delay()
+
+        while not task.ready():
+            logger.info(f'State={task.state}, info={task.info}')
+            time.sleep(0.5)
+
+        if task.state == 'SUCCESS':
+            RefreshRecreateEventDetailView.objects.refresh(activity='Celery', status=status)
+        if task.state == 'FAILURE':
+            RefreshRecreateEventDetailView.objects.refresh(activity='Celery', status=status)
+        if task.state == 'RETRY':
+            RefreshRecreateEventDetailView.objects.refresh(activity='Celery', status=status)
+    else:
+        logger.info("{} has not been created.".format('event_details_view'))
