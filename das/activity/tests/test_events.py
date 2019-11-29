@@ -690,7 +690,8 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.no_perms_user)
 
         response = views.EventCountView.as_view()(request)
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 0)
 
     def test_event_count_by_category(self):
         all_request = self.factory.get(self.api_base + '/events/count')
