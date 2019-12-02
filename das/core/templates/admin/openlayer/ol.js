@@ -143,10 +143,9 @@ var vector = new ol.layer.Vector({
 });
 
 
-
 var map = new ol.Map({
     view: new ol.View({
-        center: ol.proj.transform([0, 0], 'EPSG:4326', 'EPSG:3857'),
+        center: ol.proj.transform([{{default_lon}}, {{default_lat}}], 'EPSG:4326', 'EPSG:4326'),
         maxResolution: options.maxResolution,
         zoom: options.numZoomLevels,
 
@@ -160,6 +159,21 @@ var map = new ol.Map({
 
     ])
 });
+
+
+map.on('moveend', (event) => {
+    var newZoom = map.getView().getZoom();
+    sessionStorage.setItem("zoomLevel", newZoom);
+});
+
+
+var zoom = sessionStorage.getItem("zoomLevel");
+// if zoom was saved in sessionstorage, then use it to zoom the map else default to numZoomLevels
+if (zoom !== null) {
+    map.getView().setZoom(zoom);
+} else {
+    zoom = options.numZoomLevels
+}
 
 
 // Geometric Object
@@ -329,11 +343,14 @@ if(wkt) {
     // Zooming to the bounds
     // extent = map.getView().calculateExtent();
     var extent = source.getExtent();
+    var zoomBeforeFit = zoom;
+
     map.getView().fit(extent, map.getSize());
 
-    if (source.getFeatures()[0].getGeometry().getType() == 'Point' || '{{ geom_type }}' == 'MultiPoint'){
-        map.getView().setZoom(map.getView().getZoom()-8);
-    }
+    // if (source.getFeatures()[0].getGeometry().getType() == 'Point' || '{{ geom_type }}' == 'MultiPoint'){
+    //     map.getView().setZoom(map.getView().getZoom()-8);
+    // }
+    map.getView().setZoom(zoomBeforeFit);
 }};
 
 
