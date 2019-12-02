@@ -100,6 +100,7 @@ jobs:
     steps:
       - attach_workspace:
           at: './'
+      - 'export_google_credentials'
       - 'activate_google_service_account'
       - run: 'cd infra-automation && make gcloud_get_credentials'
   terraform_plan_dev:
@@ -291,5 +292,3 @@ workflows:
       - render_templates:
           requires:
             - 'terraform_apply_prod1'
-
-
