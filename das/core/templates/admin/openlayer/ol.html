@@ -58,51 +58,70 @@
     top: 12.5em;
 }
 
-.sidepanel  {
-  width: 0;
-  position: fixed;
-  z-index: 1;
-  height: 250px;
-  top: 0;
-  left: 0;
-  background-color: #111;
-  overflow-x: hidden;
-  transition: 0.5s;
-  padding-top: 60px;
+.card {
+    border: 1px solid #aad3df;
+    background-color: white;
+    height: 150px;
+    width: 300px;
+    display: none;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    z-index: 1000;
+    margin-right: 32px;
+    /* position: absolute;
+    top: 12px; */
+    padding-bottom: 12px;
+    border-radius: 12px
 }
 
-/* .sidepanel a {
-  padding: 8px 8px 8px 32px;
-  text-decoration: none;
-  font-size: 25px;
-  color: #818181;
-  display: block;
-  transition: 0.3s;
+.card:hover {
+    background-color: rgba(255,255,255, 255) !important;
 }
 
-.sidepanel a:hover {
-  color: #f1f1f1;
+.item {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin: 8px;
+    width: 70%;
+    white-space: nowrap;
 }
 
-.sidepanel .closebtn {
-  position: absolute;
-  top: 0;
-  right: 25px;
-  font-size: 36px;
+#esri_tp{
+    width: 50%;
+    outline: none;
 }
 
-.openbtn {
-  font-size: 20px;
-  cursor: pointer;
-  background-color: #111;
-  color: white;
-  padding: 10px 15px;
-  border: none;
+#esri_stl{
+    width: 50%;
+    outline: none;
 }
 
-.openbtn:hover {
-  background-color:#444;
-} */
+#ngs_{
+    width: 50%;
+    outline: none;
+}
+
+#osm_{
+    width: 50%;
+    outline: none;
+}
+
+center {
+    font-size: 12px;
+}
+
+.item:hover {
+    background:#e0ebf3;
+    /* padding: 8px; */
+    border-radius: 8px;
+    /* box-shadow: 0 0.5em 0.5em -0.4em var(--hover); */
+    /* transform: translateY(0.25em); */
+ }
+ center:hover{
+     text-decoration: underline;
+ }
 
 </style>
 
@@ -112,15 +131,11 @@
     <script type="text/javascript">
     {% block openlayers %}{% include "admin/openlayer/ol.js" %}{% endblock %}
     </script>
-    <div id="{{ id }}_map"{% if LANGUAGE_BIDI %} dir="ltr"{% endif %}></div>
+    <div id="{{ id }}_map"{% if LANGUAGE_BIDI %} dir="ltr"{% endif %}>
+    </div>
     <!-- {% if editable %} -->
     <!-- <a href="javascript:{{ module }}.clearFeatures()">{% trans "Delete all Features" %}</a> -->
     <!-- {% endif %} -->
-    <div id="mySidepanel" class="sidepanel">
-        <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">×</a>
-        <a href="#">b1</a>
-        <a href="#">b2</a>
-    </div>
     {% if display_wkt %}<p style="color: #777;">{% trans "WKT debugging window:" %} (<span><a class="click-toggle" href="javascript:{{ module }}.showHideWKT()">Show</a></span>) </p>{% endif %}
     <textarea id="{{ id }}" class="vWKTField required" cols="150" rows="10" name="{{ name }}" style="display: none;">{{ wkt }}</textarea>
     <script type="text/javascript">{% block init_function %}{{ module }}.init();{% endblock %}</script>

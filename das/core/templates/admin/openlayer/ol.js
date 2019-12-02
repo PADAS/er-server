@@ -120,19 +120,22 @@ var modify_wkt = function(event) {
 var raster = new ol.layer.Tile({
     source: new ol.source.OSM()
 });
-var raster2 = new ol.layer.Tile({
+var rasterEsriTop = new ol.layer.Tile({
     source: new ol.source.XYZ({
-        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}'
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+        attributions: 'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/' +'rest/services/World_Topo_Map/MapServer">ArcGIS</a>',
     })
 });
 
-var raster3 = new ol.layer.Tile({
+var rasterEsriSAT = new ol.layer.Tile({
     source: new ol.source.XYZ({
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attributions: 'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/' + 'rest/services/World_Imagery/MapServer">ArcGIS</a>',
+
     })
 });
 
-var raster4 = new ol.layer.Tile({
+var rasterNGS= new ol.layer.Tile({
     source: new ol.source.XYZ({
         url: 'https://services.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}'
     })
@@ -169,7 +172,7 @@ var map = new ol.Map({
         projection: options.projection.projection_,
         extend: options.maxExtent,
     }),
-    layers: [raster, raster2, raster3, raster4, vector],
+    layers: [raster, rasterEsriSAT, rasterEsriTop, rasterNGS, vector],
     target: '{{ id }}_map',
     controls: new ol.control.defaults().extend([
         new ol.control.FullScreen()
@@ -326,26 +329,27 @@ if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || 
 //     map.getTargetElement().style.cursor = hit ? 'pointer': '';
 // });
 
-raster2.setVisible(false)
-raster3.setVisible(false)
-raster4.setVisible(false)
+var disableRaster = function(){
+    rasterEsriSAT.setVisible(false)
+    rasterEsriTop.setVisible(false)
+    rasterNGS.setVisible(false)
+};
+disableRaster()
+
 
 
 var button_baselayer = document.createElement('button');
-button_baselayer.innerHTML = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/layers.png">';
+button_baselayer.innerHTML = '<img class="img_1" id="bl" src="https://img.icons8.com/ios-glyphs/30/ffffff/layers.png">';
 
 var switchBaseLayer = function (e) {
     e.preventDefault();
-    if (raster3.getVisible()){
-        raster2.setVisible(false)
-        raster3.setVisible(false)
-        raster4.setVisible(false)
+    var el = document.getElementById("card");
+    // console.log(el)
+    if (el.style.display === "grid"){
+        el.style.display = "none";
     }else{
-    raster2.setVisible(false)
-    raster3.setVisible(true)
-    raster4.setVisible(false)
+        el.style.display = "grid";
     }
-
 };
 
 button_baselayer.addEventListener('click', switchBaseLayer, false);
@@ -359,24 +363,68 @@ var BaseLayerControl = new ol.control.Control({
 });
 map.addControl(BaseLayerControl);
 
+var esriControlsHtml = `<div class="card ol-unselectable ol-control ol-bl" id="card">
+            <div class="item">
+                <input type="image" src="https://d1iq7pbacwn5rb.cloudfront.net/opendata-ui/assets/assets/images/esri-logo-color-6c1dbc86c0f28b9278d38cdf5c768e72.png" name="esri-tp" class="input" id="esri_tp"/>
+                <span> <center id="esri-tp"> ESRI Topography</center> </span>
+            </div>
+            <div class="item">
+                <input type="image"
+                    src="https://d1iq7pbacwn5rb.cloudfront.net/opendata-ui/assets/assets/images/esri-logo-color-6c1dbc86c0f28b9278d38cdf5c768e72.png"
+                    name="esri-stl" class="input" id="esri_stl" />
+                <span>
+                    <center id="esri-stl"> ESRI Satellite</center>
+                </span>
+            </div>
+            <div class="item">
+                <input type="image"
+                    src="https://img.icons8.com/cotton/256/000000/globe.png"
+                    name="ngs" class="input" id="ngs_" />
+                <span>
+                    <center id="ngs"> NGS</center>
+                </span>
+            </div>
+            <div class="item">
+
+                <input type="image" src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Openstreetmap_logo.svg/1200px-Openstreetmap_logo.svg.png" name="osm" class="input" id="osm_" />
+                <span>
+                    <center id="osm"> OpenStreet Map</center>
+                </span>
+            </div>
+        </div>`;
+
+var olLayersViewPort = document.getElementById('{{ id }}_map').getElementsByClassName("ol-viewport")[0]
+
+olLayersViewPort.insertAdjacentHTML('beforeend', esriControlsHtml);
 
 
-// <button class="openbtn" onclick="javascript:openNav()">☰ Toggle Sidepanel</button>
-// var button_baselayer = document.createElement('button');
-// button_baselayer.innerHTML = "☰ Toggle Sidepanel"
+document.getElementById('esri_tp').addEventListener('click', function(e){
+    e.preventDefault();
+    disableRaster();
+    raster.setVisible(false);
+    rasterEsriTop.setVisible(true);
+});
 
-// var
 
-// function openNav(e) {
-//     e.preventDefault();
-//     document.getElementById("mySidepanel").style.width = "250px";
-// }
+document.getElementById('esri_stl').addEventListener('click', function (e) {
+    e.preventDefault();
+    disableRaster();
+    raster.setVisible(false);
+    rasterEsriSAT.setVisible(true);
+});
 
-// function closeNav(e) {
-//     e.preventDefault();
+document.getElementById('ngs_').addEventListener('click', function (e) {
+    e.preventDefault();
+    disableRaster();
+    raster.setVisible(false);
+    rasterNGS.setVisible(true);
+});
 
-//     document.getElementById("mySidepanel").style.width = "0";
-// }
+document.getElementById('osm_').addEventListener('click', function (e) {
+    e.preventDefault();
+    disableRaster();
+    raster.setVisible(true);
+});
 
 
 var zoomslider = new ol.control.ZoomSlider();
