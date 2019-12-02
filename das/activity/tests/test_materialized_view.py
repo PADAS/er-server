@@ -1,4 +1,4 @@
-from django.test import RequestFactory
+from django.test import RequestFactory, override_settings
 from django.contrib.admin.sites import AdminSite
 from django.contrib.messages.storage.cookie import CookieStorage
 
@@ -27,7 +27,7 @@ class TestMaterializedView(BaseAPITest):
         refresh_materialized_view()
         self.assertTrue(check_db_view_exists())
 
-
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_when_admin_refresh_view(self):
         request = self.request.get('/admin')
         request.user = MockSuperUser()
@@ -41,6 +41,7 @@ class TestMaterializedView(BaseAPITest):
                          "Successfully refresh 'event_detail_view'")
         self.assertEqual(response.status_code, 302)
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_when_admin_recreate_view(self):
         request = self.request.get('/admin')
         request.user = MockSuperUser()
