@@ -4,6 +4,8 @@ from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.contrib.gis.admin.widgets import OpenLayersWidget
 
+from core.admin import SaveCoordinatesToCookieMixin
+
 geo_context = {'LANGUAGE_BIDI': translation.get_language_bidi()}
 logger = logging.getLogger('django.contrib.gis')
 
@@ -33,6 +35,8 @@ class OlWidget(OpenLayersWidget):
             ('num_zoom', 'numZoomLevels', int),
             ('max_zoom', 'maxZoomLevels', int),
             ('min_zoom', 'minZoomLevel', int),
+            ('default_lon', 'defaultLon', float),
+            ('default_lat', 'defaultLat', float),
         ]
 
         # Building the map options hash.
@@ -54,7 +58,7 @@ class OlWidget(OpenLayersWidget):
         return map_options
 
 
-class OSMGeoExtendedAdmin(admin.OSMGeoAdmin):
+class OSMGeoExtendedAdmin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
     map_template = 'admin/openlayer/ol.html'
@@ -64,4 +68,31 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin):
     num_zoom = 19
     units = 'degrees'
 
+    gis_geometry_field_name = 'feature_geometry'
+
     widget = OlWidget
+
+    def get_form(self, request, obj=None, **kwargs):
+        if not obj:
+            lon, lat = 0, 0
+            try:
+                lon = float(request.COOKIES.get('longitude', 0))
+                lat = float(request.COOKIES.get('latitude', 0))
+            except ValueError:
+                pass
+
+            self.default_lat = lat
+            self.default_lon = lon
+        return super(OSMGeoExtendedAdmin, self).get_form(request, obj=None, **kwargs)
+
+    def response_post_save_add(self, request, obj):
+        http_response = super(OSMGeoExtendedAdmin,
+                              self).response_post_save_add(request, obj)
+        response = self.set_coordinates_cookie(http_response, obj)
+        return response
+
+    def response_post_save_change(self, request, obj):
+        http_response = super(OSMGeoExtendedAdmin,
+                              self).response_post_save_change(request, obj)
+        response = self.set_coordinates_cookie(http_response, obj)
+        return response

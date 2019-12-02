@@ -13,6 +13,7 @@ from django.contrib import admin as django_admin, messages
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
+from django.contrib.gis.geos import Point
 from django.db.models import Q
 
 import mapping.models as models
@@ -24,6 +25,7 @@ from core.openlayers import OSMGeoExtendedAdmin
 @admin.register(models.Map)
 class MapAdmin(OSMGeoExtendedAdmin):
     form = MapCenterForm
+    gis_geometry_field_name = 'center'
 
 
 @admin.register(models.TileLayer)
@@ -75,7 +77,6 @@ class BaseFeatureAdmin(OSMGeoExtendedAdmin):
         return obj.spatialfile.name if obj.spatialfile else ""
 
     get_spatialfile.short_description = 'Spatial File'
-
 
 
 @admin.register(models.PolygonFeature)
