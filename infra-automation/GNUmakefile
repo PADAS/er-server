@@ -22,6 +22,8 @@ terraform_path := $(CURDIR)/../terraform
 template_path := $(CURDIR)/../templated-deployment
 tfvars_overrides := $(template_path)/tfvars-overrides
 
+rendered_template_path := $(CURDIR)/../templated-deployment/rendered
+
 .PHONY: help
 help: ## show this help
 	@ printf "\033[36m%-20s\033[0m%-50s\033[93m%-35s\033[92m%s\033[0m\n" "target" "description" "arguments" "defaults" >&2
@@ -91,4 +93,14 @@ gcloud_get_credentials: ## runs gcloud auth from circleci before configuring kub
 
 .PHONY: kubectl_apply
 kubectl_apply: ## kubectl apply (recursively) everything in the ./k8s path
-	kubectl apply --recursive --filename="$(CURDIR)/../templated-deployment/rendered
+	kubectl apply --recursive --filename="$(CURDIR)/../templated-deployment/rendered"
+
+.PHONY: kubectl_apply_via_proxy
+kubectl_apply_via_proxy: # this should only be run by the build server
+	$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_gcloud_kubectl_configuration" || false)
+	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --server="https://$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_proxy_endpoint")"
+	echo "$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_b64_encoded_proxy_ca_certificate")" | base64 -d > proxy.crt
+	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --certificate-authority="./proxy.crt"
+	# To implement once secrets are hydrated:
+	# for file in $$(find "$(rendered_template_path)" -type f | sort); do sleep 1 && kubectl apply --filename "$$file"; done;
+
