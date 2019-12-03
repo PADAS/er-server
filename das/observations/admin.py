@@ -29,7 +29,8 @@ import django.contrib.gis.admin as gis_admin
 import observations.models as models
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
-from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
+from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
+    SaveCoordinatesToCookieMixin
 from core.openlayers import OSMGeoExtendedAdmin
 from utils.html import make_html_list
 from .models import SOURCE_TYPES
@@ -253,6 +254,8 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
 
     paginator = LargeTablePaginator
 
+    gis_geometry_field_name = 'location'
+
     list_filter = (SubjectNameFilter, SubjectIdFilter)
 
     def subject_link(self, obj):
@@ -322,9 +325,10 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
     actions = ['export_as_csv', ]
 
 
-class SourceProviderFilter(admin.SimpleListFilter):
+class SourceProviderFilter(admin.SimpleListFilter, SaveCoordinatesToCookieMixin):
     title = 'Source Provider'
     parameter_name = 'provider_key'
+    gis_geometry_field_name = 'location'
 
     def lookups(self, request, model_admin):
         return [(p.provider_key, p.display_name) for p in sorted(models.SourceProvider.objects.all(),
@@ -851,6 +855,7 @@ class SourceTypeFilter(admin.SimpleListFilter):
 
 @admin.register(models.SubjectStatus)
 class SubjectStatusAdmin(OSMGeoExtendedAdmin):
+    gis_geometry_field_name = 'location'
     search_fields = (
         'subject__name', 'subject__subjectsource__source__manufacturer_id')
     ordering = ('-recorded_at',)
@@ -925,6 +930,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
         except Exception:
             pass
         return source
+
 
 
 @admin.register(models.SourceProvider)

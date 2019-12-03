@@ -219,3 +219,4 @@ templated-deployment/tfvars-overrides/no_overrides.tfvars
 
 # Ephemeral, expiring vault tokens
 **.vault-token
+/.python-version

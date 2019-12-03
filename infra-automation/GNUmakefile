@@ -89,7 +89,7 @@ commit_message_path := $(CURDIR)/.robo-commit-message
 # TO DEPRICATE: this can be removed once out of concourse
 legacy_concourse_shim_gcr := gcr.io/padas-app/circleci/earthranger-api
 
-gcr_root := gcr.io/padas-app/circleci/deleteme
+gcr_root := gcr.io/padas-app/circleci/das-server
 gcr_web_root := gcr.io/padas-app/circleci/das-web
 manifest_file := $(CURDIR)/../GENERATED_MANIFEST
 server_manifest_key := SERVER_VERSION
