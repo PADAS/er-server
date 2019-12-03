@@ -181,6 +181,9 @@ var map = new ol.Map({
 });
 
 
+var mousewheel = new ol.interaction.MouseWheelZoom()
+map.addInteraction(mousewheel);
+
 map.on('moveend', (event) => {
     var newZoom = map.getView().getZoom();
     sessionStorage.setItem("zoomLevel", newZoom);
@@ -204,7 +207,12 @@ var createGeometricObject = function(innerHTML, geoType, className){
     var type = "{{ geom_type }}";
     var geometricObject = function(e){
         e.preventDefault()
-        map.getInteractions().pop()
+        map.getInteractions().pop();
+
+        var el = document.getElementById("card");
+        if (el.style.display === "grid") {
+            el.style.display = "none";
+        };
 
         draw = new ol.interaction.Draw({
             source: source,
@@ -265,6 +273,11 @@ var modif = function(className) {
         e.preventDefault();
         modify = new ol.interaction.Modify({ source: source });
         map.getInteractions().pop()
+
+        var el = document.getElementById("card");
+        if (el.style.display === "grid") {
+            el.style.display = "none";
+        };
 
         map.addInteraction(modify);
     };
@@ -337,12 +350,19 @@ var disableRaster = function(){
 disableRaster()
 
 
-
 var button_baselayer = document.createElement('button');
 button_baselayer.innerHTML = '<img class="img_1" id="bl" src="https://img.icons8.com/ios-glyphs/30/ffffff/layers.png">';
 
 var switchBaseLayer = function (e) {
     e.preventDefault();
+    try{
+    map.getInteractions().pop();
+    map.addInteraction(mousewheel);
+
+    }catch(err){
+        location.reload();
+    }
+
     var el = document.getElementById("card");
     // console.log(el)
     if (el.style.display === "grid"){
@@ -366,14 +386,14 @@ map.addControl(BaseLayerControl);
 var esriControlsHtml = `<div class="card ol-unselectable ol-control ol-bl" id="card">
             <div class="item">
                 <input type="image" src="https://d1iq7pbacwn5rb.cloudfront.net/opendata-ui/assets/assets/images/esri-logo-color-6c1dbc86c0f28b9278d38cdf5c768e72.png" name="esri-tp" class="input" id="esri_tp"/>
-                <span> <center id="esri-tp"> ESRI Topography</center> </span>
+                <span> <center> ESRI Topography</center> </span>
             </div>
             <div class="item">
                 <input type="image"
                     src="https://d1iq7pbacwn5rb.cloudfront.net/opendata-ui/assets/assets/images/esri-logo-color-6c1dbc86c0f28b9278d38cdf5c768e72.png"
                     name="esri-stl" class="input" id="esri_stl" />
                 <span>
-                    <center id="esri-stl"> ESRI Satellite</center>
+                    <center> ESRI Satellite</center>
                 </span>
             </div>
             <div class="item">
@@ -381,14 +401,14 @@ var esriControlsHtml = `<div class="card ol-unselectable ol-control ol-bl" id="c
                     src="https://img.icons8.com/cotton/256/000000/globe.png"
                     name="ngs" class="input" id="ngs_" />
                 <span>
-                    <center id="ngs"> NGS</center>
+                    <center> NGS</center>
                 </span>
             </div>
             <div class="item">
 
                 <input type="image" src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Openstreetmap_logo.svg/1200px-Openstreetmap_logo.svg.png" name="osm" class="input" id="osm_" />
                 <span>
-                    <center id="osm"> OpenStreet Map</center>
+                    <center> OpenStreet Map</center>
                 </span>
             </div>
         </div>`;
@@ -460,14 +480,12 @@ if(wkt) {
     // Zooming to the bounds
     // extent = map.getView().calculateExtent();
     var extent = source.getExtent();
-    var zoomBeforeFit = zoom;
 
     map.getView().fit(extent, map.getSize());
 
-    // if (source.getFeatures()[0].getGeometry().getType() == 'Point' || '{{ geom_type }}' == 'MultiPoint'){
-    //     map.getView().setZoom(map.getView().getZoom()-8);
-    // }
-    map.getView().setZoom(zoomBeforeFit);
+    if (source.getFeatures()[0].getGeometry().getType() == 'Point' || '{{ geom_type }}' == 'MultiPoint'){
+        map.getView().setZoom(map.getView().getZoom()-8);
+    }
 }};
 
 
