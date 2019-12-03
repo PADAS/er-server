@@ -1,5 +1,11 @@
 locals  {
   db_host = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip 
+
+  this_workspaces_to_infra_workspaces = {
+    # if not here, the lookup has a default
+  }
+
+  default_infra_workspace_when_not_mapped_here = "dev"
 }
 
 variable "api_endpoint" {
