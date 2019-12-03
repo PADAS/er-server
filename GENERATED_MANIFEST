@@ -1,2 +1,2 @@
-SERVER_VERSION = "gcr.io/padas-app/circleci/das-server/trello-2881_kubectl_integration@sha256:edb0add43f7ff50133aa487fb9215ec24f9fa980f6b055b08c60117d7b04ab2c"
-WEB_VERSION = "gcr.io/padas-app/circleci/das-web/develop@sha256:d9a53d1f866567c992909f41c072c8fc554c4dff8c01af7d58a8fdb925e8444e"
+SERVER_VERSION = "1.81.1-505b463354e9380c2dd8193acd79a8d3537c25f9"
+WEB_VERSION = "1.79.1-505b463354e9380c2dd8193acd79a8d3537c25f9"
