@@ -99,3 +99,61 @@ kubectl_apply_via_proxy: # this should only be run by the build server
 	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --certificate-authority="./proxy.crt" || false
 	# To implement once secrets are hydrated:
 	# for file in $$(find "$(rendered_template_path)" -type f | sort); do sleep 1 && kubectl apply --filename "$$file"; done;\
+
+commit_message_path := $(CURDIR)/.robo-commit-message
+# TO DEPRICATE: this can be removed once out of concourse
+legacy_concourse_shim_gcr := gcr.io/padas-app/circleci/earthranger-api
+
+gcr_root := gcr.io/padas-app/circleci/das-server
+gcr_web_root := gcr.io/padas-app/circleci/das-web
+manifest_file := $(CURDIR)/../GENERATED_MANIFEST
+server_manifest_key := SERVER_VERSION
+web_manifest_key := WEB_VERSION
+server_semver_file := $(CURDIR)/../SERVER_VERSION
+web_default_branch := develop
+web_gcr_path_default_branch := $(gcr_web_root)/$(web_default_branch)
+
+current_branch := $(shell echo "$$(git rev-parse --quiet --verify --abbrev-ref HEAD || exit 1)")
+descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
+descriptive_web_gcr_path := $(gcr_web_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
+
+
+.PHONY: build_and_push
+build_and_push: latest_gcr_tag := latest
+build_and_push: semver_gcr_tag := $(shell cat "$(server_semver_file)" || exit 1)
+build_and_push: sha_gcr_tag := $(shell git rev-parse --quiet --verify HEAD || exit 1)
+build_and_push: unique_gcr_tag := $(shell date +%s || exit 1)
+build_and_push: ## build and push
+	@ if [ -z "$(semver_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve semver_gcr_tag by cat'ing '$(server_semver_file)'.\e[0m\n" >&2; exit 1); fi
+	@ if [ -z "$(sha_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve sha_gcr_tag with git rev-parse.\e[0m\n" >&2; exit 1); fi
+	@ if [ -z "$(unique_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve unique_gcr_tag with 'date'.\e[0m\n" >&2; exit 1); fi
+	@ if [ "$$(dirname $(descriptive_server_gcr_path))" = "$$(dirname $(gcr_root))" ]; then (printf "\e[31m\tCould not construct a unique, sanitized GCR path.\e[0m\n" >&2; exit 1); fi
+	cd $(CURDIR)/.. && docker build  -f circleci-docker/Dockerfile --tag $(legacy_concourse_shim_gcr):$(current_branch) --tag $(descriptive_server_gcr_path):$(latest_gcr_tag) --tag $(descriptive_server_gcr_path):$(semver_gcr_tag) --tag $(descriptive_server_gcr_path):$(sha_gcr_tag) --tag $(descriptive_server_gcr_path):$(unique_gcr_tag) .
+	docker push $(descriptive_server_gcr_path):$(latest_gcr_tag)
+	docker push $(descriptive_server_gcr_path):$(semver_gcr_tag)
+	docker push $(descriptive_server_gcr_path):$(sha_gcr_tag)
+	docker push $(descriptive_server_gcr_path):$(unique_gcr_tag)
+
+.PHONY: generate_manifest
+generate_manifest: ## remove and regenerate the manifest
+	@ rm -f "$(manifest_file)"
+	@ $(MAKE) --no-print-directory -f $(this_file) $(manifest_file)
+
+.PHONY: commit_and_push_manifest
+commit_and_push_manifest: $(manifest_file) # this should only be run by the build server
+	git diff --cached --quiet --exit-code || (printf "\tThere are staged, uncommitted changes... will not commit manifest.\n" >&2; exit 1)
+	if git diff --exit-code $(manifest_file); then (printf "\tNo changes to the manifest... nothing to do.\n" >&2; exit 0); else git add $(manifest_file) && git commit -F $(commit_message_path) && git push; fi
+
+$(manifest_file):
+	@ printf "\e[31m\tGenerating new manifest.\e[0m\n" >&2
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_server_gcr_path)" manifest_key="$(server_manifest_key)" > /dev/null 2>&1 || (printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_server_gcr_path)'.\e[0m\n" >&2; exit 1)
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_web_gcr_path)" manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
+	  $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(web_gcr_path_default_branch)" manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
+		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_web_gcr_path)'.\e[0m\n" >&2; exit 1)
+
+.PHONY: append_to_manifest
+append_to_manifest: gcr_path :=
+append_to_manifest: manifest_key :=
+append_to_manifest: # this should only be run by the build server
+	@ export DIGEST="$$(gcloud container images list-tags $(gcr_path) --filter="tags:latest" --format="value(Digest)" || exit 1)" && \
+		if [ -n "$$DIGEST" ]; then printf "%s = \"%s@%s\"\n" "$(manifest_key)" "$(gcr_path)" "$$DIGEST" >> $(manifest_file); else exit 1; fi
