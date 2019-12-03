@@ -8,6 +8,14 @@ locals {
   default_infra_workspace_when_not_mapped_here = "dev"
 }
 
+variable "kubernetes_namespace" {
+  type = string
+}
+
+variable "server_image" {
+  type = string
+}
+
 variable "api_endpoint" {
   type    = string
   default = "localhost"
@@ -30,7 +38,6 @@ variable "config_container" {
 
 variable "db_name" {
   type    = string
-  default = "das"
 }
 
 variable "db_port" {

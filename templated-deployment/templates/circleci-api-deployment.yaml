@@ -1,7 +1,7 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  namespace: <<namespace>>
+  namespace: "${KUBERNETES_NAMESPACE}"
   name: api
 spec:
   template:
@@ -14,7 +14,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image:  gcr.io/padas-app/concourse-shim/concourse-earthranger-api:<<server-version>>
+      - image:  "${SERVER_IMAGE}"
         name: das-api
         resources:
           requests:
