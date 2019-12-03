@@ -1,5 +1,5 @@
 locals  {
-  db_host = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip 
+  db_host = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip
 
   this_workspaces_to_infra_workspaces = {
     # if not here, the lookup has a default
@@ -37,6 +37,17 @@ variable "db_port" {
   type = string
   default = "5432"
 }
+
+variable "email_host" {
+  type = string
+  default = "email-smtp.us-west-2.amazonaws.com"
+}
+
+variable "from_email" {
+  type = string
+  default = "notifications.demo@pamdas.org"
+}
+
 
 variable "kml_export" {
   type = string

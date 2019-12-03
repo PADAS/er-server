@@ -14,7 +14,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/concourse-shim/concourse-earthranger-api:<<server-version>>
+      - image: ${Your image here}
         name: das-api
         resources:
           requests:
@@ -24,7 +24,7 @@ spec:
           - containerPort: 8000
         env:
         - name: DB_HOST
-          value: "${local.db_host}"
+          value: "${DB_HOST}"
         - name: DB_PORT
           value: "${DB_PORT}"
         - name: DB_NAME
