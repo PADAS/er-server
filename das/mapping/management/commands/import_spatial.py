@@ -32,11 +32,11 @@ TYPE_PROVENANCE_FIELDS = ('last_edited_user',
                           'last_edited_date',
                           'other_id')
 
-STE_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validator': shortname_validator},
-                          'name': {'field': 'name', 'validator': lambda v: v}
-                          }
+ATTRIBUTES_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validator': shortname_validator},
+                                 'name': {'field': 'name', 'validator': lambda v: v}
+                                 }
 
-SOURCE_NAME = 'STE'
+DEFAULT_SOURCE_NAME = 'STE'
 
 
 def fields_iter(feature):
@@ -60,11 +60,12 @@ def reduce_json(document):
 class Command(BaseCommand):
     help = 'Import a spatial data layer'
     tmpdirs = []
+    source_name = DEFAULT_SOURCE_NAME
 
     geometry_mapper = GeometryMapper()
 
     def handle(self, *args, **options):
-
+        self.source_name = options['source'] if options['source'] else DEFAULT_SOURCE_NAME
         try:
             feature_types_file = options['feature_types']
             if feature_types_file:
@@ -84,12 +85,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('filename', type=str, nargs='*',
-                            help='spatial file, for example: import_ste_spatial "STESpatial_GeoJSON\lines.geojson"'
-                                 ' "points.geojson" "polygons.geojson"'
-                                 ' --feature-types "spatial_feature_types.geojson"'
-                                 ' --settings=das_server.local_settings')
+                            help='spatial file, for example: import_spatial "roads.geojson"'
+                                 ' --feature-types "spatial_feature_types.geojson"')
         parser.add_argument('--feature-types',
                             help='spatial feature types file')
+        parser.add_argument(
+            '--source', type=str, help=f'Source of data, default is {DEFAULT_SOURCE_NAME}')
 
     def datasource_from_file(self, filename):  # geojson file
         if filename.endswith('kmz'):
@@ -137,11 +138,11 @@ class Command(BaseCommand):
         provenance = reduce_json(provenance)
 
         defaults = {'attributes': attributes, 'provenance': provenance,
-                    'external_source': SOURCE_NAME}
-        for ste_field, spatial_field in STE_TO_SPATIAL_MAPPING.items():
-            if ste_field in fields:
+                    'external_source': self.source_name}
+        for attribute_field, spatial_field in ATTRIBUTES_TO_SPATIAL_MAPPING.items():
+            if attribute_field in fields:
                 defaults[spatial_field['field']] = spatial_field['validator'](
-                    feature[ste_field].value)
+                    feature[attribute_field].value)
 
         try:
 
@@ -213,7 +214,7 @@ class Command(BaseCommand):
                     attribute_schema = {}
 
             defaults = {'provenance': provenance, 'attribute_schema': attribute_schema,
-                        'external_source': SOURCE_NAME}
+                        'external_source': self.source_name}
 
             type_record, created = model.objects.get_or_create(
                 name=name,

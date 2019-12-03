@@ -4,6 +4,7 @@ import tempfile
 import datetime
 
 from django.core.management.base import BaseCommand
+from django.conf import settings
 from django.contrib.gis.utils import layermapping
 from django.contrib.gis.gdal import (
     CoordTransform, DataSource, GDALException, OGRGeometry, OGRGeomType,
@@ -39,6 +40,10 @@ class Command(BaseCommand):
     geometry_mapper = GeometryMapper()
 
     def handle(self, *args, **options):
+        if settings.MAPPING_FEATURES_V2:
+            raise NotImplementedError(
+                f'importlayer management command deprecated, use import_ste_spatial')
+
         logger.debug('Featureset: %s, FeatureType: %s',
                      options['featureset'], options['featuretype'])
         featureset = models.FeatureSet.objects.get_by_natural_key(

@@ -16,6 +16,7 @@ django-debug-toolbar==1.11
 django-extensions==2.2.1
 django-jenkins==0.110.0
 django==2.0.13            # via django-debug-toolbar, django-jenkins
+faker==2.0.2
 identify==1.4.2           # via pre-commit
 importlib-metadata==0.18  # via pluggy, pre-commit, pytest
 lxml==4.3.4               # via xmlunittest

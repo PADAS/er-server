@@ -9,6 +9,10 @@ from mapping.models import Map, TileLayer
 from choices.models import Choice
 
 
+class SpatialImportForm(forms.Form):
+    spatial_file = forms.FileField()
+
+
 class MapCenterForm(forms.ModelForm):
 
     latitude = forms.FloatField(

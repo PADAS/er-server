@@ -1,12 +1,15 @@
+from django.shortcuts import render, redirect
 from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.contrib import admin as django_admin
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
+from django.conf import settings
+from django.db.models.expressions import RawSQL
 
 import mapping.models as models
-from mapping.forms import MapCenterForm, TileLayerFormWithAttributes
+from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, SpatialImportForm
 
 
 @admin.register(models.Map)
@@ -49,11 +52,6 @@ class TileLayerAdmin(admin.ModelAdmin):
     get_attributes.short_description = _('Tile Layer Attributes (TileJSON)')
 
 
-@admin.register(models.FeatureSet)
-class FeatureSetAdmin(admin.ModelAdmin):
-    filter_horizontal = ('types',)
-
-
 class BaseFeatureAdmin(admin.OSMGeoAdmin):
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
@@ -62,32 +60,41 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     search_fields = ('name', )
 
 
-@admin.register(models.PolygonFeature)
-class PolygonFeatureAdmin(BaseFeatureAdmin):
-    pass
+if not settings.MAPPING_FEATURES_V2:
+
+    @admin.register(models.FeatureSet)
+    class FeatureSetAdmin(admin.ModelAdmin):
+        filter_horizontal = ('types',)
+
+    @admin.register(models.PolygonFeature)
+    class PolygonFeatureAdmin(BaseFeatureAdmin):
+        pass
+
+    @admin.register(models.LineFeature)
+    class LineFeatureAdmin(BaseFeatureAdmin):
+        pass
+
+    @admin.register(models.PointFeature)
+    class PointFeatureAdmin(BaseFeatureAdmin):
+        pass
+
+    @admin.register(models.FeatureType)
+    class FeatureTypeAdmin(admin.ModelAdmin):
+        pass
+
+    @admin.register(models.SpatialFile)
+    class SpatialFileAdmin(admin.ModelAdmin):
+        list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
+                        'layer_number')
+        list_filter = ('feature_set', 'feature_type')
 
 
-@admin.register(models.LineFeature)
-class LineFeatureAdmin(BaseFeatureAdmin):
-    pass
+class SpatialFeatureTypeInline(admin.TabularInline):
+    model = models.SpatialFeatureType
+    ordering = ('name',)
 
 
-@admin.register(models.PointFeature)
-class PointFeatureAdmin(BaseFeatureAdmin):
-    pass
-
-
-@admin.register(models.FeatureType)
-class FeatureTypeAdmin(admin.ModelAdmin):
-    pass
-
-
-@admin.register(models.SpatialFeatureGroup)
-class SpatialFeatureGroupAdmin(admin.ModelAdmin):
-    search_fields = ('name',)
-
-
-class FeaturesInline(admin.TabularInline):
+class SpatialFeaturesInline(admin.TabularInline):
     model = models.SpatialFeatureGroupStatic.features.through
 
 
@@ -100,16 +107,28 @@ class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
 
 @admin.register(models.SpatialFeatureType)
 class SpatialFeatureTypeAdmin(admin.ModelAdmin):
+    change_list_template = "admin/spatial_import_change_list.html"
     ordering = ('name', )
     search_fields = ('name',)
+
+    def import_spatial(self, request):
+        if request.method == "POST":
+            spatial_file = request.FILES["spatial_file"]
+            # todo import the data from the file
+
+            self.message_user(request, "Your spatial file has been imported")
+            return redirect("..")
+        form = SpatialImportForm
+        payload = {"form": form}
+        return render(
+            request, "admin/spatial_import_form.html", payload
+        )
 
 
 @admin.register(models.DisplayCategory)
 class DisplayCategegoryAdmin(admin.ModelAdmin):
-    ordering = ('name',)
-
-
-from django.db.models.expressions import RawSQL
+    ordering = ('name', )
+    inlines = (SpatialFeatureTypeInline, )
 
 
 class GeometryTypeFilter(django_admin.SimpleListFilter):
@@ -141,9 +160,6 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
                     'external_source', 'geometry_type',)
     list_filter = (GeometryTypeFilter, 'feature_type',)
     search_fields = ('name', 'short_name', 'external_id', 'id')
-    inlines = (
-        FeaturesInline,
-    )
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -155,10 +171,3 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
         return obj.geometry_type
 
     geometry_type.short_description = 'Geometry Type'
-
-
-@admin.register(models.SpatialFile)
-class SpatialFileAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
-                    'layer_number')
-    list_filter = ('feature_set', 'feature_type')

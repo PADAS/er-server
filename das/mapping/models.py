@@ -4,7 +4,6 @@ import logging
 import glob
 import zipfile
 
-from django.conf import settings
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ImproperlyConfigured
@@ -51,6 +50,9 @@ class TileLayer(TimestampedModel):
     """
     External
     """
+    class Meta:
+        verbose_name = 'Map Layer'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     attributes = JSONField(default=dict, blank=True)
@@ -395,29 +397,6 @@ class MBTiles(object):
 """Below are new classes proposed by Jake for structuring spatial data in DAS"""
 
 
-class DisplayCategoryManager(models.Manager):
-    def get_by_natural_key(self, name):
-        return self.get(name=name)
-
-
-class DisplayCategory(models.Model):
-    """
-    If the clients wish to group layers in a control or for ease of administration
-    Boundaries, Water, Security etc.
-    """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
-
-    objects = DisplayCategoryManager()
-
-    def __str__(self):
-        return self.name
-
-    def natural_key(self):
-        return (self.name,)
-
-
 class SpatialFeatureGroupManager(InheritanceManager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
@@ -430,6 +409,8 @@ class SpatialFeatureGroup(models.Model):
       ... better than handling as a layer group in UI as it allows grouping
        to be controlled in db?
     """
+    class Meta:
+        verbose_name = 'Base Feature Group'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -445,14 +426,44 @@ class SpatialFeatureGroup(models.Model):
 
 
 class SpatialFeatureGroupQuery(SpatialFeatureGroup):
-    pass
+    class Meta:
+        verbose_name = 'Calculated Feature Group'
 
 
 class SpatialFeatureGroupStatic(SpatialFeatureGroup):
     """Static group of features
     """
+    class Meta:
+        verbose_name = 'Feature Group'
+
     features = models.ManyToManyField(to='SpatialFeature', related_name='groups', related_query_name='group',
                                       blank=True,)
+
+
+class DisplayCategoryManager(models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
+class DisplayCategory(models.Model):
+    """
+    If the clients wish to group layers in a control or for ease of administration
+    Boundaries, Water, Security etc.
+    """
+    class Meta:
+        verbose_name = 'Display Category'
+        verbose_name_plural = 'Display Categories'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=255, unique=True)
+
+    objects = DisplayCategoryManager()
+
+    def __str__(self):
+        return self.name
+
+    def natural_key(self):
+        return (self.name,)
 
 
 class SpatialFeatureTypeTag(TagModel):
@@ -466,6 +477,9 @@ class SpatialFeatureTypeManager(models.Manager):
 
 
 class SpatialFeatureType(models.Model):
+    class Meta:
+        verbose_name = 'Feature Class'
+
     objects = SpatialFeatureTypeManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -473,7 +487,7 @@ class SpatialFeatureType(models.Model):
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
-    tags = TagField(to=SpatialFeatureTypeTag)
+    tags = TagField(to=SpatialFeatureTypeTag, null=True)
 
     # presentation fields
     # Boundaries, Water, Security etc.
@@ -514,53 +528,47 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 
     GeoFeature is a PostGIS type that can accept the gamut of spatial types and provides
         better distance calculations when data spans large distances as opposed to a cartesian representation.
+    Attributes:
+        short_name: A shorter name used for cartographic display
+        external_id: for ste, this is the ste_guid
+        attributes: Status: Open/Closed/Seasonal/Unknown) <Roads Only>
+            SpeedLimit <Roads Only>
+            FenceHeight <Fenclines only>
+            Status: Permanent/Temporary & Abandoned/Occupied <Human Settlement - Boma>
+            Status: Active/Inactive <Airstrips>
+            Seasonal Status: Permanent/Seasonal <Water & Rivers>
+            Accessibility: Human/Livestock/Wildlife <Water>
+            Notes
+        provenance: where did the data come from? method?
+            collect_user # who collected the data?
+            collect_method # the method used to collect the data (e.g., GPS, Satellite, etc.)
+            collect_date # when was the data collected?
+            ground_verified # has the spatial feature been checked on the ground?
+            spatial_feature_owners # The person/entity who owns the given spatial feature. E.g., 'Government of Kenya'
+            spatial_data_owners = # The person/entity/organization who owns the GIS data
+            created_user # who created the feature in the STESpatial database
+            created_date # when was the feature created in the STESpatial database
+            last_edited_user # who last edited the feature in the STESpatial database
+            last_edited_date # when was the feature last edited in the STESpatial database
+            other_id # this will map from the other_id' column in STESpatial
 
     """
+    class Meta:
+        verbose_name = 'Feature'
+
     objects = SpatialFeatureManager()
-
     revision_ignore_fields = ('updated_at', )
-
-    # data fields
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-
     feature_type = models.ForeignKey(
         SpatialFeatureType, on_delete=models.PROTECT)
-
     name = models.CharField(max_length=255, blank=True)
-    # A shorter name used for cartographic display
     short_name = models.CharField(max_length=25, blank=True)
-    # for ste, this is the ste_guid
     external_id = models.CharField(max_length=255, unique=True, blank=True,
                                    null=True)
     external_source = models.CharField(max_length=25, blank=True)
-
     attributes = JSONField(default=dict, blank=True)
-
-    # Status: Open/Closed/Seasonal/Unknown) <Roads Only>
-    # SpeedLimit <Roads Only>
-    # FenceHeight <Fenclines only>
-    # Status: Permanent/Temporary & Abandoned/Occupied <Human Settlement - Boma>
-    # Status: Active/Inactive <Airstrips>
-    # Seasonal Status: Permanent/Seasonal <Water & Rivers>
-    # Accessibility: Human/Livestock/Wildlife <Water>
-    # Notes
-
-    # where did the data come from? method?
     provenance = JSONField(default=dict, blank=True)
-    # collect_user # who collected the data?
-    # collect_method # the method used to collect the data (e.g., GPS, Satellite, etc.)
-    # collect_date # when was the data collected?
-    # ground_verified # has the spatial feature been checked on the ground?
-    # spatial_feature_owners # The person/entity who owns the given spatial feature. E.g., 'Government of Kenya'
-    # spatial_data_owners = # The person/entity/organization who owns the GIS data
-    # created_user # who created the feature in the STESpatial database
-    # created_date # when was the feature created in the STESpatial database
-    # last_edited_user # who last edited the feature in the STESpatial database
-    # last_edited_date # when was the feature last edited in the STESpatial database
-    # other_id # this will map from the other_id' column in STESpatial
-
     feature_geometry = models.GeometryField(geography=True, srid=4326)
-
     revision = Revision()
 
     def __str__(self):

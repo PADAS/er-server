@@ -15,3 +15,4 @@ django-debug-toolbar==1.11
 websocket-client==0.56.0
 coverage==4.5.4
 django-jenkins==0.110.0
+faker==2.0.2
