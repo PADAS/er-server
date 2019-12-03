@@ -1,4 +1,5 @@
 this_file := $(lastword $(MAKEFILE_LIST))
+
 MAKEFLAGS += --warn-undefined-variables
 
 minimum_version := 4.1
@@ -20,6 +21,8 @@ vault_makefile := $(vulcan_path)/vault-subtree/GNUmakefile
 terraform_path := $(CURDIR)/../terraform
 template_path := $(CURDIR)/../templated-deployment
 tfvars_overrides := $(template_path)/tfvars-overrides
+
+rendered_template_path := $(CURDIR)/../templated-deployment/rendered
 
 .PHONY: help
 help: ## show this help
@@ -84,6 +87,18 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars'"
 	@ cat $(template_path)/rendered/api-deployment.yaml
 
+.PHONY: kubectl_apply
+kubectl_apply: ## kubectl apply (recursively) everything in the ./k8s path
+	kubectl apply --recursive --filename="$(CURDIR)/../templated-deployment/rendered"
+
+.PHONY: kubectl_apply_via_proxy
+kubectl_apply_via_proxy: # this should only be run by the build server
+	$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="gcloud_kubectl_configuration" || false)
+	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --server="https://$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_proxy_endpoint")" || false
+	echo "$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_b64_encoded_proxy_ca_certificate")" | base64 -d > proxy.crt
+	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --certificate-authority="./proxy.crt" || false
+	# To implement once secrets are hydrated:
+	# for file in $$(find "$(rendered_template_path)" -type f | sort); do sleep 1 && kubectl apply --filename "$$file"; done;\
 
 commit_message_path := $(CURDIR)/.robo-commit-message
 # TO DEPRICATE: this can be removed once out of concourse
