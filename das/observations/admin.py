@@ -399,7 +399,9 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         """
         Hook for specifying fieldsets.
         """
-        if flag_enabled('SUBJECT_REGION_ENABLED'):
+        subject_region_enabled = getattr(settings, 'SUBJECT_REGION_ENABLED', False)
+
+        if subject_region_enabled:
             return super().get_fieldsets(request, obj=None)
         else:
             if self.fieldsets:

@@ -64,12 +64,8 @@ INSTALLED_APPS = (
     'django.contrib.postgres',
     'django.contrib.humanize',
     'django_extensions',
-    'flags'
 
 )
-FLAGS = {
-    'SUBJECT_REGION_ENABLED': []
-}
 
 MIDDLEWARE = (
     'utils.middleware.RequestDataMiddleware',
@@ -218,6 +214,9 @@ DATABASE_ROUTERS = [
     'vectronics.db_routing.routers.PositionRouter',
     'vectronics.db_routing.routers.MigrationRouter'
 ]
+
+# To enable or disable subject regions view on admin dashboard
+SUBJECT_REGION_ENABLED = False
 
 # Do not use Django logging config
 LOGGING_CONFIG = None
