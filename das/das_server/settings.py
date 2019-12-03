@@ -64,6 +64,7 @@ INSTALLED_APPS = (
     'django.contrib.postgres',
     'django.contrib.humanize',
     'django_extensions',
+    'feature_flags'
 
 )
 
