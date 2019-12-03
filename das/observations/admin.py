@@ -372,10 +372,13 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         ),
         ('Subject Attributes', {
             'classes': ('wide',),
-            'fields': (('rgb', 'sex', 'tm_animal_id',
-                        'region', 'country',))
+            'fields': (('rgb', 'sex'))
         }
         ),
+        ('ER Mobile App', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('tm_animal_id', 'region', 'country',)
+        }),
         ('Advanced Subject Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('additional', 'created_at', 'updated_at',)
