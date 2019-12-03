@@ -1,3 +1,7 @@
+locals  {
+  db_host = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip 
+}
+
 variable "api_endpoint" {
   type = string
   default = "localhost"
