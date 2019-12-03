@@ -373,12 +373,3 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
         self.assertNotIn(str(self.child_grp_1.id), subgroups_ids)
         self.assertNotIn(str(self.child_grp_2.id), subgroups_ids)
         self.assertNotIn(str(self.parent_group.id), subgroups_ids)
-
-
-
-
-
-
-
-
-
