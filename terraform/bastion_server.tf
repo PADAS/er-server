@@ -30,9 +30,9 @@ data "google_compute_image" "ubuntu" {
 }
 
 resource "random_string" "bastion_name_uniqueness" {
-  length = 4
+  length  = 4
   special = false
-  upper = false
+  upper   = false
 }
 
 resource "google_compute_instance" "bastion_server" {

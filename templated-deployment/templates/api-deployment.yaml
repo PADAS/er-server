@@ -14,7 +14,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: ${Your image here}
+      - image:  gcr.io/padas-app/concourse-shim/concourse-earthranger-api:<<server-version>>
         name: das-api
         resources:
           requests:
