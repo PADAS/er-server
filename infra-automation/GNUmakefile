@@ -157,3 +157,15 @@ append_to_manifest: manifest_key :=
 append_to_manifest: # this should only be run by the build server
 	@ export DIGEST="$$(gcloud container images list-tags $(gcr_path) --filter="tags:latest" --format="value(Digest)" || exit 1)" && \
 		if [ -n "$$DIGEST" ]; then printf "%s = \"%s@%s\"\n" "$(manifest_key)" "$(gcr_path)" "$$DIGEST" >> $(manifest_file); else exit 1; fi
+
+.PHONY: check_for_abandoned_workspaces
+check_for_abandoned_workspaces: ## compare terraform workspaces against git branches to identify potentially-forgotten resources
+	$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_init) && \
+	$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_workspace_list | tr -s '\n' | awk '{print $$NF}' | sort > $(vulcan_path)/workspaces)
+	@ git branch --list --remote | awk -F / '{print $$NF}' | sort > $(vulcan_path)/branches
+	@ export maybe_orphans="$$(comm -23 $(vulcan_path)/workspaces $(vulcan_path)/branches | grep -v default)"; if [ -n "$$maybe_orphans" ]; then printf "The following workspaces do not have corresponding branches:\n%s\n" "$$maybe_orphans" && exit 1; fi
+
+
+	# export PATH="$(vulcan_path)/$(uname_s):$${PATH}" && \
+	# terraform init -input=false && \
+	# terraform workspace list | tr -s '\n' | awk '{print $$NF}' | sort > $(vulcan_path)/workspaces
