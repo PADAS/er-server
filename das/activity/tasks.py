@@ -120,6 +120,8 @@ def refresh_event_details_view_task(self, activity):
 
 @celery.app.task(bind=True)
 def update_status_of_event_details_view_refresh(self, activity_and_status):
+    logger.info('updating status of event details view refresh: %s',
+                activity_and_status)
     activity, status = activity_and_status
     RefreshRecreateEventDetailView.objects.refresh(
         activity=activity, status=status)
