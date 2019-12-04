@@ -25,12 +25,11 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
+from flags.state import flag_enabled
 
 import observations.models as models
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
-from feature_flags.models import FeatureFlag
-from feature_flags.utils import check_flag
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
 from core.openlayers import OSMGeoExtendedAdmin
 from utils.html import make_html_list
@@ -400,8 +399,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         """
         Hook for specifying fieldsets.
         """
-        flag = check_flag('er_mobile_app_features')
-        if flag:
+        if flag_enabled('SUBJECT_REGION_ENABLED'):
             return super().get_fieldsets(request, obj=None)
         else:
             if self.fieldsets:
