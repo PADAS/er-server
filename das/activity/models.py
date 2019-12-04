@@ -837,7 +837,7 @@ class Event(RevisionMixin, TimestampedModel):
         :param kwargs:
         :return:
         """
-        self.full_clean()
+        self.full_clean(exclude=["id"])
         update_fields = kwargs.get('update_fields', [])
         save_fields = set()
 
@@ -905,7 +905,7 @@ class Event(RevisionMixin, TimestampedModel):
         return value
 
     def __str__(self):
-        return '%d: %s' % (self.serial_number, self.message[:50])
+        return f'{self.serial_number}: ({self.title}, {self.event_type})'
 
 
 class EventRelatedSubjectManager(models.Manager):

@@ -1,4 +1,4 @@
-from django.test import RequestFactory
+from django.test import RequestFactory, override_settings
 from django.contrib.admin.sites import AdminSite
 from django.contrib.messages.storage.cookie import CookieStorage
 
@@ -12,13 +12,15 @@ class MockSuperUser:
     def has_perm(self, perm):
         return True
 
+
 class TestMaterializedView(BaseAPITest):
 
     def setUp(self):
         super().setUp()
         self.site = AdminSite()
         self.request = RequestFactory()
-        self.admin = RefreshRecreateEventDetailViewAdmin(model=RefreshRecreateEventDetailView, admin_site=self.site)
+        self.admin = RefreshRecreateEventDetailViewAdmin(
+            model=RefreshRecreateEventDetailView, admin_site=self.site)
 
     def test_execute_generated_ddl(self):
         re_create_view()
@@ -27,7 +29,7 @@ class TestMaterializedView(BaseAPITest):
         refresh_materialized_view()
         self.assertTrue(check_db_view_exists())
 
-
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_when_admin_refresh_view(self):
         request = self.request.get('/admin')
         request.user = MockSuperUser()
@@ -41,6 +43,7 @@ class TestMaterializedView(BaseAPITest):
                          "Successfully refresh 'event_detail_view'")
         self.assertEqual(response.status_code, 302)
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_when_admin_recreate_view(self):
         request = self.request.get('/admin')
         request.user = MockSuperUser()

@@ -59,7 +59,7 @@ class SchemaWidget(forms.Textarea):
 def validate_schema_is_well_formed(schema):
 
     try:
-        _ = get_schema_renderer_method()(schema)
+        rendered_schema = get_schema_renderer_method()(schema)
     except NameError as ne:
         raise forms.ValidationError(
             f'Schema includes an invalid token {str(ne)}')
@@ -67,7 +67,7 @@ def validate_schema_is_well_formed(schema):
         raise forms.ValidationError(SCHEMA_ERROR_JSON_DECODE_ERROR)
     else:
         try:
-            validate_rendered_schema_is_wellformed(schema)
+            validate_rendered_schema_is_wellformed(rendered_schema)
         except SchemaValidationError as e:
             raise forms.ValidationError(str(e))
 

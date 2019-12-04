@@ -81,7 +81,7 @@ def send_alert_to_notificationmethod(alert_rule_id=None, event_id=None, notifica
                      notification_method_id=notification_method_id)
 
 
-@celery.app.task(bind=True)
+@celery.app.task(bind=True, ignore_result=False, track_started=True)
 def recreate_event_details_view(self):
     # recreate materialized view for: "event_details_view".
 
@@ -89,7 +89,7 @@ def recreate_event_details_view(self):
     logger.info(f'Recreate data for event_details_view')
 
 
-@celery.app.task(bind=True)
+@celery.app.task(bind=True, ignore_result=False, track_started=True)
 def refresh_event_details_view(self, activity):
     # refresh materialized view for: "event_details_view".
     try:
@@ -101,7 +101,8 @@ def refresh_event_details_view(self, activity):
         return activity, 'FAILURE'
 
 
-@celery.app.task(bine=True, base=QueueOnce, once={'graceful': True})
+@celery.app.task(bine=True, ignore_result=False, track_started=True,
+                 base=QueueOnce, once={'graceful': True})
 def refresh_event_details_view_task(self, activity):
     # run the scheduler if and only-if view exist.
 

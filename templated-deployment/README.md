@@ -3,9 +3,9 @@
 ## Migration from vCloud to Terraform
 
 As of September 2019, work is in progress to migrate:
-- configuration from vCloud templating to [Terraform templates](https://www.terraform.io/docs/providers/template/r/dir.html)
+- DONE configuration from vCloud templating to [Terraform templates](https://www.terraform.io/docs/providers/template/r/dir.html)
 - secrets to Vault
-- provisioned cloud resources to Terraform
+- ALMOST COMPLETE: provisioned cloud resources to Terraform
 
 ## Templating
 
@@ -35,4 +35,6 @@ Files are rendered to `templated-deployment/rendered`. It is important to only s
 - [x] worker-deployment.yaml
 - [x] worker-rt-deployment.yaml
 
+### Applying overrides for different environments
 
+To override template param defaults for a given feature branch, then create a file called `BRANCH_NAME.tfvars` and store it in the `tfvars-overrides` directory.

@@ -1,0 +1,92 @@
+locals {
+  is_production        = (terraform.workspace == "prod1")
+  dev_subnetwork_name  = data.terraform_remote_state.terraform_gcp.outputs.dev_us_west_1_subnetwork_name
+  prod_subnetwork_name = data.terraform_remote_state.terraform_gcp.outputs.prod_europe_west_3_subnetwork_name
+
+
+  dev_network_name  = data.terraform_remote_state.terraform_gcp.outputs.dev_network_name
+  prod_network_name = data.terraform_remote_state.terraform_gcp.outputs.prod_network_name
+
+  subnetwork_name = local.is_production ? local.prod_subnetwork_name : local.dev_subnetwork_name
+  network_name    = local.is_production ? local.prod_network_name : local.dev_network_name
+
+  bastion_server_count = var.need_bastion_server ? 1 : 0
+  bastion_server_user  = "bastion_server"
+
+  # Do not change bastion_tag values: CircleCI relies on them to safelist build agents with a firewall rule,
+  # independent of terraform.
+  bastion_tag = "psql-bastion"
+}
+
+resource "tls_private_key" "bastion_server" {
+  algorithm = "RSA"
+}
+
+data "google_compute_image" "ubuntu" {
+  provider = google
+
+  family  = "ubuntu-1804-lts"
+  project = "gce-uefi-images"
+}
+
+resource "google_compute_instance" "bastion_server" {
+  # Toggle this variable to ensure bastion server spins down after bootstrapping
+  count = local.bastion_server_count
+
+  allow_stopping_for_update = "true"
+  machine_type              = "g1-small"
+  name                      = "psql-bastion-server"
+  project                   = data.google_project.earthranger.project_id
+  zone                      = data.terraform_remote_state.earthranger_app_infra.outputs.gcp_zone
+  boot_disk {
+    initialize_params {
+      image = data.google_compute_image.ubuntu.self_link
+    }
+  }
+
+  tags = [local.bastion_tag]
+
+  labels = {
+    role      = "psql-bastion-server"
+    workspace = lower(terraform.workspace)
+  }
+
+  metadata = {
+    ssh-keys = "${local.bastion_server_user}:${tls_private_key.bastion_server.public_key_openssh}"
+  }
+
+  network_interface {
+
+    subnetwork         = local.subnetwork_name
+    subnetwork_project = data.google_project.earthranger.project_id
+
+    access_config { # necessary to allocate public ip
+    }
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/bastion_server_scripts/postgres_bootstrapping.sql"
+    destination = "/home/${local.bastion_server_user}/postgres_bootstrapping.sql"
+
+    connection {
+      host        = google_compute_instance.bastion_server[0].network_interface.0.access_config.0.nat_ip
+      type        = "ssh"
+      private_key = "${tls_private_key.bastion_server.private_key_pem}"
+      user        = local.bastion_server_user
+    }
+  }
+
+  provisioner "remote-exec" {
+    connection {
+      host        = google_compute_instance.bastion_server[0].network_interface.0.access_config.0.nat_ip
+      port        = "22"
+      private_key = "${tls_private_key.bastion_server.private_key_pem}"
+      type        = "ssh"
+      user        = local.bastion_server_user
+    }
+
+    script = "${path.root}/bastion_server_scripts/docker_install.sh"
+
+  }
+
+}

@@ -114,7 +114,6 @@ def get_enumImage_values(field_details):
     for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
         options[choice.value] = choice.icon
 
-
     return {k: v for k, v in options.items() if v}
 
 
@@ -160,7 +159,6 @@ def get_schema_renderer_method():
     def memo_table_choices(table_choices_identifier):
         field_name, field_type = table_choices_identifier.split(':')
         return get_table_choices({'field': field_name, 'type': field_type})
-
 
     @memoize
     def render_f(schema):
@@ -532,25 +530,35 @@ def should_auto_generate(schema_string):
     return False
 
 
-def validate_rendered_schema_is_wellformed(schema):
-    if "$schema" not in schema:
+def validate_eventtype_schema_is_wellformed(schema):
+    rendered_schema = get_schema_renderer_method()(schema)
+    return validate_rendered_schema_is_wellformed(rendered_schema)
+
+
+def validate_rendered_schema_is_wellformed(rendered_schema: dict):
+
+    if "$schema" not in rendered_schema.get('schema', {}):
         raise SchemaValidationError(SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA)
-    schema = get_schema_renderer_method()(schema)
-    properties = schema['schema'].get('properties')
+
+    properties = rendered_schema['schema'].get('properties')
 
     # Raise an error if any property exists without essential attributes.
     incomplete_properties_keyset = set()
-    required_property_keyset = {'type', 'title'}
+    property_keyset_1 = {'type', 'title'}
+    property_keyset_2 = {'key'}
+
     for property_key, val in properties.items():
-        if any([x not in val for x in required_property_keyset]):
-            incomplete_properties_keyset.add(property_key)
+        if all([k in val for k in property_keyset_1]) or all([k in val for k in property_keyset_2]):
+            continue
+        incomplete_properties_keyset.add(property_key)
+
     if len(incomplete_properties_keyset) > 0:
         raise SchemaValidationError(
-            f'Schema properties {repr(incomplete_properties_keyset)} are required to have {repr(required_property_keyset)}')
+            f'Schema properties {repr(incomplete_properties_keyset)} must include either {repr(property_keyset_1)} or {repr(property_keyset_2)}.')
 
     # Inspect the form-definition and raise an error if any elements are
     # missing essential elements.
-    definition = schema.get('definition', [])
+    definition = rendered_schema.get('definition', [])
 
     definition_keyset = set([x for x, y in definition_keys(definition)])
 

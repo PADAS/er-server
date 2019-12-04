@@ -13,6 +13,7 @@ import activity.models as models
 from activity.forms import EventTypeForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
+from core.openlayers import OSMGeoExtendedAdmin
 from activity.tasks import refresh_event_details_view, recreate_event_details_view
 
 logger = logging.getLogger(__name__)
@@ -28,10 +29,10 @@ class EventDetailsInline(admin.TabularInline):
 
 
 @admin.register(models.Event)
-class EventAdmin(admin.OSMGeoAdmin):
-    openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
+class EventAdmin(OSMGeoExtendedAdmin):
+    # openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
+    # wms_layer = 'terrain,overlay'
+    # wms_url = 'http://tiles.maps.eox.at/wms/'
 
     list_display = ('serial_number', 'created_at', 'event_type',
                     'title', 'location', 'attributes',)
@@ -142,46 +143,42 @@ class EventTypeAdmin(admin.ModelAdmin):
         return super().add_view(request, form_url=form_url, extra_context=extra_context)
 
 
-# @admin.register(models.EventSource)
-# class EventSourceAdmin(admin.ModelAdmin):
-#     list_display = ('display', 'eventprovider', 'event_type', 'is_active',)
-#     readonly_fields = ('external_event_type', 'id',)
-#     list_filter = ('eventprovider', 'is_active',)
-#     fieldsets = (
-#         (None, {
-#             'fields': ('display', 'event_type', 'is_active', 'eventprovider',)
-#         }),
-#         ('Advanced', {
-#             'fields': ('external_event_type', 'additional', 'id'),
-#             'classes': ('wide', 'collapse',)
-#         })
-#     )
-#
-#     def get_event_type_ref(self, object_id):
-#
-#         try:
-#             eventsource = models.EventSource.objects.get(id=object_id)
-#             event_type = eventsource.event_type
-#         except models.EventSource.DoesNotExist:
-#             pass
-#         else:
-#             if event_type is not None:
-#                 return {
-#                     'href': reverse(f'admin:{event_type._meta.app_label}_{event_type._meta.model_name}_change',
-#                                     args=(event_type.id,)),
-#                     'display': event_type.display
-#                 }
-#
-#     def change_view(self, request, object_id, form_url='', extra_context=None):
-#
-#         extra_context = extra_context or {}
-#         extra_context['eventtype_ref'] = self.get_event_type_ref(object_id)
-#
-#         # if extra_context['eventsource_ref'] is not None:
-#         #     messages.add_message(request, messages.WARNING, "This Event Type is linked to an External Source. See the notice below for more details.")
-#
-#         return super().change_view(request, object_id, form_url=form_url, extra_context=extra_context)
-#
+@admin.register(models.EventSource)
+class EventSourceAdmin(admin.ModelAdmin):
+    list_display = ('display', 'eventprovider', 'event_type', 'is_active',)
+    readonly_fields = ('external_event_type', 'id',)
+    list_filter = ('eventprovider', 'is_active',)
+    fieldsets = (
+        (None, {
+            'fields': ('display', 'event_type', 'is_active', 'eventprovider',)
+        }),
+        ('Advanced', {
+            'fields': ('external_event_type', 'additional', 'id'),
+            'classes': ('wide', 'collapse',)
+        })
+    )
+
+    def get_event_type_ref(self, object_id):
+
+        try:
+            eventsource = models.EventSource.objects.get(id=object_id)
+            event_type = eventsource.event_type
+        except models.EventSource.DoesNotExist:
+            pass
+        else:
+            if event_type is not None:
+                return {
+                    'href': reverse(f'admin:{event_type._meta.app_label}_{event_type._meta.model_name}_change',
+                                    args=(event_type.id,)),
+                    'display': event_type.display
+                }
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+
+        extra_context = extra_context or {}
+        extra_context['eventtype_ref'] = self.get_event_type_ref(object_id)
+        return super().change_view(request, object_id, form_url=form_url, extra_context=extra_context)
+
 
 class EventSourceInline(InlineExtraDynamicMixin, admin.TabularInline):
     fields = ('external_event_type', 'display',
@@ -288,6 +285,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
     list_display = ('performed_by', 'refresh_at',
                     'recreated_at', 'maintenance_status')
+
     enable_change_view = False
 
     def get_urls(self):
@@ -325,7 +323,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
         return HttpResponseRedirect("../")
 
     def refresh_view(self, request):
-        task = refresh_event_details_view.delay()
+        task = refresh_event_details_view.apply_async(args=('Admin',))
         status = self.model.REFRESH
         qs_method = self.model.objects.refresh
         name = 'refresh'

@@ -21,7 +21,7 @@ class VectronicsPlugin(TrackingPlugin):
     DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
     DEFAULT_START_OFFSET = timedelta(days=140)
     # Timeout in seconds
-    DEFAULT_TIMEOUT = 30
+    DEFAULT_TIMEOUT = 120
 
     source_plugin_reverse_relation = 'vectronicsplugin'
 
