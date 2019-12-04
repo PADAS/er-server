@@ -9,3 +9,9 @@ output "cluster_b64_encoded_proxy_ca_certificate" {
 output "cluster_proxy_endpoint" {
   value = data.terraform_remote_state.earthranger_app_infra.outputs.proxy_endpoint
 }
+
+output "kubernetes_namespace" {
+  value = kubernetes_namespace.this.metadata.0.name
+}
+
+
