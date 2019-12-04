@@ -86,7 +86,8 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_init
 	@ if [ ! -f $(tfvars_overrides)/$(tfvars_environment).tfvars ]; then touch $(tfvars_overrides)/$(tfvars_environment).tfvars; fi
 	@ K8S_NAMESPACE=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="kubernetes_namespace") && \
-	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' -var kubernetes_namespace=$$K8S_NAMESPACE -var server_image='gcr.io/padas-app/circleci/das-server/trello-2881_kubectl_integration@sha256:edb0add43f7ff50133aa487fb9215ec24f9fa980f6b055b08c60117d7b04ab2c' -var db_name='trello_2986_provision_se_saRa'"
+	DATABASE_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="database_name") && \
+	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' -var kubernetes_namespace=$$K8S_NAMESPACE -var db_name=$$DATABASE_NAME"
 	@ cat $(template_path)/rendered/api-deployment.yaml
 
 .PHONY: kubectl_apply

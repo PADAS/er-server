@@ -12,7 +12,7 @@ variable "kubernetes_namespace" {
   type = string
 }
 
-variable "server_image" {
+variable "SERVER_VERSION" {
   type = string
 }
 

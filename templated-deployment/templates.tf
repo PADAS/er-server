@@ -18,6 +18,6 @@ resource "template_dir" "deployments" {
     USE_AZURE_STORAGE    = var.use_azure_storage
     WEB_SERVICE_NAME     = var.web_service_name
     KUBERNETES_NAMESPACE = var.kubernetes_namespace
-    SERVER_IMAGE         = var.server_image
+    SERVER_VERSION       = var.SERVER_VERSION
   }
 }

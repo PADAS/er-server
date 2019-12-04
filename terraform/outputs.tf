@@ -14,4 +14,7 @@ output "kubernetes_namespace" {
   value = kubernetes_namespace.this.metadata.0.name
 }
 
+output "database_name" {
+  value = google_sql_database.database.name
+}
 
