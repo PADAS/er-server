@@ -1,2 +1,2 @@
-SERVER_VERSION = "gcr.io/padas-app/circleci/das-server/develop@sha256:e214d35a553810d0e953d7236cf4aa4070e74c6f8e0c643bb0beaea33b20984a"
+SERVER_VERSION = "gcr.io/padas-app/circleci/das-server/trello-3073-move-commit-and-push@sha256:c568e450c018746cbf48c5ebd49fba571afce1f10b5262856dfa3bd51c6b40cb"
 WEB_VERSION = "gcr.io/padas-app/circleci/das-web/develop@sha256:d9a53d1f866567c992909f41c072c8fc554c4dff8c01af7d58a8fdb925e8444e"
