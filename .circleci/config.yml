@@ -35,7 +35,8 @@ commands:
         type: string
         default: '-input=false -out=tfplan -var "is_running_in_automation=true"'
     steps:
-      - 'checkout'
+      - attach_workspace:
+          at: './'
       - 'add_deploy_key_for_common_terraform_modules'
       - 'export_google_credentials'
       - run: 'cd infra-automation && make tf_init init_options="<< parameters.init_args >>"'
@@ -109,7 +110,10 @@ jobs:
       - 'activate_google_service_account'
       - 'toggle_firewall_for_build_agent_k8s_closure':
           inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
-
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
   terraform_plan_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
@@ -168,8 +172,6 @@ jobs:
   docker_build_and_generate_manifest:
     executor: 'default'
     steps:
-      - attach_workspace:
-          at: './'
       - setup_remote_docker:
           docker_layer_caching: true
       - 'docker_login'
@@ -201,12 +203,6 @@ workflows:
           filters:
             branches:
               only: 'develop'
-      - commit_and_push_manifest:
-          requires:
-            - 'docker_build_and_generate_manifest'
-          filters:
-            branches:
-              only: 'develop'
       - terraform_plan_dev:
           requires:
             - 'docker_build_and_generate_manifest'
@@ -216,7 +212,9 @@ workflows:
       - render_templates:
           requires:
             - 'terraform_apply_dev'
-
+      - commit_and_push_manifest:
+          requires:
+            - 'render_templates'
 
   build_and_terraform_feature_branch:
   # Build for all branches except develop and release.
@@ -228,9 +226,6 @@ workflows:
               ignore:
                 - 'develop'
                 - /release*/
-      - commit_and_push_manifest:
-          requires:
-            - 'docker_build_and_generate_manifest'
       - terraform_plan_dev:
           requires:
             - 'docker_build_and_generate_manifest'
@@ -247,18 +242,15 @@ workflows:
       - kubectl_apply:
           requires:
             - 'render_templates'
+      - commit_and_push_manifest:
+          requires:
+            - 'kubectl_apply'
 
   build_and_terraform_prod1:
   # Build for all release branches
   # Review step for apply
     jobs:
       - docker_build_and_generate_manifest:
-          filters:
-            branches:
-              only: /release*/
-      - commit_and_push_manifest:
-          requires:
-            - 'docker_build_and_generate_manifest'
           filters:
             branches:
               only: /release*/
@@ -275,3 +267,6 @@ workflows:
       - render_templates:
           requires:
             - 'terraform_apply_prod1'
+      - commit_and_push_manifest:
+          requires:
+            - 'render_templates'
