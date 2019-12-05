@@ -104,6 +104,7 @@ jobs:
     executor: circleci_executor
     steps:
       - checkout
+      - 'export_google_credentials'
       - add_deploy_key_for_common_terraform_modules
       - run: 'cd infra-automation && make check_for_abandoned_workspaces'
   kubectl_apply:
@@ -285,7 +286,7 @@ workflows:
       - check_for_abandoned_workspaces
     triggers:
       - schedule:
-          cron: "0 22 * * *"
+          cron: "20 22 * * *"
           filters:
             branches:
               only:
