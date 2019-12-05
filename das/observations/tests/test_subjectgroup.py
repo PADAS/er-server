@@ -515,3 +515,56 @@ class ThreeLevelSubjectGroupHierarchyPermissionsTest(BaseAPITest):
 
         self.assertEqual(mid_level_ids, [])
         self.assertEqual(bottom_level_ids, [])
+
+
+class TestSubjectGroupsVisibility(BaseAPITest):
+    user_const = dict(last_name='last', first_name='first')
+
+    def setUp(self):
+        super().setUp()
+        self.view_subject_group_perm_name = 'view_subjectgroup'
+        self.child_grp = SubjectGroup.objects.create(name='Child Group')
+        self.parent_group = SubjectGroup.objects.create(name='Parent Group')
+
+        self.user = User.objects.create_user(username='active_user',
+                                             email='active_user@test.com',
+                                             password=User.objects.make_random_password(),
+                                             **self.user_const)
+        self.view_subject_perm = Permission.objects.get(
+            codename=self.view_subject_group_perm_name)
+        self.perm_set = PermissionSet.objects.create(
+            name="View Subject Group Perm set")
+
+        self.perm_set.permissions.add(self.view_subject_perm)
+        self.perm_set.save()
+
+        self.user.permission_sets.add(self.perm_set)
+        self.user.save()
+
+    def test_view_child_groups_if_parent_is_not_visible(self):
+        """
+        Parent group is_visible=False
+        User given rights to see Child group directly
+
+        Result: Child group should be returned
+        """
+        self.parent_group.permission_sets.add(self.perm_set)
+        self.parent_group.is_visible = False
+        self.parent_group.save()
+
+        self.parent_group.children.add(self.child_grp)
+        self.parent_group.save()
+
+        request = self.factory.get(API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.user)
+
+        response = SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        top_level_subject_groups_ids = []
+
+        for subject_group in response.data:
+            top_level_subject_groups_ids.append(subject_group.get('id'))
+
+        self.assertIn(str(self.child_grp.id), top_level_subject_groups_ids)
+        self.assertNotIn(str(self.parent_group.id), top_level_subject_groups_ids)
