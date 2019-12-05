@@ -48,26 +48,26 @@ class GroupPermissionsFilter(BaseFilterBackend):
                 root_ids = root_ids.union(result)
         return queryset.model.objects.filter(id__in=list(root_ids))
 
-    def first_descendant_with_permission(self, user, perms, group, is_visible):
+    def first_descendant_with_permission(self, user, perms, group, view_visible):
         ids = set()
         if not group:
             return None
 
-        if is_visible:
+        # this is on the assumption that passing True in query params means
+        # retrieve only visible subjectgroups and False means retrieve only
+        # not visible subjectgroups
 
-            if user.has_any_perms(perms, group) and group.is_visible:
-                """
-                if the user has permissions to view the group, and if the group is
-                visible return at that point. user has permissions to all 
-                descendants
-                """
-                return {group.id}
-        else:
-            if user.has_any_perms(perms, group):
-                return {group.id}
+        if user.has_any_perms(perms, group) and (group.is_visible is view_visible):
+            return {group.id}
+
+        # if user.has_any_perms(perms, group):
+        #     if group.is_visible is view_visible:
+        #         return {group.id}
+        #     if not view_visible and not group.is_visible:
+        #         return {group.id}
 
         for child in group.children.all():
-            result = self.first_descendant_with_permission(user, perms, child, is_visible)
+            result = self.first_descendant_with_permission(user, perms, child, view_visible)
             if result:
                 ids = ids.union(result)
         return ids if len(ids) > 0 else None
