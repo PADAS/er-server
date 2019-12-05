@@ -37,6 +37,7 @@ configure_dev: ## configure your workstation for fun and profit
 .PHONY: tf_fmt
 tf_fmt: ## terraform fmt -recursive on the directory
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_fmt fmt_options="-recursive"
+	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_fmt fmt_options="-recursive"
 
 .PHONY: tf_init
 tf_init: init_options ?=
@@ -84,7 +85,9 @@ render_templates: tfvars_environment ?= no_overrides
 render_templates: ## render templates (using Terraform) | [tfvars_environment="BRANCH_NAME"]
 	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_init
 	@ if [ ! -f $(tfvars_overrides)/$(tfvars_environment).tfvars ]; then touch $(tfvars_overrides)/$(tfvars_environment).tfvars; fi
-	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars'"
+	@ K8S_NAMESPACE=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="kubernetes_namespace") && \
+	DATABASE_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="database_name") && \
+	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' -var kubernetes_namespace=$$K8S_NAMESPACE -var db_name=$$DATABASE_NAME"
 	@ cat $(template_path)/rendered/api-deployment.yaml
 
 .PHONY: kubectl_apply
@@ -97,7 +100,7 @@ kubectl_apply_via_proxy: # this should only be run by the build server
 	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --server="https://$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_proxy_endpoint")" || false
 	echo "$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_b64_encoded_proxy_ca_certificate")" | base64 -d > proxy.crt
 	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --certificate-authority="./proxy.crt" || false
-	# To implement once secrets are hydrated:
+	kubectl apply --filename "$(rendered_template_path)/circleci-api-deployment.yaml"
 	# for file in $$(find "$(rendered_template_path)" -type f | sort); do sleep 1 && kubectl apply --filename "$$file"; done;\
 
 commit_message_path := $(CURDIR)/.robo-commit-message
