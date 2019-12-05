@@ -285,7 +285,7 @@ workflows:
       - check_for_abandoned_workspaces
     triggers:
       - schedule:
-          cron: "22 13 * * *"
+          cron: "20 21 * * *"
           filters:
             branches:
               only:
