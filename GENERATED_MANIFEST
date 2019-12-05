@@ -1,2 +1,2 @@
-SERVER_VERSION = "gcr.io/padas-app/circleci/das-server/trello-2988-abandoned-workspaces@sha256:523dd5900755b357896f79d39a3d1ba94aed7c78d73f1fc1b3044d7787e20acd"
+SERVER_VERSION = "gcr.io/padas-app/circleci/das-server/trello-2988-abandoned-workspaces@sha256:41ccbb512193c43f692bedee466a0d2007e3507dc6df1490d96f672e5a5202ad"
 WEB_VERSION = "gcr.io/padas-app/circleci/das-web/develop@sha256:d9a53d1f866567c992909f41c072c8fc554c4dff8c01af7d58a8fdb925e8444e"
