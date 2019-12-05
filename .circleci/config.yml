@@ -35,7 +35,8 @@ commands:
         type: string
         default: '-input=false -out=tfplan -var "is_running_in_automation=true"'
     steps:
-      - 'checkout'
+      - attach_workspace:
+          at: './'
       - 'add_deploy_key_for_common_terraform_modules'
       - 'export_google_credentials'
       - run: 'cd infra-automation && make tf_init init_options="<< parameters.init_args >>"'
@@ -171,8 +172,6 @@ jobs:
   docker_build_and_generate_manifest:
     executor: 'default'
     steps:
-      - attach_workspace:
-          at: './'
       - setup_remote_docker:
           docker_layer_caching: true
       - 'docker_login'
