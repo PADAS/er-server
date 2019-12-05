@@ -285,8 +285,8 @@ workflows:
       - check_for_abandoned_workspaces
     triggers:
       - schedule:
-          cron: "0 0 * * *"
+          cron: "22 13 * * *"
           filters:
             branches:
               only:
-                - "new-workflows"
+                - "trello-2988-abandoned-workspaces"
