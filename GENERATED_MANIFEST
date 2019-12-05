@@ -1,2 +1,2 @@
-SERVER_VERSION = "gcr.io/padas-app/circleci/das-server/trello-2986-provision-secrets@sha256:255a6cc2affedffb5873e28343bfac74936fac1bbb7305392784ad0fd1f059a5"
+SERVER_VERSION = "gcr.io/padas-app/circleci/das-server/trello-2986-provision-secrets@sha256:0102956a64e0674751d84590303c50eac6c5604f525bf7b26c4d93244e5f5038"
 WEB_VERSION = "gcr.io/padas-app/circleci/das-web/develop@sha256:d9a53d1f866567c992909f41c072c8fc554c4dff8c01af7d58a8fdb925e8444e"
