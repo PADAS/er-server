@@ -105,7 +105,7 @@ jobs:
     steps:
       - checkout
       - add_deploy_key_for_common_terraform_modules
-      - run: make check_for_abandoned_workspaces
+      - run: 'cd infra-automation && make check_for_abandoned_workspaces'
   kubectl_apply:
     executor: 'default'
     steps:
@@ -285,7 +285,7 @@ workflows:
       - check_for_abandoned_workspaces
     triggers:
       - schedule:
-          cron: "53 21 * * *"
+          cron: "0 22 * * *"
           filters:
             branches:
               only:
