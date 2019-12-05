@@ -48,8 +48,8 @@
 .card {
     border: 1px solid #aad3df;
     background-color: white;
-    height: 115px;
-    width: 230px;
+    /* height: 115px; */
+    width: 240px;
     display: none;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
@@ -73,21 +73,6 @@
     margin: 4px;
     width: 70%;
     white-space: nowrap;
-}
-
-#esri_tp{
-    width: 50%;
-    outline: none;
-}
-
-#esri_stl{
-    width: 50%;
-    outline: none;
-}
-
-#ngs_{
-    width: 50%;
-    outline: none;
 }
 
 #osm_{

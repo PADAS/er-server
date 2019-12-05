@@ -12,6 +12,8 @@ var {{ module }} = {};
 {{ module }}.is_linestring = {{ is_linestring|yesno:"true,false" }};
 {{ module }}.is_polygon = {{ is_polygon|yesno:"true,false" }};
 {{ module }}.is_point = {{ is_point|yesno:"true,false" }};
+{{ module }}.tile_layers = {{ tile_layers|safe }};
+
 {% endblock %}
 
 
@@ -110,36 +112,43 @@ var modify_wkt = function(event) {
     }
 };
 
-    // source.clear()
-    // document.getElementById('{{ id }}').value = '';
-    // {% localize off %}
-    // map.getView().setCenter(ol.proj.transform([{{ default_lon}}, {{ default_lat}}], 'EPSG:4326', 'EPSG:3857'));
-    // map.getView().setZoom({{ default_zoom }});
-    // {% endlocalize %}
+
+
+
+var CreateTileLayer = function(){
+    TileLayers = {{ module }}.tile_layers;
+    var array = [];
+    TileLayers.forEach(function(tile){
+
+        var tile_link = tile.attributes.url;
+        var TileLayer = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: tile_link
+            })
+
+        });
+        object = {};
+        var id = tile.attributes.title.replace(/\s/g, "").toLowerCase() + '_id';
+        object[id] = TileLayer;
+        array.push(object);
+    });
+    return array
+
+};
+
 
 var raster = new ol.layer.Tile({
     source: new ol.source.OSM()
 });
-var rasterEsriTop = new ol.layer.Tile({
-    source: new ol.source.XYZ({
-        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-        attributions: 'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/' +'rest/services/World_Topo_Map/MapServer">ArcGIS</a>',
-    })
-});
 
-var rasterEsriSAT = new ol.layer.Tile({
-    source: new ol.source.XYZ({
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        attributions: 'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/' + 'rest/services/World_Imagery/MapServer">ArcGIS</a>',
+// var google_hybrid_url = 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
 
-    })
-});
+// var google_satellite_layer = new ol.layer.Tile({
+//     source: new ol.source.XYZ({
+//         url: google_hybrid_url + '&client=AIzaSyArYgAAi9immeQFbEO2_6dRgc7hCSLaOIo'
+//     })
+// });
 
-var rasterNGS= new ol.layer.Tile({
-    source: new ol.source.XYZ({
-        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}'
-    })
-});
 var source = new ol.source.Vector({
     format: new ol.format.GeoJSON()
 });
@@ -172,13 +181,14 @@ var map = new ol.Map({
         projection: options.projection.projection_,
         extend: options.maxExtent,
     }),
-    layers: [raster, rasterEsriSAT, rasterEsriTop, rasterNGS, vector],
+    layers: [raster, vector],
     target: '{{ id }}_map',
     controls: new ol.control.defaults().extend([
         new ol.control.FullScreen()
 
     ])
 });
+
 
 
 var mousewheel = new ol.interaction.MouseWheelZoom()
@@ -190,13 +200,13 @@ map.on('moveend', (event) => {
 });
 
 
-var zoom = sessionStorage.getItem("zoomLevel");
-// if zoom was saved in sessionstorage, then use it to zoom the map else default to numZoomLevels
-if (zoom !== null) {
-    map.getView().setZoom(zoom);
-} else {
-    zoom = options.numZoomLevels
-}
+// var zoom = sessionStorage.getItem("zoomLevel");
+// // if zoom was saved in sessionstorage, then use it to zoom the map else default to numZoomLevels
+// if (zoom !== null) {
+//     map.getView().setZoom(zoom);
+// } else {
+//     zoom = options.numZoomLevels
+// }
 
 
 // Geometric Object
@@ -342,13 +352,6 @@ if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || 
 //     map.getTargetElement().style.cursor = hit ? 'pointer': '';
 // });
 
-var disableRaster = function(){
-    rasterEsriSAT.setVisible(false)
-    rasterEsriTop.setVisible(false)
-    rasterNGS.setVisible(false)
-};
-disableRaster()
-
 
 var button_baselayer = document.createElement('button');
 button_baselayer.innerHTML = '<img class="img_1" id="bl" src="https://img.icons8.com/ios-glyphs/30/ffffff/layers.png">';
@@ -383,68 +386,67 @@ var BaseLayerControl = new ol.control.Control({
 });
 map.addControl(BaseLayerControl);
 
-var esriControlsHtml = `<div class="card ol-unselectable ol-control ol-bl" id="card">
-            <div class="item">
-                <input type="image" src="https://d1iq7pbacwn5rb.cloudfront.net/opendata-ui/assets/assets/images/esri-logo-color-6c1dbc86c0f28b9278d38cdf5c768e72.png" name="esri-tp" class="input" id="esri_tp"/>
-                <span> <center> ESRI Topography</center> </span>
-            </div>
-            <div class="item">
-                <input type="image"
-                    src="https://d1iq7pbacwn5rb.cloudfront.net/opendata-ui/assets/assets/images/esri-logo-color-6c1dbc86c0f28b9278d38cdf5c768e72.png"
-                    name="esri-stl" class="input" id="esri_stl" />
-                <span>
-                    <center> ESRI Satellite</center>
-                </span>
-            </div>
-            <div class="item">
-                <input type="image"
-                    src="https://img.icons8.com/cotton/256/000000/globe.png"
-                    name="ngs" class="input" id="ngs_" />
-                <span>
-                    <center> NGS</center>
-                </span>
-            </div>
-            <div class="item">
 
-                <input type="image" src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Openstreetmap_logo.svg/1200px-Openstreetmap_logo.svg.png" name="osm" class="input" id="osm_" />
-                <span>
-                    <center> OpenStreet Map</center>
-                </span>
-            </div>
-        </div>`;
+var cardHTML = `<div class="card ol-unselectable ol-control ol-bl" id="card"></div>`;
 
-var olLayersViewPort = document.getElementById('{{ id }}_map').getElementsByClassName("ol-viewport")[0]
+var olLayersViewPort = document.getElementById('{{ id }}_map').getElementsByClassName("ol-viewport")[0];
 
-olLayersViewPort.insertAdjacentHTML('beforeend', esriControlsHtml);
+olLayersViewPort.insertAdjacentHTML('beforeend', cardHTML);
 
 
-document.getElementById('esri_tp').addEventListener('click', function(e){
-    e.preventDefault();
-    disableRaster();
-    raster.setVisible(false);
-    rasterEsriTop.setVisible(true);
+var TileLayerHTML = function(id, icon_url, name, title){
+    var HTML;
+    var cardDiv;
+    var style = "width: 50%; outline: none;";
+    HTML = `<div class="item">
+                <input type="image" src="${icon_url}" name="${name}" class="input" id="${id}" style="${style}"/>
+                <span> <center>${title}</center> </span>
+            </div>`;
+    cardDiv = document.getElementById('card');
+    cardDiv.insertAdjacentHTML('beforeend', HTML);
+};
+
+
+var swithBaseMapLayer = function(layer){
+    map.getLayers().removeAt(0)
+    map.getLayers().insertAt(0, layer);
+};
+
+var eventListener = function(id){
+    document.getElementById(id).addEventListener('click', function (event) {
+        event.preventDefault();
+
+        var layers = CreateTileLayer();
+        layers.forEach(function(layer){
+            if( Object.keys(layer)[0] == id){
+                layer = Object.values(layer)[0];
+                swithBaseMapLayer(layer)
+            }
+        })
+
+    });
+};
+
+var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
+
+{{ module }}.tile_layers.forEach( function(layer){
+    if (layer.attributes.type == "tile_server"){
+        var id = layer.attributes.title.replace(/\s/g, "").toLowerCase()+'_id';
+        var name = layer.attributes.title.toLowerCase();
+        var title = layer.attributes.title;
+        var icon_url = layer.attributes.icon_url;
+        if( icon_url != undefined){
+            icon_url = icon_url;
+        }else{
+            icon_url = defaultIcon;
+        }
+        TileLayerHTML(id, icon_url, name, title);
+        eventListener(id);
+    };
+
 });
 
 
-document.getElementById('esri_stl').addEventListener('click', function (e) {
-    e.preventDefault();
-    disableRaster();
-    raster.setVisible(false);
-    rasterEsriSAT.setVisible(true);
-});
-
-document.getElementById('ngs_').addEventListener('click', function (e) {
-    e.preventDefault();
-    disableRaster();
-    raster.setVisible(false);
-    rasterNGS.setVisible(true);
-});
-
-document.getElementById('osm_').addEventListener('click', function (e) {
-    e.preventDefault();
-    disableRaster();
-    raster.setVisible(true);
-});
 
 
 var zoomslider = new ol.control.ZoomSlider();
