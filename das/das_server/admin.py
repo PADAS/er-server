@@ -4,9 +4,9 @@ from django.contrib.admin import AdminSite
 from django.utils.translation import ugettext_lazy as _
 
 from observations.models import Subject, SubjectSource, Source, SubjectStatus, \
-    SubjectType, SubjectSubType, SubjectGroup
+    SubjectType, SubjectSubType, SubjectGroup, SubjectSourceSummary
 from observations.admin import SubjectAdmin, SubjectSourceAdmin, SubjectStatusAdmin, SourceAdmin, \
-    SubjectTypeAdmin, SubjectSubTypeAdmin, SubjectGroupAdmin
+    SubjectTypeAdmin, SubjectSubTypeAdmin, SubjectGroupAdmin, SubjectSourceSummaryAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -28,5 +28,5 @@ dasadmin_site = DasAdminSite(name='das_admin')
 
 for x in (Subject, SubjectAdmin), (SubjectSource, SubjectSourceAdmin), (Source, SourceAdmin),\
          (SubjectStatus, SubjectStatusAdmin), (SubjectType, SubjectTypeAdmin), (SubjectSubType, SubjectSubTypeAdmin), \
-         (SubjectGroup, SubjectGroupAdmin):
+         (SubjectGroup, SubjectGroupAdmin), (SubjectSourceSummary, SubjectSourceSummaryAdmin):
     dasadmin_site.register(*x)

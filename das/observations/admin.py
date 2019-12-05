@@ -27,6 +27,7 @@ from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
 
 import observations.models as models
+from tracking.models import SourcePlugin
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
@@ -549,6 +550,28 @@ class CommonNameAdmin(admin.ModelAdmin):
         raise NotImplementedError(
             'implement filtering SubjectAdmin to user permissions')
         return qs.filter(owner=request.user)
+
+
+@admin.register(models.SubjectSourceSummary)
+class SubjectSourceSummaryAdmin(admin.ModelAdmin):
+    list_display = ('subject', 'source', '_plugin', '_provider', '_start_date', '_end_date')
+    list_display_links = ('subject', 'source', '_plugin', '_provider')
+
+    def _provider(self, o):
+        return o.source.provider.display_name
+
+    def _plugin(self, o):
+        source_plugin = SourcePlugin.objects.get(source=o.source)
+        return source_plugin.plugin.name
+
+    def _start_date(self, o):
+        return o.assigned_range.lower.strftime('%d %b %Y, %I:%M %p')
+
+    def _end_date(self, o):
+        return o.assigned_range.upper.strftime('%d %b %Y, %I:%M %p')
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(models.Source)
