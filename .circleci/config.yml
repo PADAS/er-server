@@ -204,9 +204,6 @@ workflows:
           filters:
             branches:
               only: 'develop'
-          filters:
-            branches:
-              only: 'develop'
       - terraform_plan_dev:
           requires:
             - 'docker_build_and_generate_manifest'
