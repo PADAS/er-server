@@ -100,7 +100,18 @@ executors:
   default:
     docker:
       - image: 'google/cloud-sdk:269.0.0'
+  circleci_executor:
+    docker:
+      - image: 'circleci/buildpack-deps:stretch'
 jobs:
+  jobs:
+  check_for_abandoned_workspaces:
+    executor: circleci_executor
+    steps:
+      - checkout
+      - 'export_google_credentials'
+      - add_deploy_key_for_common_terraform_modules
+      - run: 'cd infra-automation && make check_for_abandoned_workspaces'
   kubectl_apply:
     executor: 'default'
     steps:
@@ -270,3 +281,13 @@ workflows:
       - commit_and_push_manifest:
           requires:
             - 'render_templates'
+  audit:
+    jobs:
+      - check_for_abandoned_workspaces
+    triggers:
+      - schedule:
+          cron: "0 0 * * 1"
+          filters:
+            branches:
+              only:
+                - "develop"
