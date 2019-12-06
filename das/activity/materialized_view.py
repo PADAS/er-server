@@ -98,13 +98,10 @@ def generate_field_details(schema_accumulator):
 
         for prop_key, prop_val in properties.items():
 
-            prop_type = prop_val.get('type', '')
-            prop_hash = f'{prop_key}:{prop_type}'
-            if prop_hash in used_properties:
+            if prop_key in used_properties:
                 continue
-            used_properties.add(prop_hash)
+            used_properties.add(prop_key)
 
-            prop_key = f"{prop_key}"
             if prop_val.get('enum'):
                 if prop_val.get('type') == 'string':
                     yield ('event_details', prop_key, 'name'), 'TEXT'
