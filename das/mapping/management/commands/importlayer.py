@@ -42,7 +42,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if settings.MAPPING_FEATURES_V2:
             raise NotImplementedError(
-                f'importlayer management command deprecated, use import_ste_spatial')
+                f'importlayer management command deprecated, use import_spatial')
 
         logger.debug('Featureset: %s, FeatureType: %s',
                      options['featureset'], options['featuretype'])

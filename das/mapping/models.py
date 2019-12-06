@@ -402,7 +402,7 @@ class SpatialFeatureGroupManager(InheritanceManager):
         return self.get(name=name)
 
 
-class SpatialFeatureGroup(models.Model):
+class SpatialFeatureGroup(TimestampedModel):
     """
     A grouping of features that should be toggled together on the map,
       e.g. a set of camps or a system of rivers
@@ -445,7 +445,7 @@ class DisplayCategoryManager(models.Manager):
         return self.get(name=name)
 
 
-class DisplayCategory(models.Model):
+class DisplayCategory(TimestampedModel):
     """
     If the clients wish to group layers in a control or for ease of administration
     Boundaries, Water, Security etc.
@@ -476,7 +476,7 @@ class SpatialFeatureTypeManager(models.Manager):
         return self.get(name=name)
 
 
-class SpatialFeatureType(models.Model):
+class SpatialFeatureType(TimestampedModel):
     class Meta:
         verbose_name = 'Feature Class'
 
@@ -487,7 +487,7 @@ class SpatialFeatureType(models.Model):
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
-    tags = TagField(to=SpatialFeatureTypeTag, null=True)
+    tags = TagField(to=SpatialFeatureTypeTag)
 
     # presentation fields
     # Boundaries, Water, Security etc.

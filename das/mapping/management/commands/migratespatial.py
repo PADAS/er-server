@@ -1,7 +1,7 @@
 import logging
 from enum import Enum
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction, IntegrityError
 
 from mapping import models
@@ -23,6 +23,9 @@ class Command(BaseCommand):
     help = 'Migrate point/line/polygon to spatialfeature'
     migrate_type = MigrateType.ErrorOnExisting
     create_fn = 'create'
+    num_fs = 0
+    num_ft = 0
+    num_f = 0
 
     def add_arguments(self, parser):
         group = parser.add_mutually_exclusive_group()
@@ -32,6 +35,7 @@ class Command(BaseCommand):
                            help='Append new features, do not update existing', )
 
     def handle(self, *args, **options):
+        self.num_fs, self.num_ft, self.num_f = 0, 0, 0
         self.migrate_type = MigrateType.OverWrite if options[
             'overwrite'] else MigrateType.AppendNew if options['append'] else MigrateType.ErrorOnExisting
 
@@ -43,39 +47,46 @@ class Command(BaseCommand):
             self.migrate_featuretypes()
             self.migrate_features()
 
+        self.stdout.write('FeatureSets migrated: %d, FeatureTypes migrated: %d, Features migrated: %d' %
+                          (self.num_fs, self.num_ft, self.num_f))
+
     def migrate_featuresets(self):
-        logger.debug(f'Migrating FeatureSets')
+        logger.debug('Migrating FeatureSets')
 
         for f in models.FeatureSet.objects.all():
             values = dict(name=f.name)
             try:
-                getattr(models.DisplayCategory.objects, self.create_fn)(
-                    id=f.id, defaults=values)
+                with transaction.atomic():
+                    func = getattr(models.DisplayCategory.objects, self.create_fn)
+                    func(id=f.id, defaults=values) if self.create_fn == 'update_or_create' else func(id=f.id, **values)
+                    self.num_fs += 1
             except IntegrityError:
                 if MigrateType.ErrorOnExisting == self.migrate_type:
                     raise ExistingFeatures(
                         f'DisplayCategory already exists {f.name}')
 
     def migrate_featuretypes(self):
-        logger.debug(f'Migrating FeatureTypes')
+        logger.debug('Migrating FeatureTypes')
         for f in models.FeatureType.objects.all():
-            fs = models.FeatureSet.objects.get(types__featuresets__id=f.id)
-            dc = models.DisplayCategory.objects.get(id=fs.id)
-            values = dict(name=f.name,
-                          presentation=f.presentation,
-                          display_category=dc,
-                          )
+            featuresets = models.FeatureSet.objects.filter(types__id=f.id)
+            for featureset in featuresets:
+                dc = models.DisplayCategory.objects.get(id=featureset.id)
+                values = dict(name=f.name,
+                              presentation=f.presentation,
+                              display_category=dc,
+                              )
 
-            try:
-                getattr(models.SpatialFeatureType.objects, self.create_fn)(
-                    id=f.id, defaults=values)
-            except IntegrityError:
-                if MigrateType.ErrorOnExisting == self.migrate_type:
-                    raise ExistingFeatures(
-                        f'SpatialFeatureType already exists {f.name}')
+                try:
+                    func = getattr(models.SpatialFeatureType.objects, self.create_fn)
+                    func(id=f.id, defaults=values) if self.create_fn == 'update_or_create' else func(id=f.id, **values)
+                    self.num_ft += 1
+                except IntegrityError:
+                    if MigrateType.ErrorOnExisting == self.migrate_type:
+                        raise ExistingFeatures(
+                            f'SpatialFeatureType already exists {f.name}')
 
     def migrate_features(self):
-        logger.debug(f'Migrating Point, Line and Polygon features')
+        logger.debug('Migrating Point, Line and Polygon features')
 
         for feature_class in (models.PointFeature, models.LineFeature, models.PolygonFeature):
             for f in feature_class.objects.all():
@@ -87,8 +98,9 @@ class Command(BaseCommand):
                               feature_type=sft
                               )
                 try:
-                    getattr(models.SpatialFeature.objects, self.create_fn)(
-                        id=f.id, defaults=values)
+                    func = getattr(models.SpatialFeature.objects, self.create_fn)
+                    func(id=f.id, defaults=values) if self.create_fn == 'update_or_create' else func(id=f.id, **values)
+                    self.num_f += 1
                 except IntegrityError:
                     if MigrateType.ErrorOnExisting == self.migrate_type:
                         raise ExistingFeatures(

@@ -60,7 +60,7 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     search_fields = ('name', )
 
 
-if not settings.MAPPING_FEATURES_V2:
+if not getattr(settings, 'MAPPING_FEATURES_V2', False):
 
     @admin.register(models.FeatureSet)
     class FeatureSetAdmin(admin.ModelAdmin):
@@ -73,7 +73,7 @@ if not settings.MAPPING_FEATURES_V2:
     @admin.register(models.LineFeature)
     class LineFeatureAdmin(BaseFeatureAdmin):
         pass
-
+    
     @admin.register(models.PointFeature)
     class PointFeatureAdmin(BaseFeatureAdmin):
         pass
@@ -107,7 +107,7 @@ class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
 
 @admin.register(models.SpatialFeatureType)
 class SpatialFeatureTypeAdmin(admin.ModelAdmin):
-    change_list_template = "admin/spatial_import_change_list.html"
+    # change_list_template = "admin/spatial_import_change_list.html"
     ordering = ('name', )
     search_fields = ('name',)
 
