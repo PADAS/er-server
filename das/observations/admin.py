@@ -25,6 +25,7 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
+from django.utils.safestring import mark_safe
 
 import observations.models as models
 from tracking.models import SourcePlugin
@@ -554,11 +555,26 @@ class CommonNameAdmin(admin.ModelAdmin):
 
 @admin.register(models.SubjectSourceSummary)
 class SubjectSourceSummaryAdmin(admin.ModelAdmin):
-    list_display = ('subject', 'source', '_plugin', '_provider', '_start_date', '_end_date')
-    list_display_links = ('subject', 'source', '_plugin', '_provider')
+    list_display = ('source', '_subject', '_source_plugin', '_plugin', '_provider', '_start_date', '_end_date')
+    list_filter = ('source__provider__display_name',)
+    search_fields = ('source__manufacturer_id', 'subject__name', 'source__provider__display_name')
+    ordering = ('source', )
+
+    def record_link(self, url, key, view):
+        return mark_safe('<a href="{}">{}</a>'.format(
+            reverse(url, args=(key,)), view
+        ))
+
+    def _subject(self, o):
+        return self.record_link("admin:observations_subject_change", o.subject.id, o.subject)
 
     def _provider(self, o):
-        return o.source.provider.display_name
+        provider = o.source.provider
+        return self.record_link("admin:observations_sourceprovider_change", provider.pk, provider.display_name)
+
+    def _source_plugin(self, o):
+        source_plugin = SourcePlugin.objects.get(source=o.source)
+        return self.record_link("admin:tracking_sourceplugin_change", source_plugin.id, source_plugin.plugin_type)
 
     def _plugin(self, o):
         source_plugin = SourcePlugin.objects.get(source=o.source)
