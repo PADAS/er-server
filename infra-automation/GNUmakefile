@@ -43,6 +43,11 @@ tf_init: init_options ?=
 tf_init: ## terraform init
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_init init_options=$(init_options)
 
+.PHONY: tf_workspace_delete
+tf_workspace_delete: workspace ?=
+tf_workspace_delete: ## terraform workspace new | workspace="WORKSPACE"
+	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_workspace workspace_subcommand=delete workspace_name=$(workspace)
+
 .PHONY: tf_workspace_list
 tf_workspace_list: ## terraform workspace list
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_workspace workspace_subcommand=list
@@ -162,5 +167,6 @@ append_to_manifest: # this should only be run by the build server
 check_for_abandoned_workspaces: ## compare terraform workspaces against git branches to identify potentially-forgotten resources
 	$(MAKE) --no-print-directory --silent -f $(this_file) tf_init && \
 	$(MAKE) --no-print-directory --silent -f $(this_file) tf_workspace_list | tr -s '\n' | awk '{print $$NF}' | sort > $(vulcan_path)/workspaces
+	@ [ -n "$$CI" ] || (git remote update --prune)
 	@ git branch --list --remote | awk -F / '{print $$NF}' | sort > $(vulcan_path)/branches
 	@ export maybe_orphans="$$(comm -23 $(vulcan_path)/workspaces $(vulcan_path)/branches | grep -v default)"; if [ -n "$$maybe_orphans" ]; then printf "The following workspaces do not have corresponding branches:\n%s\n" "$$maybe_orphans" && exit 1; fi
