@@ -23,16 +23,20 @@ def generate_DDL():
     lines.append('ed.event_id, et.display as "event_type", ')
 
     fieldset = set()
+    confirm_ = []
     schema_accumulator = load_schema()
     for json_path, data_type in generate_field_details(schema_accumulator):
-        fielddef = query_statement(json_path, data_type)
-        fieldset.add(fielddef)
+        if json_path not in confirm_:
+            confirm_.append(json_path)
+            fielddef = query_statement(json_path, data_type)
+            fieldset.add(fielddef)
     lines.append(',\n'.join(fieldset))
     lines.append(' from activity_eventdetails ed ')
     lines.append(' join activity_event e on e.id = ed.event_id ')
     lines.append(' join activity_eventtype et on et.id = e.event_type_id ')
     # lines.append(' with no data ')
 
+    del confirm_[:]
     return lines
 
 
@@ -111,5 +115,6 @@ def generate_field_details(schema_accumulator):
             elif prop_val.get('type') == 'number':
                 yield ('event_details', prop_key), 'NUMERIC'
 
-            elif bool({'checkboxes', 'array'} & set(prop_val.values())):
+            # elif bool({'checkboxes', 'array'} & set(prop_val.values())):
+            elif prop_val.get('type') == 'array' or prop_val.get('type') == "checkboxes":
                 yield ('event_details', prop_key, 'name'), 'TEXT[]'
