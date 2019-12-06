@@ -75,6 +75,12 @@ tf_apply: ## terraform apply | [apply_options="ARGS"] [apply_dir_or_planfile="PA
 	@ $(MAKE) --no-print-directory --file $(vault_makefile) vault_login
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_dir_or_planfile="$(apply_dir_or_planfile)" apply_options="$(apply_options)"
 
+.PHONY: tf_destroy
+tf_destroy: destroy_dir ?=
+tf_destroy: ## terraform destroy | [destroy_dir="PATH"]
+	@ $(MAKE) --no-print-directory --file $(vault_makefile) vault_login
+	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_destroy destroy_dir="$(destroy_dir)"
+
 .PHONY: tf_output
 tf_output: output_name ?=
 tf_output: ## terraform output | [output_name="NAME"]
