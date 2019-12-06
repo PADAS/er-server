@@ -4,7 +4,7 @@ locals {
 }
 
 resource "random_string" "db_name_uniqueness" {
-  length = 4
+  length  = 4
   special = false
 }
 
