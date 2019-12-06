@@ -69,6 +69,8 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
     map_srid = 4326
     display_wkt = True
     num_zoom = 19
+    map_width = 800
+    map_height = 600
     units = 'degrees'
 
     gis_geometry_field_name = 'feature_geometry'

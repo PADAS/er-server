@@ -400,31 +400,33 @@ var TileLayerHTML = function(id, icon_url, name, title){
     var style = "width: 50%; outline: none;";
     HTML = `<div class="item">
                 <input type="image" src="${icon_url}" name="${name}" class="input" id="${id}" style="${style}"/>
-                <span> <center>${title}</center> </span>
+                <span> <center id="${id}">${title}</center> </span>
             </div>`;
     cardDiv = document.getElementById('card');
     cardDiv.insertAdjacentHTML('beforeend', HTML);
 };
 
 
-var swithBaseMapLayer = function(layer){
+var switchBaseMapLayer = function(layer){
     map.getLayers().removeAt(0)
     map.getLayers().insertAt(0, layer);
 };
 
 var eventListener = function(id){
-    document.getElementById(id).addEventListener('click', function (event) {
-        event.preventDefault();
+    document.querySelectorAll(`[id^="${id}"]`).forEach(function(element){
+        element.addEventListener('click', function(event){
+            event.preventDefault();
 
-        var layers = CreateTileLayer();
-        layers.forEach(function(layer){
-            if( Object.keys(layer)[0] == id){
-                layer = Object.values(layer)[0];
-                swithBaseMapLayer(layer)
-            }
+            var layers = CreateTileLayer();
+            layers.forEach(function (layer) {
+                if (Object.keys(layer)[0] == id) {
+                    layer = Object.values(layer)[0];
+                    switchBaseMapLayer(layer);
+                }
+            })
         })
-
     });
+
 };
 
 var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
@@ -447,7 +449,19 @@ var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
 });
 
 
+// Default option for OSM:
+var osmIConUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Openstreetmap_logo.svg/1200px-Openstreetmap_logo.svg.png';
+TileLayerHTML('osm_', osmIConUrl, 'osm', 'OSM');
+document.querySelectorAll('[id^="osm_"]').forEach(function(element){
+    element.addEventListener('click', function(event){
+        event.preventDefault();
+        switchBaseMapLayer(raster);
+    });
 
+});
+
+
+// console.log(document.querySelectorAll('[id^="osm_"]'));
 
 var zoomslider = new ol.control.ZoomSlider();
 map.addControl(zoomslider);
