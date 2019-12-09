@@ -19,11 +19,16 @@ from uuid import UUID
 logger = logging.getLogger(__name__)
 
 
+class ChoiceException(Exception):
+    pass
+
+
 class Command(BaseCommand):
     help = 'Event Type managment commands'
     dry_run = False
 
-    SUB_COMMANDS = ('dumptypes', 'deleteunusedtypes', 'migratetypes', 'dumplocalize', 'loadlocalize')
+    SUB_COMMANDS = ('dumptypes', 'deleteunusedtypes',
+                    'migratetypes', 'dumplocalize', 'loadlocalize')
     PREVIOUS_EVENT_FIELD = 'previous_value'
     PREVIOUS_PROPERTY_FIELD = 'previous_property_name'
     CURRENT_PROPERTY_NAME = 'property_name'
@@ -80,7 +85,8 @@ class Command(BaseCommand):
                     event_type = EventType.objects.get(value=fields["value"])
                     logger.info(f"Event type {event_type} already existing")
                 except Exception:
-                    new_category, created = EventCategory.objects.get_or_create(value=fields["category"][0])
+                    new_category, created = EventCategory.objects.get_or_create(
+                        value=fields["category"][0])
                     event_type = EventType.objects.create(
                         id=row.pk,
                         value=fields["value"],
@@ -130,7 +136,6 @@ class Command(BaseCommand):
             for category in EventCategory.objects.all():
                 csv_writer.writerow(dict(ReportCategory=category.value,
                                          Display=category.display))
-
 
             for event_type in self.get_all_event_type_records():
                 event_type_value = event_type['value']
@@ -205,7 +210,8 @@ class Command(BaseCommand):
                     try:
                         event_type.delete()
                     except Exception as error:
-                        logger.error(f"Error deleting {event_type} eventtype: ", error)
+                        logger.error(
+                            f"Error deleting {event_type} eventtype: ", error)
 
     def get_unused_event_types(self, event_types=None):
         unused_event_types = []
@@ -348,7 +354,8 @@ class Command(BaseCommand):
                         [record['display'], new_event_type.id])
                 if 'schema' in record and record['schema']:
                     if 'table_' in record['schema']:
-                        record['schema'] = record['schema'].replace('table_', 'enum_')
+                        record['schema'] = record['schema'].replace(
+                            'table_', 'enum_')
                     conn.execute(
                         'UPDATE activity_eventtype SET schema = %s WHERE id = %s',
                         [record['schema'], new_event_type.id])
@@ -430,7 +437,8 @@ class Command(BaseCommand):
                             # New value is hardcoded to a specific value regardless
                             # of existing data
                             if self.COMMAND_HARDCODE in previous_property_name:
-                                previous_property_name = previous_property_name.split(':')[1]
+                                previous_property_name = previous_property_name.split(':')[
+                                    1]
 
                             if previous_property_name in data:
                                 if self.should_lookup_value_for_field(record, previous_property_name, property_name, former_tables, data):
@@ -465,14 +473,21 @@ class Command(BaseCommand):
             choice_row = choices.Choice.objects.filter(id=row.id).first()
 
             if choice_row:
-                logger.info('For choice table %s, row name %s, found existing Choice row %s',
-                            table_name, row.name, choice_row)
+                message = f'For table {table_name}, row name:{row.name}, id:{row.id}, found existing Choice row {choice_row}'
+                raise ChoiceException(
+                    f'For table {table_name}, row name:{row.name}, id:{row.id}, found existing Choice row {choice_row}')
             else:
                 existing_choice = choices.Choice.objects.filter(
                     model=model, field=field, value=self.make_value(
                         row.name)).first()
 
-                if not existing_choice:
+                if existing_choice:
+                    if existing_choice.display != row.name:
+                        raise ChoiceException(f'Found matching Choice row by {model}:{field}:{self.make_value(row.name)},'
+                                              f'but {existing_choice.display} != {row.name}')
+                    logger.info(
+                        f'Found matching Choice row by {model}:{field}:{self.make_value(row.name)}:{existing_choice.display}')
+                else:
                     values = {
                         'id': row.id,
                         'model': model,
@@ -482,6 +497,6 @@ class Command(BaseCommand):
                         'ordernum': row.ordernum}
 
                     new_choice = choices.Choice.objects.create(**values)
-                    logger.info(
+                    logger.debug(
                         'New choice %s, migrated from %s table to choices',
                         new_choice.value, table_name)
