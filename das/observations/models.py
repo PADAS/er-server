@@ -1416,3 +1416,8 @@ class SocketClient(TimestampedModel):
 
 
 import observations.signals
+from analyzers.models import ObservationAnnotator
+
+class SubjectMaximumSpeed(ObservationAnnotator):
+    class Meta:
+        proxy = True
