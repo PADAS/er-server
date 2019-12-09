@@ -31,6 +31,7 @@ import observations.models as models
 from tracking.models import SourcePlugin
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
+from observations.utils import assigned_range_dates
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
     SaveCoordinatesToCookieMixin
 from core.openlayers import OSMGeoExtendedAdmin
@@ -581,10 +582,12 @@ class SubjectSourceSummaryAdmin(admin.ModelAdmin):
         return source_plugin.plugin.name
 
     def _start_date(self, o):
-        return o.assigned_range.lower.strftime('%d %b %Y, %I:%M %p')
+        start_date, _ = assigned_range_dates(o)
+        return start_date
 
     def _end_date(self, o):
-        return o.assigned_range.upper.strftime('%d %b %Y, %I:%M %p')
+        _, end_date = assigned_range_dates(o)
+        return end_date
 
     def has_add_permission(self, request):
         return False
@@ -688,14 +691,7 @@ class SubjectSourceAdmin(admin.ModelAdmin):
     current.boolean = True
 
     def _assigned_range(self, o):
-
-        d1, d2 = o.safe_assigned_range.lower, o.safe_assigned_range.upper
-        if d1.year <= 1000:
-            d1 = '-'
-        if d2.year >= 9999:
-            d2 = '-'
-
-        return d1, d2
+        return assigned_range_dates(o)
 
     fieldsets = (
         (None, {
