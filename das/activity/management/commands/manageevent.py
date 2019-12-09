@@ -271,12 +271,9 @@ class Command(BaseCommand):
             try:
                 if 'fields' not in record:
                     continue
-
-                if self.should_update_fields_with_event_type(record['fields']):
-                    event_type = EventType.objects.get(value=record['value'])
-
-                    self.update_fields_with_event_type(
-                        record, event_type, migrated_tables)
+                event_type = EventType.objects.get(value=record['value'])
+                self.update_fields_with_event_type(
+                    record, event_type, migrated_tables)
             except Exception as ex:
                 logger.exception('Exception while migrating event details')
                 raise
@@ -421,43 +418,55 @@ class Command(BaseCommand):
             for event_details in event.event_details.all():
                 data = copy.copy(event_details.data['event_details'])
                 dirty = False
-                for field in record['fields']:
-                    if self.PREVIOUS_PROPERTY_FIELD in field:
-                        previous_property_name = field.get(
-                            self.PREVIOUS_PROPERTY_FIELD, self.COMMAND_IGNORE)
-                        property_name = field.get(self.CURRENT_PROPERTY_NAME)
-                        property_value = field.get(
-                            self.CURRENT_PROPERTY_VALUE) \
-                            or data[previous_property_name]
 
-                        # Mapping specifies to skip this field
-                        if previous_property_name == self.COMMAND_IGNORE or property_name == self.COMMAND_DELETE:
-                            continue
-                        try:
-                            # New value is hardcoded to a specific value regardless
-                            # of existing data
-                            if self.COMMAND_HARDCODE in previous_property_name:
-                                previous_property_name = previous_property_name.split(':')[
-                                    1]
+                # Update choice table event_detail values
+                for title, details in data.items():
+                    if details and any(table['table_name'] == title for table in record['tables']):
+                        if isinstance(details, dict):
+                            details = [details]
+                        for item in details:
+                            item["value"] = self.make_value(item["name"])
+                            dirty = True
+                # Update event_detail values or names
+                if self.should_update_fields_with_event_type(record['fields']):
+                    for field in record['fields']:
+                        if self.PREVIOUS_PROPERTY_FIELD in field:
+                            previous_property_name = field.get(
+                                self.PREVIOUS_PROPERTY_FIELD, self.COMMAND_IGNORE)
+                            property_name = field.get(self.CURRENT_PROPERTY_NAME)
+                            property_value = field.get(
+                                self.CURRENT_PROPERTY_VALUE) \
+                                or data[previous_property_name]
 
-                            if previous_property_name in data:
-                                if self.should_lookup_value_for_field(record, previous_property_name, property_name, former_tables, data):
-                                    try:
-                                        choice_object = choices.Choice.objects.get(
-                                            id=data[previous_property_name])
-                                        data[property_name] = str(
-                                            choice_object.value)
-                                    except TypeError:
+                            # Mapping specifies to skip this field
+                            if previous_property_name == self.COMMAND_IGNORE or property_name == self.COMMAND_DELETE:
+                                continue
+                            try:
+                                # New value is hardcoded to a specific value regardless
+                                # of existing data
+                                if self.COMMAND_HARDCODE in previous_property_name:
+                                    previous_property_name = previous_property_name.split(':')[
+                                        1]
+
+                                if previous_property_name in data:
+                                    if self.should_lookup_value_for_field(record, previous_property_name, property_name, former_tables, data):
+                                        try:
+                                            choice_object = choices.Choice.objects.get(
+                                                id=data[previous_property_name])
+                                            data[property_name] = str(
+                                                choice_object.value)
+                                        except TypeError:
+                                            data[property_name] = property_value
+                                    else:
                                         data[property_name] = property_value
-                                else:
-                                    data[property_name] = property_value
-                                dirty = True
+                                    
+                                    del data[previous_property_name]
+                                    dirty = True
 
-                        except KeyError:
-                            pass
+                            except KeyError:
+                                pass
 
                 if dirty:
-                    del data[previous_property_name]
                     with connection.cursor() as cursor:
                         cursor.execute('UPDATE activity_eventdetails SET data = %s WHERE id = %s', [
                                        json.dumps({'event_details': data}), event_details.id])
@@ -474,8 +483,7 @@ class Command(BaseCommand):
 
             if choice_row:
                 message = f'For table {table_name}, row name:{row.name}, id:{row.id}, found existing Choice row {choice_row}'
-                raise ChoiceException(
-                    f'For table {table_name}, row name:{row.name}, id:{row.id}, found existing Choice row {choice_row}')
+                raise ChoiceException(message)
             else:
                 existing_choice = choices.Choice.objects.filter(
                     model=model, field=field, value=self.make_value(
