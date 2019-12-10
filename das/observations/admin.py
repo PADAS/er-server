@@ -222,6 +222,19 @@ class SubjectIdFilter(InputFilter):
             )
 
 
+class DataRangeFilter(InputFilter):
+    parameter_name = 'data_range'
+    title = _('Number Of Days')
+
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            OBSERVATIONS_HISTORY_LIMIT = timedelta(int(self.value()))
+            dt = datetime.now(tz=pytz.utc) - OBSERVATIONS_HISTORY_LIMIT
+            queryset = queryset.filter(recorded_at__gte=dt)
+            return queryset
+
+
 class LargeTablePaginator(Paginator):
     '''
     If the query has no filter, then get count from pg_class.
@@ -260,7 +273,7 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
 
     gis_geometry_field_name = 'location'
 
-    list_filter = (SubjectNameFilter, SubjectIdFilter)
+    list_filter = (SubjectNameFilter, SubjectIdFilter, DataRangeFilter)
 
     def subject_link(self, obj):
         return mark_safe('<a href="{}">{}</a>'.format(
@@ -333,6 +346,15 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
         extra_context = extra_context or {}
         extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
         return super().changelist_view(request, extra_context=extra_context)
+
+    def get_changelist_instance(self, request):
+        changelist = super().get_changelist_instance(request)
+        filter_params = changelist.get_filters_params()
+        if filter_params.get('data_range'):
+            value = filter_params.get('data_range')
+            # OBSERVATIONS_HISTORY_LIMIT = timedelta(int(value))
+            return changelist
+        return changelist
 
     actions = ['export_as_csv', ]
 
@@ -654,7 +676,7 @@ class SourceAdmin(admin.ModelAdmin):
     search_fields = ('id', 'manufacturer_id', 'model_name', 'additional',)
     list_filter = ('source_type', 'model_name', SourceSourceProviderFilter)
     readonly_fields = ('id', 'created_at', 'updated_at',)
-#    filter_horizontal = ('groups',)
+    #    filter_horizontal = ('groups',)
 
     form = observations.forms.SourceForm
     fieldsets = (
