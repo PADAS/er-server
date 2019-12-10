@@ -344,17 +344,16 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
-        extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
-        return super().changelist_view(request, extra_context=extra_context)
-
-    def get_changelist_instance(self, request):
         changelist = super().get_changelist_instance(request)
         filter_params = changelist.get_filters_params()
         if filter_params.get('data_range'):
             value = filter_params.get('data_range')
-            # OBSERVATIONS_HISTORY_LIMIT = timedelta(int(value))
-            return changelist
-        return changelist
+            history_limit = timedelta(int(value))
+            extra_context['history_limit_days'] = history_limit.days
+            return super().changelist_view(request, extra_context=extra_context)
+        extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
+        return super().changelist_view(request, extra_context=extra_context)
+
 
     actions = ['export_as_csv', ]
 
