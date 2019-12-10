@@ -16,6 +16,10 @@ variable "SERVER_VERSION" {
   type = string
 }
 
+variable "WEB_VERSION" {
+  type = string
+}
+
 variable "api_endpoint" {
   type    = string
   default = "localhost"
