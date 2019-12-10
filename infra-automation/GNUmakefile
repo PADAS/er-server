@@ -111,8 +111,8 @@ kubectl_apply_via_proxy: # this should only be run by the build server
 	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --server="https://$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_proxy_endpoint")" || false
 	echo "$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_b64_encoded_proxy_ca_certificate")" | base64 -d > proxy.crt
 	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --certificate-authority="./proxy.crt" || false
-	kubectl apply --filename "$(rendered_template_path)/circleci-api-deployment.yaml"
-	# for file in $$(find "$(rendered_template_path)" -type f | sort); do sleep 1 && kubectl apply --filename "$$file"; done;\
+	for file in $$(find "$(rendered_template_path)" -type f |grep circleci-| sort); do sleep 1 && kubectl apply --filename "$$file"; done;
+	# kubectl apply --filename "$(rendered_template_path)/circleci-api-deployment.yaml"
 
 commit_message_path := $(CURDIR)/.robo-commit-message
 # TO DEPRICATE: this can be removed once out of concourse
