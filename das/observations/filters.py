@@ -42,19 +42,26 @@ class GroupPermissionsFilter(BaseFilterBackend):
         for group in queryset:
             result = self.first_descendant_with_permission(user, self.perms, group)
             if result:
-                root_ids.add(result.id)
-
+                root_ids = root_ids.union(result)
         return queryset.model.objects.filter(id__in=list(root_ids))
 
     def first_descendant_with_permission(self, user, perms, group):
+        ids = set()
         if not group:
             return None
-
         if user.has_any_perms(perms, group):
-            return group
+            """
+            if the user has permissions to view the group, return at that 
+            point. user has permissions to all descendants
+            """
+            return {group.id}
         for child in group.children.all():
             result = self.first_descendant_with_permission(user, perms, child)
             if result:
-                return result
+                ids = ids.union(result)
+        return ids if len(ids) > 0 else None
+
+
+
 
 
