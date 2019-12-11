@@ -364,8 +364,15 @@ class ObservationManager(models.Manager):
 class Observation(models.Model):
 
     # Constants for filter bit-map.
+    DEFAULT = 0
     EXCLUDED_MANUALLY = 1
     EXCLUDED_AUTOMATICALLY = 2
+
+    BITMAP_FILTER_CHOICES = [
+         (DEFAULT, 'DEFAULT'),
+        (EXCLUDED_MANUALLY, 'EXCLUDED_MANUALLY'),
+        (EXCLUDED_AUTOMATICALLY, 'EXCLUDED_AUTOMATICALLY'),
+    ]
 
     """observation point
     similar to archive_loc
@@ -381,7 +388,7 @@ class Observation(models.Model):
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     additional = JSONField()
     exclusion_flags = models.BigIntegerField(
-        'Exclusion flags as a bitmap', null=False, default=0)
+        'Exclusion flags as a bitmap', null=False, default=DEFAULT, choices=BITMAP_FILTER_CHOICES)
 
     objects = ObservationManager()
 
