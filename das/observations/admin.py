@@ -1,6 +1,7 @@
 import random
 import csv
 from datetime import datetime, timedelta
+from uuid import UUID
 
 import pytz
 import humanize
@@ -68,6 +69,22 @@ class ExportCsvMixin:
         return response
 
     export_as_csv.short_description = "Export Selected Items"
+
+
+class ValidateFilterMixin:
+    def convert_type_str(self, value):
+        try:
+            value = int(value)
+        except ValueError:
+            return 0
+        return value
+
+    def check_uuid(self, uuid):
+        try:
+            uuid = UUID(uuid).version
+        except ValueError:
+            return
+        return uuid
 
 
 class SubjectSubTypeInline(InlineExtraDynamicMixin, admin.TabularInline):
@@ -211,25 +228,27 @@ class SubjectNameFilter(InputFilter):
             )
 
 
-class SubjectIdFilter(InputFilter):
+class SubjectIdFilter(InputFilter, ValidateFilterMixin):
     parameter_name = 'subject_id'
     title = _('Subject ID')
 
     def queryset(self, request, queryset):
         if self.value() is not None:
+            uuid = self.check_uuid(self.value())
             return queryset.filter(
-                Q(source__subjectsource__subject_id=self.value(), )
+                Q(source__subjectsource__subject_id=uuid, )
             )
 
 
-class DataRangeFilter(InputFilter):
+class DataRangeFilter(InputFilter, ValidateFilterMixin):
     parameter_name = 'data_range'
-    title = _('Number Of Days')
+    title = _('Date Range')
 
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            OBSERVATIONS_HISTORY_LIMIT = timedelta(int(self.value()))
+            value = self.convert_type_str(self.value())
+            OBSERVATIONS_HISTORY_LIMIT = timedelta(days=value)
             dt = datetime.now(tz=pytz.utc) - OBSERVATIONS_HISTORY_LIMIT
             queryset = queryset.filter(recorded_at__gte=dt)
             return queryset
@@ -263,7 +282,7 @@ class LargeTablePaginator(Paginator):
 
 
 @admin.register(models.Observation)
-class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
+class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
     list_display = ('subject_link', '_manufacturer_id', 'recorded_at', 'created_at',
                     '_longitude', '_latitude', '_state', '_event_action', 'exclusion_flags')
     list_editable = ('exclusion_flags',)
@@ -351,8 +370,7 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
         filter_params = changelist.get_filters_params()
         if filter_params.get('data_range'):
             value = filter_params.get('data_range')
-            history_limit = timedelta(int(value))
-            extra_context['history_limit_days'] = history_limit.days
+            extra_context['history_limit_days'] = self.convert_type_str(value)
             return super().changelist_view(request, extra_context=extra_context)
         extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
         return super().changelist_view(request, extra_context=extra_context)
