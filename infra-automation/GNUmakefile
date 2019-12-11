@@ -99,7 +99,7 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	@ K8S_NAMESPACE=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="kubernetes_namespace") && \
 	DATABASE_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="database_name") && \
 	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' -var kubernetes_namespace=$$K8S_NAMESPACE -var db_name=$$DATABASE_NAME"
-	@ cat $(template_path)/rendered/api-deployment.yaml
+	@ cat $(template_path)/rendered/circleci-api-deployment.yaml
 
 .PHONY: kubectl_apply
 kubectl_apply: ## kubectl apply (recursively) everything in the ./k8s path

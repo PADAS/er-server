@@ -96,8 +96,3 @@ spec:
             configMapKeyRef:
               name: default-configmap
               key: DEFAULT_FROM_EMAIL
-      - image: prom/statsd-exporter:v0.8.1
-        name: statsd-exporter
-        args: ["--statsd.listen-udp=127.0.0.1:8125"]
-        ports:
-        - containerPort: 9102
