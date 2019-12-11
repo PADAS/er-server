@@ -304,7 +304,9 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
         return o.subject_name
 
     def _manufacturer_id(self, o):
-        return o.manufacturer_id
+        return mark_safe('<a href="{}">{}</a>'.format(
+            reverse("admin:observations_observation_change", args=(o.id,)),
+            o.manufacturer_id))
 
     def _created_at(self, o):
         return o.created_at
