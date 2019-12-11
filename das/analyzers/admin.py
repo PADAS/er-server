@@ -3,6 +3,7 @@ import django.contrib.gis.admin as gis_admin
 
 import analyzers.models as models
 from analyzers.forms import EnvironmentalAnalyzerAdminForm, GlobalForestWatchSubscriptionForm
+from core.openlayers import OSMGeoExtendedAdmin
 
 
 @admin.register(models.ObservationAnnotator)
@@ -56,7 +57,7 @@ This analyzer requires access to Google's Earth Engine API using a service accou
 <p>To learn how to get a service account key, visit
  <a target="_blank" href="{google_earthengine_service_account_link}">{google_earthengine_service_account_link}</a>.
 <br/>
-Once you have a service account, you can create a private key for it. Download the 
+Once you have a service account, you can create a private key for it. Download the
 private key and paste it's contents in this form (be sure to use the JSON format key).
 '''
 
@@ -208,14 +209,13 @@ class SpeedDistroAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.GlobalForestWatchSubscription)
-class GlobalForestWatchAdmin(gis_admin.OSMGeoAdmin):
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
-
+class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
     form = GlobalForestWatchSubscriptionForm
     readonly_fields = ('subscription_id', 'geostore_id',)
 
     list_display = ('name', 'subscription_id',)
+
+    gis_geometry_field_name = 'subscription_geometry'
 
     fieldsets = (
         (None, {
@@ -234,3 +234,4 @@ class GlobalForestWatchAdmin(gis_admin.OSMGeoAdmin):
             'fields': ('subscription_geometry',)
         })
     )
+

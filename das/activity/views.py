@@ -1,47 +1,45 @@
+import copy
+import json
+import logging
+import mimetypes
 import platform
 from collections import OrderedDict
 from datetime import timedelta, datetime
-import copy
-import mimetypes
-import logging
-import json
-from django.conf import settings
-
-from django.db.models import Prefetch
-import re
-
-from django.db.models import CharField, Value
-from django.db.models.functions import Concat, Cast
 
 import dateutil.parser as dateparser
 import pytz
-from rest_framework import generics, status, response
-from django.http.response import HttpResponse
-from django.db.models import Prefetch, Q, F, Func, Count
-from django.db.models.functions import FirstValue
-from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
-from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
-from django.db.utils import IntegrityError
-from django.db import transaction
-
-from django.urls import reverse
-from django.template import Template, Context
-from django.utils import timezone
-from rest_framework.response import Response
 import rest_framework.exceptions
-from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import serializers, views, permissions
+from django.conf import settings
+from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
+from django.db import transaction
+from django.db.models import CharField, Value
+from django.db.models import Prefetch, F, Count
+from django.db.models.functions import Concat, Cast
+from django.http.response import HttpResponse
+from django.template import Template, Context
+from django.urls import reverse
+from django.utils import timezone
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
+from rest_framework import generics, status, response
+from rest_framework import views
+from rest_framework.exceptions import APIException
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework_extensions.etag.decorators import etag
 
+import accounts.models
+import accounts.serializers
+import utils
+import utils.schema_utils as schema_utils
 from accounts.models import User
-
+from activity.filters import EventObjectPermissionsFilter
 from activity.models import Event, EventNote, EventClass, \
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, \
     EventFile, Community, \
     EventFilter, EventSource, EventProvider
-
+from activity.permissions import EventCategoryPermissions, \
+    EventNotesCategoryPermissions, IsOwner
 from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventJSONSchema, EventStateSerializer, \
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer, \
@@ -49,23 +47,11 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFileSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer
-
-from activity.filters import EventObjectPermissionsFilter
 from choices.models import Choice
-
-from activity.permissions import EventCategoryPermissions, \
-    EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
+from observations.models import Subject
 from utils.drf import StandardResultsSetPagination, \
     StandardResultsSetGeoJsonPagination
 from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
-import utils
-import accounts.serializers
-import accounts.models
-from observations.models import Subject
-from observations.views import UnauthorizedView
-from rest_framework import views
-from django.views.generic.base import TemplateResponseMixin, ContextMixin
-import utils.schema_utils as schema_utils
 
 logger = logging.getLogger(__name__)
 
@@ -231,17 +217,18 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         field_schema = schema_utils.map_schema(eventtype.schema, schema)
         for key, value in field_schema.items():
             inactive_choices = []
-            obj = Choice.objects.filter(is_active=False, field=value['field_name'])
+            obj = Choice.objects.filter(
+                is_active=False, field=value['field_name'])
             for o in obj:
                 inactive_choices.append(o.value)
             if inactive_choices:
-                schema['schema']['properties'][key]["inactive"+"_"+value['lookup']] = inactive_choices
+                schema['schema']['properties'][key]["inactive" +
+                                                    "_" + value['lookup']] = inactive_choices
 
         for key, value in field_schema.items():
             for o, vals in enumImages_vals.items():
                 if value['field_name'] == o:
-                    schema['schema']['properties'][key]['enumImages'] =  vals
-
+                    schema['schema']['properties'][key]['enumImages'] = vals
 
         return generics.views.Response(schema)
 
@@ -309,7 +296,7 @@ class EventCountView(generics.ListAPIView):
         if len(allowed_event_categories) > 0:
             queryset = queryset.by_category(allowed_event_categories)
         else:
-            raise rest_framework.exceptions.PermissionDenied
+            queryset = queryset.none()
 
         data = {'count': queryset.count()}
         return generics.views.Response(data)
@@ -473,8 +460,10 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             }
 
             # Use cached reported_by map
-            reported_by_values = reported_by_map.get(str(event['reported_by_id']))
-            event_data['reported_by'] = reported_by_values.get('display', '') if reported_by_values else ''
+            reported_by_values = reported_by_map.get(
+                str(event['reported_by_id']))
+            event_data['reported_by'] = reported_by_values.get(
+                'display', '') if reported_by_values else ''
 
             current_event_type_data['events'].append(event_data)
 
@@ -695,7 +684,7 @@ class EventsView(generics.ListCreateAPIView):
         if len(allowed_event_categories) > 0:
             queryset = queryset.by_category(allowed_event_categories)
         else:
-            raise UnauthorizedView
+            return queryset.none()
 
         queryset = queryset.prefetch_related(Prefetch('related_subjects'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))

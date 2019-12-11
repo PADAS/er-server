@@ -8,6 +8,7 @@ import logging
 import re
 
 import dateutil.parser
+import django
 import pytz
 import rest_framework
 from django.conf import settings
@@ -21,7 +22,7 @@ from django.utils.dateparse import parse_datetime
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
-from rest_framework.exceptions import APIException, PermissionDenied
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 
@@ -351,15 +352,72 @@ class SubjectsView(generics.ListCreateAPIView):
             raise UnauthorizedView
 
         self.subject_linked_sources = {}
-        min_age = get_minimum_allowed_age(self.request.user) or 0
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+
         all_subjects = models.Subject.objects.all()
         queryset = all_subjects \
-            .annotate_with_subjectstatus(delay_hours=min_age * 24)
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.order_by('id')
-        bbox = self.request.query_params.get('bbox', None)
+
+        queryset = queryset.by_user_subjects(self.request.user)
+
+        queryset = queryset.select_related(
+            'subject_subtype', 'subject_subtype__subject_type')
+        queryset = queryset.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24)
+
+        # Allow specifying a single subject group by 'id'.
+        subject_group = self.request.query_params.get('subject_group')
+
+        # Allow specifying a comma-delimited list of subject IDs.
+        subject_ids = self.request.query_params.get('id')
+
+        if subject_ids:
+            queryset = queryset.by_id(subject_ids)
+        elif subject_group:
+            groups = models.SubjectGroup.objects.get_nested_groups(
+                subject_group)
+            queryset = queryset.by_groups(groups)
+        else:
+            # Fetch all the Subjects whose access is gained through Source Group
+            # permissions.
+            source_groups = models.SourceGroup.objects.filter(
+                permission_sets__in=self.request.user.get_all_permission_sets())
+
+            # TODO: Review this to determine whether it would be better to join
+            # in a query.
+            for source_group in source_groups:
+                sources = source_group.get_all_sources()
+                for source in sources:
+
+                    subjects_via_source = all_subjects.filter(
+                        subjectsource__source=source)
+
+                    queryset = queryset.distinct() | subjects_via_source.distinct()
+
+                    # Send all allowed Sources of each Subject to serializer for
+                    # latest_location finding.
+                    if not self.request.user.is_superuser:
+                        for subject in subjects_via_source:
+                            self.subject_linked_sources.setdefault(
+                                subject.name, set()).add(source)
+
+        # Apply request query filters that have are compatible with any of the
+        # criteria above.
+        updated_since = self.request.query_params.get('updated_since')
+        if updated_since:
+            try:
+                updated_since = dateparse(updated_since)
+            except ValueError:
+                raise ValueError(
+                    f'Invalid value for updated_since: "{updated_since}"')
+            else:
+                queryset = queryset.by_updated_since(updated_since)
+
+        bbox = self.request.query_params.get('bbox')
         if bbox:
             bbox = bbox.split(',')
             bbox = [float(v) for v in bbox]
@@ -372,58 +430,7 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_name_search(
                 self.request.query_params.get('name'))
 
-        subject_group = self.request.query_params.get('subject_group', None)
-        if subject_group:
-            groups = models.SubjectGroup.objects.get_nested_groups(
-                subject_group)
-            queryset = queryset.by_groups(groups)
-
-        # Filter by provided subject_ids.
-        subject_ids = self.request.query_params.get('id', '')
-        if subject_ids:
-            queryset = queryset.by_id(subject_ids)
-
-        queryset = queryset.by_user_subjects(self.request.user)
-
-        min_age_days = get_minimum_allowed_age(self.request.user) or 0
-
-        queryset = queryset.select_related(
-            'subject_subtype', 'subject_subtype__subject_type')
-        queryset = queryset.annotate_with_subjectstatus(
-            delay_hours=min_age_days * 24)
-
-        updated_since = self.request.query_params.get('updated_since', None)
-        if updated_since:
-            try:
-                updated_since = dateparse(updated_since)
-            except ValueError:
-                raise ValueError(
-                    f'Invalid value for updated_since: "{updated_since}"')
-            else:
-                queryset = queryset.by_updated_since(updated_since)
-
-        combined_queryset = queryset
-        # Fetch all the Subjects whose access is gained through Source Group
-        # permissions.
-        source_groups = models.SourceGroup.objects.filter(
-            permission_sets__in=self.request.user.get_all_permission_sets())
-        for source_group in source_groups:
-            sources = source_group.get_all_sources()
-            for source in sources:
-                queryset = check_to_include_inactive_subjects(
-                    self.request, all_subjects)
-                subjects = queryset.filter(subjectsource__source=source)
-                combined_queryset = combined_queryset.distinct() | \
-                    subjects.distinct()
-
-                # Send all allowed Sources of each Subject to serializer for
-                # latest_location finding.
-                if not self.request.user.is_superuser:
-                    for subject in subjects:
-                        self.subject_linked_sources.setdefault(
-                            subject.name, set()).add(source)
-
-        return combined_queryset
+        return queryset
 
     def get_serializer_context(self):
         request = self.request
@@ -1063,17 +1070,119 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return kmlutils.render_to_kmz(result, filename)
 
 
+class TrackingDataViewSchema(rest_framework.schemas.AutoSchema):
+    def get_manual_fields(self, path, method):
+        if method == 'GET':
+            extra_fields = [
+                coreapi.Field(
+                    name='include_inactive',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Include Inactive Subjects',
+                        description='Include inactive subjects in list',
+                    )
+                ),
+                coreapi.Field(
+                    name='current_status',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Current Status',
+                        description='Get current status or historical observations',
+                    )
+                ),
+                coreapi.Field(
+                    name='subject_id',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Subject Id',
+                        description='Get Tracking data for specific subject ID',
+                    )
+                ),
+                coreapi.Field(
+                    name='subject_chronofile',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Subject Chronofiles',
+                        description='Get Tracking data for specific chronofiles',
+                    )
+                ),
+                coreapi.Field(
+                    name='filter',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Filter',
+                        description='Add Exclusion flags as a bitmap',
+                    )
+                ),
+                coreapi.Field(
+                    name='format',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Format',
+                        description='Return report as CSV or JSON',
+                    )
+                ),
+                coreapi.Field(
+                    name='before_date',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Before Date',
+                        description='Return report before given date',
+                    )
+                ),
+                coreapi.Field(
+                    name='after_date',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='After date',
+                        description='Return report after given date',
+                    )
+                ),
+                coreapi.Field(
+                    name='record_serial_base',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Record Serial Base',
+                        description='Return report in order of generated serial number',
+                    )
+                ),
+                coreapi.Field(
+                    name='max_records',
+                    required=False,
+                    location='query',
+                    schema=coreschema.String(
+                        title='Maximum Records',
+                        description='Maximum number of records to return',
+                    )
+                ),
+            ]
+            return super().get_manual_fields(path, method) + extra_fields
+
+
 class TrackingDataCsvView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
 
-    def get_queryset(self, chronofile=None):
+    schema = TrackingDataViewSchema()
+
+    def get_queryset(self, subject_id=None, chronofile=None):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise PermissionDenied
         queryset = models.Subject.objects.all()
         # To include inactive subjects in trackingdata report
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
-        if chronofile is not None:
+        if subject_id:
+            queryset = queryset.filter(id=subject_id)
+        elif chronofile:
             queryset = queryset.filter(
                 subjectsource__additional__chronofile=int(chronofile))
         return queryset
@@ -1101,6 +1210,10 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
 
         # return in json format or csv
         format = self.request.GET.get('format', '').lower()
+
+        # get data for a specific subject This is for STE downloader
+        request_subject_id = self.request.GET.get(
+            'subject_id', None)
 
         # get data for a specific chronofile? This is for STE downloader
         request_subject_chronofile = self.request.GET.get(
@@ -1146,23 +1259,26 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 for item in items:
                     cur_record_serial += 1
                     data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, format,
-                                                         item, request_subject_chronofile)
+                                                         item, request_subject_id, request_subject_chronofile)
                     csv_data.append(data)
         else:
-            subjects = self.get_queryset(request_subject_chronofile)
-            for subject in subjects:
-                # all the relevant observations for the subject (or chronofile)
-                items = self.get_subject_trackdata_queryset(
-                    filter_flag, lower, subject, upper, max_records, request_subject_chronofile)
+            try:
+                subjects = self.get_queryset(request_subject_id, request_subject_chronofile)
+                for subject in subjects:
+                    # all the relevant observations for the subject
+                    items = self.get_subject_trackdata_queryset(
+                        filter_flag, lower, subject, upper, max_records, request_subject_id, request_subject_chronofile)
 
-                if items:
-                    for item in items:
-                        cur_record_serial += 1
-                        data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, format,
-                                                             item, request_subject_chronofile)
-                        csv_data.append(data)
+                    if items:
+                        for item in items:
+                            cur_record_serial += 1
+                            data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, format,
+                                                                 item, request_subject_id, request_subject_chronofile)
+                            csv_data.append(data)
+            except django.core.exceptions.ValidationError:
+                raise ValidationError(
+                    {'Error': f'{request_subject_id} is not a valid UUID'})
 
-        # Generate CSV attachment and send it with response
         timestamp = current_tz.localize(datetime.datetime.utcnow())
 
         if format == 'json':
@@ -1176,6 +1292,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         response['Content-Disposition'] = f'attachment;filename={download_filename}'
         response['x-das-download-filename'] = download_filename
 
+        if request_subject_id:
+            fieldnames = [item.replace('chronofile', 'subject_id') for item in fieldnames]
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         if csv_data:
@@ -1183,21 +1301,26 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         return response
 
     def get_csv_observation_data(self, cur_record_serial, dloadtime_label, fixtime_label, format, item,
-                                 request_subject_chronofile):
+                                 subject_id=None, subject_chronofile=None):
         recorded_at = item['recorded_at'].astimezone(
             current_tz) if format != 'json' else item['recorded_at']
         created_at = item['created_at'].astimezone(
             current_tz) if format != 'json' else item['created_at']
-        chronofile = request_subject_chronofile if request_subject_chronofile is not None \
-            else item['subjectsource_additional'].get('chronofile', '') \
-            if item['subjectsource_additional'] else ''
+
+        request_key = 'chronofile'
+        if subject_id:
+            request_key, value = 'subject_id', subject_id
+        elif subject_chronofile:
+            value = subject_chronofile
+        else:
+            value = item['subjectsource_additional'].get('chronofile', '') \
+                if item['subjectsource_additional'] else ''
+        
         collar_id = item['collar_id']
-        if chronofile:
-            pass
         data = {'lat': item['location'].x,
                 'lon': item['location'].y,
                 'height': item['location'].z,
-                'chronofile': chronofile,
+                request_key: value,
                 'collar_id': collar_id,
                 'recordserial': cur_record_serial,
                 fixtime_label: recorded_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
@@ -1208,23 +1331,20 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 }
         return data
 
-    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records, request_subject_chronofile):
-        qs = models.Observation.objects.all()
-        if request_subject_chronofile is not None:
-            # NOTE: time bounds are EXCLUSIVE
-            qs = qs.filter(exclusion_flags=filter_flag,
-                           recorded_at__gt=lower,
-                           recorded_at__lt=upper,
-                           source__subjectsource__assigned_range__contains=F(
-                               'recorded_at'),
-                           source__subjectsource__additional__chronofile=int(request_subject_chronofile))
+    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records, subject_id=None, subject_chronofile=None):
+        qs = models.Observation.objects.filter(exclusion_flags=filter_flag,
+                                               recorded_at__gt=lower,
+                                               recorded_at__lt=upper,
+                                               source__subjectsource__assigned_range__contains=F('recorded_at'))
+
+        if subject_id:
+            qs = models.Observation.objects.filter(
+                source__subjectsource__subject__id=subject_id)
+        elif subject_chronofile:
+            qs.filter(source__subjectsource__additional__chronofile=int(
+                subject_chronofile))
         else:
-            qs = qs.filter(exclusion_flags=filter_flag,
-                           recorded_at__gt=lower,
-                           recorded_at__lt=upper,
-                           source__subjectsource__assigned_range__contains=F(
-                               'recorded_at'),
-                           source__subjectsource__subject=subject)
+            qs = qs.filter(source__subjectsource__subject=subject)
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
                          collar_id=F('source__manufacturer_id')).order_by('recorded_at').values()
 

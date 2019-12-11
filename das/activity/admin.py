@@ -1,13 +1,22 @@
+import logging
+import time
+
 from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
 from django.urls import reverse
+from django.http import HttpResponseRedirect
+from django.contrib import messages
 
 import activity.models as models
 from activity.forms import EventTypeForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
+from core.openlayers import OSMGeoExtendedAdmin
+from activity.tasks import refresh_event_details_view, recreate_event_details_view
+
+logger = logging.getLogger(__name__)
 
 
 class EventRelationshipInline(admin.TabularInline):
@@ -20,10 +29,10 @@ class EventDetailsInline(admin.TabularInline):
 
 
 @admin.register(models.Event)
-class EventAdmin(admin.OSMGeoAdmin):
-    openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
+class EventAdmin(OSMGeoExtendedAdmin):
+    # openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
+    # wms_layer = 'terrain,overlay'
+    # wms_url = 'http://tiles.maps.eox.at/wms/'
 
     list_display = ('serial_number', 'created_at', 'event_type',
                     'title', 'location', 'attributes',)
@@ -267,3 +276,70 @@ class NotificationMethodAdmin(admin.ModelAdmin):
     def owner_username(self, instance):
         return instance.owner.username
     owner_username.short_description = _('Owner')
+
+
+@admin.register(models.RefreshRecreateEventDetailView)
+class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
+    # NOTE: This class relies on celery.
+
+    change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
+    list_display = ('performed_by', 'refresh_at',
+                    'recreated_at', 'maintenance_status')
+
+    enable_change_view = False
+
+    def get_urls(self):
+        urls = super().get_urls()
+        from django.urls import path
+        urls_paths = [
+            path('re_create/', self.recreate_view),
+            path('refresh/', self.refresh_view),
+        ]
+        return urls_paths + urls
+
+    def has_add_permission(self, request):
+        return False
+
+    def manage_task_status(self, request, task, status, qs_method, name):
+        action = 'Admin'
+
+        while not task.ready():
+            logger.info(f'State={task.state}, info={task.info}')
+            time.sleep(0.5)
+
+        if task.state == 'SUCCESS':
+            qs_method(activity=action, status=status)
+            self.message_user(
+                request, f"Successfully {name} 'event_detail_view'")
+        if task.state == 'FAILURE':
+            qs_method(activity=action, status=task.state)
+            self.message_user(
+                request, f"Failed to {name} 'event_detail_view'", messages.ERROR)
+        if task.state == 'RETRY':
+            qs_method(activity=action, status=task.state)
+            self.message_user(
+                request, f"Retry again to {name} 'event_detail_view'",  messages.WARNING)
+
+        return HttpResponseRedirect("../")
+
+    def refresh_view(self, request):
+        task = refresh_event_details_view.apply_async(args=('Admin',))
+        status = self.model.REFRESH
+        qs_method = self.model.objects.refresh
+        name = 'refresh'
+        return self.manage_task_status(request=request,
+                                       task=task,
+                                       status=status,
+                                       qs_method=qs_method,
+                                       name=name)
+
+    def recreate_view(self, request):
+        task = recreate_event_details_view.delay()
+        status = self.model.SUCCESS
+        qs_method = self.model.objects.recreate
+        name = 'recreate'
+        return self.manage_task_status(request=request,
+                                       task=task,
+                                       status=status,
+                                       qs_method=qs_method,
+                                       name=name)
