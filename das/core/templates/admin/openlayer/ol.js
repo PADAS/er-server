@@ -160,6 +160,8 @@ var map = new ol.Map({
     ])
 });
 
+// sometimes the map is not properly centered when creating the map view, try centering it again
+map.getView().setCenter(ol.proj.transform([{{default_lon}}, {{default_lat}}], 'EPSG:4326', 'EPSG:4326'));
 
 map.on('moveend', (event) => {
     var newZoom = map.getView().getZoom();
@@ -352,6 +354,3 @@ if(wkt) {
     // }
     map.getView().setZoom(zoomBeforeFit);
 }};
-
-
-
