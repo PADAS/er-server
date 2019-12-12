@@ -1,14 +1,19 @@
 import datetime
+from typing import NamedTuple
+import tempfile
 
 import dateutil.parser
 import pytz
 from django.core.management.base import BaseCommand
-from typing import NamedTuple
+from storages.backends.s3boto3 import S3Boto3Storage
+from django.conf import settings
 
 import utils.json as json
 import utils.schema_utils as schema_utils
 from activity.models import Event
 from activity.views import generate_event_type_cache
+from observations.models import Source, SourceProvider
+from tracking.models.plugin_base import SourcePlugin
 
 
 class SiteMetrics(NamedTuple):
@@ -34,24 +39,34 @@ class Command(BaseCommand):
                             help='start date')
         parser.add_argument('--site', type=str,
                             help='site name')
-        parser.add_argument('--output', type=str,
-                            help='output filename')
 
     def handle(self, *args, **options):
         # calculate this in GMT, not the sites timezone
         now = datetime.datetime.now(pytz.UTC)
-        start = datetime.datetime.now(pytz.UTC) - datetime.timedelta(days=11)
+        start = datetime.datetime.now(pytz.UTC) - datetime.timedelta(days=1)
+        site_name = options['site']
         if options['start']:
             start = dateutil.parser.parse(options['start'])
-        end = start + datetime.timedelta(days=10)
+
+        start, end, step = get_daily_interval(start)
 
         extracter = ExtractSiteMetrics(start, end)
         reports = extracter.run()
+        devices = sumarize_sources()
         wrapper = SiteMetrics(REPORT_TYPE, REPORT_VERSION,
-                              reports, options['site'], now, start, end, {})
-        if options["output"]:
-            with open(options["output"], "w") as fh:
-                fh.write(json.dumps(wrapper))
+                              reports, site_name, now, start, end, devices)
+        save_to_bucket(json.dumps(wrapper), start, site_name)
+
+
+def save_to_bucket(file_contents, start_date, site):
+    bucket = S3Boto3Storage(
+        bucket_name=settings.METRICS_BUCKET, default_acl=None)
+    filename = f"{site}_{start_date.year}-{start_date.month}-{start_date.day}.json"
+    path = f"{REPORT_VERSION}/{start_date.year}/{start_date.month}/{filename}"
+    with tempfile.TemporaryFile('w+b') as fh:
+        fh.write(file_contents.encode('utf-8'))
+        fh.seek(0)
+        bucket.save(path, fh)
 
 
 class EventField(NamedTuple):
@@ -71,11 +86,11 @@ class ExtractSiteMetrics:
     def run(self):
         events = []
         qs = Event.objects.all().prefetch_related('event_type')
-        qs = qs.filter(event_time__range=(self.start, self.end))
+        qs = qs.filter(updated_at__range=(self.start, self.end))
         qs = qs.values('id', 'priority', 'state',
                        'event_type_id', 'event_details__data',
                        'provenance',
-                       'event_time')
+                       'event_time', 'updated_at', 'created_at')
         for row in qs:
             events.append(self.get_event_properties(row))
         return events
@@ -87,6 +102,8 @@ class ExtractSiteMetrics:
                    event_type=event_type['value'],
                    event_type_display=event_type['display'],
                    event_time=event["event_time"],
+                   updated_at=event["updated_at"],
+                   created_at=event["created_at"],
                    provenance=event["provenance"],
                    state=event['state'],
                    state_display='Resolved' if event["state"] == Event.SC_RESOLVED else 'Active',
@@ -155,3 +172,75 @@ def get_weekly_interval(start_date):
             start_date, datetime.time.min, tzinfo=pytz.UTC)
     end_date = start_date + step
     return start_date, end_date, step
+
+
+def get_daily_interval(start_date):
+    """
+    Want the interval to start on the first full day including or previous to start_date.
+    in GMT
+    :param start_date:
+    :return:
+    """
+    step = datetime.timedelta(days=1)
+    now = datetime.datetime.now(pytz.utc)
+    now_day = datetime.datetime(
+        year=now.year, month=now.month, day=now.day, tzinfo=pytz.utc)
+
+    if start_date >= now_day:
+        # need a full day
+        start_date = start_date - step
+
+    start_time = datetime.datetime(
+        year=start_date.year, month=start_date.month, day=start_date.day, tzinfo=pytz.utc)
+
+    end_time = start_time + step
+    return start_time, end_time, step
+
+
+class SourceProviderMetric(NamedTuple):
+    provider_key: str
+    provider_name: str
+    count: int
+    enabled_count: int
+    disabled_count: int
+    plugin_configuration_name: str
+    plugin_name: str
+    model_name: str
+    source_type: str
+
+
+def sumarize_sources():
+    # group on provider key
+    providers = {}
+
+    queryset = Source.objects.all()
+    queryset = queryset.prefetch_related('source_plugins')
+    for source in queryset:
+        provider = providers.get(source.provider.provider_key, {})
+        if not provider:
+            provider["enabled_count"] = 0
+            provider["disabled_count"] = 0
+            provider["count"] = 0
+            provider['plugin_name'] = None
+            provider['plugin_configuration_name'] = None
+            providers[source.provider.provider_key] = provider
+
+        provider["provider_key"] = source.provider.provider_key
+        provider["provider_name"] = source.provider.display_name or source.provider.provider_key
+        provider["count"] += 1
+        provider["model_name"] = provider.get(
+            "model_name", None) or source.model_name
+        provider["source_type"] = provider.get(
+            "source_type", None) or source.source_type
+
+        # plugin info
+        if source.source_plugins and source.source_plugins.first():
+            source_plugin = source.source_plugins.first()
+            provider['plugin_name'] = source_plugin.plugin._meta.verbose_name
+            provider['plugin_configuration_name'] = source_plugin.plugin.name
+            if source_plugin.status == SourcePlugin.STATUS_ENABLED:
+                provider["enabled_count"] += 1
+            else:
+                provider["disabled_count"] += 1
+
+    return [SourceProviderMetric(**summary) for summary in providers.values()]
