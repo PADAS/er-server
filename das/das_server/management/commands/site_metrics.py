@@ -47,6 +47,8 @@ class Command(BaseCommand):
         site_name = options['site']
         if options['start']:
             start = dateutil.parser.parse(options['start'])
+            if not start.tzinfo:
+                start = start.replace(tzinfo=pytz.UTC)
 
         start, end, step = get_daily_interval(start)
 
@@ -215,6 +217,7 @@ def sumarize_sources():
 
     queryset = Source.objects.all()
     queryset = queryset.prefetch_related('source_plugins')
+    queryset = queryset.prefetch_related('provider')
     for source in queryset:
         provider = providers.get(source.provider.provider_key, {})
         if not provider:
