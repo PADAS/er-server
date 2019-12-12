@@ -60,19 +60,8 @@ class GroupPermissionsFilter(BaseFilterBackend):
         if user.has_any_perms(perms, group) and (group.is_visible is view_visible):
             return {group.id}
 
-        # if user.has_any_perms(perms, group):
-        #     if group.is_visible is view_visible:
-        #         return {group.id}
-        #     if not view_visible and not group.is_visible:
-        #         return {group.id}
-
         for child in group.children.all():
             result = self.first_descendant_with_permission(user, perms, child, view_visible)
             if result:
                 ids = ids.union(result)
         return ids if len(ids) > 0 else None
-
-
-
-
-

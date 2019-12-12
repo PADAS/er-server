@@ -516,7 +516,7 @@ class ThreeLevelSubjectGroupHierarchyPermissionsTest(BaseAPITest):
         self.assertEqual(mid_level_ids, [])
         self.assertEqual(bottom_level_ids, [])
 
-
+        
 class TestSubjectGroupsVisibility(BaseAPITest):
     user_const = dict(last_name='last', first_name='first')
 
