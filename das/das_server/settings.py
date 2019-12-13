@@ -353,6 +353,9 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
     'fanout_prefix': True
 }
 
+# task:
+CELERY_TASK_TRACK_STARTED = True
+
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
 DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
@@ -514,7 +517,7 @@ def whitenoise_headers_func(headers, path, url):
 WHITENOISE_ADD_HEADERS_FUNCTION = whitenoise_headers_func
 
 DAILY_REPORT_ENABLED = False
-ALERTS_ENABLED = False
+ALERTS_ENABLED = True
 
 GFW_API_ROOT = 'https://production-api.globalforestwatch.org/v1'
 GFW_CREDENTIALS = {
