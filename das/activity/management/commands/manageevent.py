@@ -413,59 +413,75 @@ class Command(BaseCommand):
 
         return False
 
-    def update_fields_with_event_type(self, record, event_type, former_tables):
-        for event in Event.objects.filter(event_type_id=event_type.id):
-            for event_details in event.event_details.all():
-                data = copy.copy(event_details.data['event_details'])
-                dirty = False
+    def _modify_event_details(self, data, migration_plan, event_type, former_tables):
+        dirty = False
 
-                # Update choice table event_detail values
-                for title, details in data.items():
-                    if any(table['table_name'] == title for table in record['tables']):
-                        if isinstance(details, dict):
-                            details = [details]
-                        for item in details:
-                            item["value"] = self.make_value(item["name"])
+        # Update choice table event_detail values
+        for title, details in data.items():
+            if any(table['table_name'] == title for table in migration_plan['tables']):
+                if isinstance(details, dict):
+                    details = [details]
+                for item in details:
+                    item["value"] = self.make_value(item["name"])
+                    dirty = True
+        # Update event_detail values or names
+        if self.should_update_fields_with_event_type(migration_plan['fields']):
+            for field in migration_plan['fields']:
+                if self.PREVIOUS_PROPERTY_FIELD in field:
+                    previous_property_name = field.get(
+                        self.PREVIOUS_PROPERTY_FIELD, self.COMMAND_IGNORE)
+                    property_name = field.get(self.CURRENT_PROPERTY_NAME)
+                    property_value = field.get(
+                        self.CURRENT_PROPERTY_VALUE) \
+                        or data[previous_property_name]
+
+                    # Mapping specifies to skip this field
+                    if previous_property_name == self.COMMAND_IGNORE or property_name == self.COMMAND_DELETE:
+                        continue
+                    try:
+                        # New value is hardcoded to a specific value regardless
+                        # of existing data
+                        if self.COMMAND_HARDCODE in previous_property_name:
+                            previous_property_name = previous_property_name.split(':')[
+                                1]
+
+                        if previous_property_name in data:
+                            if self.should_lookup_value_for_field(migration_plan, previous_property_name, property_name,
+                                                                  former_tables, data):
+                                try:
+                                    choice_object = choices.Choice.objects.get(
+                                        id=data[previous_property_name])
+                                    data[property_name] = str(
+                                        choice_object.value)
+                                except TypeError:
+                                    data[property_name] = property_value
+                            else:
+                                data[property_name] = property_value
+
+                            del data[previous_property_name]
                             dirty = True
-                # Update event_detail values or names
-                if self.should_update_fields_with_event_type(record['fields']):
-                    for field in record['fields']:
-                        if self.PREVIOUS_PROPERTY_FIELD in field:
-                            previous_property_name = field.get(
-                                self.PREVIOUS_PROPERTY_FIELD, self.COMMAND_IGNORE)
-                            property_name = field.get(self.CURRENT_PROPERTY_NAME)
-                            property_value = field.get(
-                                self.CURRENT_PROPERTY_VALUE) \
-                                or data[previous_property_name]
 
-                            # Mapping specifies to skip this field
-                            if previous_property_name == self.COMMAND_IGNORE or property_name == self.COMMAND_DELETE:
-                                continue
-                            try:
-                                # New value is hardcoded to a specific value regardless
-                                # of existing data
-                                if self.COMMAND_HARDCODE in previous_property_name:
-                                    previous_property_name = previous_property_name.split(':')[
-                                        1]
+                    except KeyError:
+                        pass
+        return data, dirty
 
-                                if previous_property_name in data:
-                                    if self.should_lookup_value_for_field(record, previous_property_name, property_name, former_tables, data):
-                                        try:
-                                            choice_object = choices.Choice.objects.get(
-                                                id=data[previous_property_name])
-                                            data[property_name] = str(
-                                                choice_object.value)
-                                        except TypeError:
-                                            data[property_name] = property_value
-                                    else:
-                                        data[property_name] = property_value
-                                    
-                                    del data[previous_property_name]
-                                    dirty = True
+    def update_fields_with_event_type(self, migration_plan, event_type, former_tables):
+        for event in Event.objects.filter(event_type_id=event_type.id):
+            for event_details_revision in event.revision.all():
+                data = copy.deepcopy(event_details_revision.data)
+                details = data["data"]["event_details"]
+                details, dirty = self._modify_event_details(
+                    details, migration_plan, event_type, former_tables)
+                if dirty:
+                    data["data"]["event_details"] = details
+                    with connection.cursor() as cursor:
+                        cursor.execute('UPDATE activity_eventdetailsrevision SET data = %s WHERE id = %s', [
+                                       json.dumps(data), event_details_revision.id])
 
-                            except KeyError:
-                                pass
-
+            for event_details in event.event_details.all():
+                data = copy.deepcopy(event_details.data['event_details'])
+                data, dirty = self._modify_event_details(
+                    data, migration_plan, event_type, former_tables)
                 if dirty:
                     with connection.cursor() as cursor:
                         cursor.execute('UPDATE activity_eventdetails SET data = %s WHERE id = %s', [
