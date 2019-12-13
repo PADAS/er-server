@@ -25,7 +25,6 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
-from flags.state import flag_enabled
 
 import observations.models as models
 import observations.forms
