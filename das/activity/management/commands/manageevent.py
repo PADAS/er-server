@@ -418,7 +418,7 @@ class Command(BaseCommand):
 
         # Update choice table event_detail values
         for title, details in data.items():
-            if any(table['table_name'] == title for table in migration_plan['tables']):
+            if details and any(table['table_name'] == title for table in migration_plan['tables']):
                 if isinstance(details, dict):
                     details = [details]
                 for item in details:
