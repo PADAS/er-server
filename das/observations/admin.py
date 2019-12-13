@@ -25,6 +25,7 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
+from flags.state import flag_enabled
 
 import observations.models as models
 import observations.forms
@@ -376,10 +377,13 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         ),
         ('Subject Attributes', {
             'classes': ('wide',),
-            'fields': (('rgb', 'sex', 'tm_animal_id',
-                        'region', 'country',))
+            'fields': (('rgb', 'sex'))
         }
         ),
+        ('ER Mobile App', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('tm_animal_id', 'region', 'country',)
+        }),
         ('Advanced Subject Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('additional', 'created_at', 'updated_at',)
@@ -394,6 +398,23 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
     readonly_fields = ('id', 'created_at', 'updated_at',)
     list_per_page = 25
     ordering = ('name',)
+
+    def get_fieldsets(self, request, obj=None):
+        """
+        Hook for specifying fieldsets.
+        """
+        subject_region_enabled = getattr(settings, 'SUBJECT_REGION_ENABLED', False)
+
+        if subject_region_enabled:
+            return super().get_fieldsets(request, obj=None)
+        else:
+            if self.fieldsets:
+                fieldsets = list(self.fieldsets)
+                for item in fieldsets:
+                    if 'ER Mobile App' in item:
+                        fieldsets.pop(fieldsets.index(item))
+                return tuple(fieldsets)
+            return [(None, {'fields': self.get_fields(request, obj)})]
 
     def _status(self, o):
 
