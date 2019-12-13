@@ -12,13 +12,15 @@ class MockSuperUser:
     def has_perm(self, perm):
         return True
 
+
 class TestMaterializedView(BaseAPITest):
 
     def setUp(self):
         super().setUp()
         self.site = AdminSite()
         self.request = RequestFactory()
-        self.admin = RefreshRecreateEventDetailViewAdmin(model=RefreshRecreateEventDetailView, admin_site=self.site)
+        self.admin = RefreshRecreateEventDetailViewAdmin(
+            model=RefreshRecreateEventDetailView, admin_site=self.site)
 
     def test_execute_generated_ddl(self):
         re_create_view()
