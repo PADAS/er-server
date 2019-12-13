@@ -592,6 +592,30 @@ class SubjectSourceSummaryAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    form = SubjectSourceForm
+
+    fieldsets = (
+        (None, {
+            'fields': (('subject', 'source'),)
+        }
+        ),
+        ('Assigned Range', {
+            'classes': ('wide',),
+            'fields': ('assigned_range',)
+        }
+        ),
+        ('Attributes', {
+            'classes': ('wide',),
+            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'comments')
+        }
+        ),
+        ('Advanced', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('additional',)
+        }
+        )
+    )
+
 
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
