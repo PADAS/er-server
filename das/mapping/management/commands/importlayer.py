@@ -39,10 +39,13 @@ class Command(BaseCommand):
     utm = None
     geometry_mapper = GeometryMapper()
 
+    # Depending on the MAPPING_FEATURES_V2 flag, use (FeatureSet, FeatureType and Point/Line/Polygon) or
+    # (DisplayCategory, SpatialFeatureType and SpatialFeature) to handle this command
+
     def handle(self, *args, **options):
-        if settings.MAPPING_FEATURES_V2:
-            raise NotImplementedError(
-                f'importlayer management command deprecated, use import_spatial')
+        # if getattr(settings, 'MAPPING_FEATURES_V2', False):
+        #     raise NotImplementedError(
+        #         f'importlayer management command deprecated, use import_spatial')
 
         logger.debug('Featureset: %s, FeatureType: %s',
                      options['featureset'], options['featuretype'])
@@ -95,6 +98,7 @@ class Command(BaseCommand):
             filename = zip.extract('doc.kml', tmpdir.name)
         return DataSource(filename)
 
+    # For MAPPING_FEATURES_V2 the feature class would be models.SpatialFeature
     def get_feature_class(self, name):
         name_lower = name.lower()
         if 'polygon' in name_lower:

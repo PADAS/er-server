@@ -584,6 +584,14 @@ class TempStorage(FileSystemStorage):
         kwargs.update({'location': temp_directory_name, })
         super(TempStorage, self).__init__(**kwargs)
 
+# One way to implement spatial file upload + import into the SpatialFeature model (instead of point/line/polygon)
+# while keeping older functionality of SpatialFile, would be to create a new model that handles this new functionality.
+# Lets say this new model is called SpatialFileV2. Might make sense to create an abstract base class that has common
+# fields and functions, and have SpatialFile and SpatialFileV2 be subclasses of this base class.
+
+# SpatialFileV2 will have foreign key relations to DisplayCategory (instead of FeatureSet) and SpatialFeatureType
+# (instead of FeatureType). Then in admin.py we register the correct model based on the feature flag.
+
 
 class SpatialFile(TimestampedModel):
     """

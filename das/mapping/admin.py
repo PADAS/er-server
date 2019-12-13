@@ -171,3 +171,5 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
         return obj.geometry_type
 
     geometry_type.short_description = 'Geometry Type'
+
+# register the new model to that uploads spatial files for MAPPING_FEATURES_V2
