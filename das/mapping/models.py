@@ -479,6 +479,7 @@ class SpatialFeatureTypeManager(models.Manager):
 class SpatialFeatureType(TimestampedModel):
     class Meta:
         verbose_name = 'Feature Class'
+        verbose_name_plural = 'Feature Classes'
 
     objects = SpatialFeatureTypeManager()
 
