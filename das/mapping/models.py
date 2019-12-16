@@ -594,21 +594,20 @@ class TempStorage(FileSystemStorage):
 # (instead of FeatureType). Then in admin.py we register the correct model based on the feature flag.
 
 
-class SpatialFile(TimestampedModel):
+class SpatialFilesBase(TimestampedModel):
     """
-    Model for uploading Spatial files such as shapefile.
-    Script would later add selected layer from the file to DB a
-    specific geometry type [polygon, line, point]
+    Base model for uploading Spatial files such as shapefile
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, blank=True)
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(storage=TempStorage(), blank=True)
-    feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
-    feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
+    data = models.FileField(storage=TempStorage(), blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
-    name_field = models.CharField(max_length=100, blank=True)
-    id_field = models.CharField(max_length=100, blank=True)
+    name_field = models.CharField(max_length=100, blank=True, null=True)
+    id_field = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        abstract = True
 
     @staticmethod
     def fetch_shape_file_path(directory_path):
@@ -678,6 +677,7 @@ class SpatialFile(TimestampedModel):
     # itself. To have the file data available, save method needs to be invoked.
     #  Cleanup method will remove files in case of validation error.
     # Can a better way be utilized which avoids saving the Spatial file model?
+
     def clean(self):
         """
         Overwriting clean method to have error handling within the admin form.
@@ -689,7 +689,7 @@ class SpatialFile(TimestampedModel):
             self.import_spatial_file(uploaded_file_path,
                                      uploaded_file_directory)
         except ValidationError as err:
-            SpatialFile.objects.filter(id=self.id).delete()
+            self.__class__.objects.filter(id=self.id).delete()
             raise ValidationError(
                 'Error in retrieving features from spatial file:    {}\n '
                 'Please verify the spatial file.'.format(err)
@@ -700,3 +700,24 @@ class SpatialFile(TimestampedModel):
 
     def __str__(self):
         return str(self.id)
+
+
+class SpatialFeatureFile(SpatialFilesBase):
+    """
+    Special Feature loaded from uploaded shapefile
+    """
+    feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Spatial Feature File'
+
+
+class SpatialLayerFile(SpatialFilesBase):
+    """
+    Geometry type [polygon, line, point] loaded from uploaded shapefile
+    """
+    feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
+    feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name = 'Spatial Layer File'
