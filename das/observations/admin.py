@@ -1160,3 +1160,21 @@ def get_next_in_date_hierarchy(request, date_hierarchy):
     if date_hierarchy + '__year' in request.GET:
         return 'week'
     return 'month'
+
+
+@admin.register(models.SubjectMaximumSpeed)
+class ObservationAnnotatorAdmin(admin.ModelAdmin):
+
+    list_display = ('subject_name', 'max_speed', 'subject_subtype',)
+    list_editable = ('max_speed',)
+    search_fields = ('subject_name',)
+    list_filter = ('max_speed', 'subject__subject_subtype__display',
+                   'subject__subject_subtype__subject_type__display',)
+    ordering = ('subject__name', )
+    readonly_fields = ('id',)
+
+    def subject_name(self, o):
+        return o.subject.name
+
+    def subject_subtype(self, o):
+        return o.subject.subject_subtype.value
