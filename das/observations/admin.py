@@ -35,6 +35,7 @@ from observations.utils import assigned_range_dates
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
     SaveCoordinatesToCookieMixin
 from core.openlayers import OSMGeoExtendedAdmin
+from core.common import TIMEZONE_USED
 from utils.html import make_html_list
 from .models import SOURCE_TYPES
 
@@ -250,7 +251,7 @@ class LargeTablePaginator(Paginator):
 
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
-    list_display = ('subject_link', '_manufacturer_id', 'recorded_at', 'created_at',
+    list_display = ('subject_link', '_manufacturer_id', 'recorded_at', '_created_at',
                     '_longitude', '_latitude', '_state', '_event_action')
     date_hierarchy = 'recorded_at'
     list_display_links = None
@@ -291,6 +292,10 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
 
     def _manufacturer_id(self, o):
         return o.manufacturer_id
+
+    def _created_at(self, o):
+        return o.recorded_at
+    _created_at.short_description = 'row created at %s' % TIMEZONE_USED
 
     def get_actions(self, request):
         actions = super().get_actions(request)
@@ -941,7 +946,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     # change_list_template = 'admin/subject_status_change_list.html'
     # readonly_fields = ('recorded_at', 'subject','delay_hours', 'additional')
     list_display = ('_status', 'radio_state_at', '_age_of_state',
-                    'subject_link', 'recorded_at', '_location', '_age',
+                    'subject_link', '_recorded_at', '_location', '_age',
                     '_source_provider', '_source_type', )
     list_filter = (RadioStatusFilter, SourceTypeFilter,
                    'subject__subject_subtype__display',
@@ -998,6 +1003,12 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
         return f'{o.location.x:0.4} / {o.location.y:0.4}'
     _location.short_description = 'Longitude / Latitude'
     _location.admin_order_field = 'location'
+
+    def _recorded_at(self, o):
+        return o.recorded_at
+    _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
+    _recorded_at.admin_order_field = 'recorded_at'
+
 
     def _source_provider(self, o):
         return o.provider_name
