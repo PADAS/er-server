@@ -25,10 +25,13 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
+from django.utils.safestring import mark_safe
 
 import observations.models as models
+from tracking.models import SourcePlugin
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
+from observations.utils import assigned_range_dates
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
     SaveCoordinatesToCookieMixin
 from core.openlayers import OSMGeoExtendedAdmin
@@ -571,6 +574,69 @@ class CommonNameAdmin(admin.ModelAdmin):
         return qs.filter(owner=request.user)
 
 
+@admin.register(models.SubjectSourceSummary)
+class SubjectSourceSummaryAdmin(admin.ModelAdmin):
+    list_display = ('source', '_subject', '_source_plugin', '_plugin', '_provider', '_start_date', '_end_date')
+    list_filter = ('source__provider__display_name',)
+    search_fields = ('source__manufacturer_id', 'subject__name', 'source__provider__display_name')
+    ordering = ('source', )
+
+    def record_link(self, url, key, view):
+        return mark_safe('<a href="{}">{}</a>'.format(
+            reverse(url, args=(key,)), view
+        ))
+
+    def _subject(self, o):
+        return self.record_link("admin:observations_subject_change", o.subject.id, o.subject)
+
+    def _provider(self, o):
+        provider = o.source.provider
+        return self.record_link("admin:observations_sourceprovider_change", provider.pk, provider.display_name)
+
+    def _source_plugin(self, o):
+        source_plugin = SourcePlugin.objects.get(source=o.source)
+        return self.record_link("admin:tracking_sourceplugin_change", source_plugin.id, source_plugin.plugin_type)
+
+    def _plugin(self, o):
+        source_plugin = SourcePlugin.objects.get(source=o.source)
+        return source_plugin.plugin.name
+
+    def _start_date(self, o):
+        start_date, _ = assigned_range_dates(o)
+        return start_date
+
+    def _end_date(self, o):
+        _, end_date = assigned_range_dates(o)
+        return end_date
+
+    def has_add_permission(self, request):
+        return False
+
+    form = SubjectSourceForm
+
+    fieldsets = (
+        (None, {
+            'fields': (('subject', 'source'),)
+        }
+        ),
+        ('Assigned Range', {
+            'classes': ('wide',),
+            'fields': ('assigned_range',)
+        }
+        ),
+        ('Attributes', {
+            'classes': ('wide',),
+            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'comments')
+        }
+        ),
+        ('Advanced', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('additional',)
+        }
+        )
+    )
+
+
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
     list_display = ['manufacturer_id', 'source_type',
@@ -669,14 +735,7 @@ class SubjectSourceAdmin(admin.ModelAdmin):
     current.boolean = True
 
     def _assigned_range(self, o):
-
-        d1, d2 = o.safe_assigned_range.lower, o.safe_assigned_range.upper
-        if d1.year <= 1000:
-            d1 = '-'
-        if d2.year >= 9999:
-            d2 = '-'
-
-        return d1, d2
+        return assigned_range_dates(o)
 
     fieldsets = (
         (None, {
