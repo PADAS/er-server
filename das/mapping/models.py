@@ -645,13 +645,8 @@ class SpatialFilesBase(TimestampedModel):
                         uploaded_file_path[:-4])
             else:
                 import_file = uploaded_file_path
-
             if import_file:
-                management.call_command(
-                    'importlayer', import_file, self.feature_set.name,
-                    self.feature_type.name, layer=self.layer_number,
-                    name_field=self.name_field, id_field=self.id_field
-                )
+                self.call_mgt_command(import_file)
             else:
                 raise ValidationError(
                     f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')
@@ -711,6 +706,13 @@ class SpatialFeatureFile(SpatialFilesBase):
     class Meta:
         verbose_name = 'Spatial Feature File'
 
+    def call_mgt_command(self, import_file):
+        management.call_command(
+            'importlayer', 'importspatialfile', import_file,
+            featuretype=self.feature_type, layer=self.layer_number,
+            name_field=self.name_field, id_field=self.id_field
+        )
+
 
 class SpatialLayerFile(SpatialFilesBase):
     """
@@ -721,3 +723,11 @@ class SpatialLayerFile(SpatialFilesBase):
 
     class Meta:
         verbose_name = 'Spatial Layer File'
+
+    def call_mgt_command(self, import_file):
+        management.call_command(
+            'importlayer', 'importlayerfile', import_file,
+            featureset=self.feature_set, featuretype=self.feature_type,
+            layer=self.layer_number, name_field=self.name_field,
+            id_field=self.id_field
+        )
