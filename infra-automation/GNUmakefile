@@ -37,11 +37,17 @@ configure_dev: ## configure your workstation for fun and profit
 .PHONY: tf_fmt
 tf_fmt: ## terraform fmt -recursive on the directory
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_fmt fmt_options="-recursive"
+	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_fmt fmt_options="-recursive"
 
 .PHONY: tf_init
 tf_init: init_options ?=
 tf_init: ## terraform init
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_init init_options=$(init_options)
+
+.PHONY: tf_workspace_delete
+tf_workspace_delete: workspace ?=
+tf_workspace_delete: ## terraform workspace new | workspace="WORKSPACE"
+	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_workspace workspace_subcommand=delete workspace_name=$(workspace)
 
 .PHONY: tf_workspace_list
 tf_workspace_list: ## terraform workspace list
@@ -70,6 +76,12 @@ tf_apply: ## terraform apply | [apply_options="ARGS"] [apply_dir_or_planfile="PA
 	@ $(MAKE) --no-print-directory --file $(vault_makefile) vault_login
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_dir_or_planfile="$(apply_dir_or_planfile)" apply_options="$(apply_options)"
 
+.PHONY: tf_destroy
+tf_destroy: destroy_dir ?=
+tf_destroy: ## terraform destroy | [destroy_dir="PATH"]
+	@ $(MAKE) --no-print-directory --file $(vault_makefile) vault_login
+	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_destroy destroy_dir="$(destroy_dir)"
+
 .PHONY: tf_output
 tf_output: output_name ?=
 tf_output: ## terraform output | [output_name="NAME"]
@@ -84,7 +96,9 @@ render_templates: tfvars_environment ?= no_overrides
 render_templates: ## render templates (using Terraform) | [tfvars_environment="BRANCH_NAME"]
 	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_init
 	@ if [ ! -f $(tfvars_overrides)/$(tfvars_environment).tfvars ]; then touch $(tfvars_overrides)/$(tfvars_environment).tfvars; fi
-	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars'"
+	@ K8S_NAMESPACE=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="kubernetes_namespace") && \
+	DATABASE_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="database_name") && \
+	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' -var kubernetes_namespace=$$K8S_NAMESPACE -var db_name=$$DATABASE_NAME"
 	@ cat $(template_path)/rendered/api-deployment.yaml
 
 .PHONY: kubectl_apply
@@ -97,7 +111,7 @@ kubectl_apply_via_proxy: # this should only be run by the build server
 	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --server="https://$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_proxy_endpoint")" || false
 	echo "$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_b64_encoded_proxy_ca_certificate")" | base64 -d > proxy.crt
 	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --certificate-authority="./proxy.crt" || false
-	# To implement once secrets are hydrated:
+	kubectl apply --filename "$(rendered_template_path)/circleci-api-deployment.yaml"
 	# for file in $$(find "$(rendered_template_path)" -type f | sort); do sleep 1 && kubectl apply --filename "$$file"; done;\
 
 commit_message_path := $(CURDIR)/.robo-commit-message
@@ -157,3 +171,11 @@ append_to_manifest: manifest_key :=
 append_to_manifest: # this should only be run by the build server
 	@ export DIGEST="$$(gcloud container images list-tags $(gcr_path) --filter="tags:latest" --format="value(Digest)" || exit 1)" && \
 		if [ -n "$$DIGEST" ]; then printf "%s = \"%s@%s\"\n" "$(manifest_key)" "$(gcr_path)" "$$DIGEST" >> $(manifest_file); else exit 1; fi
+
+.PHONY: check_for_abandoned_workspaces
+check_for_abandoned_workspaces: ## compare terraform workspaces against git branches to identify potentially-forgotten resources
+	$(MAKE) --no-print-directory --silent -f $(this_file) tf_init && \
+	$(MAKE) --no-print-directory --silent -f $(this_file) tf_workspace_list | tr -s '\n' | awk '{print $$NF}' | sort > $(vulcan_path)/workspaces
+	@ [ -n "$$CI" ] || (git remote update --prune)
+	@ git branch --list --remote | awk -F / '{print $$NF}' | sort > $(vulcan_path)/branches
+	@ export maybe_orphans="$$(comm -23 $(vulcan_path)/workspaces $(vulcan_path)/branches | grep -v default)"; if [ -n "$$maybe_orphans" ]; then printf "The following workspaces do not have corresponding branches:\n%s\n" "$$maybe_orphans" && exit 1; fi
