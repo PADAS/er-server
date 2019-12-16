@@ -597,7 +597,7 @@ class SpatialFeatureType(models.Model):
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
-    tags = TagField(to=SpatialFeatureTypeTag)
+    tags = TagField(to=SpatialFeatureTypeTag, blank=True)
 
     # presentation fields
     # Boundaries, Water, Security etc.
