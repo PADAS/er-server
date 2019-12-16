@@ -642,11 +642,14 @@ class SpatialFilesBase(TimestampedModel):
                 import_file = uploaded_file_path
 
             if import_file:
-                management.call_command(
-                    'importlayer', import_file, self.feature_set.name,
-                    self.feature_type.name, layer=self.layer_number,
-                    name_field=self.name_field, id_field=self.id_field
-                )
+                if MAPPING_FEATURES_V2:
+                    management.call_command('import_spatial', import_file, record_id=self.id)
+                else:
+                    management.call_command(
+                        'importlayer', import_file, self.feature_set.name,
+                        self.feature_type.name, layer=self.layer_number,
+                        name_field=self.name_field, id_field=self.id_field
+                    )
             else:
                 raise ValidationError(
                     f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')

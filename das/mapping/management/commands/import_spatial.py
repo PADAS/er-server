@@ -66,6 +66,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.source_name = options['source'] if options['source'] else DEFAULT_SOURCE_NAME
+        self.record_id = options['record_id']
         try:
             feature_types_file = options['feature_types']
             if feature_types_file:
@@ -91,6 +92,8 @@ class Command(BaseCommand):
                             help='spatial feature types file')
         parser.add_argument(
             '--source', type=str, help=f'Source of data, default is {DEFAULT_SOURCE_NAME}')
+        parser.add_argument(
+            '--record-id', type=str, help=f'File record ID, passed automatically from the admin dashboard')
 
     def datasource_from_file(self, filename):  # geojson file
         if filename.endswith('kmz'):
@@ -109,7 +112,11 @@ class Command(BaseCommand):
             self._save_feature_to_table(feature)
 
     def _save_feature_to_table(self, feature, model=models.SpatialFeature):
-        global_id = feature['globalid'].value
+        try:
+            global_id = feature['globalid'].value
+        except Exception:
+            global_id = feature['fid'].value
+
         fields = list(fields_iter(feature))
         feature_type_name = feature['type'].value
 
@@ -176,6 +183,7 @@ class Command(BaseCommand):
             setattr(feature_record, key, value)
 
         feature_record.save()
+        self.save_file_feature_type(feature_type)
 
     def get_feature_type(self, type_name, create_okay=True):
         return models.SpatialFeatureType.objects.get_by_natural_key(type_name)
@@ -236,3 +244,6 @@ class Command(BaseCommand):
                 setattr(type_record, key, value)
 
             type_record.save()
+
+    def save_file_feature_type(self, featuretype):
+        models.SpatialFeatureFile.objects.filter(id=self.record_id).update(feature_type=featuretype)

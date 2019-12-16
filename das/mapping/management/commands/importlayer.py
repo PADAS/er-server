@@ -13,6 +13,7 @@ from django.contrib.gis.gdal import (
 
 from utils.spatial import GeometryMapper
 from mapping import models
+from mapping.utils import MAPPING_FEATURES_V2
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +44,9 @@ class Command(BaseCommand):
     # (DisplayCategory, SpatialFeatureType and SpatialFeature) to handle this command
 
     def handle(self, *args, **options):
-        # if getattr(settings, 'MAPPING_FEATURES_V2', False):
-        #     raise NotImplementedError(
-        #         f'importlayer management command deprecated, use import_spatial')
+        if MAPPING_FEATURES_V2:
+            raise NotImplementedError(
+                f'importlayer management command deprecated, use import_spatial')
 
         logger.debug('Featureset: %s, FeatureType: %s',
                      options['featureset'], options['featuretype'])
