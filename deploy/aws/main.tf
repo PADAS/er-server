@@ -32,6 +32,37 @@ resource "aws_s3_bucket" "media-uploads" {
   versioning {
     enabled = true
   }
+  logging {
+      target_bucket = data.aws_s3_bucket.access-logs.id
+      target_prefix = "logs/${var.site}-das-media-uploads/"
+  }
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
+
+  policy = <<POLICY
+{
+    "Version": "2012-10-17",
+    "Id": "bucket-data-transport-policy",
+    "Statement": [{
+       "Sid": "DenyUnSecureCommunications",
+       "Effect": "Deny",
+       "Principal": "*",
+       "Action": "s3:*",
+       "Resource": "arn:aws:s3:::${var.site}-das-media-uploads",
+       "Condition": {
+          "Bool": {
+          "aws:SecureTransport": "false"
+        }
+      }
+    }]
+}
+  POLICY
 }
 
 resource "aws_alb" "alb" {

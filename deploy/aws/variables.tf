@@ -121,6 +121,10 @@ data "aws_route53_zone" "public" {
   name = "pamdas.org."
 }
 
+data "aws_s3_bucket" "access-logs" {
+  bucket = "er-s3-access-logs-eu-central-1"
+}
+
 data "template_file" "site_json" {
   template = file("./er_chef_settings.tpl.json")
   vars = {
