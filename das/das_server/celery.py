@@ -99,7 +99,7 @@ app.conf.beat_schedule = {
         'schedule': timedelta(seconds=60),
     },
 
-    'observation-lag-report':{
+    'observation-lag-report': {
         'task':  'reports.tasks.alert_lag_delay',
         'schedule': timedelta(minutes=30),
     },
@@ -112,7 +112,12 @@ app.conf.beat_schedule = {
         # 4 AM local time per settings.TIME_ZONE
         'schedule': crontab(hour=4, minute=0)
 
-    }
+    },
+    'refresh-event-details-view': {
+        'task': 'activity.tasks.refresh_event_details_views_task',
+        'args': ('Celery',),
+        'schedule': timedelta(hours=1)
+    },
 
 }
 

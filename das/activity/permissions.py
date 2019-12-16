@@ -63,7 +63,7 @@ class EventCategoryPermissions(IsAuthenticated):
                     )
                     permitted = user.has_perm(permission_name)
                     if k == 'GET' and not permitted and user.is_authenticated:
-                        raise UnauthorizedView
+                        return False
                     return permitted
                 except EventType.DoesNotExist:
                     pass

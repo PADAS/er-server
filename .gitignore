@@ -219,3 +219,8 @@ templated-deployment/tfvars-overrides/no_overrides.tfvars
 
 # Ephemeral, expiring vault tokens
 **.vault-token
+/.python-version
+
+# Abandoned workspaces artifacts
+infra-automation/.vulcan/branches
+infra-automation/.vulcan/workspaces

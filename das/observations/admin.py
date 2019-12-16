@@ -25,11 +25,15 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
+from django.utils.safestring import mark_safe
 
 import observations.models as models
+from tracking.models import SourcePlugin
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
-from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
+from observations.utils import assigned_range_dates
+from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
+    SaveCoordinatesToCookieMixin
 from core.openlayers import OSMGeoExtendedAdmin
 from utils.html import make_html_list
 from .models import SOURCE_TYPES
@@ -253,6 +257,8 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
 
     paginator = LargeTablePaginator
 
+    gis_geometry_field_name = 'location'
+
     list_filter = (SubjectNameFilter, SubjectIdFilter)
 
     def subject_link(self, obj):
@@ -322,9 +328,10 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
     actions = ['export_as_csv', ]
 
 
-class SourceProviderFilter(admin.SimpleListFilter):
+class SourceProviderFilter(admin.SimpleListFilter, SaveCoordinatesToCookieMixin):
     title = 'Source Provider'
     parameter_name = 'provider_key'
+    gis_geometry_field_name = 'location'
 
     def lookups(self, request, model_admin):
         return [(p.provider_key, p.display_name) for p in sorted(models.SourceProvider.objects.all(),
@@ -372,10 +379,13 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         ),
         ('Subject Attributes', {
             'classes': ('wide',),
-            'fields': (('rgb', 'sex', 'tm_animal_id',
-                        'region', 'country',))
+            'fields': (('rgb', 'sex'))
         }
         ),
+        ('ER Mobile App', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('tm_animal_id', 'region', 'country',)
+        }),
         ('Advanced Subject Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('additional', 'created_at', 'updated_at',)
@@ -390,6 +400,23 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
     readonly_fields = ('id', 'created_at', 'updated_at',)
     list_per_page = 25
     ordering = ('name',)
+
+    def get_fieldsets(self, request, obj=None):
+        """
+        Hook for specifying fieldsets.
+        """
+        subject_region_enabled = getattr(settings, 'SUBJECT_REGION_ENABLED', False)
+
+        if subject_region_enabled:
+            return super().get_fieldsets(request, obj=None)
+        else:
+            if self.fieldsets:
+                fieldsets = list(self.fieldsets)
+                for item in fieldsets:
+                    if 'ER Mobile App' in item:
+                        fieldsets.pop(fieldsets.index(item))
+                return tuple(fieldsets)
+            return [(None, {'fields': self.get_fields(request, obj)})]
 
     def _status(self, o):
 
@@ -547,6 +574,69 @@ class CommonNameAdmin(admin.ModelAdmin):
         return qs.filter(owner=request.user)
 
 
+@admin.register(models.SubjectSourceSummary)
+class SubjectSourceSummaryAdmin(admin.ModelAdmin):
+    list_display = ('source', '_subject', '_source_plugin', '_plugin', '_provider', '_start_date', '_end_date')
+    list_filter = ('source__provider__display_name',)
+    search_fields = ('source__manufacturer_id', 'subject__name', 'source__provider__display_name')
+    ordering = ('source', )
+
+    def record_link(self, url, key, view):
+        return mark_safe('<a href="{}">{}</a>'.format(
+            reverse(url, args=(key,)), view
+        ))
+
+    def _subject(self, o):
+        return self.record_link("admin:observations_subject_change", o.subject.id, o.subject)
+
+    def _provider(self, o):
+        provider = o.source.provider
+        return self.record_link("admin:observations_sourceprovider_change", provider.pk, provider.display_name)
+
+    def _source_plugin(self, o):
+        source_plugin = SourcePlugin.objects.get(source=o.source)
+        return self.record_link("admin:tracking_sourceplugin_change", source_plugin.id, source_plugin.plugin_type)
+
+    def _plugin(self, o):
+        source_plugin = SourcePlugin.objects.get(source=o.source)
+        return source_plugin.plugin.name
+
+    def _start_date(self, o):
+        start_date, _ = assigned_range_dates(o)
+        return start_date
+
+    def _end_date(self, o):
+        _, end_date = assigned_range_dates(o)
+        return end_date
+
+    def has_add_permission(self, request):
+        return False
+
+    form = SubjectSourceForm
+
+    fieldsets = (
+        (None, {
+            'fields': (('subject', 'source'),)
+        }
+        ),
+        ('Assigned Range', {
+            'classes': ('wide',),
+            'fields': ('assigned_range',)
+        }
+        ),
+        ('Attributes', {
+            'classes': ('wide',),
+            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'comments')
+        }
+        ),
+        ('Advanced', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('additional',)
+        }
+        )
+    )
+
+
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
     list_display = ['manufacturer_id', 'source_type',
@@ -645,14 +735,7 @@ class SubjectSourceAdmin(admin.ModelAdmin):
     current.boolean = True
 
     def _assigned_range(self, o):
-
-        d1, d2 = o.safe_assigned_range.lower, o.safe_assigned_range.upper
-        if d1.year <= 1000:
-            d1 = '-'
-        if d2.year >= 9999:
-            d2 = '-'
-
-        return d1, d2
+        return assigned_range_dates(o)
 
     fieldsets = (
         (None, {
@@ -851,6 +934,7 @@ class SourceTypeFilter(admin.SimpleListFilter):
 
 @admin.register(models.SubjectStatus)
 class SubjectStatusAdmin(OSMGeoExtendedAdmin):
+    gis_geometry_field_name = 'location'
     search_fields = (
         'subject__name', 'subject__subjectsource__source__manufacturer_id')
     ordering = ('-recorded_at',)
@@ -925,6 +1009,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
         except Exception:
             pass
         return source
+
 
 
 @admin.register(models.SourceProvider)

@@ -8,6 +8,7 @@ commands:
       - run: 'git config user.email "circleci@vulcan.com"'
       - run: 'git config user.name "circleci"'
       - run: 'git config push.default current'
+      - run: 'mkdir -p ~/.ssh && echo "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" >> ~/.ssh/known_hosts'
       - add_ssh_keys:
           fingerprints:
             - 'fc:dc:b0:e5:df:23:4f:fd:3a:8b:7e:d2:1e:b4:6d:bd'
@@ -34,7 +35,8 @@ commands:
         type: string
         default: '-input=false -out=tfplan -var "is_running_in_automation=true"'
     steps:
-      - 'checkout'
+      - attach_workspace:
+          at: './'
       - 'add_deploy_key_for_common_terraform_modules'
       - 'export_google_credentials'
       - run: 'cd infra-automation && make tf_init init_options="<< parameters.init_args >>"'
@@ -61,6 +63,10 @@ commands:
       - 'toggle_firewall_for_build_agent_k8s_and_proxy_closure':
           inner_command: 'cd infra-automation && make tf_apply apply_options="<< parameters.apply_args >>"'
           network: '<< parameters.network >>'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
   toggle_firewall_for_build_agent_k8s_and_proxy_closure:
     parameters:
       inner_command:
@@ -94,7 +100,31 @@ executors:
   default:
     docker:
       - image: 'google/cloud-sdk:269.0.0'
+  circleci_executor:
+    docker:
+      - image: 'circleci/buildpack-deps:stretch'
 jobs:
+  jobs:
+  check_for_abandoned_workspaces:
+    executor: circleci_executor
+    steps:
+      - checkout
+      - 'export_google_credentials'
+      - add_deploy_key_for_common_terraform_modules
+      - run: 'cd infra-automation && make check_for_abandoned_workspaces'
+  kubectl_apply:
+    executor: 'default'
+    steps:
+      - attach_workspace:
+          at: './'
+      - 'export_google_credentials'
+      - 'activate_google_service_account'
+      - 'toggle_firewall_for_build_agent_k8s_closure':
+          inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
   terraform_plan_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
@@ -128,9 +158,15 @@ jobs:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - 'checkout'
+      - attach_workspace:
+          at: './'
       - 'export_google_credentials'
       - run: 'cd infra-automation && make render_templates tfvars_environment=$CIRCLE_BRANCH'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+
   generate_manifest:
     docker:
       - image: circleci/buildpack-deps:stretch
@@ -143,16 +179,17 @@ jobs:
           root: './'
           paths:
             - '*'
-  docker_build:
-    docker:
-      - image: circleci/buildpack-deps:stretch
+
+  docker_build_and_generate_manifest:
+    executor: 'default'
     steps:
-      - attach_workspace:
-          at: './'
-      - setup_remote_docker
-      - docker_login
-      - checkout
-      - run: 'manifest_tag=$(cat ./GENERATED_MANIFEST.local | awk -F ''"'' ''$1 ~ /SERVER_VERSION/ {print $2}'') && cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH new_tag=$manifest_tag'
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - 'docker_login'
+      - 'checkout'
+      - run: 'cd infra-automation && make build_and_push current_branch="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID"'
+      - 'activate_google_service_account'
+      - run: 'cd infra-automation && make generate_manifest current_branch="$CIRCLE_BRANCH"'
       - persist_to_workspace:
           root: './'
           paths:
@@ -165,64 +202,36 @@ jobs:
           at: './'
       - setup_remote_docker
       - docker_login
-      - checkout
-      - configure_git_for_commit_and_push
-      - run: 'cd circleci-docker && make commit_and_push_manifest'
+      - 'configure_git_for_commit_and_push'
+      - run: 'cd infra-automation && make commit_and_push_manifest descriptive_gcr_path_stem="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID"'
 workflows:
   version: 2
   build_and_terraform_dev:
   # This is our eager workflow for deploying from our main code branch.
   # So no review step.
     jobs:
-      - generate_manifest:
-          filters:
-            branches:
-              only:
-                - 'develop'
-      - docker_build:
-          requires:
-            - 'generate_manifest'
-          filters:
-            branches:
-              only: 'develop'
-      - commit_and_push_manifest:
-          requires:
-            - 'docker_build'
+      - docker_build_and_generate_manifest:
           filters:
             branches:
               only: 'develop'
       - terraform_plan_dev:
           requires:
-            - 'docker_build'
+            - 'docker_build_and_generate_manifest'
       - terraform_apply_dev:
           requires:
             - 'terraform_plan_dev'
       - render_templates:
           requires:
             - 'terraform_apply_dev'
-
+      - commit_and_push_manifest:
+          requires:
+            - 'render_templates'
 
   build_and_terraform_feature_branch:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
-      - generate_manifest:
-          filters:
-            branches:
-              ignore:
-                - 'develop'
-                - /release*/
-      - docker_build:
-          requires:
-            - 'generate_manifest'
-          filters:
-            branches:
-              ignore:
-                - 'develop'
-                - /release*/
-      - commit_and_push_manifest:
-          requires:
-            - 'docker_build'
+      - docker_build_and_generate_manifest:
           filters:
             branches:
               ignore:
@@ -230,7 +239,7 @@ workflows:
                 - /release*/
       - terraform_plan_dev:
           requires:
-            - 'docker_build'
+            - 'docker_build_and_generate_manifest'
       - review_plan_dev:
           requires:
             - 'terraform_plan_dev'
@@ -241,31 +250,24 @@ workflows:
       - render_templates:
           requires:
             - 'terraform_apply_dev'
+      - kubectl_apply:
+          requires:
+            - 'render_templates'
+      - commit_and_push_manifest:
+          requires:
+            - 'kubectl_apply'
 
   build_and_terraform_prod1:
   # Build for all release branches
   # Review step for apply
     jobs:
-      - generate_manifest:
-          filters:
-            branches:
-              only:
-                - /release*/
-      - docker_build:
-          requires:
-            - 'generate_manifest'
-          filters:
-            branches:
-              only: /release*/
-      - commit_and_push_manifest:
-          requires:
-            - 'docker_build'
+      - docker_build_and_generate_manifest:
           filters:
             branches:
               only: /release*/
       - terraform_plan_prod1:
           requires:
-            - 'docker_build'
+            - 'docker_build_and_generate_manifest'
       - review_plan_prod1:
           requires:
             - 'terraform_plan_prod1'
@@ -276,5 +278,16 @@ workflows:
       - render_templates:
           requires:
             - 'terraform_apply_prod1'
-
-
+      - commit_and_push_manifest:
+          requires:
+            - 'render_templates'
+  audit:
+    jobs:
+      - check_for_abandoned_workspaces
+    triggers:
+      - schedule:
+          cron: "0 0 * * 1"
+          filters:
+            branches:
+              only:
+                - "develop"

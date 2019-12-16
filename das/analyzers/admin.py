@@ -215,6 +215,8 @@ class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
 
     list_display = ('name', 'subscription_id',)
 
+    gis_geometry_field_name = 'subscription_geometry'
+
     fieldsets = (
         (None, {
             'classes': ('wide',),
@@ -232,3 +234,4 @@ class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
             'fields': ('subscription_geometry',)
         })
     )
+

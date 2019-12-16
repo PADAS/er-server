@@ -133,7 +133,7 @@ resource "aws_alb_listener" "alb-https" {
 
 resource "aws_route53_record" "www" {
   zone_id = data.aws_route53_zone.public.zone_id # Replace with your zone ID
-  name    = "${var.site}.pamdas.org"             # Replace with your name/domain/subdomain
+  name    = "${coalesce(var.dns_name, var.site)}.pamdas.org"             # Replace with your name/domain/subdomain
   type    = "A"
 
   alias {

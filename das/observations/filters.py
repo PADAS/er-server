@@ -1,6 +1,8 @@
 import logging
 from rest_framework.filters import BaseFilterBackend
 from observations.models import Subject
+from utils.json import parse_bool
+
 
 class SubjectObjectPermissionsFilter(BaseFilterBackend):
     """
@@ -33,6 +35,7 @@ class GroupPermissionsFilter(BaseFilterBackend):
     Filter the list of groups to what the user is allowed to view
     """
     def filter_queryset(self, request, queryset, view):
+        is_visible = parse_bool(request.GET.get('isvisible', True))
         user = request.user
 
         if user.is_superuser:
@@ -40,21 +43,25 @@ class GroupPermissionsFilter(BaseFilterBackend):
 
         root_ids = set()
         for group in queryset:
-            result = self.first_descendant_with_permission(user, self.perms, group)
+            result = self.first_descendant_with_permission(user, self.perms, group, is_visible)
             if result:
-                root_ids.add(result.id)
-
+                root_ids = root_ids.union(result)
         return queryset.model.objects.filter(id__in=list(root_ids))
 
-    def first_descendant_with_permission(self, user, perms, group):
+    def first_descendant_with_permission(self, user, perms, group, view_visible):
+        ids = set()
         if not group:
             return None
 
-        if user.has_any_perms(perms, group):
-            return group
+        # this is on the assumption that passing True in query params means
+        # retrieve only visible subjectgroups and False means retrieve only
+        # not visible subjectgroups
+
+        if user.has_any_perms(perms, group) and (group.is_visible is view_visible):
+            return {group.id}
+
         for child in group.children.all():
-            result = self.first_descendant_with_permission(user, perms, child)
+            result = self.first_descendant_with_permission(user, perms, child, view_visible)
             if result:
-                return result
-
-
+                ids = ids.union(result)
+        return ids if len(ids) > 0 else None
