@@ -10,6 +10,7 @@ from django.db.models.expressions import RawSQL
 
 import mapping.models as models
 from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, SpatialImportForm
+from mapping.utils import MAPPING_FEATURES_V2
 
 
 @admin.register(models.Map)
@@ -60,7 +61,7 @@ class BaseFeatureAdmin(admin.OSMGeoAdmin):
     search_fields = ('name', )
 
 
-if not getattr(settings, 'MAPPING_FEATURES_V2', False):
+if not MAPPING_FEATURES_V2:
 
     @admin.register(models.FeatureSet)
     class FeatureSetAdmin(admin.ModelAdmin):
@@ -82,11 +83,27 @@ if not getattr(settings, 'MAPPING_FEATURES_V2', False):
     class FeatureTypeAdmin(admin.ModelAdmin):
         pass
 
-    @admin.register(models.SpatialFile)
-    class SpatialFileAdmin(admin.ModelAdmin):
+    @admin.register(models.SpatialLayerFile)
+    class SpatialLayersFileAdmin(admin.ModelAdmin):
         list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
                         'layer_number')
         list_filter = ('feature_set', 'feature_type')
+
+else:
+    @admin.register(models.SpatialFeatureFile)
+    class SpatialFeatureFileAdmin(admin.ModelAdmin):
+        list_display = ('id', 'name', 'description')
+        list_filter = ('name',)
+        fieldsets = (
+            (None, {
+                'classes': ('wide',),
+                'fields': (('id', 'name', 'description', 'data',))
+            }),
+            ('File Attributes', {
+                'classes': ('wide',),
+                'fields': (('feature_type',))
+            }))
+        readonly_fields = ('id', 'feature_type',)
 
 
 class SpatialFeatureTypeInline(admin.TabularInline):
