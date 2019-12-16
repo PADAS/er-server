@@ -1178,7 +1178,7 @@ class ObservationAnnotatorAdmin(admin.ModelAdmin):
 
     list_display = ('subject_name', 'max_speed', 'subject_subtype',)
     list_editable = ('max_speed',)
-    search_fields = ('subject_name',)
+    search_fields = ('subject__name',)
     list_filter = ('max_speed', 'subject__subject_subtype__display',
                    'subject__subject_subtype__subject_type__display',)
     ordering = ('subject__name', )
