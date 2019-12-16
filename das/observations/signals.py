@@ -8,10 +8,13 @@ from django.db.models.signals import post_save, post_migrate
 from django.dispatch import receiver
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
+from django.contrib import auth
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth import models
 
-from observations.models import Observation, SubjectStatus, Subject, EMPTY_POINT, SubjectSource, SubjectStatus
-from observations.utils import VIEW_END_WINDOWS
+from observations.models import Observation, SubjectStatus, Subject, EMPTY_POINT, SubjectSource, SubjectStatus, SubjectGroup
+from observations.utils import VIEW_END_WINDOWS, VIEW_SUBJECTGROUP_PERMS
+from accounts.models import PermissionSet
 
 logger = logging.getLogger(__name__)
 
@@ -93,3 +96,25 @@ def create_proxy_permissions(**kwargs):
                                              })
 
 post_migrate.connect(create_proxy_permissions)
+
+def create_view_permissionset():
+    user = auth.get_user_model()
+    content_type = ContentType.objects.get_for_model(SubjectGroup)
+    permission, _ = models.Permission.objects.get_or_create(
+        codename='view_subjectgroup',
+        content_type=content_type,
+        defaults={'name': 'Permission to view a subject group'})
+
+    permission_set, _ = PermissionSet.objects.get_or_create(
+        name='View SubjectGroup')
+    permission_set.permissions.add(permission)
+
+
+@receiver(post_save, sender=SubjectGroup)
+def auto_create_view_perm(sender, instance, created, **kwargs):
+    if created:
+        create_view_permissionset()
+        permission_set = PermissionSet.objects.get(name='View SubjectGroup')
+
+        queryset = SubjectGroup.objects.get(id=instance.id)
+        queryset.permission_sets.add(permission_set)
