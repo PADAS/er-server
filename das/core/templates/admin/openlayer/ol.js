@@ -202,13 +202,13 @@ map.on('moveend', (event) => {
 });
 
 
-var zoom = sessionStorage.getItem("zoomLevel");
-// if zoom was saved in sessionstorage, then use it to zoom the map else default to numZoomLevels
-if (zoom !== null) {
-    map.getView().setZoom(zoom);
-} else {
-    zoom = options.numZoomLevels
-}
+// var zoom = sessionStorage.getItem("zoomLevel");
+// // if zoom was saved in sessionstorage, then use it to zoom the map else default to numZoomLevels
+// if (zoom !== null) {
+//     map.getView().setZoom(zoom);
+// } else {
+//     zoom = options.numZoomLevels
+// }
 
 
 // Geometric Object
