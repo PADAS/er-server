@@ -406,16 +406,42 @@ var TileLayerHTML = function(id, icon_url, name, title){
     cardDiv.insertAdjacentHTML('beforeend', HTML);
 };
 
+var dynamicActive = function(id){
+    var activeState;
+    activeState = document.getElementsByClassName('active');
+    if(activeState.length == 0){
+        document.getElementById(id).parentElement.className += ' active';
+    }else{
+        var current = activeState;
+        current[0].className = current[0].className.replace(" active", '');
+        document.getElementById(id).parentElement.className += ' active';
+
+    }
+
+};
 
 var switchBaseMapLayer = function(layer){
     map.getLayers().removeAt(0)
     map.getLayers().insertAt(0, layer);
+    console.log(layer)
+    // localStorage.tileLayer = JSON.stringify(layer);
+    localStorage.setItem('tileLayerss', JSON.stringify(layer) )
 };
+
+
+
+var layer = JSON.parse(localStorage.getItem('tileLayerss'))
+// console.log(Object.keys(layer));
+// // console.log(document.createElement('click'));
+// console.log(Object.keys(raster));
+
+// switchBaseMapLayer(layer);
 
 var eventListener = function(id){
     document.querySelectorAll(`[id^="${id}"]`).forEach(function(element){
         element.addEventListener('click', function(event){
             event.preventDefault();
+            dynamicActive(id);
 
             var layers = CreateTileLayer();
             layers.forEach(function (layer) {
@@ -449,17 +475,23 @@ var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
 });
 
 
+
 // Default option for OSM:
 var osmIConUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Openstreetmap_logo.svg/1200px-Openstreetmap_logo.svg.png';
 TileLayerHTML('osm_', osmIConUrl, 'osm', 'OSM');
 document.querySelectorAll('[id^="osm_"]').forEach(function(element){
     element.addEventListener('click', function(event){
         event.preventDefault();
+        raster = sessionStorage.getItem('tileLayer');
         switchBaseMapLayer(raster);
     });
 
 });
 
+// raster = sessionStorage.getItem('tileLayer');
+// sessionStorage.clear();
+// console.log(raster);
+// switchBaseMapLayer(raster);
 
 // console.log(document.querySelectorAll('[id^="osm_"]'));
 
