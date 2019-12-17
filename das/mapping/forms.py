@@ -5,7 +5,8 @@ from django.contrib.gis.geos import Point
 from django.contrib.postgres.forms import JSONField
 
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
-from mapping.models import Map, TileLayer, SpatialFeatureGroupStatic
+from mapping.models import Map, TileLayer, SpatialFeatureGroupStatic, \
+    FeatureType
 from choices.models import Choice
 
 
@@ -122,3 +123,28 @@ class SpatialFeatureGroupStaticForm(forms.ModelForm):
     class Meta:
         model = SpatialFeatureGroupStatic
         fields = ('spatialfeaturegroupstatic',)
+
+
+class PresentationWidget(forms.Textarea):
+    template_name = 'admin/mapping/featuretype/presentation_textarea.html'
+
+    def __init__(self, attrs=None):
+        # Use slightly better defaults than HTML's 20x2 box
+        default_attrs = {'cols': '50', 'rows': '100'}
+        if attrs:
+            default_attrs.update(attrs)
+        super().__init__(default_attrs)
+
+    class Media:
+        css = {
+            'all': ('css/presentation_textarea.css',),
+        }
+
+
+class FeatureTypeForm(forms.ModelForm):
+    presentation = forms.CharField(widget=PresentationWidget(
+        attrs={'rows': 20, 'cols': 80}))
+
+    class Meta:
+        model = FeatureType
+        fields = ['id', 'name', 'presentation',]

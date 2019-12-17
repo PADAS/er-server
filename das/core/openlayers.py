@@ -3,7 +3,10 @@ from django.utils import translation
 from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.contrib.gis.admin.widgets import OpenLayersWidget
+from django.db.models import F
+import json
 
+from mapping.models import TileLayer
 from core.admin import SaveCoordinatesToCookieMixin
 
 geo_context = {'LANGUAGE_BIDI': translation.get_language_bidi()}
@@ -66,11 +69,19 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
     map_srid = 4326
     display_wkt = True
     num_zoom = 19
+    map_width = 800
+    map_height = 600
     units = 'degrees'
 
     gis_geometry_field_name = 'feature_geometry'
 
     widget = OlWidget
+
+
+    def get_map_widget(self, db_field):
+        OLMap = super().get_map_widget(db_field)
+        OLMap.params['tile_layers'] = [baselayer_conf for baselayer_conf in TileLayer.objects.values('attributes')]
+        return OLMap
 
     def get_form(self, request, obj=None, **kwargs):
         if not obj:

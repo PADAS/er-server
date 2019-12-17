@@ -305,7 +305,7 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
                     'all_permission_sets', 'is_active')
     list_editable = ('is_active',)
     list_display_links = ('display_name', )
-    list_filter = ('is_active', 'is_staff', 'permission_sets')
+    list_filter = ('is_active', 'is_staff', 'is_superuser', 'permission_sets')
     filter_horizontal = ('permission_sets',)
     form = UserAdditionalForm
     add_form = CustomUserCreationForm

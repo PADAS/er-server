@@ -179,3 +179,13 @@ def check_to_include_inactive_subjects(request, full_queryset):
     except Exception:
         pass
     return queryset
+
+
+def assigned_range_dates(o):
+    # return subject source assigned range dates
+    start_date, end_date = o.safe_assigned_range.lower, o.safe_assigned_range.upper
+    if start_date.year <= 1000:
+        start_date = '-'
+    if end_date.year >= 9999:
+        end_date = '-'
+    return start_date, end_date

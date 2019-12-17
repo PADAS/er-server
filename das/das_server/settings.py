@@ -215,6 +215,9 @@ DATABASE_ROUTERS = [
     'vectronics.db_routing.routers.MigrationRouter'
 ]
 
+# To enable or disable subject regions view on admin dashboard
+SUBJECT_REGION_ENABLED = False
+
 # Do not use Django logging config
 LOGGING_CONFIG = None
 
