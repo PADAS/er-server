@@ -12,6 +12,10 @@ variable "kubernetes_namespace" {
   type = string
 }
 
+variable "SITE_IP_ADDRESS" {
+  type = string
+}
+
 variable "SERVER_VERSION" {
   type = string
 }

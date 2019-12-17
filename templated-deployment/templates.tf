@@ -20,5 +20,6 @@ resource "template_dir" "deployments" {
     KUBERNETES_NAMESPACE = var.kubernetes_namespace
     SERVER_VERSION       = var.SERVER_VERSION
     WEB_VERSION          = var.WEB_VERSION
+    SITE_IP_ADDRESS      = var.site_ip_address
   }
 }
