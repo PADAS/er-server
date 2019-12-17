@@ -1,7 +1,7 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  namespace: <<namespace>>
+  namespace: "${KUBERNETES_NAMESPACE}"
   name: nginx
 spec:
   template:
@@ -12,7 +12,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: gcr.io/padas-app/nginx:<<server-version>>
+      - image: "${NGINX_IMAGE}"
         name: das-nginx
         resources:
           requests:

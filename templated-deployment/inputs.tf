@@ -16,6 +16,11 @@ variable "site_ip_address" {
   type = string
 }
 
+variable "nginx_image" {
+  type = string
+  default = "gcr.io/padas-app/nginx:latest"
+}
+
 variable "SERVER_VERSION" {
   type = string
 }
