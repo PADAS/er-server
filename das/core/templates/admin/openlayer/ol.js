@@ -201,16 +201,6 @@ map.on('moveend', (event) => {
     sessionStorage.setItem("zoomLevel", newZoom);
 });
 
-
-// var zoom = sessionStorage.getItem("zoomLevel");
-// // if zoom was saved in sessionstorage, then use it to zoom the map else default to numZoomLevels
-// if (zoom !== null) {
-//     map.getView().setZoom(zoom);
-// } else {
-//     zoom = options.numZoomLevels
-// }
-
-
 // Geometric Object
 var createGeometricObject = function(innerHTML, geoType, className){
     var button = document.createElement('button');
@@ -503,5 +493,14 @@ if(wkt) {
 
     if (source.getFeatures()[0].getGeometry().getType() == 'Point' || '{{ geom_type }}' == 'MultiPoint'){
         map.getView().setZoom(map.getView().getZoom()-8);
+    }
+} else {
+    // if loading a new gis feature, use the saved zoomlevel
+    var zoom = sessionStorage.getItem("zoomLevel");
+    // if zoom was saved in sessionstorage, then use it to zoom the map else default to numZoomLevels
+    if (zoom !== null) {
+        map.getView().setZoom(zoom);
+    } else {
+        zoom = options.numZoomLevels
     }
 }};
