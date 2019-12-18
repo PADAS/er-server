@@ -16,10 +16,11 @@ import json
 import jsonschema
 from core.utils import OneWeekSchedule
 from activity.alerting.conditions import Conditions
-from activity.models import EventProvider, NotificationMethod, EventType
+from activity.models import EventProvider, NotificationMethod, EventType, Event
 from utils.schema_utils import get_schema_renderer_method, \
     validate_rendered_schema_is_wellformed
 from core.widget import IconKeyInput, get_icon_select_list
+from core.common import TIMEZONE_USED
 
 logger = logging.getLogger(__name__)
 
@@ -175,3 +176,13 @@ class EventProviderForm(JSONFieldFormMixin, forms.ModelForm):
                        'provider_password', 'provider_token',
                        'icon_url', 'external_event_url',)
         fields = ('additional',) + json_fields
+
+
+class EventForm(forms.ModelForm):
+    class Meta:
+        labels = {
+            'created_at': f'Created at {TIMEZONE_USED}',
+            'updated_at': f'Updated at {TIMEZONE_USED}',
+            'event_time': f'Event time in {TIMEZONE_USED}',
+            'end_time': f'End Time in {TIMEZONE_USED}'
+        }

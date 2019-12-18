@@ -251,7 +251,7 @@ class LargeTablePaginator(Paginator):
 
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
-    list_display = ('subject_link', '_manufacturer_id', 'recorded_at', '_created_at',
+    list_display = ('subject_link', '_manufacturer_id', '_recorded_at', '_created_at',
                     '_longitude', '_latitude', '_state', '_event_action')
     date_hierarchy = 'recorded_at'
     list_display_links = None
@@ -294,8 +294,12 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
         return o.manufacturer_id
 
     def _created_at(self, o):
-        return o.recorded_at
+        return o.created_at
     _created_at.short_description = 'row created at %s' % TIMEZONE_USED
+
+    def _recorded_at(self, o):
+        return o.recorded_at
+    _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
 
     def get_actions(self, request):
         actions = super().get_actions(request)
@@ -539,7 +543,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         subjectsources = list(set_current_flag(o)
                               for o in subjectsources.values())
         content = render_to_string(
-            'admin/subjectsource.html', {'subjectsources': list(subjectsources)})
+            'admin/subjectsource.html', {'subjectsources': list(subjectsources), 'timezone': TIMEZONE_USED})
 
         return format_html(content)
 
@@ -557,6 +561,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
             source__subjectsource__assigned_range__contains=F('recorded_at')).order_by('-recorded_at')\
             .values('source__manufacturer_id', 'recorded_at', 'location', 'additional')
         extra_context['observations'] = latest_observations[:25]
+        extra_context['timezone'] = TIMEZONE_USED
 
         extra_context['subject_id'] = str(object_id)
         return super().change_view(
