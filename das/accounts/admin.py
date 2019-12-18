@@ -446,7 +446,7 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
     def _last_login(self, instance):
         return instance.last_login if instance.last_login else 'Never Logged in'
 
-    _last_login.short_description = _('Last Login %s' % TIMEZONE_USED)
+    _last_login.short_description = _('Last Login In %s' % TIMEZONE_USED)
     _last_login.admin_order_field = 'last_login'
 
 

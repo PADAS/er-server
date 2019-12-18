@@ -10,11 +10,11 @@
             <td>{{ item.provider_display }}</td>
         </tr>
         <tr>
-            <td>From {{ timezone }}:</td>
+            <td>From in {{ timezone }}:</td>
             <td>{{ item.assigned_range.lower.strftime('%Y-%m-%d %H:%M:%SZ') }}</td>
         </tr>
         <tr>
-            <td>To {{ timezone }}:</td>
+            <td>To in {{ timezone }}:</td>
             <td>{{ item.assigned_range.upper.strftime('%Y-%m-%d %H:%M:%SZ') }}</td>
         </tr>
     </table>
