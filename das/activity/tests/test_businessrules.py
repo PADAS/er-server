@@ -465,7 +465,7 @@ class BusinessRulesTestCase(BaseAPITest):
         }
 
         event_data = dict(
-            state='active',
+            # state='active',
             title='Test Event No. 1',
             event_time=datetime.now(tz=pytz.utc),
             provenance=Event.PC_STAFF,
