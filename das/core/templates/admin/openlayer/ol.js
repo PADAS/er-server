@@ -417,7 +417,7 @@ var dynamicActive = function(id){
         document.getElementById(id).parentElement.className += ' active';
     }else{
         var current = activeState;
-        current[0].className = current[0].className.replace(" active", '');
+        current[0].className = current[0].className.replace(' active', '');
         document.getElementById(id).parentElement.className += ' active';
     }
 };
@@ -488,6 +488,7 @@ TileLayerHTML('osm_', osmIConUrl, 'osm', 'OSM');
 document.querySelectorAll('[id^="osm_"]').forEach(function(element){
     element.addEventListener('click', function(event){
         event.preventDefault();
+        dynamicActive('osm_');
         switchBaseMapLayer(raster);
     });
 
