@@ -17,7 +17,7 @@ variable "site_ip_address" {
 }
 
 variable "nginx_image" {
-  type = string
+  type    = string
   default = "gcr.io/padas-app/nginx:latest"
 }
 
@@ -50,7 +50,7 @@ variable "config_container" {
 }
 
 variable "db_name" {
-  type    = string
+  type = string
 }
 
 variable "db_port" {

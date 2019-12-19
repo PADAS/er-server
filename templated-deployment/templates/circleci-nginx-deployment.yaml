@@ -27,11 +27,11 @@ spec:
           value: "${WEB_SERVICE_NAME}"
         - name: BUNDLE_CRT
           valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: BUNDLE_CRT
+            secretKeyRef:
+              name: pamdas-org-ssl-cert
+              key: value
         - name: PAMDAS_ORG_PRIVATE_KEY_PEM
           valueFrom:
-            configMapKeyRef:
-              name: default-configmap
-              key: PAMDAS_ORG_PRIVATE_KEY_PEM
+            secretKeyRef:
+              name: pamdas-org-ssl-key
+              key: value

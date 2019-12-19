@@ -34,3 +34,27 @@ resource "kubernetes_secret" "db_password" {
   data = data.vault_generic_secret.db_password.data
 }
 
+resource "kubernetes_secret" "pamdas_org_ssl_ca" {
+  metadata {
+    name      = "pamdas-org-ssl-ca"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+  data = data.vault_generic_secret.pamdas_org_ssl_ca.data
+}
+
+resource "kubernetes_secret" "pamdas_org_ssl_cert" {
+  metadata {
+    name      = "pamdas-org-ssl-cert"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+  data = data.vault_generic_secret.pamdas_org_ssl_cert.data
+}
+
+resource "kubernetes_secret" "pamdas_org_ssl_key" {
+  metadata {
+    name      = "pamdas-org-ssl-key"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+  data = data.vault_generic_secret.pamdas_org_ssl_key.data
+}
+
