@@ -28,10 +28,10 @@ spec:
         - name: BUNDLE_CRT
           valueFrom:
             secretKeyRef:
-              name: pamdas-org-ssl-cert
+              name: pamdas-org-ssl-cert-bundle
               key: value
         - name: PAMDAS_ORG_PRIVATE_KEY_PEM
           valueFrom:
             secretKeyRef:
-              name: pamdas-org-ssl-key
+              name: pamdas-org-private-key-pem
               key: value

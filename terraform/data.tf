@@ -14,14 +14,10 @@ data "vault_generic_secret" "email_password" {
   path = "${local.legacy_vault_path}/email-password"
 }
 
-data "vault_generic_secret" "pamdas_org_ssl_key" {
-  path = "${local.legacy_vault_path}/pamdas-org-ssl-key"
+data "vault_generic_secret" "pamdas_org_private_key_pem" {
+  path = "${local.legacy_vault_path}/pamdas-org-private-key-pem"
 }
 
-data "vault_generic_secret" "pamdas_org_ssl_cert" {
-  path = "${local.legacy_vault_path}/pamdas-org-ssl-cert"
-}
-
-data "vault_generic_secret" "pamdas_org_ssl_ca" {
+data "vault_generic_secret" "pamdas_org_ssl_cert_bundle" {
   path = "${local.legacy_vault_path}/pamdas-org-ssl-ca"
 }
