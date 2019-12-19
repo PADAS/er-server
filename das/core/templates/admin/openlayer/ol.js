@@ -406,8 +406,12 @@ var TileLayerHTML = function(id, icon_url, name, title){
     cardDiv.insertAdjacentHTML('beforeend', HTML);
 };
 
+var setLocalStorage = function (key, id) {
+    localStorage.setItem(key, id);
+};
 var dynamicActive = function(id){
     var activeState;
+    setLocalStorage('baselayer', id);
     activeState = document.getElementsByClassName('active');
     if(activeState.length == 0){
         document.getElementById(id).parentElement.className += ' active';
@@ -415,27 +419,14 @@ var dynamicActive = function(id){
         var current = activeState;
         current[0].className = current[0].className.replace(" active", '');
         document.getElementById(id).parentElement.className += ' active';
-
     }
-
 };
 
 var switchBaseMapLayer = function(layer){
     map.getLayers().removeAt(0)
     map.getLayers().insertAt(0, layer);
-    console.log(layer)
-    // localStorage.tileLayer = JSON.stringify(layer);
-    localStorage.setItem('tileLayerss', JSON.stringify(layer) )
 };
 
-
-
-var layer = JSON.parse(localStorage.getItem('tileLayerss'))
-// console.log(Object.keys(layer));
-// // console.log(document.createElement('click'));
-// console.log(Object.keys(raster));
-
-// switchBaseMapLayer(layer);
 
 var eventListener = function(id){
     document.querySelectorAll(`[id^="${id}"]`).forEach(function(element){
@@ -453,6 +444,17 @@ var eventListener = function(id){
         })
     });
 
+};
+
+
+var tileLayerSession = function(id){
+    var layers = CreateTileLayer()
+    layers.forEach(function (layer){
+        if (Object.keys(layer)[0] == id){
+            layer = Object.values(layer)[0];
+            switchBaseMapLayer(layer);
+        }
+    });
 };
 
 var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
@@ -475,6 +477,10 @@ var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
 });
 
 
+var tileFromStorageId = localStorage.getItem('baselayer');
+if (tileFromStorageId != null ){
+    tileLayerSession(tileFromStorageId);
+}
 
 // Default option for OSM:
 var osmIConUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Openstreetmap_logo.svg/1200px-Openstreetmap_logo.svg.png';
@@ -482,16 +488,12 @@ TileLayerHTML('osm_', osmIConUrl, 'osm', 'OSM');
 document.querySelectorAll('[id^="osm_"]').forEach(function(element){
     element.addEventListener('click', function(event){
         event.preventDefault();
-        raster = sessionStorage.getItem('tileLayer');
         switchBaseMapLayer(raster);
     });
 
 });
 
-// raster = sessionStorage.getItem('tileLayer');
-// sessionStorage.clear();
-// console.log(raster);
-// switchBaseMapLayer(raster);
+
 
 // console.log(document.querySelectorAll('[id^="osm_"]'));
 
