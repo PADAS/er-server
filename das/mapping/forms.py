@@ -1,4 +1,5 @@
 from math import isclose
+
 from django import forms
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from django.contrib.gis.geos import Point
@@ -118,7 +119,8 @@ class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
 
 
 class SpatialFeatureGroupStaticForm(forms.ModelForm):
-    spatialfeaturegroupstatic = forms.ModelChoiceField(queryset=SpatialFeatureGroupStatic.objects.all(), label='Spatial Feature Group Static')
+    spatialfeaturegroupstatic = forms.ModelChoiceField(
+        queryset=SpatialFeatureGroupStatic.objects.all(), label='Spatial Feature Group Static')
 
     class Meta:
         model = SpatialFeatureGroupStatic
@@ -142,9 +144,9 @@ class PresentationWidget(forms.Textarea):
 
 
 class FeatureTypeForm(forms.ModelForm):
-    presentation = forms.CharField(widget=PresentationWidget(
+    presentation = JSONField(widget=PresentationWidget(
         attrs={'rows': 20, 'cols': 80}))
 
     class Meta:
         model = FeatureType
-        fields = ['id', 'name', 'presentation',]
+        fields = ['id', 'name', 'presentation', ]
