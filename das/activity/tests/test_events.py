@@ -1804,6 +1804,23 @@ class TestEventView(BaseAPITest):
         self.assertIn('monitoring', category_values)
         self.assertIn('logistics', category_values)
 
+    def test_property_name_same_as_enum_name(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['event_type'] = ET_CARCASS
+        event_data['event_details'] = {"carcassrep_species": "elephant",
+                                       "carcassrep_sex": "male",
+                                       "carcassrep_ageofanimal": "adult",
+                                       "carcassrep_ageofcarcass": "fresh",
+                                       "carcassrep_trophystatus": "intact",
+                                       "carcassrep_causeofdeath": "naturaldisease"}
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        event_details = response.data.get('event_details')
+        for k, v in event_details.items():
+            self.assertNotIsInstance(v, dict)
+        self.assertEqual(response.status_code, 201)
+
 
 class TestParsing(TestCase):
 

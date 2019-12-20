@@ -825,8 +825,6 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                         all_values.append(matches[0])
                 if len(all_values) > 0:
                     ret[k] = all_values
-            elif type(v) == str and k in parameters and v in parameters[k]:
-                ret[k] = {'name': parameters[k][v], 'value': v}
             else:
                 ret[k] = v
         return ret
