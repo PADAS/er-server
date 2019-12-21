@@ -9,6 +9,7 @@ from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDate
 from mapping.models import Map, TileLayer, SpatialFeatureGroupStatic, \
     FeatureType
 from choices.models import Choice
+from core.common import TIMEZONE_USED
 
 
 class MapCenterForm(forms.ModelForm):
@@ -70,6 +71,10 @@ class TileLayerForm(forms.ModelForm):
     class Meta:
         fields = '__all__'
         model = TileLayer
+        labels = {
+            'created_at': f'Created at {TIMEZONE_USED}',
+            'updated_at': f'Updated at {TIMEZONE_USED}',
+        }
 
 
 class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
