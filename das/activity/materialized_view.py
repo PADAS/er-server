@@ -42,6 +42,9 @@ def query_statement(json_path, data_type):
 
     if data_type == 'TEXT[]':
         query_string = f"case when jsonb_typeof(data#> '{{{array_path}}}') = 'array' then array(select jsonb_array_elements(data#>'{{{array_path}}}')->>'name') end as {json_path[1]}"
+    elif data_type == 'NUMERIC':
+        # Wrap in a function that'll safely coerce values to NUMERIC.
+        query_string = f'TO_NUMERIC((data#>>\'{{{path}}}\')::TEXT) as "{json_path[1]}"'
     else:
         query_string = f'(data#>>\'{{{path}}}\')::{data_type} as "{json_path[1]}"'
     return query_string
@@ -71,10 +74,8 @@ def check_db_view_exists():
 def re_create_view():
     if check_db_view_exists():
         cursor = _cursor()
-        cursor.execute(f'DROP MATERIALIZED VIEW {table_name}')
-        execute_DDL()
-    else:
-        execute_DDL()
+        cursor.execute(f'DROP MATERIALIZED VIEW IF EXISTS {table_name}')
+    execute_DDL()
 
 
 def refresh_materialized_view():
@@ -93,17 +94,13 @@ def generate_field_details(schema_accumulator):
 
         for prop_key, prop_val in properties.items():
 
-            prop_type = prop_val.get('type', '')
-            prop_hash = f'{prop_key}:{prop_type}'
-            if prop_hash in used_properties:
+            if prop_key in used_properties:
                 continue
-            used_properties.add(prop_hash)
+            used_properties.add(prop_key)
 
-            prop_key = f"{prop_key}"
             if prop_val.get('enum'):
                 if prop_val.get('type') == 'string':
                     yield ('event_details', prop_key, 'name'), 'TEXT'
-
 
             elif prop_val.get('type') == 'string':
                 yield ('event_details', prop_key), 'TEXT'
@@ -111,5 +108,6 @@ def generate_field_details(schema_accumulator):
             elif prop_val.get('type') == 'number':
                 yield ('event_details', prop_key), 'NUMERIC'
 
-            elif bool({'checkboxes', 'array'} & set(prop_val.values())):
+            # elif bool({'checkboxes', 'array'} & set(prop_val.values())):
+            elif prop_val.get('type') == 'array' or prop_val.get('type') == "checkboxes":
                 yield ('event_details', prop_key, 'name'), 'TEXT[]'

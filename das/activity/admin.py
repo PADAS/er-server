@@ -10,13 +10,15 @@ from django.http import HttpResponseRedirect
 from django.contrib import messages
 
 import activity.models as models
-from activity.forms import EventTypeForm
+from activity.forms import EventTypeForm, EventForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
 from core.openlayers import OSMGeoExtendedAdmin
-from activity.tasks import refresh_event_details_views, recreate_event_details_views
+from activity.tasks import refresh_event_details_view, recreate_event_details_view
+from core.common import TIMEZONE_USED
 
 logger = logging.getLogger(__name__)
+
 
 class EventRelationshipInline(admin.TabularInline):
     model = models.EventRelationship
@@ -32,8 +34,9 @@ class EventAdmin(OSMGeoExtendedAdmin):
     # openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
     # wms_layer = 'terrain,overlay'
     # wms_url = 'http://tiles.maps.eox.at/wms/'
+    form = EventForm
 
-    list_display = ('serial_number', 'created_at', 'event_type',
+    list_display = ('serial_number', '_created_at', 'event_type',
                     'title', 'location', 'attributes',)
     readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
     search_fields = ('title', 'serial_number')
@@ -56,6 +59,10 @@ class EventAdmin(OSMGeoExtendedAdmin):
 
     def resolve_event(self, request, queryset):
         queryset.update(state=models.Event.SC_RESOLVED)
+
+    def _created_at(self, o):
+        return o.created_at
+    _created_at.short_description = 'created at %s' % TIMEZONE_USED
 
     resolve_event.short_description = "Resolve Selected Events(Reports)"
 
@@ -283,7 +290,9 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     # NOTE: This class relies on celery.
 
     change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
-    list_display = ('performed_by', 'refresh_at', 'recreated_at', 'maintenance_status')
+    list_display = ('performed_by', 'refresh_at',
+                    'recreated_at', 'maintenance_status')
+
     enable_change_view = False
 
     def get_urls(self):
@@ -300,27 +309,28 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
     def manage_task_status(self, request, task, status, qs_method, name):
         action = 'Admin'
-        
+
         while not task.ready():
             logger.info(f'State={task.state}, info={task.info}')
             time.sleep(0.5)
 
         if task.state == 'SUCCESS':
             qs_method(activity=action, status=status)
-            self.message_user(request, f"Successfully {name} 'event_detail_view'")
+            self.message_user(
+                request, f"Successfully {name} 'event_detail_view'")
         if task.state == 'FAILURE':
             qs_method(activity=action, status=task.state)
-            self.message_user(request,f"Failed to {name} 'event_detail_view'", messages.ERROR)
+            self.message_user(
+                request, f"Failed to {name} 'event_detail_view'", messages.ERROR)
         if task.state == 'RETRY':
-            qs_method(activity=type_, status=task.state)
-            self.message_user(request, f"Retry again to {name} 'event_detail_view'",  messages.WARNING)
+            qs_method(activity=action, status=task.state)
+            self.message_user(
+                request, f"Retry again to {name} 'event_detail_view'",  messages.WARNING)
 
         return HttpResponseRedirect("../")
 
-
-
     def refresh_view(self, request):
-        task = refresh_event_details_views.delay()
+        task = refresh_event_details_view.apply_async(args=('Admin',))
         status = self.model.REFRESH
         qs_method = self.model.objects.refresh
         name = 'refresh'
@@ -331,7 +341,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
                                        name=name)
 
     def recreate_view(self, request):
-        task = recreate_event_details_views.delay()
+        task = recreate_event_details_view.delay()
         status = self.model.SUCCESS
         qs_method = self.model.objects.recreate
         name = 'recreate'
