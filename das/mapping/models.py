@@ -646,7 +646,7 @@ class SpatialFilesBase(TimestampedModel):
             else:
                 import_file = uploaded_file_path
             if import_file:
-                self.call_mgt_command(import_file)
+                return import_file
             else:
                 raise ValidationError(
                     f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')
@@ -678,20 +678,25 @@ class SpatialFilesBase(TimestampedModel):
         Overwriting clean method to have error handling within the admin form.
         """
         self.save()
-        uploaded_file_path = self.data.path
-        uploaded_file_directory = os.path.dirname(uploaded_file_path)
-        try:
-            self.import_spatial_file(uploaded_file_path,
-                                     uploaded_file_directory)
-        except ValidationError as err:
-            self.__class__.objects.filter(id=self.id).delete()
-            raise ValidationError(
-                'Error in retrieving features from spatial file:    {}\n '
-                'Please verify the spatial file.'.format(err)
-            )
-        finally:
-            self.cleanup_files(uploaded_file_directory, uploaded_file_path)
-            self.data.name = ''
+        data_file = self.get_upload_file(self.data)
+        spatial_types_file = self.get_upload_file(self.feature_types_file)
+        self.call_mgt_command(data_file, spatial_types_file)
+
+    def get_upload_file(self, upload_file):
+        if upload_file:
+            uploaded_file_directory = os.path.dirname(upload_file.path)
+            try:
+                return self.import_spatial_file(
+                    upload_file.path, uploaded_file_directory)
+            except ValidationError as err:
+                self.__class__.objects.filter(id=self.id).delete()
+                raise ValidationError(
+                    'Error in retrieving features from spatial file:    {}\n '
+                    'Please verify the spatial file.'.format(err)
+                )
+            # finally:
+            #     self.cleanup_files(uploaded_file_directory, upload_file.path)
+            #     upload_file.name = ''
 
     def __str__(self):
         return str(self.id)
@@ -702,16 +707,23 @@ class SpatialFeatureFile(SpatialFilesBase):
     Special Feature loaded from uploaded shapefile
     """
     feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
+    feature_types_file = models.FileField(storage=TempStorage(), blank=True, null=True)
 
     class Meta:
         verbose_name = 'Spatial Feature File'
 
-    def call_mgt_command(self, import_file):
-        management.call_command(
-            'importlayer', 'importspatialfile', import_file,
-            featuretype=self.feature_type, layer=self.layer_number,
-            name_field=self.name_field, id_field=self.id_field
-        )
+    def call_mgt_command(self, data_file, spatial_types_file):
+        if spatial_types_file:
+            management.call_command(
+                'import_spatial', data_file,
+                feature_types=spatial_types_file
+            )
+        else:
+            management.call_command(
+                'importlayer', 'importspatialfile', data_file,
+                featuretype=self.feature_type, layer=self.layer_number,
+                name_field=self.name_field, id_field=self.id_field
+            )
 
 
 class SpatialLayerFile(SpatialFilesBase):
