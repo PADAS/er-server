@@ -2,6 +2,7 @@ import logging
 import os
 
 from django import forms
+from django.contrib import messages
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.forms.widgets import Widget
 from django.utils.translation import ugettext_lazy as _
@@ -75,7 +76,7 @@ def validate_schema_is_well_formed(schema):
 
 class EventTypeForm(forms.ModelForm):
     schema = forms.CharField(widget=SchemaWidget(
-        attrs={'rows': 30, 'cols': 100}), validators=[validate_schema_is_well_formed])
+        attrs={'rows': 30, 'cols': 100}))
 
     icon = forms.CharField(required=False,
                            label='Icon Override',
@@ -84,6 +85,23 @@ class EventTypeForm(forms.ModelForm):
     class Meta:
         model = EventType
         fields = ['icon', 'schema']
+
+    def clean_schema(self):
+        data = self.cleaned_data['schema']
+        name = self.cleaned_data['display']
+        schema_warning = f'Warning: The event type schema for {name} is not properly formatted JSON. The event type might not properly render in the EarthRanger client.'
+        try:
+            rendered_schema = get_schema_renderer_method()(data)
+        except NameError as ne:
+            messages.add_message(self.request, messages.WARNING, schema_warning)
+        except Exception:
+            messages.add_message(self.request, messages.WARNING, schema_warning)
+        else:
+            try:
+                validate_rendered_schema_is_wellformed(rendered_schema)
+            except SchemaValidationError as e:
+                messages.add_message(self.request, messages.WARNING, schema_warning)
+        return data
 
 
 class NotificationMethodSelectField(forms.ModelMultipleChoiceField):

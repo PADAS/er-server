@@ -118,6 +118,7 @@ class EventTypeAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
+        form.request = request
         return form
 
     def get_event_source_link(self, object_id):
