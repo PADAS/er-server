@@ -128,9 +128,15 @@ server_semver_file := $(CURDIR)/../SERVER_VERSION
 web_default_branch := develop
 web_gcr_path_default_branch := $(gcr_web_root)/$(web_default_branch)
 
+ingress_manifest_key := INGRESS_VERSION
+gcr_ingress_root := gcr.io/padas-app/circleci/das-ingress
+ingress_default_branch := develop
+ingress_gcr_path_default_branch := $(gcr_ingress_root)/$(ingress_default_branch)
+
 current_branch := $(shell echo "$$(git rev-parse --quiet --verify --abbrev-ref HEAD || exit 1)")
 descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 descriptive_web_gcr_path := $(gcr_web_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
+descriptive_ingress_gcr_path := $(gcr_ingress_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 
 
 .PHONY: build_and_push
@@ -165,6 +171,9 @@ $(manifest_file):
 	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_web_gcr_path)" manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
 	  $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(web_gcr_path_default_branch)" manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
 		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_web_gcr_path)'.\e[0m\n" >&2; exit 1)
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_ingress_gcr_path)" manifest_key="$(ingress_manifest_key)" > /dev/null 2>&1 || \
+	  $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(ingress_gcr_path_default_branch)" manifest_key="$(ingress_manifest_key)" > /dev/null 2>&1 || \
+		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_ingress_gcr_path)'.\e[0m\n" >&2; exit 1)
 
 .PHONY: append_to_manifest
 append_to_manifest: gcr_path :=

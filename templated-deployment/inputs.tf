@@ -16,9 +16,9 @@ variable "site_ip_address" {
   type = string
 }
 
-variable "nginx_image" {
+variable "INGRESS_VERSION" {
   type    = string
-  default = "gcr.io/padas-app/nginx:latest"
+  default = "gcr.io/padas-app/circleci/develop:latest"
 }
 
 variable "SERVER_VERSION" {

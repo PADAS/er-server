@@ -21,6 +21,6 @@ resource "template_dir" "deployments" {
     SERVER_VERSION       = var.SERVER_VERSION
     WEB_VERSION          = var.WEB_VERSION
     SITE_IP_ADDRESS      = var.site_ip_address
-    NGINX_IMAGE          = var.nginx_image
+    INGRESS_VERSION      = var.INGRESS_VERSION
   }
 }

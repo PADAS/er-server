@@ -12,7 +12,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - image: "${NGINX_IMAGE}"
+      - image: "${INGRESS_VERSION}"
         name: das-nginx
         resources:
           requests:
