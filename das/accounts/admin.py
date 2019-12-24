@@ -15,6 +15,11 @@ from django.shortcuts import get_object_or_404
 from django.template import loader
 from django.utils.crypto import get_random_string
 from django.utils.translation import ugettext_lazy as _
+from oauth2_provider.models import (get_access_token_model,
+                                    get_application_model, get_grant_model,
+                                    get_refresh_token_model)
+from oauth2_provider.admin import (AccessTokenAdmin, GrantAdmin,
+                                   RefreshTokenAdmin)
 
 from accounts.models import User, PermissionSet
 from choices.models import Choice
@@ -22,6 +27,7 @@ from core.forms_utils import JSONFieldFormMixin
 from observations import kmlutils
 from utils.admin import DefaultFilterMixin
 from utils.html import make_html_list
+from core.common import TIMEZONE_USED
 
 
 class PermissionSetAdminForm(forms.ModelForm):
@@ -440,10 +446,68 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
     def _last_login(self, instance):
         return instance.last_login if instance.last_login else 'Never Logged in'
 
-    _last_login.short_description = _('Last Login')
+    _last_login.short_description = _('Last Login In %s' % TIMEZONE_USED)
     _last_login.admin_order_field = 'last_login'
 
 
 admin.site.register(User, UserAdmin)
 if admin.site.is_registered(django.contrib.auth.models.Group):
     admin.site.unregister(django.contrib.auth.models.Group)
+
+
+class AccessGrantForm(forms.ModelForm):
+    class Meta:
+        labels = {'expires': f'Expires in {TIMEZONE_USED}'}
+
+
+class RefreshForm(forms.ModelForm):
+    class Meta:
+        labels = {'revoked': f'Revoked in {TIMEZONE_USED}'}
+
+
+class GrantAdmin(admin.ModelAdmin):
+    form = AccessGrantForm
+    list_display = ("code", "application", "user", "expires")
+    raw_id_fields = ("user", )
+
+    def _expires(self, o):
+        return o.expires
+    _expires.short_description = 'expires in %s' % TIMEZONE_USED
+
+
+class AccessTokenAdmin(admin.ModelAdmin):
+    form = AccessGrantForm
+    list_display = ("token", "user", "application", "_expires")
+    raw_id_fields = ("user", )
+
+    def _expires(self, o):
+        return o.expires
+    _expires.short_description = 'expires in %s' % TIMEZONE_USED
+
+
+class RefreshTokenAdmin(admin.ModelAdmin):
+    form = RefreshForm
+    list_display = ("token", "user", "application", '_revoked')
+    raw_id_fields = ("user", "access_token")
+
+    def _revoked(self, o):
+        return o.revoked
+    _revoked.short_description = 'Revoked in %s' % TIMEZONE_USED
+
+
+Application = get_application_model()
+Grant = get_grant_model()
+AccessToken = get_access_token_model()
+RefreshToken = get_refresh_token_model()
+
+# AccessToken
+admin.site.unregister(AccessToken)
+admin.site.register(AccessToken, AccessTokenAdmin)
+
+# Grant
+admin.site.unregister(Grant)
+admin.site.register(Grant, GrantAdmin)
+
+# Refresh
+admin.site.unregister(RefreshToken)
+admin.site.register(RefreshToken, RefreshTokenAdmin)

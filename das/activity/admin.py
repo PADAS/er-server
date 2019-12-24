@@ -10,11 +10,12 @@ from django.http import HttpResponseRedirect
 from django.contrib import messages
 
 import activity.models as models
-from activity.forms import EventTypeForm
+from activity.forms import EventTypeForm, EventForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
 from core.openlayers import OSMGeoExtendedAdmin
 from activity.tasks import refresh_event_details_view, recreate_event_details_view
+from core.common import TIMEZONE_USED
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,9 @@ class EventAdmin(OSMGeoExtendedAdmin):
     # openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
     # wms_layer = 'terrain,overlay'
     # wms_url = 'http://tiles.maps.eox.at/wms/'
+    form = EventForm
 
-    list_display = ('serial_number', 'created_at', 'event_type',
+    list_display = ('serial_number', '_created_at', 'event_type',
                     'title', 'location', 'attributes',)
     readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
     search_fields = ('title', 'serial_number')
@@ -57,6 +59,10 @@ class EventAdmin(OSMGeoExtendedAdmin):
 
     def resolve_event(self, request, queryset):
         queryset.update(state=models.Event.SC_RESOLVED)
+
+    def _created_at(self, o):
+        return o.created_at
+    _created_at.short_description = 'created at %s' % TIMEZONE_USED
 
     resolve_event.short_description = "Resolve Selected Events(Reports)"
 
@@ -112,6 +118,7 @@ class EventTypeAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
+        form.request = request
         return form
 
     def get_event_source_link(self, object_id):

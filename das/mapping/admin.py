@@ -18,7 +18,7 @@ from django.db.models import Q
 
 import mapping.models as models
 from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, \
-    SpatialFeatureGroupStaticForm
+    SpatialFeatureGroupStaticForm, FeatureTypeForm
 from core.openlayers import OSMGeoExtendedAdmin
 
 
@@ -96,6 +96,7 @@ class PointFeatureAdmin(BaseFeatureAdmin):
 
 @admin.register(models.FeatureType)
 class FeatureTypeAdmin(admin.ModelAdmin):
+    form = FeatureTypeForm
     ordering = ('name', )
     list_display = ('name', )
 
