@@ -2,6 +2,7 @@ import logging
 import os
 
 from django import forms
+from django.contrib import messages
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.forms.widgets import Widget
 from django.utils.translation import ugettext_lazy as _
@@ -16,10 +17,11 @@ import json
 import jsonschema
 from core.utils import OneWeekSchedule
 from activity.alerting.conditions import Conditions
-from activity.models import EventProvider, NotificationMethod, EventType
+from activity.models import EventProvider, NotificationMethod, EventType, Event
 from utils.schema_utils import get_schema_renderer_method, \
     validate_rendered_schema_is_wellformed
 from core.widget import IconKeyInput, get_icon_select_list
+from core.common import TIMEZONE_USED
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +76,7 @@ def validate_schema_is_well_formed(schema):
 
 class EventTypeForm(forms.ModelForm):
     schema = forms.CharField(widget=SchemaWidget(
-        attrs={'rows': 30, 'cols': 100}), validators=[validate_schema_is_well_formed])
+        attrs={'rows': 30, 'cols': 100}))
 
     icon = forms.CharField(required=False,
                            label='Icon Override',
@@ -83,6 +85,23 @@ class EventTypeForm(forms.ModelForm):
     class Meta:
         model = EventType
         fields = ['icon', 'schema']
+
+    def clean_schema(self):
+        data = self.cleaned_data['schema']
+        name = self.cleaned_data['display']
+        schema_warning = f'Warning: The event type schema for {name} is not properly formatted JSON. The event type might not properly render in the EarthRanger client.'
+        try:
+            rendered_schema = get_schema_renderer_method()(data)
+        except NameError as ne:
+            messages.add_message(self.request, messages.WARNING, schema_warning)
+        except Exception:
+            messages.add_message(self.request, messages.WARNING, schema_warning)
+        else:
+            try:
+                validate_rendered_schema_is_wellformed(rendered_schema)
+            except SchemaValidationError as e:
+                messages.add_message(self.request, messages.WARNING, schema_warning)
+        return data
 
 
 class NotificationMethodSelectField(forms.ModelMultipleChoiceField):
@@ -175,3 +194,13 @@ class EventProviderForm(JSONFieldFormMixin, forms.ModelForm):
                        'provider_password', 'provider_token',
                        'icon_url', 'external_event_url',)
         fields = ('additional',) + json_fields
+
+
+class EventForm(forms.ModelForm):
+    class Meta:
+        labels = {
+            'created_at': f'Created at {TIMEZONE_USED}',
+            'updated_at': f'Updated at {TIMEZONE_USED}',
+            'event_time': f'Event time in {TIMEZONE_USED}',
+            'end_time': f'End Time in {TIMEZONE_USED}'
+        }
