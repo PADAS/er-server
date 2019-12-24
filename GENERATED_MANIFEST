@@ -1,2 +1,3 @@
-SERVER_VERSION = "gcr.io/padas-app/circleci/das-server/service-deployments@sha256:31187755ecc897b9c0975678ec809c848fc37efaa1ca519b684783a07583f40c"
+SERVER_VERSION = "gcr.io/padas-app/circleci/das-server/service-deployments@sha256:599baec19c679f5f32e6796cd2f8d05d7391ddc3a66cedd2d10f647d489ec583"
 WEB_VERSION = "gcr.io/padas-app/circleci/das-web/service-deployments@sha256:c107dbab4ebedd28a1aadb9d396e800c07a7ef96547e4b8f3dc9ecb90d7bad3f"
+INGRESS_VERSION = "gcr.io/padas-app/circleci/das-ingress/develop@sha256:696af20b53178b38fa27cdd18d4e619e49c6fa85bf91e1456d0c9ecc1b2f00a4"
