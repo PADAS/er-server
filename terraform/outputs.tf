@@ -18,3 +18,6 @@ output "database_name" {
   value = google_sql_database.database.name
 }
 
+output "site_ip_address" {
+  value = google_compute_address.site_ip_address.address
+}

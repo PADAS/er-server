@@ -2,12 +2,12 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   namespace: "${KUBERNETES_NAMESPACE}"
-  name: api
+  name: mql
 spec:
   template:
     metadata:
       labels:
-        das.component: api
+        das.component: mql
       annotations:
         prometheus.io/port: "9102"
     spec:
@@ -15,16 +15,17 @@ spec:
         - name: gcr-secret
       containers:
       - image:  "${SERVER_VERSION}"
-        name: das-api
+        name: das-mql
         resources:
           requests:
-            cpu: "200m"
-            memory: "500Mi"
-        ports:
-          - containerPort: 8000
+            cpu: "75m"
         env:
         - name: SERVICE_NAME
-          value: "api_server"
+          value: "mql_server"
+        - name: API_HOST
+          value: "${API_HOST}"
+        - name: API_PORT
+          value: "${API_PORT}"
         - name: DB_HOST
           value: "${DB_HOST}"
         - name: DB_PORT

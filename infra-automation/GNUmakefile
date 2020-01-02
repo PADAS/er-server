@@ -98,8 +98,9 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	@ if [ ! -f $(tfvars_overrides)/$(tfvars_environment).tfvars ]; then touch $(tfvars_overrides)/$(tfvars_environment).tfvars; fi
 	@ K8S_NAMESPACE=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="kubernetes_namespace") && \
 	DATABASE_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="database_name") && \
-	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' -var kubernetes_namespace=$$K8S_NAMESPACE -var db_name=$$DATABASE_NAME"
-	@ cat $(template_path)/rendered/api-deployment.yaml
+	SITE_IP_ADDRESS=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="site_ip_address") && \
+	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' -var kubernetes_namespace=$$K8S_NAMESPACE -var db_name=$$DATABASE_NAME -var site_ip_address=$$SITE_IP_ADDRESS"
+	@ cat $(template_path)/rendered/circleci-api-deployment.yaml
 
 .PHONY: kubectl_apply
 kubectl_apply: ## kubectl apply (recursively) everything in the ./k8s path
@@ -111,8 +112,8 @@ kubectl_apply_via_proxy: # this should only be run by the build server
 	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --server="https://$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_proxy_endpoint")" || false
 	echo "$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_b64_encoded_proxy_ca_certificate")" | base64 -d > proxy.crt
 	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --certificate-authority="./proxy.crt" || false
-	kubectl apply --filename "$(rendered_template_path)/circleci-api-deployment.yaml"
-	# for file in $$(find "$(rendered_template_path)" -type f | sort); do sleep 1 && kubectl apply --filename "$$file"; done;\
+	for file in $$(find "$(rendered_template_path)" -type f |grep circleci-| sort); do sleep 1 && kubectl apply --filename "$$file"; done;
+	# kubectl apply --filename "$(rendered_template_path)/circleci-api-deployment.yaml"
 
 commit_message_path := $(CURDIR)/.robo-commit-message
 # TO DEPRICATE: this can be removed once out of concourse
@@ -127,9 +128,15 @@ server_semver_file := $(CURDIR)/../SERVER_VERSION
 web_default_branch := develop
 web_gcr_path_default_branch := $(gcr_web_root)/$(web_default_branch)
 
+ingress_manifest_key := INGRESS_VERSION
+gcr_ingress_root := gcr.io/padas-app/circleci/das-ingress
+ingress_default_branch := develop
+ingress_gcr_path_default_branch := $(gcr_ingress_root)/$(ingress_default_branch)
+
 current_branch := $(shell echo "$$(git rev-parse --quiet --verify --abbrev-ref HEAD || exit 1)")
 descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 descriptive_web_gcr_path := $(gcr_web_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
+descriptive_ingress_gcr_path := $(gcr_ingress_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 
 
 .PHONY: build_and_push
@@ -164,6 +171,9 @@ $(manifest_file):
 	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_web_gcr_path)" manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
 	  $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(web_gcr_path_default_branch)" manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
 		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_web_gcr_path)'.\e[0m\n" >&2; exit 1)
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_ingress_gcr_path)" manifest_key="$(ingress_manifest_key)" > /dev/null 2>&1 || \
+	  $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(ingress_gcr_path_default_branch)" manifest_key="$(ingress_manifest_key)" > /dev/null 2>&1 || \
+		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_ingress_gcr_path)'.\e[0m\n" >&2; exit 1)
 
 .PHONY: append_to_manifest
 append_to_manifest: gcr_path :=
