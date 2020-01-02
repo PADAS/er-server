@@ -47,7 +47,7 @@ class Command(BaseCommand):
         featuresets_by_types = defaultdict(set)
         featuresets = set()
 
-        # TODO: could yhis be too much to hold in memory?
+        # TODO: could this be too much to hold in memory?
         all_features = list(chain(models.PointFeature.objects.all(),
                                   models.LineFeature.objects.all(),
                                   models.PolygonFeature.objects.all()))
@@ -73,7 +73,7 @@ class Command(BaseCommand):
                           (self.num_fs, self.num_ft, self.num_f))
 
     def migrate_featuresets(self, featuresets):
-        logger.debug('Migrating FeatureSets')
+        self.stdout.write('Migrating FeatureSets')
 
         for f in featuresets:
             values = dict(name=f.name)
@@ -88,26 +88,20 @@ class Command(BaseCommand):
                     raise ExistingFeatures(f'DisplayCategory already exists {f.name}')
 
     def migrate_featuretypes(self, featuresets_by_types, remapped_sfts):
-        logger.debug('Migrating FeatureTypes')
-        for ftypes, fsets in featuresets_by_types.items():
-            try:
-                self.stdout.write(f'ft: {ftypes.id} {ftypes.name} fsets: {fsets}')
-                lastfeatureset = fsets.pop()
-                # TODO:
-                if not models.SpatialFeatureType.objects.filter(id=ftypes.id).exists():
-                    self._create_spatial_feature_type(lastfeatureset, ftypes.name, ftypes.presentation, ftypes.id)
+        self.stdout.write('Migrating FeatureTypes')
+        for ftype, fsets in featuresets_by_types.items():
+            # self.stdout.write(f'ft: {ftype.id} {ftype.name} fsets: {fsets}')
+            lastfeatureset = fsets.pop()
+            # TODO:
+            if not models.SpatialFeatureType.objects.filter(id=ftype.id).exists():
+                self._create_spatial_feature_type(lastfeatureset, ftype.name, ftype.presentation, ftype.id)
 
-                    # breaking m2m: create a new spatial feature type to associate with the remaining featuresets
-                    for featureset in fsets:
-                        # this won't throw integrity error
-                        new_sft = self._create_spatial_feature_type(featureset, ftypes.name, ftypes.presentation)
-                        remapped_sfts[(featureset.id, ftypes.id)] = new_sft.id
-                        self.stdout.write(f'{(featureset.id, ftypes.id)} remapped to {new_sft.id}')
-
+                # breaking m2m: create a new spatial feature type to associate with the remaining featuresets
+                for featureset in fsets:
+                    new_sft = self._create_spatial_feature_type(featureset, ftype.name, ftype.presentation)
+                    remapped_sfts[(featureset.id, ftype.id)] = new_sft.id
+                    self.stdout.write(f'{(featureset.id, ftype.id)} remapped to {new_sft.id}')
                 self.num_ft += 1
-            except IntegrityError:
-                if MigrateType.ErrorOnExisting == self.migrate_type:
-                    raise ExistingFeatures(f'SpatialFeatureType already exists {ftypes.name}')
 
     def _create_spatial_feature_type(self, featureset, type_name, type_presentation, type_id=None):
         dc = models.DisplayCategory.objects.get(id=featureset.id)
@@ -122,12 +116,12 @@ class Command(BaseCommand):
         return result
 
     def migrate_features(self, all_features, remapped_sfts):
-        logger.debug('Migrating Point, Line and Polygon features')
-        self.stdout.write(f'remapped_sfts: {remapped_sfts}')
+        self.stdout.write('Migrating Point, Line and Polygon features')
+        # self.stdout.write(f'remapped_sfts: {remapped_sfts}')
 
         for f in all_features:
             remapped_sft_id = remapped_sfts.get((f.featureset.id, f.type.id))
-            self.stdout.write(f'remapped sft_id {remapped_sft_id}')
+            # self.stdout.write(f'remapped sft_id {remapped_sft_id}')
             sft = models.SpatialFeatureType.objects.get(id=remapped_sft_id) \
                 if remapped_sft_id else models.SpatialFeatureType.objects.get(id=f.type.id)
             values = dict(name=f.name,
@@ -136,7 +130,7 @@ class Command(BaseCommand):
                           external_id=f.external_id,
                           feature_type=sft
                           )
-            self.stdout.write(f'processing {f.name} {f.id} {remapped_sft_id} {(f.featureset.id, f.type.id)}')
+            # self.stdout.write(f'processing {f.name} {f.id} {remapped_sft_id} {(f.featureset.id, f.type.id)}')
             try:
                 func = getattr(models.SpatialFeature.objects, self.create_fn)
                 func(id=f.id, defaults=values) if self.create_fn == 'update_or_create' else func(id=f.id, **values)
