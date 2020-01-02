@@ -72,4 +72,14 @@ class Migration(migrations.Migration):
             name='updated_at',
             field=models.DateTimeField(auto_now=True),
         ),
+        migrations.AddField(
+            model_name='displaycategory',
+            name='description',
+            field=models.TextField(blank=True, null=True),
+        ),
+        migrations.AddField(
+            model_name='spatialfeature',
+            name='description',
+            field=models.TextField(blank=True, null=True),
+        ),
     ]

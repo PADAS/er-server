@@ -456,6 +456,7 @@ class DisplayCategory(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(null=True, blank=True)
 
     objects = DisplayCategoryManager()
 
@@ -517,6 +518,10 @@ class SpatialFeatureType(TimestampedModel):
     def natural_key(self):
         return self.name
 
+    @property
+    def feature_count(self):
+        return SpatialFeature.objects.filter(feature_type=self).count()
+
 
 class SpatialFeatureManager(models.Manager):
     def create_spatialfeature(self, **values):
@@ -567,6 +572,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     external_id = models.CharField(max_length=255, unique=True, blank=True,
                                    null=True)
     external_source = models.CharField(max_length=25, blank=True)
+    description = models.TextField(null=True, blank=True)
     attributes = JSONField(default=dict, blank=True)
     provenance = JSONField(default=dict, blank=True)
     feature_geometry = models.GeometryField(geography=True, srid=4326)
@@ -584,14 +590,6 @@ class TempStorage(FileSystemStorage):
         temp_directory_name = tempfile.mkdtemp()
         kwargs.update({'location': temp_directory_name, })
         super(TempStorage, self).__init__(**kwargs)
-
-# One way to implement spatial file upload + import into the SpatialFeature model (instead of point/line/polygon)
-# while keeping older functionality of SpatialFile, would be to create a new model that handles this new functionality.
-# Lets say this new model is called SpatialFileV2. Might make sense to create an abstract base class that has common
-# fields and functions, and have SpatialFile and SpatialFileV2 be subclasses of this base class.
-
-# SpatialFileV2 will have foreign key relations to DisplayCategory (instead of FeatureSet) and SpatialFeatureType
-# (instead of FeatureType). Then in admin.py we register the correct model based on the feature flag.
 
 
 class SpatialFile(TimestampedModel):
