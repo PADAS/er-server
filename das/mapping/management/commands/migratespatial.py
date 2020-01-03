@@ -55,13 +55,19 @@ class Command(BaseCommand):
             featuresets.add(feature.featureset)
             featuresets_by_types[feature.type].add(feature.featureset)
 
-        ft_ids = [k.id for k in featuresets_by_types.keys()]
-        remaining_fts = models.FeatureType.objects.exclude(id__in=ft_ids)
+        # get any feature types not associated to features
+        ftype_ids = [k.id for k in featuresets_by_types.keys()]
+        remaining_ftypes = models.FeatureType.objects.exclude(id__in=ftype_ids)
 
-        for ft in remaining_fts:
+        for ft in remaining_ftypes:
             for fset in models.FeatureSet.objects.filter(types__id=ft.id):
                 featuresets.add(fset)
                 featuresets_by_types[ft].add(fset)
+
+        # get any featuresets not associated to featuretypes
+        fset_ids = [k.id for k in featuresets]
+        remaining_fsets = models.FeatureSet.objects.exclude(id__in=fset_ids)
+        featuresets.update(remaining_fsets)
 
         with transaction.atomic():
             remapped_sfts = {}
@@ -100,7 +106,7 @@ class Command(BaseCommand):
                 for featureset in fsets:
                     new_sft = self._create_spatial_feature_type(featureset, ftype.name, ftype.presentation)
                     remapped_sfts[(featureset.id, ftype.id)] = new_sft.id
-                    self.stdout.write(f'{(featureset.id, ftype.id)} remapped to {new_sft.id}')
+                    self.stdout.write(f'{ftype.name} with fs_id {featureset.id} ft_id {ftype.id} remapped to {new_sft.id}')
                 self.num_ft += 1
 
     def _create_spatial_feature_type(self, featureset, type_name, type_presentation, type_id=None):

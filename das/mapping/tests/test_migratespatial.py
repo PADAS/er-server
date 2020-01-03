@@ -28,18 +28,21 @@ class TestMigrateSpatial(BaseAPITest):
         p1, p2 = Point(0, 0), Point(1, 1)
         point = PointFeature.objects.create(name=self.faker.name(),
                                             type=main_road,
+                                            featureset=road_fs,
                                             feature_geometry=MultiPoint(p1, p2))
 
         p3, p4 = Point(2, 2), Point(3, 3)
         l1, l2 = LineString(p1, p2), LineString(p3, p4)
         line = LineFeature.objects.create(name=self.faker.name(),
                                           type=side_road,
+                                          featureset=road_fs,
                                           feature_geometry=MultiLineString(l1, l2))
 
         poly1 = Polygon(((0, 0), (1, 0), (1, 1), (0, 1), (0, 0)))
         poly2 = Polygon(((1, 1), (1, 2), (2, 2), (1, 1)))
         polygon = PolygonFeature.objects.create(name=self.faker.name(),
                                                 type=river,
+                                                featureset=water_fs,
                                                 feature_geometry=MultiPolygon(poly1, poly2))
 
         call_command('migratespatial')
@@ -71,6 +74,7 @@ class TestMigrateSpatial(BaseAPITest):
         p1, p2 = Point(0, 0), Point(1, 1)
         pt = PointFeature.objects.create(name=old_pt_name,
                                          type=ft,
+                                         featureset=fs,
                                          feature_geometry=MultiPoint(p1, p2))
 
         call_command('migratespatial')
@@ -83,19 +87,15 @@ class TestMigrateSpatial(BaseAPITest):
         self.assertIsNotNone(SpatialFeature.objects.get(name=pt.name))
 
         new_fs_name = self.faker.name()
-        new_ft_name = self.faker.name()
         new_pt_name = self.faker.name()
 
         self.assertNotEqual(old_fs_name, new_fs_name)
-        self.assertNotEqual(old_ft_name, new_ft_name)
         self.assertNotEqual(old_pt_name, new_pt_name)
 
         fs.name = new_fs_name
-        ft.name = new_ft_name
         pt.name = new_pt_name
 
         fs.save()
-        ft.save()
         pt.save()
 
         call_command('migratespatial', '--overwrite')
@@ -103,7 +103,6 @@ class TestMigrateSpatial(BaseAPITest):
         self.assertEqual(1, DisplayCategory.objects.count())
         self.assertIsNotNone(DisplayCategory.objects.get(name=new_fs_name))
         self.assertEqual(1, SpatialFeatureType.objects.count())
-        self.assertIsNotNone(SpatialFeatureType.objects.get(name=new_ft_name))
         self.assertEqual(1, SpatialFeature.objects.count())
         self.assertIsNotNone(SpatialFeature.objects.get(name=new_pt_name))
 
@@ -119,6 +118,7 @@ class TestMigrateSpatial(BaseAPITest):
         p1, p2 = Point(0, 0), Point(1, 1)
         pt = PointFeature.objects.create(name=old_pt_name,
                                          type=ft,
+                                         featureset=fs,
                                          feature_geometry=MultiPoint(p1, p2))
 
         call_command('migratespatial')
@@ -143,9 +143,10 @@ class TestMigrateSpatial(BaseAPITest):
         fs.types.add(ft)
 
         p1, p2 = Point(0, 0), Point(1, 1)
-        pt = PointFeature.objects.create(name=new_pt_name,
-                                         type=ft,
-                                         feature_geometry=MultiPoint(p1, p2))
+        PointFeature.objects.create(name=new_pt_name,
+                                    type=ft,
+                                    featureset=fs,
+                                    feature_geometry=MultiPoint(p1, p2))
 
         call_command('migratespatial', '--append')
 
@@ -155,3 +156,45 @@ class TestMigrateSpatial(BaseAPITest):
         self.assertIsNotNone(SpatialFeatureType.objects.get(name=new_ft_name))
         self.assertEqual(2, SpatialFeature.objects.count())
         self.assertIsNotNone(SpatialFeature.objects.get(name=new_pt_name))
+
+    def test_migrate_unassigned_featuresets(self):
+        FeatureSet.objects.create(name=self.faker.name())
+        call_command('migratespatial')
+        self.assertEqual(1, DisplayCategory.objects.count())
+
+    def test_migrate_unassigned_featuretypes(self):
+        fs = FeatureSet.objects.create(name=self.faker.name())
+        ft = FeatureType.objects.create(name=self.faker.name())
+        ft.featuresets.add(fs)
+
+        call_command('migratespatial')
+
+        self.assertEqual(1, DisplayCategory.objects.count())
+        self.assertEqual(1, SpatialFeatureType.objects.count())
+
+    def test_break_m2m(self):
+        fs1 = FeatureSet.objects.create(name=self.faker.name())
+        fs2 = FeatureSet.objects.create(name=self.faker.name())
+        ft = FeatureType.objects.create(name=self.faker.name())
+        ft.featuresets.add(fs1, fs2)
+
+        p1, p2 = Point(0, 0), Point(1, 1)
+        PointFeature.objects.create(name=self.faker.name(),
+                                    type=ft,
+                                    featureset=fs1,
+                                    feature_geometry=MultiPoint(p1, p2))
+
+        p1, p2 = Point(2, 2), Point(1, 1)
+        PointFeature.objects.create(name=self.faker.name(),
+                                    type=ft,
+                                    featureset=fs2,
+                                    feature_geometry=MultiPoint(p1, p2))
+
+        call_command('migratespatial')
+
+        self.assertEqual(2, DisplayCategory.objects.count())
+        self.assertEqual(2, SpatialFeatureType.objects.count())  # should have created an extra sft
+        self.assertEqual(2, SpatialFeature.objects.count())
+
+        features = SpatialFeature.objects.all()
+        self.assertNotEqual(features[0].feature_type.id, features[1].feature_type.id)
