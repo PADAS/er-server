@@ -92,6 +92,7 @@ if not MAPPING_FEATURES_V2:
 else:
     @admin.register(models.SpatialFeatureFile)
     class SpatialFeatureFileAdmin(admin.ModelAdmin):
+        change_form_template = "admin/spatial_file_upload.html"
         list_display = ('id', 'name', 'description', 'feature_type')
         list_filter = ('name',)
         fieldsets = (
@@ -99,9 +100,14 @@ else:
                 'classes': ('wide',),
                 'fields': (('id', 'name', 'description', 'data', ))
             }),
-            ('Optional Attributes', {
+            ('Shapefile Optional Attributes', {
                 'classes': ('wide',),
                 'fields': (('feature_type', 'layer_number', 'name_field', 'id_field'))
+            }
+            ),
+            ('STE Optional Attributes', {
+                'classes': ('wide',),
+                'fields': (('feature_types_file',))
             }
             ),)
         readonly_fields = ('id',)
